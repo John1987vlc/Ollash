@@ -25,6 +25,6 @@ jobs:
     - name: Set PYTHONPATH
       run: |
         echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
-    - name: Run unit tests (without Ollama)
+    - name: Run all mocked unit/integration tests
       run: |
-        pytest tests/test_code_agent_integration.py    # Integration tests requiring Ollama are skipped in CI
+        pytest tests/

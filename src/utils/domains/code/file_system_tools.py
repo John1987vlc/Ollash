@@ -1,5 +1,6 @@
 import json
 import difflib
+import re # Added
 from pathlib import Path
 from typing import Dict, List, Any
 
@@ -69,23 +70,59 @@ class FileSystemTools:
         }
 
     def write_file(self, path: str, content: str, reason: str = ""):
-        """Write file with user confirmation"""
-        if not self.tool_executor._ask_confirmation("write_file", {
-            "path": path,
-            "content": content,
-            "reason": reason
-        }):
-            self.logger.info(f"User cancelled write: {path}")
-            return {
-                "ok": False,
-                "error": "user_cancelled",
-                "message": "User cancelled the file write operation"
-            }
+        """Write file with user confirmation, with dynamic approval based on changes."""
+        full_path = self.project_root / path
+        file_exists = full_path.exists()
+        current_content = full_path.read_text(encoding="utf-8") if file_exists else ""
         
+        # Calculate diff if file exists
+        if file_exists:
+            diff = list(difflib.unified_diff(
+                current_content.splitlines(),
+                content.splitlines(),
+                lineterm=""
+            ))
+            # Each line in diff starts with '---', '+++', '@@', '+', '-' or ' '
+            # Count lines starting with '+' or '-'
+            lines_changed = sum(1 for line in diff if line.startswith('+') or line.startswith('-'))
+        else:
+            lines_changed = len(content.splitlines()) # For new files, consider all lines as "changed"
+        
+        # Check against critical paths patterns
+        is_critical_file = False
+        for pattern in self.tool_executor.critical_paths_patterns:
+            if re.match(pattern, path):
+                is_critical_file = True
+                break
+
+        # Decision logic for confirmation
+        if is_critical_file: # Always force human gate if critical file is modified or created
+            return self.tool_executor.require_human_gate(
+                action_description=f"Attempting to modify/create critical file '{path}'. Manual approval required.",
+                reason="Changes to critical configuration/system files detected."
+            )
+        elif self.tool_executor.auto_confirm_minor_writes and lines_changed <= self.tool_executor.write_auto_confirm_lines_threshold:
+            self.logger.info(f"Auto-confirming minor file write to '{path}' (lines changed: {lines_changed}).")
+            # Proceed with write without asking user
+        else:
+            # Fallback to manual confirmation
+            if not self.tool_executor._ask_confirmation("write_file", {
+                "path": path,
+                "content": content,
+                "reason": reason,
+                "lines_changed": lines_changed
+            }):
+                self.logger.info(f"User cancelled write: {path}")
+                return {
+                    "ok": False,
+                    "error": "user_cancelled",
+                    "message": "User cancelled the file write operation"
+                }
+        
+        # Original write logic
         try:
-            full = self.project_root / path
-            full.parent.mkdir(parents=True, exist_ok=True)
-            full.write_text(content, encoding="utf-8")
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text(content, encoding="utf-8")
             
             self.logger.info(f"✅ File written: {path}")
             return {"ok": True, "path": path, "chars": len(content)}

@@ -154,6 +154,7 @@ class DefaultAgent:
         self.stagnation_timeout: timedelta = timedelta(minutes=2) # Time without meaningful progress to detect stagnation
         self.last_meaningful_action_time: datetime = datetime.now()
         self.progress_score: float = 0.0 # Heuristic score to track progress
+        self.domain_context_memory: Dict[str, str] = {} # Short-term memory for domain-specific context
 
         # ---------------- LOGGING
         self.logger = AgentLogger(
@@ -232,7 +233,7 @@ RULES:
         # ---------------- CORE SERVICES
         try:
             self.file_manager = FileManager(str(self.project_root))
-            self.command_executor = CommandExecutor(str(self.project_root), SandboxLevel.LIMITED)
+            self.command_executor = CommandExecutor(str(self.project_root), SandboxLevel.LIMITED, logger=self.logger)
             self.git_manager = GitManager(str(self.project_root))
             self.code_analyzer = CodeAnalyzer(str(self.project_root))
         except Exception as e:
@@ -240,7 +241,7 @@ RULES:
             raise
 
         # ---------------- TOOL EXECUTOR & TOOL SETS
-        self.tool_executor = ToolExecutor(logger=self.logger) # Pass the logger instance
+        self.tool_executor = ToolExecutor(logger=self.logger, config=self.config) # Pass the logger and config instance
         
         self.file_system_tools = FileSystemTools(
             project_root=self.project_root,
@@ -265,7 +266,8 @@ RULES:
         )
         self.planning_tools = PlanningTools(
             logger=self.logger,
-            project_root=self.project_root
+            project_root=self.project_root,
+            agent_instance=self # Pass self here
         )
         self.network_tools = NetworkTools(
             command_executor=self.command_executor,
@@ -507,6 +509,39 @@ RULES:
         # Update last_meaningful_action_time if progress changed significantly
         if abs(self.progress_score - initial_progress_score) > 0.05: # Threshold for "significant"
             self.last_meaningful_action_time = datetime.now()
+
+    def _summarize_context_for_domain(self, domain_type: str) -> str:
+        """
+        Uses the LLM to summarize the current active context for a given domain,
+        based on the recent conversation history.
+        """
+        self.logger.info(f"Generating context summary for domain: {domain_type}")
+        # Create a mini-conversation with the LLM just for summarization
+        # Use a specific prompt to guide the LLM to summarize.
+        # This will be a temporary call to the LLM, so it should not be added to self.conversation.
+        
+        # Craft a prompt for summarization based on the current conversation.
+        # Limit the conversation history to avoid hitting token limits.
+        recent_conversation_history = self.conversation[-5:] # Last 5 turns, for example
+
+        summarize_prompt = {
+            "role": "system",
+            "content": (f"You are a helpful assistant. Based on the following conversation history for the '{domain_type}' domain, "
+                        "provide a very concise summary (1-2 sentences) of the current task, relevant findings, "
+                        "and what the agent was working on or trying to achieve. Focus on actionable context for resuming work.")
+        }
+        
+        summarization_messages = [summarize_prompt] + recent_conversation_history
+        
+        try:
+            # Call Ollama directly, bypassing tool execution, for summarization
+            response_data, _ = self.ollama.chat(summarization_messages, tools=[]) # No tools for summarization
+            summary = response_data.get("message", {}).get("content", "No summary available.")
+            self.logger.debug(f"Generated summary for {domain_type}: {summary}")
+            return summary
+        except Exception as e:
+            self.logger.error(f"Failed to generate context summary for {domain_type}: {e}")
+            return f"Error generating summary for {domain_type}."
 
 
     def chat(self, instruction: str) -> str:

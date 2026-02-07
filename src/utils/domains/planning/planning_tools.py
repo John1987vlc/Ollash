@@ -5,9 +5,10 @@ import json
 from pathlib import Path # Added Path import
 
 class PlanningTools:
-    def __init__(self, logger: Any, project_root: Path): # Added project_root
+    def __init__(self, logger: Any, project_root: Path, agent_instance: Any):
         self.logger = logger
         self.project_root = project_root
+        self.agent = agent_instance # Store reference to the DefaultAgent instance
 
     def plan_actions(self, goal: str, steps: List[str], requires_confirmation: bool = False):
         """Display and return the action plan"""
@@ -41,13 +42,22 @@ class PlanningTools:
 
     def select_agent_type(self, agent_type: str) -> Dict[str, Any]:
         """
-        Loads the system prompt for a specified agent type.
+        Switches the agent's active persona and toolset to a specialized domain.
+        Manages context summarization when switching away and context retrieval when switching back.
         """
         valid_agent_types = {"code", "network", "system", "cybersecurity", "orchestrator"}
         if agent_type not in valid_agent_types:
             self.logger.error(f"Invalid agent type: {agent_type}. Must be one of {', '.join(valid_agent_types)}")
             return {"ok": False, "error": f"Invalid agent type: {agent_type}"}
 
+        # --- Summarize context when switching away ---
+        if self.agent.active_agent_type != agent_type:
+            # Generate summary for the agent type being switched FROM
+            if self.agent.active_agent_type in valid_agent_types: # Only summarize valid domains
+                summary = self.agent._summarize_context_for_domain(self.agent.active_agent_type)
+                self.agent.domain_context_memory[self.agent.active_agent_type] = summary
+                self.logger.info(f"Context for '{self.agent.active_agent_type}' summarized and stored.")
+        
         if agent_type == "orchestrator":
             prompt_file_name = "default_orchestrator.json"
         elif agent_type == "code":
@@ -62,6 +72,12 @@ class PlanningTools:
             system_prompt = prompt_data.get("prompt")
 
             if system_prompt:
+                # --- Inject stored context when switching to ---
+                stored_context = self.agent.domain_context_memory.get(agent_type)
+                if stored_context:
+                    system_prompt = f"Previous context for this domain: {stored_context}\n\n{system_prompt}"
+                    self.logger.info(f"Injected stored context for '{agent_type}'.")
+
                 self.logger.info(f"✅ Switched agent context to: {agent_type}")
                 return {"ok": True, "new_agent_type": agent_type, "system_prompt": system_prompt}
             else:

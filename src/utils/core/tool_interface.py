@@ -5,8 +5,28 @@ from src.utils.core.all_tool_definitions import ALL_TOOLS_DEFINITIONS, get_filte
 class ToolExecutor:
     MODIFY_ACTIONS = {"write_file", "delete_file", "git_commit", "git_push"}
 
-    def __init__(self, logger: Any):
+    def __init__(self, logger: Any, config: Dict = None):
         self.logger = logger
+        self.config = config if config is not None else {} # Store config for dynamic confirmation settings
+
+        # Dynamic confirmation settings for git_commit
+        self.git_auto_confirm_lines_threshold: int = self.config.get("git_auto_confirm_lines_threshold", 5) # Default to 5 lines
+        self.auto_confirm_minor_git_commits: bool = self.config.get("auto_confirm_minor_git_commits", False)
+
+        # Dynamic confirmation settings for write_file
+        self.write_auto_confirm_lines_threshold: int = self.config.get("write_auto_confirm_lines_threshold", 10) # Default to 10 lines
+        self.auto_confirm_minor_writes: bool = self.config.get("auto_confirm_minor_writes", False)
+
+        # Regex patterns for critical files (to force human_gate)
+        # These are examples, can be extended in config/settings.json
+        self.critical_paths_patterns: List[str] = self.config.get("critical_paths_patterns", [
+            r".*\.env$",            # Environment variables
+            r".*settings\.json$",   # Configuration files
+            r".*\.yaml$", r".*\.yml$", # YAML configs
+            r".*dockerfile.*",      # Docker configurations
+            r".*\.sh$", r".*\.ps1$",# Shell scripts
+            r"^\.github/workflows/.*$" # CI/CD workflows
+        ])
 
     def get_tool_definitions(self, active_tool_names: List[str]) -> List[Dict]:
         return get_filtered_tool_definitions(active_tool_names)

@@ -1,4 +1,5 @@
 from typing import Any
+import re # Added
 from src.utils.core.git_manager import GitManager
 from src.utils.core.tool_interface import ToolExecutor
 # Assuming AgentLogger will be passed during initialization
@@ -21,18 +22,38 @@ class GitOperationsTools:
             return {"ok": False, "error": str(e)}
 
     def git_commit(self, message: str):
-        """Commit with user confirmation"""
-        if not self.tool_executor._ask_confirmation("git_commit", {"message": message}):
-            self.logger.info("User cancelled commit")
-            return {
-                "ok": False,
-                "error": "user_cancelled",
-                "message": "User cancelled the commit"
-            }
+        """Commit with user confirmation, with dynamic approval based on changes."""
+        # Get diff stats for staged changes
+        diff_stats = self.git.diff_numstat(staged=True)
         
+        if not diff_stats["success"]:
+            self.logger.warning("Could not get git diff stats, falling back to manual confirmation.")
+            if not self.tool_executor._ask_confirmation("git_commit", {"message": message}):
+                return {"ok": False, "error": "user_cancelled", "message": "User cancelled the commit"}
+        else:
+            total_lines_changed = diff_stats["total"]
+            modified_critical_files = [f for f in diff_stats["files"]
+                                       for pattern in self.tool_executor.critical_paths_patterns
+                                       if re.match(pattern, f)]
+
+            if modified_critical_files:
+                # Force human gate for critical file changes
+                return self.tool_executor.require_human_gate(
+                    action_description=f"Attempting to commit changes to critical files: {', '.join(modified_critical_files)}. Manual approval required.",
+                    reason="Changes to critical configuration/system files detected."
+                )
+            elif self.tool_executor.auto_confirm_minor_git_commits and total_lines_changed <= self.tool_executor.git_auto_confirm_lines_threshold:
+                self.logger.info(f"Auto-confirming minor git commit (total lines changed: {total_lines_changed}).")
+                # Proceed with commit without asking user
+            else:
+                # Changes too large for auto-confirm, ask user for manual confirmation
+                if not self.tool_executor._ask_confirmation("git_commit", {"message": message, "lines_changed": total_lines_changed}):
+                    return {"ok": False, "error": "user_cancelled", "message": "User cancelled the commit"}
+        
+        # Original commit logic
         try:
             result = self.git.create_commit_with_all(message)
-            if result.get("success"): # GitManager.create_commit_with_all returns 'success' not 'ok'
+            if result.get("success"):
                 self.logger.info(f"✅ Committed: {message}")
                 return {"ok": True, "message": message, "output": result.get("output")}
             else:

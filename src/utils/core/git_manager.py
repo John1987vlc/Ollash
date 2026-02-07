@@ -95,3 +95,47 @@ class GitManager:
         if result["success"]:
             return result["output"].split("\n")
         return []
+
+    def diff_numstat(self, path: str = None, staged: bool = False) -> Dict[str, Any]:
+        """
+        Obtiene el número de líneas añadidas/borradas y la lista de archivos afectados.
+        Si staged es True, usa --cached para cambios staged.
+        """
+        cmd_args = ["diff", "--numstat"]
+        if staged:
+            cmd_args.append("--cached")
+        if path:
+            cmd_args.append(path)
+        
+        result = self._run_git(*cmd_args)
+        
+        if not result["success"]:
+            return {"success": False, "output": result["error"]}
+        
+        output_lines = result["output"].splitlines()
+        total_added = 0
+        total_deleted = 0
+        affected_files = []
+        
+        for line in output_lines:
+            parts = line.split('\t')
+            if len(parts) == 3:
+                try:
+                    added = int(parts[0])
+                    deleted = int(parts[1])
+                    file_path = parts[2]
+                    total_added += added
+                    total_deleted += deleted
+                    affected_files.append(file_path)
+                except ValueError:
+                    # Handle lines that might not be numstat (e.g., binary files)
+                    pass
+        
+        return {
+            "success": True,
+            "added": total_added,
+            "deleted": total_deleted,
+            "total": total_added + total_deleted,
+            "files": affected_files
+        }
+
