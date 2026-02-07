@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama_service
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    command: serve # Start Ollama server
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Automatically pull models when the Ollama service starts
+    # Make sure these models are available or pull them manually after starting ollama
+    # e.g., docker exec -it ollama_service ollama pull ministral-3:8b
+    # The `command` field can only have one entry, so we can't use `ollama pull` directly here
+    # We will need to instruct the user to pull them manually or add a separate entrypoint script if more models are needed for automatic pull.
+    # For now, we will add a note in the usage instructions.
+
+  moltbot:
+    build: .
+    container_name: moltbot_agent
+    volumes:
+      - .:/app # Mount the current project directory into the container
+      - moltbot_logs:/app/logs # Persistent storage for agent logs
+      - moltbot_projects:/app/generated_projects # Persistent storage for generated projects
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      # Ensure the agent connects to the ollama service within Docker's network
+      OLLAMA_HOST: http://ollama:11434
+      PYTHONUNBUFFERED: 1
+    # Entrypoint override for specific commands (e.g., benchmark, chat mode)
+    # The default command will be set in Dockerfile, but can be overridden here or in `docker run`
+    # command: ["python", "run_agent.py", "--chat"] # Example: run in chat mode
+    # command: ["python", "benchmark.py"] # Example: run benchmark
+
+volumes:
+  ollama_data:
+  moltbot_logs:
+  moltbot_projects:
