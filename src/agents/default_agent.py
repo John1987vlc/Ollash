@@ -5,6 +5,7 @@ import traceback # Added
 import hashlib
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+from datetime import datetime, timedelta
 
 from src.utils.core.agent_logger import AgentLogger
 from src.utils.core.token_tracker import TokenTracker
@@ -150,6 +151,9 @@ class DefaultAgent:
         self._current_plan: Optional[Dict] = None # Keeping it here for now as discussed for reporting.
         self.loop_detection_history: List[Dict] = [] # Stores recent tool calls and results for loop detection
         self.loop_detection_threshold: int = 3 # Number of consecutive identical actions to detect a loop
+        self.stagnation_timeout: timedelta = timedelta(minutes=2) # Time without meaningful progress to detect stagnation
+        self.last_meaningful_action_time: datetime = datetime.now()
+        self.progress_score: float = 0.0 # Heuristic score to track progress
 
         # ---------------- LOGGING
         self.logger = AgentLogger(
@@ -429,21 +433,80 @@ RULES:
 
     def _detect_loop(self) -> bool:
         """
-        Detects if the agent is stuck in a loop by checking for repeated actions.
-        A loop is detected if the last `loop_detection_threshold` actions are identical.
+        Detects loops:
+        1. Exact repetition of N actions.
+        2. Specific semantic loops (e.g., repeated low-confidence intent detection).
+        3. Stagnation (no meaningful progress) over a time window.
         """
+        current_time = datetime.now()
+
+        # 1. Exact repetition (current logic, comparing full history entry)
         history_length = len(self.loop_detection_history)
         if history_length < self.loop_detection_threshold:
-            return False
+            pass # Not enough history yet for repetition or semantic loop detection
+        else:
+            last_actions = self.loop_detection_history[history_length - self.loop_detection_threshold:]
+            
+            # For exact repetition, we need to compare tool_name, args, and result (for now, full dict comparison)
+            # This is a strict check:
+            if all(action["tool_name"] == last_actions[0]["tool_name"] and
+                   action["args"] == last_actions[0]["args"] and
+                   action["result"] == last_actions[0]["result"] for action in last_actions):
+                self.logger.warning(f"{Fore.RED}⚠️ Loop (exact repetition) detected! The agent has performed the same action {self.loop_detection_threshold} times consecutively.{Style.RESET_ALL}")
+                return True
 
-        # Check if the last 'loop_detection_threshold' entries are identical
-        last_actions = self.loop_detection_history[history_length - self.loop_detection_threshold:]
-        
-        # All elements in last_actions must be identical to be a loop
-        if all(action == last_actions[0] for action in last_actions):
-            self.logger.warning(f"{Fore.RED}⚠️ Loop detected! The agent has performed the same action {self.loop_detection_threshold} times consecutively.{Style.RESET_ALL}")
+            # 2. Specific semantic loop: repeated low-confidence detect_user_intent calls
+            # Check if the last N calls are detect_user_intent AND they all resulted in low confidence 'exploration'
+            recent_relevant_actions = [
+                a for a in self.loop_detection_history[history_length - self.loop_detection_threshold:]
+                if a["tool_name"] == "detect_user_intent"
+            ]
+            if len(recent_relevant_actions) == self.loop_detection_threshold:
+                # Check if all these detect_user_intent calls resulted in low confidence exploration
+                if all(a["result"].get("result", {}).get("intent") == "exploration" and
+                       a["result"].get("result", {}).get("confidence", 0.0) < 0.6
+                       for a in recent_relevant_actions):
+                    self.logger.warning(f"{Fore.RED}⚠️ Semantic loop (ambiguous intent) detected! Agent repeatedly calling 'detect_user_intent' with low confidence exploration. Human intervention required.{Style.RESET_ALL}")
+                    return True
+
+        # 3. Stagnation over time: If no meaningful progress in a time window
+        # This condition is checked regardless of history length for specific repetition types
+        if (current_time - self.last_meaningful_action_time > self.stagnation_timeout):
+            self.logger.warning(f"{Fore.RED}⚠️ Stagnation detected! No meaningful action for {self.stagnation_timeout}. Human intervention required.{Style.RESET_ALL}")
             return True
+
         return False
+
+    def _update_progress_score(self, tool_name: str, tool_result: Dict):
+        """
+        Updates a heuristic progress score based on tool execution.
+        Higher score means more progress towards a goal.
+        """
+        initial_progress_score = self.progress_score
+        
+        # Example heuristics (can be refined):
+        if tool_result.get("ok", False):
+            if tool_name == "select_agent_type":
+                self.progress_score += 1.0 # Significant progress: agent type changed
+            elif tool_name == "plan_actions":
+                self.progress_score += 0.5 # Planning is progress
+            elif tool_name == "detect_user_intent":
+                intent = tool_result.get("result", {}).get("intent")
+                confidence = tool_result.get("result", {}).get("confidence", 0.0)
+                if intent != "exploration" and confidence > 0.7:
+                    self.progress_score += 0.3 # Clear intent detected
+                elif intent == "exploration" and confidence < 0.6:
+                    self.progress_score -= 0.1 # Minor negative progress for ambiguity
+            # Add more rules for other tools that indicate progress (e.g., file written, command successful)
+            # For simplicity, other successful tools might give minor progress
+            else:
+                self.progress_score += 0.1
+        else: # Tool failed
+            self.progress_score -= 0.2 # Negative progress for failures
+
+        # Update last_meaningful_action_time if progress changed significantly
+        if abs(self.progress_score - initial_progress_score) > 0.05: # Threshold for "significant"
+            self.last_meaningful_action_time = datetime.now()
 
 
     def chat(self, instruction: str) -> str:
@@ -518,14 +581,16 @@ RULES:
                             # --- Loop Detection Logic ---
                             # Only add successful tool results to history for loop detection
                             if result.get("ok", True): # Assume ok if not specified
-                                args_hash = hashlib.sha256(json.dumps(args, sort_keys=True).encode('utf-8')).hexdigest()
-                                result_hash = hashlib.sha256(json.dumps(result, sort_keys=True).encode('utf-8')).hexdigest()
-                                
+                                # Store relevant info for loop detection, including the full result for semantic analysis
                                 self.loop_detection_history.append({
                                     "tool_name": name,
-                                    "args_hash": args_hash,
-                                    "result_hash": result_hash
+                                    "args": args, # Store args directly for semantic comparison if needed
+                                    "result": result, # Store full result for semantic comparison
+                                    "timestamp": datetime.now()
                                 })
+                                
+                                # Update heuristic progress score
+                                self._update_progress_score(name, result)
                                 
                                 if self._detect_loop():
                                     loop_message = f"Detected a loop! The agent is repeatedly calling '{name}' with similar arguments/results. Human intervention required."
