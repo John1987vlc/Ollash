@@ -1,6 +1,6 @@
 {
   "model": "ministral-3:8b",
-  "ollama_url": "http://ollama:11434",
+  "ollama_url": "http://192.168.1.217:11434",
   "max_tokens": 4096,
   "temperature": 0.5,
   "history_limit": 20,
@@ -12,6 +12,6 @@
   "code-model": "qwen3-coder-next",
   "local-model":"ministral:8b",
   "default_system_prompt_path": "prompts/orchestrator/default_orchestrator.json",
-  "summary_model": "ministral-3:8b",
+  "summary_model": "nemotron-3-nano:30b",
   "default_ollama_model": "ministral-3:8b"
 }
