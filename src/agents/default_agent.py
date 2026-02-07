@@ -6,6 +6,8 @@ import hashlib
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
+from requests.adapters import HTTPAdapter # Added
+from urllib3.util.retry import Retry # Added
 
 from src.utils.core.agent_logger import AgentLogger
 from src.utils.core.token_tracker import TokenTracker
@@ -45,11 +47,29 @@ init(autoreset=True)
 # ======================================================
 
 class OllamaClient:
-    def __init__(self, url: str, model: str, timeout: int, logger: AgentLogger):
+    def __init__(self, url: str, model: str, timeout: int, logger: AgentLogger, config: Dict): # Added config
         self.url = f"{url}/api/chat"
         self.model = model
         self.timeout = timeout
         self.logger = logger
+        self.config = config # Store config for retry parameters
+
+        # Configure retry strategy
+        max_retries = self.config.get("ollama_max_retries", 3)
+        backoff_factor = self.config.get("ollama_backoff_factor", 0.3) # Default backoff factor
+        status_forcelist = self.config.get("ollama_retry_status_forcelist", [429, 500, 502, 503, 504])
+
+        retry_strategy = Retry(
+            total=max_retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=status_forcelist,
+            allowed_methods=["POST"], # Only retry POST requests to chat endpoint
+            raise_on_status=False # Don't raise on first error, let adapter retry
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.http_session = requests.Session()
+        self.http_session.mount("http://", adapter)
+        self.http_session.mount("https://", adapter)
 
     def chat(self, messages: List[Dict], tools: List[Dict]) -> tuple[Dict, Dict]:
         """
@@ -78,42 +98,15 @@ class OllamaClient:
             tool_names = [t["function"]["name"] for t in tools]
             self.logger.debug(f"Available tools: {', '.join(tool_names)}")
             
-            # Make request
-            r = requests.post(self.url, json=payload, timeout=self.timeout)
+            # Make request using session with retry logic
+            r = self.http_session.post(self.url, json=payload, timeout=self.timeout)
             
             # Log response status
             self.logger.debug(f"Response status: {r.status_code}")
             
             # Check for errors
-            if r.status_code != 200:
-                error_detail = ""
-                try:
-                    error_data = r.json()
-                    error_detail = error_data.get("error", str(error_data))
-                except:
-                    error_detail = r.text[:500]
-                
-                self.logger.error(f"Ollama API Error (Status {r.status_code})")
-                self.logger.error(f"Error detail: {error_detail}")
-                
-                # Check if it's a tool not found error
-                if "tool" in error_detail.lower() and "not found" in error_detail.lower():
-                    self.logger.warning("The model tried to use a tool that doesn't exist.")
-                    self.logger.warning(f"Available tools: {', '.join(tool_names)}")
-                    self.logger.warning("This usually means:")
-                    self.logger.warning("  1. The system prompt mentions a tool that isn't defined")
-                    self.logger.warning("  2. The tool definition has a typo")
-                    self.logger.warning("  3. The tool wasn't registered in tool_functions")
-                
-                # Don't log full payload by default (can be huge)
-                self.logger.debug(f"Request had {len(messages)} messages and {len(tools)} tools")
-                
-                raise requests.exceptions.HTTPError(
-                    f"Ollama API returned {r.status_code}: {error_detail}",
-                    response=r
-                )
-            
-            r.raise_for_status()
+            r.raise_for_status() # This will raise for non-2xx codes after retries
+
             data = r.json()
             
             # Estimate tokens (rough approximation: 1 token ≈ 4 chars)
@@ -134,6 +127,18 @@ class OllamaClient:
         except requests.exceptions.ConnectionError as e:
             self.logger.error(f"Connection error: Cannot connect to Ollama at {self.url}")
             self.logger.error("Make sure Ollama is running: 'ollama serve'")
+            raise
+        except requests.exceptions.HTTPError as e: # Catch HTTPError specifically for detailed logging
+            error_detail = e.response.text[:500] if e.response is not None else str(e)
+            self.logger.error(f"Ollama API Error (Status {e.response.status_code if e.response else 'N/A'}): {error_detail}")
+            # Further check for tool not found if it's a 400 or similar
+            if e.response is not None and "tool" in e.response.text.lower() and "not found" in e.response.text.lower():
+                self.logger.warning("The model tried to use a tool that doesn't exist.")
+                # Log available tools for debugging
+                self.logger.warning(f"Available tools: {', '.join(tool_names)}")
+            raise # Re-raise for the agent to handle
+        except requests.exceptions.RequestException as e: # Catch all other requests-related exceptions
+            self.logger.error(f"Ollama API request failed after retries or with unretriable error: {str(e)}", e)
             raise
         except Exception as e:
             self.logger.error(f"Unexpected error in API call: {str(e)}", e)
@@ -310,7 +315,8 @@ RULES:
             url=self.config.get("ollama_url", "http://localhost:11434"),
             model=self.config.get("model", "qwen3-coder-next"),
             timeout=self.config.get("timeout", 300),
-            logger=self.logger
+            logger=self.logger,
+            config=self.config # Pass config for retry settings
         )
         
         self.logger.info(f"🔗 Ollama: {self.config.get('ollama_url')}")
