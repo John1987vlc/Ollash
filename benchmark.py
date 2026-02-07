@@ -49,14 +49,16 @@ class ModelBenchmarker:
             model_overall_status = "Success"
             outputs = []
 
-            for task in self.test_tasks: # Use self.test_tasks
+            for task_data in self.test_tasks: # Iterate over task dictionaries
+                task_content = task_data["task"]
+                task_type = task_data["type"] # Extract task type
                 task_status = "Success"
                 task_response_content = ""
                 task_tokens_prompt = 0
                 task_tokens_completion = 0
                 
                 try:
-                    messages = [{"role": "user", "content": task}]
+                    messages = [{"role": "user", "content": task_content}] # Use task_content
                     # Se envían sin herramientas para probar razonamiento puro y evitar daños
                     response, usage = client.chat(messages, tools=[])
                     
@@ -69,10 +71,11 @@ class ModelBenchmarker:
                 except Exception as e:
                     task_status = f"Failed: {str(e)}"
                     model_overall_status = "Failed (some tasks failed)" # Update overall model status
-                    self.logger.error(f"Error en tarea para modelo {model_name}: {e}")
+                    self.logger.error(f"Error en tarea para modelo {model_name} (Tipo: {task_type}): {e}") # Log task type
                 
                 outputs.append({
-                    "task": task,
+                    "task": task_content,
+                    "type": task_type, # Include task type in results
                     "status": task_status,
                     "response": task_response_content,
                     "tokens_prompt": task_tokens_prompt,

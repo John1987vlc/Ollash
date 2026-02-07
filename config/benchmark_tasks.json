@@ -1,5 +1,13 @@
 [
-    "Analiza la estructura del proyecto y resume su propósito principal.",
-    "Lee el archivo README.md y extrae los pasos de instalación.",
-    "Revisa el archivo src/agents/default_agent.py y explica cómo funciona la detección de bucles."
+    {"type": "reasoning_architecture", "task": "Identify all dependencies between the `OllamaClient`, `DefaultAgent`, and `TokenTracker` classes and explain how information flows between them."},
+    {"type": "reasoning_architecture", "task": "Analyze the `settings.json` file and explain what impact changing the `temperature` value from 0.5 to 0.1 would have on the agent's behavior."},
+    {"type": "reasoning_architecture", "task": "Based on the `src/agents/default_agent.py` code, describe the lifecycle of a request from when the user enters a command until the final response is generated."},
+    {"type": "logic_edge_cases", "task": "In `src/utils/core/ollama_client.py`, review the retry strategy. What happens if the Ollama server returns a 500 error three times in a row?"},
+    {"type": "logic_edge_cases", "task": "Examine the `_detect_loop` function in `default_agent.py`. Could a user cause a false positive in loop detection? Propose a theoretical improvement."},
+    {"type": "logic_edge_cases", "task": "Analyze how the `TokenTracker` calculates the average per request. What would happen to this calculation if the request list were empty?"},
+    {"type": "context_documentation", "task": "Read the `README.md` file and, based on the tool descriptions, classify which ones belong to the 'Code' domain and which to the 'Cybersecurity' domain."},
+    {"type": "context_documentation", "task": "Compare the system prompts defined in the `prompts/` folder and explain the 'personality' differences between the Network Agent and the Cybersecurity Agent."},
+    {"type": "context_documentation", "task": "Summarize the project's contribution and code of conduct standards based on the `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` files."},
+    {"type": "technical_content_generation", "task": "Write a new example file `prompts/test_agent.json` that defines an agent specialized exclusively in optimizing Python functions for speed."},
+    {"type": "technical_content_generation", "task": "Create a troubleshooting guide for a user who receives a `ConnectionError` when trying to connect to Ollama, based on the `settings.json` configuration."}
 ]
