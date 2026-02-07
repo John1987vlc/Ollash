@@ -1,0 +1,22 @@
+Okay, you'd like to run the benchmark with these three models.
+
+Before we proceed, I need a clarification regarding the Ollama instance you intend to use:
+
+1.  **Are you using the Dockerized Ollama service that we just set up** (which is accessible from the `moltbot` container at `http://ollama:11434`)? In this case, the `config/settings.json` is already correctly configured.
+2.  **Or do you intend to use an Ollama instance running directly on your host machine at `http://192.168.1.217:11434`**? If so, we would need to temporarily adjust the `ollama_url` in `config/settings.json` or override it via an environment variable when running the Docker container.
+
+Please clarify which Ollama instance you want to benchmark against.
+
+**Regardless of the Ollama location, please ensure these models are pulled into your Ollama instance:**
+*   `devstral-small-2:latest`
+*   `gpt-oss:20b`
+*   `qwen3-coder:30b`
+
+You can do this by running (assuming your Ollama server is running):
+```bash
+ollama pull devstral-small-2:latest
+ollama pull gpt-oss:20b
+ollama pull qwen3-coder:30b
+```
+
+Once you clarify the Ollama instance, I can provide the exact command to run the benchmark.
