@@ -1,5 +1,6 @@
 import json
 import requests
+import traceback # Added
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -20,6 +21,7 @@ from src.utils.planning_tools import PlanningTools
 from src.utils.network_tools import NetworkTools         # Added
 from src.utils.system_tools import SystemTools           # Added
 from src.utils.cybersecurity_tools import CybersecurityTools # Added
+from src.utils.all_tool_definitions import get_filtered_tool_definitions # Added
 
 # Initialize colorama (needed for print statements in some tool methods)
 from colorama import init, Fore, Style
@@ -276,9 +278,10 @@ RULES:
         self.logger.info(f"🔗 Ollama: {self.config.get('ollama_url')}")
         self.logger.info(f"🧠 Model: {self.config.get('model')}")
 
-        # ---------------- TOOLS FUNCTIONS MAP
-        self.tool_functions = {
+        # All tool instances, organized by their method name to make dynamic assignment easier
+        self._all_tool_instances = {
             "plan_actions": self.planning_tools.plan_actions,
+            "select_agent_type": self.planning_tools.select_agent_type,
             "analyze_project": self.code_analysis_tools.analyze_project,
             "read_file": self.file_system_tools.read_file,
             "read_files": self.file_system_tools.read_files,
@@ -295,23 +298,48 @@ RULES:
             "git_commit": self.git_operations_tools.git_commit,
             "git_push": self.git_operations_tools.git_push,
             "list_directory": self.file_system_tools.list_directory,
-            "select_agent_type": self.planning_tools.select_agent_type,
-            # Network Tools
             "ping_host": self.network_tools.ping_host,
             "traceroute_host": self.network_tools.traceroute_host,
             "list_active_connections": self.network_tools.list_active_connections,
             "check_port_status": self.network_tools.check_port_status,
-            # System Tools
             "get_system_info": self.system_tools.get_system_info,
             "list_processes": self.system_tools.list_processes,
             "install_package": self.system_tools.install_package,
             "read_log_file": self.system_tools.read_log_file,
-            # Cybersecurity Tools
             "scan_ports": self.cybersecurity_tools.scan_ports,
             "check_file_hash": self.cybersecurity_tools.check_file_hash,
             "analyze_security_log": self.cybersecurity_tools.analyze_security_log,
             "recommend_security_hardening": self.cybersecurity_tools.recommend_security_hardening,
         }
+
+        # Mapping of agent types to their relevant tool names
+        self._agent_tool_name_mappings = {
+            "orchestrator": ["plan_actions", "select_agent_type"],
+            "code": [
+                "plan_actions", "analyze_project", "read_file", "read_files",
+                "write_file", "delete_file", "file_diff", "summarize_file",
+                "summarize_files", "search_code", "run_command", "run_tests",
+                "validate_change", "git_status", "git_commit", "git_push",
+                "list_directory", "select_agent_type"
+            ],
+            "network": [
+                "plan_actions", "ping_host", "traceroute_host",
+                "list_active_connections", "check_port_status", "select_agent_type"
+            ],
+            "system": [
+                "plan_actions", "get_system_info", "list_processes", "install_package",
+                "read_log_file", "select_agent_type"
+            ],
+            "cybersecurity": [
+                "plan_actions", "scan_ports", "check_file_hash", "analyze_security_log",
+                "recommend_security_hardening", "select_agent_type"
+            ]
+        }
+        
+        self.active_agent_type = "orchestrator"
+        self.active_tool_names = self._agent_tool_name_mappings[self.active_agent_type]
+        self.tool_functions = {name: self._all_tool_instances[name] for name in self.active_tool_names}
+
 
     def chat(self, instruction: str) -> str:
         """Main chat loop with enhanced logging and error handling"""
@@ -330,10 +358,10 @@ RULES:
 
             try:
                 # Log API request
-                self.logger.api_request(len(messages), len(self.tool_executor.get_tool_definitions()))
+                self.logger.api_request(len(messages), len(self.tool_functions)) # We use the size of current tool_functions
                 
                 # Make API call
-                response, usage = self.ollama.chat(messages, self.tool_executor.get_tool_definitions())
+                response, usage = self.ollama.chat(messages, self.tool_executor.get_tool_definitions(self.active_tool_names))
                 
                 # Track tokens
                 self.token_tracker.add_usage(
@@ -383,8 +411,15 @@ RULES:
                             result = self.tool_functions[name](**args)
                             if name == "plan_actions" and result.get("ok"):
                                 self._current_plan = result.get("plan_data") # Store the plan data
-                            elif name == "select_agent_type" and result.get("ok") and result.get("system_prompt"):
-                                self.system_prompt = result.get("system_prompt")
+                            elif name == "select_agent_type" and result.get("ok"):
+                                new_agent_type = result.get("new_agent_type")
+                                new_system_prompt = result.get("system_prompt")
+                                if new_agent_type and new_system_prompt:
+                                    self.active_agent_type = new_agent_type
+                                    self.system_prompt = new_system_prompt
+                                    self.active_tool_names = self._agent_tool_name_mappings[self.active_agent_type]
+                                    self.tool_functions = {name: self._all_tool_instances[name] for name in self.active_tool_names}
+                                    self.logger.info(f"{Fore.GREEN}Switched agent type to '{self.active_agent_type}'. System prompt and available tools updated.{Style.RESET_ALL}")
                         
                         success = result.get("ok", True) if isinstance(result, dict) else True
                         

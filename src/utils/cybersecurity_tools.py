@@ -1,8 +1,10 @@
-from typing import Any, Dict, List, Optional
-from src.utils.command_executor import CommandExecutor
-from src.utils.file_manager import FileManager
+from typing import Any, Dict, List, Optional # Added Any, Dict, List, Optional
 import hashlib
 import platform # To determine OS type for platform-specific commands
+import re       # For regex parsing
+import json     # For JSON operations.
+from src.utils.command_executor import CommandExecutor
+from src.utils.file_manager import FileManager # Added
 
 class CybersecurityTools:
     def __init__(self, command_executor: CommandExecutor, file_manager: FileManager, logger: Any):
@@ -12,43 +14,98 @@ class CybersecurityTools:
         self.os_type = platform.system() # "Windows", "Linux", "Darwin" (macOS)
 
     def scan_ports(self, host: str, common_ports_only: bool = True):
-        """Scans common or all ports on a host for open services."""
+        """
+        Scans common or all ports on a host for open services.
+        Returns structured JSON output of scan results.
+        """
         self.logger.info(f"🕵️‍♀️ Scanning ports on host: {host} (common_ports_only: {common_ports_only})...")
         command = ""
-        if common_ports_only:
-            # Common ports for a quick scan (HTTP, HTTPS, SSH, FTP, DNS, SMTP, POP3, IMAP)
-            ports = "21,22,23,25,53,80,110,143,3389,443,8080" 
-            if self.os_type == "Windows":
-                 # Using PowerShell for Test-NetConnection for multiple ports
-                 command = f"powershell -command \"{';'.join([f'(Test-NetConnection -ComputerName {host} -Port {p} -InformationLevel Quiet)' for p in ports.split(',')])}\""
-                 # This PowerShell command checks connectivity, but doesn't list all open ports like nmap
-                 # For a more robust scan, nmap would be ideal but requires installation.
-            else: # Linux or macOS
-                command = f"nmap -p {ports} {host}" # nmap is a standard tool but might not be installed
-        else:
-            if self.os_type == "Windows":
-                 return {"ok": False, "error": "Full port scan not supported on Windows without external tools like Nmap."}
-            else: # Linux or macOS
+        ports_to_scan = "21,22,23,25,53,80,110,143,3389,443,8080" # Common ports
+
+        if self.os_type == "Windows":
+            if common_ports_only:
+                # Test-NetConnection is better for single port checks, multi-port is complex to parse nicely.
+                # For simplicity, if Nmap isn't explicitly used, return raw for Windows.
+                self.logger.warning("Windows port scanning without Nmap will return less structured output for multiple ports.")
+                port_commands = []
+                for p in ports_to_scan.split(','):
+                    port_commands.append(f"try {{ Test-NetConnection -ComputerName {host} -Port {p} -InformationLevel Detailed | ConvertTo-Json -Compress }} catch {{ Write-Output \"{{ \\\"Port\\\": {p}, \\\"Status\\\": \\\"Closed/Filtered\\\" }}\" }}")
+                command = f"powershell -command \"{';'.join(port_commands)}\""
+            else:
+                 return {"ok": False, "result": {"host": host, "error": "Full port scan not supported on Windows without external tools like Nmap."}}
+        else: # Linux or macOS (nmap)
+            if common_ports_only:
+                command = f"nmap -p {ports_to_scan} {host}" 
+            else:
                 command = f"nmap {host}" # Full scan using nmap
-
+        
         if not command:
-            return {"ok": False, "error": "Port scanning not implemented for this OS or common_ports_only setting without Nmap."}
+            return {"ok": False, "result": {"host": host, "error": "Port scanning not implemented for this OS or common_ports_only setting without Nmap."}}
 
-        result = self.exec.execute(command, timeout=120) # Longer timeout for scans
+        result = self.exec.execute(command, timeout=180) # Longer timeout for scans
+        
+        parsed_output = {"host": host, "ports": [], "raw_output": result.stdout}
+
         if result.success:
             self.logger.info(f"✅ Port scan on {host} completed.")
-            return {"ok": True, "host": host, "output": result.stdout}
+            if self.os_type == "Windows":
+                # Parse JSON array from PowerShell output
+                try:
+                    json_output = f"[{result.stdout.replace('}{', '},{')}]" # Convert concatenated JSON objects to array
+                    ps_results = json.loads(json_output)
+                    for res in ps_results:
+                        port_status = "open" if res.get("TcpTestSucceeded") else "closed/filtered"
+                        port_num = res.get("Port")
+                        if not port_num and res.get("remotePort"): # If Detailed, Port might be remotePort
+                            port_num = res.get("remotePort")
+                        
+                        parsed_output["ports"].append({
+                            "port": port_num,
+                            "status": port_status,
+                            "service": res.get("RemoteHost", host) # Placeholder for service, if any
+                        })
+                except json.JSONDecodeError:
+                    self.logger.warning("Failed to parse PowerShell JSON output for ports. Returning raw.")
+            else: # Linux/macOS (nmap parsing)
+                lines = result.stdout.splitlines()
+                port_section_started = False
+                for line in lines:
+                    if "PORT" in line and "STATE" in line and "SERVICE" in line:
+                        port_section_started = True
+                        continue
+                    if not port_section_started or not line.strip():
+                        continue
+                    
+                    # Example Nmap line: 22/tcp   open  ssh
+                    match = re.match(r"(\d+)/([a-z]+)\s+(\S+)\s+(.*)", line)
+                    if match:
+                        port_num = int(match.group(1))
+                        protocol = match.group(2)
+                        state = match.group(3)
+                        service = match.group(4).strip()
+                        parsed_output["ports"].append({
+                            "port": port_num,
+                            "protocol": protocol,
+                            "state": state,
+                            "service": service
+                        })
+
+            return {"ok": True, "result": parsed_output}
         else:
             self.logger.error(f"❌ Port scan on {host} failed: {result.stderr}")
-            return {"ok": False, "host": host, "error": result.stderr, "output": result.stdout}
+            parsed_output["error"] = result.stderr
+            return {"ok": False, "result": parsed_output}
 
     def check_file_hash(self, path: str, algorithm: str = "sha256"):
-        """Calculates the cryptographic hash of a file for integrity checking."""
+        """
+        Calculates the cryptographic hash of a file for integrity checking.
+        Returns structured JSON output with path, algorithm, and hash.
+        """
         self.logger.info(f"Integrity checking file: {path} with {algorithm}...")
         try:
             full_path = self.files.root / path
             if not full_path.is_file():
-                return {"ok": False, "error": "File not found or not a file.", "path": path}
+                return {"ok": False, "result": {"path": path, "error": "File not found or not a file."}}
 
             hasher = hashlib.new(algorithm)
             with open(full_path, 'rb') as f:
@@ -57,53 +114,71 @@ class CybersecurityTools:
             
             file_hash = hasher.hexdigest()
             self.logger.info(f"✅ Hash for {path} ({algorithm}): {file_hash}")
-            return {"ok": True, "path": path, "algorithm": algorithm, "hash": file_hash}
+            return {"ok": True, "result": {"path": path, "algorithm": algorithm, "hash": file_hash}}
         except FileNotFoundError:
             self.logger.error(f"❌ File not found: {path}")
-            return {"ok": False, "error": "File not found", "path": path}
+            return {"ok": False, "result": {"path": path, "error": "File not found"}}
         except ValueError:
             self.logger.error(f"❌ Invalid hashing algorithm: {algorithm}")
-            return {"ok": False, "error": f"Invalid algorithm: {algorithm}"}
+            return {"ok": False, "result": {"algorithm": algorithm, "error": f"Invalid algorithm: {algorithm}"}}
         except Exception as e:
             self.logger.error(f"❌ Error calculating hash for {path}: {e}", e)
-            return {"ok": False, "error": str(e), "path": path}
+            return {"ok": False, "result": {"path": path, "error": str(e), "raw_error": str(e)}}
 
     def analyze_security_log(self, path: str, keywords: Optional[List[str]] = None):
-        """Analyzes a security log file for specific keywords or anomalies."""
+        """
+        Analyzes a security log file for specific keywords or anomalies.
+        Returns structured JSON output with path, status, and details of matches.
+        """
         self.logger.info(f"🕵️‍♀️ Analyzing security log: {path} for keywords: {keywords or 'any'}...")
         try:
             full_path = self.files.root / path
             if not full_path.exists():
-                return {"ok": False, "error": "Log file not found.", "path": path}
+                return {"ok": False, "result": {"path": path, "error": "Log file not found."}}
             
             log_content = full_path.read_text(encoding="utf-8", errors="ignore")
-            found_matches = []
+            found_entries = []
+            status = "no_anomalies_found"
 
-            if keywords:
-                for keyword in keywords:
-                    if keyword in log_content:
-                        found_matches.append(f"Keyword '{keyword}' found.")
-            else:
-                # Basic anomaly detection: look for common error/warning indicators
-                # This is very basic and would need an actual AI model for real anomaly detection
-                common_indicators = ["ERROR", "FAILED", "WARNING", "DENIED", "FAILED LOGIN"]
-                for indicator in common_indicators:
-                    if indicator in log_content:
-                        found_matches.append(f"Potential indicator '{indicator}' found.")
+            search_keywords = keywords if keywords else ["ERROR", "FAILED", "WARNING", "DENIED", "FAILED LOGIN", "authentication failure", "access denied", "attack", "malware"]
 
-            if found_matches:
-                self.logger.warning(f"⚠️ Potential security events found in {path}: {found_matches}")
-                return {"ok": True, "path": path, "status": "anomalies_found", "matches": found_matches}
+            for line_num, line in enumerate(log_content.splitlines(), 1):
+                for keyword in search_keywords:
+                    if keyword.lower() in line.lower():
+                        found_entries.append({
+                            "line_number": line_num,
+                            "keyword": keyword,
+                            "context": line.strip()
+                        })
+                        status = "anomalies_found"
+                        # Only report first match of a keyword per line
+                        break 
+            
+            if found_entries:
+                self.logger.warning(f"⚠️ Potential security events found in {path}. Matches: {len(found_entries)}")
             else:
                 self.logger.info(f"✅ No immediate security concerns found in {path}.")
-                return {"ok": True, "path": path, "status": "no_anomalies_found"}
+            
+            return {
+                "ok": True, 
+                "result": {
+                    "path": path, 
+                    "status": status, 
+                    "matched_keywords": keywords,
+                    "analysis_summary": f"Found {len(found_entries)} potential security events.",
+                    "events": found_entries
+                }
+            }
 
         except Exception as e:
             self.logger.error(f"❌ Error analyzing security log {path}: {e}", e)
-            return {"ok": False, "error": str(e), "path": path}
+            return {"ok": False, "result": {"path": path, "error": str(e), "raw_error": str(e)}}
 
     def recommend_security_hardening(self, os_type: str):
-        """Provides basic security hardening recommendations for a given operating system."""
+        """
+        Provides basic security hardening recommendations for a given operating system.
+        Returns structured JSON output with the OS type and a list of recommendations.
+        """
         self.logger.info(f"🛡️ Generating security hardening recommendations for {os_type}...")
         recommendations = []
         os_type_lower = os_type.lower()
@@ -115,21 +190,26 @@ class CybersecurityTools:
             recommendations.append("Use strong, unique passwords and enable MFA where possible.")
             recommendations.append("Disable unnecessary services and features.")
             recommendations.append("Implement account lockout policies.")
+            recommendations.append("Enable Controlled Folder Access to protect against ransomware.")
+            recommendations.append("Regularly backup important data.")
         elif "linux" in os_type_lower:
             recommendations.append("Keep packages updated (e.g., apt update && apt upgrade).")
             recommendations.append("Configure a firewall (e.g., ufw, firewalld).")
-            recommendations.append("Disable root login via SSH; use key-based authentication.")
-            recommendations.append("Regularly audit user accounts and permissions.")
+            recommendations.append("Disable root login via SSH; use key-based authentication and disable password authentication.")
+            recommendations.append("Regularly audit user accounts and permissions, enforce strong password policies.")
             recommendations.append("Install and configure an antivirus/malware scanner (e.g., ClamAV).")
+            recommendations.append("Implement SELinux/AppArmor for mandatory access control.")
+            recommendations.append("Regularly backup important data.")
         elif "macos" in os_type_lower:
-            recommendations.append("Enable FileVault for disk encryption.")
+            recommendations.append("Enable FileVault for full disk encryption.")
             recommendations.append("Keep macOS and applications updated.")
-            recommendations.append("Enable Firewall and block all incoming connections by default.")
-            recommendations.append("Review Privacy & Security settings, especially app permissions.")
-            recommendations.append("Use strong passwords and enable Touch ID/Face ID.")
-            recommendations.append("Avoid installing software from untrusted sources.")
+            recommendations.append("Enable Firewall and block all incoming connections by default. Configure stealth mode.")
+            recommendations.append("Review Privacy & Security settings, especially app permissions, regularly.")
+            recommendations.append("Use strong passwords and enable Touch ID/Face ID. Do not reuse passwords.")
+            recommendations.append("Avoid installing software from untrusted sources; use Gatekeeper/Notarization.")
+            recommendations.append("Regularly backup important data using Time Machine or other solutions.")
         else:
-            recommendations.append(f"No specific recommendations for '{os_type}'. General advice: Keep software updated, use strong passwords, and employ a firewall.")
+            recommendations.append(f"No specific recommendations for '{os_type}'. General advice: Keep software updated, use strong unique passwords, enable multi-factor authentication, employ a firewall, and regularly backup important data.")
 
         self.logger.info(f"✅ Generated security recommendations for {os_type}.")
-        return {"ok": True, "os_type": os_type, "recommendations": recommendations}
+        return {"ok": True, "result": {"os_type": os_type, "recommendations": recommendations}}

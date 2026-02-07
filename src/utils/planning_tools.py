@@ -58,7 +58,7 @@ class PlanningTools:
 
             if system_prompt:
                 self.logger.info(f"✅ Switched agent context to: {agent_type}")
-                return {"ok": True, "agent_type": agent_type, "system_prompt": system_prompt}
+                return {"ok": True, "new_agent_type": agent_type, "system_prompt": system_prompt}
             else:
                 self.logger.error(f"Prompt field not found or empty in {prompt_path}")
                 return {"ok": False, "error": f"Prompt field empty in {prompt_path}"}

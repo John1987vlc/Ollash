@@ -71,7 +71,8 @@ def test_orchestrator_initial_prompt(live_ollash_agent):
     expected_orchestrator_prompt_part = "You are Local IT Agent - Ollash, an AI Orchestrator."
     assert expected_orchestrator_prompt_part in live_ollash_agent.system_prompt
 
-def test_orchestrator_to_code_switch(live_ollash_agent):
+@patch('src.agents.code_agent.OllamaClient.chat') # Patch OllamaClient.chat directly
+def test_orchestrator_to_code_switch(mock_ollama_chat, live_ollash_agent):
     initial_prompt = live_ollash_agent.system_prompt
     assert "AI Orchestrator" in initial_prompt
 
@@ -79,12 +80,24 @@ def test_orchestrator_to_code_switch(live_ollash_agent):
     print(f"""
 User: {user_request}""") 
     
+    # Mock Ollama's response to simulate the orchestrator selecting the 'code' agent type
+    mock_ollama_chat.side_effect = [
+        (
+            {"message": {"tool_calls": [{"function": {"name": "select_agent_type", "arguments": {"agent_type": "code"}}}]}},
+            {"prompt_tokens": 100, "completion_tokens": 50}
+        ),
+        # After select_agent_type, the agent will load the code prompt and then the LLM will provide a final answer
+        ({"message": {"content": "Switched to code agent. How can I help with refactoring?"}}, {"prompt_tokens": 50, "completion_tokens": 20})
+    ]
+
     response = live_ollash_agent.chat(user_request)
     print(f"Agent: {response}")
 
     expected_code_prompt_part = "You are Local IT Agent - Ollash, a specialized AI Code Agent."
     assert expected_code_prompt_part in live_ollash_agent.system_prompt
     assert "AI Orchestrator" not in live_ollash_agent.system_prompt
+    assert live_ollash_agent.active_agent_type == "code"
+    assert "read_file" in live_ollash_agent.tool_functions # Should now have code tools loaded
 
     print(f"Agent successfully switched to Code context. New prompt starts with: {live_ollash_agent.system_prompt[:80]}...")
     
@@ -102,14 +115,14 @@ def test_code_agent_pings_localhost(mock_ollama_chat, live_ollash_agent):
             {"message": {"tool_calls": [{"function": {"name": "ping_host", "arguments": {"host": "localhost", "count": 2}}}]}},
             {"prompt_tokens": 100, "completion_tokens": 50}
         ),
-        # Third chat call (after ping_host executes): Agent processes the tool result
+        # Third chat call (after ping_host executes): Agent processes the tool result (JSON)
         (
-            {"message": {"content": "Ping to localhost executed. Result: { 'ok': True, 'output': 'Ping successful' }"}},
+            {"message": {"content": json.dumps({"ok": True, "result": {"host": "localhost", "packets_sent": 2, "packets_received": 2, "packet_loss_percent": 0, "avg_rtt_ms": 1}})}},
             {"prompt_tokens": 100, "completion_tokens": 50}
         ),
         # Fourth chat call (after tool result is processed): Agent generates final textual response
         (
-            {"message": {"content": "Ping to localhost completed successfully. Output: <mocked ping output details>"}},
+            {"message": {"content": "Ping to localhost completed successfully. Result: 2 packets sent, 2 received, 0% loss, avg 1ms."}},
             {"prompt_tokens": 100, "completion_tokens": 50}
         )
     ]
@@ -121,6 +134,8 @@ def test_code_agent_pings_localhost(mock_ollama_chat, live_ollash_agent):
     
     # Assert that the agent switched to network context
     assert "AI Network Agent" in live_ollash_agent.system_prompt
+    assert live_ollash_agent.active_agent_type == "network"
+    assert "ping_host" in live_ollash_agent.tool_functions # Should now have network tools loaded
 
     # Now, with the agent in network context, ask it to ping
     user_request = "Por favor, haz ping a localhost 2 veces."
@@ -131,19 +146,31 @@ def test_code_agent_pings_localhost(mock_ollama_chat, live_ollash_agent):
     print(f"Agent: {response}")
 
     # Assert that ping_host was indeed called and the response contains success/failure
-    # Check mock_ollama_chat calls - it should be 4 calls after both chat() calls
     assert mock_ollama_chat.call_count == 4
     
     # Check the final response
-    assert "Ping to localhost completed successfully. Output: <mocked ping output details>" in response 
+    assert "Ping to localhost completed successfully. Result: 2 packets sent, 2 received, 0% loss, avg 1ms." in response
 
 
-def test_system_agent_get_info_placeholder(live_ollash_agent, caplog):
-    # Simulate orchestrator already switched to system agent
-    system_prompt_path = live_ollash_agent.project_root / "prompts" / "system" / "default_system_agent.json"
-    with open(system_prompt_path, "r", encoding="utf-8") as f:
-        prompt_data = json.load(f)
-    live_ollash_agent.system_prompt = prompt_data.get("prompt")
+@patch('src.agents.code_agent.OllamaClient.chat') # Patch OllamaClient.chat directly
+def test_system_agent_get_info_placeholder(mock_ollama_chat, live_ollash_agent, caplog):
+    mock_ollama_chat.side_effect = [
+        # First chat call (orchestrator_request): Orchestrator is asked to switch to system agent
+        (
+            {"message": {"tool_calls": [{"function": {"name": "select_agent_type", "arguments": {"agent_type": "system"}}}]}},
+            {"prompt_tokens": 100, "completion_tokens": 50}
+        ),
+        # Second chat call (user_request for system info): Agent (now system) receives request and calls get_system_info
+        (
+            {"message": {"tool_calls": [{"function": {"name": "get_system_info", "arguments": {}}}]}},
+            {"prompt_tokens": 100, "completion_tokens": 50}
+        ),
+        # Third chat call (after get_system_info executes): Agent generates final textual response directly
+        (
+            {"message": {"content": "System information retrieved: OS is Microsoft Windows 10 Pro."}},
+            {"prompt_tokens": 100, "completion_tokens": 50}
+        )
+    ]
     
     user_request = "Dime la información básica del sistema."
     print(f"""
@@ -153,12 +180,11 @@ User (System Context): {user_request}""")
         response = live_ollash_agent.chat(user_request)
         print(f"Agent: {response}")
     
-    # Check if the tool was called and reported success in the logs
+    assert "AI System Agent" in live_ollash_agent.system_prompt
+    assert live_ollash_agent.active_agent_type == "system"
+    assert "get_system_info" in live_ollash_agent.tool_functions
+
+    assert mock_ollama_chat.call_count == 3
+    assert "System information retrieved: OS is Microsoft Windows 10 Pro." in response
     assert "ℹ️ Getting system information..." in caplog.text
     assert "✅ System information retrieved successfully." in caplog.text
-    
-    # The actual response from Ollama could still be "Reached maximum iterations"
-    # We are now testing that the tool itself executed, not necessarily Ollama's final text summary
-    # You might add an assert here that Ollama's final response *should* contain the info.
-    # For now, we only care that the tool executed.
-    assert True # The assertions above confirm the tool execution via logs

@@ -30,7 +30,7 @@ def temp_project_root(tmp_path):
         "model": "test-model",
         "ollama_url": "http://localhost:11434",
         "system_prompt": "Test system prompt",
-        "max_iterations": 2,
+        "max_iterations": 5,
         "timeout": 300
     }))
     # Create an agent.log file as the agent expects it
@@ -50,7 +50,7 @@ def code_agent(temp_project_root, mock_ollama_client):
 
 def test_code_agent_initialization(code_agent, temp_project_root):
     assert code_agent.project_root == temp_project_root
-    assert isinstance(code_agent.logger, AgentLogger) # Changed from MagicMock to AgentLogger
+    assert isinstance(code_agent.logger, AgentLogger)
     assert code_agent.ollama is not None
     assert code_agent.tool_executor is not None
     assert code_agent.file_system_tools is not None
@@ -58,61 +58,91 @@ def test_code_agent_initialization(code_agent, temp_project_root):
     assert code_agent.command_line_tools is not None
     assert code_agent.git_operations_tools is not None
     assert code_agent.planning_tools is not None
-    assert "plan_actions" in code_agent.tool_functions
-    assert "read_file" in code_agent.tool_functions
+    # Initially, the orchestrator should only have planning tools
+    assert set(code_agent.tool_functions.keys()) == {"plan_actions", "select_agent_type"}
+    assert code_agent.active_agent_type == "orchestrator"
 
 def test_list_directory_tool(code_agent, temp_project_root):
     # Create some dummy files/dirs
     (temp_project_root / "test_dir").mkdir()
     (temp_project_root / "test_file.txt").write_text("content")
 
-    # Mock the tool call response from the LLM
-    code_agent.ollama.chat.return_value = (
-        {"message": {"tool_calls": [{"function": {"name": "list_directory", "arguments": {"path": "."}}}]}},
-        {"prompt_tokens": 10, "completion_tokens": 5}
-    )
-
-    # Mock the subsequent LLM response after tool execution (final answer)
+    # Mock responses:
+    # 1. LLM decides to switch to 'code' agent type
+    # 2. LLM decides to call 'list_directory' tool (after agent type switch)
+    # 3. LLM returns final answer
     code_agent.ollama.chat.side_effect = [
+        # First call: LLM selects 'code' agent type
+        (
+            {"message": {"tool_calls": [{"function": {"name": "select_agent_type", "arguments": {"agent_type": "code"}}}]}},
+            {"prompt_tokens": 10, "completion_tokens": 5}
+        ),
+        # Second call (after agent type switch): LLM calls list_directory
         (
             {"message": {"tool_calls": [{"function": {"name": "list_directory", "arguments": {"path": "."}}}]}},
             {"prompt_tokens": 10, "completion_tokens": 5}
         ),
+        # Third call (after tool execution): LLM returns final answer
         ({"message": {"content": "Directory listing completed."}}, {"prompt_tokens": 5, "completion_tokens": 3})
     ]
+
+    # Mock system prompt loading for 'code' agent
+    # Create a dummy prompts/code/default_code_agent.json
+    code_prompt_dir = temp_project_root / "prompts" / "code"
+    code_prompt_dir.mkdir(parents=True, exist_ok=True)
+    (code_prompt_dir / "default_code_agent.json").write_text(json.dumps({
+        "prompt": "You are a code agent. Your tools are file system and code analysis.",
+        "tools": ["plan_actions", "analyze_project", "read_file", "read_files", "write_file", "delete_file", "file_diff", "summarize_file", "summarize_files", "search_code", "run_command", "run_tests", "validate_change", "git_status", "git_commit", "git_push", "list_directory", "select_agent_type"]
+    }))
 
     # Execute chat command
     response = code_agent.chat("List contents of current directory")
 
     # Assertions
-    code_agent.ollama.chat.assert_called()
+    assert code_agent.ollama.chat.call_count == 3
     assert "Directory listing completed." in response
-
-    # Verify that the actual tool function was called
-    # (We rely on CodeAgent.tool_functions to correctly map, so testing the output from the mock is sufficient)
-    # The list_directory tool returns a dict with 'items'
-    # We can check the logger output or ensure our mock capture this
-    # For a deeper integration test, we'd mock the tool's dependencies instead of the tool directly.
-    # For simplicity, we just check the chat response logic.
+    assert code_agent.active_agent_type == "code"
+    assert "list_directory" in code_agent.tool_functions
 
 
 def test_read_file_tool(code_agent, temp_project_root):
     test_file = temp_project_root / "my_file.txt"
     test_file.write_text("Hello, world!")
 
-    # Mock the tool call response from the LLM
+    # Mock responses:
+    # 1. LLM decides to switch to 'code' agent type
+    # 2. LLM decides to call 'read_file' tool (after agent type switch)
+    # 3. LLM returns final answer
     code_agent.ollama.chat.side_effect = [
+        # First call: LLM selects 'code' agent type
+        (
+            {"message": {"tool_calls": [{"function": {"name": "select_agent_type", "arguments": {"agent_type": "code"}}}]}},
+            {"prompt_tokens": 10, "completion_tokens": 5}
+        ),
+        # Second call (after agent type switch): LLM calls read_file
         (
             {"message": {"tool_calls": [{"function": {"name": "read_file", "arguments": {"path": "my_file.txt"}}}]}},
             {"prompt_tokens": 10, "completion_tokens": 5}
         ),
+        # Third call (after tool execution): LLM returns final answer
         ({"message": {"content": "Content of my_file.txt: Hello, world!"}}, {"prompt_tokens": 5, "completion_tokens": 3})
     ]
 
+    # Mock system prompt loading for 'code' agent
+    # Create a dummy prompts/code/default_code_agent.json
+    code_prompt_dir = temp_project_root / "prompts" / "code"
+    code_prompt_dir.mkdir(parents=True, exist_ok=True)
+    (code_prompt_dir / "default_code_agent.json").write_text(json.dumps({
+        "prompt": "You are a code agent. Your tools are file system and code analysis.",
+        "tools": ["plan_actions", "analyze_project", "read_file", "read_files", "write_file", "delete_file", "file_diff", "summarize_file", "summarize_files", "search_code", "run_command", "run_tests", "validate_change", "git_status", "git_commit", "git_push", "list_directory", "select_agent_type"]
+    }))
+
     response = code_agent.chat("Read my_file.txt")
 
-    code_agent.ollama.chat.assert_called()
+    assert code_agent.ollama.chat.call_count == 3
     assert "Content of my_file.txt: Hello, world!" in response
+    assert code_agent.active_agent_type == "code"
+    assert "read_file" in code_agent.tool_functions
 
 
 @patch('builtins.input', side_effect=['yes'])
@@ -120,39 +150,160 @@ def test_write_file_tool_confirmation_yes(mock_input, code_agent, temp_project_r
     target_file = temp_project_root / "new_file.txt"
     content = "New content for testing."
 
-    # Mock the tool call response from the LLM
+    # Mock responses:
+    # 1. LLM decides to switch to 'code' agent type
+    # 2. LLM decides to call 'write_file' tool (after agent type switch)
+    # 3. LLM returns final answer
     code_agent.ollama.chat.side_effect = [
+        # First call: LLM selects 'code' agent type
+        (
+            {"message": {"tool_calls": [{"function": {"name": "select_agent_type", "arguments": {"agent_type": "code"}}}]}},
+            {"prompt_tokens": 10, "completion_tokens": 5}
+        ),
+        # Second call (after agent type switch): LLM calls write_file
         (
             {"message": {"tool_calls": [{"function": {"name": "write_file", "arguments": {"path": "new_file.txt", "content": content, "reason": "test"}}}]}},
             {"prompt_tokens": 10, "completion_tokens": 5}
         ),
+        # Third call (after tool execution): LLM returns final answer
         ({"message": {"content": "File new_file.txt written successfully."}}, {"prompt_tokens": 5, "completion_tokens": 3})
     ]
 
+    # Mock system prompt loading for 'code' agent
+    code_prompt_dir = temp_project_root / "prompts" / "code"
+    code_prompt_dir.mkdir(parents=True, exist_ok=True)
+    (code_prompt_dir / "default_code_agent.json").write_text(json.dumps({
+        "prompt": "You are a code agent. Your tools are file system and code analysis.",
+        "tools": ["plan_actions", "analyze_project", "read_file", "read_files", "write_file", "delete_file", "file_diff", "summarize_file", "summarize_files", "search_code", "run_command", "run_tests", "validate_change", "git_status", "git_commit", "git_push", "list_directory", "select_agent_type"]
+    }))
+
     response = code_agent.chat("Write new_file.txt with some content")
 
+    assert code_agent.ollama.chat.call_count == 3
     mock_input.assert_called_once_with(f"{Fore.GREEN}Proceed? (yes/no/view): {Style.RESET_ALL}")
     assert target_file.exists()
     assert target_file.read_text() == content
     assert "written successfully." in response
+    assert code_agent.active_agent_type == "code"
+    assert "write_file" in code_agent.tool_functions
 
 
 @patch('builtins.input', side_effect=['no'])
+
+
 def test_write_file_tool_confirmation_no(mock_input, code_agent, temp_project_root):
+
+
     target_file = temp_project_root / "another_file.txt"
+
+
     content = "Content that should not be written."
 
-    # Mock the tool call response from the LLM
+
+
+
+
+    # Mock responses:
+
+
+    # 1. LLM decides to switch to 'code' agent type
+
+
+    # 2. LLM decides to call 'write_file' tool (after agent type switch)
+
+
+    # 3. LLM returns final answer
+
+
     code_agent.ollama.chat.side_effect = [
+
+
+        # First call: LLM selects 'code' agent type
+
+
         (
-            {"message": {"tool_calls": [{"function": {"name": "write_file", "arguments": {"path": "another_file.txt", "content": content, "reason": "test"}}}]}},
+
+
+            {"message": {"tool_calls": [{"function": {"name": "select_agent_type", "arguments": {"agent_type": "code"}}}]}},
+
+
             {"prompt_tokens": 10, "completion_tokens": 5}
+
+
         ),
+
+
+        # Second call (after agent type switch): LLM calls write_file
+
+
+        (
+
+
+            {"message": {"tool_calls": [{"function": {"name": "write_file", "arguments": {"path": "another_file.txt", "content": content, "reason": "test"}}}]}},
+
+
+            {"prompt_tokens": 10, "completion_tokens": 5}
+
+
+        ),
+
+
+        # Third call (after tool execution): LLM returns final answer
+
+
         ({"message": {"content": "File write cancelled."}}, {"prompt_tokens": 5, "completion_tokens": 3})
+
+
     ]
+
+
+
+
+
+    # Mock system prompt loading for 'code' agent
+
+
+    code_prompt_dir = temp_project_root / "prompts" / "code"
+
+
+    code_prompt_dir.mkdir(parents=True, exist_ok=True)
+
+
+    (code_prompt_dir / "default_code_agent.json").write_text(json.dumps({
+
+
+        "prompt": "You are a code agent. Your tools are file system and code analysis.",
+
+
+        "tools": ["plan_actions", "analyze_project", "read_file", "read_files", "write_file", "delete_file", "file_diff", "summarize_file", "summarize_files", "search_code", "run_command", "run_tests", "validate_change", "git_status", "git_commit", "git_push", "list_directory", "select_agent_type"]
+
+
+    }))
+
+
+
+
 
     response = code_agent.chat("Attempt to write another_file.txt but deny")
 
+
+
+
+
+    assert code_agent.ollama.chat.call_count == 3
+
+
     mock_input.assert_called_once_with(f"{Fore.GREEN}Proceed? (yes/no/view): {Style.RESET_ALL}")
+
+
     assert not target_file.exists()
+
+
     assert "cancelled." in response
+
+
+    assert code_agent.active_agent_type == "code"
+
+
+    assert "write_file" in code_agent.tool_functions
+
