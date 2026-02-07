@@ -5,6 +5,8 @@ from .core.code_analyzer import CodeAnalyzer, CodeInfo, Language
 from .core.agent_logger import AgentLogger
 from .core.token_tracker import TokenTracker
 from .core.tool_interface import ToolExecutor
+from .core.ollama_client import OllamaClient # Added
+from .core.memory_manager import MemoryManager # Added
 
 from .domains.code.file_system_tools import FileSystemTools
 from .domains.code.code_analysis_tools import CodeAnalysisTools
@@ -33,6 +35,8 @@ __all__ = [
     "AgentLogger",
     "TokenTracker",
     "ToolExecutor",
+    "OllamaClient", # Added
+    "MemoryManager", # Added
     "FileSystemTools",
     "CodeAnalysisTools",
     "AdvancedCodeTools",
