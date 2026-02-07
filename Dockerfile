@@ -1,20 +1,12 @@
 # Use an official Python runtime as a parent image
-FROM python:3.10-slim-buster
+FROM python:3.10-slim-bullseye
 
 # Set the working directory in the container
 WORKDIR /app
 
 # Install system dependencies needed for some Python packages (e.g., git, build-essential for some native extensions)
 # Update package list and install git, build-essential
-RUN apt-get update && 
-    apt-get install -y --no-install-recommends 
-    git 
-    build-essential 
-    curl 
-    iputils-ping 
-    net-tools 
-    nmap 
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git build-essential curl iputils-ping net-tools nmap && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements files into the container
 COPY requirements.txt .
