@@ -17,6 +17,9 @@ from src.utils.code_analysis_tools import CodeAnalysisTools
 from src.utils.command_line_tools import CommandLineTools
 from src.utils.git_operations_tools import GitOperationsTools
 from src.utils.planning_tools import PlanningTools
+from src.utils.network_tools import NetworkTools         # Added
+from src.utils.system_tools import SystemTools           # Added
+from src.utils.cybersecurity_tools import CybersecurityTools # Added
 
 # Initialize colorama (needed for print statements in some tool methods)
 from colorama import init, Fore, Style
@@ -155,9 +158,19 @@ class CodeAgent:
 
         self.max_iterations = self.config.get("max_iterations", 30)
         
-        self.system_prompt = self.config.get(
-            "system_prompt",
-            """You are a disciplined coding agent. 
+        # Load system prompt from file
+        default_prompt_path = self.config.get(
+            "default_system_prompt_path",
+            "prompts/code/default_code_agent.json" # Default path if not specified
+        )
+        try:
+            full_prompt_path = self.project_root / default_prompt_path
+            with open(full_prompt_path, "r", encoding="utf-8") as f:
+                prompt_data = json.load(f)
+            self.system_prompt = prompt_data.get("prompt", "")
+            if not self.system_prompt:
+                self.logger.warning(f"System prompt 'prompt' field empty in {full_prompt_path}. Using default fallback.")
+                self.system_prompt = """You are a disciplined coding agent. 
 RULES:
 1. ALWAYS start with plan_actions to show what you'll do
 2. ASK for confirmation before: write_file, delete_file, git_commit, git_push
@@ -165,7 +178,36 @@ RULES:
 4. Use summarize_files (plural) to summarize multiple files at once
 5. Use analyze_project to get a comprehensive overview of the project
 6. Be clear and concise in your explanations"""
-        )
+        except FileNotFoundError:
+            self.logger.error(f"System prompt file not found: {full_prompt_path}. Using default fallback.")
+            self.system_prompt = """You are a disciplined coding agent. 
+RULES:
+1. ALWAYS start with plan_actions to show what you'll do
+2. ASK for confirmation before: write_file, delete_file, git_commit, git_push
+3. Use read_files (plural) to read multiple files at once efficiently
+4. Use summarize_files (plural) to summarize multiple files at once
+5. Use analyze_project to get a comprehensive overview of the project
+6. Be clear and concise in your explanations"""
+        except json.JSONDecodeError:
+            self.logger.error(f"Error decoding system prompt JSON from {full_prompt_path}. Using default fallback.")
+            self.system_prompt = """You are a disciplined coding agent. 
+RULES:
+1. ALWAYS start with plan_actions to show what you'll do
+2. ASK for confirmation before: write_file, delete_file, git_commit, git_push
+3. Use read_files (plural) to read multiple files at once efficiently
+4. Use summarize_files (plural) to summarize multiple files at once
+5. Use analyze_project to get a comprehensive overview of the project
+6. Be clear and concise in your explanations"""
+        except Exception as e:
+            self.logger.error(f"Unexpected error loading system prompt from {full_prompt_path}: {e}. Using default fallback.")
+            self.system_prompt = """You are a disciplined coding agent. 
+RULES:
+1. ALWAYS start with plan_actions to show what you'll do
+2. ASK for confirmation before: write_file, delete_file, git_commit, git_push
+3. Use read_files (plural) to read multiple files at once efficiently
+4. Use summarize_files (plural) to summarize multiple files at once
+5. Use analyze_project to get a comprehensive overview of the project
+6. Be clear and concise in your explanations"""
 
         # ---------------- TOKEN TRACKING
         self.token_tracker = TokenTracker()
@@ -205,6 +247,21 @@ RULES:
             tool_executor=self.tool_executor
         )
         self.planning_tools = PlanningTools(
+            logger=self.logger,
+            project_root=self.project_root
+        )
+        self.network_tools = NetworkTools(
+            command_executor=self.command_executor,
+            logger=self.logger
+        )
+        self.system_tools = SystemTools(
+            command_executor=self.command_executor,
+            file_manager=self.file_manager,
+            logger=self.logger
+        )
+        self.cybersecurity_tools = CybersecurityTools(
+            command_executor=self.command_executor,
+            file_manager=self.file_manager,
             logger=self.logger
         )
 
@@ -238,6 +295,22 @@ RULES:
             "git_commit": self.git_operations_tools.git_commit,
             "git_push": self.git_operations_tools.git_push,
             "list_directory": self.file_system_tools.list_directory,
+            "select_agent_type": self.planning_tools.select_agent_type,
+            # Network Tools
+            "ping_host": self.network_tools.ping_host,
+            "traceroute_host": self.network_tools.traceroute_host,
+            "list_active_connections": self.network_tools.list_active_connections,
+            "check_port_status": self.network_tools.check_port_status,
+            # System Tools
+            "get_system_info": self.system_tools.get_system_info,
+            "list_processes": self.system_tools.list_processes,
+            "install_package": self.system_tools.install_package,
+            "read_log_file": self.system_tools.read_log_file,
+            # Cybersecurity Tools
+            "scan_ports": self.cybersecurity_tools.scan_ports,
+            "check_file_hash": self.cybersecurity_tools.check_file_hash,
+            "analyze_security_log": self.cybersecurity_tools.analyze_security_log,
+            "recommend_security_hardening": self.cybersecurity_tools.recommend_security_hardening,
         }
 
     def chat(self, instruction: str) -> str:
@@ -310,8 +383,8 @@ RULES:
                             result = self.tool_functions[name](**args)
                             if name == "plan_actions" and result.get("ok"):
                                 self._current_plan = result.get("plan_data") # Store the plan data
-                            if name == "plan_actions" and result.get("ok"):
-                                self._current_plan = result.get("plan_data") # Store the plan data
+                            elif name == "select_agent_type" and result.get("ok") and result.get("system_prompt"):
+                                self.system_prompt = result.get("system_prompt")
                         
                         success = result.get("ok", True) if isinstance(result, dict) else True
                         

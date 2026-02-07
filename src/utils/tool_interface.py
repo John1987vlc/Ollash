@@ -284,58 +284,180 @@ class ToolExecutor:
                         "required": ["path"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "select_agent_type",
+                    "description": "Selects the type of specialized agent (context) to use. The orchestrator agent uses this to delegate to a specific domain agent. Available types are 'code', 'network', 'system', 'cybersecurity'.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "agent_type": {"type": "string", "description": "The type of agent to switch to (e.g., 'code', 'network', 'system', 'cybersecurity')."}
+                        },
+                        "required": ["agent_type"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "ping_host",
+                    "description": "Pings a specified host (IP address or hostname) to check network connectivity.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "host": {"type": "string", "description": "The IP address or hostname to ping."},
+                            "count": {"type": "integer", "description": "Number of ping requests to send. Defaults to 4."}
+                        },
+                        "required": ["host"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "traceroute_host",
+                    "description": "Traces the network path to a specified host (IP address or hostname).",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "host": {"type": "string", "description": "The IP address or hostname to traceroute to."}
+                        },
+                        "required": ["host"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "list_active_connections",
+                    "description": "Lists all active network connections on the system.",
+                    "parameters": {"type": "object", "properties": {}}
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "check_port_status",
+                    "description": "Checks if a specific port is open on a given host.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "host": {"type": "string", "description": "The IP address or hostname."},
+                            "port": {"type": "integer", "description": "The port number to check."}
+                        },
+                        "required": ["host", "port"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_system_info",
+                    "description": "Retrieves basic operating system and hardware information.",
+                    "parameters": {"type": "object", "properties": {}}
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "list_processes",
+                    "description": "Lists all currently running processes on the system.",
+                    "parameters": {"type": "object", "properties": {}}
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "install_package",
+                    "description": "Installs a software package using a specified package manager.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "package_name": {"type": "string", "description": "The name of the package to install."},
+                            "package_manager": {"type": "string", "description": "The package manager to use (e.g., 'apt', 'yum', 'choco', 'brew')."}
+                        },
+                        "required": ["package_name", "package_manager"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "read_log_file",
+                    "description": "Reads the last N lines of a specified log file.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "The path to the log file."},
+                            "lines": {"type": "integer", "description": "The number of lines to read from the end of the file. Defaults to 20."}
+                        },
+                        "required": ["path"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "scan_ports",
+                    "description": "Scans common or all ports on a host for open services.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "host": {"type": "string", "description": "The IP address or hostname to scan."},
+                            "common_ports_only": {"type": "boolean", "description": "If true, scans only common ports; otherwise, scans all ports. Defaults to true."}
+                        },
+                        "required": ["host"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "check_file_hash",
+                    "description": "Calculates the cryptographic hash of a file for integrity checking.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "The path to the file."},
+                            "algorithm": {"type": "string", "description": "The hashing algorithm to use (e.g., 'sha256', 'md5'). Defaults to 'sha256'."}
+                        },
+                        "required": ["path"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "analyze_security_log",
+                    "description": "Analyzes a security log file for specific keywords or anomalies.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "The path to the security log file."},
+                            "keywords": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of keywords to search for in the log file."
+                            }
+                        },
+                        "required": ["path"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "recommend_security_hardening",
+                    "description": "Provides basic security hardening recommendations for a given operating system.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "os_type": {"type": "string", "description": "The type of operating system (e.g., 'Windows', 'Linux', 'macOS')."}
+                        },
+                        "required": ["os_type"]
+                    }
+                }
             }
         ]
-
-    def _requires_confirmation(self, tool_name: str) -> bool:
-        """Check if a tool requires user confirmation"""
-        return tool_name in self.MODIFY_ACTIONS
-
-    def _ask_confirmation(self, action: str, details: Dict) -> bool:
-        """Ask user for confirmation"""
-        self.logger.info(f"\n{Fore.YELLOW}{'='*60}")
-        self.logger.info(f"⚠️  CONFIRMATION REQUIRED: {action}")
-        self.logger.info(f"{'='*60}{Style.RESET_ALL}")
-        
-        if action == "write_file":
-            self.logger.info(f"📝 File: {Fore.CYAN}{details['path']}{Style.RESET_ALL}")
-            self.logger.info(f"📋 Reason: {details.get('reason', 'N/A')}")
-            self.logger.info(f"📏 Size: {len(details['content'])} characters")
-            
-            # Show preview
-            lines = details['content'].split('\n')
-            preview_lines = min(10, len(lines))
-            self.logger.info(f"\n📄 Preview (first {preview_lines} lines):")
-            self.logger.info("-" * 60)
-            for i, line in enumerate(lines[:preview_lines], 1):
-                self.logger.info(f"{Fore.WHITE}{i:3}: {line}{Style.RESET_ALL}")
-            if len(lines) > preview_lines:
-                self.logger.info(f"{Fore.YELLOW}... ({len(lines) - preview_lines} more lines){Style.RESET_ALL}")
-            self.logger.info("-" * 60)
-            
-        elif action == "delete_file":
-            self.logger.info(f"🗑️  File: {Fore.RED}{details['path']}{Style.RESET_ALL}")
-            self.logger.info(f"📋 Reason: {details.get('reason', 'N/A')}")
-            
-        elif action == "git_commit":
-            self.logger.info(f"💾 Message: {Fore.CYAN}{details['message']}{Style.RESET_ALL}")
-            
-        elif action == "git_push":
-            self.logger.info(f"🚀 Remote: {Fore.CYAN}{details.get('remote', 'origin')}{Style.RESET_ALL}")
-        
-        self.logger.info(f"{Fore.YELLOW}{'='*60}{Style.RESET_ALL}")
-        
-        while True:
-            response = input(f"{Fore.GREEN}Proceed? (yes/no/view): {Style.RESET_ALL}").strip().lower()
-            if response in ['yes', 'y', 'si', 's']:
-                return True
-            elif response in ['no', 'n']:
-                return False
-            elif response in ['view', 'v'] and action == "write_file":
-                self.logger.info(f"\n{Fore.CYAN}{'='*60}")
-                self.logger.info("FULL CONTENT:")
-                self.logger.info(f"{'='*60}{Style.RESET_ALL}")
-                print(details['content']) # Still need print for raw content
-                self.logger.info(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
-            else:
-                self.logger.info(f"{Fore.RED}Please answer 'yes', 'no', or 'view'{Style.RESET_ALL}")

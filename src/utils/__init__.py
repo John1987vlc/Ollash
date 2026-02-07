@@ -10,6 +10,9 @@ from .code_analysis_tools import CodeAnalysisTools
 from .command_line_tools import CommandLineTools
 from .git_operations_tools import GitOperationsTools
 from .planning_tools import PlanningTools
+from .network_tools import NetworkTools           # Added
+from .system_tools import SystemTools             # Added
+from .cybersecurity_tools import CybersecurityTools # Added
 
 __all__ = [
     "FileManager",
@@ -27,5 +30,8 @@ __all__ = [
     "CodeAnalysisTools",
     "CommandLineTools",
     "GitOperationsTools",
-    "PlanningTools"
+    "PlanningTools",
+    "NetworkTools",             # Added
+    "SystemTools",              # Added
+    "CybersecurityTools"        # Added
 ]

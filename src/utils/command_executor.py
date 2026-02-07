@@ -33,8 +33,11 @@ class CommandExecutor:
             "python": ["python", "python3", "pip", "pip3"],
             "node": ["node", "npm", "npx"],
             "git": ["git"],
-            "shell": ["ls", "cat", "echo", "pwd", "cd", "mkdir", "rm", "cp", "mv"],
+            "shell": ["ls", "cat", "echo", "pwd", "cd", "mkdir", "rm", "cp", "mv", "findstr", "grep", "tail", "head", "powershell", "wmic"],
             "build": ["make", "cmake", "cargo", "gradle"],
+            "network": ["ping", "traceroute", "tracert", "netstat", "nmap", "nc", "Test-NetConnection"],
+            "system": ["systeminfo", "tasklist", "ps", "hostnamectl", "lscpu", "free", "sw_vers", "sysctl", "apt-get", "yum", "choco", "brew"],
+            "security": ["hashsum", "md5sum", "sha256sum", "certutil", "openssl", "awk", "find"]
         }
 
     def _is_allowed(self, cmd: str) -> bool:

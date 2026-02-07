@@ -132,6 +132,17 @@ Para ejecutar las pruebas unitarias del proyecto, asegúrate de tener activado t
 pytest
 ```
 
+## Integración Continua (CI)
+
+El proyecto utiliza GitHub Actions para la integración continua. El workflow `ci.yml` se ejecuta automáticamente en cada `push` o `pull_request` a la rama `master`.
+
+### Funcionalidades del CI:
+*   **Instalación de Dependencias:** Configura un entorno Python e instala las dependencias del proyecto (`requirements.txt` y `requirements-dev.txt`).
+*   **Ejecución de Tests Unitarios:** Ejecuta los tests unitarios que no requieren una instancia de Ollama en ejecución (`tests/test_code_agent_integration.py`).
+*   **Exclusión de Tests de Integración:** Los tests que interactúan con una instancia real de Ollama (`tests/test_ollama_integration.py`) son omitidos en el CI, ya que requieren un entorno específico que no está disponible en GitHub Actions.
+
+Puedes ver la configuración del workflow en: `.github/workflows/ci.yml`
+
 ## Configuración
 
 El archivo `config/settings.json` contiene la configuración principal del agente:
