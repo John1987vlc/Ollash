@@ -549,10 +549,59 @@ RULES:
             self.logger.error(f"Failed to generate context summary for {domain_type}: {e}")
             return f"Error generating summary for {domain_type}."
 
+    def _preprocess_instruction(self, instruction: str) -> tuple[str, str]:
+        """
+        Detects the language, translates to English, and refines the instruction.
+        Returns (refined_english_instruction, original_language).
+        """
+        self.logger.info("Refining user instruction...")
+        
+        # Prompt for a quick model (can use the same or a smaller one like tinyllama)
+        refine_prompt = [
+            {"role": "system", "content": "You are a prompt engineer. Translate the user's request to English if it's in another language. Then, expand and clarify the request to be more effective for a coding agent. Return ONLY the refined English text."},
+            {"role": "user", "content": f"Refine this: {instruction}"}
+        ]
+        
+        try:
+            # Use a direct call without tools for speed
+            response, _ = self.ollama.chat(refine_prompt, tools=[])
+            refined_text = response.get("message", {}).get("content", instruction)
+            
+            # Simple language detection (can use libraries like langdetect for more accuracy)
+            # For now, assume if original input has non-English characters, it's the target language.
+            original_lang = "es" if any(ord(c) > 127 for c in instruction) else "en" # Very basic
+            
+            return refined_text, original_lang
+        except Exception as e:
+            self.logger.error(f"Error in pre-processing: {e}")
+            return instruction, "en" # Fallback to original instruction and English
+
+    def _translate_to_user_language(self, text: str, target_lang: str) -> str:
+        """Translates the final response to the user's original language."""
+        if target_lang == "en":
+            return text
+            
+        translation_prompt = [
+            {"role": "system", "content": f"Translate the following technical response to {target_lang}. Maintain code blocks and technical terms as they are."},
+            {"role": "user", "content": text}
+        ]
+        
+        try:
+            response, _ = self.ollama.chat(translation_prompt, tools=[])
+            return response.get("message", {}).get("content", text)
+        except Exception as e:
+            self.logger.error(f"Error in final translation: {e}")
+            return text
+    
 
     def chat(self, instruction: str) -> str:
-        """Main chat loop with enhanced logging and error handling"""
-        self.conversation.append({"role": "user", "content": instruction})
+        # 1. Pre-processing Phase (Input)
+        english_instruction, original_lang = self._preprocess_instruction(instruction)
+        self.logger.info(f"Original Instruction: {instruction}")
+        self.logger.info(f"Refined Instruction (EN): {english_instruction}")
+
+        # Append the refined English instruction to the conversation
+        self.conversation.append({"role": "user", "content": english_instruction})
 
         messages = [
             {"role": "system", "content": self.system_prompt},
@@ -586,10 +635,15 @@ RULES:
                 # Check if final answer
                 if "tool_calls" not in msg:
                     self.logger.api_response(False)
-                    final_response = msg.get("content", "")
-                    self.conversation.append(msg)
+                    final_response_en = msg.get("content", "") # Get final response in English
+                    
+                    # 2. Post-processing Phase (Output)
+                    final_response_translated = self._translate_to_user_language(final_response_en, original_lang)
+                    
+                    # Add original refined English response to internal conversation history
+                    self.conversation.append({"role": "assistant", "content": final_response_en})
                     self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
-                    return final_response
+                    return final_response_translated # Return translated response
 
                 # Process tool calls
                 tool_calls = msg["tool_calls"]
