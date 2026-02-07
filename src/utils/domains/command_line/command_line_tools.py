@@ -1,5 +1,5 @@
 from typing import Any, Optional
-from src.utils.command_executor import CommandExecutor
+from src.utils.core.command_executor import CommandExecutor
 # Assuming AgentLogger will be passed during initialization
 # from src.agents.code_agent import AgentLogger # This will be changed
 

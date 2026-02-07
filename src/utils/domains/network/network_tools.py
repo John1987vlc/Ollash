@@ -2,7 +2,7 @@ from typing import Any # Added
 import platform # To determine OS type for platform-specific commands
 import re       # For regex parsing
 import json     # For structured output
-from src.utils.command_executor import CommandExecutor
+from src.utils.core.command_executor import CommandExecutor
 
 class NetworkTools:
     def __init__(self, command_executor: CommandExecutor, logger: Any):

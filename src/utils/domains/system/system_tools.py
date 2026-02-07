@@ -3,8 +3,8 @@ import re       # For regex parsing
 import json     # For JSON operations. Assuming it's already imported or available.
 # Keep other imports as they are
 from typing import Any, Dict, Optional
-from src.utils.command_executor import CommandExecutor
-from src.utils.file_manager import FileManager
+from src.utils.core.command_executor import CommandExecutor
+from src.utils.core.file_manager import FileManager
 
 class SystemTools:
     def __init__(self, command_executor: CommandExecutor, file_manager: FileManager, logger: Any):

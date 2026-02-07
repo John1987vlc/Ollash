@@ -3,8 +3,8 @@ import difflib
 from pathlib import Path
 from typing import Dict, List, Any
 
-from src.utils.file_manager import FileManager
-from src.utils.tool_interface import ToolExecutor # For confirmation logic
+from src.utils.core.file_manager import FileManager
+from src.utils.core.tool_interface import ToolExecutor
 # Assuming AgentLogger will be passed during initialization
 # from src.agents.code_agent import AgentLogger # This will be changed
 

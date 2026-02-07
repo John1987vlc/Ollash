@@ -5,8 +5,8 @@ from unittest.mock import patch, MagicMock, call # Added call for side_effect
 import time # For potential delays with Ollama
 import logging # For checking logs
 
-from src.agents.code_agent import CodeAgent
-from src.utils.command_executor import SandboxLevel # Assuming this is used for CommandExecutor init
+from src.agents.default_agent import DefaultAgent
+from src.utils.core.command_executor import SandboxLevel
 
 # --- Fixtures ---
 
@@ -40,7 +40,7 @@ def temp_project_root_with_config(tmp_path_factory):
     (prompts_dir / "orchestrator" / "default_orchestrator.json").write_text(json.dumps({
         "prompt": "You are Local IT Agent - Ollash, an AI Orchestrator. Your primary goal is to analyze the user's request and determine the most appropriate domain for the task. Based on the domain, you will use the 'select_agent_type' tool to delegate to a specialized agent. Available domains are: 'code', 'network', 'system', 'cybersecurity'. If the request is ambiguous or requires information from multiple domains, ask for clarification. Prioritize directing the user to the correct specialist. Be concise in your responses."
     }))
-    (prompts_dir / "code" / "default_code_agent.json").write_text(json.dumps({
+    (prompts_dir / "code" / "default_agent.json").write_text(json.dumps({
         "prompt": "You are Local IT Agent - Ollash, a specialized AI Code Agent. Your task is to assist the user with their software development and coding tasks. The orchestrator has already determined this request is code-related. Focus on analyzing, generating, refactoring, and debugging code, managing files, and interacting with version control. Always prioritize user safety and project conventions. If a task requires user confirmation, prompt for it. Respond with clear, concise information in markdown format. Always use relative paths. Importantly, you have access to various general IT tools (network, system, file system, git, security). If any of these tools can directly fulfill the user's request, use it without hesitation. Think step-by-step."
     }))
     (prompts_dir / "network" / "default_network_agent.json").write_text(json.dumps({
@@ -59,7 +59,7 @@ def temp_project_root_with_config(tmp_path_factory):
 def live_ollash_agent(temp_project_root_with_config):
     # This agent will interact with a live Ollama instance
     # Set the project_root to the sandbox directory
-    agent = CodeAgent(project_root=str(temp_project_root_with_config))
+    agent = DefaultAgent(project_root=str(temp_project_root_with_config))
     # Override log_file path for this specific test run, as the agent.log path is relative to project_root
     agent.logger.logger.handlers[0].baseFilename = str(temp_project_root_with_config / "ollash_test.log")
     return agent
@@ -71,7 +71,7 @@ def test_orchestrator_initial_prompt(live_ollash_agent):
     expected_orchestrator_prompt_part = "You are Local IT Agent - Ollash, an AI Orchestrator."
     assert expected_orchestrator_prompt_part in live_ollash_agent.system_prompt
 
-@patch('src.agents.code_agent.OllamaClient.chat') # Patch OllamaClient.chat directly
+@patch('src.agents.default_agent.OllamaClient.chat') # Patch OllamaClient.chat directly
 def test_orchestrator_to_code_switch(mock_ollama_chat, live_ollash_agent):
     initial_prompt = live_ollash_agent.system_prompt
     assert "AI Orchestrator" in initial_prompt
@@ -101,7 +101,7 @@ User: {user_request}""")
 
     print(f"Agent successfully switched to Code context. New prompt starts with: {live_ollash_agent.system_prompt[:80]}...")
     
-@patch('src.agents.code_agent.OllamaClient.chat') # Patch OllamaClient.chat directly
+@patch('src.agents.default_agent.OllamaClient.chat') # Patch OllamaClient.chat directly
 def test_code_agent_pings_localhost(mock_ollama_chat, live_ollash_agent):
     # Mock Ollama's responses to force the agent to switch context and then call ping_host
     mock_ollama_chat.side_effect = [
@@ -152,7 +152,7 @@ def test_code_agent_pings_localhost(mock_ollama_chat, live_ollash_agent):
     assert "Ping to localhost completed successfully. Result: 2 packets sent, 2 received, 0% loss, avg 1ms." in response
 
 
-@patch('src.agents.code_agent.OllamaClient.chat') # Patch OllamaClient.chat directly
+@patch('src.agents.default_agent.OllamaClient.chat') # Patch OllamaClient.chat directly
 def test_system_agent_get_info_placeholder(mock_ollama_chat, live_ollash_agent, caplog):
     mock_ollama_chat.side_effect = [
         # First chat call (orchestrator_request): Orchestrator is asked to switch to system agent

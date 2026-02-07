@@ -1,6 +1,6 @@
 from typing import Dict, List, Any, Optional
 from colorama import Fore, Style
-from src.utils.all_tool_definitions import ALL_TOOLS_DEFINITIONS, get_filtered_tool_definitions # ALL_TOOLS_DEFINITIONS not strictly needed here after filtering logic moved to helper
+from src.utils.core.all_tool_definitions import ALL_TOOLS_DEFINITIONS, get_filtered_tool_definitions
 
 class ToolExecutor:
     MODIFY_ACTIONS = {"write_file", "delete_file", "git_commit", "git_push"}

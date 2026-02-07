@@ -3,8 +3,8 @@ import hashlib
 import platform # To determine OS type for platform-specific commands
 import re       # For regex parsing
 import json     # For JSON operations.
-from src.utils.command_executor import CommandExecutor
-from src.utils.file_manager import FileManager # Added
+from src.utils.core.command_executor import CommandExecutor
+from src.utils.core.file_manager import FileManager
 
 class CybersecurityTools:
     def __init__(self, command_executor: CommandExecutor, file_manager: FileManager, logger: Any):

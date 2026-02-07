@@ -48,7 +48,12 @@ class PlanningTools:
             self.logger.error(f"Invalid agent type: {agent_type}. Must be one of {', '.join(valid_agent_types)}")
             return {"ok": False, "error": f"Invalid agent type: {agent_type}"}
 
-        prompt_file_name = f"default_{agent_type}.json" if agent_type == "orchestrator" else f"default_{agent_type}_agent.json"
+        if agent_type == "orchestrator":
+            prompt_file_name = "default_orchestrator.json"
+        elif agent_type == "code":
+            prompt_file_name = "default_agent.json"
+        else:
+            prompt_file_name = f"default_{agent_type}_agent.json"
         prompt_path = self.project_root / "prompts" / agent_type / prompt_file_name
 
         try:

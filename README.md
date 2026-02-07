@@ -5,20 +5,17 @@ Local IT Agent - Ollash es un asistente basado en el modelo de lenguaje Ollama, 
 
 ## Características Principales
 
-Local IT Agent - Ollash organiza sus funcionalidades en módulos de herramientas especializados para una mayor claridad y mantenibilidad, facilitando su expansión futura a dominios IT más amplios:
+## Nuevas Características
 
-*   **Agente Principal (Core Agent):** Centraliza la lógica de interacción con el modelo de lenguaje (Ollama) y la orquestación de las herramientas. Es el cerebro que decide qué acción tomar.
-*   **Herramientas de Planificación (`PlanningTools`):** Módulo dedicado a la creación y visualización de planes de acción paso a paso, crucial para abordar tareas complejas de forma estructurada.
-*   **Herramientas de Sistema de Archivos (`FileSystemTools`):** Encapsula todas las operaciones relacionadas con el sistema de archivos, incluyendo leer, escribir, borrar, listar directorios, calcular diferencias entre archivos y resumir su contenido.
-*   **Herramientas de Análisis de Código (`CodeAnalysisTools`):** Provee funcionalidades para analizar la estructura del proyecto, identificar dependencias, evaluar la calidad del código y buscar patrones específicos dentro del código fuente. Es fundamental para tareas de desarrollo y depuración.
-*   **Herramientas de Línea de Comandos (`CommandLineTools`):** Permite la ejecución controlada de comandos de shell, correr tests unitarios (utilizando pytest) y validar cambios (ejecutando tests y linters) antes de integrar código. Esto es clave para la automatización de tareas.
-*   **Herramientas de Operaciones Git (`GitOperationsTools`):** Ofrece capacidades para interactuar con repositorios Git, como consultar el estado (status), realizar commits y enviar cambios a repositorios remotos (push).
+*   **Detección de Bucles Inteligente:** El agente ahora incluye un mecanismo de detección de bucles que identifica secuencias de acciones repetitivas que no conducen a progreso. Si se detecta un bucle (actualmente, 3 llamadas idénticas consecutivas a la misma herramienta con los mismos argumentos y resultados), el agente activa una "compuerta humana" (`require_human_gate`) para solicitar intervención del usuario, evitando así ciclos infinitos y el consumo innecesario de recursos. Esta funcionalidad mejora la robustez y la interactividad del agente.
 
-### Herramientas Avanzadas (Advanced Tools)
+*   **Agente Principal (`DefaultAgent`):** Es el agente central que orquesta la interacción con el modelo de lenguaje (Ollama) y delega tareas a agentes especializados. Se encarga de la lógica principal, la detección de bucles y la gestión general de la sesión.
+### Herramientas de Dominio (`src/utils/domains`)
 
-Este conjunto de herramientas extiende las capacidades del agente a dominios más complejos, permitiendo una orquestación y gestión más sofisticadas:
+Este conjunto de herramientas se organiza por dominios, permitiendo que el agente se especialice en diferentes tipos de tareas:
 
-*   **META / ORQUESTACIÓN AVANZADA (`OrchestrationTools`):**
+*   **ORQUESTACIÓN Y PLANIFICACIÓN (`PlanningTools`, `OrchestrationTools`):**
+    *   `PlanningTools`: Módulo dedicado a la creación y visualización de planes de acción paso a paso, crucial para abordar tareas complejas de forma estructurada.
     *   `evaluate_plan_risk`: Evalúa planes de acción detectando riesgos técnicos, de seguridad e impacto.
     *   `detect_user_intent`: Clasifica la intención del usuario (ej. exploración, depuración, cambio en producción).
     *   `require_human_gate`: Marca acciones críticas para requerir aprobación humana explícita.
@@ -26,25 +23,39 @@ Este conjunto de herramientas extiende las capacidades del agente a dominios má
     *   `explain_decision`: Explica las razones detrás de las decisiones del agente y alternativas descartadas.
     *   `validate_environment_expectations`: Verifica si el entorno actual cumple con las expectativas (OS, versión, permisos, red).
     *   `detect_configuration_drift`: Detecta desviaciones en la configuración del sistema respecto a una línea base.
+    *   `evaluate_compliance`: Evalúa configuraciones y prácticas del sistema frente a un estándar de cumplimiento.
+    *   `generate_audit_report`: Genera informes estructurados a partir de resultados de herramientas.
+    *   `propose_governance_policy`: Propone nuevas políticas de gobernanza basadas en brechas de cumplimiento.
 
-*   **CÓDIGO / SOFTWARE ENGINEERING (`AdvancedCodeTools`):**
+*   **CÓDIGO / SOFTWARE ENGINEERING (`FileSystemTools`, `CodeAnalysisTools`, `AdvancedCodeTools`):**
+    *   `FileSystemTools`: Encapsula todas las operaciones relacionadas con el sistema de archivos, incluyendo leer, escribir, borrar, listar directorios, calcular diferencias entre archivos y resumir su contenido.
+    *   `CodeAnalysisTools`: Provee funcionalidades para analizar la estructura del proyecto, identificar dependencias, evaluar la calidad del código y buscar patrones específicos dentro del código fuente. Es fundamental para tareas de desarrollo y depuración.
     *   `detect_code_smells`: Analiza el código en busca de "malos olores" (ej. funciones largas, duplicación).
     *   `suggest_refactor`: Propone refactorizaciones concretas, indicando beneficios y riesgos.
     *   `map_code_dependencies`: Construye un mapa lógico de dependencias entre módulos o paquetes.
     *   `compare_configs`: Compara archivos de configuración y detecta diferencias semánticas.
 
-*   **SISTEMA / OPERACIONES (`AdvancedSystemTools`):**
+*   **LÍNEA DE COMANDOS (`CommandLineTools`):**
+    *   `CommandLineTools`: Permite la ejecución controlada de comandos de shell, correr tests unitarios (utilizando pytest) y validar cambios (ejecutando tests y linters) antes de integrar código. Esto es clave para la automatización de tareas.
+
+*   **OPERACIONES GIT (`GitOperationsTools`):**
+    *   `GitOperationsTools`: Ofrece capacidades para interactuar con repositorios Git, como consultar el estado (status), realizar commits y enviar cambios a repositorios remotos (push).
+
+*   **RED / INFRA (`NetworkTools`, `AdvancedNetworkTools`):**
+    *   `NetworkTools`: Herramientas básicas para diagnósticos de red como ping y traceroute.
+    *   `analyze_network_latency`: Correlaciona latencia, pérdida de paquetes y rutas de red.
+    *   `detect_unexpected_services`: Detecta servicios escuchando en puertos no esperados.
+    *   `map_internal_network`: Descubre hosts, roles probables y relaciones en la red local.
+
+*   **SISTEMA / OPERACIONES (`SystemTools`, `AdvancedSystemTools`):**
+    *   `SystemTools`: Herramientas para obtener información del sistema, listar procesos, instalar paquetes, y leer archivos de log.
     *   `check_disk_health`: Analiza el uso del disco, inodos, crecimiento anómalo y directorios sospechosos.
     *   `monitor_resource_spikes`: Detecta picos en CPU, RAM o I/O y los correlaciona con procesos.
     *   `analyze_startup_services`: Lista servicios de inicio y evalúa su necesidad.
     *   `rollback_last_change`: Revierte el último cambio conocido (git, config, paquete) de forma controlada.
 
-*   **NETWORK / INFRA (`AdvancedNetworkTools`):**
-    *   `analyze_network_latency`: Correlaciona latencia, pérdida de paquetes y rutas de red.
-    *   `detect_unexpected_services`: Detecta servicios escuchando en puertos no esperados.
-    *   `map_internal_network`: Descubre hosts, roles probables y relaciones en la red local.
-
-*   **CIBERSEGURIDAD (`AdvancedCybersecurityTools`):**
+*   **CIBERSEGURIDAD (`CybersecurityTools`, `AdvancedCybersecurityTools`):**
+    *   `CybersecurityTools`: Herramientas para escanear puertos, verificar hashes de archivos, analizar logs de seguridad y recomendar hardening.
     *   `assess_attack_surface`: Evalúa la superficie de ataque combinando puertos, servicios, usuarios y configuraciones.
     *   `detect_ioc`: Busca Indicadores de Compromiso (IOCs) en logs, procesos y archivos.
     *   `analyze_permissions`: Audita permisos de archivos, usuarios y servicios en busca de excesos.
@@ -55,14 +66,15 @@ Este conjunto de herramientas extiende las capacidades del agente a dominios má
     *   `generate_creative_content`: Genera contenido de texto creativo basado en un prompt y estilo.
     *   `translate_text`: Traduce texto de un idioma a otro.
 
-*   **Utilidades Comunes (Base Utilities):** Incluyen módulos fundamentales que soportan a las herramientas especializadas:
-    *   `FileManager`: Gestión básica de archivos y directorios.
-    *   `CommandExecutor`: Ejecución segura y controlada de comandos externos, con niveles de sandboxing.
-    *   `CodeAnalyzer`: Análisis estático de código para extraer información clave.
-    *   `GitManager`: Funcionalidades básicas para interactuar con Git a bajo nivel.
+*   **Utilidades del Core (`src/utils/core`):** Módulos fundamentales que soportan a las herramientas especializadas y la lógica del agente.
     *   `AgentLogger`: Sistema de logging mejorado con salida a consola coloreada y archivos.
     *   `TokenTracker`: Monitoreo del consumo de tokens en las interacciones con el LLM.
+    *   `FileManager`: Gestión básica de archivos y directorios.
+    *   `CommandExecutor`: Ejecución segura y controlada de comandos externos, con niveles de sandboxing.
+    *   `GitManager`: Funcionalidades básicas para interactuar con Git a bajo nivel.
+    *   `CodeAnalyzer`: Análisis estático de código para extraer información clave.
     *   `ToolExecutor`: Abstracción para la gestión y ejecución de herramientas, incluyendo la lógica de confirmación del usuario.
+    *   `all_tool_definitions`: Definiciones de todas las herramientas disponibles para el agente.
 
 ## Tecnologías Utilizadas
 
@@ -83,40 +95,29 @@ local-it-agent-ollash/
 ├── logs/                    # Archivos de registro de la ejecución del agente
 ├── scripts/                 # Scripts de inicio rápido (ej. .bat, .ps1)
 ├── src/                     # Código fuente principal
-│   ├── agents/              # Implementación del agente principal (CodeAgent)
-│   │   └── code_agent.py
+│   ├── agents/              # Implementación del agente principal (DefaultAgent)
+│   │   └── default_agent.py
 │   ├── cli/                 # Interfaz de línea de comandos
 │   │   └── asistente_ollama.py
-│   ├── core/                # Lógica central del asistente
-│   │   ├── asistente_avanzado_v2.py
-│   │   └── asistente_avanzado.py
 │   └── utils/               # Utilidades comunes y módulos de herramientas especializados
-│       ├── __init__.py
-│       ├── advanced_code_tools.py      # Nuevas herramientas avanzadas de Código
-│       ├── advanced_cybersecurity_tools.py # Nuevas herramientas avanzadas de Ciberseguridad
-│       ├── advanced_network_tools.py   # Nuevas herramientas avanzadas de Red
-│       ├── advanced_system_tools.py    # Nuevas herramientas avanzadas de Sistema
-│       ├── bonus_tools.py              # Nuevas herramientas Bonus
-│       ├── agent_logger.py
-│       ├── code_analyzer.py
-│       ├── code_analysis_tools.py
-│       ├── command_executor.py
-│       ├── command_line_tools.py
-│       ├── file_manager.py
-│       ├── file_system_tools.py
-│       ├── git_manager.py
-│       ├── git_operations_tools.py
-│       ├── orchestration_tools.py      # Nuevas herramientas avanzadas de Orquestación (META)
-│       ├── planning_tools.py
-│       ├── token_tracker.py
-│       └── tool_interface.py
+│       ├── core/            # Módulos centrales y genéricos (FileManager, CommandExecutor, etc.)
+│       └── domains/         # Módulos de herramientas especializados por dominio
+│           ├── bonus/
+│           ├── code/
+│           ├── command_line/
+│           ├── cybersecurity/
+│           ├── git/
+│           ├── network/
+│           ├── orchestration/
+│           ├── planning/
+│           └── system/
 ├── tests/                   # Pruebas unitarias
 ├── venv/                    # Entorno virtual de Python
 ├── .agent_memory.json       # Memoria del agente
 ├── GEMINI.md                # Documentación para el agente Gemini
 ├── pyproject.toml           # Configuración del proyecto y dependencias (PEP 518)
 ├── pytest.ini               # Configuración de Pytest
-├── README.md                # Este archivo (¡ahora actualizado!)
+├── README.md                # Este archivo
 ├── requirements-dev.txt     # Dependencias de desarrollo
 ├── requirements.txt         # Dependencias del proyecto
 └── run_agent.py             # Punto de entrada principal para ejecutar el agente
@@ -179,6 +180,16 @@ Para ejecutar las pruebas unitarias del proyecto, asegúrate de tener activado t
 ```bash
 pytest
 ```
+Hemos añadido 20 nuevos casos de prueba (`tests/test_new_user_cases.py`) para evaluar el comportamiento del agente en diversas situaciones, incluyendo la detección de cuellos de botella y la robustez de la lógica de orquestación. Para estos tests, se recomienda el uso de un modelo más pequeño y eficiente como `llama3.2:latest`.
+
+Puedes ejecutar los tests de integración con el modelo `llama3.2:latest` usando:
+
+```bash
+ollama pull llama3.2:latest
+python run_agent.py --model llama3.2:latest --chat
+# Then interact with the agent or run specific integration tests.
+```
+
 
 ## Integración Continua (CI)
 
@@ -199,7 +210,7 @@ El archivo `config/settings.json` contiene la configuración principal del agent
 {
   "model": "qwen3-coder-next",
   "ollama_url": "http://localhost:11434",
-  "system_prompt": "You are Local IT Agent - Ollash, an AI Code Agent. Your goal is to assist the user with their software development tasks and potentially broader IT operations (systems, networks, cybersecurity). Always aim to fulfill the user's request directly and efficiently. If the user asks you to CREATE or MODIFY a file (e.g., 'create an HTML file', 'add a function to a Python file'), your FIRST priority is to use the 'write_file' tool with the complete content. Do NOT use 'list_directory' or 'read_file' repeatedly if the objective is already clear. Use information gathering tools (like 'list_directory', 'read_file', 'search_code', 'analyze_project') ONLY if you genuinely need more context to understand the request, or if the user explicitly asks for information. Avoid repetitive actions or getting stuck in loops. After executing a tool, evaluate its output and determine the next logical step towards fulfilling the user's goal. For actions that modify the project, you will need user confirmation. Respond with clear, concise information in markdown format. Always use relative paths. Think step-by-step.",
+  "system_prompt": "You are Local IT Agent - Ollash, an AI Orchestrator. Your primary goal is to analyze the user's request and determine the most appropriate domain for the task. Based on the domain, you will use the 'select_agent_type' tool to delegate to a specialized agent. Available domains are: 'code', 'network', 'system', 'cybersecurity'. Use the `detect_user_intent` tool to understand the user's goal. If `detect_user_intent` returns an 'exploration' intent with low confidence, or if the request is ambiguous, *you must ask for clarification* from the user or suggest available tools (e.g., 'What exactly do you want to explore?', 'Do you want to check system info, network status, or analyze code?'). Prioritize directing the user to the correct specialist. Be concise in your responses.",
   "max_tokens": 4096,
   "temperature": 0.5,
   "history_limit": 20,

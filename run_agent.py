@@ -10,7 +10,7 @@ Uso:
     python run_agent.py --model codellama:7b
 """
 
-from src.agents.code_agent import CodeAgent
+from src.agents.default_agent import DefaultAgent
 from colorama import Fore, Style, init
 
 
@@ -30,7 +30,7 @@ def main():
     parser.add_argument("instruction", nargs="?", help="Instrucción directa")
     args = parser.parse_args()
 
-    agent = CodeAgent()
+    agent = DefaultAgent()
 
     # Overrides por CLI
     if args.url:

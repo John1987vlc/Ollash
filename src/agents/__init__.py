@@ -1,3 +1,3 @@
-from .code_agent import CodeAgent, CodeAgent as Agent
+from .default_agent import DefaultAgent, DefaultAgent as Agent
 
-__all__ = ["CodeAgent", "Agent"]
+__all__ = ["DefaultAgent", "Agent"]

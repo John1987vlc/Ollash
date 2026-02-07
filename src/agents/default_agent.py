@@ -1,34 +1,36 @@
+import hashlib
 import json
 import requests
 import traceback # Added
+import hashlib
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-from src.utils.agent_logger import AgentLogger
-from src.utils.token_tracker import TokenTracker
-from src.utils.file_manager import FileManager
-from src.utils.command_executor import CommandExecutor, SandboxLevel
-from src.utils.git_manager import GitManager
-from src.utils.code_analyzer import CodeAnalyzer
+from src.utils.core.agent_logger import AgentLogger
+from src.utils.core.token_tracker import TokenTracker
+from src.utils.core.file_manager import FileManager
+from src.utils.core.command_executor import CommandExecutor, SandboxLevel
+from src.utils.core.git_manager import GitManager
+from src.utils.core.code_analyzer import CodeAnalyzer
 
 # Tool implementations
-from src.utils.tool_interface import ToolExecutor
-from src.utils.file_system_tools import FileSystemTools
-from src.utils.code_analysis_tools import CodeAnalysisTools
-from src.utils.command_line_tools import CommandLineTools
-from src.utils.git_operations_tools import GitOperationsTools
-from src.utils.planning_tools import PlanningTools
-from src.utils.network_tools import NetworkTools
-from src.utils.system_tools import SystemTools
-from src.utils.cybersecurity_tools import CybersecurityTools
+from src.utils.core.tool_interface import ToolExecutor
+from src.utils.domains.code.file_system_tools import FileSystemTools
+from src.utils.domains.code.code_analysis_tools import CodeAnalysisTools
+from src.utils.domains.command_line.command_line_tools import CommandLineTools
+from src.utils.domains.git.git_operations_tools import GitOperationsTools
+from src.utils.domains.planning.planning_tools import PlanningTools
+from src.utils.domains.network.network_tools import NetworkTools
+from src.utils.domains.system.system_tools import SystemTools
+from src.utils.domains.cybersecurity.cybersecurity_tools import CybersecurityTools
 # New advanced toolsets
-from src.utils.orchestration_tools import OrchestrationTools
-from src.utils.advanced_code_tools import AdvancedCodeTools
-from src.utils.advanced_system_tools import AdvancedSystemTools
-from src.utils.advanced_network_tools import AdvancedNetworkTools
-from src.utils.advanced_cybersecurity_tools import AdvancedCybersecurityTools
-from src.utils.bonus_tools import BonusTools
-from src.utils.all_tool_definitions import get_filtered_tool_definitions # Added
+from src.utils.domains.orchestration.orchestration_tools import OrchestrationTools
+from src.utils.domains.code.advanced_code_tools import AdvancedCodeTools
+from src.utils.domains.system.advanced_system_tools import AdvancedSystemTools
+from src.utils.domains.network.advanced_network_tools import AdvancedNetworkTools
+from src.utils.domains.cybersecurity.advanced_cybersecurity_tools import AdvancedCybersecurityTools
+from src.utils.domains.bonus.bonus_tools import BonusTools
+from src.utils.core.all_tool_definitions import get_filtered_tool_definitions # Added
 
 # Initialize colorama (needed for print statements in some tool methods)
 from colorama import init, Fore, Style
@@ -141,11 +143,13 @@ class OllamaClient:
 # CODE AGENT (ENHANCED & FIXED)
 # ======================================================
 
-class CodeAgent:
+class DefaultAgent:
     def __init__(self, project_root: str | None = None):
         self.project_root = Path(project_root or Path.cwd())
         self.conversation: List[Dict] = []
         self._current_plan: Optional[Dict] = None # Keeping it here for now as discussed for reporting.
+        self.loop_detection_history: List[Dict] = [] # Stores recent tool calls and results for loop detection
+        self.loop_detection_threshold: int = 3 # Number of consecutive identical actions to detect a loop
 
         # ---------------- LOGGING
         self.logger = AgentLogger(
@@ -170,7 +174,7 @@ class CodeAgent:
         # Load system prompt from file
         default_prompt_path = self.config.get(
             "default_system_prompt_path",
-            "prompts/code/default_code_agent.json" # Default path if not specified
+            "prompts/code/default_agent.json" # Default path if not specified
         )
         try:
             full_prompt_path = self.project_root / default_prompt_path
@@ -386,11 +390,13 @@ RULES:
         # Mapping of agent types to their relevant tool names
         self._agent_tool_name_mappings = {
             "orchestrator": [
-                "plan_actions", "select_agent_type", "evaluate_plan_risk", "detect_user_intent",
-                "require_human_gate", "summarize_session_state", "explain_decision",
+                "plan_actions", "select_agent_type",
+                "evaluate_plan_risk", "detect_user_intent", "require_human_gate",
+                "summarize_session_state", "explain_decision",
                 "validate_environment_expectations", "detect_configuration_drift",
                 "evaluate_compliance", "generate_audit_report", "propose_governance_policy",
-                "estimate_change_blast_radius", "generate_runbook"
+                "estimate_change_blast_radius", "generate_runbook",
+                "analyze_sentiment", "generate_creative_content", "translate_text"
             ],
             "code": [
                 "plan_actions", "analyze_project", "read_file", "read_files",
@@ -420,6 +426,24 @@ RULES:
         self.active_agent_type = "orchestrator"
         self.active_tool_names = self._agent_tool_name_mappings[self.active_agent_type]
         self.tool_functions = {name: self._all_tool_instances[name] for name in self.active_tool_names}
+
+    def _detect_loop(self) -> bool:
+        """
+        Detects if the agent is stuck in a loop by checking for repeated actions.
+        A loop is detected if the last `loop_detection_threshold` actions are identical.
+        """
+        history_length = len(self.loop_detection_history)
+        if history_length < self.loop_detection_threshold:
+            return False
+
+        # Check if the last 'loop_detection_threshold' entries are identical
+        last_actions = self.loop_detection_history[history_length - self.loop_detection_threshold:]
+        
+        # All elements in last_actions must be identical to be a loop
+        if all(action == last_actions[0] for action in last_actions):
+            self.logger.warning(f"{Fore.RED}⚠️ Loop detected! The agent has performed the same action {self.loop_detection_threshold} times consecutively.{Style.RESET_ALL}")
+            return True
+        return False
 
 
     def chat(self, instruction: str) -> str:
@@ -490,6 +514,29 @@ RULES:
                         else:
                             # Execute tool
                             result = self.tool_functions[name](**args)
+                            
+                            # --- Loop Detection Logic ---
+                            # Only add successful tool results to history for loop detection
+                            if result.get("ok", True): # Assume ok if not specified
+                                args_hash = hashlib.sha256(json.dumps(args, sort_keys=True).encode('utf-8')).hexdigest()
+                                result_hash = hashlib.sha256(json.dumps(result, sort_keys=True).encode('utf-8')).hexdigest()
+                                
+                                self.loop_detection_history.append({
+                                    "tool_name": name,
+                                    "args_hash": args_hash,
+                                    "result_hash": result_hash
+                                })
+                                
+                                if self._detect_loop():
+                                    loop_message = f"Detected a loop! The agent is repeatedly calling '{name}' with similar arguments/results. Human intervention required."
+                                    self.logger.error(loop_message)
+                                    # Trigger human gate
+                                    return self.orchestration_tools.require_human_gate(
+                                        action_description=loop_message,
+                                        reason="Loop detected, agent is stuck in a repetitive action sequence."
+                                    )
+                            # --- End Loop Detection Logic ---
+
                             if name == "plan_actions" and result.get("ok"):
                                 self._current_plan = result.get("plan_data") # Store the plan data
                             elif name == "select_agent_type" and result.get("ok"):
@@ -614,7 +661,7 @@ RULES:
 
 if __name__ == "__main__":
     try:
-        agent = CodeAgent()
+        agent = DefaultAgent()
         agent.chat_mode()
     except Exception as e:
         print(f"{Fore.RED}❌ Fatal error: {e}{Style.RESET_ALL}")

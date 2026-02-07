@@ -5,15 +5,15 @@ import json
 import os
 from colorama import Fore, Style # Added import
 
-from src.agents.code_agent import CodeAgent
-from src.utils.command_executor import ExecutionResult, SandboxLevel
-from src.utils.agent_logger import AgentLogger # Added import for AgentLogger
+from src.agents.default_agent import DefaultAgent
+from src.utils.core.command_executor import ExecutionResult, SandboxLevel
+from src.utils.core.agent_logger import AgentLogger
 
 
 # Mock external dependencies for isolated testing
 @pytest.fixture
 def mock_ollama_client():
-    with patch('src.agents.code_agent.OllamaClient') as MockClient:
+    with patch('src.agents.default_agent.OllamaClient') as MockClient:
         instance = MockClient.return_value
         instance.chat.return_value = (
             {"message": {"content": "Mocked response"}},
@@ -39,7 +39,7 @@ def temp_project_root(tmp_path):
 
 @pytest.fixture
 def code_agent(temp_project_root, mock_ollama_client):
-    agent = CodeAgent(project_root=str(temp_project_root))
+    agent = DefaultAgent(project_root=str(temp_project_root))
     # Replace the actual OllamaClient with the mock
     agent.ollama = mock_ollama_client
     return agent
@@ -64,7 +64,8 @@ def test_code_agent_initialization(code_agent, temp_project_root):
         "require_human_gate", "summarize_session_state", "explain_decision",
         "validate_environment_expectations", "detect_configuration_drift",
         "evaluate_compliance", "generate_audit_report", "propose_governance_policy",
-        "estimate_change_blast_radius", "generate_runbook"
+        "estimate_change_blast_radius", "generate_runbook",
+        "analyze_sentiment", "generate_creative_content", "translate_text"
     }
     assert set(code_agent.tool_functions.keys()) == expected_orchestrator_tools
     assert code_agent.active_agent_type == "orchestrator"
@@ -97,7 +98,7 @@ def test_list_directory_tool(code_agent, temp_project_root):
     # Create a dummy prompts/code/default_code_agent.json
     code_prompt_dir = temp_project_root / "prompts" / "code"
     code_prompt_dir.mkdir(parents=True, exist_ok=True)
-    (code_prompt_dir / "default_code_agent.json").write_text(json.dumps({
+    (code_prompt_dir / "default_agent.json").write_text(json.dumps({
         "prompt": "You are a code agent. Your tools are file system and code analysis.",
         "tools": ["plan_actions", "analyze_project", "read_file", "read_files", "write_file", "delete_file", "file_diff", "summarize_file", "summarize_files", "search_code", "run_command", "run_tests", "validate_change", "git_status", "git_commit", "git_push", "list_directory", "select_agent_type"]
     }))
@@ -139,7 +140,7 @@ def test_read_file_tool(code_agent, temp_project_root):
     # Create a dummy prompts/code/default_code_agent.json
     code_prompt_dir = temp_project_root / "prompts" / "code"
     code_prompt_dir.mkdir(parents=True, exist_ok=True)
-    (code_prompt_dir / "default_code_agent.json").write_text(json.dumps({
+    (code_prompt_dir / "default_agent.json").write_text(json.dumps({
         "prompt": "You are a code agent. Your tools are file system and code analysis.",
         "tools": ["plan_actions", "analyze_project", "read_file", "read_files", "write_file", "delete_file", "file_diff", "summarize_file", "summarize_files", "search_code", "run_command", "run_tests", "validate_change", "git_status", "git_commit", "git_push", "list_directory", "select_agent_type"]
     }))
@@ -179,7 +180,7 @@ def test_write_file_tool_confirmation_yes(mock_input, code_agent, temp_project_r
     # Mock system prompt loading for 'code' agent
     code_prompt_dir = temp_project_root / "prompts" / "code"
     code_prompt_dir.mkdir(parents=True, exist_ok=True)
-    (code_prompt_dir / "default_code_agent.json").write_text(json.dumps({
+    (code_prompt_dir / "default_agent.json").write_text(json.dumps({
         "prompt": "You are a code agent. Your tools are file system and code analysis.",
         "tools": ["plan_actions", "analyze_project", "read_file", "read_files", "write_file", "delete_file", "file_diff", "summarize_file", "summarize_files", "search_code", "run_command", "run_tests", "validate_change", "git_status", "git_commit", "git_push", "list_directory", "select_agent_type"]
     }))
@@ -276,7 +277,7 @@ def test_write_file_tool_confirmation_no(mock_input, code_agent, temp_project_ro
     code_prompt_dir.mkdir(parents=True, exist_ok=True)
 
 
-    (code_prompt_dir / "default_code_agent.json").write_text(json.dumps({
+    (code_prompt_dir / "default_agent.json").write_text(json.dumps({
 
 
         "prompt": "You are a code agent. Your tools are file system and code analysis.",
