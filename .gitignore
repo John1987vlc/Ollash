@@ -50,3 +50,4 @@ package-lock.json
 agent.log
 *.tmp
 *.bak
+benchmark_results_*.json
