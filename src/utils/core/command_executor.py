@@ -27,91 +27,46 @@ class ExecutionResult:
 class CommandExecutor:
     """Ejecuta comandos de forma controlada."""
 
-    def __init__(self, working_dir: str = None, sandbox: SandboxLevel = SandboxLevel.NONE, logger: Any = None):
+    def __init__(self, working_dir: str = None, sandbox: SandboxLevel = SandboxLevel.NONE, logger: Any = None, policy_manager: Any = None):
         self.working_dir = working_dir or os.getcwd()
         self.sandbox = sandbox
         self.logger = logger # Store logger instance
-
-        self.whitelist = {
-            "python": ["python", "python3", "pip", "pip3"],
-            "node": ["node", "npm", "npx"],
-            "git": ["git"],
-            "shell": ["ls", "cat", "echo", "pwd", "cd", "mkdir", "rm", "cp", "mv", "findstr", "grep", "tail", "head", "powershell", "wmic"],
-            "build": ["make", "cmake", "cargo", "gradle"],
-            "network": ["ping", "traceroute", "tracert", "netstat", "nmap", "nc", "Test-NetConnection"],
-            "system": ["systeminfo", "tasklist", "ps", "hostnamectl", "lscpu", "free", "sw_vers", "sysctl", "apt-get", "yum", "choco", "brew"],
-            "security": ["hashsum", "md5sum", "sha256sum", "certutil", "openssl", "awk", "find"]
-        }
+        self.policy_manager = policy_manager # Store policy_manager instance
 
     def _is_allowed(self, command: str | List[str]) -> bool:
-        """Verifica si el comando está permitido y sanitiza argumentos."""
+        """Verifica si el comando está permitido y sanitiza argumentos usando PolicyManager."""
         if self.sandbox == SandboxLevel.NONE:
             return True
 
+        if not self.policy_manager:
+            if self.logger: self.logger.error("CommandExecutor is in sandboxed mode but no PolicyManager is configured. Denying all commands for safety.")
+            return False # Always deny if in sandbox and no policy manager
+
+        cmd_string = command if isinstance(command, str) else shlex.join(command)
+        
+        # Extract base command and args for PolicyManager
+        base_cmd: str
+        args: List[str]
+        
         if isinstance(command, str):
-            try:
-                # Handle Windows-specific commands (like powershell) that might not be shlex-friendly
-                if os.name == 'nt' and command.strip().startswith("powershell"):
-                    # For PowerShell commands, we allow the full string to pass if 'powershell' is whitelisted
-                    # but we must still check for malicious content within the argument string
-                    parts = [command.split(" ")[0]] # "powershell"
-                    # The rest of the string is the argument to powershell -command
-                    powershell_arg = " ".join(command.split(" ")[1:])
-                    # Basic check for common injection points within the powershell argument
-                    if any(c in powershell_arg for c in [';', '&', '|', '`', '$(']):
-                        if self.logger: self.logger.warning(f"Rejected PowerShell command due to potential injection in argument: {command}")
-                        return False
-                    # A more thorough approach would involve parsing PowerShell AST, which is complex.
-                    # This basic check limits obvious injections.
-                else:
+            if os.name == 'nt' and command.strip().lower().startswith("powershell"):
+                # For PowerShell, the entire command string is the 'command', subsequent parts are args to it
+                base_cmd = command.split(" ")[0].lower()
+                args = shlex.split(command)[1:] # For argument checks, shlex.split is safer
+            else:
+                try:
                     parts = shlex.split(command)
-            except ValueError as e:
-                if self.logger: self.logger.warning(f"Error parsing command with shlex: {e}. Command: '{command}'")
-                return False
-        else:
-            parts = command # Already a list
-
-        if not parts:
-            return False
-
-        base_cmd = parts[0].lower() # Normalize for comparison
-
-        # 1. Check if base command is whitelisted
-        found_in_whitelist = False
-        for group_cmds in self.whitelist.values():
-            if base_cmd in group_cmds:
-                found_in_whitelist = True
-                break
-        if not found_in_whitelist:
-            if self.logger: self.logger.warning(f"Command '{base_cmd}' not in whitelist. Full command: '{' '.join(parts)}'")
-            return False
-
-        # 2. Check arguments for dangerous metacharacters and path traversals (for LIMITED sandbox)
-        if self.sandbox == SandboxLevel.LIMITED:
-            for arg in parts[1:]: # Iterate through arguments
-                if any(c in arg for c in [';', '&', '||', '&&', '`', '$(', '|', '>', '<', '*']):
-                    # Allow specific cases like `git log --graph` which has `*` or `grep -E 'a|b'`
-                    # This needs to be refined per command context. For now, strict.
-                    if self.logger: self.logger.warning(f"Rejected command due to dangerous metacharacter '{arg}' in argument. Full command: '{' '.join(parts)}'")
+                    base_cmd = parts[0].lower()
+                    args = parts[1:]
+                except ValueError as e:
+                    if self.logger: self.logger.warning(f"Error parsing command with shlex: {e}. Command: '{command}'")
                     return False
-                
-                # Path validation: prevent path traversal and absolute paths outside working_dir
-                # Apply only to arguments that look like paths and for commands that typically take paths
-                if base_cmd in ['ls', 'cat', 'rm', 'cp', 'mv', 'grep', 'find', 'mkdir', 'powershell', 'wmic']:
-                    if os.path.isabs(arg): # Disallow absolute paths by default in LIMITED sandbox
-                        if self.logger: self.logger.warning(f"Rejected command due to absolute path '{arg}'. Full command: '{' '.join(parts)}'")
-                        return False
-                    
-                    # Resolve path to check if it's within the working directory
-                    try:
-                        resolved_path = (Path(self.working_dir) / arg).resolve()
-                        if not str(resolved_path).startswith(str(Path(self.working_dir).resolve())):
-                            if self.logger: self.logger.warning(f"Rejected command due to path traversal '{arg}'. Resolved: '{resolved_path}'. Full command: '{' '.join(parts)}'")
-                            return False
-                    except Exception as path_err:
-                        if self.logger: self.logger.warning(f"Error resolving path '{arg}': {path_err}. Full command: '{' '.join(parts)}'")
-                        return False
-        return True
+        else: # command is already a list
+            base_cmd = command[0].lower()
+            args = command[1:]
+
+        return self.policy_manager.is_command_allowed(base_cmd, args)
+
 
     def execute(self, command: str | List[str], timeout: int = 60) -> ExecutionResult:
         """

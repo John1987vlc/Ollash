@@ -17,6 +17,7 @@ from src.utils.core.git_manager import GitManager
 from src.utils.core.code_analyzer import CodeAnalyzer
 from src.utils.core.ollama_client import OllamaClient # Added
 from src.utils.core.memory_manager import MemoryManager # Added
+from src.utils.core.policy_manager import PolicyManager # Added
 
 # Tool implementations
 from src.utils.core.tool_interface import ToolExecutor
