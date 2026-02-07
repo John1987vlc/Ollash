@@ -1,0 +1,5 @@
+[
+    "Analiza la estructura del proyecto y resume su propósito principal.",
+    "Lee el archivo README.md y extrae los pasos de instalación.",
+    "Revisa el archivo src/agents/default_agent.py y explica cómo funciona la detección de bucles."
+]
