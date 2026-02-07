@@ -27,27 +27,27 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "analyze_project",
-            "description": "Analyze the entire project structure, dependencies, and get a comprehensive overview. Use this to understand the project before making changes.",
+            "name": "select_agent_type",
+            "description": "Switches the agent's active persona and toolset to a specialized domain (e.g., 'code', 'system', 'network', 'cybersecurity', 'orchestrator'). This is a meta-tool for agent self-modification.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "focus": {
-                        "type": "string",
-                        "description": "Optional focus area: 'structure', 'dependencies', 'code_quality', 'all'"
-                    },
-                    "write_md": {
-                        "type": "boolean",
-                        "description": "Whether to write the analysis to a Markdown file. Default is false."
-                    },
-                    "force_md": {
-                        "type": "boolean",
-                        "description": "If write_md is true, force writing the Markdown file even if it exists. Default is false."
-                    },
-                    "md_name": {
-                        "type": "string",
-                        "description": "The name of the Markdown file to write (e.g., 'PROJECT_ANALYSIS.md')."
-                    }
+                    "agent_type": {"type": "string", "enum": ["orchestrator", "code", "network", "system", "cybersecurity", "bonus"], "description": "The type of specialized agent to switch to."},
+                    "reason": {"type": "string", "description": "Explanation for why the agent type switch is necessary."}
+                },
+                "required": ["agent_type", "reason"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_project",
+            "description": "Analyzes the entire project structure, dependencies, and code patterns to provide a comprehensive overview. Use this for gaining a broad understanding of the codebase.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Optional: The path to the project root or sub-directory to analyze. Defaults to current project root."}
                 }
             }
         }
@@ -55,40 +55,14 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "read_files",
-            "description": "Read multiple files at once. More efficient than calling read_file multiple times.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "files": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "path": {"type": "string"},
-                                "offset": {"type": "integer"},
-                                "limit": {"type": "integer"}
-                            },
-                            "required": ["path"]
-                        },
-                        "description": "List of files to read with optional pagination"
-                    }
-                },
-                "required": ["files"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "read_file",
-            "description": "Read a single file with pagination. Use read_files for multiple files.",
+            "description": "Reads the content of a specified file. Can read specific line ranges for large files.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string"},
-                    "offset": {"type": "integer"},
-                    "limit": {"type": "integer"}
+                    "path": {"type": "string", "description": "The path to the file to read."},
+                    "start_line": {"type": "integer", "description": "Optional: Starting line number (1-based) to read."},
+                    "end_line": {"type": "integer", "description": "Optional: Ending line number (1-based) to read."}
                 },
                 "required": ["path"]
             }
@@ -97,61 +71,15 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "write_file",
-            "description": "Write full content to a file. REQUIRES USER CONFIRMATION.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "content": {"type": "string"},
-                    "reason": {"type": "string", "description": "Why this file is being written"}
-                },
-                "required": ["path", "content", "reason"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "delete_file",
-            "description": "Delete a file. REQUIRES USER CONFIRMATION.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "reason": {"type": "string", "description": "Why this file is being deleted"}
-                },
-                "required": ["path", "reason"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "file_diff",
-            "description": "Show diff before writing a file.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "new_content": {"type": "string"}
-                },
-                "required": ["path", "new_content"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "summarize_files",
-            "description": "Summarize multiple files at once. More efficient than multiple calls.",
+            "name": "read_files",
+            "description": "Reads the content of multiple specified files. Use this for reading several files efficiently.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "paths": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of file paths to summarize"
+                        "description": "A list of paths to the files to read."
                     }
                 },
                 "required": ["paths"]
@@ -161,12 +89,59 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "summarize_file",
-            "description": "Summarize a single file structure. Use summarize_files for multiple files.",
+            "name": "write_file",
+            "description": "Writes content to a specified file. Requires user confirmation if it modifies an existing file.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string"}
+                    "path": {"type": "string", "description": "The path to the file to write."},
+                    "content": {"type": "string", "description": "The content to write to the file."},
+                    "reason": {"type": "string", "description": "The reason for writing this file, for user confirmation."}
+                },
+                "required": ["path", "content", "reason"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_file",
+            "description": "Deletes a specified file. Requires user confirmation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "The path to the file to delete."},
+                    "reason": {"type": "string", "description": "The reason for deleting this file, for user confirmation."}
+                },
+                "required": ["path", "reason"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "file_diff",
+            "description": "Compares two files or a file with provided content and returns the differences.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path1": {"type": "string", "description": "Path to the first file."},
+                    "path2": {"type": "string", "description": "Optional: Path to the second file. If not provided, compares path1 with inline_content."},
+                    "inline_content": {"type": "string", "description": "Optional: Content to compare with path1 if path2 is not provided."}
+                },
+                "required": ["path1"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "summarize_file",
+            "description": "Summarizes the content of a single file. Useful for getting a high-level understanding.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "The path to the file to summarize."}
                 },
                 "required": ["path"]
             }
@@ -175,16 +150,34 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "search_code",
-            "description": "Search code using grep.",
+            "name": "summarize_files",
+            "description": "Summarizes the content of multiple files. Useful for getting a high-level understanding of several files.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string"},
-                    "pattern": {"type": "string"},
-                    "max_results": {"type": "integer", "description": "Maximum results to return"}
+                    "paths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of paths to the files to summarize."
+                    }
                 },
-                "required": ["query"]
+                "required": ["paths"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_code",
+            "description": "Searches for a specific pattern within the codebase. Useful for finding definitions, usages, or specific code snippets.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {"type": "string", "description": "The regex pattern to search for."},
+                    "file_pattern": {"type": "string", "description": "Optional: Glob pattern to filter files (e.g., '*.py', 'src/**/*.js')."},
+                    "case_sensitive": {"type": "boolean", "description": "Optional: Whether the search should be case-sensitive. Defaults to false."}
+                },
+                "required": ["pattern"]
             }
         }
     },
@@ -192,12 +185,12 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "run_command",
-            "description": "Run shell command.",
+            "description": "Executes a shell command. Use for running scripts, build tools, or any command-line utility.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "command": {"type": "string"},
-                    "timeout": {"type": "integer"}
+                    "command": {"type": "string", "description": "The shell command to execute."},
+                    "timeout": {"type": "integer", "description": "Optional: Maximum time in seconds to wait for the command to complete. Defaults to 300 seconds."}
                 },
                 "required": ["command"]
             }
@@ -207,11 +200,16 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "run_tests",
-            "description": "Run pytest.",
+            "description": "Runs a specified set of tests or all tests in the project. Useful for verifying changes.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string"}
+                    "test_path": {"type": "string", "description": "Optional: Path to a specific test file or directory. If not provided, runs all tests."},
+                    "args": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional: Additional arguments to pass to the test runner (e.g., ['-k', 'test_my_feature'])."
+                    }
                 }
             }
         }
@@ -220,41 +218,15 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "validate_change",
-            "description": "Run tests and lint before commit.",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "git_status",
-            "description": "Get git status.",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "git_commit",
-            "description": "Commit staged changes. REQUIRES USER CONFIRMATION.",
+            "description": "Runs validation checks (e.g., linting, type-checking, tests) on proposed changes. Use before committing or pushing.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "message": {"type": "string"}
-                },
-                "required": ["message"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "git_push",
-            "description": "Push commits. REQUIRES USER CONFIRMATION.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "remote": {"type": "string"}
+                    "target_files": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional: List of files to validate. If not provided, validates all changed files or the entire project."
+                    }
                 }
             }
         }
@@ -262,13 +234,53 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "list_directory",
-            "description": "List files and directories in a path.",
+            "name": "git_status",
+            "description": "Shows the status of the git repository (e.g., modified, staged, untracked files).",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_commit",
+            "description": "Commits changes to the git repository. Requires user confirmation.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "Directory path to list"},
-                    "recursive": {"type": "boolean", "description": "List recursively"}
+                    "message": {"type": "string", "description": "The commit message."},
+                    "all": {"type": "boolean", "description": "Optional: Whether to commit all changes. Defaults to false (only staged)."},
+                    "reason": {"type": "string", "description": "The reason for this commit, for user confirmation."}
+                },
+                "required": ["message", "reason"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_push",
+            "description": "Pushes committed changes to the remote git repository. Requires user confirmation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "remote": {"type": "string", "description": "Optional: The name of the remote to push to. Defaults to 'origin'."},
+                    "branch": {"type": "string", "description": "Optional: The name of the branch to push. Defaults to current branch."}
+                },
+                "required": ["remote", "branch"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_directory",
+            "description": "Lists the contents of a specified directory. Can include hidden files and be recursive.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "The path to the directory to list."},
+                    "recursive": {"type": "boolean", "description": "Optional: Whether to list contents recursively. Defaults to false."},
+                    "include_hidden": {"type": "boolean", "description": "Optional: Whether to include hidden files. Defaults to false."}
                 },
                 "required": ["path"]
             }
@@ -277,27 +289,13 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "select_agent_type",
-            "description": "Selects the type of specialized agent (context) to use. The orchestrator agent uses this to delegate to a specific domain agent. Available types are 'code', 'network', 'system', 'cybersecurity', 'orchestrator'.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "agent_type": {"type": "string", "description": "The type of agent to switch to (e.g., 'code', 'network', 'system', 'cybersecurity', 'orchestrator')."}
-                },
-                "required": ["agent_type"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "ping_host",
-            "description": "Pings a specified host (IP address or hostname) to check network connectivity.",
+            "description": "Sends ICMP echo requests to a network host to test reachability and measure round-trip time.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "host": {"type": "string", "description": "The IP address or hostname to ping."},
-                    "count": {"type": "integer", "description": "Number of ping requests to send. Defaults to 4."}
+                    "host": {"type": "string", "description": "The hostname or IP address to ping."},
+                    "count": {"type": "integer", "description": "Optional: Number of echo requests to send. Defaults to 4."}
                 },
                 "required": ["host"]
             }
@@ -307,11 +305,12 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "traceroute_host",
-            "description": "Traces the network path to a specified host (IP address or hostname).",
+            "description": "Traces the network path to a host, showing hops and latencies.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "host": {"type": "string", "description": "The IP address or hostname to traceroute to."}
+                    "host": {"type": "string", "description": "The hostname or IP address to traceroute."},
+                    "max_hops": {"type": "integer", "description": "Optional: Maximum number of hops to search for the target. Defaults to 30."}
                 },
                 "required": ["host"]
             }
@@ -321,7 +320,7 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "list_active_connections",
-            "description": "Lists all active network connections on the system.",
+            "description": "Lists all active network connections and listening ports on the system.",
             "parameters": {"type": "object", "properties": {}}
         }
     },
@@ -329,12 +328,12 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "check_port_status",
-            "description": "Checks if a specific port is open on a given host.",
+            "description": "Checks if a specific TCP port is open on a given host.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "host": {"type": "string", "description": "The IP address or hostname."},
-                    "port": {"type": "integer", "description": "The port number to check."}
+                    "host": {"type": "string", "description": "The target hostname or IP address."},
+                    "port": {"type": "integer", "description": "The TCP port number to check."}
                 },
                 "required": ["host", "port"]
             }
@@ -344,7 +343,7 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "get_system_info",
-            "description": "Retrieves basic operating system and hardware information.",
+            "description": "Retrieves general system information (OS, CPU, memory, uptime, etc.).",
             "parameters": {"type": "object", "properties": {}}
         }
     },
@@ -352,7 +351,7 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "list_processes",
-            "description": "Lists all currently running processes on the system.",
+            "description": "Lists currently running processes with their IDs, CPU/memory usage, and owner.",
             "parameters": {"type": "object", "properties": {}}
         }
     },
@@ -360,12 +359,12 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "install_package",
-            "description": "Installs a software package using a specified package manager.",
+            "description": "Installs a software package using the system's package manager.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "package_name": {"type": "string", "description": "The name of the package to install."},
-                    "package_manager": {"type": "string", "description": "The package manager to use (e.g., 'apt', 'yum', 'choco', 'brew')."}
+                    "package_manager": {"type": "string", "enum": ["apt", "yum", "brew", "choco", "pip"], "description": "The package manager to use."}
                 },
                 "required": ["package_name", "package_manager"]
             }
@@ -375,12 +374,13 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "read_log_file",
-            "description": "Reads the last N lines of a specified log file.",
+            "description": "Reads the content of a specified log file, optionally filtering by keywords or time range.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "The path to the log file."},
-                    "lines": {"type": "integer", "description": "The number of lines to read from the end of the file. Defaults to 20."}
+                    "path": {"type": "string", "description": "Path to the log file."},
+                    "keyword": {"type": "string", "description": "Optional: Keyword to filter log entries."},
+                    "lines": {"type": "integer", "description": "Optional: Number of recent lines to read. Defaults to 100."}
                 },
                 "required": ["path"]
             }
@@ -390,12 +390,12 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "scan_ports",
-            "description": "Scans common or all ports on a host for open services.",
+            "description": "Performs a port scan on a target host to identify open ports and services.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "host": {"type": "string", "description": "The IP address or hostname to scan."},
-                    "common_ports_only": {"type": "boolean", "description": "If true, scans only common ports; otherwise, scans all ports. Defaults to true."}
+                    "host": {"type": "string", "description": "The target hostname or IP address."},
+                    "ports": {"type": "string", "description": "Optional: Port range (e.g., '1-1024') or specific ports (e.g., '22,80,443'). Defaults to common ports."}
                 },
                 "required": ["host"]
             }
@@ -405,14 +405,15 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "check_file_hash",
-            "description": "Calculates the cryptographic hash of a file for integrity checking.",
+            "description": "Calculates the hash (MD5, SHA256) of a file and compares it against a known good hash for integrity checking.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "The path to the file."},
-                    "algorithm": {"type": "string", "description": "The hashing algorithm to use (e.g., 'sha256', 'md5'). Defaults to 'sha256'."}
+                    "path": {"type": "string", "description": "Path to the file."},
+                    "expected_hash": {"type": "string", "description": "The known good hash to compare against."},
+                    "hash_type": {"type": "string", "enum": ["md5", "sha256"], "description": "The type of hash to calculate. Defaults to sha256."}
                 },
-                "required": ["path"]
+                "required": ["path", "expected_hash"]
             }
         }
     },
@@ -420,18 +421,18 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "analyze_security_log",
-            "description": "Analyzes a security log file for specific keywords or anomalies.",
+            "description": "Analyzes a security log file for suspicious activities, login failures, or unauthorized access attempts.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "The path to the security log file."},
+                    "log_path": {"type": "string", "description": "Path to the security log file."},
                     "keywords": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of keywords to search for in the log file."
+                        "description": "Optional: List of keywords to search for."
                     }
                 },
-                "required": ["path"]
+                "required": ["log_path"]
             }
         }
     },
@@ -446,6 +447,429 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
                     "os_type": {"type": "string", "description": "The type of operating system (e.g., 'Windows', 'Linux', 'macOS')."}
                 },
                 "required": ["os_type"]
+            }
+        }
+    },
+    # META / ORQUESTACIÓN AVANZADA
+    {
+        "type": "function",
+        "function": {
+            "name": "evaluate_plan_risk",
+            "description": "Evaluates a plan_actions before executing it, detecting technical, security, and impact risks.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "plan": {"type": "object", "description": "The plan to evaluate, as generated by plan_actions."}
+                },
+                "required": ["plan"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "detect_user_intent",
+            "description": "Classifies the user's real intent: exploration, debugging, change, audit, incident, learning.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_request": {"type": "string", "description": "The user's request text."}
+                },
+                "required": ["user_request"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "require_human_gate",
+            "description": "Marks an action or set of actions as blocked until explicit human approval.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action_description": {"type": "string", "description": "A clear description of the action to be gated."},
+                    "reason": {"type": "string", "description": "Why human approval is required."}
+                },
+                "required": ["action_description", "reason"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "summarize_session_state",
+            "description": "Summarizes the current state of the system, changes made, decisions taken, and pending risks.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "explain_decision",
+            "description": "Explains why the agent made a specific decision and what alternatives it discarded.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "decision_id": {"type": "string", "description": "Optional ID of a past decision to explain."}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "validate_environment_expectations",
+            "description": "Checks if the current environment matches what is expected (OS, version, permissions, network).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "expectations": {"type": "object", "description": "A dictionary of expected environment attributes."}
+                },
+                "required": ["expectations"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "detect_configuration_drift",
+            "description": "Detects deviations with respect to a known baseline.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "baseline_file": {"type": "string", "description": "Path to the baseline configuration file."},
+                    "current_file": {"type": "string", "description": "Path to the current configuration file to compare."}
+                },
+                "required": ["baseline_file", "current_file"]
+            }
+        }
+    },
+    # META / CALIDAD Y GOVERNANCE
+    {
+        "type": "function",
+        "function": {
+            "name": "evaluate_compliance",
+            "description": "Evaluates system configurations and practices against a specified compliance standard (e.g., ISO 27001, GDPR).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "compliance_standard": {"type": "string", "description": "The name of the compliance standard (e.g., 'ISO 27001', 'GDPR')."},
+                    "audit_scope": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of areas or components to audit."
+                    }
+                },
+                "required": ["compliance_standard", "audit_scope"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_audit_report",
+            "description": "Generates a structured report from previous tool outputs (e.g., security scan, compliance evaluation).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "report_format": {"type": "string", "enum": ["json", "text"], "description": "The desired format of the report (e.g., 'json', 'text')."}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "propose_governance_policy",
+            "description": "Proposes new governance policies or updates existing ones based on compliance gaps or best practices.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "policy_type": {"type": "string", "description": "The type of policy to propose (e.g., 'data_handling', 'access_control')."},
+                    "scope": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "The scope to which the policy applies."
+                    }
+                },
+                "required": ["policy_type", "scope"]
+            }
+        }
+    },
+    # CÓDIGO / SOFTWARE ENGINEERING (Advanced)
+    {
+        "type": "function",
+        "function": {
+            "name": "detect_code_smells",
+            "description": "Analyzes files or folders for code smells (long functions, duplication, dead imports, etc.).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "The file or directory path to analyze."}
+                },
+                "required": ["path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "suggest_refactor",
+            "description": "Proposes concrete refactors (without executing them), indicating benefits and risks.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "The path to the file to be refactored."},
+                    "line_number": {"type": "integer", "description": "Optional line number to focus the refactor suggestion."}
+                },
+                "required": ["file_path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "map_code_dependencies",
+            "description": "Builds a logical map of dependencies between modules, services, or packages.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "package_or_module": {"type": "string", "description": "The name of the package or module to map."}
+                },
+                "required": ["package_or_module"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "compare_configs",
+            "description": "Compares two or more configuration files and detects relevant semantic differences.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_paths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of at least two configuration file paths to compare."
+                    }
+                },
+                "required": ["file_paths"]
+            }
+        }
+    },
+    # SISTEMA / OPERACIONES (Advanced)
+    {
+        "type": "function",
+        "function": {
+            "name": "check_disk_health",
+            "description": "Analyzes disk usage, inodes, anomalous growth, and suspicious directories.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "monitor_resource_spikes",
+            "description": "Detects recent spikes in CPU, RAM, or I/O and correlates them with processes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "resource_type": {"type": "string", "enum": ["cpu", "ram", "io"], "description": "The resource to monitor ('cpu', 'ram', 'io')."},
+                    "duration_minutes": {"type": "integer", "description": "How many minutes in the past to check for spikes. Defaults to 5."}
+                },
+                "required": ["resource_type"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_startup_services",
+            "description": "Lists services that start with the system and evaluates if they are necessary.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rollback_last_change",
+            "description": "Reverts the last known change (git, config, package) in a controlled way.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "change_type": {"type": "string", "enum": ["git", "config", "package"], "description": "The type of change to roll back."}
+                },
+                "required": ["change_type"]
+            }
+        }
+    },
+    # NETWORK / INFRA (Advanced)
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_network_latency",
+            "description": "Correlates latency, packet loss, and network routes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_host": {"type": "string", "description": "The target host to analyze latency against."}
+                },
+                "required": ["target_host"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "detect_unexpected_services",
+            "description": "Detects services listening on ports not expected for that host.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {"type": "string", "description": "The host to scan."},
+                    "expected_ports": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "A list of ports that are expected to be open."
+                    }
+                },
+                "required": ["host", "expected_ports"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "map_internal_network",
+            "description": "Discovers hosts, probable roles, and relationships within the local network.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "subnet": {"type": "string", "description": "The subnet to scan (e.g., '192.168.1.0/24'). If not provided, will attempt to auto-detect."}
+                }
+            }
+        }
+    },
+    # CIBERSEGURIDAD (Advanced)
+    {
+        "type": "function",
+        "function": {
+            "name": "assess_attack_surface",
+            "description": "Evaluates the attack surface by combining open ports, services, users, and configurations.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "detect_ioc",
+            "description": "Searches for known Indicators of Compromise (IOCs) in logs, processes, and files.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "paths_to_scan": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional: List of file/directory paths to scan for IOCs."
+                    },
+                    "hash_to_check": {"type": "string", "description": "Optional: A specific file hash to check against known IOCs."}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_permissions",
+            "description": "Audits file, user, and service permissions for excesses.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "The file or directory path to analyze permissions for."}
+                },
+                "required": ["path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "security_posture_score",
+            "description": "Calculates a security posture score with an explanation.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    # BONUS
+    {
+        "type": "function",
+        "function": {
+            "name": "estimate_change_blast_radius",
+            "description": "Estimates how many components, users, or services will be affected by a change.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "change_description": {"type": "string", "description": "A clear description of the proposed change."}
+                },
+                "required": ["change_description"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_runbook",
+            "description": "Generates a human-readable runbook from repeated actions or resolved incidents.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "incident_or_task_description": {"type": "string", "description": "Description of the incident or task to generate a runbook for."}
+                },
+                "required": ["incident_or_task_description"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_sentiment",
+            "description": "Analyzes the sentiment of a given text (e.g., positive, negative, neutral).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "The text to analyze."}
+                },
+                "required": ["text"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_creative_content",
+            "description": "Generates creative text content based on a prompt and desired style.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "The prompt for content generation."},
+                    "style": {"type": "string", "description": "The desired style (e.g., 'neutral', 'formal', 'poetic')."}
+                },
+                "required": ["prompt"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "translate_text",
+            "description": "Translates text from one language to another.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "The text to translate."},
+                    "target_language": {"type": "string", "description": "The target language (e.g., 'en', 'es', 'fr')."}
+                },
+                "required": ["text", "target_language"]
             }
         }
     }

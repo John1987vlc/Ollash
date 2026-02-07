@@ -18,9 +18,16 @@ from src.utils.code_analysis_tools import CodeAnalysisTools
 from src.utils.command_line_tools import CommandLineTools
 from src.utils.git_operations_tools import GitOperationsTools
 from src.utils.planning_tools import PlanningTools
-from src.utils.network_tools import NetworkTools         # Added
-from src.utils.system_tools import SystemTools           # Added
-from src.utils.cybersecurity_tools import CybersecurityTools # Added
+from src.utils.network_tools import NetworkTools
+from src.utils.system_tools import SystemTools
+from src.utils.cybersecurity_tools import CybersecurityTools
+# New advanced toolsets
+from src.utils.orchestration_tools import OrchestrationTools
+from src.utils.advanced_code_tools import AdvancedCodeTools
+from src.utils.advanced_system_tools import AdvancedSystemTools
+from src.utils.advanced_network_tools import AdvancedNetworkTools
+from src.utils.advanced_cybersecurity_tools import AdvancedCybersecurityTools
+from src.utils.bonus_tools import BonusTools
 from src.utils.all_tool_definitions import get_filtered_tool_definitions # Added
 
 # Initialize colorama (needed for print statements in some tool methods)
@@ -266,6 +273,27 @@ RULES:
             file_manager=self.file_manager,
             logger=self.logger
         )
+        self.orchestration_tools = OrchestrationTools(logger=self.logger)
+        self.advanced_code_tools = AdvancedCodeTools(
+            project_root=self.project_root,
+            code_analyzer=self.code_analyzer,
+            command_executor=self.command_executor,
+            logger=self.logger
+        )
+        self.advanced_system_tools = AdvancedSystemTools(
+            command_executor=self.command_executor,
+            logger=self.logger
+        )
+        self.advanced_network_tools = AdvancedNetworkTools(
+            command_executor=self.command_executor,
+            logger=self.logger
+        )
+        self.advanced_cybersecurity_tools = AdvancedCybersecurityTools(
+            command_executor=self.command_executor,
+            file_manager=self.file_manager,
+            logger=self.logger
+        )
+        self.bonus_tools = BonusTools(logger=self.logger)
 
         # ---------------- OLLAMA
         self.ollama = OllamaClient(
@@ -280,6 +308,7 @@ RULES:
 
         # All tool instances, organized by their method name to make dynamic assignment easier
         self._all_tool_instances = {
+            # Basic Tools
             "plan_actions": self.planning_tools.plan_actions,
             "select_agent_type": self.planning_tools.select_agent_type,
             "analyze_project": self.code_analysis_tools.analyze_project,
@@ -310,29 +339,81 @@ RULES:
             "check_file_hash": self.cybersecurity_tools.check_file_hash,
             "analyze_security_log": self.cybersecurity_tools.analyze_security_log,
             "recommend_security_hardening": self.cybersecurity_tools.recommend_security_hardening,
+            
+            # Advanced Tools (Orchestration/Meta)
+            "evaluate_plan_risk": self.orchestration_tools.evaluate_plan_risk,
+            "detect_user_intent": self.orchestration_tools.detect_user_intent,
+            "require_human_gate": self.orchestration_tools.require_human_gate,
+            "summarize_session_state": self.orchestration_tools.summarize_session_state,
+            "explain_decision": self.orchestration_tools.explain_decision,
+            "validate_environment_expectations": self.orchestration_tools.validate_environment_expectations,
+            "detect_configuration_drift": self.orchestration_tools.detect_configuration_drift,
+            "evaluate_compliance": self.orchestration_tools.evaluate_compliance, # Added
+            "generate_audit_report": self.orchestration_tools.generate_audit_report, # Added
+            "propose_governance_policy": self.orchestration_tools.propose_governance_policy, # Added
+
+            # Advanced Tools (Code)
+            "detect_code_smells": self.advanced_code_tools.detect_code_smells,
+            "suggest_refactor": self.advanced_code_tools.suggest_refactor,
+            "map_code_dependencies": self.advanced_code_tools.map_code_dependencies,
+            "compare_configs": self.advanced_code_tools.compare_configs,
+
+            # Advanced Tools (System)
+            "check_disk_health": self.advanced_system_tools.check_disk_health,
+            "monitor_resource_spikes": self.advanced_system_tools.monitor_resource_spikes,
+            "analyze_startup_services": self.advanced_system_tools.analyze_startup_services,
+            "rollback_last_change": self.advanced_system_tools.rollback_last_change,
+
+            # Advanced Tools (Network)
+            "analyze_network_latency": self.advanced_network_tools.analyze_network_latency,
+            "detect_unexpected_services": self.advanced_network_tools.detect_unexpected_services,
+            "map_internal_network": self.advanced_network_tools.map_internal_network,
+
+            # Advanced Tools (Cybersecurity)
+            "assess_attack_surface": self.advanced_cybersecurity_tools.assess_attack_surface,
+            "detect_ioc": self.advanced_cybersecurity_tools.detect_ioc,
+            "analyze_permissions": self.advanced_cybersecurity_tools.analyze_permissions,
+            "security_posture_score": self.advanced_cybersecurity_tools.security_posture_score,
+            
+            # Bonus Tools
+            "estimate_change_blast_radius": self.bonus_tools.estimate_change_blast_radius,
+            "generate_runbook": self.bonus_tools.generate_runbook,
+            "analyze_sentiment": self.bonus_tools.analyze_sentiment, # Added
+            "generate_creative_content": self.bonus_tools.generate_creative_content, # Added
+            "translate_text": self.bonus_tools.translate_text, # Added
         }
 
         # Mapping of agent types to their relevant tool names
         self._agent_tool_name_mappings = {
-            "orchestrator": ["plan_actions", "select_agent_type"],
+            "orchestrator": [
+                "plan_actions", "select_agent_type", "evaluate_plan_risk", "detect_user_intent",
+                "require_human_gate", "summarize_session_state", "explain_decision",
+                "validate_environment_expectations", "detect_configuration_drift",
+                "evaluate_compliance", "generate_audit_report", "propose_governance_policy",
+                "estimate_change_blast_radius", "generate_runbook"
+            ],
             "code": [
                 "plan_actions", "analyze_project", "read_file", "read_files",
                 "write_file", "delete_file", "file_diff", "summarize_file",
                 "summarize_files", "search_code", "run_command", "run_tests",
                 "validate_change", "git_status", "git_commit", "git_push",
-                "list_directory", "select_agent_type"
+                "list_directory", "select_agent_type", "detect_code_smells",
+                "suggest_refactor", "map_code_dependencies", "compare_configs"
             ],
             "network": [
                 "plan_actions", "ping_host", "traceroute_host",
-                "list_active_connections", "check_port_status", "select_agent_type"
+                "list_active_connections", "check_port_status", "select_agent_type",
+                "analyze_network_latency", "detect_unexpected_services", "map_internal_network"
             ],
             "system": [
                 "plan_actions", "get_system_info", "list_processes", "install_package",
-                "read_log_file", "select_agent_type"
+                "read_log_file", "select_agent_type", "check_disk_health",
+                "monitor_resource_spikes", "analyze_startup_services", "rollback_last_change"
             ],
             "cybersecurity": [
                 "plan_actions", "scan_ports", "check_file_hash", "analyze_security_log",
-                "recommend_security_hardening", "select_agent_type"
+                "recommend_security_hardening", "select_agent_type", "assess_attack_surface",
+                "detect_ioc", "analyze_permissions", "security_posture_score"
             ]
         }
         

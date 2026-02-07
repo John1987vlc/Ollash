@@ -13,6 +13,48 @@ Local IT Agent - Ollash organiza sus funcionalidades en módulos de herramientas
 *   **Herramientas de Análisis de Código (`CodeAnalysisTools`):** Provee funcionalidades para analizar la estructura del proyecto, identificar dependencias, evaluar la calidad del código y buscar patrones específicos dentro del código fuente. Es fundamental para tareas de desarrollo y depuración.
 *   **Herramientas de Línea de Comandos (`CommandLineTools`):** Permite la ejecución controlada de comandos de shell, correr tests unitarios (utilizando pytest) y validar cambios (ejecutando tests y linters) antes de integrar código. Esto es clave para la automatización de tareas.
 *   **Herramientas de Operaciones Git (`GitOperationsTools`):** Ofrece capacidades para interactuar con repositorios Git, como consultar el estado (status), realizar commits y enviar cambios a repositorios remotos (push).
+
+### Herramientas Avanzadas (Advanced Tools)
+
+Este conjunto de herramientas extiende las capacidades del agente a dominios más complejos, permitiendo una orquestación y gestión más sofisticadas:
+
+*   **META / ORQUESTACIÓN AVANZADA (`OrchestrationTools`):**
+    *   `evaluate_plan_risk`: Evalúa planes de acción detectando riesgos técnicos, de seguridad e impacto.
+    *   `detect_user_intent`: Clasifica la intención del usuario (ej. exploración, depuración, cambio en producción).
+    *   `require_human_gate`: Marca acciones críticas para requerir aprobación humana explícita.
+    *   `summarize_session_state`: Resume el estado actual de la sesión, cambios y decisiones.
+    *   `explain_decision`: Explica las razones detrás de las decisiones del agente y alternativas descartadas.
+    *   `validate_environment_expectations`: Verifica si el entorno actual cumple con las expectativas (OS, versión, permisos, red).
+    *   `detect_configuration_drift`: Detecta desviaciones en la configuración del sistema respecto a una línea base.
+
+*   **CÓDIGO / SOFTWARE ENGINEERING (`AdvancedCodeTools`):**
+    *   `detect_code_smells`: Analiza el código en busca de "malos olores" (ej. funciones largas, duplicación).
+    *   `suggest_refactor`: Propone refactorizaciones concretas, indicando beneficios y riesgos.
+    *   `map_code_dependencies`: Construye un mapa lógico de dependencias entre módulos o paquetes.
+    *   `compare_configs`: Compara archivos de configuración y detecta diferencias semánticas.
+
+*   **SISTEMA / OPERACIONES (`AdvancedSystemTools`):**
+    *   `check_disk_health`: Analiza el uso del disco, inodos, crecimiento anómalo y directorios sospechosos.
+    *   `monitor_resource_spikes`: Detecta picos en CPU, RAM o I/O y los correlaciona con procesos.
+    *   `analyze_startup_services`: Lista servicios de inicio y evalúa su necesidad.
+    *   `rollback_last_change`: Revierte el último cambio conocido (git, config, paquete) de forma controlada.
+
+*   **NETWORK / INFRA (`AdvancedNetworkTools`):**
+    *   `analyze_network_latency`: Correlaciona latencia, pérdida de paquetes y rutas de red.
+    *   `detect_unexpected_services`: Detecta servicios escuchando en puertos no esperados.
+    *   `map_internal_network`: Descubre hosts, roles probables y relaciones en la red local.
+
+*   **CIBERSEGURIDAD (`AdvancedCybersecurityTools`):**
+    *   `assess_attack_surface`: Evalúa la superficie de ataque combinando puertos, servicios, usuarios y configuraciones.
+    *   `detect_ioc`: Busca Indicadores de Compromiso (IOCs) en logs, procesos y archivos.
+    *   `analyze_permissions`: Audita permisos de archivos, usuarios y servicios en busca de excesos.
+    *   `security_posture_score`: Calcula una puntuación de postura de seguridad con explicación.
+
+*   **BONUS (`BonusTools`):**
+    *   `analyze_sentiment`: Analiza el sentimiento de un texto dado.
+    *   `generate_creative_content`: Genera contenido de texto creativo basado en un prompt y estilo.
+    *   `translate_text`: Traduce texto de un idioma a otro.
+
 *   **Utilidades Comunes (Base Utilities):** Incluyen módulos fundamentales que soportan a las herramientas especializadas:
     *   `FileManager`: Gestión básica de archivos y directorios.
     *   `CommandExecutor`: Ejecución segura y controlada de comandos externos, con niveles de sandboxing.
@@ -50,6 +92,11 @@ local-it-agent-ollash/
 │   │   └── asistente_avanzado.py
 │   └── utils/               # Utilidades comunes y módulos de herramientas especializados
 │       ├── __init__.py
+│       ├── advanced_code_tools.py      # Nuevas herramientas avanzadas de Código
+│       ├── advanced_cybersecurity_tools.py # Nuevas herramientas avanzadas de Ciberseguridad
+│       ├── advanced_network_tools.py   # Nuevas herramientas avanzadas de Red
+│       ├── advanced_system_tools.py    # Nuevas herramientas avanzadas de Sistema
+│       ├── bonus_tools.py              # Nuevas herramientas Bonus
 │       ├── agent_logger.py
 │       ├── code_analyzer.py
 │       ├── code_analysis_tools.py
@@ -59,6 +106,7 @@ local-it-agent-ollash/
 │       ├── file_system_tools.py
 │       ├── git_manager.py
 │       ├── git_operations_tools.py
+│       ├── orchestration_tools.py      # Nuevas herramientas avanzadas de Orquestación (META)
 │       ├── planning_tools.py
 │       ├── token_tracker.py
 │       └── tool_interface.py

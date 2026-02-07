@@ -59,7 +59,14 @@ def test_code_agent_initialization(code_agent, temp_project_root):
     assert code_agent.git_operations_tools is not None
     assert code_agent.planning_tools is not None
     # Initially, the orchestrator should only have planning tools
-    assert set(code_agent.tool_functions.keys()) == {"plan_actions", "select_agent_type"}
+    expected_orchestrator_tools = {
+        "plan_actions", "select_agent_type", "evaluate_plan_risk", "detect_user_intent",
+        "require_human_gate", "summarize_session_state", "explain_decision",
+        "validate_environment_expectations", "detect_configuration_drift",
+        "evaluate_compliance", "generate_audit_report", "propose_governance_policy",
+        "estimate_change_blast_radius", "generate_runbook"
+    }
+    assert set(code_agent.tool_functions.keys()) == expected_orchestrator_tools
     assert code_agent.active_agent_type == "orchestrator"
 
 def test_list_directory_tool(code_agent, temp_project_root):
