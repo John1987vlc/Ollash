@@ -44,7 +44,8 @@ class OllamaClient:
             "stream": False,
             "options": {
                 "temperature": 0.1,
-                "num_predict": 4096
+                "num_predict": 4096,
+                "keep_alive": "0s" # Unload model after response, good for benchmarking
             }
         }
         
