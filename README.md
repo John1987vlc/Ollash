@@ -1,4 +1,5 @@
 ![Local IT Agent - Ollash Logo](Ollash.png)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 # Local IT Agent - Ollash - Asistente de Código y TI con Ollama
 
 Local IT Agent - Ollash es un asistente basado en el modelo de lenguaje Ollama, diseñado para ayudar en tareas de desarrollo de software como análisis de código, generación de prototipos y investigación web. Su arquitectura modular basada en "Tool Calling" le permite interactuar con diversas herramientas y ejecutar acciones, siendo fácilmente extensible a otras áreas de la informática como sistemas, redes y ciberseguridad.
@@ -77,6 +78,11 @@ Este conjunto de herramientas se organiza por dominios, permitiendo que el agent
     *   `all_tool_definitions`: Definiciones de todas las herramientas disponibles para el agente.
 
 ## Tecnologías Utilizadas
+
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=ollama&logoColor=white)
+![VSCode](https://img.shields.io/badge/VSCode-007ACC?style=for-the-badge&logo=visual-studio-code&logoColor=white)
+![Local Development](https://img.shields.io/badge/Local%20Development-Offline-blue?style=for-the-badge&logo=offline-pages&logoColor=white)
 
 *   **Python 3:** Lenguaje de programación principal del agente.
 *   **Ollama:** Plataforma para ejecutar modelos de lenguaje grandes de forma local, permitiendo mayor privacidad y control.
@@ -227,4 +233,4 @@ Puedes modificar estos valores para cambiar el modelo de Ollama, el tiempo de es
 
 ## Licencia
 
-[Especifica tu licencia aquí, por ejemplo: MIT License]
+MIT License
