@@ -40,7 +40,7 @@ class PlanningTools:
             "plan_data": plan # Return the full plan data
         }
 
-    def select_agent_type(self, agent_type: str) -> Dict[str, Any]:
+    def select_agent_type(self, agent_type: str, reason: Optional[str] = None) -> Dict[str, Any]:
         """
         Switches the agent's active persona and toolset to a specialized domain.
         Manages context summarization when switching away and context retrieval when switching back.

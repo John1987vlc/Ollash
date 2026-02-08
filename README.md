@@ -10,6 +10,16 @@ Local IT Agent - Ollash es un asistente basado en el modelo de lenguaje Ollama, 
 
 *   **Detección de Bucles Inteligente:** El agente ahora incluye un mecanismo de detección de bucles que identifica secuencias de acciones repetitivas que no conducen a progreso. Si se detecta un bucle (actualmente, 3 llamadas idénticas consecutivas a la misma herramienta con los mismos argumentos y resultados), el agente activa una "compuerta humana" (`require_human_gate`) para solicitar intervención del usuario, evitando así ciclos infinitos y el consumo innecesario de recursos. Esta funcionalidad mejora la robustez y la interactividad del agente.
 
+## Nuevas Características de Rendimiento y Eficiencia
+
+*   **Metascore de "Calidad por Segundo" en Benchmarking:** Se ha añadido una nueva métrica (`tokens_per_second`) en los benchmarks para medir la agilidad de los modelos, relacionando la cantidad de tokens generados con el tiempo total.
+*   **Test de Estrés de Contexto:** Se ha incorporado una nueva prueba en los benchmarks que evalúa el rendimiento de los modelos al procesar archivos de gran tamaño (15,000 líneas), filtrando aquellos que fallan con un contexto amplio.
+*   **Sistema de Caching de Razonamiento:** Se ha implementado una base de datos vectorial con `ChromaDB` para cachear soluciones a errores previos. Si el agente encuentra un error similar a uno ya resuelto (con una similitud > 95%), reutiliza la solución anterior, ahorrando tiempo y tokens.
+*   **Modo de Ejecución Pre-Validada (Dry Run):** Antes de ejecutar comandos, el sistema ahora realiza una pre-validación para detectar errores de sintaxis comunes (ej. `pyton` en lugar de `python`), evitando ciclos de error innecesarios.
+*   **Checkpoints de Estado en Modo Autónomo:** El agente ahora crea "snapshots" del estado del proyecto usando `git` después de cada operación que modifica el estado (ej. `write_file`). Esto permite usar la nueva herramienta `rollback_to_last_checkpoint` para revertir a un estado estable en caso de un error catastrófico.
+*   **Orquestación por Capas para Errores:** Al encontrar un error, el agente primero intenta solucionarlo con un modelo pequeño y rápido (`self_correction_model`). Si la confianza en la solución es baja, escala el problema a un modelo más grande y potente (`reasoning_model`), optimizando el uso de recursos.
+*   **Carga Perezosa (Lazy Loading) de Herramientas:** Las herramientas de los diferentes dominios ya no se cargan al inicio, sino que se instancian dinámicamente solo cuando son necesarias, reduciendo significativamente el tiempo de arranque de la aplicación.
+
 *   **Agente Principal (`DefaultAgent`):** Es el agente central que orquesta la interacción con el modelo de lenguaje (Ollama) y delega tareas a agentes especializados. Se encarga de la lógica principal, la detección de bucles y la gestión general de la sesión.
 ### Herramientas de Dominio (`src/utils/domains`)
 
@@ -216,16 +226,30 @@ El archivo `config/settings.json` contiene la configuración principal del agent
 {
   "model": "qwen3-coder-next",
   "ollama_url": "http://localhost:11434",
-  "system_prompt": "You are Local IT Agent - Ollash, an AI Orchestrator. Your primary goal is to analyze the user's request and determine the most appropriate domain for the task. Based on the domain, you will use the 'select_agent_type' tool to delegate to a specialized agent. Available domains are: 'code', 'network', 'system', 'cybersecurity'. Use the `detect_user_intent` tool to understand the user's goal. If `detect_user_intent` returns an 'exploration' intent with low confidence, or if the request is ambiguous, *you must ask for clarification* from the user or suggest available tools (e.g., 'What exactly do you want to explore?', 'Do you want to check system info, network status, or analyze code?'). Prioritize directing the user to the correct specialist. Be concise in your responses.",
+  "timeout": 300,
   "max_tokens": 4096,
   "temperature": 0.5,
   "history_limit": 20,
   "sandbox": "limited",
-  "project_root": "."
+  "project_root": ".",
+  "default_system_prompt_path": "prompts/orchestrator/default_orchestrator.json"
 }
 ```
 
 Puedes modificar estos valores para cambiar el modelo de Ollama, el tiempo de espera o el número máximo de iteraciones.
+
+### Variables de Entorno
+
+| Variable | Descripción | Valor por defecto |
+|---|---|---|
+| `OLLAMA_HOST` | URL de Ollama para Docker | `http://localhost:11434` |
+| `OLLAMA_TEST_URL` | URL de Ollama para tests | `http://localhost:11434` |
+| `OLLAMA_TEST_TIMEOUT` | Timeout para tests (segundos) | `300` |
+
+Para usar un servidor Ollama remoto en tests:
+```bash
+OLLAMA_TEST_URL=http://tu-servidor:11434 pytest
+```
 
 ## Contribución
 

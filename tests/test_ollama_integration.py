@@ -1,7 +1,7 @@
 import pytest
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, call # Added call for side_effect
+from unittest.mock import MagicMock, call, patch # Added call for side_effect
 import time # For potential delays with Ollama
 import logging # For checking logs
 
@@ -15,7 +15,7 @@ from src.agents.default_agent import DefaultAgent
 
 def test_orchestrator_initial_prompt(default_agent):
     # Assert that the agent starts with the orchestrator prompt
-    expected_orchestrator_prompt_part = "You are Local IT Agent - Ollash, an AI Orchestrator."
+    expected_orchestrator_prompt_part = "You are a disciplined coding agent."
     assert expected_orchestrator_prompt_part in default_agent.system_prompt
 
 def test_orchestrator_to_code_switch(default_agent):
@@ -61,12 +61,12 @@ User: {user_request}""")
 
     expected_code_prompt_part = "You are Local IT Agent - Ollash, a specialized AI Code Agent."
     assert expected_code_prompt_part in default_agent.system_prompt
-    assert "AI Orchestrator" not in default_agent.system_prompt
+    assert "disciplined coding agent" not in default_agent.system_prompt
     assert default_agent.active_agent_type == "code"
-    assert "read_file" in default_agent.tool_functions # Should now have code tools loaded
+    assert "read_file" in default_agent.active_tool_names
 
     print(f"Agent successfully switched to Code context. New prompt starts with: {default_agent.system_prompt[:80]}...")
-    assert default_agent.ollama.chat.call_count == 4    
+    assert default_agent.ollama.chat.call_count == 3    
 def test_code_agent_pings_localhost(default_agent):
     # Define the system prompt for the network agent
     network_agent_system_prompt = "You are Local IT Agent - Ollash, a specialized AI Network Agent. Your task is to assist the user with network-related operations, diagnostics, and configurations."
@@ -118,8 +118,8 @@ def test_code_agent_pings_localhost(default_agent):
     # Assert that the agent switched to network context
     assert network_agent_system_prompt in default_agent.system_prompt
     assert default_agent.active_agent_type == "network"
-    assert "ping_host" in default_agent.tool_functions # Should now have network tools loaded
-    assert default_agent.ollama.chat.call_count == 4
+    assert "ping_host" in default_agent.active_tool_names
+    assert default_agent.ollama.chat.call_count == 3
 
     # Now, with the agent in network context, ask it to ping
     user_request = "Por favor, haz ping a localhost 2 veces."
@@ -128,7 +128,7 @@ def test_code_agent_pings_localhost(default_agent):
     print(f"Agent Ping Response: {response_ping}")
 
     # Assert that ping_host was indeed called and the response contains success/failure
-    assert default_agent.ollama.chat.call_count == 9 # 4 from first chat + 5 from second chat
+    assert default_agent.ollama.chat.call_count == 7 # 3 from first chat + 4 from second chat
     
     # Check the final response
     assert "Ping to localhost completed successfully. Result: 2 packets sent, 2 received, 0% loss, avg 1ms." in response_ping
@@ -173,9 +173,9 @@ User (System Context): {user_request}""")
     
     assert system_agent_system_prompt in default_agent.system_prompt
     assert default_agent.active_agent_type == "system"
-    assert "get_system_info" in default_agent.tool_functions
+    assert "get_system_info" in default_agent.active_tool_names
 
-    assert mock_ollama_chat.call_count == 5
+    assert mock_ollama_chat.call_count == 4
     assert "System information retrieved: OS is Microsoft Windows 10 Pro." in response
     # The following assertions related to caplog might need adjustment based on the actual tool output
     # assert "ℹ️ Getting system information..." in caplog.text

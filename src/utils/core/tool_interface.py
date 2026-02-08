@@ -5,9 +5,10 @@ from src.utils.core.all_tool_definitions import ALL_TOOLS_DEFINITIONS, get_filte
 class ToolExecutor:
     MODIFY_ACTIONS = {"write_file", "delete_file", "git_commit", "git_push"}
 
-    def __init__(self, logger: Any, config: Dict = None):
+    def __init__(self, logger: Any, config: Dict = None, auto_confirm: bool = False):
         self.logger = logger
-        self.config = config if config is not None else {} # Store config for dynamic confirmation settings
+        self.config = config if config is not None else {}
+        self.auto_confirm = auto_confirm # Store the auto_confirm flag # Store config for dynamic confirmation settings
 
         # Dynamic confirmation settings for git_commit
         self.git_auto_confirm_lines_threshold: int = self.config.get("git_auto_confirm_lines_threshold", 5) # Default to 5 lines
@@ -37,6 +38,10 @@ class ToolExecutor:
 
     def _ask_confirmation(self, action: str, details: Dict) -> bool:
         """Ask user for confirmation"""
+        if self.auto_confirm:
+            self.logger.info(f"Auto-confirming action: {action}")
+            return True
+
         self.logger.info(f"\n{Fore.YELLOW}{'='*60}")
         self.logger.info(f"⚠️  CONFIRMATION REQUIRED: {action}")
         self.logger.info(f"{'='*60}{Style.RESET_ALL}")

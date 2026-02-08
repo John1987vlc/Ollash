@@ -1,3 +1,5 @@
 requests
 colorama
 Jinja2
+numpy
+chromadb==0.4.15

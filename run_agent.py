@@ -12,7 +12,7 @@ Uso:
 
 from src.agents.default_agent import DefaultAgent
 from colorama import Fore, Style, init
-
+from pathlib import Path # Added
 
 def main():
     import argparse
@@ -27,10 +27,13 @@ def main():
     parser.add_argument("--timeout", type=int, help="Timeout en segundos")
     parser.add_argument("--chat", action="store_true", help="Modo chat interactivo")
     parser.add_argument("--auto", action="store_true", help="Auto confirmar acciones")
+    parser.add_argument("--path", type=str, help="Ruta al directorio del proyecto (ej: ./sandbox/ventas)")
     parser.add_argument("instruction", nargs="?", help="Instrucción directa")
     args = parser.parse_args()
 
-    agent = DefaultAgent()
+    base_path = Path(__file__).parent # The directory where run_agent.py is located
+    # Pass auto_confirm and project_root to the DefaultAgent constructor
+    agent = DefaultAgent(project_root=args.path, auto_confirm=args.auto, base_path=base_path)
 
     # Overrides por CLI
     if args.url:

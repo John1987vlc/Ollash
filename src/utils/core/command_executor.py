@@ -1,8 +1,9 @@
 import subprocess
 import os
-import shlex # Added
-from pathlib import Path # Added
-from typing import Optional, Dict, List, Any # Added Any for logger
+import shlex
+import py_compile
+from pathlib import Path
+from typing import Optional, Dict, List, Any
 from dataclasses import dataclass
 from enum import Enum
 
@@ -67,6 +68,30 @@ class CommandExecutor:
 
         return self.policy_manager.is_command_allowed(base_cmd, args)
 
+    def _pre_validate_command(self, command: str | List[str]) -> tuple[bool, Optional[str], Optional[str]]:
+        """
+        Performs a pre-validation (dry run) of the command.
+        Returns (is_valid, suggested_correction, error_message).
+        """
+        command_str = shlex.join(command) if isinstance(command, list) else command
+        
+        # Basic typo correction
+        if command_str.strip().startswith("pyton "):
+            suggested = command_str.replace("pyton", "python", 1)
+            return False, suggested, "Typo detected: 'pyton' should be 'python'."
+        
+        # Python syntax check using py_compile
+        if command_str.strip().startswith("python "):
+            parts = shlex.split(command_str)
+            if len(parts) > 1 and parts[1].endswith(".py"):
+                script_path = Path(self.working_dir) / parts[1]
+                if script_path.exists():
+                    try:
+                        py_compile.compile(str(script_path), doraise=True)
+                    except py_compile.PyCompileError as e:
+                        return False, None, f"Python syntax error in '{script_path}': {e}"
+        
+        return True, None, None
 
     def execute(self, command: str | List[str], timeout: int = 60) -> ExecutionResult:
         """
@@ -76,6 +101,7 @@ class CommandExecutor:
         """
         use_shell = False
         command_list: List[str]
+        original_command = command
 
         if isinstance(command, str):
             # Special handling for Windows PowerShell calls
@@ -90,6 +116,16 @@ class CommandExecutor:
                     return ExecutionResult(False, "", str(e), 1, command)
         else: # command is already a list
             command_list = command
+
+        # Pre-validation
+        is_valid, suggestion, error_msg = self._pre_validate_command(command_list)
+        if not is_valid:
+            if suggestion:
+                # For now, we will just return the error. A more advanced implementation
+                # could ask for confirmation to run the suggestion.
+                return ExecutionResult(False, "", f"Pre-validation failed: {error_msg}\nSuggested fix: '{suggestion}'", -1, original_command)
+            return ExecutionResult(False, "", f"Pre-validation failed: {error_msg}", -1, original_command)
+
 
         if not self._is_allowed(command_list): # _is_allowed now handles both string and list, internally converting string.
             return ExecutionResult(

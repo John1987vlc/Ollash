@@ -329,3 +329,45 @@ class AdvancedSystemTools:
                 "note": "Actual rollback would be initiated after explicit human approval via a separate mechanism."
             }
         }
+
+    def rollback_to_last_checkpoint(self) -> Dict:
+        """
+        Reverts the project to the last git checkpoint created by the agent.
+        This is a destructive operation that uses `git reset --hard`.
+        """
+        self.logger.critical("Attempting to roll back to the last checkpoint...")
+        try:
+            # First, get the hash of the current HEAD
+            result_pre_reset = self.exec.execute("git rev-parse HEAD")
+            if not result_pre_reset.success:
+                return {"ok": False, "result": {"error": "Failed to get current git HEAD.", "details": result_pre_reset.stderr}}
+            
+            head_before_reset = result_pre_reset.stdout.strip()
+            
+            # Perform the hard reset
+            # This moves HEAD back by one commit.
+            result = self.exec.execute("git reset --hard HEAD~1")
+            
+            if not result.success:
+                return {"ok": False, "result": {"error": "git reset --hard HEAD~1 failed.", "details": result.stderr}}
+
+            # Get the new HEAD hash to confirm the change
+            result_post_reset = self.exec.execute("git rev-parse HEAD")
+            if not result_post_reset.success:
+                return {"ok": True, "result": {"status": "rollback_likely_successful_but_unverified", "details": "git reset command succeeded, but failed to verify the new HEAD."}}
+            
+            head_after_reset = result_post_reset.stdout.strip()
+
+            if head_before_reset == head_after_reset:
+                 return {"ok": False, "result": {"error": "Rollback failed. HEAD is still at the same commit.", "details": head_before_reset}}
+
+            return {
+                "ok": True,
+                "result": {
+                    "status": "rollback_successful",
+                    "details": f"Successfully rolled back from {head_before_reset[:8]} to {head_after_reset[:8]}."
+                }
+            }
+        except Exception as e:
+            self.logger.error(f"An unexpected error occurred during rollback: {e}", exc_info=True)
+            return {"ok": False, "result": {"error": f"An unexpected error occurred during rollback: {e}"}}

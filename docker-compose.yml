@@ -10,7 +10,7 @@ services:
       - moltbot_projects:/app/generated_projects # Persistent storage for generated projects
     environment:
       # Ensure the agent connects to the ollama service at the specified external IP
-      OLLAMA_HOST: http://192.168.1.217:11434 
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://localhost:11434}
       PYTHONUNBUFFERED: 1
     # Entrypoint override for specific commands (e.g., benchmark, chat mode)
     # The default command will be set in Dockerfile, but can be overridden here or in `docker run`

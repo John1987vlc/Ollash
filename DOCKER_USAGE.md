@@ -5,7 +5,7 @@ This document provides instructions on how to build and run the Ollash Agent and
 ## Prerequisites
 
 *   Docker Desktop (Windows/macOS) or Docker Engine (Linux) installed and running.
-*   An **Ollama instance running at `http://192.168.1.217:11434`** with the necessary models already pulled.
+*   An **Ollama instance running** (default `http://localhost:11434`). Configure via the `OLLAMA_HOST` environment variable if your Ollama runs on a different host.
 
 ## Setup
 
@@ -24,7 +24,7 @@ This document provides instructions on how to build and run the Ollash Agent and
 
 ## Ollama Models Configuration
 
-The `moltbot` agent expects your Ollama instance at `http://192.168.1.217:11434` to have the following models already pulled:
+The `moltbot` agent expects your Ollama instance to have the following models already pulled:
 
 *   **For Agent Operation (default and summary models):**
     *   `ministral-3:8b`
@@ -78,7 +78,7 @@ docker-compose run --rm moltbot python benchmark.py --models devstral-small-2:la
 ```
 This command will:
 *   Start a temporary `moltbot` container.
-*   The `moltbot` container will use the `config/settings.json` which points to your external Ollama at `http://192.168.1.217:11434`.
+*   The `moltbot` container will use the `config/settings.json` and the `OLLAMA_HOST` environment variable to connect to your Ollama instance.
 *   It will run `benchmark.py` testing `devstral-small-2:latest`, `gpt-oss:20b`, and `qwen3-coder:30b`.
 *   The summary will be generated using `nemotron-3-nano:30b`.
 *   The benchmark results (JSON file) will be saved in your host's project root directory.

@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, call
 import logging
+from tests.conftest import TEST_OLLAMA_URL, TEST_TIMEOUT
 
 
 
@@ -16,11 +17,11 @@ def temp_project_root_with_config(tmp_path_factory):
     config_dir.mkdir()
     (config_dir / "settings.json").write_text(json.dumps({
         "model": "llama3.2:latest", # Using the recommended smaller model
-        "ollama_url": "http://localhost:11434",
+        "ollama_url": TEST_OLLAMA_URL,
         "default_system_prompt_path": "prompts/orchestrator/default_orchestrator.json",
         "max_iterations": 10,
         "temperature": 0.7,
-        "timeout": 300,
+        "timeout": TEST_TIMEOUT,
         "log_file": "ollash_new_cases.log",
         "loop_detection_threshold": 3 # To test the new feature
     }))
@@ -212,17 +213,18 @@ def test_case_7_loop_detection_clarification(ollash_new_cases_agent):
         ({"message": {"tool_calls": [{"function": {"name": "detect_user_intent", "arguments": {"user_request": user_request}}}]}}, {"prompt_tokens": 10, "completion_tokens": 5}),
         # 3rd call: LLM will call detect_user_intent again
         ({"message": {"tool_calls": [{"function": {"name": "detect_user_intent", "arguments": {"user_request": user_request}}}]}}, {"prompt_tokens": 10, "completion_tokens": 5}),
-        # 4th call: LLM will call detect_user_intent a third time, triggering loop detection
+        # 4th call: LLM will call detect_user_intent a third time, triggering loop detection, which returns the dict directly
         ({"message": {"tool_calls": [{"function": {"name": "detect_user_intent", "arguments": {"user_request": user_request}}}]}}, {"prompt_tokens": 10, "completion_tokens": 5}),
     ]
 
     response = ollash_new_cases_agent.chat(user_request)
 
     # Assert that the chat method returns the dictionary directly from require_human_gate
-    assert response["ok"] is False
-    assert response["result"]["status"] == "human_gate_requested"
-    assert response["result"]["action_description"].startswith("Detected a loop!")
-    assert "Loop detected" in response["result"]["reason"]
+    assert isinstance(response, dict)
+    assert response.get("ok") is False
+    assert response.get("result", {}).get("status") == "human_gate_requested"
+    assert response.get("result", {}).get("action_description").startswith("Detected a loop!")
+    assert "Loop detected" in response.get("result", {}).get("reason")
     # We assert that ollama.chat was called 4 times (1 preprocess + 3 detect_user_intent)
     assert ollash_new_cases_agent.ollama.chat.call_count == 4
 

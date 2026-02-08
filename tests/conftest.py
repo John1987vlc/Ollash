@@ -1,18 +1,35 @@
+import os
+import sys
+from pathlib import Path
 import pytest
 import json
-from pathlib import Path
 from unittest.mock import patch
+import importlib # Added for module reloading
+
+
+# Add the project root to the Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root)) # Re-enabled as it's necessary for imports
+
+# Centralized test configuration — override via environment variables
+TEST_OLLAMA_URL = os.environ.get("OLLAMA_TEST_URL", "http://localhost:11434")
+TEST_TIMEOUT = int(os.environ.get("OLLAMA_TEST_TIMEOUT", "300"))
+
 
 # Fixture for mocking OllamaClient
 @pytest.fixture
 def mock_ollama_client():
-    with patch('src.agents.default_agent.OllamaClient') as MockClient:
-        instance = MockClient.return_value
-        # Remove the default return_value set here, so tests can define side_effect directly
-        # instance.chat.return_value = (
-        #     {"message": {"content": "Mocked response"}},
-        #     {"prompt_tokens": 10, "completion_tokens": 5}
-        # )
+    with patch('src.agents.default_agent.OllamaClient') as MockAgentClient, \
+         patch('src.utils.core.memory_manager.OllamaClient') as MockMemoryClient:
+        instance = MockAgentClient.return_value
+        # Use centralized test URL and timeout from environment variables
+        instance.url = TEST_OLLAMA_URL
+        instance.base_url = TEST_OLLAMA_URL
+        instance.timeout = TEST_TIMEOUT
+        # Mock the get_embedding method
+        instance.get_embedding.return_value = [0.1] * 384  # Return a dummy embedding vector
+        # Make MemoryManager's OllamaClient instances use the same mock
+        MockMemoryClient.return_value = instance
         yield instance
 
 # Helper fixture for creating a temporary project root with necessary config and prompt files
@@ -23,7 +40,7 @@ def temp_project_root(tmp_path):
     config_dir.mkdir()
     (config_dir / "settings.json").write_text(json.dumps({
         "model": "test-model",
-        "ollama_url": "http://localhost:11434",
+        "ollama_url": TEST_OLLAMA_URL,
         "default_system_prompt_path": "prompts/orchestrator/default_orchestrator.json",
         "max_iterations": 5,
         "timeout": 300,
@@ -112,7 +129,10 @@ def temp_project_root(tmp_path):
 # Fixture for the DefaultAgent instance, using the common temp_project_root
 @pytest.fixture
 def default_agent(temp_project_root, mock_ollama_client):
-    from src.agents.default_agent import DefaultAgent
+    from src.agents import default_agent as default_agent_module
+    importlib.reload(default_agent_module) # Force reload of the module
+    from src.agents.default_agent import DefaultAgent # Re-import the class to get the latest definition
+
     agent = DefaultAgent(project_root=str(temp_project_root))
     agent.ollama = mock_ollama_client
     return agent
