@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 import json
 from unittest.mock import patch
-import importlib # Added for module reloading
 
 
 # Add the project root to the Python path
@@ -129,9 +128,7 @@ def temp_project_root(tmp_path):
 # Fixture for the DefaultAgent instance, using the common temp_project_root
 @pytest.fixture
 def default_agent(temp_project_root, mock_ollama_client):
-    from src.agents import default_agent as default_agent_module
-    importlib.reload(default_agent_module) # Force reload of the module
-    from src.agents.default_agent import DefaultAgent # Re-import the class to get the latest definition
+    from src.agents.default_agent import DefaultAgent
 
     agent = DefaultAgent(project_root=str(temp_project_root))
     agent.ollama = mock_ollama_client
