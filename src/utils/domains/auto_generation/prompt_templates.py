@@ -292,6 +292,11 @@ class AutoGenPrompts:
             "Your task is to analyze a partially generated software project and suggest "
             "concrete improvements to make it more complete, functional, and adhere to best practices."
         )
+        # Prepare file context
+        file_context = ""
+        for path, content in list(current_files.items())[:5]: # Provide context for a few files
+            file_context += f"--- File: {path} ---\n{content[:500]}...\n\n"
+
         user = (
             f"Analyze the following project at its current state (Iteration {loop_num}). "
             "Identify 3-5 concrete, actionable improvements that would significantly enhance the project's "
@@ -301,15 +306,10 @@ class AutoGenPrompts:
             "- Incomplete configuration files (e.g., missing scripts, dependencies in package.json).\n"
             "- Basic file structures that need further detail.\n"
             "- Best practices for the technologies used.\n\n"
-            "Project Description: {project_description}\n\n"
-            "Project README:\n{readme_content}\n\n"
-            "Project Structure (current):\n{json.dumps(json_structure, indent=2)}\n\n"
-            "Currently generated files (first 500 chars of each):\n"
-        )
-        for path, content in list(current_files.items())[:5]: # Provide context for a few files
-            user += f"--- File: {path} ---\n{content[:500]}...\n\n"
-        
-        user += (
+            f"Project Description: {project_description}\n\n"
+            f"Project README:\n{readme_content}\n\n"
+            f"Project Structure (current):\n{json.dumps(json_structure, indent=2)}\n\n"
+            f"Currently generated files (first 500 chars of each):\n{file_context}"
             "Output your suggestions as a markdown bullet list. Each suggestion should be concise "
             "and clearly state what needs to be improved."
         )
@@ -330,21 +330,24 @@ class AutoGenPrompts:
             "a set of suggested improvements for a software project. "
             "The plan should be in JSON format and describe concrete actions."
         )
+        
+        # Prepare suggestions string
+        suggestions_str = "\n".join([f"- {s}" for s in suggestions])
+
+        # Prepare file context
+        file_context = ""
+        for path, content in list(current_files.items())[:5]: # Provide context for a few files
+            file_context += f"--- File: {path} ---\n{content[:500]}...\n\n"
+
         user = (
             "Based on the following project context and suggested improvements, "
             "create a detailed action plan in JSON format. "
             "The plan should prioritize actions and describe how to achieve each suggestion.\n\n"
-            "Suggested Improvements:\n"
-            f"{'\\n'.join([f'- {s}' for s in suggestions])}\n\n"
-            "Project Description: {project_description}\n\n"
-            "Project README:\n{readme_content}\n\n"
-            "Project Structure (current):\n{json.dumps(json_structure, indent=2)}\n\n"
-            "Currently generated files (first 500 chars of each):\n"
-        )
-        for path, content in list(current_files.items())[:5]: # Provide context for a few files
-            user += f"--- File: {path} ---\n{content[:500]}...\n\n"
-
-        user += (
+            f"Suggested Improvements:\n{suggestions_str}\n\n"
+            f"Project Description: {project_description}\n\n"
+            f"Project README:\n{readme_content}\n\n"
+            f"Project Structure (current):\n{json.dumps(json_structure, indent=2)}\n\n"
+            f"Currently generated files (first 500 chars of each):\n{file_context}"
             "The JSON plan should be a single object with an 'actions' key, "
             "which is a list of action objects. Each action object must have:\n"
             "- 'type': 'create_file', 'modify_file', 'create_folder', 'delete_file'\n"
@@ -382,17 +385,17 @@ class AutoGenPrompts:
             "adheres to best practices, and fully addresses the initial description.\n"
             "Provide your review in JSON format, indicating overall status and specific issues."
         )
+        # Prepare file context
+        file_context = ""
+        for path, content in current_files.items(): # Provide context for all files for senior review
+            file_context += f"--- File: {path} ---\n{content[:500]}...\n\n"
+
         user = (
             f"Perform a comprehensive review of the project '{project_name}' (Review Attempt {review_attempt}).\n\n"
-            "Project Description: {project_description}\n\n"
-            "Project README:\n{readme_content}\n\n"
-            "Project Structure (current):\n{json.dumps(json_structure, indent=2)}\n\n"
-            "All currently generated files (first 500 chars of each):\n"
-        )
-        for path, content in current_files.items(): # Provide context for all files for senior review
-            user += f"--- File: {path} ---\n{content[:500]}...\n\n"
-
-        user += (
+            f"Project Description: {project_description}\n\n"
+            f"Project README:\n{readme_content}\n\n"
+            f"Project Structure (current):\n{json.dumps(json_structure, indent=2)}\n\n"
+            f"All currently generated files (first 500 chars of each):\n{file_context}"
             "Provide your review in JSON format with the following keys:\n"
             "- 'status': (string) 'passed' if the project is complete and satisfactory, 'failed' otherwise.\n"
             "- 'summary': (string) A concise overall assessment of the project.\n"
