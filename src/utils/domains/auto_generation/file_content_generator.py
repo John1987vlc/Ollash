@@ -50,38 +50,11 @@ class FileContentGenerator:
                 tech_stack_details = AutoGenPrompts._extract_tech_stack_details(readme_content)
                 app_type = ""
 
-                # New logic to determine app_type for package.json
-                # Check if it's in a specific app folder first (for monorepos)
-                if "apps/frontend/" in file_path:
+                # Check for specific folder prefixes
+                if file_path.startswith("frontend/"):
                     app_type = "frontend"
-                elif "apps/backend/" in file_path:
+                elif file_path.startswith("backend/"):
                     app_type = "backend"
-                # If not in an app folder, try to infer from project structure for root package.json
-                elif file_path == "package.json":
-                    # Simple heuristic: if structure contains common frontend files, assume frontend
-                    # This could be more sophisticated, e.g., checking for presence of React/Next.js in README
-                    is_frontend_project = False
-                    # Check for 'src' folder containing common JS/TS files
-                    src_folder_exists = any(f.get("name") == "src" for f in json_structure.get("folders", []))
-                    if src_folder_exists:
-                        src_folder = next((f for f in json_structure["folders"] if f["name"] == "src"), None)
-                        if src_folder and any(f.endswith((".js", ".jsx", ".ts", ".tsx")) for f in src_folder.get("files", [])):
-                            is_frontend_project = True
-                    
-                    # Check for 'public' folder containing index.html
-                    public_folder_exists = any(f.get("name") == "public" for f in json_structure.get("folders", []))
-                    if public_folder_exists:
-                        public_folder = next((f for f in json_structure["folders"] if f["name"] == "public"), None)
-                        if public_folder and "index.html" in public_folder.get("files", []):
-                            is_frontend_project = True
-
-                    if is_frontend_project:
-                        app_type = "frontend"
-                    else:
-                        # Fallback or more robust backend check can be added here
-                        # For now, if frontend not detected, assume it might be a simple backend or unknown
-                        self.logger.warning(f"Could not definitively determine app type for root package.json. Defaulting to frontend for now based on current structure.")
-                        app_type = "frontend" # A safer default for general web projects.
 
                 if not app_type:
                     self.logger.error(f"Could not determine app type for package.json: {file_path}. Skipping generation.")
