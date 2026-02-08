@@ -5,6 +5,7 @@
 Local IT Agent - Ollash es un asistente basado en el modelo de lenguaje Ollama, diseñado para ayudar en tareas de desarrollo de software como análisis de código, generación de prototipos y investigación web. Su arquitectura modular basada en "Tool Calling" le permite interactuar con diversas herramientas y ejecutar acciones, siendo fácilmente extensible a otras áreas de la informática como sistemas, redes y ciberseguridad.
 
 ## Características Principales
+*   **Arquitectura Modular con "Tool Calling":** Utiliza un enfoque de "Tool Calling" para interactuar con herramientas del sistema y APIs, permitiendo una gran flexibilidad y extensibilidad.
 
 ## Nuevas Características
 
