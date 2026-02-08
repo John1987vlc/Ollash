@@ -229,7 +229,7 @@ RULES:
         # ---------------- OLLAMA
         # OllamaClient is instantiated with the default model.
         # This will be dynamically changed in self.chat based on task intent.
-        ollama_url = os.environ.get("OLLAMA_HOST", self.config.get("ollama_url", "http://localhost:11434"))
+        ollama_url = os.environ.get("MOLTBOT_OLLAMA_URL", self.config.get("ollama_url", "http://localhost:11434"))
         self.ollama = OllamaClient(
             url=ollama_url,
             model=self.current_llm_model, # Initial model, will be updated dynamically

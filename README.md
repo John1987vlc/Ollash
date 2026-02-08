@@ -242,7 +242,7 @@ Puedes modificar estos valores para cambiar el modelo de Ollama, el tiempo de es
 
 | Variable | Descripción | Valor por defecto |
 |---|---|---|
-| `OLLAMA_HOST` | URL de Ollama para Docker | `http://localhost:11434` |
+| `MOLTBOT_OLLAMA_URL` | URL de Ollama para Docker y runtime | `http://localhost:11434` |
 | `OLLAMA_TEST_URL` | URL de Ollama para tests | `http://localhost:11434` |
 | `OLLAMA_TEST_TIMEOUT` | Timeout para tests (segundos) | `300` |
 
