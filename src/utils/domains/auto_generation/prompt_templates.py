@@ -84,10 +84,26 @@ class AutoGenPrompts:
     @staticmethod
     def structure_generation(readme_content: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for Phase 2."""
+        # Extract Project Structure section from README if it exists
+        project_structure_section_match = re.search(
+            r"## \*\*📂 Project Structure\*\*(.*?)(?=\n##|\Z)",
+            readme_content,
+            re.DOTALL,
+        )
+        project_structure_hint = ""
+        if project_structure_section_match:
+            project_structure_hint = (
+                "\n\nHere is a suggested 'Project Structure' section from the README "
+                "to guide your JSON output:\n"
+                f"{project_structure_section_match.group(1).strip()}\n"
+            )
+
         system = (
-            "You generate project file structures as JSON.\n\n"
-            "Your task: given a README.md, output a single JSON object representing "
-            "the complete project structure.\n\n"
+            "You are an expert at designing comprehensive project file structures. "
+            "Your task: given a project README.md, output a single JSON object "
+            "representing the COMPLETE and DETAILED project file structure that "
+            "fully reflects the described project, including its frontend, backend, "
+            "and any other specified components.\n\n"
             "The JSON format must follow this structure exactly:\n"
             "{\n"
             '  "path": "./",\n'
@@ -101,16 +117,21 @@ class AutoGenPrompts:
             '  "files": ["rootfile.ext"]\n'
             "}\n\n"
             "Rules:\n"
-            "- Infer the structure strictly from the README.md\n"
-            "- Do not invent features not described in the README\n"
-            "- Output ONLY valid JSON, no comments, no markdown, no prose\n"
-            "- Complete the ENTIRE JSON structure. Do not truncate\n"
-            "- Keep the structure simple and focused on essential files"
+            "- Infer the structure strictly from the README.md, prioritizing any "
+            "explicit 'Project Structure' section if present.\n"
+            "- Create a comprehensive structure, including all major components (e.g., frontend, backend apps, shared packages) "
+            "and essential configuration/source files.\n"
+            "- Do not invent features not described in the README.\n"
+            "- Output ONLY valid JSON, no comments, no markdown, no prose.\n"
+            "- Complete the ENTIRE JSON structure. Do not truncate.\n"
+            "- Include common and expected files for the described technologies (e.g., package.json, next.config.js, tsconfig.json for Next.js; main.ts, module.ts for NestJS).\n"
+            "- The structure should be logical and follow best practices for the specified tech stack."
         )
         user = (
-            "Based on the following README.md, generate the COMPLETE JSON project "
-            "structure.\n\n"
-            f"{readme_content}\n\n"
+            "Based on the following README.md, generate the COMPLETE and DETAILED "
+            "JSON project structure.\n\n"
+            f"Project README:\n{readme_content}\n"
+            f"{project_structure_hint}\n\n"
             "Remember: Output ONLY the complete JSON, nothing else."
         )
         return system, user
