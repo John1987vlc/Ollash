@@ -15,7 +15,16 @@ This document provides instructions on how to build and run the Ollash Agent and
     cd local-it-agent-ollash
     ```
 
-2.  **Build the Docker Image for the Agent:**
+2.  **Configure your Ollama server URL:**
+    Copy the example environment file and set your Ollama server address:
+    ```bash
+    cp .env.example .env
+    # Edit .env and set OLLAMA_HOST to your Ollama server address
+    # e.g., OLLAMA_HOST=http://192.168.1.100:11434
+    ```
+    **Important:** Inside Docker, `localhost` refers to the container itself, not your host machine. You must set `OLLAMA_HOST` to your machine's actual IP address or use `http://host.docker.internal:11434` (Docker Desktop only).
+
+3.  **Build the Docker Image for the Agent:**
     Navigate to the root of your project where `Dockerfile` and `docker-compose.yml` are located.
     ```bash
     docker-compose build

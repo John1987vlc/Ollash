@@ -1,4 +1,5 @@
 import json
+import os
 import time
 import threading
 import requests
@@ -38,7 +39,7 @@ class ModelBenchmarker:
         with open(config_path, "r") as f:
             self.config = json.load(f)
         
-        self.url = self.config.get("ollama_url", "http://localhost:11434") # Use Ollama URL from config
+        self.url = os.environ.get("OLLAMA_HOST", self.config.get("ollama_url", "http://localhost:11434"))
         self.logger = AgentLogger(log_file=str(Path("logs") / "benchmark_debug.log"))
         self.results = []
 

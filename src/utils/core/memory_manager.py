@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import chromadb
@@ -28,7 +29,7 @@ class MemoryManager:
         self.reasoning_cache_collection = self.chroma_client.get_or_create_collection(name="reasoning_cache")
 
         # OllamaClient for embeddings and summarization
-        ollama_url = self.config.get("ollama_url", "http://localhost:11434")
+        ollama_url = os.environ.get("OLLAMA_HOST", self.config.get("ollama_url", "http://localhost:11434"))
         self.summarization_model = self.config.get("summarization_model", self.config.get("summary_model", "ministral-3:8b"))
 
         self.embedding_client = OllamaClient(

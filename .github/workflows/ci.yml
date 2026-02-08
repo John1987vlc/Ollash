@@ -27,4 +27,4 @@ jobs:
         echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
     - name: Run all mocked unit/integration tests
       run: |
-        pytest tests/
+        pytest tests/ --timeout=60 -v

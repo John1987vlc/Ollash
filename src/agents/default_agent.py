@@ -1,7 +1,8 @@
 import hashlib
 import json
+import os
 import requests
-import traceback 
+import traceback
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
@@ -228,15 +229,16 @@ RULES:
         # ---------------- OLLAMA
         # OllamaClient is instantiated with the default model.
         # This will be dynamically changed in self.chat based on task intent.
+        ollama_url = os.environ.get("OLLAMA_HOST", self.config.get("ollama_url", "http://localhost:11434"))
         self.ollama = OllamaClient(
-            url=self.config.get("ollama_url", "http://localhost:11434"),
+            url=ollama_url,
             model=self.current_llm_model, # Initial model, will be updated dynamically
             timeout=self.config.get("timeout", 300),
             logger=self.logger,
             config=self.config # Pass config for retry settings
         )
-        
-        self.logger.info(f"🔗 Ollama: {self.config.get('ollama_url')}")
+
+        self.logger.info(f"🔗 Ollama: {ollama_url}")
         self.logger.info(f"🧠 Model: {self.current_llm_model} (Initial)")
 
         # All tool instances, organized by their method name to make dynamic assignment easier
