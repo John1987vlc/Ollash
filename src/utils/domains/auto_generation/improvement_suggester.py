@@ -54,8 +54,7 @@ class ImprovementSuggester:
         # Assuming the LLM returns a markdown list or similar
         suggestions = [
             line.strip("- ").strip()
-            for line in raw_suggestions.split("
-")
+            for line in raw_suggestions.split("\n")
             if line.strip().startswith("-")
         ]
         return suggestions
