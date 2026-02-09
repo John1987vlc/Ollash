@@ -8,6 +8,7 @@ Uso:
     python run_agent.py --timeout 600
     python run_agent.py --auto
     python run_agent.py --model codellama:7b
+    python run_agent.py --auto-create --project-description "Flask REST API" --project-name myapi
 """
 
 from src.agents.default_agent import DefaultAgent
@@ -28,6 +29,9 @@ def main():
     parser.add_argument("--chat", action="store_true", help="Modo chat interactivo")
     parser.add_argument("--auto", action="store_true", help="Auto confirmar acciones")
     parser.add_argument("--path", type=str, help="Ruta al directorio del proyecto (ej: ./sandbox/ventas)")
+    parser.add_argument("--auto-create", action="store_true", help="Modo creacion autonoma de proyectos")
+    parser.add_argument("--project-description", type=str, help="Descripcion del proyecto (para --auto-create)")
+    parser.add_argument("--project-name", type=str, default="auto_project", help="Nombre del proyecto (para --auto-create)")
     parser.add_argument("instruction", nargs="?", help="Instrucción directa")
     args = parser.parse_args()
 
@@ -50,6 +54,20 @@ def main():
     print(f"{Style.DIM}Timeout: {agent.ollama.timeout}s")
     print(f"{Fore.CYAN}{'=' * 60}")
     sys.stdout.flush()
+
+    if args.auto_create:
+        from src.agents.auto_agent import AutoAgent
+        config_path = str(base_path / "config" / "settings.json")
+        auto_agent = AutoAgent(config_path=config_path)
+        description = args.project_description
+        if not description:
+            description = input("Enter project description: ").strip()
+            if not description:
+                print("No description provided. Exiting.")
+                return
+        path = auto_agent.create_project(description, args.project_name)
+        print(f"\n{Fore.GREEN}Project created at: {path}{Style.RESET_ALL}")
+        return
 
     if args.chat:
         agent.chat_mode()

@@ -16,7 +16,7 @@ from src.utils.domains.auto_generation.file_completeness_checker import FileComp
 from src.utils.domains.auto_generation.project_reviewer import ProjectReviewer
 from src.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
 from src.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
-from src.utils.domains.auto_generation.senior_reviewer import SeniorReviewer # New Import
+from src.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
 
 
 class AutoAgent:
@@ -35,13 +35,13 @@ class AutoAgent:
     """
 
     LLM_ROLES = [
-        ("prototyper", "prototyper_model", "llama2:13b", 600),
-        ("coder", "coder_model", "qwen:7b-chat", 480),
-        ("planner", "planner_model", "mistral:7b", 900),
-        ("generalist", "generalist_model", "mistral:7b-instruct", 300),
-        ("suggester", "suggester_model", "mistral:7b-instruct", 300), # Using generalist model for suggestions
-        ("improvement_planner", "improvement_planner_model", "mistral:7b", 900), # Using planner model for planning
-        ("senior_reviewer", "senior_reviewer_model", "mistral:7b-instruct", 600), # New Role
+        ("prototyper", "prototyper_model", "gpt-oss:20b", 600),
+        ("coder", "coder_model", "qwen3-coder:30b", 480),
+        ("planner", "planner_model", "ministral-3:14b", 900),
+        ("generalist", "generalist_model", "ministral-3:8b", 300),
+        ("suggester", "suggester_model", "ministral-3:8b", 300), # Using generalist model for suggestions
+        ("improvement_planner", "improvement_planner_model", "ministral-3:14b", 900), # Using planner model for planning
+        ("senior_reviewer", "senior_reviewer_model", "ministral-3:8b", 600), # Using generalist model for senior review
     ]
 
     def __init__(self, config_path: str = "config/settings.json"):
@@ -162,6 +162,7 @@ class AutoAgent:
                 continue
             self.logger.info(f"  [{idx}/{len(file_paths)}] Refining {rel_path}")
             try:
+                # The refiner's generate_file method expects readme_excerpt, not the whole thing
                 refined = self.refiner.refine_file(rel_path, content, readme[:1000])
                 if refined:
                     files[rel_path] = refined
@@ -224,6 +225,7 @@ class AutoAgent:
                         continue
                     self.logger.info(f"    Refining {rel_path}")
                     try:
+                        # The refiner's generate_file method expects readme_excerpt, not the whole thing
                         refined = self.refiner.refine_file(rel_path, content, readme[:1000])
                         if refined:
                             files[rel_path] = refined
@@ -239,15 +241,49 @@ class AutoAgent:
 
             self.logger.info("PHASE 7: Iterative Improvement complete.")
         
-        # New Iterative Senior Review Phase (Phase 8)
+        # Phase 7.5: Content completeness check
+        self.logger.info("PHASE 7.5: Checking content completeness (placeholder detection)...")
+        incomplete_files = []
+        for rel_path, content in files.items():
+            if not content:
+                continue
+            warning = self.file_validator.check_content_completeness(rel_path, content)
+            if warning:
+                self.logger.warning(f"  INCOMPLETE: {rel_path} — {warning}")
+                incomplete_files.append(rel_path)
+
+        if incomplete_files:
+            self.logger.info(f"  Found {len(incomplete_files)} incomplete files, attempting to complete them...")
+            for rel_path in incomplete_files:
+                content = files[rel_path]
+                try:
+                    issues = [{"description": "File contains placeholder/stub content that needs real implementation",
+                               "severity": "major",
+                               "recommendation": "Replace all TODO, placeholder, and stub content with real implementations"}]
+                    refined = self.refiner.refine_file(rel_path, content, readme[:2000], issues)
+                    if refined:
+                        files[rel_path] = refined
+                        self._save_file(project_root / rel_path, refined)
+                        self.logger.info(f"    Completed: {rel_path}")
+                except Exception as e:
+                    self.logger.error(f"    Error completing {rel_path}: {e}")
+
+            # Re-verify after completing
+            files = self.completeness_checker.verify_and_fix(files, readme[:2000])
+            for rel_path, content in files.items():
+                if content:
+                    self._save_file(project_root / rel_path, content)
+        self.logger.info("PHASE 7.5 complete.")
+
+        # Senior Review Phase (Phase 8)
         self.logger.info("PHASE 8: Starting Senior Review...")
         review_passed = False
         review_attempt = 0
-        max_review_attempts = 3 # Define max attempts for senior review
+        max_review_attempts = 3
         while not review_passed and review_attempt < max_review_attempts:
             review_attempt += 1
             self.logger.info(f"PHASE 8: Senior Review Attempt {review_attempt}/{max_review_attempts}...")
-            
+
             review_results = self.senior_reviewer.perform_review(
                 project_description, project_name, readme, structure, files, review_attempt
             )
@@ -257,38 +293,67 @@ class AutoAgent:
                 self.logger.info("PHASE 8: Senior Review Passed!")
                 self._save_file(project_root / "SENIOR_REVIEW_SUMMARY.md", review_results.get("summary", "Senior review passed."))
             else:
-                self.logger.warning(f"PHASE 8: Senior Review Failed. Issues found: {len(review_results.get('issues', []))}")
-                self._save_file(project_root / f"SENIOR_REVIEW_ISSUES_ATTEMPT_{review_attempt}.md", review_results.get("summary", "Senior review failed with unspecified issues."))
-                
-                # Try to fix the issues identified by the senior reviewer
-                if review_results.get("issues"):
-                    self.logger.info("  Attempting to fix senior review issues...")
-                    # This is a simplified implementation. A more robust solution would map issues
-                    # to specific file modifications. For now, we'll use a generic refinement/verification cycle.
-                    
-                    # Placeholder for more targeted fixes based on review_results.get("issues")
-                    # For a real implementation, 'issues' would drive targeted modifications
-                    
-                    self.logger.info("  Re-running Phase 5: Refinement based on senior review issues...")
-                    for idx, (rel_path, content) in enumerate(list(files.items()), 1):
-                        # Only refine files mentioned in issues, or all files for a broad fix attempt
-                        if not content or len(content) < 10:
+                issues = review_results.get("issues", [])
+                self.logger.warning(f"PHASE 8: Senior Review Failed. Issues found: {len(issues)}")
+
+                # Save detailed issue log
+                issue_log = f"# Senior Review Issues — Attempt {review_attempt}\n\n"
+                issue_log += f"**Summary:** {review_results.get('summary', 'N/A')}\n\n"
+                for i, issue in enumerate(issues, 1):
+                    issue_log += (
+                        f"## Issue {i}: [{issue.get('severity', 'unknown').upper()}]\n"
+                        f"**File:** {issue.get('file', 'N/A')}\n"
+                        f"**Description:** {issue.get('description', 'N/A')}\n"
+                        f"**Recommendation:** {issue.get('recommendation', 'N/A')}\n\n"
+                    )
+                self._save_file(project_root / f"SENIOR_REVIEW_ISSUES_ATTEMPT_{review_attempt}.md", issue_log)
+
+                if issues:
+                    self.logger.info("  Attempting targeted fixes based on senior review issues...")
+
+                    # Group issues by file for targeted refinement
+                    files_with_issues = set()
+                    general_issues = []
+                    for issue in issues:
+                        if issue.get("file"):
+                            files_with_issues.add(issue["file"])
+                        else:
+                            general_issues.append(issue)
+
+                    # Fix files that have specific issues
+                    for rel_path in files_with_issues:
+                        if rel_path not in files or not files[rel_path] or len(files[rel_path]) < 10:
                             continue
-                        self.logger.info(f"    Refining {rel_path}")
+                        self.logger.info(f"    Fixing {rel_path} (targeted)...")
                         try:
-                            # Consider sending review_results.get("issues") to refiner for targeted fix
-                            # Pass relevant issues to the refiner
-                            issues_for_file = [issue for issue in review_results["issues"] if issue.get("file") == rel_path]
-                            refined = self.refiner.refine_file(rel_path, content, readme[:1000], issues_for_file)
+                            file_issues = [iss for iss in issues if iss.get("file") == rel_path]
+                            refined = self.refiner.refine_file(
+                                rel_path, files[rel_path], readme[:2000], file_issues
+                            )
                             if refined:
                                 files[rel_path] = refined
                                 self._save_file(project_root / rel_path, refined)
                         except Exception as e:
-                            self.logger.error(f"    Error refining {rel_path} during senior review fix: {e}")
+                            self.logger.error(f"    Error fixing {rel_path}: {e}")
 
-                    self.logger.info("  Re-running Phase 5.5: Verification based on senior review issues...")
-                    # The completeness_checker could also be made aware of specific issues for targeted fixes
-                    files = self.completeness_checker.verify_and_fix(files, readme[:1000]) # Could pass specific issues here
+                    # For general issues without a specific file, refine all non-trivial files
+                    if general_issues:
+                        self.logger.info(f"  Applying {len(general_issues)} general fixes across all files...")
+                        for rel_path, content in list(files.items()):
+                            if not content or len(content) < 10 or rel_path in files_with_issues:
+                                continue
+                            try:
+                                refined = self.refiner.refine_file(
+                                    rel_path, content, readme[:2000], general_issues
+                                )
+                                if refined:
+                                    files[rel_path] = refined
+                                    self._save_file(project_root / rel_path, refined)
+                            except Exception as e:
+                                self.logger.error(f"    Error refining {rel_path}: {e}")
+
+                    self.logger.info("  Re-running verification after senior review fixes...")
+                    files = self.completeness_checker.verify_and_fix(files, readme[:2000])
                     for rel_path, content in files.items():
                         if content:
                             self._save_file(project_root / rel_path, content)

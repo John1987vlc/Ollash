@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict
 
 from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.agent_logger import AgentLogger
@@ -10,9 +10,10 @@ class SeniorReviewer:
     """Performs a comprehensive review of the generated project, acting as a senior architect."""
 
     DEFAULT_OPTIONS = {
-        "num_ctx": 4096, # Can be increased for more context
-        "num_predict": 2048,
-        "temperature": 0.2, # Low temperature for critical review
+        "num_ctx": 32768,
+        "num_predict": 8192,
+        "temperature": 0.2,
+        "keep_alive": "0s",
     }
 
     def __init__(
@@ -52,14 +53,14 @@ class SeniorReviewer:
             options_override=self.options,
         )
         raw_review = response_data["message"]["content"]
-        
+
         # The review should ideally be a structured JSON indicating pass/fail and issues
         review_results = self.parser.extract_json(raw_review)
-        
+
         if review_results is None:
             self.logger.error("Senior Reviewer could not extract valid JSON from LLM response. Assuming failed.")
             return {"status": "failed", "summary": "LLM returned invalid JSON review.", "issues": []}
-        
+
         # Ensure 'status', 'summary', and 'issues' keys are present
         review_results.setdefault("status", "failed")
         review_results.setdefault("summary", "Review completed.")

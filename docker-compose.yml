@@ -4,8 +4,8 @@ services:
     container_name: moltbot_agent
     volumes:
       - .:/app # Mount the current project directory into the container
-      - moltbot_logs:/app/logs # Persistent storage for agent logs
-      - moltbot_projects:/app/generated_projects # Persistent storage for generated projects
+      - ./logs:/app/logs # Map local logs directory
+      - ./generated_projects:/app/generated_projects # Map local generated_projects directory
     environment:
       # URL for the agent to connect to the Ollama API (not OLLAMA_HOST which is used by Ollama itself)
       MOLTBOT_OLLAMA_URL: ${MOLTBOT_OLLAMA_URL:-http://localhost:11434}
@@ -15,6 +15,29 @@ services:
     # command: ["python", "run_agent.py", "--chat"] # Example: run in chat mode
     # command: ["python", "benchmark.py"] # Example: run benchmark
 
-volumes:
-  moltbot_logs:
-  moltbot_projects:
+  autobenchmark_runner:
+    build: .
+    container_name: autobenchmark_agent
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+      - ./generated_projects:/app/generated_projects
+    environment:
+      MOLTBOT_OLLAMA_URL: ${MOLTBOT_OLLAMA_URL:-http://ollama:11434} # Point to the ollama service within docker-compose network
+      PYTHONUNBUFFERED: 1
+    # IMPORTANT: An 'ollama' service definition must exist in this docker-compose.yml
+    # or be managed externally for this service to function correctly.
+    # command: ["python", "auto_benchmark.py", "--models", "qwen3-coder-next"] # Example: run auto_benchmark with a specific model
+
+  auto_agent_runner:
+    build: .
+    container_name: auto_agent
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+      - ./generated_projects:/app/generated_projects/auto_agent_projects # Specific path for auto_agent projects
+    environment:
+      MOLTBOT_OLLAMA_URL: ${MOLTBOT_OLLAMA_URL:-http://ollama:11434}
+      PYTHONUNBUFFERED: 1
+    # Example command:
+    # command: ["python", "auto_agent.py", "--description", "Create a simple Python Flask web application that serves a REST API for managing a list of tasks.", "--name", "flask_todo_api"]

@@ -7,12 +7,30 @@
   "history_limit": 20,
   "sandbox": "limited",
   "project_root": ".",
-  "log_level": "info",
+  "log_level": "debug",
   "log_file": "ollash.log",
   "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
   "code-model": "qwen3-coder-next",
   "local-model":"ministral:8b",
   "default_system_prompt_path": "prompts/orchestrator/default_orchestrator.json",
   "summary_model": "ministral-3:8b",
-  "default_ollama_model": "ministral-3:8b"
+  "default_ollama_model": "ministral-3:8b",
+  "auto_agent_llms": {
+    "prototyper_model": "gpt-oss:20b",
+    "coder_model": "qwen3-coder:30b",
+    "planner_model": "ministral-3:14b",
+    "generalist_model": "ministral-3:8b",
+    "suggester_model": "ministral-3:8b",
+    "improvement_planner_model": "ministral-3:14b",
+    "senior_reviewer_model": "ministral-3:8b"
+  },
+  "auto_agent_timeouts": {
+    "prototyper": 600,
+    "coder": 480,
+    "planner": 900,
+    "generalist": 300,
+    "suggester": 300,
+    "improvement_planner": 900,
+    "senior_reviewer": 600
+  }
 }

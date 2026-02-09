@@ -10,9 +10,10 @@ class ImprovementSuggester:
     """Suggests improvements based on project context."""
 
     DEFAULT_OPTIONS = {
-        "num_ctx": 4096,
-        "num_predict": 1024,
+        "num_ctx": 16384,
+        "num_predict": 4096,
         "temperature": 0.5,
+        "keep_alive": "0s",
     }
 
     def __init__(
