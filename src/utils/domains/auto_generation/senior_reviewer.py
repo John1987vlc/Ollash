@@ -16,6 +16,13 @@ class SeniorReviewer:
         "keep_alive": "0s",
     }
 
+    JSON_RETRY_OPTIONS = {
+        "num_ctx": 16384,
+        "num_predict": 4096,
+        "temperature": 0.1,
+        "keep_alive": "0s",
+    }
+
     def __init__(
         self,
         llm_client: OllamaClient,
@@ -40,6 +47,9 @@ class SeniorReviewer:
         """
         Performs a senior-level review of the entire project.
         Returns a dictionary with review status ('passed'/'failed'), summary, and issues.
+
+        If the initial response is not valid JSON, retries once with a simplified
+        prompt to avoid wasting a review attempt with no actionable issues.
         """
         system, user = AutoGenPrompts.senior_review_prompt(
             project_description, project_name, readme_content, json_structure, current_files, review_attempt
@@ -54,11 +64,17 @@ class SeniorReviewer:
         )
         raw_review = response_data["message"]["content"]
 
-        # The review should ideally be a structured JSON indicating pass/fail and issues
         review_results = self.parser.extract_json(raw_review)
 
         if review_results is None:
-            self.logger.error("Senior Reviewer could not extract valid JSON from LLM response. Assuming failed.")
+            self.logger.warning(
+                "Senior Reviewer returned non-JSON response. "
+                "Retrying with simplified JSON-only prompt..."
+            )
+            review_results = self._retry_json_extraction(raw_review)
+
+        if review_results is None:
+            self.logger.error("Senior Reviewer could not produce valid JSON after retry. Assuming failed.")
             return {"status": "failed", "summary": "LLM returned invalid JSON review.", "issues": []}
 
         # Ensure 'status', 'summary', and 'issues' keys are present
@@ -67,3 +83,30 @@ class SeniorReviewer:
         review_results.setdefault("issues", [])
 
         return review_results
+
+    def _retry_json_extraction(self, raw_review: str) -> Dict | None:
+        """Retry JSON extraction by asking the LLM to convert its own text review to JSON."""
+        retry_system = (
+            "You are a JSON formatter. Convert the following review text into "
+            "a JSON object with exactly these keys: "
+            "'status' (string: 'passed' or 'failed'), "
+            "'summary' (string: one-sentence assessment), "
+            "'issues' (list of objects with 'description', 'severity', 'recommendation', 'file'). "
+            "Output ONLY valid JSON, nothing else."
+        )
+        retry_user = f"Convert this review to JSON:\n\n{raw_review[:4000]}"
+
+        try:
+            response_data, _ = self.llm_client.chat(
+                messages=[
+                    {"role": "system", "content": retry_system},
+                    {"role": "user", "content": retry_user},
+                ],
+                tools=[],
+                options_override=self.JSON_RETRY_OPTIONS,
+            )
+            raw_retry = response_data["message"]["content"]
+            return self.parser.extract_json(raw_retry)
+        except Exception as e:
+            self.logger.error(f"JSON retry failed: {e}")
+            return None

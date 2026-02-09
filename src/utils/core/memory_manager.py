@@ -8,7 +8,9 @@ from src.utils.core.ollama_client import OllamaClient
 
 
 class MemoryManager:
-    def __init__(self, project_root: Path, logger: Any, config: Optional[Dict] = None):
+    def __init__(self, project_root: Path, logger: Any, config: Optional[Dict] = None,
+                 embedding_client: Optional[Any] = None,
+                 summarization_client: Optional[Any] = None):
         self.project_root = project_root
         self.memory_file = self.project_root / ".agent_memory.json"
         self.logger = logger
@@ -21,6 +23,9 @@ class MemoryManager:
         self.summarization_threshold_ratio = self.config.get("summarization_threshold_ratio", 0.7)
         self.keep_last_n_messages = self.config.get("keep_last_n_messages", 3)
 
+        # LRU cache settings
+        self._reasoning_cache_max_size: int = self.config.get("reasoning_cache_max_size", 500)
+
         # Cumulative summary: persisted across summarization rounds
         self._cumulative_summary: str = self.get("cumulative_summary", "")
 
@@ -28,25 +33,35 @@ class MemoryManager:
         self.chroma_client = chromadb.Client()
         self.reasoning_cache_collection = self.chroma_client.get_or_create_collection(name="reasoning_cache")
 
-        # OllamaClient for embeddings and summarization
+        # Accept injected clients or create fallback instances
+        models_config = self.config.get("models", {})
         ollama_url = os.environ.get("MOLTBOT_OLLAMA_URL", self.config.get("ollama_url", "http://localhost:11434"))
-        self.summarization_model = self.config.get("summarization_model", self.config.get("summary_model", "ministral-3:8b"))
+        self.summarization_model = models_config.get("summarization",
+                                    self.config.get("summarization_model",
+                                    self.config.get("summary_model", "ministral-3:8b")))
 
-        self.embedding_client = OllamaClient(
-            url=ollama_url,
-            model=self.config.get("ollama_embedding_model", "all-minilm"),
-            timeout=self.config.get("timeout", 300),
-            logger=self.logger,
-            config=self.config
-        )
+        if embedding_client is not None:
+            self.embedding_client = embedding_client
+        else:
+            self.embedding_client = OllamaClient(
+                url=ollama_url,
+                model=models_config.get("embedding",
+                       self.config.get("ollama_embedding_model", "all-minilm")),
+                timeout=self.config.get("timeout", 300),
+                logger=self.logger,
+                config=self.config
+            )
 
-        self._summarization_client = OllamaClient(
-            url=ollama_url,
-            model=self.summarization_model,
-            timeout=self.config.get("timeout", 300),
-            logger=self.logger,
-            config=self.config
-        )
+        if summarization_client is not None:
+            self._summarization_client = summarization_client
+        else:
+            self._summarization_client = OllamaClient(
+                url=ollama_url,
+                model=self.summarization_model,
+                timeout=self.config.get("timeout", 300),
+                logger=self.logger,
+                config=self.config
+            )
 
     # ----------------------------------------------------------------
     # Persistence
@@ -223,10 +238,13 @@ class MemoryManager:
     # ----------------------------------------------------------------
 
     def add_to_reasoning_cache(self, error: str, solution: str):
-        """Adds an error and its solution to the reasoning cache."""
+        """Adds an error and its solution to the reasoning cache with LRU eviction."""
         try:
             error_embedding = self.embedding_client.get_embedding(error)
             error_hash = str(hash(error))
+
+            # LRU eviction: remove oldest entries if cache exceeds max size
+            self._evict_reasoning_cache_if_needed()
 
             self.reasoning_cache_collection.add(
                 embeddings=[error_embedding],
@@ -237,6 +255,20 @@ class MemoryManager:
             self.logger.info(f"Added new reasoning to cache for error: {error[:100]}...")
         except Exception as e:
             self.logger.error(f"Failed to add to reasoning cache: {e}")
+
+    def _evict_reasoning_cache_if_needed(self):
+        """Evicts oldest entries from reasoning cache when it exceeds max size."""
+        try:
+            count = self.reasoning_cache_collection.count()
+            if count >= self._reasoning_cache_max_size:
+                # Remove the oldest 10% of entries
+                evict_count = max(1, count // 10)
+                all_items = self.reasoning_cache_collection.peek(evict_count)
+                if all_items and all_items.get("ids"):
+                    self.reasoning_cache_collection.delete(ids=all_items["ids"])
+                    self.logger.info(f"Evicted {len(all_items['ids'])} old entries from reasoning cache (LRU).")
+        except Exception as e:
+            self.logger.error(f"Failed to evict reasoning cache: {e}")
 
     def search_reasoning_cache(self, error: str, threshold: float = 0.95) -> str | None:
         """Searches for a similar error in the reasoning cache and returns a solution if found."""

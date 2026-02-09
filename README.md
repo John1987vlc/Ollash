@@ -88,6 +88,41 @@ Este conjunto de herramientas se organiza por dominios, permitiendo que el agent
     *   `ToolExecutor`: Abstracción para la gestión y ejecución de herramientas, incluyendo la lógica de confirmación del usuario.
     *   `all_tool_definitions`: Definiciones de todas las herramientas disponibles para el agente.
 
+## Auto Agent — Generación Automática de Proyectos
+
+El Auto Agent (`auto_agent.py`) es un pipeline de 8 fases que genera proyectos completos y funcionales de cualquier tipo (web apps, CLI tools, juegos, scripts, librerías, microservicios, etc.) utilizando múltiples LLMs especializados.
+
+### Pipeline de Fases
+
+| Fase | Descripción | LLM |
+|------|-------------|-----|
+| 1. README | Genera documentación completa del proyecto | Planner (14b) |
+| 2. Estructura | Genera estructura JSON de archivos | Prototyper (20b) |
+| 3. Scaffolding | Crea archivos vacíos en disco | — |
+| 4. Contenido | Genera contenido de cada archivo con contexto cruzado | Prototyper (20b) |
+| 5. Refinamiento | Mejora calidad de código, error handling, docs | Coder (30b) |
+| 5.5. Verificación | Valida sintaxis y corrige archivos inválidos | Coder (30b) |
+| 5.6. Reconciliación de dependencias | Escanea imports reales y regenera requirements.txt | — |
+| 6. Review Final | Evaluación general de calidad (1-10) | Generalist (8b) |
+| 7. Mejora Iterativa | Sugerencias + plan + implementación en N loops | Suggester + Planner |
+| 7.5. Completitud | Detecta placeholders/TODOs y los reemplaza | Coder (30b) |
+| 8. Senior Review | Revisión rigurosa con hasta 3 intentos de corrección | Planner (14b) |
+
+### Ejecución
+
+```bash
+python auto_agent.py "Crea una app de gestión de tareas con Flask y SQLite" --name task_manager_app --loops 1
+```
+
+### Mejoras Recientes del Pipeline
+
+- **Validación de dependencias**: `FileValidator` ahora detecta requirements.txt con paquetes alucinados (nombres inválidos, duplicados, >30 entradas) y package.json inflados.
+- **Reconciliación de dependencias (Fase 5.6)**: Escanea imports reales en archivos Python y regenera requirements.txt cuando detecta dependencias excesivas o alucinadas.
+- **Sanity check adaptativo en refinamiento**: El `FileRefiner` permite reducciones drásticas en archivos de dependencias (10% mínimo vs 50% para código), permitiendo limpiar paquetes alucinados.
+- **Senior Reviewer con modelo más potente**: Usa el modelo planner (14b) en lugar del generalist (8b) para la fase analítica más compleja.
+- **Retry inteligente en Senior Review**: Si el LLM devuelve JSON inválido, reintenta con un prompt simplificado que convierte el texto a JSON, evitando desperdiciar intentos de revisión sin issues accionables.
+- **Contexto cruzado inteligente**: En la generación de archivos (Fase 4), selecciona archivos relacionados contextualmente (rutas backend para archivos frontend, archivos fuente para dependencias) en lugar de solo los últimos 5 generados.
+
 ## Tecnologías Utilizadas
 
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
@@ -109,16 +144,20 @@ local-it-agent-ollash/
 ├── assets/                  # Archivos estáticos (ej. index.html para prototipos)
 ├── config/                  # Archivos de configuración (ej. settings.json)
 ├── docs/                    # Documentación del proyecto
+├── generated_projects/      # Proyectos generados por el Auto Agent
 ├── logs/                    # Archivos de registro de la ejecución del agente
 ├── scripts/                 # Scripts de inicio rápido (ej. .bat, .ps1)
 ├── src/                     # Código fuente principal
-│   ├── agents/              # Implementación del agente principal (DefaultAgent)
-│   │   └── default_agent.py
+│   ├── agents/              # Implementación de agentes
+│   │   ├── default_agent.py # Agente principal interactivo
+│   │   ├── auto_agent.py    # Pipeline de generación automática de proyectos
+│   │   └── auto_benchmarker.py # Benchmarking de modelos LLM
 │   ├── cli/                 # Interfaz de línea de comandos
 │   │   └── asistente_ollama.py
 │   └── utils/               # Utilidades comunes y módulos de herramientas especializados
-│       ├── core/            # Módulos centrales y genéricos (FileManager, CommandExecutor, etc.)
+│       ├── core/            # Módulos centrales (FileManager, CommandExecutor, FileValidator, etc.)
 │       └── domains/         # Módulos de herramientas especializados por dominio
+│           ├── auto_generation/  # Fases del pipeline de Auto Agent (7 módulos)
 │           ├── bonus/
 │           ├── code/
 │           ├── command_line/
@@ -131,13 +170,13 @@ local-it-agent-ollash/
 ├── tests/                   # Pruebas unitarias
 ├── venv/                    # Entorno virtual de Python
 ├── .agent_memory.json       # Memoria del agente
-├── GEMINI.md                # Documentación para el agente Gemini
 ├── pyproject.toml           # Configuración del proyecto y dependencias (PEP 518)
 ├── pytest.ini               # Configuración de Pytest
 ├── README.md                # Este archivo
 ├── requirements-dev.txt     # Dependencias de desarrollo
 ├── requirements.txt         # Dependencias del proyecto
-└── run_agent.py             # Punto de entrada principal para ejecutar el agente
+├── run_agent.py             # Punto de entrada para el agente interactivo
+└── auto_agent.py            # Punto de entrada para el Auto Agent
 ```
 
 ## Instalación

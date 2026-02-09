@@ -75,18 +75,21 @@ class FileSystemTools:
         file_exists = full_path.exists()
         current_content = full_path.read_text(encoding="utf-8") if file_exists else ""
         
-        # Calculate diff if file exists
-        if file_exists:
+        # Calculate diff if file exists (skip for large files > 5MB)
+        max_diff_size = 5 * 1024 * 1024  # 5MB threshold
+        if file_exists and len(current_content) < max_diff_size and len(content) < max_diff_size:
             diff = list(difflib.unified_diff(
                 current_content.splitlines(),
                 content.splitlines(),
                 lineterm=""
             ))
-            # Each line in diff starts with '---', '+++', '@@', '+', '-' or ' '
-            # Count lines starting with '+' or '-'
             lines_changed = sum(1 for line in diff if line.startswith('+') or line.startswith('-'))
+        elif file_exists:
+            # For large files, estimate based on length difference
+            lines_changed = abs(len(content.splitlines()) - len(current_content.splitlines()))
+            self.logger.info(f"Skipping diff for large file {path} (>{max_diff_size // (1024*1024)}MB)")
         else:
-            lines_changed = len(content.splitlines()) # For new files, consider all lines as "changed"
+            lines_changed = len(content.splitlines())
         
         # Check against critical paths patterns
         is_critical_file = False

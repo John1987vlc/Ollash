@@ -94,6 +94,21 @@ class FileValidator:
         r'\.{3,}',  # Three or more dots (ellipsis as placeholder)
     ]
 
+    # Filenames that are dependency manifests (checked by name, not extension)
+    DEPENDENCY_FILES = {
+        "requirements.txt", "requirements-dev.txt", "requirements-test.txt",
+        "package.json", "Gemfile", "Cargo.toml", "go.mod",
+    }
+
+    # Max reasonable number of dependencies for a single generated project
+    MAX_DEPENDENCIES = 30
+
+    # Max reasonable length for a single package name
+    MAX_PACKAGE_NAME_LENGTH = 80
+
+    # Pattern for valid PyPI package names (PEP 508)
+    _PYPI_NAME_RE = re.compile(r'^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$')
+
     def __init__(self, logger=None):
         self.logger = logger
         self._validators = {
@@ -142,6 +157,21 @@ class FileValidator:
                 f"File has {char_count} chars, minimum expected {min_chars}",
                 line_count, char_count,
             )
+
+        # Check dependency manifests by filename (before extension-based dispatch)
+        filename = Path(file_path).name
+        if filename in self.DEPENDENCY_FILES:
+            dep_result = self._validate_dependency_file(file_path, stripped, line_count, char_count)
+            if dep_result.status != ValidationStatus.VALID:
+                return dep_result
+            # For dependency files, also run extension-based validation if available,
+            # but prefer the dependency result message if both pass
+            validator = self._validators.get(ext)
+            if validator:
+                ext_result = validator(file_path, stripped, line_count, char_count)
+                if ext_result.status != ValidationStatus.VALID:
+                    return ext_result
+            return dep_result
 
         validator = self._validators.get(ext)
         if validator:
@@ -321,6 +351,95 @@ class FileValidator:
         if any(kw in upper for kw in sql_keywords):
             return ValidationResult(path, ValidationStatus.VALID, "SQL syntax OK", lines, chars)
         return ValidationResult(path, ValidationStatus.VALID, "SQL file (basic check passed)", lines, chars)
+
+    def _validate_dependency_file(self, path, content, lines, chars) -> ValidationResult:
+        """Validate dependency manifest files for hallucinated or excessive entries."""
+        filename = Path(path).name
+
+        if filename.startswith("requirements") and filename.endswith(".txt"):
+            return self._validate_requirements_txt(path, content, lines, chars)
+        elif filename == "package.json":
+            return self._validate_package_json_deps(path, content, lines, chars)
+
+        # For other dependency files (Gemfile, Cargo.toml, go.mod), just do basic checks
+        return ValidationResult(path, ValidationStatus.VALID, "Dependency file basic check passed", lines, chars)
+
+    def _validate_requirements_txt(self, path, content, lines, chars) -> ValidationResult:
+        """Validate Python requirements.txt for hallucinated packages."""
+        entries = []
+        for line in content.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or line.startswith("-"):
+                continue
+            entries.append(line)
+
+        if len(entries) > self.MAX_DEPENDENCIES:
+            return ValidationResult(
+                path, ValidationStatus.SYNTAX_ERROR,
+                f"Excessive dependencies: {len(entries)} entries (max {self.MAX_DEPENDENCIES}). "
+                f"Likely contains hallucinated packages.",
+                lines, chars,
+            )
+
+        # Check for invalid package names
+        invalid_names = []
+        for entry in entries:
+            # Extract package name (before version specifier)
+            pkg_name = re.split(r'[><=!~\[]', entry)[0].strip()
+            if len(pkg_name) > self.MAX_PACKAGE_NAME_LENGTH:
+                invalid_names.append(pkg_name[:50] + "...")
+            elif not self._PYPI_NAME_RE.match(pkg_name):
+                invalid_names.append(pkg_name)
+
+        if invalid_names:
+            return ValidationResult(
+                path, ValidationStatus.SYNTAX_ERROR,
+                f"Invalid package names found: {', '.join(invalid_names[:5])}"
+                f"{f' (and {len(invalid_names) - 5} more)' if len(invalid_names) > 5 else ''}",
+                lines, chars,
+            )
+
+        # Check for duplicates
+        seen = set()
+        duplicates = []
+        for entry in entries:
+            pkg_name = re.split(r'[><=!~\[]', entry)[0].strip().lower()
+            if pkg_name in seen:
+                duplicates.append(pkg_name)
+            seen.add(pkg_name)
+
+        if duplicates:
+            return ValidationResult(
+                path, ValidationStatus.SYNTAX_ERROR,
+                f"Duplicate packages: {', '.join(duplicates[:5])}",
+                lines, chars,
+            )
+
+        return ValidationResult(path, ValidationStatus.VALID, f"Requirements OK ({len(entries)} packages)", lines, chars)
+
+    def _validate_package_json_deps(self, path, content, lines, chars) -> ValidationResult:
+        """Validate package.json dependencies for excessive entries."""
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            # Let the JSON validator handle parse errors
+            return ValidationResult(path, ValidationStatus.VALID, "Deferred to JSON validator", lines, chars)
+
+        total_deps = 0
+        for key in ("dependencies", "devDependencies", "peerDependencies"):
+            deps = data.get(key, {})
+            if isinstance(deps, dict):
+                total_deps += len(deps)
+
+        if total_deps > self.MAX_DEPENDENCIES:
+            return ValidationResult(
+                path, ValidationStatus.SYNTAX_ERROR,
+                f"Excessive dependencies in package.json: {total_deps} total (max {self.MAX_DEPENDENCIES}). "
+                f"Likely contains hallucinated packages.",
+                lines, chars,
+            )
+
+        return ValidationResult(path, ValidationStatus.VALID, f"package.json OK ({total_deps} deps)", lines, chars)
 
     def _validate_brace_language(self, path, content, lines, chars) -> ValidationResult:
         open_braces = content.count("{")

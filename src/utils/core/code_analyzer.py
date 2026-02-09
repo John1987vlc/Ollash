@@ -135,8 +135,8 @@ class CodeAnalyzer:
             if "venv" not in str(py_file) and "__pycache__" not in str(py_file):
                 try:
                     results[str(py_file)] = self.analyze_python(str(py_file))
-                except:
-                    pass
+                except (SyntaxError, UnicodeDecodeError, OSError):
+                    pass  # Skip files that can't be parsed or read
         return results
 
     def get_project_stats(self) -> Dict[str, Any]:

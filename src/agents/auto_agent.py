@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -41,7 +42,7 @@ class AutoAgent:
         ("generalist", "generalist_model", "ministral-3:8b", 300),
         ("suggester", "suggester_model", "ministral-3:8b", 300), # Using generalist model for suggestions
         ("improvement_planner", "improvement_planner_model", "ministral-3:14b", 900), # Using planner model for planning
-        ("senior_reviewer", "senior_reviewer_model", "ministral-3:8b", 600), # Using generalist model for senior review
+        ("senior_reviewer", "senior_reviewer_model", "ministral-3:14b", 900), # Needs strong reasoning for complex analysis
     ]
 
     def __init__(self, config_path: str = "config/settings.json"):
@@ -144,8 +145,9 @@ class AutoAgent:
         for idx, rel_path in enumerate(file_paths, 1):
             self.logger.info(f"  [{idx}/{len(file_paths)}] {rel_path}")
             try:
+                related = self._select_related_files(rel_path, files)
                 content = self.content_gen.generate_file(
-                    rel_path, readme, structure, dict(list(files.items())[-5:])
+                    rel_path, readme, structure, related
                 )
                 files[rel_path] = content or ""
                 if content:
@@ -178,6 +180,11 @@ class AutoAgent:
             if content:
                 self._save_file(project_root / rel_path, content)
         self.logger.info("PHASE 5.5 complete.")
+
+        # Phase 5.6: Dependency reconciliation (requirements.txt from actual imports)
+        self.logger.info("PHASE 5.6: Reconciling dependency files with actual imports...")
+        files = self._reconcile_requirements(files, project_root)
+        self.logger.info("PHASE 5.6 complete.")
 
         # Phase 6: Final review
         self.logger.info("PHASE 6: Final review...")
@@ -457,6 +464,206 @@ class AutoAgent:
 
         return updated_files, updated_structure, updated_file_paths
     
+    # File categories for intelligent context selection
+    _FRONTEND_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte"}
+    _BACKEND_ROUTE_PATTERNS = {"routes", "views", "api", "endpoints", "controllers"}
+    _DEPENDENCY_FILES = {"requirements.txt", "package.json", "Cargo.toml", "go.mod", "Gemfile"}
+
+    def _select_related_files(
+        self, target_path: str, generated_files: Dict[str, str], max_files: int = 8
+    ) -> Dict[str, str]:
+        """Select contextually relevant files for generation rather than just the last N.
+
+        Prioritizes:
+        - Files in the same directory
+        - For frontend files: backend route/API files
+        - For dependency files: source files (to infer actual dependencies)
+        - Falls back to the most recently generated files
+        """
+        if not generated_files:
+            return {}
+
+        target = Path(target_path)
+        target_ext = target.suffix.lower()
+        target_name = target.name
+        target_dir = str(target.parent)
+
+        scored: Dict[str, int] = {}
+        for path, content in generated_files.items():
+            if not content:
+                continue
+            p = Path(path)
+            score = 0
+
+            # Same directory gets a boost
+            if str(p.parent) == target_dir:
+                score += 3
+
+            # Frontend file generating → prioritize backend route files
+            if target_ext in self._FRONTEND_EXTENSIONS:
+                name_lower = p.stem.lower()
+                if any(pat in name_lower for pat in self._BACKEND_ROUTE_PATTERNS):
+                    score += 5
+                # Also boost model files for frontend
+                if "model" in name_lower:
+                    score += 3
+
+            # Dependency file generating → prioritize source files
+            if target_name in self._DEPENDENCY_FILES:
+                if p.suffix in (".py", ".js", ".ts", ".go", ".rs", ".rb"):
+                    score += 4
+
+            # Backend route file → prioritize model files
+            if any(pat in target.stem.lower() for pat in self._BACKEND_ROUTE_PATTERNS):
+                if "model" in p.stem.lower():
+                    score += 4
+
+            # Config/init files are generally useful
+            if p.name in ("__init__.py", "config.py", "settings.py", "app.py"):
+                score += 2
+
+            scored[path] = score
+
+        # Sort by score (desc), then take top max_files
+        ranked = sorted(scored.keys(), key=lambda p: scored[p], reverse=True)
+        selected = {p: generated_files[p] for p in ranked[:max_files]}
+        return selected
+
+    # -- Standard library modules (not installable via pip) --
+    _PYTHON_STDLIB = {
+        "abc", "aifc", "argparse", "array", "ast", "asynchat", "asyncio",
+        "asyncore", "atexit", "audioop", "base64", "bdb", "binascii",
+        "binhex", "bisect", "builtins", "bz2", "calendar", "cgi", "cgitb",
+        "chunk", "cmath", "cmd", "code", "codecs", "codeop", "collections",
+        "colorsys", "compileall", "concurrent", "configparser", "contextlib",
+        "contextvars", "copy", "copyreg", "cProfile", "crypt", "csv",
+        "ctypes", "curses", "dataclasses", "datetime", "dbm", "decimal",
+        "difflib", "dis", "distutils", "doctest", "email", "encodings",
+        "enum", "errno", "faulthandler", "fcntl", "filecmp", "fileinput",
+        "fnmatch", "fractions", "ftplib", "functools", "gc", "getopt",
+        "getpass", "gettext", "glob", "grp", "gzip", "hashlib", "heapq",
+        "hmac", "html", "http", "idlelib", "imaplib", "imghdr", "imp",
+        "importlib", "inspect", "io", "ipaddress", "itertools", "json",
+        "keyword", "lib2to3", "linecache", "locale", "logging", "lzma",
+        "mailbox", "mailcap", "marshal", "math", "mimetypes", "mmap",
+        "modulefinder", "multiprocessing", "netrc", "nis", "nntplib",
+        "numbers", "operator", "optparse", "os", "ossaudiodev", "pathlib",
+        "pdb", "pickle", "pickletools", "pipes", "pkgutil", "platform",
+        "plistlib", "poplib", "posix", "posixpath", "pprint", "profile",
+        "pstats", "pty", "pwd", "py_compile", "pyclbr", "pydoc",
+        "queue", "quopri", "random", "re", "readline", "reprlib",
+        "resource", "rlcompleter", "runpy", "sched", "secrets", "select",
+        "selectors", "shelve", "shlex", "shutil", "signal", "site",
+        "smtpd", "smtplib", "sndhdr", "socket", "socketserver", "sqlite3",
+        "ssl", "stat", "statistics", "string", "stringprep", "struct",
+        "subprocess", "sunau", "symtable", "sys", "sysconfig", "syslog",
+        "tabnanny", "tarfile", "telnetlib", "tempfile", "termios", "test",
+        "textwrap", "threading", "time", "timeit", "tkinter", "token",
+        "tokenize", "tomllib", "trace", "traceback", "tracemalloc",
+        "tty", "turtle", "turtledemo", "types", "typing", "unicodedata",
+        "unittest", "urllib", "uu", "uuid", "venv", "warnings", "wave",
+        "weakref", "webbrowser", "winreg", "winsound", "wsgiref",
+        "xdrlib", "xml", "xmlrpc", "zipapp", "zipfile", "zipimport",
+        "zlib", "_thread",
+    }
+
+    # Common import-name → PyPI-package-name mappings
+    _IMPORT_TO_PACKAGE = {
+        "flask": "Flask",
+        "flask_sqlalchemy": "Flask-SQLAlchemy",
+        "flask_cors": "Flask-CORS",
+        "flask_migrate": "Flask-Migrate",
+        "flask_login": "Flask-Login",
+        "flask_wtf": "Flask-WTF",
+        "flask_restful": "Flask-RESTful",
+        "sqlalchemy": "SQLAlchemy",
+        "dotenv": "python-dotenv",
+        "PIL": "Pillow",
+        "cv2": "opencv-python",
+        "sklearn": "scikit-learn",
+        "yaml": "PyYAML",
+        "bs4": "beautifulsoup4",
+        "dateutil": "python-dateutil",
+        "attr": "attrs",
+        "jwt": "PyJWT",
+        "gi": "PyGObject",
+        "wx": "wxPython",
+        "serial": "pyserial",
+        "usb": "pyusb",
+        "Crypto": "pycryptodome",
+    }
+
+    def _scan_python_imports(self, files: Dict[str, str]) -> List[str]:
+        """Scan Python files for import statements and return a list of pip-installable packages."""
+        import_pattern = re.compile(
+            r'^\s*(?:import|from)\s+([a-zA-Z_][a-zA-Z0-9_]*)', re.MULTILINE
+        )
+        top_level_modules = set()
+
+        for path, content in files.items():
+            if not path.endswith(".py") or not content:
+                continue
+            for match in import_pattern.finditer(content):
+                module = match.group(1)
+                top_level_modules.add(module)
+
+        # Filter out stdlib and local project imports
+        third_party = set()
+        for mod in top_level_modules:
+            if mod in self._PYTHON_STDLIB:
+                continue
+            # Map import name to package name
+            pkg = self._IMPORT_TO_PACKAGE.get(mod, mod)
+            third_party.add(pkg)
+
+        return sorted(third_party)
+
+    def _reconcile_requirements(
+        self, files: Dict[str, str], project_root: Path
+    ) -> Dict[str, str]:
+        """Phase 5.6: Reconcile requirements.txt with actual imports.
+
+        If requirements.txt exists and has excessive or hallucinated deps,
+        regenerate it from actual imports found in Python source files.
+        """
+        req_key = None
+        for path in files:
+            if Path(path).name == "requirements.txt":
+                req_key = path
+                break
+
+        if not req_key:
+            return files
+
+        # Check if requirements seems problematic
+        req_content = files[req_key]
+        lines = [l.strip() for l in req_content.splitlines()
+                 if l.strip() and not l.strip().startswith("#")]
+
+        scanned_packages = self._scan_python_imports(files)
+
+        if len(lines) > 30 or not scanned_packages:
+            # Requirements is bloated OR we found no imports — regenerate from scan
+            if scanned_packages:
+                self.logger.info(
+                    f"  Regenerating {req_key}: replacing {len(lines)} entries "
+                    f"with {len(scanned_packages)} scanned packages"
+                )
+                new_req = "\n".join(scanned_packages) + "\n"
+                files[req_key] = new_req
+                self._save_file(project_root / req_key, new_req)
+            else:
+                self.logger.warning(
+                    f"  {req_key} has {len(lines)} entries but no Python imports found. "
+                    f"Keeping original."
+                )
+        else:
+            self.logger.info(
+                f"  {req_key} looks reasonable ({len(lines)} entries). Keeping as is."
+            )
+
+        return files
+
     @staticmethod
     def _save_file(file_path: Path, content: str):
         """Save content to a file, creating parent directories as needed."""

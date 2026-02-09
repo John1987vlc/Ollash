@@ -1,43 +1,81 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama_server
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
   moltbot:
     build: .
     container_name: moltbot_agent
-    volumes:
-      - .:/app # Mount the current project directory into the container
-      - ./logs:/app/logs # Map local logs directory
-      - ./generated_projects:/app/generated_projects # Map local generated_projects directory
-    environment:
-      # URL for the agent to connect to the Ollama API (not OLLAMA_HOST which is used by Ollama itself)
-      MOLTBOT_OLLAMA_URL: ${MOLTBOT_OLLAMA_URL:-http://localhost:11434}
-      PYTHONUNBUFFERED: 1
-    # Entrypoint override for specific commands (e.g., benchmark, chat mode)
-    # The default command will be set in Dockerfile, but can be overridden here or in `docker run`
-    # command: ["python", "run_agent.py", "--chat"] # Example: run in chat mode
-    # command: ["python", "benchmark.py"] # Example: run benchmark
-
-  autobenchmark_runner:
-    build: .
-    container_name: autobenchmark_agent
+    depends_on:
+      ollama:
+        condition: service_healthy
     volumes:
       - .:/app
       - ./logs:/app/logs
       - ./generated_projects:/app/generated_projects
     environment:
-      MOLTBOT_OLLAMA_URL: ${MOLTBOT_OLLAMA_URL:-http://ollama:11434} # Point to the ollama service within docker-compose network
+      MOLTBOT_OLLAMA_URL: ${MOLTBOT_OLLAMA_URL:-http://ollama:11434}
       PYTHONUNBUFFERED: 1
-    # IMPORTANT: An 'ollama' service definition must exist in this docker-compose.yml
-    # or be managed externally for this service to function correctly.
-    # command: ["python", "auto_benchmark.py", "--models", "qwen3-coder-next"] # Example: run auto_benchmark with a specific model
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    stdin_open: true
+    tty: true
+
+  autobenchmark_runner:
+    build: .
+    container_name: autobenchmark_agent
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+      - ./generated_projects:/app/generated_projects
+    environment:
+      MOLTBOT_OLLAMA_URL: ${MOLTBOT_OLLAMA_URL:-http://ollama:11434}
+      PYTHONUNBUFFERED: 1
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    profiles:
+      - benchmark
 
   auto_agent_runner:
     build: .
     container_name: auto_agent
+    depends_on:
+      ollama:
+        condition: service_healthy
     volumes:
       - .:/app
       - ./logs:/app/logs
-      - ./generated_projects:/app/generated_projects/auto_agent_projects # Specific path for auto_agent projects
+      - ./generated_projects:/app/generated_projects/auto_agent_projects
     environment:
       MOLTBOT_OLLAMA_URL: ${MOLTBOT_OLLAMA_URL:-http://ollama:11434}
       PYTHONUNBUFFERED: 1
-    # Example command:
-    # command: ["python", "auto_agent.py", "--description", "Create a simple Python Flask web application that serves a REST API for managing a list of tasks.", "--name", "flask_todo_api"]
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    profiles:
+      - auto
+
+volumes:
+  ollama_data:

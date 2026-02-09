@@ -1,14 +1,9 @@
-import hashlib
 import json
 import os
 import requests
 import traceback
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
-from requests.adapters import HTTPAdapter 
-from urllib3.util.retry import Retry 
-import numpy as np # Added for cosine similarity
 
 from src.utils.core.agent_logger import AgentLogger
 from src.utils.core.token_tracker import TokenTracker
@@ -16,12 +11,14 @@ from src.utils.core.file_manager import FileManager
 from src.utils.core.command_executor import CommandExecutor, SandboxLevel
 from src.utils.core.git_manager import GitManager
 from src.utils.core.code_analyzer import CodeAnalyzer
-from src.utils.core.ollama_client import OllamaClient 
-from src.utils.core.memory_manager import MemoryManager 
-from src.utils.core.policy_manager import PolicyManager 
+from src.utils.core.ollama_client import OllamaClient
+from src.utils.core.memory_manager import MemoryManager
+from src.utils.core.policy_manager import PolicyManager
+from src.utils.core.tool_registry import ToolRegistry
+from src.utils.core.loop_detector import LoopDetector
 
 # Tool implementations
-from src.utils.core.tool_interface import ToolExecutor
+from src.utils.core.tool_interface import ToolConfirmationManager, ToolExecutor  # ToolExecutor kept as alias
 from src.utils.domains.code.file_system_tools import FileSystemTools
 from src.utils.domains.code.code_analysis_tools import CodeAnalysisTools
 from src.utils.domains.command_line.command_line_tools import CommandLineTools
@@ -30,14 +27,16 @@ from src.utils.domains.planning.planning_tools import PlanningTools
 from src.utils.domains.network.network_tools import NetworkTools
 from src.utils.domains.system.system_tools import SystemTools
 from src.utils.domains.cybersecurity.cybersecurity_tools import CybersecurityTools
-# New advanced toolsets
 from src.utils.domains.orchestration.orchestration_tools import OrchestrationTools
 from src.utils.domains.code.advanced_code_tools import AdvancedCodeTools
 from src.utils.domains.system.advanced_system_tools import AdvancedSystemTools
 from src.utils.domains.network.advanced_network_tools import AdvancedNetworkTools
 from src.utils.domains.cybersecurity.advanced_cybersecurity_tools import AdvancedCybersecurityTools
 from src.utils.domains.bonus.bonus_tools import BonusTools
-from src.utils.core.all_tool_definitions import get_filtered_tool_definitions 
+from src.utils.core.all_tool_definitions import get_filtered_tool_definitions
+
+# Maximum instruction length to prevent prompt injection / context flooding
+MAX_INSTRUCTION_LENGTH = 10000 
 
 # Initialize colorama (needed for print statements in some tool methods)
 from colorama import init, Fore, Style
@@ -79,22 +78,17 @@ class DefaultAgent:
         self.conversation: List[Dict] = self.memory_manager.get_conversation_history()
         self.domain_context_memory: Dict[str, str] = self.memory_manager.get_domain_context_memory()
 
-        # Loop detection parameters
-        self.loop_detection_history: List[Dict] = [] 
-        self.loop_detection_threshold: int = 3 # Number of consecutive similar actions to trigger a loop
-        self.stagnation_timeout: timedelta = timedelta(minutes=2) 
-        self.last_meaningful_action_time: datetime = datetime.now()
-        self.progress_score: float = 0.0 
-        self.semantic_similarity_threshold: float = self.config.get("semantic_similarity_threshold", 0.95) # Threshold for semantic similarity
+        # Checkpoint counter
         self.checkpoint_counter: int = 0
 
-        # Hybrid Brain Model Configuration
-        self.reasoning_model = self.config.get("reasoning_model", "gpt-oss:20b")
-        self.coding_model = self.config.get("coding_model", "qwen3-coder:30b")
-        self.self_correction_model = self.config.get("self_correction_model", "ministral-3:8b")
-        self.orchestration_model = self.config.get("orchestration_model", "ministral-3:8b") # For intent classification, summarization, pre-processing, translation
-        self.summarization_model = self.config.get("summarization_model", "gpt-oss:20b") # Dedicated model for summarization
-        self.current_llm_model = self.config.get("model", "qwen3-coder-next") # Default model for general tasks
+        # Hybrid Brain Model Configuration (centralized in settings.json "models" section)
+        models_config = self.config.get("models", {})
+        self.reasoning_model = models_config.get("reasoning", self.config.get("reasoning_model", "gpt-oss:20b"))
+        self.coding_model = models_config.get("coding", self.config.get("coding_model", "qwen3-coder:30b"))
+        self.self_correction_model = models_config.get("self_correction", self.config.get("self_correction_model", "ministral-3:8b"))
+        self.orchestration_model = models_config.get("orchestration", self.config.get("orchestration_model", "ministral-3:8b"))
+        self.summarization_model = models_config.get("summarization", self.config.get("summarization_model", "gpt-oss:20b"))
+        self.current_llm_model = models_config.get("default", self.config.get("model", "qwen3-coder-next"))
 
         # Load system prompt from file (relative to _base_path)
         default_prompt_path = self.config.get(
@@ -227,240 +221,34 @@ RULES:
         self._loaded_toolsets = {} # Cache for loaded toolset instances
 
         # ---------------- OLLAMA
-        # OllamaClient is instantiated with the default model.
-        # This will be dynamically changed in self.chat based on task intent.
         ollama_url = os.environ.get("MOLTBOT_OLLAMA_URL", self.config.get("ollama_url", "http://localhost:11434"))
         self.ollama = OllamaClient(
             url=ollama_url,
-            model=self.current_llm_model, # Initial model, will be updated dynamically
+            model=self.current_llm_model,
             timeout=self.config.get("timeout", 300),
             logger=self.logger,
-            config=self.config # Pass config for retry settings
+            config=self.config
         )
 
-        self.logger.info(f"🔗 Ollama: {ollama_url}")
-        self.logger.info(f"🧠 Model: {self.current_llm_model} (Initial)")
+        self.logger.info(f"Ollama: {ollama_url}")
+        self.logger.info(f"Model: {self.current_llm_model} (Initial)")
 
-        # All tool instances, organized by their method name to make dynamic assignment easier
-        self._all_tool_instances_mapping = {
-            "plan_actions": ("planning_tools", "plan_actions"),
-            "select_agent_type": ("planning_tools", "select_agent_type"),
-            "analyze_project": ("code_analysis_tools", "analyze_project"),
-            "read_file": ("file_system_tools", "read_file"),
-            "read_files": ("file_system_tools", "read_files"),
-            "write_file": ("file_system_tools", "write_file"),
-            "delete_file": ("file_system_tools", "delete_file"),
-            "file_diff": ("file_system_tools", "file_diff"),
-            "summarize_file": ("file_system_tools", "summarize_file"),
-            "summarize_files": ("file_system_tools", "summarize_files"),
-            "search_code": ("code_analysis_tools", "search_code"),
-            "run_command": ("command_line_tools", "run_command"),
-            "run_tests": ("command_line_tools", "run_tests"),
-            "validate_change": ("command_line_tools", "validate_change"),
-            "git_status": ("git_operations_tools", "git_status"),
-            "git_commit": ("git_operations_tools", "git_commit"),
-            "git_push": ("git_operations_tools", "git_push"),
-            "list_directory": ("file_system_tools", "list_directory"),
-            "ping_host": ("network_tools", "ping_host"),
-            "traceroute_host": ("network_tools", "traceroute_host"),
-            "list_active_connections": ("network_tools", "list_active_connections"),
-            "check_port_status": ("network_tools", "check_port_status"),
-            "get_system_info": ("system_tools", "get_system_info"),
-            "list_processes": ("system_tools", "list_processes"),
-            "install_package": ("system_tools", "install_package"),
-            "read_log_file": ("system_tools", "read_log_file"),
-            "scan_ports": ("cybersecurity_tools", "scan_ports"),
-            "check_file_hash": ("cybersecurity_tools", "check_file_hash"),
-            "analyze_security_log": ("cybersecurity_tools", "analyze_security_log"),
-            "recommend_security_hardening": ("cybersecurity_tools", "recommend_security_hardening"),
-            
-            # Advanced Tools (Orchestration/Meta)
-            "evaluate_plan_risk": ("orchestration_tools", "evaluate_plan_risk"),
-            "detect_user_intent": ("orchestration_tools", "detect_user_intent"),
-            "require_human_gate": ("orchestration_tools", "require_human_gate"),
-            "summarize_session_state": ("orchestration_tools", "summarize_session_state"),
-            "explain_decision": ("orchestration_tools", "explain_decision"),
-            "validate_environment_expectations": ("orchestration_tools", "validate_environment_expectations"),
-            "detect_configuration_drift": ("orchestration_tools", "detect_configuration_drift"),
-            "evaluate_compliance": ("orchestration_tools", "evaluate_compliance"),
-            "generate_audit_report": ("orchestration_tools", "generate_audit_report"),
-            "propose_governance_policy": ("orchestration_tools", "propose_governance_policy"),
+        # ---------------- TOOL REGISTRY (extracted from inline dicts)
+        self._tool_registry = ToolRegistry()
+        self._all_tool_instances_mapping = ToolRegistry.TOOL_MAPPING
+        self._agent_tool_name_mappings = ToolRegistry.AGENT_TOOLS
 
-            # Advanced Tools (Code)
-            "detect_code_smells": ("advanced_code_tools", "detect_code_smells"),
-            "suggest_refactor": ("advanced_code_tools", "suggest_refactor"),
-            "map_code_dependencies": ("advanced_code_tools", "map_code_dependencies"),
-            "compare_configs": ("advanced_code_tools", "compare_configs"),
-
-            # Advanced Tools (System)
-            "check_disk_health": ("advanced_system_tools", "check_disk_health"),
-            "monitor_resource_spikes": ("advanced_system_tools", "monitor_resource_spikes"),
-            "analyze_startup_services": ("advanced_system_tools", "analyze_startup_services"),
-            "rollback_last_change": ("advanced_system_tools", "rollback_last_change"),
-
-            # Advanced Tools (Network)
-            "analyze_network_latency": ("advanced_network_tools", "analyze_network_latency"),
-            "detect_unexpected_services": ("advanced_network_tools", "detect_unexpected_services"),
-            "map_internal_network": ("advanced_network_tools", "map_internal_network"),
-
-            # Advanced Tools (Cybersecurity)
-            "assess_attack_surface": ("advanced_cybersecurity_tools", "assess_attack_surface"),
-            "detect_ioc": ("advanced_cybersecurity_tools", "detect_ioc"),
-            "analyze_permissions": ("advanced_cybersecurity_tools", "analyze_permissions"),
-            "security_posture_score": ("advanced_cybersecurity_tools", "security_posture_score"),
-            
-            # Bonus Tools
-            "estimate_change_blast_radius": ("bonus_tools", "estimate_change_blast_radius"),
-            "generate_runbook": ("bonus_tools", "generate_runbook"),
-            "analyze_sentiment": ("bonus_tools", "analyze_sentiment"),
-            "generate_creative_content": ("bonus_tools", "generate_creative_content"),
-            "translate_text": ("bonus_tools", "translate_text"),
-        }
-        
-        # Mapping of agent types to their relevant tool names
-        self._agent_tool_name_mappings = {
-            "orchestrator": [
-                "plan_actions", "select_agent_type",
-                "evaluate_plan_risk", "detect_user_intent", "require_human_gate",
-                "summarize_session_state", "explain_decision",
-                "validate_environment_expectations", "detect_configuration_drift",
-                "evaluate_compliance", "generate_audit_report", "propose_governance_policy",
-                "estimate_change_blast_radius", "generate_runbook",
-                "analyze_sentiment", "generate_creative_content", "translate_text"
-            ],
-            "code": [
-                "plan_actions", "analyze_project", "read_file", "read_files",
-                "write_file", "delete_file", "file_diff", "summarize_file",
-                "summarize_files", "search_code", "run_command", "run_tests",
-                "validate_change", "git_status", "git_commit", "git_push",
-                "list_directory", "select_agent_type", "detect_code_smells",
-                "suggest_refactor", "map_code_dependencies", "compare_configs"
-            ],
-            "network": [
-                "plan_actions", "ping_host", "traceroute_host",
-                "list_active_connections", "check_port_status", "select_agent_type",
-                "analyze_network_latency", "detect_unexpected_services", "map_internal_network"
-            ],
-            "system": [
-                "plan_actions", "get_system_info", "list_processes", "install_package",
-                "read_log_file", "select_agent_type", "check_disk_health",
-                "monitor_resource_spikes", "analyze_startup_services", "rollback_last_change"
-            ],
-            "cybersecurity": [
-                "plan_actions", "scan_ports", "check_file_hash", "analyze_security_log",
-                "recommend_security_hardening", "select_agent_type", "assess_attack_surface",
-                "detect_ioc", "analyze_permissions", "security_posture_score"
-            ]
-        }
-        
         self.active_agent_type = "orchestrator"
         self.active_tool_names = self._agent_tool_name_mappings[self.active_agent_type]
 
-    def _get_action_embedding(self, action_data: Dict) -> List[float]:
-        """
-        Generates an embedding for a given action (tool call and its result).
-        """
-        # Serialize the action data into a consistent string format
-        action_string = json.dumps({
-            "tool_name": action_data["tool_name"],
-            "args": action_data["args"],
-            "result": action_data["result"]
-        }, sort_keys=True) # sort_keys for consistent serialization
-        
-        try:
-            return self.ollama.get_embedding(action_string)
-        except Exception as e:
-            self.logger.error(f"Failed to get embedding for action: {e}")
-            # Return a vector of zeros if embedding fails to avoid crashing
-            # This might lead to false negatives for loop detection but prevents crashes.
-            return [0.0] * 384 # Assuming a common embedding dimension, adjust if known
-
-    def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
-        """
-        Calculates the cosine similarity between two vectors.
-        """
-        vec1_np = np.array(vec1)
-        vec2_np = np.array(vec2)
-        
-        dot_product = np.dot(vec1_np, vec2_np)
-        norm_a = np.linalg.norm(vec1_np)
-        norm_b = np.linalg.norm(vec2_np)
-        
-        if norm_a == 0 or norm_b == 0:
-            return 0.0 # Handle zero vectors
-            
-        return dot_product / (norm_a * norm_b)
-
-    def _detect_loop(self) -> bool:
-        """
-        Detects loops based on semantic similarity and stagnation.
-        """
-        current_time = datetime.now()
-
-        history_length = len(self.loop_detection_history)
-        if history_length < self.loop_detection_threshold:
-            return False # Not enough history yet
-
-        # Semantic similarity loop detection
-        # Get embeddings for all actions in the history for more robust comparison
-        history_embeddings = [self._get_action_embedding(action) for action in self.loop_detection_history]
-        
-        # Check for semantic similarity in the last N actions
-        if history_length >= self.loop_detection_threshold:
-            # Take the last 'loop_detection_threshold' embeddings
-            recent_embeddings = history_embeddings[-self.loop_detection_threshold:]
-            
-            # Calculate pairwise similarity within these recent embeddings
-            # We want to check if all these recent actions are highly similar to each other
-            is_similar_streak = True
-            for i in range(len(recent_embeddings) - 1):
-                similarity = self._cosine_similarity(recent_embeddings[i], recent_embeddings[i+1])
-                if similarity < self.semantic_similarity_threshold:
-                    is_similar_streak = False
-                    break
-            
-            if is_similar_streak:
-                self.logger.warning(f"{Fore.RED}⚠️ Semantic loop detected! Agent performed {self.loop_detection_threshold} semantically similar actions consecutively.{Style.RESET_ALL}")
-                return True
-
-
-        # Stagnation over time: If no meaningful progress in a time window
-        if (current_time - self.last_meaningful_action_time > self.stagnation_timeout):
-            self.logger.warning(f"{Fore.RED}⚠️ Stagnation detected! No meaningful action for {self.stagnation_timeout}. Human intervention required.{Style.RESET_ALL}")
-            return True
-
-        return False
-
-    def _update_progress_score(self, tool_name: str, tool_result: Dict):
-        """
-        Updates a heuristic progress score based on tool execution.
-        Higher score means more progress towards a goal.
-        """
-        initial_progress_score = self.progress_score
-        
-        # Example heuristics (can be refined):
-        if tool_result.get("ok", False):
-            if tool_name == "select_agent_type":
-                self.progress_score += 1.0 # Significant progress: agent type changed
-            elif tool_name == "plan_actions":
-                self.progress_score += 0.5 # Planning is progress
-            elif tool_name == "detect_user_intent":
-                intent = tool_result.get("result", {}).get("intent")
-                confidence = tool_result.get("result", {}).get("confidence", 0.0)
-                if intent != "exploration" and confidence > 0.7:
-                    self.progress_score += 0.3 # Clear intent detected
-                elif intent == "exploration" and confidence < 0.6:
-                    self.progress_score -= 0.1 # Minor negative progress for ambiguity
-            # Add more rules for other tools that indicate progress (e.g., file written, command successful)
-            # For simplicity, other successful tools might give minor progress
-            else:
-                self.progress_score += 0.1
-        else: # Tool failed
-            self.progress_score -= 0.2 # Negative progress for failures
-
-        # Update last_meaningful_action_time if progress changed significantly
-        if abs(self.progress_score - initial_progress_score) > 0.05: # Threshold for "significant"
-            self.last_meaningful_action_time = datetime.now()
+        # ---------------- LOOP DETECTOR (extracted from inline logic)
+        self.loop_detector = LoopDetector(
+            logger=self.logger,
+            embedding_client=self.ollama,
+            threshold=self.config.get("loop_detection_threshold", 3),
+            similarity_threshold=self.config.get("semantic_similarity_threshold", 0.95),
+            stagnation_timeout_minutes=2
+        )
 
     def _calculate_message_tokens(self, messages: List[Dict]) -> int:
         """Estimates the total number of tokens in a list of messages. Delegates to MemoryManager."""
@@ -699,15 +487,40 @@ RULES:
 
     def _summarize_context_for_domain(self, domain_type: str) -> str:
         """
-        Summarizes the conversation history related to a specific domain type.
-        For now, this is a placeholder. In a more advanced implementation, this would
-        filter conversation by domain-specific tools or topics.
+        Summarizes the conversation history related to a specific domain type
+        by filtering for messages that reference tools from that domain.
         """
         self.logger.info(f"Summarizing context for domain: {domain_type}")
-        # For simplicity, just return a generic summary of the current conversation
-        # A more sophisticated approach would involve semantic search or filtering
-        # self._summarize_old_conversation_history() # This already updates self.conversation
-        return f"Context for {domain_type} was active. Current conversation is summarized."
+
+        domain_tools = set(self._agent_tool_name_mappings.get(domain_type, []))
+        if not domain_tools:
+            return f"No tools registered for domain '{domain_type}'."
+
+        # Filter conversation for messages that reference domain-specific tools
+        relevant_snippets = []
+        for msg in self.conversation:
+            content = msg.get("content", "")
+            tool_calls = msg.get("tool_calls", [])
+
+            # Check tool call messages
+            for tc in tool_calls:
+                tool_name = tc.get("function", {}).get("name", "")
+                if tool_name in domain_tools:
+                    relevant_snippets.append(f"[tool_call] {tool_name}: {json.dumps(tc['function'].get('arguments', {}))[:200]}")
+
+            # Check tool result messages that follow domain tool calls
+            if msg.get("role") == "tool" and content:
+                relevant_snippets.append(f"[tool_result] {content[:300]}")
+
+        if not relevant_snippets:
+            return f"No prior activity found for domain '{domain_type}'."
+
+        # Build a concise summary from the snippets (cap at 2000 chars)
+        combined = "\n".join(relevant_snippets)
+        if len(combined) > 2000:
+            combined = combined[:2000] + "\n... (truncated)"
+
+        return f"Domain '{domain_type}' activity summary:\n{combined}"
 
     @property
     def tool_functions(self):
@@ -725,6 +538,15 @@ RULES:
         return active_tool_funcs
 
     def chat(self, instruction: str, auto_confirm: bool = False) -> str:
+        # 0. Input validation
+        if not instruction or not instruction.strip():
+            return "Please provide an instruction."
+        if len(instruction) > MAX_INSTRUCTION_LENGTH:
+            return f"Instruction too long ({len(instruction)} chars). Maximum is {MAX_INSTRUCTION_LENGTH}."
+
+        # Reset loop detector for each new user turn
+        self.loop_detector.reset()
+
         # 1. Pre-processing Phase (Input)
         english_instruction, original_lang = self._preprocess_instruction(instruction)
         self.logger.info(f"Original Instruction: {instruction}")
@@ -837,28 +659,19 @@ RULES:
                                     self.memory_manager.add_to_reasoning_cache(last_error_context["error"], solution)
                                     last_error_context = None
                             
-                            # --- Loop Detection Logic ---
-                            # Only add successful tool results to history for loop detection
-                            if result.get("ok", True): # Assume ok if not specified
-                                self.loop_detection_history.append({
-                                    "tool_name": name,
-                                    "args": args, # Store args directly for semantic comparison if needed
-                                    "result": result, # Store full result for semantic comparison
-                                    "timestamp": datetime.now()
-                                })
-                                
-                                # Update heuristic progress score
-                                self._update_progress_score(name, result)
-                                
-                                if self._detect_loop():
+                            # --- Loop Detection (delegated to LoopDetector) ---
+                            if result.get("ok", True):
+                                self.loop_detector.record_action(name, args, result)
+                                self.loop_detector.update_progress(name, result)
+
+                                if self.loop_detector.detect_loop():
                                     loop_message = f"Detected a loop! The agent is repeatedly calling '{name}' with similar arguments/results. Human intervention required."
                                     self.logger.error(loop_message)
-                                    # Trigger human gate
                                     return self._get_tool_from_toolset("require_human_gate")(
                                         action_description=loop_message,
                                         reason="Loop detected, agent is stuck in a repetitive action sequence."
                                     )
-                            # --- End Loop Detection Logic ---
+                            # --- End Loop Detection ---
 
                             # Old logic related to select_agent_type, keep it
                             if name == "select_agent_type" and result.get("ok"):

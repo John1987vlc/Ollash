@@ -36,8 +36,17 @@ class PolicyManager:
             self.logger.warning(f"No existing security policy file found at {self.policy_file}, using default empty policies.")
             # Optionally, create a default policy file or use hardcoded defaults
             self.policies = {
-                "allowed_commands": ["ls", "dir", "cat", "more", "head", "tail", "grep", "find", "python", "pip", "npm", "node", "git", "pytest"],
-                "disallowed_patterns": [";", "&&", "||", "|", "`", "$(", ">", "<", ">>", "&"],
+                "allowed_commands": [
+                    "ls", "dir", "cat", "more", "head", "tail", "grep", "find",
+                    "git", "pytest", "ruff", "mypy"
+                ],
+                "restricted_commands": {
+                    "python": ["-m", "pytest", "-c"],
+                    "pip": ["install", "list", "show", "freeze"],
+                    "npm": ["install", "list", "run", "test"],
+                    "node": []
+                },
+                "disallowed_patterns": [";", "&&", "||", "`", "$(", ">>", "&"],
                 "critical_paths": [".env", "settings.json", "package.json", "requirements.txt", ".git/", ".github/"],
                 "path_traversal_regex": r"(\.\./|\.\.\)"
             }

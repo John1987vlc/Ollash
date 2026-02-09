@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from src.utils.core.ollama_client import OllamaClient
@@ -15,6 +16,15 @@ class FileRefiner:
         "temperature": 0.2,
         "keep_alive": "0s",
     }
+
+    # Files where drastic reduction is legitimate (e.g. cleaning hallucinated deps)
+    REDUCTION_EXEMPT_FILES = {
+        "requirements.txt", "requirements-dev.txt", "requirements-test.txt",
+        "package.json", "Gemfile", "Cargo.toml", "go.mod",
+    }
+    # Minimum ratio for normal files vs reduction-exempt files
+    NORMAL_MIN_RATIO = 0.5
+    EXEMPT_MIN_RATIO = 0.1
 
     def __init__(
         self,
@@ -64,8 +74,15 @@ class FileRefiner:
         raw = response_data["message"]["content"]
         refined = self.parser.extract_raw_content(raw)
 
-        # Sanity check: refined must be at least 50% of original length
-        if refined and len(refined) > len(current_content) * 0.5:
+        # Sanity check: refined must meet minimum size ratio
+        # Dependency files allow drastic reduction (cleaning hallucinated entries)
+        filename = Path(file_path).name
+        if filename in self.REDUCTION_EXEMPT_FILES:
+            min_ratio = self.EXEMPT_MIN_RATIO
+        else:
+            min_ratio = self.NORMAL_MIN_RATIO
+
+        if refined and len(refined) > len(current_content) * min_ratio:
             self.logger.info(f"    Refined ({len(refined)} chars)")
             return refined
 

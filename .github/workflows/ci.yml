@@ -9,14 +9,30 @@ on:
       - master
 
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.11'
+    - name: Install dev dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+    - name: Lint with ruff
+      run: |
+        ruff check src/ tests/ --output-format=github
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -25,6 +41,6 @@ jobs:
     - name: Set PYTHONPATH
       run: |
         echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
-    - name: Run mocked unit/integration tests
+    - name: Run all mocked tests
       run: |
-        pytest tests/test_code_agent_integration.py -v --timeout=60
+        pytest tests/ -v --timeout=120 --ignore=tests/test_ollama_integration.py

@@ -1,12 +1,44 @@
 import subprocess
 import json
+import time
 import requests
 import traceback
 from typing import Dict, List, Any
+from collections import deque
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from src.utils.core.agent_logger import AgentLogger # Assuming logger is passed
+from src.utils.core.agent_logger import AgentLogger
+
+
+class RateLimiter:
+    """Simple token-bucket rate limiter for API requests."""
+
+    def __init__(self, requests_per_minute: int = 60, tokens_per_minute: int = 100000):
+        self.rpm = requests_per_minute
+        self.tpm = tokens_per_minute
+        self._request_timestamps: deque = deque()
+        self._token_usage: deque = deque()  # (timestamp, tokens)
+
+    def wait_if_needed(self):
+        """Blocks until a request is allowed under the rate limit."""
+        now = time.monotonic()
+        # Purge old timestamps (older than 60s)
+        while self._request_timestamps and now - self._request_timestamps[0] > 60:
+            self._request_timestamps.popleft()
+        if len(self._request_timestamps) >= self.rpm:
+            sleep_time = 60 - (now - self._request_timestamps[0])
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+        self._request_timestamps.append(time.monotonic())
+
+    def record_tokens(self, token_count: int):
+        """Records token usage for rate tracking."""
+        now = time.monotonic()
+        while self._token_usage and now - self._token_usage[0][0] > 60:
+            self._token_usage.popleft()
+        self._token_usage.append((now, token_count))
+
 
 class OllamaClient:
     def __init__(self, url: str, model: str, timeout: int, logger: AgentLogger, config: Dict):
@@ -15,20 +47,19 @@ class OllamaClient:
         self.embed_url = f"{self.base_url}/api/embed"
         self.model = model
         self.logger = logger
-        self.config = config # Store config for retry parameters
+        self.config = config
 
         # Configure retry strategy
-        # Changed defaults as requested
-        max_retries = self.config.get("ollama_max_retries", 5) # Increased from 3 to 5
-        backoff_factor = self.config.get("ollama_backoff_factor", 1.0) # Increased from 0.3 to 1.0
+        max_retries = min(self.config.get("ollama_max_retries", 5), 10)
+        backoff_factor = min(self.config.get("ollama_backoff_factor", 1.0), 5.0)
         status_forcelist = self.config.get("ollama_retry_status_forcelist", [429, 500, 502, 503, 504])
 
         retry_strategy = Retry(
             total=max_retries,
             backoff_factor=backoff_factor,
             status_forcelist=status_forcelist,
-            allowed_methods=["POST"], # Only retry POST requests
-            raise_on_status=False # Don't raise on first error, let adapter retry
+            allowed_methods=["POST"],
+            raise_on_status=False
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.http_session = requests.Session()
@@ -37,9 +68,18 @@ class OllamaClient:
 
         # Timeout for individual requests
         self.timeout = timeout
-        
+
+        # Rate limiting
+        rate_config = self.config.get("rate_limiting", {})
+        self._rate_limiter = RateLimiter(
+            requests_per_minute=rate_config.get("requests_per_minute", 60),
+            tokens_per_minute=rate_config.get("max_tokens_per_minute", 100000)
+        )
+
         # Embedding model configuration
-        self.embedding_model = self.config.get("ollama_embedding_model", "all-minilm") # Default embedding model
+        models_config = self.config.get("models", {})
+        self.embedding_model = models_config.get("embedding",
+                                self.config.get("ollama_embedding_model", "all-minilm"))
 
     def _pull_model(self, model_name: str) -> bool:
         """
@@ -90,6 +130,9 @@ class OllamaClient:
         }
         
         try:
+            # Rate limiting
+            self._rate_limiter.wait_if_needed()
+
             # Log request details
             self.logger.debug(f"Sending request to {self.chat_url}")
             self.logger.debug(f"Model: {self.model}")

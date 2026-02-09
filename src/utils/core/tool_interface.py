@@ -2,7 +2,16 @@ from typing import Dict, List, Any, Optional
 from colorama import Fore, Style
 from src.utils.core.all_tool_definitions import ALL_TOOLS_DEFINITIONS, get_filtered_tool_definitions
 
-class ToolExecutor:
+# Backwards-compatible alias
+ToolExecutor = None  # Will be set after class definition
+
+
+class ToolConfirmationManager:
+    """Manages confirmation gates for state-modifying tools.
+
+    Renamed from ToolExecutor to better reflect its actual responsibility:
+    it handles confirmation logic, not tool execution.
+    """
     MODIFY_ACTIONS = {"write_file", "delete_file", "git_commit", "git_push"}
 
     def __init__(self, logger: Any, config: Dict = None, auto_confirm: bool = False):
@@ -88,3 +97,7 @@ class ToolExecutor:
                 self.logger.info(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
             else:
                 self.logger.info(f"{Fore.RED}Please answer 'yes', 'no', or 'view'{Style.RESET_ALL}")
+
+
+# Backwards-compatible alias so existing imports keep working
+ToolExecutor = ToolConfirmationManager
