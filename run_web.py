@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Ollash Web UI entry point."""
+import os
 import sys
 from pathlib import Path
 
@@ -9,4 +10,7 @@ from src.web.app import create_app
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(debug=True, port=5000, threaded=True)
+    host = os.environ.get("FLASK_HOST", "0.0.0.0")
+    port = int(os.environ.get("FLASK_PORT", "5000"))
+    debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+    app.run(host=host, port=port, debug=debug, threaded=True)

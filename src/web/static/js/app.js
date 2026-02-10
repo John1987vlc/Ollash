@@ -757,6 +757,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // ==================== Refresh Files ====================
+    const refreshFilesBtn = document.getElementById('refresh-files');
+    if (refreshFilesBtn) {
+        refreshFilesBtn.addEventListener('click', function() {
+            if (currentProject) fetchFileTree(currentProject);
+        });
+    }
+
+    // ==================== Status Check ====================
+    async function checkOllamaStatus() {
+        const statusDot = document.querySelector('.status-dot');
+        const statusText = document.querySelector('.status-indicator span');
+        if (!statusDot || !statusText) return;
+
+        try {
+            const resp = await fetch('/api/status');
+            const data = await resp.json();
+            if (data.status === 'ok') {
+                statusDot.style.background = 'var(--color-success)';
+                statusText.textContent = 'Ollama connected';
+            } else {
+                statusDot.style.background = 'var(--color-error)';
+                statusText.textContent = 'Ollama offline';
+            }
+        } catch {
+            statusDot.style.background = 'var(--color-error)';
+            statusText.textContent = 'Ollama offline';
+        }
+    }
+
     // ==================== Init ====================
     populateExistingProjects();
+    checkOllamaStatus();
+    setInterval(checkOllamaStatus, 30000);
 });

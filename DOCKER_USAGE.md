@@ -53,7 +53,30 @@ ollama pull gpt-oss:20b
 ollama pull qwen3-coder:30b
 ```
 
-## Running the Ollash Agent
+## Running the Web UI
+
+The easiest way to use Ollash is through the Flask web interface:
+
+```bash
+docker-compose up ollama ollash_web
+```
+
+Open `http://localhost:5000` in your browser. The web UI provides:
+
+- **Chat** — Interactive chat with 5 specialist agents (orchestrator, code, network, system, cybersecurity)
+- **New Project** — Generate complete projects from a text description
+- **Projects** — Browse generated projects with file explorer, code viewer, and live preview
+- **Benchmark** — Benchmark Ollama models with live progress and result history
+
+The sidebar status indicator shows whether Ollama is connected.
+
+To run in the background:
+```bash
+docker-compose up -d ollama ollash_web
+docker-compose logs -f ollash_web     # view logs
+```
+
+## Running the CLI Agent
 
 To run the agent in an isolated Docker container, connecting to your external Ollama:
 

@@ -37,6 +37,28 @@ services:
     stdin_open: true
     tty: true
 
+  ollash_web:
+    build: .
+    container_name: ollash_web_ui
+    depends_on:
+      ollama:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+      - ./generated_projects:/app/generated_projects
+    environment:
+      OLLASH_OLLAMA_URL: ${OLLASH_OLLAMA_URL:-http://ollama:11434}
+      FLASK_DEBUG: "1"
+      PYTHONUNBUFFERED: 1
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    command: python run_web.py
+
   autobenchmark_runner:
     build: .
     container_name: autobenchmark_agent

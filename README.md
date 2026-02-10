@@ -269,10 +269,19 @@ Tests use `pytest` with mocked Ollama calls. Key test files:
 ## Docker
 
 ```bash
-docker-compose up --build
+# Web UI (recommended) — opens at http://localhost:5000
+docker-compose up ollama ollash_web
+
+# CLI agent (interactive)
+docker-compose run --rm ollash python run_agent.py --chat
+
+# Benchmark runner
+docker-compose run --rm --profile benchmark autobenchmark_runner python auto_benchmark.py
 ```
 
-See [DOCKER_USAGE.md](DOCKER_USAGE.md) for details.
+The `ollash_web` service exposes port 5000 and connects to the Ollama container automatically. Set `OLLASH_OLLAMA_URL` in `.env` to point to an external Ollama server instead.
+
+See [DOCKER_USAGE.md](DOCKER_USAGE.md) for full setup instructions.
 
 ## CI/CD
 
