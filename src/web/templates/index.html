@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollash - Local IT Agent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Background Effects -->
+    <div class="bg-gradient"></div>
+    <div class="noise-overlay"></div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <rect width="32" height="32" rx="8" fill="url(#logo-gradient)"/>
+                        <path d="M16 8L22 12V20L16 24L10 20V12L16 8Z" stroke="white" stroke-width="2" fill="none"/>
+                        <circle cx="16" cy="16" r="3" fill="white"/>
+                        <defs>
+                            <linearGradient id="logo-gradient" x1="0" y1="0" x2="32" y2="32">
+                                <stop offset="0%" stop-color="#6366f1"/>
+                                <stop offset="100%" stop-color="#8b5cf6"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <span>Ollash</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-view="chat">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M4 4H16V13H7L4 16V4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>Chat</span>
+                </button>
+                <button class="nav-item" data-view="create">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span>New Project</span>
+                </button>
+                <button class="nav-item" data-view="projects">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M3 4H17V16H3V4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M7 8H13M7 12H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span>Projects</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span>Ready</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Chat View -->
+            <div class="view active" id="chat-view">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="chat-welcome">
+                            <h2>Ollash Agent</h2>
+                            <p>Ask anything &mdash; code analysis, network diagnostics, system administration, cybersecurity, and more.</p>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <textarea id="chat-input" placeholder="Ask Ollash anything..." rows="1"></textarea>
+                        <button id="send-btn" class="btn-primary" title="Send">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 10L17 3L10 17L9 11L3 10Z" fill="currentColor"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Project View -->
+            <div class="view" id="create-view">
+                <div class="view-header">
+                    <h1>Create New Project</h1>
+                    <p class="subtitle">Describe your project and let AI generate the complete codebase</p>
+                </div>
+
+                <div class="create-form-container">
+                    <form id="create-project-form" class="create-form">
+                        <div class="form-group">
+                            <label for="project-name">Project Name</label>
+                            <input type="text" id="project-name" name="project_name"
+                                   placeholder="e.g., my-awesome-app" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="project-description">Project Description</label>
+                            <textarea id="project-description" name="project_description"
+                                      rows="6" placeholder="Describe what your project should do, what features it needs, and any specific requirements..." required></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-primary">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 2L18 6V14L10 18L2 14V6L10 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                            </svg>
+                            <span>Generate Project</span>
+                        </button>
+                    </form>
+
+                    <div id="status-message" class="status-message"></div>
+                </div>
+            </div>
+
+            <!-- Projects View -->
+            <div class="view" id="projects-view">
+                <div class="view-header">
+                    <h1>Your Projects</h1>
+                    <div class="project-selector">
+                        <select id="existing-projects" class="select-modern">
+                            <option value="">Select a project...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="project-workspace" id="project-workspace" style="display: none;">
+                    <div class="workspace-grid">
+                        <!-- File Explorer -->
+                        <div class="file-explorer">
+                            <div class="explorer-header">
+                                <h3>Files</h3>
+                                <div class="explorer-actions">
+                                    <button class="btn-icon" title="Refresh" id="refresh-files">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                            <path d="M14 8C14 11.31 11.31 14 8 14C4.69 14 2 11.31 2 8C2 4.69 4.69 2 8 2" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M8 2L11 5L8 8" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="file-tree" id="file-tree-list"></div>
+                        </div>
+
+                        <!-- Preview/Code Area -->
+                        <div class="preview-area">
+                            <div class="preview-tabs">
+                                <button class="tab-btn active" data-tab="preview">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <rect x="2" y="3" width="12" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                                        <path d="M2 6H14" stroke="currentColor" stroke-width="1.5"/>
+                                    </svg>
+                                    Preview
+                                </button>
+                                <button class="tab-btn" data-tab="code">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M5 4L2 8L5 12M11 4L14 8L11 12" stroke="currentColor" stroke-width="1.5"/>
+                                    </svg>
+                                    Code
+                                </button>
+                                <div class="current-file-indicator">
+                                    <span id="current-file-name">No file selected</span>
+                                </div>
+                            </div>
+
+                            <div class="tab-content active" id="preview-tab">
+                                <iframe id="preview-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+                            </div>
+
+                            <div class="tab-content" id="code-tab">
+                                <pre><code id="file-code-display" class="language-python">Select a file to view its content.</code></pre>
+                            </div>
+                        </div>
+
+                        <!-- Logs Panel -->
+                        <div class="logs-panel">
+                            <div class="logs-header">
+                                <h3>
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
+                                        <path d="M8 5V8L10 10" stroke="currentColor" stroke-width="1.5"/>
+                                    </svg>
+                                    Live Output
+                                </h3>
+                                <div class="logs-actions">
+                                    <button class="btn-icon" id="clear-logs" title="Clear logs">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                            <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="logs-content" id="agent-logs"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

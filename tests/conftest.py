@@ -1,5 +1,6 @@
 import os
 import sys
+import random
 from pathlib import Path
 import pytest
 import json
@@ -15,6 +16,19 @@ TEST_OLLAMA_URL = os.environ.get("OLLAMA_TEST_URL", "http://localhost:11434")
 TEST_TIMEOUT = int(os.environ.get("OLLAMA_TEST_TIMEOUT", "300"))
 
 
+def _make_varying_embedding():
+    """Return a different random-ish embedding each call to avoid loop detection false positives."""
+    counter = [0]
+    rng = random.Random(42)  # deterministic seed for reproducibility
+
+    def _gen(*args, **kwargs):
+        counter[0] += 1
+        # Each call produces a distinct vector (seeded by call index)
+        return [rng.gauss(0, 1) for _ in range(384)]
+
+    return _gen
+
+
 # Fixture for mocking OllamaClient
 @pytest.fixture
 def mock_ollama_client():
@@ -25,8 +39,9 @@ def mock_ollama_client():
         instance.url = TEST_OLLAMA_URL
         instance.base_url = TEST_OLLAMA_URL
         instance.timeout = TEST_TIMEOUT
-        # Mock the get_embedding method
-        instance.get_embedding.return_value = [0.1] * 384  # Return a dummy embedding vector
+        # Mock the get_embedding method with varying vectors to prevent
+        # loop detector false positives (identical embeddings = cosine sim 1.0)
+        instance.get_embedding.side_effect = _make_varying_embedding()
         # Make MemoryManager's OllamaClient instances use the same mock
         MockMemoryClient.return_value = instance
         yield instance

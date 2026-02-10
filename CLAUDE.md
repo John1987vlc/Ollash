@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Ollash** (Local IT Agent) is a modular AI agent framework powered by Ollama for local IT tasks: code analysis, network diagnostics, system administration, and cybersecurity. It uses Ollama's tool-calling API to orchestrate specialized agents across domains.
+**Ollash** (Local IT Agent) is a modular AI agent framework powered by Ollama for local IT tasks: code analysis, network diagnostics, system administration, and cybersecurity. It uses Ollama's tool-calling API to orchestrate specialized agents across domains. A secondary pipeline (Auto Agent) generates complete projects from natural language descriptions using multiple specialized LLMs.
 
 ## Commands
 
@@ -21,8 +21,18 @@ python run_agent.py --chat --auto
 # Specify project path
 python run_agent.py --chat --path ./sandbox/myproject
 
+# Auto Agent — generate a complete project
+python auto_agent.py --description "project description" --name project_name --refine-loops 1
+
+# Web UI (chat + project generation)
+python run_web.py
+
+# Benchmark LLM models on project generation
+python auto_benchmark.py
+python auto_benchmark.py --models model1 model2
+
 # Run all tests (mocked, no Ollama needed)
-pytest tests/
+pytest tests/ -v --timeout=120 --ignore=tests/test_ollama_integration.py
 
 # Run a single test file
 pytest tests/test_code_agent_integration.py
@@ -40,15 +50,32 @@ pip install -r requirements-dev.txt
 
 **PYTHONPATH**: Must include the project root for imports to work. CI sets this via `GITHUB_ENV`; locally, run from the project root or set it manually.
 
+### Environment Variables
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `OLLASH_OLLAMA_URL` | Ollama URL for runtime (also used in Docker) | `http://localhost:11434` |
+| `OLLAMA_TEST_URL` | Ollama URL for integration tests | `http://localhost:11434` |
+| `OLLAMA_TEST_TIMEOUT` | Timeout for integration tests (seconds) | `300` |
+
 ## Architecture
 
-### Agent Orchestration
+### Entry Points
 
-The single entry point is `run_agent.py`, which instantiates `DefaultAgent` (in `src/agents/default_agent.py`). This is the core orchestrator (~1000 lines) that:
+- `run_agent.py` — Interactive agent CLI → `DefaultAgent`
+- `auto_agent.py` — Autonomous project generation CLI → `AutoAgent`
+- `auto_benchmark.py` — LLM benchmarking CLI → `ModelBenchmarker`
+- `run_web.py` — Flask web UI (chat + project generation) → `src/web/app.py`
+
+All CLI entry points are thin wrappers that parse args and delegate to classes in `src/agents/`.
+
+### DefaultAgent — Interactive Orchestrator
+
+`src/agents/default_agent.py` (~1000 lines) is the core orchestrator:
 
 1. **Preprocesses** the user instruction (language detection, translation, refinement)
 2. **Classifies intent** to select the best LLM model (coding vs reasoning vs general)
-3. Runs a **tool-calling loop** (up to 30 iterations) against Ollama until the LLM returns a final text response (no more tool calls)
+3. Runs a **tool-calling loop** (up to 30 iterations) against Ollama until the LLM returns a final text response
 4. Uses **semantic loop detection** (embedding similarity via all-minilm) to detect stuck agents and trigger a "human gate"
 5. Manages **context windows** with automatic summarization at 70% token capacity
 
@@ -68,33 +95,24 @@ The agent dynamically switches persona via `select_agent_type` tool. Each type l
 
 Tools are **not instantiated at startup**. They are lazy-loaded on first use via `_get_tool_from_toolset()` and cached in `_loaded_toolsets`. This is a key architectural decision — respect it when adding tools.
 
-**Tool modules live in `src/utils/domains/<domain>/`**:
-- `code/` — file_system_tools, code_analysis_tools, advanced_code_tools
-- `command_line/` — command_line_tools
-- `git/` — git_operations_tools
-- `planning/` — planning_tools
-- `orchestration/` — orchestration_tools
-- `network/` — network_tools, advanced_network_tools
-- `system/` — system_tools, advanced_system_tools
-- `cybersecurity/` — cybersecurity_tools, advanced_cybersecurity_tools
-- `bonus/` — bonus_tools
-
-**Tool definitions** (Ollama function schemas) are centralized in `src/utils/core/all_tool_definitions.py`.
+Tool modules live in `src/utils/domains/<domain>/`. Tool definitions (Ollama function schemas) are centralized in `src/utils/core/all_tool_definitions.py`.
 
 ### Core Services (`src/utils/core/`)
 
-These are injected into `DefaultAgent` at construction:
+Injected into `DefaultAgent` via constructor:
 
-- **OllamaClient** — HTTP client for Ollama API with retry/backoff
+- **OllamaClient** — HTTP client for Ollama API with retry/backoff. `chat()` returns `(response_data, usage_stats)` tuple.
 - **FileManager** — File CRUD operations
 - **CommandExecutor** — Shell execution with sandbox levels (`limited`/`full`)
 - **GitManager** — Git operations
 - **CodeAnalyzer** — Language detection, AST parsing, dependency mapping
 - **MemoryManager** — Persistent conversation storage (JSON + ChromaDB reasoning cache)
 - **TokenTracker** — Token usage monitoring
-- **AgentLogger** — Colored console + file logging
+- **AgentLogger** — Colored console + file logging (uses colorama on Windows)
 - **ToolInterface** — Tool definition filtering and confirmation gates
 - **PolicyManager** — Compliance and governance policies
+- **LLMResponseParser** — Strips markdown fences from LLM output when models ignore raw-content instructions (`extract_raw_content()`)
+- **FileValidator** — Validates generated files by extension (Python `compile()`, JSON `parse()`, etc.)
 
 ### Confirmation Gates
 
@@ -102,14 +120,51 @@ State-modifying tools (`write_file`, `delete_file`, `git_commit`, `git_push`, et
 
 ### Hybrid Model Selection
 
-Different Ollama models are selected based on intent classification:
-- **Coding**: `qwen3-coder-next` (configured as `code-model`)
-- **Orchestration/Summarization**: `ministral-3:8b`
-- Models are configured in `config/settings.json`
+Different Ollama models are selected per `config/settings.json`:
+- `models.coding` — code tasks (default: `qwen3-coder-next`)
+- `models.reasoning` — complex reasoning (default: `gpt-oss:20b`)
+- `models.orchestration` / `models.summarization` — lightweight tasks (default: `ministral-3:8b`)
+- `models.embedding` — semantic similarity (default: `all-minilm`)
+
+## Auto Agent Pipeline
+
+`src/agents/auto_agent.py` orchestrates an 8-phase project generation pipeline. Each phase delegates to a dedicated module in `src/utils/domains/auto_generation/`:
+
+| Phase | Module | LLM Role |
+|---|---|---|
+| 1. README | `project_planner.py` | planner |
+| 2. Structure | `structure_generator.py` | prototyper |
+| 3. Scaffolding | (inline) | — |
+| 4. Content | `file_content_generator.py` | prototyper |
+| 5. Refinement | `file_refiner.py` | coder |
+| 5.5. Verification | `file_completeness_checker.py` | coder |
+| 6. Review | `project_reviewer.py` | generalist |
+| 7. Iterative Improvement | `improvement_suggester.py` + `improvement_planner.py` | suggester + planner |
+| 8. Senior Review | `senior_reviewer.py` | senior_reviewer |
+
+LLM roles are mapped to models via `auto_agent_llms` in `config/settings.json`, with per-role timeouts in `auto_agent_timeouts`.
+
+Key patterns in the pipeline:
+- Prompts instruct models to output raw content (no markdown fences); `LLMResponseParser.extract_raw_content()` strips fences if models ignore this
+- `FileValidator` validates generated files by extension; `FileCompletenessChecker` retries invalid files via LLM
+- Cross-file context: content generation selects related files contextually (backend for frontend, source for deps) rather than just the last N generated
+- Dependency reconciliation scans real Python imports and regenerates `requirements.txt` when hallucinated packages are detected
+
+## Web UI (`src/web/`)
+
+`run_web.py` launches a Flask app on port 5000 with two main features:
+
+- **Chat** — Interactive DefaultAgent with tool-calling, streamed via SSE (`/api/chat`, `/api/chat/stream/<id>`)
+- **Project Generation** — AutoAgent pipeline with live log streaming (`/api/projects/`)
+
+Architecture uses Flask blueprints (`src/web/blueprints/`) + services (`src/web/services/`):
+- `ChatEventBridge` — thread-safe `queue.Queue` bridging agent thread to SSE endpoint
+- `ChatSessionManager` — manages DefaultAgent instances per session (auto_confirm=True in web mode)
+- DefaultAgent accepts an optional `event_bridge` parameter to emit `tool_call`, `tool_result`, `iteration`, `final_answer`, and `error` events during `chat()`
 
 ## Configuration
 
-`config/settings.json` holds runtime configuration: Ollama URL, model names, token limits, sandbox level, log settings, and the default system prompt path.
+`config/settings.json` holds all runtime configuration: Ollama URL, model names, token limits, sandbox level, log settings, default system prompt path, `auto_agent_llms`, and `auto_agent_timeouts`.
 
 ## Testing
 
@@ -118,7 +173,9 @@ Tests use `pytest` with mocked Ollama calls (no live server needed). Key fixture
 - `temp_project_root` — creates a temp directory with config + prompt files
 - `default_agent` — fully constructed `DefaultAgent` with mocked Ollama
 
-Integration tests that require a live Ollama instance are in `tests/test_ollama_integration.py` (skipped in CI).
+Integration tests requiring a live Ollama instance are in `tests/test_ollama_integration.py` (skipped in CI via `--ignore`).
+
+CI runs on GitHub Actions (`.github/workflows/ci.yml`): lint with `ruff`, then `pytest` with `--ignore=tests/test_ollama_integration.py`. Python 3.11.
 
 ## Adding a New Tool
 

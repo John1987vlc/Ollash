@@ -2,7 +2,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.agent_logger import AgentLogger
@@ -45,15 +45,19 @@ class AutoAgent:
         ("senior_reviewer", "senior_reviewer_model", "ministral-3:14b", 900), # Needs strong reasoning for complex analysis
     ]
 
-    def __init__(self, config_path: str = "config/settings.json"):
+    def __init__(self, config_path: str = "config/settings.json", ollash_root_dir: Optional[Path] = None):
         with open(config_path, "r") as f:
             self.config = json.load(f)
 
+        self.ollash_root_dir = ollash_root_dir if ollash_root_dir else Path(os.getcwd())
+        log_file_path = self.ollash_root_dir / "logs" / "auto_agent.log"
+
         self.url = os.environ.get(
-            "MOLTBOT_OLLAMA_URL",
-            self.config.get("ollama_url", "http://localhost:11434"),
+            "OLLASH_OLLAMA_URL",
+            os.environ.get("MOLTBOT_OLLAMA_URL",
+            self.config.get("ollama_url", "http://localhost:11434")),
         )
-        self.logger = AgentLogger(log_file=str(Path("logs") / "auto_agent.log"))
+        self.logger = AgentLogger(log_file=str(log_file_path))
         self.token_tracker = TokenTracker()
         self.response_parser = LLMResponseParser()
         self.file_validator = FileValidator(logger=self.logger)
@@ -90,7 +94,7 @@ class AutoAgent:
             self.llm_clients["senior_reviewer"], self.logger, self.response_parser
         )
 
-        self.generated_projects_dir = Path("generated_projects/auto_agent_projects")
+        self.generated_projects_dir = self.ollash_root_dir / "generated_projects" / "auto_agent_projects"
         self.generated_projects_dir.mkdir(parents=True, exist_ok=True)
         self.logger.info("AutoAgent initialized.")
 
@@ -116,31 +120,31 @@ class AutoAgent:
         """
         project_root = self.generated_projects_dir / project_name
         project_root.mkdir(parents=True, exist_ok=True)
-        self.logger.info(f"Starting project '{project_name}' at {project_root}")
+        self.logger.info(f"[PROJECT_NAME:{project_name}] Starting project '{project_name}' at {project_root}")
 
         # Phase 1: README
-        self.logger.info("PHASE 1: Generating README.md...")
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1: Generating README.md...")
         readme = self.planner.generate_readme(project_description)
         self._save_file(project_root / "README.md", readme)
-        self.logger.info("PHASE 1 complete.")
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1 complete.")
 
         # Phase 2: JSON structure
-        self.logger.info("PHASE 2: Generating project structure...")
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2: Generating project structure...")
         structure = self.structure_gen.generate(readme, max_retries=3)
         if not structure or (not structure.get("files") and not structure.get("folders")):
-            self.logger.error("Could not generate valid structure. Using fallback.")
+            self.logger.error(f"[PROJECT_NAME:{project_name}] Could not generate valid structure. Using fallback.")
             structure = StructureGenerator.create_fallback_structure(readme)
         self._save_file(project_root / "project_structure.json", json.dumps(structure, indent=2))
         file_paths = StructureGenerator.extract_file_paths(structure)
-        self.logger.info(f"PHASE 2 complete: {len(file_paths)} files planned.")
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2 complete: {len(file_paths)} files planned.")
 
         # Phase 3: Empty files
-        self.logger.info("PHASE 3: Creating empty placeholders...")
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 3: Creating empty placeholders...")
         StructureGenerator.create_empty_files(project_root, structure)
-        self.logger.info("PHASE 3 complete.")
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 3 complete.")
 
         # Phase 4: Content generation
-        self.logger.info("PHASE 4: Generating file contents...")
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4: Generating file contents...")
         files: Dict[str, str] = {}
         for idx, rel_path in enumerate(file_paths, 1):
             self.logger.info(f"  [{idx}/{len(file_paths)}] {rel_path}")
@@ -322,8 +326,13 @@ class AutoAgent:
                     files_with_issues = set()
                     general_issues = []
                     for issue in issues:
-                        if issue.get("file"):
-                            files_with_issues.add(issue["file"])
+                        file_value = issue.get("file")
+                        if file_value:
+                            if isinstance(file_value, list):
+                                # If LLM hallucinates a list for file, convert to a string
+                                file_value = str(file_value)
+                                self.logger.warning(f"  Senior Review: 'file' field was a list, converted to string: {file_value}")
+                            files_with_issues.add(file_value)
                         else:
                             general_issues.append(issue)
 
@@ -637,8 +646,8 @@ class AutoAgent:
 
         # Check if requirements seems problematic
         req_content = files[req_key]
-        lines = [l.strip() for l in req_content.splitlines()
-                 if l.strip() and not l.strip().startswith("#")]
+        lines = [line.strip() for line in req_content.splitlines()
+                 if line.strip() and not line.strip().startswith("#")]
 
         scanned_packages = self._scan_python_imports(files)
 

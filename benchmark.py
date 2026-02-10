@@ -39,7 +39,9 @@ class ModelBenchmarker:
         with open(config_path, "r") as f:
             self.config = json.load(f)
         
-        self.url = os.environ.get("MOLTBOT_OLLAMA_URL", self.config.get("ollama_url", "http://localhost:11434"))
+        self.url = os.environ.get("OLLASH_OLLAMA_URL",
+                     os.environ.get("MOLTBOT_OLLAMA_URL",
+                     self.config.get("ollama_url", "http://localhost:11434")))
         self.logger = AgentLogger(log_file=str(Path("logs") / "benchmark_debug.log"))
         self.results = []
 

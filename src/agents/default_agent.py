@@ -3,7 +3,7 @@ import os
 import requests
 import traceback
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List
 
 from src.utils.core.agent_logger import AgentLogger
 from src.utils.core.token_tracker import TokenTracker
@@ -13,12 +13,11 @@ from src.utils.core.git_manager import GitManager
 from src.utils.core.code_analyzer import CodeAnalyzer
 from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.memory_manager import MemoryManager
-from src.utils.core.policy_manager import PolicyManager
 from src.utils.core.tool_registry import ToolRegistry
 from src.utils.core.loop_detector import LoopDetector
 
 # Tool implementations
-from src.utils.core.tool_interface import ToolConfirmationManager, ToolExecutor  # ToolExecutor kept as alias
+from src.utils.core.tool_interface import ToolExecutor
 from src.utils.domains.code.file_system_tools import FileSystemTools
 from src.utils.domains.code.code_analysis_tools import CodeAnalysisTools
 from src.utils.domains.command_line.command_line_tools import CommandLineTools
@@ -33,14 +32,13 @@ from src.utils.domains.system.advanced_system_tools import AdvancedSystemTools
 from src.utils.domains.network.advanced_network_tools import AdvancedNetworkTools
 from src.utils.domains.cybersecurity.advanced_cybersecurity_tools import AdvancedCybersecurityTools
 from src.utils.domains.bonus.bonus_tools import BonusTools
-from src.utils.core.all_tool_definitions import get_filtered_tool_definitions
-
-# Maximum instruction length to prevent prompt injection / context flooding
-MAX_INSTRUCTION_LENGTH = 10000 
+from colorama import init, Fore, Style
 
 # Initialize colorama (needed for print statements in some tool methods)
-from colorama import init, Fore, Style
 init(autoreset=True)
+
+# Maximum instruction length to prevent prompt injection / context flooding
+MAX_INSTRUCTION_LENGTH = 10000
 
 
 # ======================================================
@@ -48,17 +46,18 @@ init(autoreset=True)
 # ======================================================
 
 class DefaultAgent:
-    def __init__(self, project_root: str | None = None, auto_confirm: bool = False, base_path: Path = Path.cwd()):
+    def __init__(self, project_root: str | None = None, auto_confirm: bool = False, base_path: Path = Path.cwd(), event_bridge=None):
         self._base_path = base_path # The base path where the agent's own config and prompts are located
         self.project_root = Path(project_root or self._base_path) # The project root for the current task
         self.auto_confirm = auto_confirm # Store the auto_confirm flag
+        self._event_bridge = event_bridge  # Optional ChatEventBridge for web UI streaming
         
         # ---------------- LOGGING
         self.logger = AgentLogger(
             log_file=str(self.project_root / "agent.log")
         )
         self.logger.info(f"\n{Fore.GREEN}{'='*60}")
-        self.logger.info(f"🤖 Code Agent Initialized")
+        self.logger.info("Code Agent Initialized")
         self.logger.info(f"{'='*60}{Style.RESET_ALL}")
         self.logger.info(f"📁 Project: {self.project_root}")
 
@@ -221,7 +220,9 @@ RULES:
         self._loaded_toolsets = {} # Cache for loaded toolset instances
 
         # ---------------- OLLAMA
-        ollama_url = os.environ.get("MOLTBOT_OLLAMA_URL", self.config.get("ollama_url", "http://localhost:11434"))
+        ollama_url = os.environ.get("OLLASH_OLLAMA_URL",
+                     os.environ.get("MOLTBOT_OLLAMA_URL",
+                     self.config.get("ollama_url", "http://localhost:11434")))
         self.ollama = OllamaClient(
             url=ollama_url,
             model=self.current_llm_model,
@@ -576,6 +577,8 @@ RULES:
         while iterations < self.max_iterations:
             iterations += 1
             self.logger.info(f"\n{Fore.MAGENTA}━━━ Iteration {iterations}/{self.max_iterations} ━━━{Style.RESET_ALL}")
+            if self._event_bridge:
+                self._event_bridge.push_event("iteration", {"current": iterations, "max": self.max_iterations})
 
             # --- Intelligent Memory Management (Task 5) ---
             if self.memory_manager.needs_summarization(self.conversation, self.system_prompt):
@@ -632,6 +635,8 @@ RULES:
                     
                     print(f"\n{Fore.CYAN}┌─ Tool Call {i}/{len(tool_calls)} ─────────────────{Style.RESET_ALL}")
                     self.logger.tool_call(name, args)
+                    if self._event_bridge:
+                        self._event_bridge.push_event("tool_call", {"name": name, "args": args, "index": i, "total": len(tool_calls)})
                     
                     try:
                         # Check if tool exists
@@ -686,7 +691,13 @@ RULES:
                         success = result.get("ok", True) if isinstance(result, dict) else True
                         
                         self.logger.tool_result(name, result, success)
-                        
+                        if self._event_bridge:
+                            # Truncate large results for the stream
+                            result_str = json.dumps(result) if isinstance(result, dict) else str(result)
+                            if len(result_str) > 2000:
+                                result_str = result_str[:2000] + "... [truncated]"
+                            self._event_bridge.push_event("tool_result", {"name": name, "success": success, "result": result_str})
+
                         # Add result to conversation
                         self.conversation.append({
                             "role": "tool",
@@ -696,7 +707,9 @@ RULES:
                     except Exception as e:
                         error_msg = f"Tool execution failed: {str(e)}"
                         self.logger.error(error_msg, e)
-                        
+                        if self._event_bridge:
+                            self._event_bridge.push_event("error", {"message": error_msg, "tool": name})
+
                         last_error_context = {"error": error_msg, "tool_call": tc}
                         
                         if self._handle_tool_error(error_msg, tc):

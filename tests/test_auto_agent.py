@@ -11,8 +11,9 @@ from src.utils.core.file_validator import FileValidator
 class TestAutoAgentInitialization:
     """Tests for AutoAgent initialization and configuration."""
 
+    @patch('src.agents.auto_agent.AgentLogger')
     @patch('src.agents.auto_agent.OllamaClient')
-    def test_init_creates_llm_clients(self, mock_ollama_cls, tmp_path):
+    def test_init_creates_llm_clients(self, mock_ollama_cls, mock_logger, tmp_path):
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "settings.json").write_text(json.dumps({
@@ -36,9 +37,10 @@ class TestAutoAgentInitialization:
         assert "coder" in agent.llm_clients
         assert "planner" in agent.llm_clients
 
+    @patch('src.agents.auto_agent.AgentLogger')
     @patch('src.agents.auto_agent.OllamaClient')
-    def test_init_uses_env_var_url(self, mock_ollama_cls, tmp_path, monkeypatch):
-        monkeypatch.setenv("MOLTBOT_OLLAMA_URL", "http://custom:11434")
+    def test_init_uses_env_var_url(self, mock_ollama_cls, mock_logger, tmp_path, monkeypatch):
+        monkeypatch.setenv("OLLASH_OLLAMA_URL", "http://custom:11434")
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "settings.json").write_text(json.dumps({

@@ -245,8 +245,25 @@ class FileValidator:
                 f"YAML error: {e}", lines, chars,
             )
 
+
+    def _is_html_partial(self, file_path: str) -> bool:
+        """Heuristic to determine if a file is likely an HTML partial."""
+        path_obj = Path(file_path)
+        # Check if 'partials' is in the path or if the filename starts with an underscore
+        return "partials" in path_obj.parts or path_obj.name.startswith("_")
+
     def _validate_html(self, path, content, lines, chars) -> ValidationResult:
         lower = content.lower()
+        
+        # Relax HTML structure validation for known partials
+        if self._is_html_partial(path):
+            if not lower:
+                return ValidationResult(path, ValidationStatus.EMPTY, "HTML partial is empty", lines, chars)
+            # Basic check for partials: ensure it's not just whitespace and contains some HTML tags
+            if not re.search(r'<\w+[^>]*>', lower): # Looks for any HTML tag
+                return ValidationResult(path, ValidationStatus.TRUNCATED, "HTML partial contains no recognizable HTML tags", lines, chars)
+            return ValidationResult(path, ValidationStatus.VALID, "HTML partial structure OK", lines, chars)
+
         if "<html" not in lower and "<!doctype" not in lower:
             return ValidationResult(
                 path, ValidationStatus.TRUNCATED,

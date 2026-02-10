@@ -4,7 +4,7 @@ import time
 import requests
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.token_tracker import TokenTracker
@@ -67,8 +67,9 @@ class ModelBenchmarker:
             self.config = json.load(f)
 
         self.url = os.environ.get(
-            "MOLTBOT_OLLAMA_URL",
-            self.config.get("ollama_url", "http://localhost:11434"),
+            "OLLASH_OLLAMA_URL",
+            os.environ.get("MOLTBOT_OLLAMA_URL",
+            self.config.get("ollama_url", "http://localhost:11434")),
         )
         self.logger = AgentLogger(log_file=str(Path("logs") / "auto_benchmark_debug.log"))
         self.response_parser = LLMResponseParser()
@@ -349,7 +350,7 @@ class ModelBenchmarker:
 
     def print_model_table(self, models: List[str]):
         """Print a formatted table of models with their options."""
-        print(f"\nModels sorted by size (ascending):")
+        print("\nModels sorted by size (ascending):")
         print(f"  {'#':<4} {'Model':<35} {'Size':>8}  {'Tier':<7} {'ctx':>5} {'pred':>5} {'tout':>5}")
         print(f"  {'-' * 4} {'-' * 35} {'-' * 8}  {'-' * 7} {'-' * 5} {'-' * 5} {'-' * 5}")
         for i, name in enumerate(models, 1):

@@ -101,15 +101,36 @@ class StructureGenerator:
         for file_name in json_structure.get("files", []):
             file_path = project_root / current_path / file_name
             file_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Check for name conflict: if a directory exists with the same name as the file
+            if file_path.is_dir():
+                print(f"WARNING: Attempted to create file '{file_path}' but a directory with that name already exists. Skipping file creation.")
+                continue
+
             if not file_path.exists():
-                file_path.touch()
+                try:
+                    file_path.touch()
+                except Exception as e:
+                    print(f"ERROR touching file '{file_path}': {e}")
+                    continue
 
         for folder_data in json_structure.get("folders", []):
             folder_name = folder_data.get("name")
             if folder_name:
-                new_path = str(Path(current_path) / folder_name)
-                (project_root / new_path).mkdir(parents=True, exist_ok=True)
-                StructureGenerator.create_empty_files(project_root, folder_data, new_path)
+                new_path_full = project_root / current_path / folder_name
+                
+                # Check for name conflict: if a file exists with the same name as the directory
+                if new_path_full.is_file():
+                    print(f"WARNING: Attempted to create directory '{new_path_full}' but a file with that name already exists. Skipping directory creation.")
+                    continue
+
+                try:
+                    new_path_full.mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    print(f"ERROR creating directory '{new_path_full}': {e}")
+                    continue
+                
+                StructureGenerator.create_empty_files(project_root, folder_data, str(new_path_full.relative_to(project_root)))
 
     @staticmethod
     def create_fallback_structure(readme_content: str) -> dict:

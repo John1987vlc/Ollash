@@ -35,7 +35,9 @@ class MemoryManager:
 
         # Accept injected clients or create fallback instances
         models_config = self.config.get("models", {})
-        ollama_url = os.environ.get("MOLTBOT_OLLAMA_URL", self.config.get("ollama_url", "http://localhost:11434"))
+        ollama_url = os.environ.get("OLLASH_OLLAMA_URL",
+                     os.environ.get("MOLTBOT_OLLAMA_URL",
+                     self.config.get("ollama_url", "http://localhost:11434")))
         self.summarization_model = models_config.get("summarization",
                                     self.config.get("summarization_model",
                                     self.config.get("summary_model", "ministral-3:8b")))

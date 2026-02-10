@@ -5,7 +5,7 @@ This document provides instructions on how to build and run the Ollash Agent and
 ## Prerequisites
 
 *   Docker Desktop (Windows/macOS) or Docker Engine (Linux) installed and running.
-*   An **Ollama instance running** (default `http://localhost:11434`). Configure via the `MOLTBOT_OLLAMA_URL` environment variable if your Ollama runs on a different host.
+*   An **Ollama instance running** (default `http://localhost:11434`). Configure via the `OLLASH_OLLAMA_URL` environment variable if your Ollama runs on a different host.
 
 ## Setup
 
@@ -19,21 +19,21 @@ This document provides instructions on how to build and run the Ollash Agent and
     Copy the example environment file and set your Ollama server address:
     ```bash
     cp .env.example .env
-    # Edit .env and set MOLTBOT_OLLAMA_URL to your Ollama server address
-    # e.g., MOLTBOT_OLLAMA_URL=http://192.168.1.100:11434
+    # Edit .env and set OLLASH_OLLAMA_URL to your Ollama server address
+    # e.g., OLLASH_OLLAMA_URL=http://192.168.1.100:11434
     ```
-    **Important:** Inside Docker, `localhost` refers to the container itself, not your host machine. You must set `MOLTBOT_OLLAMA_URL` to your machine's actual IP address or use `http://host.docker.internal:11434` (Docker Desktop only).
+    **Important:** Inside Docker, `localhost` refers to the container itself, not your host machine. You must set `OLLASH_OLLAMA_URL` to your machine's actual IP address or use `http://host.docker.internal:11434` (Docker Desktop only).
 
 3.  **Build the Docker Image for the Agent:**
     Navigate to the root of your project where `Dockerfile` and `docker-compose.yml` are located.
     ```bash
     docker-compose build
     ```
-    This command will build the `moltbot` service image as defined in the `Dockerfile`.
+    This command will build the `ollash` service image as defined in the `Dockerfile`.
 
 ## Ollama Models Configuration
 
-The `moltbot` agent expects your Ollama instance to have the following models already pulled:
+The `ollash` agent expects your Ollama instance to have the following models already pulled:
 
 *   **For Agent Operation (default and summary models):**
     *   `ministral-3:8b`
@@ -61,18 +61,18 @@ To run the agent in an isolated Docker container, connecting to your external Ol
 
 To start the agent in interactive chat mode:
 ```bash
-docker-compose run --rm moltbot python run_agent.py --chat
+docker-compose run --rm ollash python run_agent.py --chat
 ```
 -   `--rm`: Automatically removes the container after it exits.
--   `moltbot`: Specifies the service to run from `docker-compose.yml`.
--   `python run_agent.py --chat`: This is the command executed inside the `moltbot` container.
+-   `ollash`: Specifies the service to run from `docker-compose.yml`.
+-   `python run_agent.py --chat`: This is the command executed inside the `ollash` container.
 
 ### 2. Autonomous Project Generation (Automatic Mode)
 
 To run the agent in automatic mode for autonomous project generation (you would typically provide a goal or project description via an input file or environment variable, depending on the agent's implementation for automatic mode):
 ```bash
 # Example: Assuming your run_agent.py accepts a --goal argument for automatic mode
-docker-compose run --rm moltbot python run_agent.py --auto --goal "Create a simple Python Flask web application for a to-do list."
+docker-compose run --rm ollash python run_agent.py --auto --goal "Create a simple Python Flask web application for a to-do list."
 ```
 Replace `--auto --goal "..."` with the actual command-line arguments your agent requires for autonomous operation.
 
@@ -83,11 +83,11 @@ To run the benchmarking script in an isolated Docker container, connecting to yo
 ### 1. Benchmark specific models (as specified by your current `settings.json` and requested models)
 
 ```bash
-docker-compose run --rm moltbot python benchmark.py --models devstral-small-2:latest gpt-oss:20b qwen3-coder:30b
+docker-compose run --rm ollash python benchmark.py --models devstral-small-2:latest gpt-oss:20b qwen3-coder:30b
 ```
 This command will:
-*   Start a temporary `moltbot` container.
-*   The `moltbot` container will use the `config/settings.json` and the `MOLTBOT_OLLAMA_URL` environment variable to connect to your Ollama instance.
+*   Start a temporary `ollash` container.
+*   The `ollash` container will use the `config/settings.json` and the `OLLASH_OLLAMA_URL` environment variable to connect to your Ollama instance.
 *   It will run `benchmark.py` testing `devstral-small-2:latest`, `gpt-oss:20b`, and `qwen3-coder:30b`.
 *   The summary will be generated using `nemotron-3-nano:30b`.
 *   The benchmark results (JSON file) will be saved in your host's project root directory.
@@ -95,20 +95,20 @@ This command will:
 ### 2. Benchmark all models (if you want to test all models available on your external Ollama)
 
 ```bash
-docker-compose run --rm moltbot python benchmark.py
+docker-compose run --rm ollash python benchmark.py
 ```
 
 ## Viewing Logs and Generated Projects
 
-*   **Agent Logs:** Agent logs will be stored persistently in a Docker volume named `moltbot_logs`.
+*   **Agent Logs:** Agent logs will be stored persistently in a Docker volume named `ollash_logs`.
     You can inspect them:
     ```bash
-    docker volume inspect moltbot_logs
+    docker volume inspect ollash_logs
     # Then navigate to the Mountpoint and view the log files (e.g., agent.log, benchmark_debug.log).
     ```
-*   **Generated Projects:** Any projects generated by the autonomous agent will be stored in the `moltbot_projects` Docker volume.
+*   **Generated Projects:** Any projects generated by the autonomous agent will be stored in the `ollash_projects` Docker volume.
     ```bash
-    docker volume inspect moltbot_projects
+    docker volume inspect ollash_projects
     # Navigate to the Mountpoint to access generated project files.
     ```
 *   **Benchmark Results:** The `benchmark_results_*.json` files generated by `benchmark.py` will be saved directly into your mounted project directory (`.:/app`), so you will find them in your host's project root folder.

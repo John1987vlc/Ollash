@@ -51,3 +51,8 @@ agent.log
 *.tmp
 *.bak
 benchmark_results_*.json
+generated_projects/
+flask_venv/
+sandbox/
+.claude/
+
