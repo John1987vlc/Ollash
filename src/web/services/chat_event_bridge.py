@@ -51,4 +51,5 @@ class ChatEventBridge:
         """Signal end of stream."""
         if not self._closed:
             self._closed = True
-            self.push_event("stream_end")
+            # Put directly on queue — push_event() would bail because _closed is True.
+            self.event_queue.put(ChatEvent(event_type="stream_end"))

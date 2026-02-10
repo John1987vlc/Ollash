@@ -20,6 +20,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
 
+    // Benchmark
+    const benchOllamaUrl = document.getElementById('bench-ollama-url');
+    const benchFetchModels = document.getElementById('bench-fetch-models');
+    const benchModelList = document.getElementById('bench-model-list');
+    const benchStartBtn = document.getElementById('bench-start-btn');
+    const benchOutput = document.getElementById('bench-output');
+    const benchHistoryList = document.getElementById('bench-history-list');
+
     // Navigation
     const navItems = document.querySelectorAll('.nav-item');
     const views = document.querySelectorAll('.view');
@@ -33,6 +41,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let chatSessionId = null;
     let chatEventSource = null;
     let isChatBusy = false;
+    let selectedAgentType = null;
+    let benchEventSource = null;
 
     // ==================== Navigation ====================
     navItems.forEach(item => {
@@ -42,6 +52,8 @@ document.addEventListener('DOMContentLoaded', function() {
             this.classList.add('active');
             views.forEach(view => view.classList.remove('active'));
             document.getElementById(`${viewId}-view`).classList.add('active');
+
+            if (viewId === 'benchmark') loadBenchHistory();
         });
     });
 
@@ -88,6 +100,24 @@ document.addEventListener('DOMContentLoaded', function() {
     clearLogsBtn.addEventListener('click', () => { agentLogs.innerHTML = ''; });
 
     // ==================== Chat ====================
+    // Agent card selection
+    document.querySelectorAll('.agent-card').forEach(card => {
+        card.addEventListener('click', function() {
+            selectedAgentType = this.dataset.agent;
+            document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+            const agentNames = {
+                orchestrator: 'Orchestrator',
+                code: 'Code Agent',
+                network: 'Network Agent',
+                system: 'System Agent',
+                cybersecurity: 'Cybersecurity Agent'
+            };
+            chatInput.placeholder = `Ask the ${agentNames[selectedAgentType]}...`;
+            chatInput.focus();
+        });
+    });
+
     function appendChatMessage(role, content) {
         const msg = document.createElement('div');
         msg.className = `chat-message ${role}`;
@@ -149,10 +179,13 @@ document.addEventListener('DOMContentLoaded', function() {
         appendChatMessage('user', escapeHtml(message));
 
         try {
+            const body = { message, session_id: chatSessionId };
+            if (selectedAgentType) body.agent_type = selectedAgentType;
+
             const resp = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message, session_id: chatSessionId })
+                body: JSON.stringify(body)
             });
             const data = await resp.json();
 
@@ -177,7 +210,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 switch (parsed.type) {
                     case 'iteration':
-                        // Show subtle iteration indicator
                         break;
 
                     case 'tool_call':
@@ -208,7 +240,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         chatEventSource = null;
                         isChatBusy = false;
                         sendBtn.disabled = false;
-                        // Reset session so next message creates a fresh event bridge
                         chatSessionId = null;
                         break;
                 }
@@ -230,7 +261,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function formatAnswer(text) {
-        // Basic markdown-like formatting
         return escapeHtml(text)
             .replace(/```([\s\S]*?)```/g, '<pre class="chat-code-block">$1</pre>')
             .replace(/`([^`]+)`/g, '<code class="chat-inline-code">$1</code>')
@@ -246,7 +276,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Auto-resize textarea
     chatInput.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = Math.min(this.scrollHeight, 150) + 'px';
@@ -518,6 +547,213 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div><div style="font-size:48px;margin-bottom:16px;">\uD83D\uDCC4</div>
                 <div>Preview not available for .${ext} files</div>
                 <div style="margin-top:8px;opacity:0.6;font-size:14px;">Switch to Code tab to view content</div></div></body>`;
+        }
+    }
+
+    // ==================== Benchmark ====================
+    benchFetchModels.addEventListener('click', async function() {
+        const url = benchOllamaUrl.value.trim();
+        const params = url ? `?url=${encodeURIComponent(url)}` : '';
+        benchModelList.innerHTML = '<div class="model-list-empty">Loading models...</div>';
+
+        try {
+            const resp = await fetch(`/api/benchmark/models${params}`);
+            const data = await resp.json();
+
+            if (data.status !== 'ok') {
+                benchModelList.innerHTML = `<div class="model-list-empty" style="color:var(--color-error);">${escapeHtml(data.message)}</div>`;
+                return;
+            }
+
+            if (!benchOllamaUrl.value.trim()) benchOllamaUrl.value = data.ollama_url;
+
+            if (data.models.length === 0) {
+                benchModelList.innerHTML = '<div class="model-list-empty">No models found on this server</div>';
+                return;
+            }
+
+            benchModelList.innerHTML = '';
+            data.models.forEach(m => {
+                const label = document.createElement('label');
+                label.className = 'model-item';
+                label.innerHTML = `
+                    <input type="checkbox" value="${escapeHtml(m.name)}">
+                    <span class="model-item-name">${escapeHtml(m.name)}</span>
+                    <span class="model-item-size">${escapeHtml(m.size_human)}</span>
+                `;
+                label.querySelector('input').addEventListener('change', updateBenchStartBtn);
+                benchModelList.appendChild(label);
+            });
+        } catch (err) {
+            benchModelList.innerHTML = `<div class="model-list-empty" style="color:var(--color-error);">Connection error: ${escapeHtml(err.message)}</div>`;
+        }
+    });
+
+    function updateBenchStartBtn() {
+        const checked = benchModelList.querySelectorAll('input[type="checkbox"]:checked');
+        benchStartBtn.disabled = checked.length === 0;
+    }
+
+    benchStartBtn.addEventListener('click', async function() {
+        const checked = benchModelList.querySelectorAll('input[type="checkbox"]:checked');
+        const models = Array.from(checked).map(cb => cb.value);
+        if (models.length === 0) return;
+
+        benchStartBtn.disabled = true;
+        benchOutput.innerHTML = '<div class="bench-progress"><p>Starting benchmark...</p></div>';
+
+        try {
+            const resp = await fetch('/api/benchmark/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    models: models,
+                    ollama_url: benchOllamaUrl.value.trim()
+                })
+            });
+            const data = await resp.json();
+
+            if (data.status !== 'started') {
+                benchOutput.innerHTML = `<div class="bench-progress" style="color:var(--color-error);">${escapeHtml(data.message)}</div>`;
+                benchStartBtn.disabled = false;
+                return;
+            }
+
+            // Open SSE stream
+            if (benchEventSource) benchEventSource.close();
+            benchEventSource = new EventSource('/api/benchmark/stream');
+
+            benchEventSource.onmessage = function(event) {
+                let parsed;
+                try { parsed = JSON.parse(event.data); } catch { return; }
+
+                switch (parsed.type) {
+                    case 'model_start':
+                        appendBenchLog(`[${parsed.index}/${parsed.total}] Testing model: ${parsed.model}...`);
+                        break;
+
+                    case 'model_done':
+                        appendBenchLog(`[${parsed.index}/${parsed.total}] ${parsed.model} done.`, 'success');
+                        if (parsed.result) appendBenchResult(parsed.result);
+                        break;
+
+                    case 'benchmark_done':
+                        appendBenchLog('Benchmark completed!', 'success');
+                        benchEventSource.close();
+                        benchEventSource = null;
+                        benchStartBtn.disabled = false;
+                        loadBenchHistory();
+                        break;
+
+                    case 'error':
+                        appendBenchLog(`Error: ${parsed.message}`, 'error');
+                        benchEventSource.close();
+                        benchEventSource = null;
+                        benchStartBtn.disabled = false;
+                        break;
+
+                    case 'stream_end':
+                        benchEventSource.close();
+                        benchEventSource = null;
+                        benchStartBtn.disabled = false;
+                        break;
+                }
+            };
+
+            benchEventSource.onerror = function() {
+                benchEventSource.close();
+                benchEventSource = null;
+                benchStartBtn.disabled = false;
+            };
+
+        } catch (err) {
+            benchOutput.innerHTML = `<div class="bench-progress" style="color:var(--color-error);">Connection error: ${escapeHtml(err.message)}</div>`;
+            benchStartBtn.disabled = false;
+        }
+    });
+
+    function appendBenchLog(msg, type = 'info') {
+        const placeholder = benchOutput.querySelector('.bench-placeholder');
+        if (placeholder) placeholder.remove();
+        const progress = benchOutput.querySelector('.bench-progress');
+        if (progress) progress.remove();
+
+        const line = document.createElement('div');
+        line.className = `bench-log-line ${type}`;
+        const ts = new Date().toLocaleTimeString();
+        line.innerHTML = `<span style="opacity:0.5">[${ts}]</span> ${escapeHtml(msg)}`;
+        benchOutput.appendChild(line);
+        benchOutput.scrollTop = benchOutput.scrollHeight;
+    }
+
+    function appendBenchResult(result) {
+        const card = document.createElement('div');
+        card.className = 'bench-result-card';
+
+        const successCount = result.projects_results
+            ? result.projects_results.filter(p => p.status === 'Success').length
+            : 0;
+        const totalTasks = result.projects_results ? result.projects_results.length : 0;
+        const dur = result.duration_sec ? `${Math.floor(result.duration_sec / 60)}m ${Math.floor(result.duration_sec % 60)}s` : '-';
+
+        card.innerHTML = `
+            <div class="bench-result-header">
+                <strong>${escapeHtml(result.model)}</strong>
+                <span class="bench-result-size">${escapeHtml(result.model_size_human || '')}</span>
+            </div>
+            <div class="bench-result-stats">
+                <div class="bench-stat">
+                    <span class="bench-stat-value">${successCount}/${totalTasks}</span>
+                    <span class="bench-stat-label">Tasks OK</span>
+                </div>
+                <div class="bench-stat">
+                    <span class="bench-stat-value">${dur}</span>
+                    <span class="bench-stat-label">Duration</span>
+                </div>
+                <div class="bench-stat">
+                    <span class="bench-stat-value">${result.tokens_per_second || 0}</span>
+                    <span class="bench-stat-label">tok/s</span>
+                </div>
+            </div>
+        `;
+        benchOutput.appendChild(card);
+        benchOutput.scrollTop = benchOutput.scrollHeight;
+    }
+
+    async function loadBenchHistory() {
+        try {
+            const resp = await fetch('/api/benchmark/results');
+            const data = await resp.json();
+            benchHistoryList.innerHTML = '';
+
+            if (data.status === 'ok' && data.results.length > 0) {
+                data.results.slice(0, 10).forEach(r => {
+                    const item = document.createElement('button');
+                    item.className = 'bench-history-item';
+                    const date = new Date(r.modified * 1000).toLocaleString();
+                    item.innerHTML = `<span>${escapeHtml(r.filename)}</span><span class="bench-history-date">${date}</span>`;
+                    item.addEventListener('click', () => loadBenchResult(r.filename));
+                    benchHistoryList.appendChild(item);
+                });
+            } else {
+                benchHistoryList.innerHTML = '<div class="model-list-empty">No past results found</div>';
+            }
+        } catch (err) {
+            benchHistoryList.innerHTML = '<div class="model-list-empty">Error loading results</div>';
+        }
+    }
+
+    async function loadBenchResult(filename) {
+        try {
+            const resp = await fetch(`/api/benchmark/results/${encodeURIComponent(filename)}`);
+            const data = await resp.json();
+            if (data.status !== 'ok') return;
+
+            benchOutput.innerHTML = '';
+            appendBenchLog(`Loaded: ${filename}`);
+            data.data.forEach(result => appendBenchResult(result));
+        } catch (err) {
+            console.error('Error loading bench result:', err);
         }
     }
 

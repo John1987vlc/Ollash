@@ -20,7 +20,7 @@ def init_app(ollash_root_dir: Path):
 def send_chat():
     """Send a message to a chat session.
 
-    Body JSON: { "message": "...", "session_id": "..." (optional), "project_path": "..." (optional) }
+    Body JSON: { "message": "...", "session_id": "..." (optional), "project_path": "..." (optional), "agent_type": "..." (optional) }
     Returns: { "session_id": "...", "status": "started" }
     """
     data = request.get_json(force=True)
@@ -30,10 +30,11 @@ def send_chat():
 
     session_id = data.get("session_id")
     project_path = data.get("project_path")
+    agent_type = data.get("agent_type")
 
     try:
         if not session_id or _session_manager.get_session(session_id) is None:
-            session_id = _session_manager.create_session(project_path)
+            session_id = _session_manager.create_session(project_path, agent_type)
 
         _session_manager.send_message(session_id, message)
         return jsonify({"status": "started", "session_id": session_id})

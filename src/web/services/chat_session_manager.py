@@ -26,7 +26,7 @@ class ChatSessionManager:
         self.sessions: Dict[str, ChatSession] = {}
         self._lock = threading.Lock()
 
-    def create_session(self, project_path: Optional[str] = None) -> str:
+    def create_session(self, project_path: Optional[str] = None, agent_type: Optional[str] = None) -> str:
         """Create a new chat session with its own DefaultAgent instance."""
         with self._lock:
             # Clean up finished sessions
@@ -43,6 +43,11 @@ class ChatSessionManager:
                 base_path=self.ollash_root_dir,
                 event_bridge=bridge,
             )
+            # Pre-set agent type if requested (skips orchestrator default)
+            if agent_type and agent_type in agent._agent_tool_name_mappings:
+                agent.active_agent_type = agent_type
+                agent.active_tool_names = agent._agent_tool_name_mappings[agent_type]
+
             self.sessions[session_id] = ChatSession(
                 session_id=session_id,
                 agent=agent,

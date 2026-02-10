@@ -52,6 +52,14 @@
                     </svg>
                     <span>Projects</span>
                 </button>
+                <button class="nav-item" data-view="benchmark">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <rect x="3" y="12" width="3" height="6" rx="0.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                        <rect x="8.5" y="7" width="3" height="11" rx="0.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                        <rect x="14" y="2" width="3" height="16" rx="0.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                    </svg>
+                    <span>Benchmark</span>
+                </button>
             </nav>
 
             <div class="sidebar-footer">
@@ -70,7 +78,34 @@
                     <div class="chat-messages" id="chat-messages">
                         <div class="chat-welcome">
                             <h2>Ollash Agent</h2>
-                            <p>Ask anything &mdash; code analysis, network diagnostics, system administration, cybersecurity, and more.</p>
+                            <p>Select a specialist or start typing to use the auto-routing orchestrator.</p>
+                            <div class="agent-cards">
+                                <button class="agent-card" data-agent="orchestrator">
+                                    <div class="agent-card-icon">&#x1f3af;</div>
+                                    <div class="agent-card-title">Orchestrator</div>
+                                    <div class="agent-card-desc">Planning, compliance, governance, risk analysis</div>
+                                </button>
+                                <button class="agent-card" data-agent="code">
+                                    <div class="agent-card-icon">&#x1f4bb;</div>
+                                    <div class="agent-card-title">Code</div>
+                                    <div class="agent-card-desc">File I/O, analysis, git, refactoring</div>
+                                </button>
+                                <button class="agent-card" data-agent="network">
+                                    <div class="agent-card-icon">&#x1f310;</div>
+                                    <div class="agent-card-title">Network</div>
+                                    <div class="agent-card-desc">Diagnostics, latency, host discovery</div>
+                                </button>
+                                <button class="agent-card" data-agent="system">
+                                    <div class="agent-card-icon">&#x2699;&#xfe0f;</div>
+                                    <div class="agent-card-title">System</div>
+                                    <div class="agent-card-desc">Resources, processes, logs, packages</div>
+                                </button>
+                                <button class="agent-card" data-agent="cybersecurity">
+                                    <div class="agent-card-icon">&#x1f6e1;&#xfe0f;</div>
+                                    <div class="agent-card-title">Cybersecurity</div>
+                                    <div class="agent-card-desc">Port scanning, IOC, permissions, hardening</div>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="chat-input-area">
@@ -196,6 +231,54 @@
                             </div>
                             <div class="logs-content" id="agent-logs"></div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Benchmark View -->
+            <div class="view" id="benchmark-view">
+                <div class="view-header">
+                    <h1>Model Benchmark</h1>
+                    <p class="subtitle">Benchmark Ollama models on autonomous project generation tasks</p>
+                </div>
+
+                <div class="benchmark-container">
+                    <!-- Config panel -->
+                    <div class="benchmark-config">
+                        <div class="form-group">
+                            <label for="bench-ollama-url">Ollama Server URL</label>
+                            <div class="input-with-btn">
+                                <input type="text" id="bench-ollama-url" placeholder="http://localhost:11434">
+                                <button class="btn-secondary" id="bench-fetch-models">Fetch Models</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Select Models</label>
+                            <div class="model-list" id="bench-model-list">
+                                <div class="model-list-empty">Click "Fetch Models" to load available models</div>
+                            </div>
+                        </div>
+
+                        <button class="btn-primary" id="bench-start-btn" disabled>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <polygon points="6,4 16,10 6,16" fill="currentColor"/>
+                            </svg>
+                            <span>Start Benchmark</span>
+                        </button>
+                    </div>
+
+                    <!-- Progress / Results -->
+                    <div class="benchmark-output" id="bench-output">
+                        <div class="bench-placeholder">
+                            <p>Configure and start a benchmark to see results here.</p>
+                        </div>
+                    </div>
+
+                    <!-- Past Results -->
+                    <div class="benchmark-history">
+                        <h3>Past Results</h3>
+                        <div id="bench-history-list" class="bench-history-list"></div>
                     </div>
                 </div>
             </div>

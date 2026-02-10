@@ -5,6 +5,7 @@ from flask import Flask
 from src.web.blueprints.common_bp import common_bp, init_app as init_common
 from src.web.blueprints.auto_agent_bp import auto_agent_bp, init_app as init_auto_agent
 from src.web.blueprints.chat_bp import chat_bp, init_app as init_chat
+from src.web.blueprints.benchmark_bp import benchmark_bp, init_app as init_benchmark
 
 
 def create_app(ollash_root_dir: Path = None) -> Flask:
@@ -21,10 +22,12 @@ def create_app(ollash_root_dir: Path = None) -> Flask:
     init_common(ollash_root_dir)
     init_auto_agent(ollash_root_dir)
     init_chat(ollash_root_dir)
+    init_benchmark(ollash_root_dir)
 
     # Register blueprints
     app.register_blueprint(common_bp)
     app.register_blueprint(auto_agent_bp)
     app.register_blueprint(chat_bp)
+    app.register_blueprint(benchmark_bp)
 
     return app
