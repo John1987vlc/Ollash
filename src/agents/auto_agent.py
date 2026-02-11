@@ -127,33 +127,78 @@ class AutoAgent(CoreAgent): # Inherit from CoreAgent
         self.generated_projects_dir.mkdir(parents=True, exist_ok=True)
         self.logger.info("AutoAgent initialized with enhanced features.")
 
-    def run(self, project_description: str, project_name: str = "new_project", num_refine_loops: int = 0) -> Path:
-        """Orchestrate the full project creation pipeline.
+    def run(self, project_description: str, project_name: str = "new_project", num_refine_loops: int = 0,
+            template_name: str = "default", python_version: str = "3.12", license_type: str = "MIT",
+            include_docker: bool = False) -> Path:
+        """Orchestrate the full project creation pipeline from scratch.
 
+        This method first generates the project structure and then continues with
+        the rest of the generation pipeline.
         Returns the path to the generated project root.
         """
-        project_root = self.generated_projects_dir / project_name
-        project_root.mkdir(parents=True, exist_ok=True)
-        self.logger.info(f"[PROJECT_NAME:{project_name}] Starting project '{project_name}' at {project_root}")
+        self.logger.info(f"[PROJECT_NAME:{project_name}] Starting full generation for '{project_name}'.")
 
+        # Phase 1 & 2: Generate README and Structure
+        readme, structure = self.generate_structure_only(
+            project_description, project_name, template_name, python_version, license_type, include_docker
+        )
+
+        # Continue with the rest of the pipeline from Phase 2.5 onwards
+        return self.continue_generation(
+            project_description, project_name, readme, structure, num_refine_loops,
+            template_name, python_version, license_type, include_docker
+        )
+
+    def generate_structure_only(self, project_description: str, project_name: str, template_name: str = "default",
+                                python_version: str = "3.12", license_type: str = "MIT",
+                                include_docker: bool = False) -> Tuple[str, Dict]:
+        """Executes only Phase 1 (README) and Phase 2 (Structure Generation) of the pipeline."""
+        project_root = self.generated_projects_dir / project_name
+        project_root.mkdir(parents=True, exist_ok=True) # Ensure project dir exists for saving README
+
+        self.logger.info(f"[PROJECT_NAME:{project_name}] Starting structure-only generation for '{project_name}' at {project_root}")
+        
         # Phase 1: README
         self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1: Generating README.md...")
-        readme = self.planner.generate_readme(project_description)
+        self.event_publisher.publish("phase_start", phase="1", message="Generating README.md")
+        readme = self.planner.generate_readme(project_description, template_name, python_version, license_type, include_docker)
         self._save_file(project_root / "README.md", readme)
         self.event_publisher.publish("phase_complete", phase="1", message="README generated")
         self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1 complete.")
 
         # Phase 2: JSON structure
-        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2: Generating project structure...")
-        structure = self.structure_gen.generate(readme, max_retries=3)
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2: Generating project structure using template '{template_name}'...")
+        self.event_publisher.publish("phase_start", phase="2", message="Generating project structure")
+        structure = self.structure_gen.generate(readme, max_retries=3, template_name=template_name,
+                                                python_version=python_version, license_type=license_type, include_docker=include_docker)
         if not structure or (not structure.get("files") and not structure.get("folders")):
-            self.logger.error(f"[PROJECT_NAME:{project_name}] Could not generate valid structure. Using fallback.")
-            structure = StructureGenerator.create_fallback_structure(readme)
+            self.logger.error(f"[PROJECT_NAME:{project_name}] Could not generate valid structure. Using fallback with template '{template_name}'.")
+            structure = StructureGenerator.create_fallback_structure(readme, template_name=template_name,
+                                                                      python_version=python_version, license_type=license_type, include_docker=include_docker)
         self._save_file(project_root / "project_structure.json", json.dumps(structure, indent=2))
         file_paths = StructureGenerator.extract_file_paths(structure)
         self.event_publisher.publish("phase_complete", phase="2", message="Project structure generated", data={"files_planned": len(file_paths)})
         self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2 complete: {len(file_paths)} files planned.")
+        
+        return readme, structure
+    
+    def continue_generation(self, project_description: str, project_name: str, readme: str, structure: Dict,
+                            template_name: str = "default", python_version: str = "3.12", license_type: str = "MIT",
+                            include_docker: bool = False, num_refine_loops: int = 0) -> Path:
+        """Continues the project generation pipeline from Phase 2.5 onwards, using a pre-generated README and structure."""
+        self.logger.info(f"[PROJECT_NAME:{project_name}] Continuing generation for '{project_name}' from pre-generated structure.")
+        return self._full_generation_pipeline(
+            project_description, project_name, readme, structure, num_refine_loops,
+            template_name, python_version, license_type, include_docker
+        )
 
+    def _full_generation_pipeline(self, project_description: str, project_name: str, readme: str, structure: Dict,
+                                  num_refine_loops: int, template_name: str, python_version: str,
+                                  license_type: str, include_docker: bool) -> Path:
+        """Encapsulates the full generation pipeline from Phase 2.5 onwards."""
+        project_root = self.generated_projects_dir / project_name
+        file_paths = StructureGenerator.extract_file_paths(structure)
+        
         # NEW Phase 2.5: Structure Pre-Review (Quality assurance before code generation)
         self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5: PreReview of structure...")
         self.event_publisher.publish("phase_start", phase="2.5", message="Starting structure pre-review")
@@ -325,7 +370,7 @@ class AutoAgent(CoreAgent): # Inherit from CoreAgent
         # Phase 5.6: Dependency reconciliation (requirements.txt from actual imports)
         self.logger.info("PHASE 5.6: Reconciling dependency files with actual imports...")
         self.event_publisher.publish("phase_start", phase="5.6", message="Starting dependency reconciliation")
-        files = self._reconcile_requirements(files, project_root)
+        files = self._reconcile_requirements(files, project_root, python_version)
         self.event_publisher.publish("phase_complete", phase="5.6", message="Dependency reconciliation complete")
         self.logger.info("PHASE 5.6 complete.")
 
@@ -724,7 +769,7 @@ class AutoAgent(CoreAgent): # Inherit from CoreAgent
         self.logger.info(f"Fragment Cache Stats: {cache_stats}")
         
         return project_root
-
+    
     # ========== NEW HELPER METHODS FOR IMPROVED FEATURES ==========
     
     def _infer_language(self, file_path: str) -> str:

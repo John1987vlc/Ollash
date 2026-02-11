@@ -44,6 +44,8 @@ class CoreAgent(ABC):
         ("test_generator", "test_generator_model", "qwen3-coder:30b", 480),
         ("senior_reviewer", "senior_reviewer_model", "ministral-3:14b", 900),
         ("orchestration", "orchestration_model", "ministral-3:8b", 300), # Added orchestration role
+        ("analyst", "analyst_model", "ministral-3:14b", 600),  # NEW: Synthesis, key insights
+        ("writer", "writer_model", "ministral-3:8b", 450),     # NEW: Narratives, formatting, tone
         ("default", "default_model", "qwen3-coder-next:14b", 600), # For DefaultAgent, generic tasks
     ]
 
@@ -296,7 +298,7 @@ class CoreAgent(ABC):
         return self.dependency_scanner.scan_all_imports(files).get("rust", [])
 
     def _reconcile_requirements(
-        self, files: Dict[str, str], project_root: Path
+        self, files: Dict[str, str], project_root: Path, python_version: str
     ) -> Dict[str, str]:
         """Reconcile dependency files with actual imports using DependencyScanner.
 
@@ -316,14 +318,14 @@ class CoreAgent(ABC):
         except Exception as e:
             self.logger.warning(f"DependencyScanner error, falling back to basic reconciliation: {e}")
             # Fallback to individual language scans if scanner fails
-            files = self._reconcile_python_requirements(files, project_root)
+            files = self._reconcile_python_requirements(files, project_root, python_version)
             files = self._reconcile_package_json(files, project_root)
             files = self._reconcile_go_mod(files, project_root)
             files = self._reconcile_cargo_toml(files, project_root)
             return files
 
     def _reconcile_python_requirements(
-        self, files: Dict[str, str], project_root: Path
+        self, files: Dict[str, str], project_root: Path, python_version: str
     ) -> Dict[str, str]:
         """Reconcile requirements.txt with actual Python imports."""
         req_key = None
@@ -347,7 +349,7 @@ class CoreAgent(ABC):
                     f"  Regenerating {req_key}: replacing {len(lines)} entries "
                     f"with {len(scanned_packages)} scanned packages"
                 )
-                new_req = "\n".join(scanned_packages) + "\n"
+                new_req = f"# Python {python_version} requirements\n" + "\n".join(scanned_packages) + "\n"
                 files[req_key] = new_req
                 self._save_file(project_root / req_key, new_req)
             else:

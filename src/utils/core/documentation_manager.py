@@ -6,6 +6,7 @@ import chromadb
 
 from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.agent_logger import AgentLogger
+from src.utils.core.multi_format_ingester import MultiFormatIngester
 
 
 class DocumentationManager:
@@ -13,6 +14,17 @@ class DocumentationManager:
         self.project_root = project_root
         self.logger = logger
         self.config = config or {}
+
+        # Knowledge workspace paths
+        self.knowledge_workspace = project_root / "knowledge_workspace"
+        self.references_dir = self.knowledge_workspace / "references"
+        self.summaries_dir = self.knowledge_workspace / "summaries"
+        self.indexed_cache = self.knowledge_workspace / "indexed_cache"
+        
+        # Ensure directories exist
+        self.references_dir.mkdir(parents=True, exist_ok=True)
+        self.summaries_dir.mkdir(parents=True, exist_ok=True)
+        self.indexed_cache.mkdir(parents=True, exist_ok=True)
 
         self.chroma_client = chromadb.Client()
         self.documentation_collection = self.chroma_client.get_or_create_collection(name="documentation_store")
@@ -31,25 +43,30 @@ class DocumentationManager:
             logger=self.logger,
             config=self.config
         )
-        self.logger.info("DocumentationManager initialized.")
+
+        # Multi-format ingester
+        self.ingester = MultiFormatIngester(logger, config)
+
+        self.logger.info("✓ DocumentationManager initialized with Knowledge Workspace support")
 
     def index_documentation(self, doc_path: Path, chunk_size: int = 1000, overlap: int = 200):
-        """
-        Indexes documentation from a given path (file or directory) into ChromaDB.
-        Splits content into chunks, generates embeddings, and stores them.
-        """
-        if doc_path.is_file():
-            self._index_file(doc_path, chunk_size, overlap)
-        elif doc_path.is_dir():
-            for file_path in doc_path.rglob("*"):
-                if file_path.is_file():
-                    self._index_file(file_path, chunk_size, overlap)
-        self.logger.info(f"Indexing complete for {doc_path}.")
-
-    def _index_file(self, file_path: Path, chunk_size: int, overlap: int):
-        """Indexes a single documentation file."""
+        """Index documentation files with support for multiple formats."""
         try:
-            content = file_path.read_text(encoding="utf-8")
+            file_path = Path(doc_path)
+            if not file_path.exists():
+                self.logger.warning(f"Documentation file not found: {file_path}")
+                return
+
+            # Use multi-format ingester for binary files (PDF, DOCX, etc.)
+            if file_path.suffix.lower() in self.ingester.SUPPORTED_FORMATS:
+                content = self.ingester.ingest_file(file_path)
+                if not content:
+                    self.logger.warning(f"  Could not extract content from {file_path.name}")
+                    return
+            else:
+                # Fallback to plain text read for unsupported formats
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
+            
             chunks = self._chunk_text(content, chunk_size, overlap)
             
             embeddings = []
@@ -59,8 +76,17 @@ class DocumentationManager:
             for i, chunk in enumerate(chunks):
                 embedding = self.embedding_client.get_embedding(chunk)
                 embeddings.append(embedding)
-                metadatas.append({"source": str(file_path.relative_to(self.project_root)), "chunk_index": i})
-                ids.append(f"{file_path.name}-{i}")
+                try:
+                    source_rel = str(file_path.relative_to(self.project_root))
+                except ValueError:
+                    source_rel = str(file_path)
+                
+                metadatas.append({
+                    "source": source_rel,
+                    "chunk_index": i,
+                    "file_format": file_path.suffix.lower()
+                })
+                ids.append(f"{file_path.stem}-{i}")
             
             if embeddings:
                 self.documentation_collection.add(
@@ -69,7 +95,7 @@ class DocumentationManager:
                     metadatas=metadatas,
                     ids=ids
                 )
-                self.logger.info(f"  Indexed {len(chunks)} chunks from {file_path.name}")
+                self.logger.info(f"  ✓ Indexed {len(chunks)} chunks from {file_path.name}")
         except Exception as e:
             self.logger.error(f"  Failed to index {file_path.name}: {e}")
 
@@ -119,3 +145,81 @@ class DocumentationManager:
         except Exception as e:
             self.logger.error(f"  Failed to query documentation: {e}")
             return []
+    def query_documentation_by_source(
+        self, query: str, n_results: int = 3, source_filter: Optional[str] = None
+    ) -> List[Dict]:
+        """
+        Enhanced query with optional source filter.
+        source_filter: Filter results by file source (e.g., 'requirements.md')
+        """
+        all_results = self.query_documentation(query, n_results * 2)  # Get more to filter
+        
+        if source_filter:
+            filtered = [r for r in all_results if source_filter in r.get("source", "")]
+            return filtered[:n_results]
+        
+        return all_results[:n_results]
+
+    def get_knowledge_workspace_status(self) -> Dict[str, Any]:
+        """Returns status of the Knowledge Workspace."""
+        status = {
+            "knowledge_workspace_path": str(self.knowledge_workspace),
+            "references": {
+                "path": str(self.references_dir),
+                "exists": self.references_dir.exists(),
+                "files": []
+            },
+            "indexed": {
+                "path": str(self.indexed_cache),
+                "total_vectors": len(self.documentation_collection.get()["ids"]),
+            },
+            "summaries": {
+                "path": str(self.summaries_dir),
+                "count": len(list(self.summaries_dir.glob("*.json"))) if self.summaries_dir.exists() else 0,
+            }
+        }
+
+        # List files in references
+        if self.references_dir.exists():
+            for file_path in self.references_dir.rglob("*"):
+                if file_path.is_file():
+                    metadata = self.ingester.get_file_metadata(file_path)
+                    status["references"]["files"].append({
+                        "name": file_path.name,
+                        "format": file_path.suffix.lower(),
+                        **metadata
+                    })
+
+        return status
+
+    def upload_to_workspace(self, source_file: Path) -> bool:
+        """
+        Uploads a reference document to the Knowledge Workspace.
+        Copies file to references/ directory.
+        """
+        if not source_file.exists():
+            self.logger.error(f"Source file not found: {source_file}")
+            return False
+
+        try:
+            dest_file = self.references_dir / source_file.name
+            import shutil
+            shutil.copy2(source_file, dest_file)
+            self.logger.info(f"✓ Uploaded {source_file.name} to Knowledge Workspace")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to upload file: {e}")
+            return False
+
+    def clear_collection(self):
+        """Clears all indexed documentation from ChromaDB."""
+        try:
+            self.chroma_client.delete_collection(name="documentation_store")
+            self.documentation_collection = self.chroma_client.get_or_create_collection(
+                name="documentation_store"
+            )
+            self.logger.info("✓ Cleared documentation collection")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to clear collection: {e}")
+            return False

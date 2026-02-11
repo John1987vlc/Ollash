@@ -29,7 +29,7 @@ class StructureGenerator:
         self.parser = response_parser
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def generate(self, readme_content: str, max_retries: int = 3) -> dict:
+    def generate(self, readme_content: str, max_retries: int = 3, template_name: str = "default") -> dict:
         """Generate a JSON project structure from README content using a hierarchical approach.
 
         Includes retry logic and falls back to a basic structure on failure.
@@ -37,23 +37,23 @@ class StructureGenerator:
         self.logger.info("  Starting hierarchical structure generation...")
         
         # Phase 1: Generate high-level structure (root files and top-level folders)
-        high_level_structure = self._generate_high_level_structure(readme_content, max_retries)
+        high_level_structure = self._generate_high_level_structure(readme_content, max_retries, template_name)
         if not high_level_structure:
             self.logger.error("  Failed to generate high-level structure. Using fallback.")
-            return self.create_fallback_structure(readme_content)
+            return self.create_fallback_structure(readme_content, template_name)
 
         # Phase 2: Recursively generate sub-structures for each folder
         final_structure = self._recursively_generate_sub_structure(
-            high_level_structure, readme_content, max_retries
+            high_level_structure, readme_content, max_retries, template_name=template_name
         )
         
         file_count = len(self.extract_file_paths(final_structure))
         self.logger.info(f"  Successfully generated hierarchical structure with {file_count} files")
         return final_structure
 
-    def _generate_high_level_structure(self, readme_content: str, max_retries: int) -> dict:
+    def _generate_high_level_structure(self, readme_content: str, max_retries: int, template_name: str) -> dict:
         """Generates the high-level (root) folders and files for the project."""
-        system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation(readme_content)
+        system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation(readme_content, template_name)
 
         for attempt in range(max_retries):
             try:
@@ -86,7 +86,7 @@ class StructureGenerator:
                 # Simplificado prompt para el retry si falla
                 if attempt < max_retries - 1:
                     self.logger.info("  Retrying high-level generation with simplified prompt...")
-                    system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation_simplified(readme_content)
+                    system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation_simplified(readme_content, template_name)
                 else:
                     self.logger.error("  All high-level attempts failed.")
                     return {}
@@ -97,7 +97,8 @@ class StructureGenerator:
         current_structure: dict,
         readme_content: str,
         max_retries: int,
-        parent_path: str = ""
+        parent_path: str = "",
+        template_name: str = "default"
     ) -> dict:
         """Recursively generates detailed structure for folders within the project."""
         
@@ -111,7 +112,7 @@ class StructureGenerator:
                 self.logger.info(f"    Generating sub-structure for folder: {full_folder_path}")
 
                 sub_structure_content = self._generate_folder_sub_structure(
-                    full_folder_path, readme_content, max_retries, detailed_structure
+                    full_folder_path, readme_content, max_retries, detailed_structure, template_name
                 )
                 
                 if sub_structure_content:
@@ -120,7 +121,7 @@ class StructureGenerator:
                     folder_data["files"] = sub_structure_content.get("files", [])
                     # Recursively process this newly detailed sub-structure
                     detailed_structure["folders"][i] = self._recursively_generate_sub_structure(
-                        folder_data, readme_content, max_retries, full_folder_path
+                        folder_data, readme_content, max_retries, full_folder_path, template_name
                     )
                 else:
                     self.logger.warning(f"    Failed to generate sub-structure for {full_folder_path}. Leaving as is.")
@@ -132,13 +133,14 @@ class StructureGenerator:
         folder_path: str,
         readme_content: str,
         max_retries: int,
-        overall_structure: dict
+        overall_structure: dict,
+        template_name: str
     ) -> dict:
         """Generates the immediate sub-folders and files for a specific folder path."""
         # Provide more specific context including the overall structure but focusing on the current folder
         overall_structure_str = json.dumps(overall_structure, indent=2)
         system_prompt, user_prompt = AutoGenPrompts.sub_structure_generation(
-            folder_path, readme_content, overall_structure_str
+            folder_path, readme_content, overall_structure_str, template_name
         )
 
         for attempt in range(max_retries):
@@ -169,7 +171,7 @@ class StructureGenerator:
                 if attempt < max_retries - 1:
                     self.logger.info("      Retrying sub-structure generation with simplified prompt...")
                     system_prompt, user_prompt = AutoGenPrompts.sub_structure_generation_simplified(
-                        folder_path, readme_content, overall_structure_str
+                        folder_path, readme_content, overall_structure_str, template_name
                     )
                 else:
                     self.logger.error(f"      All sub-structure attempts for {folder_path} failed.")
@@ -229,130 +231,60 @@ class StructureGenerator:
                 StructureGenerator.create_empty_files(project_root, folder_data, str(new_path_full.relative_to(project_root)))
 
     @staticmethod
-    def create_fallback_structure(readme_content: str) -> dict:
-        """Create a basic fallback project structure when generation fails.
+    def create_fallback_structure(readme_content: str, template_name: str = "default") -> dict:
+        """Create a basic fallback project structure when generation fails or a specific template is requested.
 
-        Detects project type from README keywords and produces an appropriate
-        structure. Supports Python, Node.js, C#/.NET, C/C++, Go, Rust, Java,
-        Ruby, shell scripts, and a generic fallback.
+        Uses predefined structures based on template_name.
         """
-        readme_lower = readme_content.lower()
-
-        root_files = ["README.md", ".gitignore"]
-        folders = []
-
-        # --- Python projects ---
-        if any(kw in readme_lower for kw in ["flask", "django", "fastapi", "python", "pip", "pyproject"]):
-            root_files.append("requirements.txt")
-            if "flask" in readme_lower:
-                folders.extend([
-                    {
-                        "name": "static",
-                        "folders": [
-                            {"name": "css", "folders": [], "files": ["style.css"]},
-                            {"name": "js", "folders": [], "files": ["main.js"]},
-                        ],
-                        "files": [],
-                    },
-                    {"name": "templates", "folders": [], "files": ["index.html", "base.html"]},
-                ])
-                root_files.extend(["app.py", "config.py"])
-            elif "fastapi" in readme_lower:
-                folders.extend([
-                    {"name": "api", "folders": [], "files": ["__init__.py", "routes.py", "models.py"]},
-                    {"name": "core", "folders": [], "files": ["__init__.py", "config.py"]},
-                    {"name": "tests", "folders": [], "files": ["__init__.py", "test_api.py"]},
-                ])
-                root_files.append("main.py")
-            elif "django" in readme_lower:
-                folders.extend([
-                    {"name": "project", "folders": [], "files": ["__init__.py", "settings.py", "urls.py", "wsgi.py"]},
-                    {"name": "app", "folders": [], "files": ["__init__.py", "models.py", "views.py", "urls.py"]},
-                ])
-                root_files.append("manage.py")
-            else:
-                folders.append({"name": "src", "folders": [], "files": ["__init__.py", "main.py"]})
-                folders.append({"name": "tests", "folders": [], "files": ["__init__.py", "test_main.py"]})
-
-        # --- C# / .NET projects ---
-        elif any(kw in readme_lower for kw in ["c#", "csharp", ".net", "dotnet", "unity", "asp.net", "monogame"]):
-            if "unity" in readme_lower:
-                folders.extend([
-                    {"name": "Assets", "folders": [
-                        {"name": "Scripts", "folders": [], "files": ["GameManager.cs", "PlayerController.cs"]},
-                        {"name": "Scenes", "folders": [], "files": []},
-                        {"name": "Prefabs", "folders": [], "files": []},
-                    ], "files": []},
-                    {"name": "ProjectSettings", "folders": [], "files": []},
-                ])
-            else:
-                folders.append({"name": "src", "folders": [], "files": ["Program.cs", "project.csproj"]})
-                folders.append({"name": "tests", "folders": [], "files": ["Tests.cs", "tests.csproj"]})
-                root_files.append("solution.sln")
-
-        # --- Node.js / JavaScript / TypeScript projects ---
-        elif any(kw in readme_lower for kw in ["node", "npm", "javascript", "typescript", "react", "next.js", "express", "vue", "angular"]):
-            root_files.extend(["package.json", "tsconfig.json"])
-            folders.append({"name": "src", "folders": [], "files": ["index.ts", "app.ts"]})
-            folders.append({"name": "tests", "folders": [], "files": ["app.test.ts"]})
-
-        # --- Go projects ---
-        elif any(kw in readme_lower for kw in ["golang", " go ", "go module"]):
-            root_files.extend(["go.mod", "go.sum"])
-            folders.append({"name": "cmd", "folders": [], "files": ["main.go"]})
-            folders.append({"name": "internal", "folders": [], "files": []})
-            folders.append({"name": "pkg", "folders": [], "files": []})
-
-        # --- Rust projects ---
-        elif "rust" in readme_lower or "cargo" in readme_lower:
-            root_files.append("Cargo.toml")
-            folders.append({"name": "src", "folders": [], "files": ["main.rs", "lib.rs"]})
-
-        # --- Java / Kotlin projects ---
-        elif any(kw in readme_lower for kw in ["java ", "kotlin", "gradle", "maven", "spring"]):
-            if "gradle" in readme_lower:
-                root_files.extend(["build.gradle", "settings.gradle"])
-            else:
-                root_files.append("pom.xml")
-            folders.append({
-                "name": "src",
+        TEMPLATE_FALLBACKS = {
+            "default": {
+                "path": "./",
                 "folders": [
-                    {"name": "main", "folders": [
-                        {"name": "java", "folders": [], "files": ["Main.java"]},
-                        {"name": "resources", "folders": [], "files": ["application.properties"]},
-                    ], "files": []},
-                    {"name": "test", "folders": [
-                        {"name": "java", "folders": [], "files": ["MainTest.java"]},
-                    ], "files": []},
+                    {"name": "src", "folders": [], "files": ["main.py"]},
+                    {"name": "tests", "folders": [], "files": ["test_main.py"]},
                 ],
-                "files": [],
-            })
-
-        # --- C / C++ projects ---
-        elif any(kw in readme_lower for kw in ["c++", "cpp", "cmake", "makefile"]):
-            root_files.append("CMakeLists.txt")
-            folders.append({"name": "src", "folders": [], "files": ["main.cpp"]})
-            folders.append({"name": "include", "folders": [], "files": []})
-            folders.append({"name": "tests", "folders": [], "files": ["test_main.cpp"]})
-
-        # --- Ruby projects ---
-        elif "ruby" in readme_lower or "rails" in readme_lower:
-            root_files.extend(["Gemfile", "Rakefile"])
-            folders.append({"name": "lib", "folders": [], "files": ["main.rb"]})
-            folders.append({"name": "spec", "folders": [], "files": ["main_spec.rb"]})
-
-        # --- Shell script projects ---
-        elif any(kw in readme_lower for kw in ["bash", "shell", "script"]):
-            folders.append({"name": "scripts", "folders": [], "files": ["main.sh"]})
-            root_files.append("Makefile")
-
-        # --- Generic fallback ---
-        else:
-            folders.append({"name": "src", "folders": [], "files": ["main.py"]})
-            root_files.append("Makefile")
-
-        return {
-            "path": "./",
-            "folders": folders,
-            "files": root_files,
+                "files": ["README.md", ".gitignore", "requirements.txt", "Dockerfile"],
+            },
+            "fastapi-backend": {
+                "path": "./",
+                "folders": [
+                    {"name": "app", "folders": [
+                        {"name": "api", "folders": [], "files": ["__init__.py", "v1", "routers.py"]},
+                        {"name": "core", "folders": [], "files": ["config.py", "database.py"]},
+                        {"name": "models", "folders": [], "files": ["__init__.py", "item.py"]},
+                        {"name": "schemas", "folders": [], "files": ["__init__.py", "item.py"]},
+                        {"name": "services", "folders": [], "files": ["__init__.py", "item.py"]},
+                    ], "files": ["main.py"]},
+                    {"name": "tests", "folders": [], "files": ["test_main.py", "test_api.py"]},
+                ],
+                "files": ["README.md", ".gitignore", "requirements.txt", "Dockerfile", "docker-compose.yml"],
+            },
+            "react-frontend": {
+                "path": "./",
+                "folders": [
+                    {"name": "src", "folders": [
+                        {"name": "assets", "folders": [], "files": ["logo.svg"]},
+                        {"name": "components", "folders": [], "files": ["Button.jsx", "Header.jsx"]},
+                        {"name": "pages", "folders": [], "files": ["HomePage.jsx", "AboutPage.jsx"]},
+                    ], "files": ["App.jsx", "index.css", "main.jsx"]},
+                    {"name": "public", "folders": [], "files": ["index.html"]},
+                    {"name": "tests", "folders": [], "files": ["App.test.jsx"]},
+                ],
+                "files": ["README.md", ".gitignore", "package.json", "package-lock.json", "vite.config.js"],
+            },
+            "automation-script": {
+                "path": "./",
+                "folders": [
+                    {"name": "src", "folders": [], "files": ["script.py", "utils.py"]},
+                    {"name": "config", "folders": [], "files": ["settings.ini"]},
+                    {"name": "logs", "folders": [], "files": [".gitkeep"]},
+                ],
+                "files": ["README.md", ".gitignore", "requirements.txt"],
+            },
         }
+
+        # Return specific template fallback if found, otherwise return default
+        if template_name in TEMPLATE_FALLBACKS:
+            return TEMPLATE_FALLBACKS[template_name]
+        else:
+            return TEMPLATE_FALLBACKS["default"]

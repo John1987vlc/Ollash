@@ -1,0 +1,158 @@
+{
+  "description": "Default alert thresholds and configurations for Ollash",
+  "alerts": [
+    {
+      "alert_id": "high_cpu",
+      "name": "High CPU Usage",
+      "description": "System CPU usage is critically high",
+      "severity": "critical",
+      "entity": "cpu",
+      "threshold": 85,
+      "operator": ">",
+      "cooldown_seconds": 600,
+      "enabled": true,
+      "channels": ["ui", "email"],
+      "suggested_actions": [
+        "Review running processes",
+        "Check for resource leaks",
+        "Consider stopping non-essential services"
+      ]
+    },
+    {
+      "alert_id": "high_memory",
+      "name": "High Memory Usage",
+      "description": "System memory usage is critically high",
+      "severity": "critical",
+      "entity": "memory",
+      "threshold": 90,
+      "operator": ">",
+      "cooldown_seconds": 600,
+      "enabled": true,
+      "channels": ["ui", "email"],
+      "suggested_actions": [
+        "Identify memory-consuming processes",
+        "Clear cache if available",
+        "Restart heavy applications"
+      ]
+    },
+    {
+      "alert_id": "low_disk",
+      "name": "Low Disk Space",
+      "description": "Available disk space is below critical threshold",
+      "severity": "critical",
+      "entity": "disk",
+      "threshold": 15,
+      "operator": "<",
+      "cooldown_seconds": 900,
+      "enabled": true,
+      "channels": ["ui", "email"],
+      "suggested_actions": [
+        "Delete old backups and unused files",
+        "Archive old logs",
+        "Clear temporary files",
+        "Consider expanding storage"
+      ]
+    },
+    {
+      "alert_id": "moderate_cpu",
+      "name": "Moderate CPU Usage",
+      "description": "System CPU usage is elevated",
+      "severity": "warning",
+      "entity": "cpu",
+      "threshold": 70,
+      "operator": ">",
+      "cooldown_seconds": 300,
+      "enabled": true,
+      "channels": ["ui"],
+      "suggested_actions": [
+        "Monitor system performance",
+        "Check background processes"
+      ]
+    },
+    {
+      "alert_id": "moderate_memory",
+      "name": "Moderate Memory Usage",
+      "description": "System memory usage is elevated",
+      "severity": "warning",
+      "entity": "memory",
+      "threshold": 75,
+      "operator": ">",
+      "cooldown_seconds": 300,
+      "enabled": true,
+      "channels": ["ui"],
+      "suggested_actions": [
+        "Monitor memory trends",
+        "Prepare for potential optimization"
+      ]
+    },
+    {
+      "alert_id": "moderate_disk",
+      "name": "Moderate Disk Usage",
+      "description": "Available disk space is getting low",
+      "severity": "warning",
+      "entity": "disk",
+      "threshold": 30,
+      "operator": "<",
+      "cooldown_seconds": 600,
+      "enabled": true,
+      "channels": ["ui"],
+      "suggested_actions": [
+        "Plan cleanup soon",
+        "Monitor disk usage trends"
+      ]
+    },
+    {
+      "alert_id": "model_timeout",
+      "name": "Model Response Timeout",
+      "description": "Model failed to respond within expected time",
+      "severity": "warning",
+      "entity": "model",
+      "threshold": 5000,
+      "operator": ">",
+      "cooldown_seconds": 300,
+      "enabled": true,
+      "channels": ["ui", "log"],
+      "suggested_actions": [
+        "Check model service status",
+        "Verify network connectivity",
+        "Try again or select different model"
+      ]
+    },
+    {
+      "alert_id": "too_many_errors",
+      "name": "High Error Rate",
+      "description": "Too many errors detected in recent operations",
+      "severity": "warning",
+      "entity": "system",
+      "threshold": 10,
+      "operator": ">",
+      "cooldown_seconds": 900,
+      "enabled": true,
+      "channels": ["ui", "log"],
+      "suggested_actions": [
+        "Review recent error logs",
+        "Check system health",
+        "Verify all services are running"
+      ]
+    }
+  ],
+  "alert_channels": {
+    "ui": {
+      "enabled": true,
+      "description": "Real-time notifications in the web interface",
+      "show_sound": true,
+      "auto_dismiss_ms": 5000
+    },
+    "email": {
+      "enabled": false,
+      "description": "Email notifications for critical alerts",
+      "requires_config": true,
+      "min_severity": "critical"
+    },
+    "log": {
+      "enabled": true,
+      "description": "Write alerts to system logs",
+      "min_severity": "warning"
+    }
+  }
+}

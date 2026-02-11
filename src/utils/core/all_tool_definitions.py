@@ -9,6 +9,7 @@ from src.utils.domains.system.tool_definitions import SYSTEM_TOOL_DEFINITIONS
 from src.utils.domains.cybersecurity.tool_definitions import CYBERSECURITY_TOOL_DEFINITIONS
 from src.utils.domains.orchestration.tool_definitions import ORCHESTRATION_TOOL_DEFINITIONS
 from src.utils.domains.bonus.tool_definitions import BONUS_TOOL_DEFINITIONS
+from src.utils.domains.bonus.cowork_tools import COWORK_TOOL_DEFINITIONS
 
 # Aggregated list of all tool definitions (backwards-compatible)
 ALL_TOOLS_DEFINITIONS: List[Dict] = [
@@ -21,6 +22,7 @@ ALL_TOOLS_DEFINITIONS: List[Dict] = [
     *CYBERSECURITY_TOOL_DEFINITIONS,
     *ORCHESTRATION_TOOL_DEFINITIONS,
     *BONUS_TOOL_DEFINITIONS,
+    *COWORK_TOOL_DEFINITIONS,
 ]
 
 

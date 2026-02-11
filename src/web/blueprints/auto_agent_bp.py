@@ -34,38 +34,94 @@ def init_app(ollash_root_dir: Path, event_publisher: EventPublisher, chat_event_
     _auto_agent = AutoAgent(config_path=str(config_path), ollash_root_dir=ollash_root_dir)
 
 
+@auto_agent_bp.route("/api/projects/generate_structure", methods=["POST"])
+@require_api_key
+@rate_limit_api
+def generate_project_structure():
+    project_description = request.form.get("project_description")
+    project_name = request.form.get("project_name")
+    template_name = request.form.get("template_name", "default")
+    python_version = request.form.get("python_version")
+    license_type = request.form.get("license_type")
+    include_docker = request.form.get("include_docker") == "true"
+
+    if not project_description or not project_name:
+        return jsonify({"status": "error", "message": "Project description and name are required."}), 400
+
+    try:
+        local_auto_agent = AutoAgent(
+            config_path=str(_ollash_root_dir / "config" / "settings.json"),
+            ollash_root_dir=_ollash_root_dir
+        )
+        # Use a temporary event publisher for this synchronous call
+        temp_event_publisher = EventPublisher()
+        local_auto_agent.event_publisher = temp_event_publisher
+
+        readme, structure_json = local_auto_agent.generate_structure_only(
+            project_description,
+            project_name,
+            template_name=template_name,
+            python_version=python_version,
+            license_type=license_type,
+            include_docker=include_docker
+        )
+        return jsonify({
+            "status": "structure_generated",
+            "project_name": project_name,
+            "readme": readme,
+            "structure": structure_json
+        })
+    except Exception as e:
+        _auto_agent.logger.error(f"[PROJECT_STATUS] Error generating structure for '{project_name}': {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @auto_agent_bp.route("/api/projects/create", methods=["POST"])
 @require_api_key
 @rate_limit_api
 def create_project():
     project_description = request.form.get("project_description")
     project_name = request.form.get("project_name")
+    template_name = request.form.get("template_name", "default")
+    python_version = request.form.get("python_version")
+    license_type = request.form.get("license_type")
+    include_docker = request.form.get("include_docker") == "true"
+    generated_structure_str = request.form.get("generated_structure")
+    generated_readme = request.form.get("generated_readme")
 
-    if not project_description or not project_name:
-        return jsonify({"status": "error", "message": "Project description and name are required."}), 400
+    if not project_description or not project_name or not generated_structure_str or not generated_readme:
+        return jsonify({"status": "error", "message": "Missing required project details or generated structure/readme."}), 400
+
+    try:
+        generated_structure = json.loads(generated_structure_str)
+    except json.JSONDecodeError:
+        return jsonify({"status": "error", "message": "Invalid generated_structure JSON."}), 400
 
     def run_agent():
-        # Pass the event_publisher to the AutoAgent instance
-        # Re-instantiate AutoAgent to inject event_publisher if necessary,
-        # or ensure the existing instance is updated.
-        # For simplicity, we'll assume AutoAgent's init can handle event_publisher
-        # as a constructor parameter, and _auto_agent is re-initialized if needed.
-        # Since AutoAgent's __init__ already accepts event_publisher (after previous changes)
-        # we can just pass it directly.
         local_auto_agent = AutoAgent(
             config_path=str(_ollash_root_dir / "config" / "settings.json"),
             ollash_root_dir=_ollash_root_dir
         )
-        local_auto_agent.event_publisher = _event_publisher # Inject the shared publisher
+        local_auto_agent.event_publisher = _event_publisher
 
         try:
-            local_auto_agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' creation initiated.")
-            project_root = local_auto_agent.run(project_description, project_name) # Changed from create_project to run
+            local_auto_agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' generation continuing with provided structure. "
+                                        f"Advanced config: Python={python_version}, License={license_type}, Docker={include_docker}")
+            project_root = local_auto_agent.continue_generation(
+                project_description,
+                project_name,
+                generated_readme,
+                generated_structure,
+                template_name=template_name,
+                python_version=python_version,
+                license_type=license_type,
+                include_docker=include_docker
+            )
             local_auto_agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' created at {project_root}")
-            _chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' completed."}) # Use chat_event_bridge
+            _chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' completed."})
         except Exception as e:
             local_auto_agent.logger.error(f"[PROJECT_STATUS] Error creating project '{project_name}': {e}")
-            _chat_event_bridge.push_event("error", {"message": f"Error creating project: {e}"}) # Use chat_event_bridge
+            _chat_event_bridge.push_event("error", {"message": f"Error creating project: {e}"})
 
     thread = threading.Thread(target=run_agent, daemon=True)
     thread.start()
@@ -162,6 +218,35 @@ def read_file_content(project_name):
         return jsonify({"status": "error", "message": f"Error reading file: {e}"}), 500
 
 
+@auto_agent_bp.route("/api/projects/<project_name>/save_file", methods=["POST"])
+@require_api_key
+@rate_limit_api
+def save_file_content(project_name):
+    file_path_relative = request.json.get("file_path_relative")
+    content = request.json.get("content")
+
+    if not file_path_relative:
+        return jsonify({"status": "error", "message": "File path is required."}), 400
+    if content is None:  # Allow saving empty content
+        return jsonify({"status": "error", "message": "Content is required."}), 400
+
+    project_base_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+    full_file_path = project_base_path / file_path_relative
+
+    # Security: prevent directory traversal
+    if not str(full_file_path).startswith(str(project_base_path)):
+        return jsonify({"status": "error", "message": "Invalid file path."}), 400
+
+    try:
+        # Ensure directory exists
+        full_file_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(full_file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return jsonify({"status": "success", "message": "File saved successfully."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Error saving file: {e}"}), 500
+
+
 @auto_agent_bp.route("/api/projects/<project_name>/export")
 def export_project_zip(project_name):
     """Download a project as a ZIP archive."""
@@ -190,3 +275,45 @@ def export_project_zip(project_name):
         as_attachment=True,
         download_name=f"{project_name}.zip",
     )
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/issues")
+def get_project_issues(project_name):
+    """Retrieve structured issues from senior review markdown files for a given project."""
+    project_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+
+    if not project_path.is_dir():
+        return jsonify({"status": "error", "message": "Project not found."}), 404
+
+    all_issues = []
+    # Iterate through possible SENIOR_REVIEW_ISSUES_ATTEMPT_X.md files
+    for i in range(1, 4): # Assuming max 3 review attempts as in AutoAgent
+        issue_file_path = project_path / f"SENIOR_REVIEW_ISSUES_ATTEMPT_{i}.md"
+        if issue_file_path.is_file():
+            try:
+                with open(issue_file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                parsed_issues = _parse_issue_markdown(content)
+                all_issues.extend(parsed_issues)
+            except Exception as e:
+                _auto_agent.logger.error(f"Error parsing issue file {issue_file_path}: {e}")
+                # Continue to next file even if one fails to parse
+
+    return jsonify({"status": "success", "issues": all_issues})
+
+
+def _parse_issue_markdown(markdown_content: str) -> List[Dict]:
+    """Parses the Markdown content of a SENIOR_REVIEW_ISSUES_ATTEMPT_X.md file into a list of dictionaries."""
+    issues = []
+    # Regex to find each issue section
+    issue_sections = re.findall(r"## Issue \d+: \[(.+?)\]\n\*\*File:\*\*\s*(.*?)\n\*\*Description:\*\*\s*(.*?)\n\*\*Recommendation:\*\*\s*(.*?)(?=\n## Issue|\Z)", markdown_content, re.DOTALL)
+
+    for section in issue_sections:
+        severity, file_path, description, recommendation = section
+        issues.append({
+            "severity": severity.strip(),
+            "file": file_path.strip() if file_path.strip() != "N/A" else None,
+            "description": description.strip(),
+            "recommendation": recommendation.strip()
+        })
+    return issues

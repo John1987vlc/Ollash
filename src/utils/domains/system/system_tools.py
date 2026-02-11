@@ -310,3 +310,115 @@ class SystemTools:
         except Exception as e:
             self.logger.error(f"❌ Error reading log file {path}: {e}", e)
             return {"ok": False, "result": {"path": path, "error": str(e), "raw_error": str(e)}}
+
+    @ollash_tool(
+        name="check_resource_threshold",
+        description="Checks if a system resource (disk/ram) is below a specified free percentage threshold.",
+        parameters={
+            "resource": {"type": "string", "enum": ["disk", "ram"], "description": "The resource to check: 'disk' or 'ram'"},
+            "threshold_percent": {"type": "integer", "description": "Alert if free percentage is below this threshold (0-100)"}
+        },
+        toolset_id="system_tools",
+        agent_types=["system", "orchestrator"],
+        required=["resource", "threshold_percent"]
+    )
+    def check_resource_threshold(self, resource: str, threshold_percent: int):
+        """
+        Checks if a system resource (disk/ram) is below a critical threshold.
+        Returns alert status and current free percentage.
+        """
+        self.logger.info(f"🔍 Checking {resource} resource threshold (alert if < {threshold_percent}%)...")
+        
+        if resource not in ["disk", "ram"]:
+            return {"ok": False, "error": f"Invalid resource: {resource}. Must be 'disk' or 'ram'"}
+        
+        try:
+            # Get system info first
+            info_result = self.get_system_info()
+            if not info_result.get("ok"):
+                return {"ok": False, "error": "Failed to retrieve system information"}
+            
+            system_info = info_result.get("result", {})
+            current_free_percent = None
+            total = None
+            used = None
+            free = None
+            
+            # Parse resource info based on OS
+            if self.os_type == "Windows":
+                info = system_info.get("info", {})
+                if resource == "ram":
+                    total_mem = info.get("TotalPhysicalMemory", 0)
+                    free_mem = info.get("FreePhysicalMemory", 0)
+                    if total_mem > 0:
+                        current_free_percent = (free_mem / total_mem) * 100
+                        total = total_mem
+                        used = total_mem - free_mem
+                        free = free_mem
+                        
+            elif self.os_type in ["Linux", "Darwin"]:
+                # Use `df` for disk, `free` for memory
+                if resource == "disk":
+                    df_cmd = "df -h /" if self.os_type == "Linux" else "df -h /"
+                    result = self.exec.execute(df_cmd)
+                    if result.success:
+                        # Parse df output: Filesystem Size Used Avail Use% Mounted on
+                        lines = result.stdout.splitlines()
+                        if len(lines) > 1:
+                            parts = lines[1].split()
+                            if len(parts) >= 4:
+                                try:
+                                    # parts[3] is Avail, parts[1] is Size
+                                    avail_str = parts[3].rstrip('KMGT')
+                                    size_str = parts[1].rstrip('KMGT')
+                                    avail = float(avail_str)
+                                    size = float(size_str)
+                                    current_free_percent = (avail / size) * 100 if size > 0 else 0
+                                    total = size
+                                    used = size - avail
+                                    free = avail
+                                except (ValueError, IndexError):
+                                    pass
+                                    
+                elif resource == "ram":
+                    free_cmd = "free -b" if self.os_type == "Linux" else "vm_stat"
+                    result = self.exec.execute(free_cmd)
+                    if result.success and self.os_type == "Linux":
+                        lines = result.stdout.splitlines()
+                        if len(lines) > 1:
+                            parts = lines[1].split()
+                            if len(parts) >= 7:
+                                try:
+                                    total = int(parts[1])
+                                    used = int(parts[2])
+                                    free = int(parts[3])
+                                    current_free_percent = (free / total) * 100 if total > 0 else 0
+                                except (ValueError, IndexError):
+                                    pass
+            
+            if current_free_percent is None:
+                return {
+                    "ok": True,
+                    "alert": False,
+                    "message": f"Could not determine {resource} usage for this OS",
+                    "resource": resource
+                }
+            
+            alert_triggered = current_free_percent < threshold_percent
+            
+            return {
+                "ok": True,
+                "alert": alert_triggered,
+                "resource": resource,
+                "current_free_percent": round(current_free_percent, 2),
+                "threshold_percent": threshold_percent,
+                "total": total,
+                "used": used,
+                "free": free,
+                "message": f"⚠️ {resource.upper()} CRITICAL" if alert_triggered else f"✅ {resource.upper()} OK",
+                "severity": "critical" if alert_triggered else "info"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error checking {resource} threshold: {e}")
+            return {"ok": False, "error": str(e)}

@@ -75,33 +75,39 @@ class AutoGenPrompts:
     """
 
     @staticmethod
-    def readme_generation(project_description: str) -> Tuple[str, str]:
+    def readme_generation(project_description: str, template_name: str, python_version: str, license_type: str, include_docker: bool) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for Phase 1."""
         system = (
             "You are a senior software architect. "
             "Create comprehensive, detailed technical documentation. "
             "Adapt the README structure to fit the project type — "
-            "do NOT assume the project is a web application."
+            "do NOT assume the project is a web application. "
+            "Integrate the following specific project details seamlessly into the README."
         )
         user = (
-            "Create a comprehensive and detailed README.md for the following project. "
+            f"Generate a comprehensive and detailed README.md for the following project, "
+            f"considering the user's choices:\n\n"
+            f"Project Description: {project_description}\n"
+            f"Selected Template: {template_name}\n"
+            f"Python Version: {python_version}\n"
+            f"License Type: {license_type}\n"
+            f"Include Docker: {'Yes' if include_docker else 'No'}\n\n"
             "The README should include:\n"
             "- Project title and description\n"
             "- Main features and functionality\n"
             "- Technology stack (languages, frameworks, libraries, tools)\n"
             "- Project structure overview\n"
-            "- Installation and setup instructions\n"
+            "- Installation and setup instructions (tailored to Python version and Docker if included)\n"
             "- Usage examples\n"
-            "- Build/run commands appropriate for the project type\n\n"
+            "- Build/run commands appropriate for the project type (including Docker if requested)\n\n"
             "Be thorough and specific. This README will be used to generate the "
             "entire project structure. Adapt the format to the project type — "
             "not every project has a frontend/backend split.\n\n"
-            f"Project Description: {project_description}"
         )
         return system, user
 
     @staticmethod
-    def high_level_structure_generation(readme_content: str) -> Tuple[str, str]:
+    def high_level_structure_generation(readme_content: str, template_name: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for high-level structure generation."""
         tech_summary = _detect_project_technologies(readme_content)
 
@@ -109,6 +115,7 @@ class AutoGenPrompts:
             "You are an expert at designing comprehensive, high-level project file structures "
             "for ANY type of software project (web apps, CLI tools, games, scripts, "
             "libraries, microservices, embedded systems, etc.).\n\n"
+            f"The user has selected the '{template_name}' template. This should guide your decisions.\n\n"
             "Your task: given a project README.md, output a single JSON object "
             "representing the TOP-LEVEL folders and root files of the project. "
             "Do NOT include nested folders or files within subdirectories at this stage. "
@@ -145,12 +152,13 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def high_level_structure_generation_simplified(readme_content: str) -> Tuple[str, str]:
+    def high_level_structure_generation_simplified(readme_content: str, template_name: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for simplified high-level structure generation."""
         tech_summary = _detect_project_technologies(readme_content)
 
         system = (
             "You are an expert at designing simple project file structures. "
+            f"The user has selected the '{template_name}' template. Keep this in mind when simplifying.\n\n"
             "Your task is to output a single JSON object representing the "
             "MINIMAL TOP-LEVEL folders and root files of a project. "
             "Do NOT include nested folders or files within subdirectories. "
@@ -183,13 +191,14 @@ class AutoGenPrompts:
 
     @staticmethod
     def sub_structure_generation(
-        folder_path: str, readme_content: str, overall_structure_str: str
+        folder_path: str, readme_content: str, overall_structure_str: str, template_name: str
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for sub-structure generation."""
         tech_summary = _detect_project_technologies(readme_content)
 
         system = (
             "You are an expert at recursively detailing project file structures. "
+            f"The user has selected the '{template_name}' template. Ensure the sub-structure aligns with this.\n\n"
             "Your task is to generate the JSON structure (sub-folders and files) "
             "specifically for the folder path provided, given the overall project context.\n\n"
             "The JSON format must follow this structure exactly (for the *contents* of the folder):\n"
@@ -225,13 +234,14 @@ class AutoGenPrompts:
 
     @staticmethod
     def sub_structure_generation_simplified(
-        folder_path: str, readme_content: str, overall_structure_str: str
+        folder_path: str, readme_content: str, overall_structure_str: str, template_name: str
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for simplified sub-structure generation."""
         tech_summary = _detect_project_technologies(readme_content)
 
         system = (
             "You are an expert at designing simple, nested project file structures. "
+            f"The user has selected the '{template_name}' template. Keep this in mind when simplifying.\n\n"
             "Your task is to generate a MINIMAL JSON structure (sub-folders and files) "
             "specifically for the folder path provided.\n\n"
             "The JSON format must follow this structure exactly (for the *contents* of the folder):\n"

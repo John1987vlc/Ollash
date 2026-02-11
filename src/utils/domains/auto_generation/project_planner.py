@@ -18,7 +18,9 @@ class ProjectPlanner:
         self.logger = logger
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def generate_readme(self, project_description: str) -> str:
+    def generate_readme(self, project_description: str, template_name: str = "default",
+                        python_version: str = "3.12", license_type: str = "MIT",
+                        include_docker: bool = False) -> str:
         """Generate a comprehensive README.md from a project description."""
         system, user = AutoGenPrompts.readme_generation(project_description)
         response_data, usage = self.llm_client.chat(

@@ -1,0 +1,166 @@
+{
+  "description": "Scheduled automation tasks for Ollash",
+  "tasks": [
+    {
+      "task_id": "daily_system_health_check",
+      "name": "Daily System Health Report",
+      "description": "Daily health check of system resources and running services",
+      "enabled": true,
+      "schedule": {
+        "type": "cron",
+        "cron_expression": "0 9 * * *",
+        "human_readable": "Every day at 9:00 AM"
+      },
+      "agent": "system",
+      "prompt": "Perform a comprehensive system health check. Check CPU, memory, disk usage, active processes, and any critical logs. Provide a summary report.",
+      "thresholds": {
+        "cpu_warning": 70,
+        "cpu_critical": 90,
+        "memory_warning": 75,
+        "memory_critical": 90,
+        "disk_warning": 80,
+        "disk_critical": 95
+      },
+      "notifications": {
+        "enabled": true,
+        "channels": ["ui", "email"],
+        "severity_threshold": "warning"
+      }
+    },
+    {
+      "task_id": "hourly_resource_monitor",
+      "name": "Hourly Resource Monitor",
+      "description": "Check system resources every hour and alert if thresholds exceeded",
+      "enabled": true,
+      "schedule": {
+        "type": "interval",
+        "interval_minutes": 60,
+        "human_readable": "Every 60 minutes"
+      },
+      "agent": "system",
+      "prompt": "Check current RAM and disk usage. If either exceeds their critical thresholds, provide optimization recommendations.",
+      "thresholds": {
+        "memory_critical": 90,
+        "disk_critical": 95
+      },
+      "notifications": {
+        "enabled": true,
+        "channels": ["ui"],
+        "severity_threshold": "critical"
+      }
+    },
+    {
+      "task_id": "weekly_process_cleanup",
+      "name": "Weekly Process Optimization",
+      "description": "Weekly check of resource-consuming processes",
+      "enabled": true,
+      "schedule": {
+        "type": "cron",
+        "cron_expression": "0 2 * * 1",
+        "human_readable": "Every Monday at 2:00 AM"
+      },
+      "agent": "system",
+      "prompt": "List the top 10 processes consuming the most CPU and memory. Analyze their necessity and suggest which ones could be optimized or stopped.",
+      "notifications": {
+        "enabled": true,
+        "channels": ["ui", "email"],
+        "severity_threshold": "info"
+      }
+    },
+    {
+      "task_id": "log_rotation_check",
+      "name": "Log Rotation and Cleanup",
+      "description": "Check and manage log files to prevent disk space issues",
+      "enabled": true,
+      "schedule": {
+        "type": "cron",
+        "cron_expression": "0 3 * * 0",
+        "human_readable": "Every Sunday at 3:00 AM"
+      },
+      "agent": "system",
+      "prompt": "Analyze the Ollash log file for errors and warnings from the past week. Generate a summary of the most critical issues.",
+      "notifications": {
+        "enabled": true,
+        "channels": ["ui", "email"],
+        "severity_threshold": "warning"
+      }
+    },
+    {
+      "task_id": "disk_usage_alert",
+      "name": "Disk Usage Alert",
+      "description": "Continuous monitoring for disk space critical levels",
+      "enabled": true,
+      "schedule": {
+        "type": "interval",
+        "interval_minutes": 30,
+        "human_readable": "Every 30 minutes"
+      },
+      "agent": "system",
+      "check_tool": "check_resource_threshold",
+      "check_params": {
+        "resource": "disk",
+        "threshold_percent": 15
+      },
+      "prompt": "If disk space is critically low (< 15% free), provide immediate recommendations for freeing space.",
+      "notifications": {
+        "enabled": true,
+        "channels": ["ui", "email"],
+        "severity_threshold": "critical"
+      }
+    },
+    {
+      "task_id": "memory_pressure_alert",
+      "name": "Memory Pressure Alert",
+      "description": "Alert when system memory usage is critically high",
+      "enabled": true,
+      "schedule": {
+        "type": "interval",
+        "interval_minutes": 15,
+        "human_readable": "Every 15 minutes"
+      },
+      "agent": "system",
+      "check_tool": "check_resource_threshold",
+      "check_params": {
+        "resource": "ram",
+        "threshold_percent": 10
+      },
+      "prompt": "If available memory is below 10%, identify memory-heavy processes and suggest optimizations.",
+      "notifications": {
+        "enabled": true,
+        "channels": ["ui"],
+        "severity_threshold": "critical"
+      }
+    },
+    {
+      "task_id": "performance_baseline",
+      "name": "Performance Baseline Report",
+      "description": "Generate performance baseline metrics monthly",
+      "enabled": true,
+      "schedule": {
+        "type": "cron",
+        "cron_expression": "0 8 1 * *",
+        "human_readable": "First day of every month at 8:00 AM"
+      },
+      "agent": "system",
+      "prompt": "Generate a comprehensive performance baseline report including CPU speed, memory capacity, disk speed, network latency, and compare with historical data.",
+      "notifications": {
+        "enabled": true,
+        "channels": ["ui", "email"],
+        "severity_threshold": "info"
+      }
+    }
+  ],
+  "execution_rules": {
+    "max_concurrent_tasks": 2,
+    "timeout_seconds": 300,
+    "retry_on_failure": true,
+    "max_retries": 2,
+    "retry_delay_seconds": 60
+  },
+  "ui_alerts": {
+    "show_notifications": true,
+    "notification_duration_ms": 5000,
+    "sound_enabled": true,
+    "sound_file": "/static/sounds/alert.mp3"
+  }
+}

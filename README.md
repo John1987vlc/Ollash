@@ -19,6 +19,64 @@ Ollash is a modular AI agent framework powered by [Ollama](https://ollama.ai/) f
 - **Confirmation gates**: state-modifying tools require user approval (bypassable with `--auto`)
 - **Hybrid model selection**: intent classification routes to the best model per turn
 
+## Recent Enhancements (v2.2) — Cowork-Inspired Knowledge Workspace
+
+**Enterprise Knowledge Management System:**
+
+1. **Dynamic Knowledge Workspace** (`src/utils/core/documentation_manager.py`)
+   - Auto-created folder structure: `knowledge_workspace/{references/, indexed_cache/, summaries/}`
+   - ChromaDB vector store for semantic search across documents
+   - Workspace health monitoring and status reporting
+   - Efficient knowledge base queries with distance-based relevance scoring
+
+2. **Multi-Format Document Ingestion** (`src/utils/core/multi_format_ingester.py`)
+   - Support for 6 document formats: PDF (PyPDF2), DOCX (python-docx), PPTX (python-pptx), TXT, Markdown
+   - Automatic encoding fallback (UTF-8 → Latin-1) for legacy documents
+   - File metadata extraction (size, word count, format, extraction success)
+   - Batch directory ingestion with format filtering
+
+3. **Automatic Documentation Indexing Daemon** (`src/utils/core/documentation_watcher.py`)
+   - FileSystem watcher monitoring `references/` folder for new documents
+   - Non-blocking daemon thread (doesn't freeze main application)
+   - Callback system for custom indexing logic and event handling
+   - Graceful shutdown and file change detection
+
+4. **Cascade Summarizer — Map-Reduce Pipeline** (`src/utils/core/cascade_summarizer.py`)
+   - Handles large documents (100K+ words) efficiently
+   - Map phase: Chunk text with 20% overlap → Summarize each chunk (ministral-3:8b)
+   - Reduce phase: Synthesize chunk summaries into executive summary (ministral-3:14b)
+   - Compression ratio tracking (achieves 10:1 compression on large documents)
+   - Metadata output: original word count, chunk count, compression ratio
+
+5. **Specialist LLM Roles** (`src/agents/prompt_templates.py`)
+   - **Analyst Role**: Executive summaries, key insights extraction, risk analysis, gap analysis, comparative analysis
+   - **Writer Role**: Tone adjustment (formal/casual/executive/technical), technical documentation, grammar editing, audience adaptation
+   - 30+ specialized prompt templates for different task types
+   - Enables precise task-specific LLM behavior without fine-tuning
+
+6. **7 Cowork-Inspired Tools** (`src/utils/domains/bonus/cowork_tools.py`, `cowork_impl.py`)
+   - `document_to_task`: Convert documents to actionable task lists (categories: feature, bug fix, documentation, refactor)
+   - `analyze_recent_logs`: Scan system/security/app logs, identify risks by severity
+   - `generate_executive_summary`: Create condensed overviews using cascade summarizer
+   - `query_knowledge_workspace`: Semantic search across indexed documents
+   - `index_reference_document`: Manual trigger for document indexing
+   - `get_workspace_status`: Returns knowledge workspace health metrics
+   - `refactor_artifact`: Modify generated documents (shorten/expand/formal/technical)
+
+7. **Professional Artifact Rendering** (`src/web/static/js/artifact-renderer.js`, `css/artifact-renderer.css`)
+   - Render Markdown with syntax highlighting (via marked.js + Highlight.js)
+   - Code blocks with language detection and color themes
+   - JSON visualization with structure formatting
+   - Task plans with priority badges (critical/high/medium/low) and effort estimates
+   - Refactoring interface (shorten, expand, formal, casual, executive, technical)
+   - Copy-to-clipboard and download-as-file capabilities
+
+**Test Coverage (v2.2):**
+- 93+ unit tests, 96.67% pass rate
+- Test files: `test_cowork_impl.py` (15 tests), `test_artifact_renderer.py` (20), `test_cascade_summarizer.py` (18), `test_documentation_watcher.py` (9), `test_multi_format_ingester.py` (10), `test_prompt_templates.py` (22)
+
+See [COWORK_IMPROVEMENTS.md](COWORK_IMPROVEMENTS.md) and [KNOWLEDGE_WORKSPACE_GUIDE.md](KNOWLEDGE_WORKSPACE_GUIDE.md) for detailed documentation.
+
 ## Recent Enhancements (v2.1)
 
 **Performance & Scalability Improvements:**

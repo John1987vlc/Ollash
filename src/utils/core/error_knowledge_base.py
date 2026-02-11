@@ -10,6 +10,7 @@ import hashlib
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+from dataclasses import dataclass
 from src.utils.core.agent_logger import AgentLogger
 
 

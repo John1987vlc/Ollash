@@ -5,10 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ollash - Local IT Agent</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/artifact-renderer.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <!-- Monaco Editor assets -->
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.29.1/min/vs/editor/editor.main.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.29.1/min/vs/loader.min.js"></script>
+    <!-- Highlight.js for code highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <!-- Xterm.js assets -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/4.16.0/xterm.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/4.16.0/xterm.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm-addon-fit/0.5.0/xterm-addon-fit.min.js"></script>
 </head>
 <body>
     <!-- Background Effects -->
@@ -62,6 +69,13 @@
                         <rect x="14" y="2" width="3" height="16" rx="0.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
                     </svg>
                     <span>Benchmark</span>
+                </button>
+                <button class="nav-item" data-view="automations">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
+                        <path d="M10 6V10L13 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span>Automations</span>
                 </button>
             </nav>
 
@@ -134,6 +148,73 @@
                 </div>
 
                 <div class="create-form-container">
+                    <div class="template-selector">
+                        <h2>Choose a Project Template</h2>
+                        <div class="template-cards">
+                            <!-- Template Cards will go here -->
+                            <div class="template-card active" data-template="default">
+                                <h3>Default Project</h3>
+                                <p>A general-purpose project structure.</p>
+                            </div>
+                            <div class="template-card" data-template="fastapi-backend">
+                                <h3>FastAPI Backend</h3>
+                                <p>Python backend with FastAPI and uvicorn.</p>
+                            </div>
+                            <div class="template-card" data-template="react-frontend">
+                                <h3>React Frontend</h3>
+                                <p>Modern web frontend with React and Vite.</p>
+                            </div>
+                            <div class="template-card" data-template="automation-script">
+                                <h3>Automation Script</h3>
+                                <p>A simple Python automation script.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Advanced Configuration -->
+                    <div class="advanced-config-toggle" style="margin-top: var(--spacing-xl);">
+                        <button type="button" class="btn-secondary" id="toggle-advanced-config">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M7.5 14.5a.5.5 0 01-1 0v-4a.5.5 0 011 0v4zM7.5 6.5a.5.5 0 01-1 0v-4a.5.5 0 011 0v4z"/>
+                                <path d="M12.5 14.5a.5.5 0 01-1 0v-6a.5.5 0 011 0v6zM12.5 4.5a.5.5 0 01-1 0v-2a.5.5 0 011 0v2z"/>
+                                <path d="M2.5 14.5a.5.5 0 01-1 0v-8a.5.5 0 011 0v8zM2.5 6.5a.5.5 0 01-1 0v-4a.5.5 0 011 0v4z"/>
+                            </svg>
+                            <span>Advanced Configuration</span>
+                            <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M6 10l4-4-4-4"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div id="advanced-config-panel" class="advanced-config-panel" style="display: none;">
+                        <div class="form-group">
+                            <label for="python-version">Python Version</label>
+                            <select id="python-version" name="python_version">
+                                <option value="3.12">Python 3.12 (Recommended)</option>
+                                <option value="3.11">Python 3.11</option>
+                                <option value="3.10">Python 3.10</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="license-type">License Type</label>
+                            <select id="license-type" name="license_type">
+                                <option value="MIT">MIT License (Permissive)</option>
+                                <option value="Apache-2.0">Apache License 2.0 (Permissive)</option>
+                                <option value="GPL-3.0">GPLv3 (Strong Copyleft)</option>
+                                <option value="None">No License</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group toggle-group">
+                            <label for="include-docker">Include Docker support</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="include-docker" name="include_docker" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+
                     <form id="create-project-form" class="create-form">
                         <div class="form-group">
                             <label for="project-name">Project Name</label>
@@ -157,6 +238,40 @@
 
                     <div id="status-message" class="status-message"></div>
                 </div>
+
+                <!-- Generated Structure Display (Initially Hidden) -->
+                <div id="generated-structure-section" style="display: none; margin-top: var(--spacing-xl);">
+                    <div class="view-header">
+                        <h2>Review & Edit Structure</h2>
+                        <p class="subtitle">Review the proposed project structure. You can edit it before generation.</p>
+                    </div>
+
+                    <div class="generated-file-tree" id="generated-file-tree">
+                        <!-- Interactive file tree will be rendered here -->
+                    </div>
+
+                    <div class="structure-actions" style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-md); align-items: center;">
+                        <input type="text" id="add-path-input" placeholder="Add new file or folder (e.g., src/utils/helper.py)" class="form-control" style="flex-grow: 1;">
+                        <button type="button" class="btn-secondary" id="add-path-btn">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            Add
+                        </button>
+                        <button type="button" class="btn-primary" id="confirm-structure-btn">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M17 5L7 15L3 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Confirm Structure & Generate Code
+                        </button>
+                        <button type="button" class="btn-secondary" id="edit-structure-btn">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M12 4H16V8M16 12V16H12M8 16H4V12M4 8V4H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Edit Structure
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Projects View -->
@@ -177,6 +292,41 @@
                 </div>
 
                 <div class="project-workspace" id="project-workspace" style="display: none;">
+                    <div class="phase-timeline-container" id="phase-timeline-container" style="display: none;">
+                        <!-- Phase elements will be rendered here by JavaScript -->
+                        <div class="phase-step current" data-phase="1">
+                            <div class="phase-circle">1</div>
+                            <div class="phase-label">Planning</div>
+                        </div>
+                        <div class="phase-step" data-phase="2">
+                            <div class="phase-circle">2</div>
+                            <div class="phase-label">Structure</div>
+                        </div>
+                        <div class="phase-step" data-phase="3">
+                            <div class="phase-circle">3</div>
+                            <div class="phase-label">Develop</div>
+                        </div>
+                        <div class="phase-step" data-phase="4">
+                            <div class="phase-circle">4</div>
+                            <div class="phase-label">Test</div>
+                        </div>
+                        <div class="phase-step" data-phase="5">
+                            <div class="phase-circle">5</div>
+                            <div class="phase-label">Review</div>
+                        </div>
+                        <div class="phase-step" data-phase="6">
+                            <div class="phase-circle">6</div>
+                            <div class="phase-label">Refine</div>
+                        </div>
+                        <div class="phase-step" data-phase="7">
+                            <div class="phase-circle">7</div>
+                            <div class="phase-label">Integrate</div>
+                        </div>
+                        <div class="phase-step" data-phase="8">
+                            <div class="phase-circle">8</div>
+                            <div class="phase-label">Deliver</div>
+                        </div>
+                    </div>
                     <div class="workspace-grid">
                         <!-- File Explorer -->
                         <div class="file-explorer">
@@ -210,6 +360,20 @@
                                     </svg>
                                     Code
                                 </button>
+                                <button class="tab-btn" data-tab="issues">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M8 14C4.68629 14 2 11.3137 2 8C2 4.68629 4.68629 2 8 2C11.3137 2 14 4.68629 14 8C14 11.3137 11.3137 14 8 14Z" stroke="currentColor" stroke-width="1.5"/>
+                                        <path d="M8 10V8M8 6H8.0075" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Issues
+                                </button>
+                                <button class="tab-btn" data-tab="terminal">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M2 3L14 3L14 13L2 13L2 3Z"/>
+                                        <polyline points="5 6 8 9 5 12"/>
+                                    </svg>
+                                    Terminal
+                                </button>
                                 <div class="current-file-indicator">
                                     <span id="current-file-name">No file selected</span>
                                 </div>
@@ -229,14 +393,26 @@
                                         </svg>
                                         Save Changes
                                     </button>
-                                    <button id="refactor-code-btn" class="btn-secondary" style="display: none;">
+                                    <button id="refactor-code-btn" class="btn-secondary">
                                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M10 13l-4-4 4-4"/>
                                             <path d="M6 13l4-4-4-4"/>
                                         </svg>
-                                        Refactor with Agent
+                                        Ask Agent
                                     </button>
                                 </div>
+                            </div>
+
+                            <!-- Issues Tab Content -->
+                            <div class="tab-content" id="issues-tab">
+                                <div class="issues-list" id="issues-list">
+                                    <p class="issues-placeholder">No issues found for this project yet.</p>
+                                </div>
+                            </div>
+
+                            <!-- Terminal Tab Content -->
+                            <div class="tab-content" id="terminal-tab">
+                                <div id="terminal-container" style="width: 100%; height: 100%; background: #000; color: #fff;"></div>
                             </div>
                         </div>
 
@@ -311,9 +487,82 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Automations View -->
+            <div class="view" id="automations-view">
+                <div class="view-header">
+                    <h1>Task Automations</h1>
+                    <p class="subtitle">Schedule and manage automated monitoring tasks</p>
+                    <button class="btn-primary btn-small" id="new-automation-btn" style="margin-top: var(--spacing-md);">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                            <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        New Task
+                    </button>
+                </div>
+
+                <div class="automations-grid" id="automations-grid">
+                    <div style="grid-column: 1/-1; text-align: center; padding: var(--spacing-xl); color: var(--color-text-muted);">
+                        <p>No automations yet. Create one to get started!</p>
+                    </div>
+                </div>
+
+                <!-- Modal for creating/editing tasks -->
+                <div class="modal" id="automation-modal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2>Schedule New Task</h2>
+                            <button class="close-modal" onclick="closeAutomationModal()">&times;</button>
+                        </div>
+                        <form id="automation-form">
+                            <div class="form-group">
+                                <label for="task-name">Task Name</label>
+                                <input type="text" id="task-name" name="task-name" required placeholder="e.g., Disk Space Check">
+                            </div>
+                            <div class="form-group">
+                                <label for="task-agent">Agent Type</label>
+                                <select id="task-agent" name="task-agent" required>
+                                    <option value="system">System Monitor</option>
+                                    <option value="network">Network Monitor</option>
+                                    <option value="cybersecurity">Security Audit</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="task-prompt">Prompt / Command</label>
+                                <textarea id="task-prompt" name="task-prompt" required placeholder="e.g., Check disk space and alert if below 20%"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="task-schedule">Schedule</label>
+                                <select id="task-schedule" name="task-schedule" required onchange="handleScheduleChange(this.value)">
+                                    <option value="hourly">Every Hour</option>
+                                    <option value="daily">Daily at 8:00 AM</option>
+                                    <option value="weekly">Weekly (Monday)</option>
+                                    <option value="custom">Custom (Cron Expression)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="cron-group" style="display: none;">
+                                <label for="task-cron">Cron Expression</label>
+                                <input type="text" id="task-cron" name="task-cron" placeholder="0 8 * * * (cron format)">
+                            </div>
+                            <div class="form-group checkbox">
+                                <input type="checkbox" id="task-notify-email" name="task-notify-email">
+                                <label for="task-notify-email">Notify via Email</label>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn-primary">Save Task</button>
+                                <button type="button" class="btn-secondary" onclick="closeAutomationModal()">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
+    <script src="{{ url_for('static', filename='js/alert-handler.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/notification-service.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/artifact-renderer.js') }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
