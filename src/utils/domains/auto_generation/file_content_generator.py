@@ -5,6 +5,7 @@ from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.agent_logger import AgentLogger
 from src.utils.core.llm_response_parser import LLMResponseParser
 from src.utils.core.documentation_manager import DocumentationManager # ADDED IMPORT
+from src.utils.core.fragment_cache import FragmentCache # CACHE SUPPORT
 from .prompt_templates import AutoGenPrompts
 
 
@@ -27,12 +28,14 @@ class FileContentGenerator:
         logger: AgentLogger,
         response_parser: LLMResponseParser,
         documentation_manager: DocumentationManager, # ADDED PARAMETER
+        fragment_cache: FragmentCache = None, # CACHE SUPPORT
         options: dict = None,
     ):
         self.llm_client = llm_client
         self.logger = logger
         self.parser = response_parser
         self.documentation_manager = documentation_manager # STORE IT
+        self.fragment_cache = fragment_cache # Optional cache
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
     def generate_file(

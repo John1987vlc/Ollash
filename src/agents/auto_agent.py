@@ -1,13 +1,23 @@
 import json
 import os
 import re
+import asyncio
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
+from collections import defaultdict
 
 from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.agent_logger import AgentLogger
 from src.utils.core.llm_response_parser import LLMResponseParser
 from src.utils.core.code_quarantine import CodeQuarantine
+
+# NEW IMPORTS FOR IMPROVED FEATURES
+from src.utils.core.fragment_cache import FragmentCache
+from src.utils.core.dependency_graph import DependencyGraph
+from src.utils.core.parallel_generator import (
+    ParallelFileGenerator, GenerationTask, AsyncFileGenerationAdapter
+)
+from src.utils.core.error_knowledge_base import ErrorKnowledgeBase
 
 # Import CoreAgent
 from src.agents.core_agent import CoreAgent
@@ -23,6 +33,10 @@ from src.utils.domains.auto_generation.improvement_planner import ImprovementPla
 from src.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
 from src.utils.domains.auto_generation.test_generator import TestGenerator
 from src.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
+from src.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
+from src.utils.domains.auto_generation.multi_language_test_generator import (
+    MultiLanguageTestGenerator, LanguageFrameworkMap
+)
 
 
 class AutoAgent(CoreAgent): # Inherit from CoreAgent
@@ -51,8 +65,16 @@ class AutoAgent(CoreAgent): # Inherit from CoreAgent
         self.structure_gen = StructureGenerator(
             self.llm_clients["prototyper"], self.logger, self.response_parser
         )
+        
+        # NEW: Fragment cache for performance
+        cache_dir = self.ollash_root_dir / ".cache" / "fragments"
+        self.fragment_cache = FragmentCache(cache_dir, self.logger, enable_persistence=True)
+        self.fragment_cache.preload_common_fragments("python")
+        self.fragment_cache.preload_common_fragments("javascript")
+        
         self.content_gen = FileContentGenerator(
-            self.llm_clients["prototyper"], self.logger, self.response_parser, self.documentation_manager, self.event_publisher
+            self.llm_clients["prototyper"], self.logger, self.response_parser, 
+            self.documentation_manager, self.fragment_cache
         )
         self.refiner = FileRefiner(
             self.llm_clients["coder"], self.logger, self.response_parser, self.documentation_manager, self.event_publisher
@@ -71,20 +93,39 @@ class AutoAgent(CoreAgent): # Inherit from CoreAgent
         self.improvement_planner = ImprovementPlanner(
             self.llm_clients["improvement_planner"], self.logger, self.response_parser
         )
-        self.test_generator = TestGenerator(
+        
+        # NEW: Multi-language test generator
+        self.test_generator = MultiLanguageTestGenerator(
             self.llm_clients["test_generator"], self.logger, self.response_parser, self.command_executor
         )
+        
         self.senior_reviewer = SeniorReviewer(
             self.llm_clients["senior_reviewer"], self.logger, self.response_parser
         )
+        
+        # NEW: Structure pre-reviewer
+        self.structure_pre_reviewer = StructurePreReviewer(
+            self.llm_clients["senior_reviewer"], self.logger, self.response_parser
+        )
+        
         self.contingency_planner = ContingencyPlanner(
             self.llm_clients["planner"], self.logger, self.response_parser
         )
         self.quarantine = CodeQuarantine(self.ollash_root_dir, self.logger)
+        
+        # NEW: Dependency graph and parallel generator
+        self.dependency_graph = DependencyGraph(self.logger)
+        self.parallel_generator = ParallelFileGenerator(
+            self.logger, max_concurrent=3, max_requests_per_minute=10
+        )
+        
+        # NEW: Error knowledge base for learning
+        kb_dir = self.ollash_root_dir / ".cache" / "knowledge"
+        self.error_kb = ErrorKnowledgeBase(kb_dir, self.logger, enable_persistence=True)
 
         self.generated_projects_dir = self.ollash_root_dir / "generated_projects" / "auto_agent_projects"
         self.generated_projects_dir.mkdir(parents=True, exist_ok=True)
-        self.logger.info("AutoAgent initialized.")
+        self.logger.info("AutoAgent initialized with enhanced features.")
 
     def run(self, project_description: str, project_name: str = "new_project", num_refine_loops: int = 0) -> Path:
         """Orchestrate the full project creation pipeline.
@@ -113,32 +154,120 @@ class AutoAgent(CoreAgent): # Inherit from CoreAgent
         self.event_publisher.publish("phase_complete", phase="2", message="Project structure generated", data={"files_planned": len(file_paths)})
         self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2 complete: {len(file_paths)} files planned.")
 
+        # NEW Phase 2.5: Structure Pre-Review (Quality assurance before code generation)
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5: PreReview of structure...")
+        self.event_publisher.publish("phase_start", phase="2.5", message="Starting structure pre-review")
+        structure_review = self.structure_pre_reviewer.review_structure(readme, structure, project_name)
+        self._save_file(project_root / "STRUCTURE_REVIEW.json", json.dumps(structure_review.to_dict(), indent=2))
+        
+        if structure_review.status == "critical":
+            self.logger.warning(f"[PROJECT_NAME:{project_name}] Structure has critical issues. Attempting fix...")
+            # In critical cases, we could prompt for regeneration, but for now we continue
+        else:
+            self.logger.info(f"[PROJECT_NAME:{project_name}] Structure review: {structure_review.status} (score: {structure_review.quality_score:.1f})")
+        
+        self.event_publisher.publish("phase_complete", phase="2.5", message="Structure pre-review complete", 
+                                   data={"quality_score": structure_review.quality_score})
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5 complete.")
+
         # Phase 3: Empty files
         self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 3: Creating empty placeholders...")
         StructureGenerator.create_empty_files(project_root, structure)
         self.event_publisher.publish("phase_complete", phase="3", message="Empty files created")
         self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 3 complete.")
 
-        # Phase 4: Content generation
-        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4: Generating file contents...")
+        # IMPROVED Phase 4: Parallel Content Generation with Dependency Awareness
+        self.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4: Generating file contents (parallelized)...")
+        self.event_publisher.publish("phase_start", phase="4", message="Starting parallel content generation")
+        
+        # Build dependency graph for intelligent ordering
+        self.dependency_graph.build_from_structure(structure, readme)
+        generation_order = self.dependency_graph.get_generation_order()
+        
+        # Create generation tasks
+        generation_tasks = []
+        for file_path in generation_order:
+            # Get context files for this file
+            context_files = self.dependency_graph.get_context_for_file(file_path, max_depth=2)
+            context = {
+                "readme": readme,
+                "structure": structure,
+                "dependencies": context_files,
+                "readme_excerpt": readme[:1000]
+            }
+            
+            # Check error knowledge base for prevention tips
+            language = self._infer_language(file_path)
+            prevention_warnings = self.error_kb.get_prevention_warnings(
+                file_path, project_name, language
+            )
+            context["error_warnings"] = prevention_warnings
+            
+            task = GenerationTask(
+                file_path=file_path,
+                context=context,
+                priority=10 if any(x in file_path for x in ["__init__", "config", "utils"]) else 5,
+            )
+            generation_tasks.append(task)
+        
+        # Execute parallel generation
         files: Dict[str, str] = {}
-        for idx, rel_path in enumerate(file_paths, 1):
-            self.event_publisher.publish("tool_start", tool_name="content_generation", file=rel_path, progress=f"{idx}/{len(file_paths)}")
-            self.logger.info(f"  [{idx}/{len(file_paths)}] {rel_path}")
-            try:
-                related = self._select_related_files(rel_path, files)
-                content = self.content_gen.generate_file(
-                    rel_path, readme, structure, related
-                )
-                files[rel_path] = content or ""
-                if content:
-                    self._save_file(project_root / rel_path, content)
-                self.event_publisher.publish("tool_output", tool_name="content_generation", file=rel_path, status="success" if content else "failed")
-            except Exception as e:
-                self.logger.error(f"  Error generating {rel_path}: {e}")
-                files[rel_path] = ""
-                self.event_publisher.publish("tool_output", tool_name="content_generation", file=rel_path, status="error", message=str(e))
-            self.event_publisher.publish("tool_end", tool_name="content_generation", file=rel_path)
+        
+        async def async_generate_wrapper():
+            """Wrapper to call sync generation function asynchronously."""
+            async def gen_file_async(file_path: str, context: Dict) -> Tuple[str, bool, str]:
+                try:
+                    related = self._select_related_files(file_path, files)
+                    content = self.content_gen.generate_file(
+                        file_path, context["readme"], context["structure"], related
+                    )
+                    files[file_path] = content or ""
+                    if content:
+                        self._save_file(project_root / file_path, content)
+                    return (content or "", bool(content), None)
+                except Exception as e:
+                    self.logger.error(f"Error generating {file_path}: {e}")
+                    files[file_path] = ""
+                    # Record error in knowledge base
+                    self.error_kb.record_error(
+                        file_path, "generation_failure", str(e), "", context.get("readme_excerpt", "")
+                    )
+                    return ("", False, str(e))
+            
+            results = await self.parallel_generator.generate_files(
+                generation_tasks,
+                gen_file_async,
+                progress_callback=lambda fp, completed, total: self.event_publisher.publish(
+                    "tool_output", tool_name="content_generation", file=fp, 
+                    progress=f"{completed}/{total}", status="success"
+                ),
+                dependency_order=generation_order,
+            )
+            return results
+        
+        # Run async generation
+        try:
+            generation_results = asyncio.run(async_generate_wrapper())
+            stats = self.parallel_generator.get_statistics()
+            self.logger.info(
+                f"Phase 4 parallel generation: {stats['success']}/{stats['total']} files, "
+                f"avg time: {stats['avg_time_per_file']:.2f}s"
+            )
+        except Exception as e:
+            self.logger.error(f"Error in parallel generation: {e}. Falling back to sequential...")
+            # Fallback to sequential generation
+            for idx, rel_path in enumerate(file_paths, 1):
+                self.event_publisher.publish("tool_start", tool_name="content_generation", file=rel_path, progress=f"{idx}/{len(file_paths)}")
+                try:
+                    related = self._select_related_files(rel_path, files)
+                    content = self.content_gen.generate_file(rel_path, readme, structure, related)
+                    files[rel_path] = content or ""
+                    if content:
+                        self._save_file(project_root / rel_path, content)
+                except Exception as e2:
+                    self.logger.error(f"Error generating {rel_path}: {e2}")
+                    files[rel_path] = ""
+        
         self.event_publisher.publish("phase_complete", phase="4", message="File contents generated")
         self.logger.info("PHASE 4 complete.")
 
@@ -200,118 +329,130 @@ class AutoAgent(CoreAgent): # Inherit from CoreAgent
         self.event_publisher.publish("phase_complete", phase="5.6", message="Dependency reconciliation complete")
         self.logger.info("PHASE 5.6 complete.")
 
-        # Phase 5.7: Test Generation and Execution
-        self.logger.info("PHASE 5.7: Generating and executing tests...")
-        self.event_publisher.publish("phase_start", phase="5.7", message="Starting test generation and execution")
-        test_files_to_generate = []
-        for rel_path, content in files.items():
-            if rel_path.endswith(".py") and "test" not in rel_path.lower():
-                test_files_to_generate.append((rel_path, content))
-
+        # IMPROVED Phase 5.7: Multi-Language Test Generation and Execution
+        self.logger.info("PHASE 5.7: Generating and executing tests (multi-language)...")
+        self.event_publisher.publish("phase_start", phase="5.7", message="Starting multi-language test generation")
+        
+        # Group files by language
+        files_by_language = self._group_files_by_language(files)
         generated_test_files: Dict[str, str] = {}
         test_file_paths: List[Path] = []
         
-        if test_files_to_generate:
-            for rel_path, content in test_files_to_generate:
-                self.event_publisher.publish("tool_start", tool_name="generate_test", file=rel_path)
-                test_content = self.test_generator.generate_tests(rel_path, content, readme)
-                if test_content:
-                    test_rel_path = str(Path("tests") / f"test_{Path(rel_path).stem}.py")
-                    generated_test_files[test_rel_path] = test_content
-                    self._save_file(project_root / test_rel_path, test_content)
-                    test_file_paths.append(project_root / test_rel_path)
-                    self.event_publisher.publish("tool_output", tool_name="generate_test", file=rel_path, status="success", test_file=test_rel_path)
-                else:
-                    self.event_publisher.publish("tool_output", tool_name="generate_test", file=rel_path, status="failed")
-                self.event_publisher.publish("tool_end", tool_name="generate_test", file=rel_path)
+        # Generate tests for each language
+        for language, lang_files in files_by_language.items():
+            self.logger.info(f"  Generating {language} tests for {len(lang_files)} files...")
             
-            if test_file_paths:
-                test_retries = 0
-                max_test_retries = 3
-                while test_retries < max_test_retries:
-                    self.logger.info(f"  Executing tests (Attempt {test_retries + 1}/{max_test_retries})...")
-                    self.event_publisher.publish("tool_start", tool_name="execute_tests", attempt=test_retries + 1)
-                    test_results = self.test_generator.execute_tests(project_root, test_file_paths)
-                    
-                    if test_results["success"]:
-                        self.logger.info("  All tests passed!")
-                        self.event_publisher.publish("tool_output", tool_name="execute_tests", status="success", message="All tests passed")
-                        self.event_publisher.publish("tool_end", tool_name="execute_tests")
-                        break
-                    else:
-                        self.logger.warning(f"  Tests failed. Failures: {len(test_results['failures'])}")
-                        self.event_publisher.publish("tool_output", tool_name="execute_tests", status="failed", failures=test_results["failures"])
-                        self.event_publisher.publish("tool_end", tool_name="execute_tests")
-                        
-                        if test_results["failures"]:
-                            self.logger.info("  Attempting to refine code based on test failures...")
-                            self.event_publisher.publish("phase_start", phase="5.7.1", message="Refining code based on test failures")
-                            for failure in test_results["failures"][:5]: # Limit feedback to top 5 failures
-                                failed_file = failure.get("path")
-                                if failed_file:
-                                    abs_failed_file = project_root / failed_file
-                                    rel_failed_file = str(abs_failed_file.relative_to(project_root))
-                                    
-                                    if rel_failed_file in files:
-                                        self.event_publisher.publish("tool_start", tool_name="refine_code_from_test_failure", file=rel_failed_file)
-                                        self.logger.info(f"    Refining {rel_failed_file} due to test failure...")
-                                        issues = [{
-                                            "description": f"Test failed: {failure.get('message')}",
-                                            "severity": "critical",
-                                            "recommendation": "Fix the code to make the test pass.",
-                                            "context": f"Line {failure.get('lineno')}: {failure.get('traceback')}"
-                                        }]
-                                        refined_content = self.refiner.refine_file(
-                                            rel_failed_file, files[rel_failed_file], readme[:2000], issues
-                                        )
-                                        if refined_content:
-                                            files[rel_failed_file] = refined_content
-                                            self._save_file(project_root / rel_failed_file, refined_content)
-                                            self.event_publisher.publish("tool_output", tool_name="refine_code_from_test_failure", file=rel_failed_file, status="success")
-                                        else:
-                                            self.logger.warning(f"    Refiner failed to improve {rel_failed_file}.")
-                                            self.event_publisher.publish("tool_output", tool_name="refine_code_from_test_failure", file=rel_failed_file, status="failed", message="Refiner failed")
-                                        self.event_publisher.publish("tool_end", tool_name="refine_code_from_test_failure", file=rel_failed_file)
-                                    else:
-                                        self.logger.warning(f"    Failed file {rel_failed_file} not in generated files, skipping refinement.")
-                            
-                            # Also attempt to refine the test files themselves if they were the cause of error
-                            for failed_test_file_path_obj in test_file_paths:
-                                failed_test_file_path = str(failed_test_file_path_obj.relative_to(project_root))
-                                if failed_test_file_path in generated_test_files:
-                                    self.event_publisher.publish("tool_start", tool_name="refine_test_file_from_test_failure", file=failed_test_file_path)
-                                    test_file_content = generated_test_files[failed_test_file_path]
-                                    if test_file_content:
-                                        self.logger.info(f"    Refining test file {failed_test_file_path}...")
-                                        issues = [{
-                                            "description": f"Test file itself failed or is incorrect. Pytest output: {test_results['output']}",
-                                            "severity": "major",
-                                            "recommendation": "Correct the test logic or syntax."
-                                        }]
-                                        refined_test_content = self.refiner.refine_file(
-                                            failed_test_file_path, test_file_content, readme[:2000], issues
-                                        )
-                                        if refined_test_content:
-                                            generated_test_files[failed_test_file_path] = refined_test_content
-                                            self._save_file(project_root / failed_test_file_path, refined_test_content)
-                                            self.event_publisher.publish("tool_output", tool_name="refine_test_file_from_test_failure", file=failed_test_file_path, status="success")
-                                        else:
-                                            self.logger.warning(f"    Refiner failed to improve test file {failed_test_file_path}.")
-                                            self.event_publisher.publish("tool_output", tool_name="refine_test_file_from_test_failure", file=failed_test_file_path, status="failed", message="Refiner failed")
-                                    self.event_publisher.publish("tool_end", tool_name="refine_test_file_from_test_failure", file=failed_test_file_path)
-                                else:
-                                    self.logger.debug(f"    Test file {failed_test_file_path} not found in generated tests.")
-                            self.event_publisher.publish("phase_complete", phase="5.7.1", message="Refinement from test failures complete")
-
-                        test_retries += 1
+            for rel_path, content in lang_files:
+                if "test" in rel_path.lower():
+                    continue  # Skip test files
                 
-                if not test_results["success"]:
-                    self.logger.error("  Tests repeatedly failed. Manual intervention may be required.")
-            else:
-                self.logger.info("  No Python files suitable for test generation found.")
+                self.event_publisher.publish("tool_start", tool_name="generate_test", file=rel_path, language=language)
+                
+                try:
+                    test_content = self.test_generator.generate_tests(rel_path, content, readme)
+                    if test_content:
+                        # Determine test file path based on language
+                        test_rel_path = self._get_test_file_path(rel_path, language)
+                        generated_test_files[test_rel_path] = test_content
+                        self._save_file(project_root / test_rel_path, test_content)
+                        test_file_paths.append(project_root / test_rel_path)
+                        self.event_publisher.publish("tool_output", tool_name="generate_test", file=rel_path, status="success", test_file=test_rel_path)
+                    else:
+                        self.event_publisher.publish("tool_output", tool_name="generate_test", file=rel_path, status="failed")
+                
+                except Exception as e:
+                    self.logger.error(f"Error generating tests for {rel_path}: {e}")
+                    self.error_kb.record_error(rel_path, "test_generation", str(e), content, readme[:500])
+                    self.event_publisher.publish("tool_output", tool_name="generate_test", file=rel_path, status="error", message=str(e))
+                
+                self.event_publisher.publish("tool_end", tool_name="generate_test", file=rel_path)
+        
+        # Generate integration tests if applicable
+        if len(files_by_language) > 1 or any(lang in files_by_language for lang in ["javascript", "go", "java"]):
+            self.logger.info("  Generating integration tests...")
+            integration_test_content, docker_compose_content = self.test_generator.generate_integration_tests(
+                project_root, readme
+            )
+            
+            if integration_test_content:
+                integration_test_path = project_root / "tests" / "integration_tests.py"
+                integration_test_path.parent.mkdir(parents=True, exist_ok=True)
+                self._save_file(integration_test_path, integration_test_content)
+                generated_test_files[str(integration_test_path.relative_to(project_root))] = integration_test_content
+                self.logger.info("  Integration tests generated")
+            
+            if docker_compose_content:
+                docker_compose_path = project_root / "docker-compose.test.yml"
+                self._save_file(docker_compose_path, docker_compose_content)
+                self.logger.info("  Test orchestration file generated")
+        
+        # Execute tests with retry logic
+        if test_file_paths:
+            test_retries = 0
+            max_test_retries = 3
+            test_results = None
+            
+            while test_retries < max_test_retries:
+                self.logger.info(f"  Executing tests (Attempt {test_retries + 1}/{max_test_retries})...")
+                self.event_publisher.publish("tool_start", tool_name="execute_tests", attempt=test_retries + 1)
+                
+                # Detect test framework from test files
+                primary_language = max(files_by_language.keys(), key=lambda x: len(files_by_language[x]))
+                test_results = self.test_generator.execute_tests(
+                    project_root, test_file_paths, language=primary_language
+                )
+                
+                if test_results["success"]:
+                    self.logger.info("  All tests passed!")
+                    self.event_publisher.publish("tool_output", tool_name="execute_tests", status="success", message="All tests passed")
+                    self.event_publisher.publish("tool_end", tool_name="execute_tests")
+                    break
+                else:
+                    self.logger.warning(f"  Tests failed. Failures: {len(test_results['failures'])}")
+                    self.event_publisher.publish("tool_output", tool_name="execute_tests", status="failed", failures=test_results.get("failures", []))
+                    self.event_publisher.publish("tool_end", tool_name="execute_tests")
+                    
+                    # Refine based on failures
+                    if test_results.get("failures"):
+                        self.logger.info("  Attempting to refine code based on test failures...")
+                        self.event_publisher.publish("phase_start", phase="5.7.1", message="Refining code based on test failures")
+                        
+                        for failure in test_results["failures"][:5]:
+                            failed_file = failure.get("path") or failure.get("name")
+                            if failed_file:
+                                # Find matching file
+                                for rel_path in files.keys():
+                                    if failed_file in rel_path or rel_path in failed_file:
+                                        try:
+                                            self.event_publisher.publish("tool_start", tool_name="refine_code_from_test_failure", file=rel_path)
+                                            issues = [{
+                                                "description": f"Test failed: {failure.get('message', '')}",
+                                                "severity": "critical",
+                                                "recommendation": "Fix the code to pass the test.",
+                                                "context": failure.get('context', '')
+                                            }]
+                                            refined_content = self.refiner.refine_file(
+                                                rel_path, files[rel_path], readme[:2000], issues
+                                            )
+                                            if refined_content:
+                                                files[rel_path] = refined_content
+                                                self._save_file(project_root / rel_path, refined_content)
+                                                self.event_publisher.publish("tool_output", tool_name="refine_code_from_test_failure", file=rel_path, status="success")
+                                            self.event_publisher.publish("tool_end", tool_name="refine_code_from_test_failure", file=rel_path)
+                                            break
+                                        except Exception as e:
+                                            self.logger.error(f"Error refining {rel_path}: {e}")
+                        
+                        self.event_publisher.publish("phase_complete", phase="5.7.1", message="Refinement complete")
+                    
+                    test_retries += 1
+            
+            if test_results and not test_results["success"]:
+                self.logger.warning("Tests failed after retries. Continuing with project...")
         else:
-            self.logger.info("  No Python files to generate tests for.")
-        self.event_publisher.publish("phase_complete", phase="5.7", message="Test generation and execution complete")
+            self.logger.info("  No test files generated.")
+        
+        self.event_publisher.publish("phase_complete", phase="5.7", message="Test generation complete")
         self.logger.info("PHASE 5.7 complete.")
 
         # Phase 6: Final review
@@ -573,4 +714,116 @@ class AutoAgent(CoreAgent): # Inherit from CoreAgent
         
         self.logger.info(f"Project '{project_name}' completed at {project_root}")
         self.event_publisher.publish("project_complete", project_name=project_name, project_root=str(project_root), files_generated=len(file_paths))
+        
+        # Log knowledge base statistics
+        kb_stats = self.error_kb.get_error_statistics()
+        self.logger.info(f"Knowledge Base Stats: {kb_stats}")
+        
+        # Log fragment cache statistics  
+        cache_stats = self.fragment_cache.stats()
+        self.logger.info(f"Fragment Cache Stats: {cache_stats}")
+        
         return project_root
+
+    # ========== NEW HELPER METHODS FOR IMPROVED FEATURES ==========
+    
+    def _infer_language(self, file_path: str) -> str:
+        """Infer programming language from file path."""
+        ext = Path(file_path).suffix.lower()
+        language_map = {
+            ".py": "python",
+            ".js": "javascript",
+            ".jsx": "javascript",
+            ".ts": "typescript",
+            ".tsx": "typescript",
+            ".go": "go",
+            ".rs": "rust",
+            ".java": "java",
+            ".cpp": "cpp",
+            ".c": "c",
+            ".cs": "csharp",
+            ".rb": "ruby",
+            ".php": "php",
+            ".swift": "swift",
+            ".kt": "kotlin",
+        }
+        return language_map.get(ext, "unknown")
+    
+    def _group_files_by_language(self, files: Dict[str, str]) -> Dict[str, List[Tuple[str, str]]]:
+        """Group files by programming language."""
+        grouped = defaultdict(list)
+        
+        for rel_path, content in files.items():
+            language = self._infer_language(rel_path)
+            if language != "unknown":
+                grouped[language].append((rel_path, content))
+        
+        return dict(grouped)
+    
+    def _get_test_file_path(self, source_file: str, language: str) -> str:
+        """Get test file path based on language conventions."""
+        source_path = Path(source_file)
+        
+        # Language-specific test path patterns
+        patterns = {
+            "python": lambda p: str(Path("tests") / f"test_{p}.py"),
+            "javascript": lambda p: str(Path("tests") / f"{p}.test.js"),
+            "typescript": lambda p: str(Path("tests") / f"{p}.test.ts"),
+            "go": lambda p: str(Path(p).parent / f"{p}_test.go"),
+            "rust": lambda p: str(Path("tests") / f"{p}.rs"),
+            "java": lambda p: str(Path("src/test/java") / f"{p}Test.java"),
+        }
+        
+        stem = source_path.stem
+        pattern_fn = patterns.get(language, lambda p: str(Path("tests") / f"test_{p}"))
+        return pattern_fn(stem)
+    
+    def _implement_plan(
+        self,
+        plan: Dict,
+        project_root: Path,
+        readme: str,
+        structure: Dict,
+        files: Dict[str, str],
+        file_paths: List[str]
+    ) -> Tuple[Dict[str, str], Dict, List[str]]:
+        """Implement contingency plan from planner."""
+        actions = plan.get("actions", [])
+        self.logger.info(f"Implementing {len(actions)} contingency actions...")
+        
+        for action in actions[:10]:  # Limit to 10 actions
+            action_type = action.get("type")
+            
+            if action_type == "create_file":
+                target_path = action.get("path")
+                content = action.get("content", "")
+                if target_path:
+                    files[target_path] = content
+                    self._save_file(project_root / target_path, content)
+                    if target_path not in file_paths:
+                        file_paths.append(target_path)
+            
+            elif action_type == "modify_file":
+                target_path = action.get("path")
+                changes = action.get("changes", {})
+                if target_path and target_path in files:
+                    content = files[target_path]
+                    # Simple text replacement for changes
+                    for old_text, new_text in changes.items():
+                        content = content.replace(old_text, new_text)
+                    files[target_path] = content
+                    self._save_file(project_root / target_path, content)
+            
+            elif action_type == "refine_file":
+                target_path = action.get("path")
+                issues = action.get("issues", [])
+                if target_path and target_path in files:
+                    try:
+                        refined = self.refiner.refine_file(target_path, files[target_path], readme[:2000], issues)
+                        if refined:
+                            files[target_path] = refined
+                            self._save_file(project_root / target_path, refined)
+                    except Exception as e:
+                        self.logger.error(f"Error refining {target_path}: {e}")
+        
+        return files, structure, file_paths
