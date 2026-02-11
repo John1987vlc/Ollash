@@ -13,6 +13,18 @@ from src.utils.core.command_executor import CommandExecutor
 from src.utils.core.file_validator import FileValidator
 from src.utils.core.documentation_manager import DocumentationManager
 from src.utils.core.event_publisher import EventPublisher
+from src.utils.core.scanners.dependency_scanner import DependencyScanner
+from src.utils.core.scanners.rag_context_selector import RAGContextSelector
+from src.utils.core.concurrent_rate_limiter import (
+    ConcurrentGPUAwareRateLimiter,
+    SessionResourceManager,
+)
+from src.utils.core.benchmark_model_selector import (
+    BenchmarkDatabase,
+    AutoModelSelector,
+)
+from src.utils.core.permission_profiles import PermissionProfileManager, PolicyEnforcer
+from src.utils.core.automatic_learning import AutomaticLearningSystem
 
 
 class CoreAgent(ABC):
@@ -154,24 +166,93 @@ class CoreAgent(ABC):
         )
         self.event_publisher = EventPublisher()
 
+        # Initialize new architectural modules (6 improvements)
+        self.dependency_scanner = DependencyScanner(logger=self.logger)
+        self.rag_context_selector = RAGContextSelector(
+            logger=self.logger,
+            project_root=self.ollash_root_dir,
+        )
+        self.rate_limiter = ConcurrentGPUAwareRateLimiter(
+            logger=self.logger,
+            gpu_memory_mb=self.config.get("gpu_memory_mb", 8000),
+            max_concurrent_requests=self.config.get("max_concurrent_requests", 3),
+        )
+        self.session_resource_manager = SessionResourceManager(
+            logger=self.logger,
+            rate_limiter_config={
+                "gpu_memory_mb": self.config.get("gpu_memory_mb", 8000),
+                "max_concurrent_requests": self.config.get("max_concurrent_requests", 3),
+            },
+        )
+        self.benchmark_selector = AutoModelSelector(
+            logger=self.logger,
+            benchmark_dir=self.ollash_root_dir / ".ollash" / "benchmarks",
+        )
+        self.permission_manager = PermissionProfileManager(logger=self.logger)
+        self.policy_enforcer = PolicyEnforcer(
+            active_profile=self.permission_manager.get_profile("developer"),
+            logger=self.logger,
+        )
+        self.learning_system = AutomaticLearningSystem(
+            logger=self.logger,
+            project_root=self.ollash_root_dir,
+        )
+
         self.llm_clients: Dict[str, OllamaClient] = {}
         self._initialize_llm_clients()
 
-        self.logger.info(f"{logger_name} initialized.")
+        self.logger.info(f"{logger_name} initialized with 6 architectural improvements.")
+        self.logger.info(
+            f"  ✓ DependencyScanner (multi-language desoupling)"
+        )
+        self.logger.info(
+            f"  ✓ RAGContextSelector (semantic context via ChromaDB)"
+        )
+        self.logger.info(
+            f"  ✓ ConcurrentGPUAwareRateLimiter (GPU resource management)"
+        )
+        self.logger.info(
+            f"  ✓ BenchmarkModelSelector (auto model optimization)"
+        )
+        self.logger.info(
+            f"  ✓ PermissionProfiles (fine-grained access control)"
+        )
+        self.logger.info(
+            f"  ✓ AutomaticLearningSystem (post-mortem pattern capture)"
+        )
 
     def _initialize_llm_clients(self):
-        """Create OllamaClient instances for each specialized LLM role."""
-        llm_config = self.config.get("auto_agent_llms", {}) # Assuming auto_agent_llms is common config
+        """Create OllamaClient instances for each specialized LLM role.
+        
+        Uses BenchmarkModelSelector for auto-optimization if benchmark data exists,
+        otherwise falls back to configured defaults.
+        """
+        llm_config = self.config.get("auto_agent_llms", {})
         timeout_config = self.config.get("auto_agent_timeouts", {})
 
+        # Try to integrate benchmark results for model optimization
+        optimized_config = self.benchmark_selector.generate_optimized_config()
+        if optimized_config:
+            self.logger.info("🎯 Applying benchmark-optimized model configuration")
+            llm_config.update(optimized_config)
+
         for role, model_key, default_model, default_timeout in self.LLM_ROLES:
+            model = llm_config.get(model_key, default_model)
+            timeout = timeout_config.get(role, default_timeout)
+
+            # Initialize with GPU rate limiting
+            session_id = f"role_{role}"
+            rate_limiter = self.session_resource_manager.get_limiter(session_id)
+
             self.llm_clients[role] = OllamaClient(
                 url=self.url,
-                model=llm_config.get(model_key, default_model),
-                timeout=timeout_config.get(role, default_timeout),
+                model=model,
+                timeout=timeout,
                 logger=self.logger,
                 config=self.config,
             )
+            self.logger.info(f"  {role:20} → {model:30} (timeout: {timeout}s)")
+
         self.logger.info("CoreAgent LLM clients initialized.")
 
     @staticmethod
@@ -187,126 +268,59 @@ class CoreAgent(ABC):
         pass
 
     def _scan_python_imports(self, files: Dict[str, str]) -> List[str]:
-        """Scan Python files for import statements and return a list of pip-installable packages."""
-        import_pattern = re.compile(
-            r'^\s*(?:import|from)\s+([a-zA-Z_][a-zA-Z0-9_]*)', re.MULTILINE
-        )
-        top_level_modules = set()
-
-        for path, content in files.items():
-            if not path.endswith(".py") or not content:
-                continue
-            for match in import_pattern.finditer(content):
-                module = match.group(1)
-                top_level_modules.add(module)
-
-        # Filter out stdlib and local project imports
-        third_party = set()
-        for mod in top_level_modules:
-            if mod in self._PYTHON_STDLIB:
-                continue
-            pkg = self._IMPORT_TO_PACKAGE.get(mod, mod)
-            third_party.add(pkg)
-
-        return sorted(third_party)
+        """Scan Python files for import statements and return a list of pip-installable packages.
+        
+        Delegates to DependencyScanner for multi-language consistency.
+        """
+        return self.dependency_scanner.scan_all_imports(files).get("python", [])
 
     def _scan_node_imports(self, files: Dict[str, str]) -> List[str]:
-        """Scan JS/TS files for require/import statements and return npm package names."""
-        require_pattern = re.compile(r"""require\s*\(\s*['"]([^'"./][^'"]*)['"]\s*\)""")
-        import_pattern = re.compile(r"""(?:import\s+.*?\s+from|import)\s+['"]([^'"./][^'"]*)['"]\s*;?""")
-
-        packages = set()
-        js_extensions = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")
-
-        for path, content in files.items():
-            if not any(path.endswith(ext) for ext in js_extensions) or not content:
-                continue
-            for match in require_pattern.finditer(content):
-                pkg = match.group(1)
-                if pkg.startswith("@"):
-                    parts = pkg.split("/")
-                    pkg = "/".join(parts[:2]) if len(parts) >= 2 else pkg
-                else:
-                    pkg = pkg.split("/")[0]
-                packages.add(pkg)
-            for match in import_pattern.finditer(content):
-                pkg = match.group(1)
-                if pkg.startswith("@"):
-                    parts = pkg.split("/")
-                    pkg = "/".join(parts[:2]) if len(parts) >= 2 else pkg
-                else:
-                    pkg = pkg.split("/")[0]
-                packages.add(pkg)
-
-        third_party = {p for p in packages if p not in self._NODE_BUILTINS
-                       and not p.startswith("node:")}
-        return sorted(third_party)
+        """Scan JS/TS files for require/import statements and return npm package names.
+        
+        Delegates to DependencyScanner for multi-language consistency.
+        """
+        return self.dependency_scanner.scan_all_imports(files).get("javascript", [])
 
     def _scan_go_imports(self, files: Dict[str, str]) -> List[str]:
-        """Scan Go files for import statements and return third-party module paths."""
-        single_pattern = re.compile(r'^\s*import\s+"([^"]+)"', re.MULTILINE)
-        block_pattern = re.compile(r'import\s*\((.*?)\)', re.DOTALL)
-        quoted_pattern = re.compile(r'"([^"]+)"')
-
-        modules = set()
-
-        for path, content in files.items():
-            if not path.endswith(".go") or not content:
-                continue
-            for match in single_pattern.finditer(content):
-                modules.add(match.group(1))
-            for block in block_pattern.finditer(content):
-                for quoted in quoted_pattern.finditer(block.group(1)):
-                    modules.add(quoted.group(1))
-
-        third_party = set()
-        for mod in modules:
-            top = mod.split("/")[0]
-            if top in self._GO_STDLIB:
-                continue
-            if "." in top:
-                third_party.add(mod)
-
-        return sorted(third_party)
+        """Scan Go files for import statements and return third-party module paths.
+        
+        Delegates to DependencyScanner for multi-language consistency.
+        """
+        return self.dependency_scanner.scan_all_imports(files).get("go", [])
 
     def _scan_rust_imports(self, files: Dict[str, str]) -> List[str]:
-        """Scan Rust files for extern crate statements and return crate names."""
-        crate_pattern = re.compile(r'^\s*extern\s+crate\s+([a-zA-Z_][a-zA-Z0-9_]*)', re.MULTILINE)
-        use_pattern = re.compile(r'^\s*use\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:::|;)', re.MULTILINE)
-
-        rust_stdlib = {"std", "core", "alloc", "proc_macro", "test"}
-        crates = set()
-
-        for path, content in files.items():
-            if not path.endswith(".rs") or not content:
-                continue
-            for match in crate_pattern.finditer(content):
-                crate = match.group(1)
-                if crate not in rust_stdlib:
-                    crates.add(crate)
-            for match in use_pattern.finditer(content):
-                crate = match.group(1)
-                if crate not in rust_stdlib:
-                    crates.add(crate)
-
-        return sorted(crates)
+        """Scan Rust files for extern crate statements and return crate names.
+        
+        Delegates to DependencyScanner for multi-language consistency.
+        """
+        return self.dependency_scanner.scan_all_imports(files).get("rust", [])
 
     def _reconcile_requirements(
         self, files: Dict[str, str], project_root: Path
     ) -> Dict[str, str]:
-        """Reconcile dependency files with actual imports.
+        """Reconcile dependency files with actual imports using DependencyScanner.
 
         Supports multiple languages:
         - Python: requirements.txt from actual imports in .py files
         - Node.js: package.json dependencies from require/import in .js/.ts files
         - Go: go.mod require block from import statements in .go files
         - Rust: Cargo.toml [dependencies] from extern crate/use in .rs files
+        
+        Uses DependencyScanner for consistent, extensible multi-language support.
         """
-        files = self._reconcile_python_requirements(files, project_root)
-        files = self._reconcile_package_json(files, project_root)
-        files = self._reconcile_go_mod(files, project_root)
-        files = self._reconcile_cargo_toml(files, project_root)
-        return files
+        try:
+            # Use DependencyScanner for all reconciliation
+            files = self.dependency_scanner.reconcile_dependencies(files, project_root)
+            self.logger.info("✓ Dependency reconciliation completed via DependencyScanner")
+            return files
+        except Exception as e:
+            self.logger.warning(f"DependencyScanner error, falling back to basic reconciliation: {e}")
+            # Fallback to individual language scans if scanner fails
+            files = self._reconcile_python_requirements(files, project_root)
+            files = self._reconcile_package_json(files, project_root)
+            files = self._reconcile_go_mod(files, project_root)
+            files = self._reconcile_cargo_toml(files, project_root)
+            return files
 
     def _reconcile_python_requirements(
         self, files: Dict[str, str], project_root: Path
@@ -492,17 +506,40 @@ class CoreAgent(ABC):
     def _select_related_files(
         self, target_path: str, generated_files: Dict[str, str], max_files: int = 8
     ) -> Dict[str, str]:
-        """Select contextually relevant files for generation rather than just the last N.
+        """Select contextually relevant files using semantic search (RAG).
 
-        Prioritizes:
-        - Files in the same directory
-        - For frontend files: backend route/API files
-        - For dependency files: source files (to infer actual dependencies)
-        - Falls back to the most recently generated files
+        First attempts semantic selection via RAGContextSelector (ChromaDB embeddings),
+        then falls back to heuristic scoring if semantic selection unavailable.
+        
+        Args:
+            target_path: Path to file needing context
+            generated_files: All available generated files
+            max_files: Maximum context files to select
+            
+        Returns:
+            Dictionary of selected contextual files
         """
         if not generated_files:
             return {}
 
+        try:
+            # Try semantic selection first
+            target = Path(target_path)
+            context_files = self.rag_context_selector.select_relevant_files(
+                query=target.stem,
+                available_files=generated_files,
+                max_files=max_files,
+            )
+            
+            if context_files:
+                self.logger.info(
+                    f"🔍 Selected {len(context_files)} contextual files using RAG semantic search"
+                )
+                return context_files
+        except Exception as e:
+            self.logger.info(f"RAG selection unavailable, using heuristic scoring: {e}")
+
+        # Fallback: Heuristic scoring (original behavior)
         target = Path(target_path)
         target_ext = target.suffix.lower()
         target_name = target.name
