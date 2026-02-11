@@ -1,12 +1,9 @@
 import json
-# Removed subprocess import
 from pathlib import Path
-from typing import Dict, List, Any
-
+from typing import Any
 from src.utils.core.code_analyzer import CodeAnalyzer
 from src.utils.core.command_executor import CommandExecutor
-# Assuming AgentLogger will be passed during initialization
-# from src.agents.code_agent import AgentLogger # This will be changed
+from src.utils.core.tool_decorator import ollash_tool
 
 class CodeAnalysisTools:
     def __init__(self, project_root: Path, code_analyzer: CodeAnalyzer, command_executor: CommandExecutor, logger: Any):
@@ -15,6 +12,15 @@ class CodeAnalysisTools:
         self.exec = command_executor
         self.logger = logger
 
+    @ollash_tool(
+        name="analyze_project",
+        description="Analyzes the entire project structure, dependencies, and code patterns to provide a comprehensive overview.",
+        parameters={
+            "path": {"type": "string", "description": "Optional: The path to the project root or sub-directory to analyze. Defaults to current project root."}
+        },
+        toolset_id="code_analysis_tools",
+        agent_types=["code"]
+    )
     def analyze_project(self, focus: str = "all", write_md: bool = False, force_md: bool = False, md_name: str = "PROJECT_ANALYSIS.md"):
         """
         Analyze the project and optionally generate a Markdown report.
@@ -123,7 +129,7 @@ class CodeAnalysisTools:
             # This part is now handled by CodeAgent via file_system_tools.write_file
             md_written = write_md and (force_md or not (self.project_root / md_name).exists())
 
-            self.logger.info(f"✅ Project analysis complete")
+            self.logger.info("✅ Project analysis complete")
 
             return {
                 "ok": True,
@@ -137,6 +143,18 @@ class CodeAnalysisTools:
             self.logger.error(f"Error analyzing project: {e}", exc_info=True)
             return {"ok": False, "error": str(e)}
 
+    @ollash_tool(
+        name="search_code",
+        description="Searches for a specific pattern within the codebase.",
+        parameters={
+            "pattern": {"type": "string", "description": "The regex pattern to search for."},
+            "file_pattern": {"type": "string", "description": "Optional: Glob pattern to filter files (e.g., '*.py', 'src/**/*.js')."},
+            "case_sensitive": {"type": "boolean", "description": "Optional: Whether the search should be case-sensitive. Defaults to false."}
+        },
+        toolset_id="code_analysis_tools",
+        agent_types=["code"],
+        required=["pattern"]
+    )
     def search_code(self, query: str, pattern: str = "**/*.py", max_results: int = 10):
         """Search code using grep"""
         try:

@@ -69,15 +69,19 @@ pip install -r requirements-dev.txt
 
 All CLI entry points are thin wrappers that parse args and delegate to classes in `src/agents/`.
 
-### DefaultAgent — Interactive Orchestrator
+### Agent Hierarchy
 
-`src/agents/default_agent.py` (~1000 lines) is the core orchestrator:
+`CoreAgent` (`src/agents/core_agent.py`) is the abstract base class providing shared LLM client management, logging, command execution, file validation, and event publishing. It defines `LLM_ROLES` (model name + timeout per role) and shared constants like stdlib module lists and file category patterns.
+
+`DefaultAgent` (`src/agents/default_agent.py`, ~1000 lines) inherits from `CoreAgent` and is the interactive orchestrator:
 
 1. **Preprocesses** the user instruction (language detection, translation, refinement)
 2. **Classifies intent** to select the best LLM model (coding vs reasoning vs general)
 3. Runs a **tool-calling loop** (up to 30 iterations) against Ollama until the LLM returns a final text response
 4. Uses **semantic loop detection** (embedding similarity via all-minilm) to detect stuck agents and trigger a "human gate"
 5. Manages **context windows** with automatic summarization at 70% token capacity
+
+`AutoAgent` (`src/agents/auto_agent.py`) also inherits from `CoreAgent` and runs the 8-phase project generation pipeline.
 
 ### Agent Types & Tool Routing
 
@@ -95,11 +99,13 @@ The agent dynamically switches persona via `select_agent_type` tool. Each type l
 
 Tools are **not instantiated at startup**. They are lazy-loaded on first use via `_get_tool_from_toolset()` and cached in `_loaded_toolsets`. This is a key architectural decision — respect it when adding tools.
 
-Tool modules live in `src/utils/domains/<domain>/`. Tool definitions (Ollama function schemas) are centralized in `src/utils/core/all_tool_definitions.py`.
+Tool modules live in `src/utils/domains/<domain>/`. Each domain has both a tools module and a `tool_definitions.py` with Ollama function schemas. All definitions are aggregated in `src/utils/core/all_tool_definitions.py`.
+
+`ToolRegistry` (`src/utils/core/tool_registry.py`) centralizes tool-name-to-toolset mapping and agent-type routing, extracted from `DefaultAgent` to reduce its responsibilities.
 
 ### Core Services (`src/utils/core/`)
 
-Injected into `DefaultAgent` via constructor:
+Injected into agents via constructor:
 
 - **OllamaClient** — HTTP client for Ollama API with retry/backoff. `chat()` returns `(response_data, usage_stats)` tuple.
 - **FileManager** — File CRUD operations
@@ -109,10 +115,16 @@ Injected into `DefaultAgent` via constructor:
 - **MemoryManager** — Persistent conversation storage (JSON + ChromaDB reasoning cache)
 - **TokenTracker** — Token usage monitoring
 - **AgentLogger** — Colored console + file logging (uses colorama on Windows)
-- **ToolInterface** — Tool definition filtering and confirmation gates
+- **ToolInterface** (`ToolExecutor`) — Tool definition filtering and confirmation gates
 - **PolicyManager** — Compliance and governance policies
 - **LLMResponseParser** — Strips markdown fences from LLM output when models ignore raw-content instructions (`extract_raw_content()`)
-- **FileValidator** — Validates generated files by extension (Python `compile()`, JSON `parse()`, etc.)
+- **FileValidator** — Validates generated files by extension; delegates to language-specific validators in `src/utils/core/validators/`
+- **ModelRouter** — Routes prompts to specialist models, aggregates responses, uses a Senior Reviewer to select the best solution
+- **EventPublisher** — Decoupled event dispatch for agent → UI communication
+- **DocumentationManager** — Documentation generation utilities
+- **LoopDetector** — Semantic similarity-based stuck-agent detection
+
+Shared constants live in `src/utils/core/constants.py`; custom exception hierarchy in `src/utils/core/exceptions.py`.
 
 ### Confirmation Gates
 
@@ -161,6 +173,7 @@ Architecture uses Flask blueprints (`src/web/blueprints/`) + services (`src/web/
 - `ChatEventBridge` — thread-safe `queue.Queue` bridging agent thread to SSE endpoint
 - `ChatSessionManager` — manages DefaultAgent instances per session (auto_confirm=True in web mode)
 - DefaultAgent accepts an optional `event_bridge` parameter to emit `tool_call`, `tool_result`, `iteration`, `final_answer`, and `error` events during `chat()`
+- `middleware.py` — request-level middleware (rate limiting, etc.)
 
 ## Configuration
 
@@ -169,8 +182,8 @@ Architecture uses Flask blueprints (`src/web/blueprints/`) + services (`src/web/
 ## Testing
 
 Tests use `pytest` with mocked Ollama calls (no live server needed). Key fixtures in `tests/conftest.py`:
-- `mock_ollama_client` — patches `OllamaClient` with mock responses
-- `temp_project_root` — creates a temp directory with config + prompt files
+- `mock_ollama_client` — patches `OllamaClient` with mock responses (uses varying embeddings to avoid loop-detector false positives)
+- `temp_project_root` — creates a temp directory with config + prompt files for all agent types
 - `default_agent` — fully constructed `DefaultAgent` with mocked Ollama
 
 Integration tests requiring a live Ollama instance are in `tests/test_ollama_integration.py` (skipped in CI via `--ignore`).
@@ -180,7 +193,7 @@ CI runs on GitHub Actions (`.github/workflows/ci.yml`): lint with `ruff`, then `
 ## Adding a New Tool
 
 1. Create or extend a tool class in the appropriate `src/utils/domains/<domain>/` module
-2. Register the Ollama function schema in `src/utils/core/all_tool_definitions.py`
-3. Map the tool name to its implementation in `_toolset_configs` within `DefaultAgent`
+2. Register the Ollama function schema in the domain's `tool_definitions.py` and ensure it's included in `src/utils/core/all_tool_definitions.py`
+3. Map the tool name to its implementation in `ToolRegistry.TOOL_MAPPING` (`src/utils/core/tool_registry.py`)
 4. Add the tool name to the relevant agent type's prompt JSON in `prompts/<domain>/`
 5. Ensure lazy loading is preserved — tools should only instantiate when first called

@@ -1,7 +1,7 @@
+import platform
+import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional
-import platform # Added
-import hashlib # Added
-from pathlib import Path # Added
 
 class AdvancedCybersecurityTools:
     def __init__(self, command_executor: Any, file_manager: Any, logger: Any): # Added file_manager

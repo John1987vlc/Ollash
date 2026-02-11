@@ -3,9 +3,11 @@ import os
 import shlex
 import py_compile
 from pathlib import Path
-from typing import Optional, Dict, List, Any
+from typing import Optional, List, Any
 from dataclasses import dataclass
 from enum import Enum
+import docker # ADDED
+from docker.errors import ImageNotFound, ContainerError, APIError # ADDED
 
 
 class SandboxLevel(Enum):
@@ -28,11 +30,21 @@ class ExecutionResult:
 class CommandExecutor:
     """Ejecuta comandos de forma controlada."""
 
-    def __init__(self, working_dir: str = None, sandbox: SandboxLevel = SandboxLevel.NONE, logger: Any = None, policy_manager: Any = None):
+    def __init__(self, working_dir: str = None, sandbox: SandboxLevel = SandboxLevel.NONE, logger: Any = None, policy_manager: Any = None, use_docker_sandbox: bool = False):
         self.working_dir = working_dir or os.getcwd()
         self.sandbox = sandbox
         self.logger = logger # Store logger instance
         self.policy_manager = policy_manager # Store policy_manager instance
+        self.use_docker_sandbox = use_docker_sandbox
+        self.docker_client = None
+        if self.use_docker_sandbox:
+            try:
+                self.docker_client = docker.from_env()
+                self.logger.info("Docker client initialized successfully.")
+            except Exception as e:
+                self.logger.error(f"Failed to initialize Docker client: {e}. Docker sandboxing will be disabled.")
+                self.use_docker_sandbox = False
+
 
     def _is_allowed(self, command: str | List[str]) -> bool:
         """Verifica si el comando está permitido y sanitiza argumentos usando PolicyManager."""
@@ -40,10 +52,9 @@ class CommandExecutor:
             return True
 
         if not self.policy_manager:
-            if self.logger: self.logger.error("CommandExecutor is in sandboxed mode but no PolicyManager is configured. Denying all commands for safety.")
+            if self.logger:
+                self.logger.error("CommandExecutor is in sandboxed mode but no PolicyManager is configured. Denying all commands for safety.")
             return False # Always deny if in sandbox and no policy manager
-
-        cmd_string = command if isinstance(command, str) else shlex.join(command)
         
         # Extract base command and args for PolicyManager
         base_cmd: str
@@ -60,7 +71,8 @@ class CommandExecutor:
                     base_cmd = parts[0].lower()
                     args = parts[1:]
                 except ValueError as e:
-                    if self.logger: self.logger.warning(f"Error parsing command with shlex: {e}. Command: '{command}'")
+                    if self.logger:
+                        self.logger.warning(f"Error parsing command with shlex: {e}. Command: '{command}'")
                     return False
         else: # command is already a list
             base_cmd = command[0].lower()
@@ -112,7 +124,8 @@ class CommandExecutor:
                 try:
                     command_list = shlex.split(command)
                 except ValueError as e:
-                    if self.logger: self.logger.error(f"Error splitting command with shlex: {e}. Command: '{command}'")
+                    if self.logger:
+                        self.logger.error(f"Error splitting command with shlex: {e}. Command: '{command}'")
                     return ExecutionResult(False, "", str(e), 1, command)
         else: # command is already a list
             command_list = command
@@ -136,6 +149,10 @@ class CommandExecutor:
                 command=command
             )
 
+        if self.use_docker_sandbox:
+            self.logger.info(f"Executing command in Docker sandbox: '{command}'")
+            return self.execute_in_docker(original_command, timeout, self.working_dir) # Pass original_command and working_dir
+
         try:
             result = subprocess.run(
                 command_list, # Pass as list to subprocess.run
@@ -154,7 +171,8 @@ class CommandExecutor:
             )
         except subprocess.TimeoutExpired:
             stderr_msg = "Timeout: comando excedió el límite de tiempo"
-            if self.logger: self.logger.error(f"{stderr_msg}. Command: '{command}'")
+            if self.logger:
+                self.logger.error(f"{stderr_msg}. Command: '{command}'")
             return ExecutionResult(
                 success=False,
                 stdout="",
@@ -164,7 +182,8 @@ class CommandExecutor:
             )
         except FileNotFoundError:
             stderr_msg = f"Comando no encontrado: '{command_list[0]}'" if isinstance(command_list, list) else f"Comando no encontrado: '{command}'"
-            if self.logger: self.logger.error(f"{stderr_msg}")
+            if self.logger:
+                self.logger.error(stderr_msg)
             return ExecutionResult(
                 success=False,
                 stdout="",
@@ -174,7 +193,8 @@ class CommandExecutor:
             )
         except Exception as e:
             stderr_msg = str(e)
-            if self.logger: self.logger.error(f"Error al ejecutar comando '{command}': {stderr_msg}", exc_info=True)
+            if self.logger:
+                self.logger.error(f"Error al ejecutar comando '{command}': {stderr_msg}", exc_info=True)
             return ExecutionResult(
                 success=False,
                 stdout="",
@@ -197,6 +217,96 @@ except Exception as e:
 """
         return self.execute(f"python - <<'PY'\n{safe_code}\nPY", timeout=timeout)
 
+    def _pull_image_if_not_exists(self, image_name: str):
+        """Pulls a Docker image if it's not already present."""
+        try:
+            self.docker_client.images.get(image_name)
+        except ImageNotFound:
+            self.logger.info(f"Docker image '{image_name}' not found locally. Pulling...")
+            self.docker_client.images.pull(image_name)
+            self.logger.info(f"Docker image '{image_name}' pulled successfully.")
+
+    def execute_in_docker(self, command: str | List[str], timeout: int = 60, dir_path: Optional[str] = None) -> ExecutionResult:
+        """
+        Executes a command inside a Docker container.
+        The project's working directory is mounted into the container.
+        """
+        if not self.docker_client:
+            return ExecutionResult(False, "", "Docker client not initialized.", 1, command)
+
+        target_dir = Path(dir_path) if dir_path else Path(self.working_dir)
+        # Ensure target_dir is absolute and within the project root for mounting
+        if not target_dir.is_absolute():
+            target_dir = Path(self.working_dir) / target_dir
+        
+        # Use a generic Python image for now; could be made dynamic
+        image_name = "python:3.9-slim-buster" 
+        try:
+            self._pull_image_if_not_exists(image_name)
+
+            # Convert command to list for exec_run
+            command_list: List[str]
+            if isinstance(command, str):
+                command_list = shlex.split(command)
+            else:
+                command_list = command
+            
+            # Mount the project root into the container
+            # Make sure the container's working directory matches the mounted host directory
+            mount_path = "/app"
+            bind_mount = f"{self.working_dir}:{mount_path}"
+            
+            # Use exec_run on a temporary container to mimic subprocess.run
+            # This is simpler than run() for single commands and easier cleanup
+            container = self.docker_client.containers.run(
+                image_name,
+                command=["tail", "-f", "/dev/null"], # Keep container running briefly for exec_run
+                detach=True,
+                remove=True, # Automatically remove on exit
+                volumes=[bind_mount],
+                working_dir=mount_path,
+                name=f"ollash_sandbox_{os.urandom(4).hex()}" # Unique name
+            )
+            self.logger.info(f"  Docker container '{container.name}' started for command: '{command}'")
+
+            exit_code, output = container.exec_run(
+                cmd=command_list,
+                stream=False,
+                demux=True, # Separate stdout and stderr
+                user="root", # Run as root to avoid permission issues with mounted volumes
+                workdir=str(target_dir.relative_to(self.working_dir)) # Set working dir inside container
+            )
+            
+            stdout_output = output[0].decode('utf-8') if output[0] else ""
+            stderr_output = output[1].decode('utf-8') if output[1] else ""
+
+            # Ensure container is stopped and removed
+            container.stop()
+
+            return ExecutionResult(
+                success=exit_code == 0,
+                stdout=stdout_output,
+                stderr=stderr_output,
+                return_code=exit_code,
+                command=command
+            )
+        except ImageNotFound:
+            stderr_msg = f"Docker image '{image_name}' not found. Please ensure it's available."
+            self.logger.error(stderr_msg)
+            return ExecutionResult(False, "", stderr_msg, 1, command)
+        except ContainerError as e:
+            stderr_msg = f"Docker container error: {e.stderr.decode('utf-8')}"
+            self.logger.error(stderr_msg)
+            return ExecutionResult(False, "", stderr_msg, e.exit_status, command)
+        except APIError as e:
+            stderr_msg = f"Docker API error: {e}"
+            self.logger.error(stderr_msg)
+            return ExecutionResult(False, "", stderr_msg, 1, command)
+        except Exception as e:
+            stderr_msg = f"Unexpected Docker execution error: {e}"
+            self.logger.error(stderr_msg)
+            return ExecutionResult(False, "", stderr_msg, 1, command)
+    
     def get_python_packages(self) -> List[str]:
         """Lista paquetes Python instalados."""
         result = self.execute("pip list --format=freeze")

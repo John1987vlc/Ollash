@@ -235,7 +235,6 @@ ollash/
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `OLLASH_OLLAMA_URL` | Ollama server URL | `http://localhost:11434` |
-| `MOLTBOT_OLLAMA_URL` | Legacy alias (backward compat) | — |
 | `OLLAMA_TEST_URL` | Ollama URL for integration tests | `http://localhost:11434` |
 | `OLLAMA_TEST_TIMEOUT` | Test timeout in seconds | `300` |
 
@@ -259,11 +258,12 @@ Tests use `pytest` with mocked Ollama calls. Key test files:
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `test_web.py` | 20 | Web UI: blueprints, event bridge, session manager |
-| `test_code_agent_integration.py` | 5 | DefaultAgent tool-calling with mocked Ollama |
-| `test_core_utilities.py` | 32 | LLMResponseParser, FileValidator, Heartbeat |
+| `test_web.py` | 15 | Web UI: blueprints, event bridge, session manager |
 | `test_auto_agent.py` | 20 | Auto Agent initialization, parsing, validation |
-| `test_new_user_cases.py` | 18 | End-to-end user scenarios |
+| `test_core_utilities.py` | 32 | LLMResponseParser, FileValidator, Heartbeat |
+| `test_network_discovery.py` | 5 | Network discovery utilities |
+| `test_code_agent_integration.py` | 5 | DefaultAgent tool-calling with mocked Ollama |
+| `test_new_user_cases.py` | 20 | End-to-end user scenarios |
 | `test_ollama_integration.py` | 4 | Live Ollama tests (skipped in CI) |
 
 ## Docker

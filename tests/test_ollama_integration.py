@@ -1,11 +1,9 @@
 import pytest
 import json
-from pathlib import Path
-from unittest.mock import MagicMock, call, patch # Added call for side_effect
-import time # For potential delays with Ollama
+from unittest.mock import patch # Added call for side_effect
 import logging # For checking logs
+import pytest_asyncio
 
-from src.agents.default_agent import DefaultAgent
 
 # --- Fixtures ---
 
@@ -13,24 +11,26 @@ from src.agents.default_agent import DefaultAgent
 
 # --- Tests ---
 
-def test_orchestrator_initial_prompt(default_agent):
+@pytest.mark.asyncio
+async def test_orchestrator_initial_prompt(default_agent):
     # Assert that the agent starts with the orchestrator prompt
-    expected_orchestrator_prompt_part = "You are a disciplined coding agent."
+    expected_orchestrator_prompt_part = "You are the Ollash Autonomous Lead Engineer. Your goal is not just to answer, but to SOLVE missions."
     assert expected_orchestrator_prompt_part in default_agent.system_prompt
 
-def test_orchestrator_to_code_switch(default_agent):
+@pytest.mark.asyncio
+async def test_orchestrator_to_code_switch(default_agent):
     initial_prompt = default_agent.system_prompt
-    assert "AI Orchestrator" in initial_prompt
+    expected_orchestrator_prompt_part = "You are Local IT Agent - Ollash, an AI Orchestrator."
+    assert expected_orchestrator_prompt_part in initial_prompt
 
     user_request = "Necesito ayuda para refactorizar una función Python en mi proyecto."
     print(f"""
 User: {user_request}""")
     
     # Define the system prompt for the code agent (it's loaded from file, so we need to mock its return)
-    code_agent_system_prompt = "You are Local IT Agent - Ollash, a specialized AI Code Agent. Your task is to assist the user with their software development and coding tasks."
 
     # Mock Ollama's response to simulate the orchestrator selecting the 'code' agent type
-    default_agent.ollama.chat.side_effect = [
+    default_agent.llm_clients['default'].achat.side_effect = [
         # 1st call: _preprocess_instruction
         ({"message": {"content": "Refined English instruction: Refactor Python function."}}, {"prompt_tokens": 10, "completion_tokens": 5}),
         # 2nd call: Orchestrator calls select_agent_type
@@ -56,23 +56,23 @@ User: {user_request}""")
         ({"message": {"content": "Switched to code agent. How can I help with refactoring?"}}, {"prompt_tokens": 10, "completion_tokens": 5}) # Adjusted token usage
     ]
 
-    response = default_agent.chat(user_request)
+    response = await default_agent.chat(user_request)
     print(f"Agent: {response}")
 
-    expected_code_prompt_part = "You are Local IT Agent - Ollash, a specialized AI Code Agent."
+    expected_code_prompt_part = "You are the Ollash Senior Software Architect. You excel at writing clean, maintainable, and efficient code."
     assert expected_code_prompt_part in default_agent.system_prompt
-    assert "disciplined coding agent" not in default_agent.system_prompt
     assert default_agent.active_agent_type == "code"
     assert "read_file" in default_agent.active_tool_names
 
     print(f"Agent successfully switched to Code context. New prompt starts with: {default_agent.system_prompt[:80]}...")
-    assert default_agent.ollama.chat.call_count == 3    
-def test_code_agent_pings_localhost(default_agent):
+    assert default_agent.llm_clients['default'].achat.call_count == 3
+@pytest.mark.asyncio
+async def test_code_agent_pings_localhost(default_agent):
     # Define the system prompt for the network agent
-    network_agent_system_prompt = "You are Local IT Agent - Ollash, a specialized AI Network Agent. Your task is to assist the user with network-related operations, diagnostics, and configurations."
+    network_agent_system_prompt = "You are Local IT Agent - Ollash, a specialized AI Network Agent. Your expertise lies in diagnosing network issues, mapping network topologies, and analyzing network traffic. You have access to various network diagnostic tools."
 
     # Mock Ollama's responses to force the agent to switch context and then call ping_host
-    default_agent.ollama.chat.side_effect = [
+    default_agent.llm_clients['default'].achat.side_effect = [
         # 1st call (first chat call): _preprocess_instruction for orchestrator_request
         ({"message": {"content": "Refined English instruction: Check network connectivity with localhost."}}, {"prompt_tokens": 10, "completion_tokens": 5}),
         # 2nd call (first chat call): Orchestrator is asked to switch to network agent
@@ -112,33 +112,35 @@ def test_code_agent_pings_localhost(default_agent):
     # Simulate orchestrator's initial request
     orchestrator_request = "Necesito comprobar la conectividad de red con localhost."
     # The first chat call will consume the first 4 side_effects
-    response_orchestrator = default_agent.chat(orchestrator_request)
+    response_orchestrator = await default_agent.chat(orchestrator_request)
     print(f"Agent Orchestrator Response: {response_orchestrator}")
     
     # Assert that the agent switched to network context
     assert network_agent_system_prompt in default_agent.system_prompt
     assert default_agent.active_agent_type == "network"
     assert "ping_host" in default_agent.active_tool_names
-    assert default_agent.ollama.chat.call_count == 3
+    assert default_agent.llm_clients['default'].achat.call_count == 3
 
     # Now, with the agent in network context, ask it to ping
     user_request = "Por favor, haz ping a localhost 2 veces."
     # The second chat call will consume the remaining 5 side_effects
-    response_ping = default_agent.chat(user_request)
+    response_ping = await default_agent.chat(user_request)
     print(f"Agent Ping Response: {response_ping}")
 
     # Assert that ping_host was indeed called and the response contains success/failure
-    assert default_agent.ollama.chat.call_count == 7 # 3 from first chat + 4 from second chat
+    assert default_agent.llm_clients['default'].achat.call_count == 7 # 3 from first chat + 4 from second chat
     
     # Check the final response
     assert "Ping to localhost completed successfully. Result: 2 packets sent, 2 received, 0% loss, avg 1ms." in response_ping
 
-@patch('src.agents.default_agent.OllamaClient.chat') # Patch OllamaClient.chat directly
-def test_system_agent_get_info_placeholder(mock_ollama_chat, default_agent, caplog):
+# Removed patch('src.agents.default_agent.OllamaClient.chat') as the fixture handles it
+@pytest.mark.asyncio
+async def test_system_agent_get_info_placeholder(default_agent, caplog):
     # Define the system prompt for the system agent
-    system_agent_system_prompt = "You are Local IT Agent - Ollash, a specialized AI System Agent. Your task is to assist the user with operating system-related operations, diagnostics, and management."
+    system_agent_system_prompt = "You are the Ollash Systems Administrator. Your focus is operational stability, resource optimization, and environment configuration."
 
-    mock_ollama_chat.side_effect = [
+    # Need to access the mocked achat from the default client
+    default_agent.llm_clients['default'].achat.side_effect = [
         # 1st call: _preprocess_instruction
         ({"message": {"content": "Refined English instruction: Get basic system information."}}, {"prompt_tokens": 10, "completion_tokens": 5}),
         # 2nd call: Orchestrator is asked to switch to system agent
@@ -165,17 +167,17 @@ def test_system_agent_get_info_placeholder(mock_ollama_chat, default_agent, capl
     
     user_request = "Dime la información básica del sistema."
     print(f"""
-User (System Context): {user_request}""")
+    User (System Context): {user_request}""")
     
     with caplog.at_level(logging.INFO): # Capture log messages
-        response = default_agent.chat(user_request)
+        response = await default_agent.chat(user_request)
         print(f"Agent: {response}")
     
     assert system_agent_system_prompt in default_agent.system_prompt
     assert default_agent.active_agent_type == "system"
     assert "get_system_info" in default_agent.active_tool_names
 
-    assert mock_ollama_chat.call_count == 4
+    assert default_agent.llm_clients['default'].achat.call_count == 4
     assert "System information retrieved: OS is Microsoft Windows 10 Pro." in response
     # The following assertions related to caplog might need adjustment based on the actual tool output
     # assert "ℹ️ Getting system information..." in caplog.text

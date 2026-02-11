@@ -39,4 +39,33 @@ PLANNING_TOOL_DEFINITIONS: List[Dict] = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_async_tool",
+            "description": "Submits a tool for asynchronous execution and returns a task ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tool_name": {"type": "string", "description": "The name of the tool to execute asynchronously."},
+                    "kwargs": {"type": "object", "description": "The keyword arguments to pass to the tool."}
+                },
+                "required": ["tool_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_async_task_status",
+            "description": "Checks the status of an asynchronous task by its ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "string", "description": "The ID of the task to check."}
+                },
+                "required": ["task_id"]
+            }
+        }
+    }
 ]

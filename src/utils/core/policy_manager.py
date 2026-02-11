@@ -3,6 +3,7 @@ import os # Added for os.path.realpath
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import re
+from src.utils.core.license_checker import LicenseChecker
 
 class PolicyManager:
     def __init__(self, project_root: Path, logger: Any, config: Dict):
@@ -16,6 +17,7 @@ class PolicyManager:
                                                                                 # For now, I will assume it correctly loads policies from the agent's own config dir.
         self.policies: Dict[str, Any] = {}
         self._load_policies()
+        self.license_checker = LicenseChecker(self.logger, self.config)
 
     def _load_policies(self):
         """Loads security policies from the security_policies.json file."""
@@ -63,6 +65,10 @@ class PolicyManager:
             self.logger.info(f"Security policies saved to {self.policy_file}")
         except Exception as e:
             self.logger.error(f"Error saving policies to {self.policy_file}: {e}")
+
+    def is_license_compliant(self, file_path: Path) -> bool:
+        """Checks if the license of a file is compliant."""
+        return self.license_checker.check_file_license(file_path)
 
     def is_command_allowed(self, command: str, args: List[str], current_agent_type: str = "orchestrator") -> bool:
         """

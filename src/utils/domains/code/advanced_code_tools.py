@@ -1,7 +1,7 @@
+import json
+import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional
-from pathlib import Path # Added
-import re # Added
-import os # Added
 
 class AdvancedCodeTools:
     def __init__(self, project_root: Path, code_analyzer: Any, command_executor: Any, logger: Any):

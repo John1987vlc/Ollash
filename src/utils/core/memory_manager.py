@@ -5,6 +5,7 @@ from typing import Dict, List, Any, Optional
 import chromadb
 
 from src.utils.core.ollama_client import OllamaClient
+from src.utils.core.preference_manager import PreferenceManager
 
 
 class MemoryManager:
@@ -17,6 +18,9 @@ class MemoryManager:
         self.config = config or {}
         self.memory: Dict[str, Any] = {}
         self._load_memory()
+
+        # --> NEW: Initialize PreferenceManager
+        self.preference_manager = PreferenceManager(project_root, logger)
 
         # Context management parameters
         self.max_context_tokens = self.config.get("max_context_tokens", 4000)
@@ -35,9 +39,10 @@ class MemoryManager:
 
         # Accept injected clients or create fallback instances
         models_config = self.config.get("models", {})
-        ollama_url = os.environ.get("OLLASH_OLLAMA_URL",
-                     os.environ.get("MOLTBOT_OLLAMA_URL",
-                     self.config.get("ollama_url", "http://localhost:11434")))
+        ollama_url = os.environ.get(
+            "OLLASH_OLLAMA_URL",
+            self.config.get("ollama_url", "http://localhost:11434"),
+        )
         self.summarization_model = models_config.get("summarization",
                                     self.config.get("summarization_model",
                                     self.config.get("summary_model", "ministral-3:8b")))
@@ -102,6 +107,14 @@ class MemoryManager:
         """Sets a value in memory and saves immediately."""
         self.memory[key] = value
         self._save_memory()
+
+    # ----------------------------------------------------------------
+    # Preference Management
+    # ----------------------------------------------------------------
+    
+    def get_preference_manager(self) -> PreferenceManager:
+        """Returns the PreferenceManager instance."""
+        return self.preference_manager
 
     # ----------------------------------------------------------------
     # Conversation history

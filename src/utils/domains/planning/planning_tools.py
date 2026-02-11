@@ -2,7 +2,9 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from colorama import Fore, Style
 import json
-from pathlib import Path # Added Path import
+from pathlib import Path
+
+from src.utils.core.tool_decorator import ollash_tool
 
 class PlanningTools:
     def __init__(self, logger: Any, project_root: Path, agent_instance: Any):
@@ -10,6 +12,18 @@ class PlanningTools:
         self.project_root = project_root
         self.agent = agent_instance # Store reference to the DefaultAgent instance
 
+    @ollash_tool(
+        name="plan_actions",
+        description="Display and return the action plan for a given goal.",
+        parameters={
+            "goal": {"type": "string", "description": "The main objective."},
+            "steps": {"type": "array", "description": "A list of steps to achieve the goal.", "items": {"type": "string"}},
+            "requires_confirmation": {"type": "boolean", "description": "Whether the plan requires user confirmation before execution."},
+        },
+        toolset_id="planning_tools",
+        agent_types=["orchestrator", "planner"],
+        required=["goal", "steps"]
+    )
     def plan_actions(self, goal: str, steps: List[str], requires_confirmation: bool = False):
         """Display and return the action plan"""
         plan = {
@@ -40,55 +54,83 @@ class PlanningTools:
             "plan_data": plan # Return the full plan data
         }
 
-    def select_agent_type(self, agent_type: str, reason: Optional[str] = None) -> Dict[str, Any]:
+    @ollash_tool(
+        name="run_async_tool",
+        description="Submits a tool for asynchronous execution and returns a task ID.",
+        parameters={
+            "tool_name": {"type": "string", "description": "The name of the tool to execute asynchronously."},
+        },
+        toolset_id="planning_tools",
+        agent_types=["orchestrator"],
+        required=["tool_name"]
+    )
+    def run_async_tool(self, tool_name: str, **kwargs: Any) -> Dict[str, Any]:
         """
-        Switches the agent's active persona and toolset to a specialized domain.
-        Manages context summarization when switching away and context retrieval when switching back.
+        Submits a tool for asynchronous execution and returns a task ID.
         """
-        valid_agent_types = {"code", "network", "system", "cybersecurity", "orchestrator"}
-        if agent_type not in valid_agent_types:
-            self.logger.error(f"Invalid agent type: {agent_type}. Must be one of {', '.join(valid_agent_types)}")
-            return {"ok": False, "error": f"Invalid agent type: {agent_type}"}
-
-        # --- Summarize context when switching away ---
-        if self.agent.active_agent_type != agent_type:
-            # Generate summary for the agent type being switched FROM
-            if self.agent.active_agent_type in valid_agent_types: # Only summarize valid domains
-                summary = self.agent._summarize_context_for_domain(self.agent.active_agent_type)
-                self.agent.domain_context_memory[self.agent.active_agent_type] = summary
-                self.logger.info(f"Context for '{self.agent.active_agent_type}' summarized and stored.")
-        
-        if agent_type == "orchestrator":
-            prompt_file_name = "default_orchestrator.json"
-        elif agent_type == "code":
-            prompt_file_name = "default_agent.json"
-        else:
-            prompt_file_name = f"default_{agent_type}_agent.json"
-        prompt_path = self.project_root / "prompts" / agent_type / prompt_file_name
-
         try:
-            with open(prompt_path, "r", encoding="utf-8") as f:
-                prompt_data = json.load(f)
-            system_prompt = prompt_data.get("prompt")
-
-            if system_prompt:
-                # --- Inject stored context when switching to ---
-                stored_context = self.agent.domain_context_memory.get(agent_type)
-                if stored_context:
-                    system_prompt = f"Previous context for this domain: {stored_context}\n\n{system_prompt}"
-                    self.logger.info(f"Injected stored context for '{agent_type}'.")
-
-                self.logger.info(f"✅ Switched agent context to: {agent_type}")
-                return {"ok": True, "new_agent_type": agent_type, "system_prompt": system_prompt}
-            else:
-                self.logger.error(f"Prompt field not found or empty in {prompt_path}")
-                return {"ok": False, "error": f"Prompt field empty in {prompt_path}"}
-        except FileNotFoundError:
-            self.logger.error(f"Prompt file not found for agent type '{agent_type}': {prompt_path}")
-            return {"ok": False, "error": f"Prompt file not found: {prompt_path}"}
-        except json.JSONDecodeError:
-            self.logger.error(f"Error decoding JSON from prompt file {prompt_path}")
-            return {"ok": False, "error": f"Invalid JSON in prompt file: {prompt_path}"}
-        except Exception as e:
-            self.logger.error(f"Unexpected error loading prompt for '{agent_type}': {e}", e)
+            tool_func = self.agent._get_tool_from_toolset(tool_name)
+            task_id = self.agent.async_tool_executor.submit(tool_func, **kwargs)
+            return {"ok": True, "task_id": task_id, "status": "submitted"}
+        except (ValueError, AttributeError) as e:
+            self.logger.error(f"Error submitting async tool {tool_name}: {e}")
             return {"ok": False, "error": str(e)}
+
+    @ollash_tool(
+        name="check_async_task_status",
+        description="Checks the status of an asynchronous task by its ID.",
+        parameters={
+            "task_id": {"type": "string", "description": "The ID of the task to check."},
+        },
+        toolset_id="planning_tools",
+        agent_types=["orchestrator"],
+        required=["task_id"]
+    )
+    def check_async_task_status(self, task_id: str) -> Dict[str, Any]:
+        """
+        Checks the status of an asynchronous task by its ID.
+        """
+        status = self.agent.async_tool_executor.get_status(task_id)
+        return {"ok": True, **status}
+
+    @ollash_tool(
+        name="set_user_preference",
+        description="Sets a preference value for the user.",
+        parameters={
+            "key": {"type": "string", "description": "The preference key."},
+            "value": {"type": "string", "description": "The preference value."},
+        },
+        toolset_id="planning_tools",
+        agent_types=["orchestrator"],
+        required=["key", "value"]
+    )
+    def set_user_preference(self, key: str, value: Any) -> Dict[str, Any]:
+        """Sets a user preference."""
+        try:
+            self.agent.memory_manager.get_preference_manager().set(key, value)
+            self.logger.info(f"Set user preference '{key}' to '{value}'")
+            return {"ok": True, "key": key, "value": value}
+        except Exception as e:
+            self.logger.error(f"Failed to set user preference '{key}': {e}")
+            return {"ok": False, "error": str(e)}
+
+    @ollash_tool(
+        name="get_user_preference",
+        description="Gets a preference value for the user.",
+        parameters={
+            "key": {"type": "string", "description": "The preference key."},
+            "default": {"type": "string", "description": "The default value if the key is not found."},
+        },
+        toolset_id="planning_tools",
+        agent_types=["orchestrator"],
+        required=["key"]
+    )
+    def get_user_preference(self, key: str, default: Any = None) -> Dict[str, Any]:
+        """Gets a user preference."""
+        try:
+            value = self.agent.memory_manager.get_preference_manager().get(key, default)
+            return {"ok": True, "key": key, "value": value}
+        except Exception as e:
+            self.logger.error(f"Failed to get user preference '{key}': {e}")
+            return {"ok": False, "error": str(e)}
+

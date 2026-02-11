@@ -71,7 +71,7 @@ class AdvancedNetworkTools:
         if latency_data["ping_status"] == "success":
             summary += f"Avg Latency: {latency_data.get('avg_latency_ms', 'N/A')}ms, Packet Loss: {latency_data.get('packet_loss_percent', 'N/A')}%. "
         else:
-            summary += f"Ping failed. "
+            summary += "Ping failed. "
         
         summary += f"Route Hops: {len(latency_data['route_hops'])}."
         

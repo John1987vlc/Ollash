@@ -7,11 +7,17 @@ This document provides an overview of the `local-it-agent-ollash` project, inten
 **Local IT Agent - Ollash** is an AI code and IT assistant built using Python and the Ollama language model. Its primary purpose is to assist software developers with various tasks, including code analysis, prototype generation, and web research, leveraging a "Tool Calling" approach to interact with system tools and APIs, with potential for broader IT operations.
 
 **Key Features:**
-*   **Code Agent:** Analyzes, understands, and modifies code.
-*   **Prototype Generator:** Aids in rapid creation of project skeletons and components.
-*   **Web Investigator:** Performs web searches and extracts information.
-*   **Tooling:** Includes functionalities for command execution, file management, code analysis, and Git integration, now modularized into specialized utility classes.
-*   **Asynchronous Web UI (New):** A Flask application provides a web-based interface for interacting with the AutoAgent, allowing real-time monitoring of project generation, file browsing, and log streaming.
+*   **Interactive CLI chat** with tool-calling loop (up to 30 iterations)
+*   **Web UI** (Flask) with real-time SSE streaming, agent type selection, project generation, and model benchmarking
+*   **5 specialist agents**: orchestrator, code, network, system, cybersecurity — each with curated prompts and tools
+*   **Auto Agent pipeline**: 8-phase project generation from a text description
+*   **Model benchmarker**: compare Ollama models on autonomous generation tasks
+*   **Smart loop detection**: embedding similarity (all-minilm) catches stuck agents
+*   **Reasoning cache**: ChromaDB vector store reuses past error solutions (>95% similarity)
+*   **Context management**: automatic summarization at 70% token capacity
+*   **Lazy tool loading**: tools instantiate on first use, not at startup
+*   **Confirmation gates**: state-modifying tools require user approval (bypassable with `--auto`)
+*   **Hybrid model selection**: intent classification routes to the best model per turn
 
 **Main Technologies:**
 *   **Python 3:** Core programming language.
@@ -23,7 +29,7 @@ This document provides an overview of the `local-it-agent-ollash` project, inten
 *   **Server-Sent Events (SSE):** Used in the Flask UI for real-time log streaming.
 
 **Architecture:**
-The project is structured around a central `CodeAgent` that orchestrates various modular tool sets located in `src/utils/`. The core logic resides in `src/core/`, and a command-line interface is provided in `src/cli/`. Specialized agents (like `generador_prototipos.py` and `investigador_web.py`) are integrated into this modular tool framework. A new `flask_auto_agent_ui` directory hosts a Flask application that provides a web interface for the `AutoAgent`, enabling asynchronous project creation with real-time feedback.
+The project is structured around a central `DefaultAgent` (orchestrator) that manages interaction and routes tasks to specialized agents. These agents utilize modular tool sets located in `src/utils/domains/`. The core logic for foundational services like file management, command execution, and memory management resides in `src/utils/core/`. A Flask web application in `src/web/` provides a UI with real-time monitoring and interaction.
 
 ## Building and Running
 
@@ -31,10 +37,10 @@ The project is structured around a central `CodeAgent` that orchestrates various
 
 1.  **Clone the Repository:**
     ```bash
-    git clone <URL_DEL_REPOSITORIO>
-    cd local-it-agent-ollash
+    git clone https://github.com/your-org/ollash.git
+    cd ollash
     ```
-2.  **Create and Activate a Python Virtual Environment (for Ollash Core):**
+2.  **Create and Activate a Python Virtual Environment:**
     ```bash
     python -m venv venv
     # On Windows:
@@ -42,7 +48,7 @@ The project is structured around a central `CodeAgent` that orchestrates various
     # On macOS/Linux:
     source venv/bin/activate
     ```
-3.  **Install Core Dependencies:**
+3.  **Install Dependencies:**
     ```bash
     pip install -r requirements.txt
     pip install -r requirements-dev.txt
@@ -61,63 +67,66 @@ To start an interactive chat session with the Local IT Agent - Ollash agent:
 python run_agent.py --chat
 ```
 
-### Building and Running the Flask UI (New)
+### Running the Flask Web UI
 
-1.  **Navigate to the Flask application directory:**
-    ```bash
-    cd flask_auto_agent_ui
-    ```
-2.  **Create and Activate a Python Virtual Environment (for Flask UI):**
-    *(It is recommended to use a separate virtual environment for the Flask app to manage its specific dependencies.)*
-    ```bash
-    python -m venv flask_venv
-    # On Windows:
-    .\flask_venv\Scripts\activate
-    # On macOS/Linux:
-    source flask_venv/bin/activate
-    ```
-3.  **Install Flask UI Dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-4.  **Run the Flask Application:**
-    ```bash
-    python app.py
-    ```
-5.  **Access the UI:** Open your web browser and go to `http://127.0.0.1:5000/`.
+To run the Flask web application:
+```bash
+python run_web.py
+```
+Access the UI by opening your web browser and navigating to `http://localhost:5000/`.
+
+### Running the Auto Agent for Project Generation
+
+To generate a project using the Auto Agent:
+```bash
+python auto_agent.py "Create a task manager app with Flask and SQLite" --name task_manager --loops 1
+```
+
+### Running the Model Benchmarker
+
+To run the model benchmarking process:
+```bash
+python auto_benchmark.py
+```
+Alternatively, use the "Benchmark" tab in the Web UI.
 
 ## Testing
 
-To run the unit tests for the project:
+To run the unit and integration tests for the project:
 ```bash
-pytest
+pytest tests/
 ```
-Additional integration tests may require an Ollama instance running.
+To run linting:
+```bash
+ruff check src/ tests/
+```
 
 ## Development Conventions
 
 *   **Language:** Python 3.x
-*   **Dependencies:** Managed via `requirements.txt` and `requirements-dev.txt` (core), and `requirements.txt` within `flask_auto_agent_ui` (Flask app).
+*   **Dependencies:** Managed via `requirements.txt` and `requirements-dev.txt`.
 *   **Testing Framework:** `pytest`.
-*   **Configuration:** Main agent settings are in `config/settings.json`. Flask app configuration is handled within `app.py`.
-*   **Code Structure:** Organized around a central `CodeAgent` and modular tool sets within `src/utils/`. The Flask UI is in its own `flask_auto_agent_ui` directory.
+*   **Configuration:** Main agent settings are in `config/settings.json`.
+*   **Code Structure:** Organized around a central `DefaultAgent` and modular tool sets within `src/utils/domains/`. Core services are in `src/utils/core/`, and the Flask UI is in `src/web/`.
 
 ## Important Files and Directories
 
-*   `src/`: Contains all primary source code.
-*   `src/agents/`: Hosts the main `CodeAgent` and `AutoAgent`.
-*   `src/utils/`: Contains common utility functions and all modular tool implementations.
 *   `config/settings.json`: Main configuration file for the agent.
-*   `flask_auto_agent_ui/`: Contains the Flask web application for the AutoAgent UI.
-    *   `app.py`: Flask application entry point.
-    *   `templates/`: HTML templates for the UI.
-    *   `static/`: CSS and JS assets for the UI.
-    *   `requirements.txt`: Dependencies for the Flask UI.
-*   `generated_projects/auto_agent_projects/`: Directory where projects generated by the `AutoAgent` are stored.
-*   `logs/auto_agent.log`: Main log file for the `AutoAgent`.
-*   `tests/`: Unit tests for the codebase.
-*   `run_agent.py`: The main entry point for running the interactive agent.
+*   `prompts/`: Contains agent prompts per domain.
+*   `src/`: Contains all primary source code.
+    *   `src/agents/`: Hosts the main `DefaultAgent`, `AutoAgent`, and `AutoBenchmarker`.
+    *   `src/utils/core/`: Contains core utility functions and services (e.g., `OllamaClient`, `FileManager`, `CommandExecutor`).
+    *   `src/utils/domains/`: Contains all modular tool implementations, organized by domain (e.g., `code`, `network`, `auto_generation`).
+    *   `src/web/`: Contains the Flask web application.
+        *   `app.py`: Flask application factory.
+        *   `blueprints/`: Contains Flask blueprints for different routes.
+        *   `services/`: Contains services for the web UI (e.g., `chat_event_bridge`, `chat_session_manager`).
+        *   `templates/`: HTML templates for the UI.
+        *   `static/`: CSS and JS assets for the UI.
+*   `tests/`: Unit and integration tests for the codebase.
+*   `run_agent.py`: The main entry point for running the interactive CLI agent.
+*   `run_web.py`: The entry point for running the Flask web UI.
 *   `auto_agent.py`: Entry point for the automatic project generation pipeline.
-*   `pyproject.toml`: Project metadata and build system configuration.
+*   `auto_benchmark.py`: Entry point for the model benchmarking process.
 *   `requirements.txt`, `requirements-dev.txt`: Project dependencies.
 *   `README.md`: Primary project documentation.

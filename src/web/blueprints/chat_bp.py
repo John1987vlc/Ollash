@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request, Response, stream_with_context
 from pathlib import Path
 
 from src.web.services.chat_session_manager import ChatSessionManager
+from src.web.middleware import rate_limit_chat, require_api_key
 
 chat_bp = Blueprint("chat", __name__)
 
@@ -10,13 +11,15 @@ chat_bp = Blueprint("chat", __name__)
 _session_manager: ChatSessionManager = None
 
 
-def init_app(ollash_root_dir: Path):
+def init_app(ollash_root_dir: Path, event_publisher):
     """Initialize the ChatSessionManager for this blueprint."""
     global _session_manager
-    _session_manager = ChatSessionManager(ollash_root_dir)
+    _session_manager = ChatSessionManager(ollash_root_dir, event_publisher)
 
 
 @chat_bp.route("/api/chat", methods=["POST"])
+@require_api_key
+@rate_limit_chat
 def send_chat():
     """Send a message to a chat session.
 

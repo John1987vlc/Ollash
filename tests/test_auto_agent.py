@@ -1,8 +1,5 @@
 """Tests for AutoAgent pipeline phases."""
 import json
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
 
 from src.utils.core.llm_response_parser import LLMResponseParser
 from src.utils.core.file_validator import FileValidator
@@ -11,9 +8,7 @@ from src.utils.core.file_validator import FileValidator
 class TestAutoAgentInitialization:
     """Tests for AutoAgent initialization and configuration."""
 
-    @patch('src.agents.auto_agent.AgentLogger')
-    @patch('src.agents.auto_agent.OllamaClient')
-    def test_init_creates_llm_clients(self, mock_ollama_cls, mock_logger, tmp_path):
+    def test_init_creates_llm_clients(self, tmp_path):
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "settings.json").write_text(json.dumps({
@@ -32,14 +27,12 @@ class TestAutoAgentInitialization:
 
         from src.agents.auto_agent import AutoAgent
         agent = AutoAgent(config_path=str(config_dir / "settings.json"))
-        assert len(agent.llm_clients) == 7
+        assert len(agent.llm_clients) == 10
         assert "prototyper" in agent.llm_clients
         assert "coder" in agent.llm_clients
         assert "planner" in agent.llm_clients
 
-    @patch('src.agents.auto_agent.AgentLogger')
-    @patch('src.agents.auto_agent.OllamaClient')
-    def test_init_uses_env_var_url(self, mock_ollama_cls, mock_logger, tmp_path, monkeypatch):
+    def test_init_uses_env_var_url(self, tmp_path, monkeypatch):
         monkeypatch.setenv("OLLASH_OLLAMA_URL", "http://custom:11434")
         config_dir = tmp_path / "config"
         config_dir.mkdir()

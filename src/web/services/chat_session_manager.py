@@ -21,10 +21,11 @@ class ChatSessionManager:
 
     MAX_SESSIONS = 5
 
-    def __init__(self, ollash_root_dir: Path):
+    def __init__(self, ollash_root_dir: Path, event_publisher):
         self.ollash_root_dir = ollash_root_dir
         self.sessions: Dict[str, ChatSession] = {}
         self._lock = threading.Lock()
+        self.event_publisher = event_publisher
 
     def create_session(self, project_path: Optional[str] = None, agent_type: Optional[str] = None) -> str:
         """Create a new chat session with its own DefaultAgent instance."""
@@ -35,8 +36,8 @@ class ChatSessionManager:
             if len(self.sessions) >= self.MAX_SESSIONS:
                 raise RuntimeError(f"Maximum concurrent sessions ({self.MAX_SESSIONS}) reached.")
 
-            session_id = uuid.uuid4().hex[:8]
-            bridge = ChatEventBridge()
+            session_id = uuid.uuid4().hex
+            bridge = ChatEventBridge(self.event_publisher)
             agent = DefaultAgent(
                 project_root=project_path,
                 auto_confirm=True,

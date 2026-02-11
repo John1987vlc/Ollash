@@ -68,8 +68,7 @@ class ModelBenchmarker:
 
         self.url = os.environ.get(
             "OLLASH_OLLAMA_URL",
-            os.environ.get("MOLTBOT_OLLAMA_URL",
-            self.config.get("ollama_url", "http://localhost:11434")),
+            self.config.get("ollama_url", "http://localhost:11434"),
         )
         self.logger = AgentLogger(log_file=str(Path("logs") / "auto_benchmark_debug.log"))
         self.response_parser = LLMResponseParser()

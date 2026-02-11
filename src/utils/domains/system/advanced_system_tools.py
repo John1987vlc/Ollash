@@ -1,6 +1,7 @@
-from typing import Any, Dict, List, Optional
-import platform # Added
-import re # Added
+import json
+import platform
+import re
+from typing import Any, Dict
 
 class AdvancedSystemTools:
     def __init__(self, command_executor: Any, logger: Any): # Added command_executor

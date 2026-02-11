@@ -4,12 +4,9 @@ import random
 from pathlib import Path
 import pytest
 import json
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock, AsyncMock
+from src.utils.core.ollama_client import OllamaClient # Import the real class
 
-
-# Add the project root to the Python path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root)) # Re-enabled as it's necessary for imports
 
 # Centralized test configuration — override via environment variables
 TEST_OLLAMA_URL = os.environ.get("OLLAMA_TEST_URL", "http://localhost:11434")
@@ -29,26 +26,46 @@ def _make_varying_embedding():
     return _gen
 
 
-# Fixture for mocking OllamaClient
 @pytest.fixture
-def mock_ollama_client():
-    with patch('src.agents.default_agent.OllamaClient') as MockAgentClient, \
-         patch('src.utils.core.memory_manager.OllamaClient') as MockMemoryClient:
-        instance = MockAgentClient.return_value
-        # Use centralized test URL and timeout from environment variables
-        instance.url = TEST_OLLAMA_URL
-        instance.base_url = TEST_OLLAMA_URL
-        instance.timeout = TEST_TIMEOUT
-        # Mock the get_embedding method with varying vectors to prevent
-        # loop detector false positives (identical embeddings = cosine sim 1.0)
-        instance.get_embedding.side_effect = _make_varying_embedding()
-        # Make MemoryManager's OllamaClient instances use the same mock
-        MockMemoryClient.return_value = instance
-        yield instance
+def mock_ollama_client_factory(mocker):
+    """
+    Fixture that provides a factory function to create mocked OllamaClient instances.
+    Each mock instance will have default achat and embedd side effects.
+    Accepts all arguments from OllamaClient.__init__
+    """
+    def _factory(url=None, model=None, timeout=None, logger=None, config=None, model_health_monitor=None):
+        # Use MagicMock without spec to allow any attributes
+        mock_client = MagicMock()
+        # Create AsyncMock for achat that repeats responses as needed
+        async def mock_achat(*args, **kwargs):
+            return ({"message": {"content": f"generic mocked response from {model}"}}, {"prompt_tokens": 1, "completion_tokens": 1})
+        
+        mock_client.achat = AsyncMock(side_effect=mock_achat)
+        mock_client.embedd = AsyncMock(return_value={"embedding": [0.1]*384})
+        mock_client.model = model if model else "mocked-model"
+        mock_client.base_url = url if url else TEST_OLLAMA_URL
+        mock_client.url = url if url else TEST_OLLAMA_URL  # Some code uses .url instead of .base_url
+        mock_client.timeout = timeout if timeout else TEST_TIMEOUT
+        return mock_client
+    return _factory
+
+
+@pytest.fixture(autouse=True) # Apply this globally to all tests
+def patch_ollama_client_class(mocker, mock_ollama_client_factory):
+    """
+    Patches the OllamaClient class so that any instantiation creates a mock.
+    """
+    # When OllamaClient() is called, it will actually call mock_ollama_client_factory
+    # The arguments passed to OllamaClient() will be passed to _factory.
+    mocker.patch('src.utils.core.ollama_client.OllamaClient', side_effect=mock_ollama_client_factory)
+
 
 # Helper fixture for creating a temporary project root with necessary config and prompt files
 @pytest.fixture
 def temp_project_root(tmp_path):
+
+
+    
     # Create config directory and settings.json
     config_dir = tmp_path / "config"
     config_dir.mkdir()
@@ -59,11 +76,25 @@ def temp_project_root(tmp_path):
         "max_iterations": 5,
         "timeout": 300,
         "ollama_retries": 1,
-        "ollama_backoff_factor": 0.1
+        "ollama_backoff_factor": 0.1,
+        "models": { # Ensure these exist for CoreAgent initialization
+            "default": "test-model",
+            "prototyper": "test-prototyper",
+            "coder": "test-coder",
+            "planner": "test-planner",
+            "generalist": "test-generalist",
+            "suggester": "test-suggester",
+            "improvement_planner": "test-improvement-planner",
+            "test_generator": "test-test-generator",
+            "senior_reviewer": "test-senior-reviewer",
+            "orchestration": "test-orchestration", # Used in _preprocess_instruction etc.
+            "self_correction": "test-self-correction" # Used in _handle_tool_error
+        }
     }))
     
     # Create an agent.log file
-    (tmp_path / "agent.log").touch()
+    (tmp_path / "logs").mkdir() # Ensure logs directory exists
+    (tmp_path / "logs" / "defaultagent.log").touch() # Use specific log file name
 
     # Create dummy prompts for all agent types
     prompts_dir = tmp_path / "prompts"
@@ -142,12 +173,12 @@ def temp_project_root(tmp_path):
 
 # Fixture for the DefaultAgent instance, using the common temp_project_root
 @pytest.fixture
-def default_agent(temp_project_root, mock_ollama_client):
+def default_agent(temp_project_root):
+    """Fixture for DefaultAgent with mocked OllamaClient instances."""
     from src.agents.default_agent import DefaultAgent
-
     agent = DefaultAgent(project_root=str(temp_project_root))
-    agent.ollama = mock_ollama_client
-    return agent
+    # The llm_clients dictionary inside agent already contains mock instances due to patch_ollama_client_class
+    yield agent
 
 # Fixture for live_ollash_agent (for tests that might need a different name)
 @pytest.fixture

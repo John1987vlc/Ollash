@@ -241,6 +241,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         isChatBusy = false;
                         sendBtn.disabled = false;
                         chatSessionId = null;
+                        // Persist chat history to localStorage
+                        if (typeof window._ollashSaveChatHook === 'function') {
+                            window._ollashSaveChatHook();
+                        }
                         break;
                 }
             };
@@ -372,37 +376,97 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ==================== Log Streaming ====================
     function startLogStream(projectName) {
+        // Close any existing event source
+        if (logEventSource) {
+            logEventSource.close();
+            logEventSource = null;
+        }
+
         logEventSource = new EventSource(`/api/projects/stream/${projectName}`);
 
         logEventSource.onmessage = function(event) {
-            const logLine = event.data;
-            let logType = 'info';
-            if (logLine.includes('[ERROR]') || logLine.toLowerCase().includes('error')) logType = 'error';
-            else if (logLine.includes('[SUCCESS]') || logLine.toLowerCase().includes('complete')) logType = 'success';
-            else if (logLine.includes('[WARNING]')) logType = 'warning';
-
-            addLogLine(logLine, logType);
-
-            if (logLine.includes('Creating new file:') || logLine.includes('PHASE')) {
-                if (!window._ftDebounce) {
-                    window._ftDebounce = setTimeout(() => {
-                        fetchFileTree(projectName);
-                        window._ftDebounce = null;
-                    }, 500);
-                }
+            let parsedEvent;
+            try {
+                parsedEvent = JSON.parse(event.data);
+            } catch (e) {
+                // Handle non-JSON keep-alive messages or old log lines
+                if (event.data.startsWith(':')) return; // Keep-alive
+                addLogLine(event.data, 'info'); // Treat as plain log
+                return;
             }
-            if (logLine.includes('[STREAM_END]')) {
-                logEventSource.close();
-                logEventSource = null;
-                addLogLine('Project generation completed!', 'success');
-                fetchFileTree(projectName);
+
+            // Process structured events
+            switch (parsedEvent.type) {
+                case 'phase_start':
+                    addLogLine(`PHASE ${parsedEvent.phase}: ${parsedEvent.message}...`, 'info');
+                    break;
+                case 'phase_complete':
+                    addLogLine(`PHASE ${parsedEvent.phase} complete: ${parsedEvent.message}`, parsedEvent.status || 'success');
+                    if (parsedEvent.phase === '2' || parsedEvent.phase === '3' || parsedEvent.phase === '4' || parsedEvent.phase === '5' || parsedEvent.phase === '5.5' || parsedEvent.phase === '5.6' || parsedEvent.phase === '5.7' || parsedEvent.phase === '7.5') {
+                        if (!window._ftDebounce) {
+                            window._ftDebounce = setTimeout(() => {
+                                fetchFileTree(projectName);
+                                window._ftDebounce = null;
+                            }, 500);
+                        }
+                    }
+                    break;
+                case 'iteration_start':
+                    addLogLine(`Iteration ${parsedEvent.iteration} started.`, 'info');
+                    break;
+                case 'iteration_end':
+                    addLogLine(`Iteration ${parsedEvent.iteration} ended (${parsedEvent.status}).`, 'info');
+                    break;
+                case 'tool_start':
+                    addLogLine(`  TOOL: ${parsedEvent.tool_name} started (File: ${parsedEvent.file || 'N/A'}) (Attempt: ${parsedEvent.attempt || 1})...`, 'info');
+                    break;
+                case 'tool_output':
+                    let toolStatus = parsedEvent.status === 'success' ? 'success' : 'error';
+                    let outputMsg = `  TOOL: ${parsedEvent.tool_name} finished (Status: ${parsedEvent.status})`;
+                    if (parsedEvent.message) outputMsg += `: ${parsedEvent.message}`;
+                    if (parsedEvent.file) outputMsg += ` (File: ${parsedEvent.file})`;
+                    if (parsedEvent.error) outputMsg += ` (Error: ${parsedEvent.error})`;
+                    if (parsedEvent.failures) outputMsg += ` (Failures: ${parsedEvent.failures.length})`;
+                    addLogLine(outputMsg, toolStatus);
+                    break;
+                case 'tool_end':
+                    // addLogLine(`  TOOL: ${parsedEvent.tool_name} ended.`, 'info'); // Might be too verbose
+                    break;
+                case 'project_complete':
+                    addLogLine(`PROJECT COMPLETED: ${parsedEvent.project_name}!`, 'success');
+                    fetchFileTree(projectName);
+                    logEventSource.close();
+                    logEventSource = null;
+                    break;
+                case 'error':
+                    addLogLine(`ERROR: ${parsedEvent.message}`, 'error');
+                    break;
+                case 'info':
+                    addLogLine(`INFO: ${parsedEvent.message}`, 'info');
+                    break;
+                case 'warning':
+                    addLogLine(`WARNING: ${parsedEvent.message}`, 'warning');
+                    break;
+                case 'debug':
+                    addLogLine(`DEBUG: ${parsedEvent.message}`, 'debug');
+                    break;
+                case 'stream_end':
+                    logEventSource.close();
+                    logEventSource = null;
+                    addLogLine('Project generation stream ended.', 'success');
+                    fetchFileTree(projectName); // Final refresh
+                    break;
+                default:
+                    addLogLine(`UNKNOWN EVENT (${parsedEvent.type}): ${JSON.stringify(parsedEvent)}`, 'info');
+                    break;
             }
         };
 
-        logEventSource.onerror = function() {
+        logEventSource.onerror = function(error) {
+            console.error('EventSource failed:', error);
             logEventSource.close();
             logEventSource = null;
-            addLogLine('Lost connection to log stream', 'error');
+            addLogLine('Lost connection to project stream.', 'error');
         };
     }
 
@@ -787,7 +851,126 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // ==================== Theme Toggle ====================
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    const themeLabel = document.getElementById('theme-label');
+    const hljsTheme = document.getElementById('hljs-theme');
+
+    function setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('ollash-theme', theme);
+        if (theme === 'light') {
+            themeIcon.textContent = '\u{1F319}';
+            themeLabel.textContent = 'Dark Mode';
+            hljsTheme.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css';
+        } else {
+            themeIcon.textContent = '\u{2600}\u{FE0F}';
+            themeLabel.textContent = 'Light Mode';
+            hljsTheme.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css';
+        }
+    }
+
+    if (themeToggle) {
+        const savedTheme = localStorage.getItem('ollash-theme') || 'dark';
+        setTheme(savedTheme);
+        themeToggle.addEventListener('click', function () {
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            setTheme(current === 'dark' ? 'light' : 'dark');
+        });
+    }
+
+    // ==================== Syntax Highlighting ====================
+    // Re-highlight code when a file is loaded in the code viewer
+    const codeDisplay = document.getElementById('file-code-display');
+    if (codeDisplay && typeof hljs !== 'undefined') {
+        const observer = new MutationObserver(function () {
+            // Detect language from file extension
+            const fileName = document.getElementById('current-file-name');
+            if (fileName) {
+                const ext = fileName.textContent.split('.').pop().toLowerCase();
+                const langMap = {
+                    'py': 'python', 'js': 'javascript', 'ts': 'typescript',
+                    'html': 'xml', 'css': 'css', 'json': 'json', 'md': 'markdown',
+                    'sh': 'bash', 'yml': 'yaml', 'yaml': 'yaml', 'toml': 'toml',
+                    'rs': 'rust', 'go': 'go', 'java': 'java', 'rb': 'ruby',
+                    'sql': 'sql', 'xml': 'xml', 'txt': 'plaintext',
+                };
+                const lang = langMap[ext] || '';
+                codeDisplay.className = lang ? `language-${lang}` : '';
+            }
+            hljs.highlightElement(codeDisplay);
+        });
+        observer.observe(codeDisplay, { childList: true, characterData: true, subtree: true });
+    }
+
+    // ==================== Project Export ====================
+    const exportBtn = document.getElementById('export-project-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function () {
+            if (currentProject) {
+                window.location.href = `/api/projects/${encodeURIComponent(currentProject)}/export`;
+            }
+        });
+    }
+    // Show/hide export button when project is selected
+    const projectSelect = document.getElementById('existing-projects');
+    if (projectSelect && exportBtn) {
+        projectSelect.addEventListener('change', function () {
+            exportBtn.style.display = this.value ? 'inline-flex' : 'none';
+        });
+    }
+
+    // ==================== Chat Persistence (localStorage) ====================
+    function saveChatHistory() {
+        const messages = document.getElementById('chat-messages');
+        if (!messages) return;
+        const bubbles = messages.querySelectorAll('.chat-message');
+        const history = [];
+        bubbles.forEach(function (el) {
+            const isUser = el.classList.contains('user');
+            const bubble = el.querySelector('.chat-bubble');
+            if (bubble) {
+                history.push({ role: isUser ? 'user' : 'assistant', html: bubble.innerHTML });
+            }
+        });
+        if (history.length > 0) {
+            localStorage.setItem('ollash-chat-history', JSON.stringify(history));
+        }
+    }
+
+    function restoreChatHistory() {
+        const saved = localStorage.getItem('ollash-chat-history');
+        if (!saved) return;
+        try {
+            const history = JSON.parse(saved);
+            if (!history.length) return;
+            const messages = document.getElementById('chat-messages');
+            if (!messages) return;
+            // Remove the welcome screen
+            const welcome = messages.querySelector('.chat-welcome');
+            if (welcome) welcome.remove();
+            history.forEach(function (entry) {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `chat-message ${entry.role === 'user' ? 'user' : 'assistant'}`;
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-bubble';
+                bubble.innerHTML = entry.html;
+                msgDiv.appendChild(bubble);
+                messages.appendChild(msgDiv);
+            });
+            messages.scrollTop = messages.scrollHeight;
+        } catch {
+            // Corrupted data, ignore
+        }
+    }
+
+    // Save chat after each SSE stream ends
+    const origPushFinal = window._ollashSaveChatHook;
+    window._ollashSaveChatHook = saveChatHistory;
+
     // ==================== Init ====================
+    restoreChatHistory();
     populateExistingProjects();
     checkOllamaStatus();
     setInterval(checkOllamaStatus, 30000);

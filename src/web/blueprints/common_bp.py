@@ -27,9 +27,10 @@ def status():
         with open(config_path, "r") as f:
             config = json.load(f)
         import os
-        ollama_url = os.environ.get("OLLASH_OLLAMA_URL",
-                     os.environ.get("MOLTBOT_OLLAMA_URL",
-                     config.get("ollama_url", "http://localhost:11434")))
+        ollama_url = os.environ.get(
+            "OLLASH_OLLAMA_URL",
+            config.get("ollama_url", "http://localhost:11434"),
+        )
         resp = requests.get(f"{ollama_url}/api/tags", timeout=5)
         models = [m["name"] for m in resp.json().get("models", [])]
         return jsonify({"status": "ok", "ollama_url": ollama_url, "models": models})

@@ -1,22 +1,34 @@
-import json
 import difflib
-import re # Added
+import re
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
+
+from colorama import Fore, Style
 
 from src.utils.core.file_manager import FileManager
-from src.utils.core.tool_interface import ToolExecutor
-# Assuming AgentLogger will be passed during initialization
-# from src.agents.code_agent import AgentLogger # This will be changed
+from src.utils.core.confirmation_manager import ToolConfirmationManager
+from src.utils.core.tool_decorator import ollash_tool
 
 class FileSystemTools:
-    def __init__(self, project_root: Path, file_manager: FileManager, logger: Any, tool_executor: ToolExecutor):
+    def __init__(self, project_root: Path, file_manager: FileManager, logger: Any, tool_executor: ToolConfirmationManager):
         self.project_root = project_root
         self.files = file_manager
         self.logger = logger
         self.tool_executor = tool_executor
-        self._read_count: Dict[str, int] = {} # Still needed here for tracking file reads
+        self._read_count: Dict[str, int] = {}
 
+    @ollash_tool(
+        name="read_file",
+        description="Reads the content of a specified file. Can read specific line ranges for large files.",
+        parameters={
+            "path": {"type": "string", "description": "The path to the file to read."},
+            "start_line": {"type": "integer", "description": "Optional: Starting line number (1-based) to read."},
+            "end_line": {"type": "integer", "description": "Optional: Ending line number (1-based) to read."}
+        },
+        toolset_id="file_system_tools",
+        agent_types=["code"],
+        required=["path"]
+    )
     def read_file(self, path: str, offset: int = 0, limit: int = 50):
         """Read a single file"""
         full = self.project_root / path
@@ -46,6 +58,20 @@ class FileSystemTools:
             self.logger.error(f"Error reading {path}: {e}", e)
             return {"ok": False, "error": str(e), "path": path}
 
+    @ollash_tool(
+        name="read_files",
+        description="Reads the content of multiple specified files. Use this for reading several files efficiently.",
+        parameters={
+            "paths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "A list of paths to the files to read."
+            }
+        },
+        toolset_id="file_system_tools",
+        agent_types=["code"],
+        required=["paths"]
+    )
     def read_files(self, files: List[Dict]):
         """Read multiple files at once"""
         self.logger.info(f"📚 Reading {len(files)} file(s)...")
@@ -69,6 +95,18 @@ class FileSystemTools:
             "results": results
         }
 
+    @ollash_tool(
+        name="write_file",
+        description="Writes content to a specified file. Requires user confirmation if it modifies an existing file.",
+        parameters={
+            "path": {"type": "string", "description": "The path to the file to write."},
+            "content": {"type": "string", "description": "The content to write to the file."},
+            "reason": {"type": "string", "description": "The reason for writing this file, for user confirmation."}
+        },
+        toolset_id="file_system_tools",
+        agent_types=["code"],
+        required=["path", "content", "reason"]
+    )
     def write_file(self, path: str, content: str, reason: str = ""):
         """Write file with user confirmation, with dynamic approval based on changes."""
         full_path = self.project_root / path
@@ -134,6 +172,17 @@ class FileSystemTools:
             self.logger.error(f"Error writing {path}: {e}", e)
             return {"ok": False, "error": str(e)}
 
+    @ollash_tool(
+        name="delete_file",
+        description="Deletes a specified file. Requires user confirmation.",
+        parameters={
+            "path": {"type": "string", "description": "The path to the file to delete."},
+            "reason": {"type": "string", "description": "The reason for deleting this file, for user confirmation."}
+        },
+        toolset_id="file_system_tools",
+        agent_types=["code"],
+        required=["path", "reason"]
+    )
     def delete_file(self, path: str, reason: str = ""):
         """Delete file with user confirmation"""
         full = self.project_root / path
@@ -158,6 +207,18 @@ class FileSystemTools:
             self.logger.error(f"Error deleting {path}: {e}", e)
             return {"ok": False, "error": str(e)}
 
+    @ollash_tool(
+        name="file_diff",
+        description="Compares two files or a file with provided content and returns the differences.",
+        parameters={
+            "path1": {"type": "string", "description": "Path to the first file."},
+            "path2": {"type": "string", "description": "Optional: Path to the second file."},
+            "inline_content": {"type": "string", "description": "Optional: Content to compare with path1 if path2 is not provided."}
+        },
+        toolset_id="file_system_tools",
+        agent_types=["code"],
+        required=["path1"]
+    )
     def file_diff(self, path: str, new_content: str):
         """Show diff before writing a file."""
         full = self.project_root / path
@@ -189,6 +250,16 @@ class FileSystemTools:
             "total_diff": len(diff)
         }
 
+    @ollash_tool(
+        name="summarize_file",
+        description="Summarizes the content of a single file. Useful for getting a high-level understanding.",
+        parameters={
+            "path": {"type": "string", "description": "The path to the file to summarize."}
+        },
+        toolset_id="file_system_tools",
+        agent_types=["code"],
+        required=["path"]
+    )
     def summarize_file(self, path: str):
         """Summarize a single file"""
         full = self.project_root / path
@@ -217,6 +288,20 @@ class FileSystemTools:
             self.logger.error(f"Error summarizing {path}: {e}", e)
             return {"ok": False, "error": str(e)}
 
+    @ollash_tool(
+        name="summarize_files",
+        description="Summarizes the content of multiple files. Useful for getting a high-level understanding of several files.",
+        parameters={
+            "paths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "A list of paths to the files to summarize."
+            }
+        },
+        toolset_id="file_system_tools",
+        agent_types=["code"],
+        required=["paths"]
+    )
     def summarize_files(self, paths: List[str]):
         """Summarize multiple files at once"""
         self.logger.info(f"📊 Summarizing {len(paths)} file(s)...")
@@ -240,6 +325,18 @@ class FileSystemTools:
             "summaries": results
         }
 
+    @ollash_tool(
+        name="list_directory",
+        description="Lists the contents of a specified directory. Can include hidden files and be recursive.",
+        parameters={
+            "path": {"type": "string", "description": "The path to the directory to list."},
+            "recursive": {"type": "boolean", "description": "Optional: Whether to list contents recursively. Defaults to false."},
+            "include_hidden": {"type": "boolean", "description": "Optional: Whether to include hidden files. Defaults to false."}
+        },
+        toolset_id="file_system_tools",
+        agent_types=["code"],
+        required=["path"]
+    )
     def list_directory(self, path: str, recursive: bool = False):
         """List directory contents"""
         try:

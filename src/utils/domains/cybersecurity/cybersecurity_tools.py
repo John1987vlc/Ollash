@@ -1,18 +1,30 @@
-from typing import Any, Dict, List, Optional # Added Any, Dict, List, Optional
+from typing import Any, List, Optional
 import hashlib
-import platform # To determine OS type for platform-specific commands
-import re       # For regex parsing
-import json     # For JSON operations.
+import platform
+import re
+import json
 from src.utils.core.command_executor import CommandExecutor
 from src.utils.core.file_manager import FileManager
+from src.utils.core.tool_decorator import ollash_tool
 
 class CybersecurityTools:
     def __init__(self, command_executor: CommandExecutor, file_manager: FileManager, logger: Any):
         self.exec = command_executor
         self.files = file_manager
         self.logger = logger
-        self.os_type = platform.system() # "Windows", "Linux", "Darwin" (macOS)
+        self.os_type = platform.system()
 
+    @ollash_tool(
+        name="scan_ports",
+        description="Performs a port scan on a target host to identify open ports and services.",
+        parameters={
+            "host": {"type": "string", "description": "The target hostname or IP address."},
+            "ports": {"type": "string", "description": "Optional: Port range (e.g., '1-1024') or specific ports (e.g., '22,80,443'). Defaults to common ports."}
+        },
+        toolset_id="cybersecurity_tools",
+        agent_types=["cybersecurity"],
+        required=["host"]
+    )
     def scan_ports(self, host: str, common_ports_only: bool = True):
         """
         Scans common or all ports on a host for open services.
@@ -96,6 +108,18 @@ class CybersecurityTools:
             parsed_output["error"] = result.stderr
             return {"ok": False, "result": parsed_output}
 
+    @ollash_tool(
+        name="check_file_hash",
+        description="Calculates the hash (MD5, SHA256) of a file and compares it against a known good hash for integrity checking.",
+        parameters={
+            "path": {"type": "string", "description": "Path to the file."},
+            "expected_hash": {"type": "string", "description": "The known good hash to compare against."},
+            "hash_type": {"type": "string", "enum": ["md5", "sha256"], "description": "The type of hash to calculate. Defaults to sha256."}
+        },
+        toolset_id="cybersecurity_tools",
+        agent_types=["cybersecurity"],
+        required=["path", "expected_hash"]
+    )
     def check_file_hash(self, path: str, algorithm: str = "sha256"):
         """
         Calculates the cryptographic hash of a file for integrity checking.
@@ -125,6 +149,21 @@ class CybersecurityTools:
             self.logger.error(f"❌ Error calculating hash for {path}: {e}", e)
             return {"ok": False, "result": {"path": path, "error": str(e), "raw_error": str(e)}}
 
+    @ollash_tool(
+        name="analyze_security_log",
+        description="Analyzes a security log file for suspicious activities, login failures, or unauthorized access attempts.",
+        parameters={
+            "log_path": {"type": "string", "description": "Path to the security log file."},
+            "keywords": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional: List of keywords to search for."
+            }
+        },
+        toolset_id="cybersecurity_tools",
+        agent_types=["cybersecurity"],
+        required=["log_path"]
+    )
     def analyze_security_log(self, path: str, keywords: Optional[List[str]] = None):
         """
         Analyzes a security log file for specific keywords or anomalies.
@@ -174,6 +213,16 @@ class CybersecurityTools:
             self.logger.error(f"❌ Error analyzing security log {path}: {e}", e)
             return {"ok": False, "result": {"path": path, "error": str(e), "raw_error": str(e)}}
 
+    @ollash_tool(
+        name="recommend_security_hardening",
+        description="Provides basic security hardening recommendations for a given operating system.",
+        parameters={
+            "os_type": {"type": "string", "description": "The type of operating system (e.g., 'Windows', 'Linux', 'macOS')."}
+        },
+        toolset_id="cybersecurity_tools",
+        agent_types=["cybersecurity"],
+        required=["os_type"]
+    )
     def recommend_security_hardening(self, os_type: str):
         """
         Provides basic security hardening recommendations for a given operating system.

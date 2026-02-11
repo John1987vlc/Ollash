@@ -1,30 +1,57 @@
 import logging
+import logging.handlers
 import json
+import os
 import traceback
-from typing import Dict, List, Any, Optional
-from colorama import init, Fore, Style, Back
+from typing import Dict, Optional
+from colorama import init, Fore, Style
 
 # Initialize colorama for Windows support
 init(autoreset=True)
 
+# Log rotation defaults
+_DEFAULT_MAX_BYTES = 5 * 1024 * 1024  # 5 MB per log file
+_DEFAULT_BACKUP_COUNT = 3  # Keep 3 rotated backups
+
+
 class AgentLogger:
-    """Enhanced logging with colors and structure"""
-    
-    def __init__(self, log_file: str = "agent.log"):
-        self.logger = logging.getLogger("CodeAgent")
+    """Enhanced logging with colors and structure.
+
+    Uses RotatingFileHandler to prevent unbounded log growth.
+    Configurable via max_bytes and backup_count parameters.
+    """
+
+    def __init__(
+        self,
+        log_file: str = "agent.log",
+        max_bytes: int = _DEFAULT_MAX_BYTES,
+        backup_count: int = _DEFAULT_BACKUP_COUNT,
+        logger_name: str = "OllashAgent"
+    ):
+        self.logger = logging.getLogger(logger_name)
         self.logger.setLevel(logging.DEBUG)
-        
+
         # Ensure handlers are not added multiple times
         if not self.logger.handlers:
-            # File handler - detailed logs
-            fh = logging.FileHandler(log_file, encoding='utf-8')
+            # Ensure log directory exists
+            log_dir = os.path.dirname(log_file)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+
+            # Rotating file handler - detailed logs with automatic rotation
+            fh = logging.handlers.RotatingFileHandler(
+                log_file,
+                maxBytes=max_bytes,
+                backupCount=backup_count,
+                encoding="utf-8",
+            )
             fh.setLevel(logging.DEBUG)
             fh.setFormatter(logging.Formatter(
                 '%(asctime)s | %(levelname)-8s | %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S'
             ))
             self.logger.addHandler(fh)
-            
+
             # Console handler - important info only
             ch = logging.StreamHandler()
             ch.setLevel(logging.INFO)

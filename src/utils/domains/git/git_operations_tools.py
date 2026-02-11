@@ -1,12 +1,10 @@
 from typing import Any
 import re # Added
 from src.utils.core.git_manager import GitManager
-from src.utils.core.tool_interface import ToolExecutor
-# Assuming AgentLogger will be passed during initialization
-# from src.agents.code_agent import AgentLogger # This will be changed
+from src.utils.core.confirmation_manager import ToolConfirmationManager
 
 class GitOperationsTools:
-    def __init__(self, git_manager: GitManager, logger: Any, tool_executor: ToolExecutor):
+    def __init__(self, git_manager: GitManager, logger: Any, tool_executor: ToolConfirmationManager):
         self.git = git_manager
         self.logger = logger
         self.tool_executor = tool_executor

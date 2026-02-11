@@ -1,7 +1,6 @@
-import os
 import shutil
 from pathlib import Path
-from typing import Optional, Dict, List, Any
+from typing import Dict, List, Any
 
 
 class FileManager:

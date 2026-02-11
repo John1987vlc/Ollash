@@ -1,18 +1,69 @@
-import platform # To determine OS type for platform-specific commands
-import re       # For regex parsing
-import json     # For JSON operations. Assuming it's already imported or available.
-# Keep other imports as they are
-from typing import Any, Dict, Optional
+import platform
+import json
+from typing import Any, Optional
+
 from src.utils.core.command_executor import CommandExecutor
 from src.utils.core.file_manager import FileManager
+from src.utils.core.tool_decorator import ollash_tool
+from src.utils.domains.system.log_analyzer import LogAnalyzer
 
 class SystemTools:
-    def __init__(self, command_executor: CommandExecutor, file_manager: FileManager, logger: Any):
+    def __init__(self, command_executor: CommandExecutor, file_manager: FileManager, logger: Any, agent_instance: Any):
         self.exec = command_executor
         self.files = file_manager
         self.logger = logger
-        self.os_type = platform.system() # "Windows", "Linux", "Darwin" (macOS)
+        self.os_type = platform.system()
+        self.agent = agent_instance
+        self.log_analyzer = LogAnalyzer(logger)
 
+    @ollash_tool(
+        name="analyze_log_file",
+        description="Analyzes a log file for errors and warnings.",
+        parameters={
+            "file_path": {"type": "string", "description": "The path to the log file to analyze."},
+        },
+        toolset_id="system_tools",
+        agent_types=["system", "orchestrator"],
+        required=["file_path"]
+    )
+    def analyze_log_file(self, file_path: str):
+        """Analyzes a log file for errors and warnings."""
+        self.logger.info(f"Analyzing log file: {file_path}")
+        full_path = self.files.root / file_path
+        return self.log_analyzer.analyze_log_file(full_path)
+
+    @ollash_tool(
+        name="get_model_health",
+        description="Retrieves health statistics for a specified model or all models.",
+        parameters={
+            "model_name": {"type": "string", "description": "Optional: The name of the model to check. If not provided, returns health for all models."},
+        },
+        toolset_id="system_tools",
+        agent_types=["system", "orchestrator"]
+    )
+    def get_model_health(self, model_name: Optional[str] = None):
+        """Retrieves health statistics for a model."""
+        self.logger.info(f"Checking model health for: {model_name or 'all models'}")
+        health_monitor = self.agent.model_health_monitor
+        if not health_monitor:
+            return {"ok": False, "error": "ModelHealthMonitor not available."}
+
+        if model_name:
+            stats = health_monitor.get_health_stats(model_name)
+            return {"ok": True, "model": model_name, "stats": stats}
+        else:
+            all_stats = {}
+            for model in health_monitor.latencies.keys():
+                all_stats[model] = health_monitor.get_health_stats(model)
+            return {"ok": True, "all_models_stats": all_stats}
+
+    @ollash_tool(
+        name="get_system_info",
+        description="Retrieves general system information (OS, CPU, memory, uptime, etc.).",
+        parameters={"type": "object", "properties": {}},
+        toolset_id="system_tools",
+        agent_types=["system"]
+    )
     def get_system_info(self):
         """
         Retrieves basic operating system and hardware information.
@@ -93,6 +144,13 @@ class SystemTools:
             parsed_output["error"] = result.stderr
             return {"ok": False, "result": parsed_output}
 
+    @ollash_tool(
+        name="list_processes",
+        description="Lists currently running processes with their IDs, CPU/memory usage, and owner.",
+        parameters={"type": "object", "properties": {}},
+        toolset_id="system_tools",
+        agent_types=["system"]
+    )
     def list_processes(self):
         """
         Lists all currently running processes on the system.
@@ -145,6 +203,17 @@ class SystemTools:
             parsed_output["error"] = result.stderr
             return {"ok": False, "result": parsed_output}
 
+    @ollash_tool(
+        name="install_package",
+        description="Installs a software package using the system's package manager.",
+        parameters={
+            "package_name": {"type": "string", "description": "The name of the package to install."},
+            "package_manager": {"type": "string", "enum": ["apt", "yum", "brew", "choco", "pip"], "description": "The package manager to use."}
+        },
+        toolset_id="system_tools",
+        agent_types=["system"],
+        required=["package_name", "package_manager"]
+    )
     def install_package(self, package_name: str, package_manager: str):
         """
         Installs a software package using a specified package manager.
@@ -200,6 +269,18 @@ class SystemTools:
                 }
             }
 
+    @ollash_tool(
+        name="read_log_file",
+        description="Reads the content of a specified log file, optionally filtering by keywords or time range.",
+        parameters={
+            "path": {"type": "string", "description": "Path to the log file."},
+            "keyword": {"type": "string", "description": "Optional: Keyword to filter log entries."},
+            "lines": {"type": "integer", "description": "Optional: Number of recent lines to read. Defaults to 100."}
+        },
+        toolset_id="system_tools",
+        agent_types=["system"],
+        required=["path"]
+    )
     def read_log_file(self, path: str, lines: int = 20):
         """
         Reads the last N lines of a specified log file.

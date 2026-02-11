@@ -33,6 +33,45 @@
     --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
+/* Light mode overrides */
+[data-theme="light"] {
+    --color-bg: #f5f5f7;
+    --color-surface: #ffffff;
+    --color-surface-elevated: #f0f0f3;
+    --color-border: #d4d4d8;
+    --color-text: #18181b;
+    --color-text-muted: #52525b;
+    --color-text-subtle: #a1a1aa;
+    --gradient-surface: linear-gradient(180deg, #ffffff 0%, #f5f5f7 100%);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 20px 40px rgba(0,0,0,0.1);
+    --shadow-glow: 0 0 20px rgba(99,102,241,0.15);
+}
+[data-theme="light"] .bg-gradient { opacity: 0.3; }
+[data-theme="light"] .noise-overlay { opacity: 0; }
+[data-theme="light"] #preview-frame { background: white; }
+
+/* Theme toggle */
+.theme-toggle {
+    display: flex; align-items: center; gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md); padding: var(--spacing-sm) var(--spacing-md);
+    background: transparent; border: 1px solid var(--color-border);
+    border-radius: var(--radius-md); color: var(--color-text-muted);
+    cursor: pointer; transition: all 0.2s ease; font-size: 0.875rem; width: 100%;
+}
+.theme-toggle:hover { border-color: var(--color-primary); color: var(--color-text); }
+
+/* Project export button */
+.btn-export {
+    display: inline-flex; align-items: center; gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md); background: transparent;
+    border: 1px solid var(--color-border); border-radius: var(--radius-md);
+    color: var(--color-text-muted); cursor: pointer; transition: all 0.2s ease;
+    font-size: 0.85rem;
+}
+.btn-export:hover { border-color: var(--color-success); color: var(--color-success); }
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {

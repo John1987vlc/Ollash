@@ -30,54 +30,150 @@ class StructureGenerator:
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
     def generate(self, readme_content: str, max_retries: int = 3) -> dict:
-        """Generate a JSON project structure from README content.
+        """Generate a JSON project structure from README content using a hierarchical approach.
 
         Includes retry logic and falls back to a basic structure on failure.
         """
-        system, user = AutoGenPrompts.structure_generation(readme_content)
+        self.logger.info("  Starting hierarchical structure generation...")
+        
+        # Phase 1: Generate high-level structure (root files and top-level folders)
+        high_level_structure = self._generate_high_level_structure(readme_content, max_retries)
+        if not high_level_structure:
+            self.logger.error("  Failed to generate high-level structure. Using fallback.")
+            return self.create_fallback_structure(readme_content)
+
+        # Phase 2: Recursively generate sub-structures for each folder
+        final_structure = self._recursively_generate_sub_structure(
+            high_level_structure, readme_content, max_retries
+        )
+        
+        file_count = len(self.extract_file_paths(final_structure))
+        self.logger.info(f"  Successfully generated hierarchical structure with {file_count} files")
+        return final_structure
+
+    def _generate_high_level_structure(self, readme_content: str, max_retries: int) -> dict:
+        """Generates the high-level (root) folders and files for the project."""
+        system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation(readme_content)
 
         for attempt in range(max_retries):
             try:
-                self.logger.info(f"  Attempt {attempt + 1}/{max_retries} to generate JSON structure...")
+                self.logger.info(f"  Attempt {attempt + 1}/{max_retries} for high-level structure...")
                 response_data, usage = self.llm_client.chat(
                     messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
                     ],
                     tools=[],
                     options_override=self.options,
                 )
-
                 raw = response_data["message"]["content"]
-                self.logger.info(f"  Raw response length: {len(raw)} characters")
-
+                self.logger.info(f"  Raw high-level response length: {len(raw)} characters")
                 structure = self.parser.extract_json(raw)
                 if structure is None:
-                    raise ValueError("Could not extract valid JSON from response")
+                    raise ValueError("Could not extract valid JSON from high-level response")
 
-                # Ensure required fields
                 structure.setdefault("path", "./")
                 structure.setdefault("folders", [])
                 structure.setdefault("files", [])
+                
+                # Basic validation for high-level structure to prevent infinite loops
+                if not structure["folders"] and not structure["files"]:
+                    raise ValueError("High-level structure is empty. Rellamando a la funcion para regenerar el JSON de la estructura del proyecto")
 
-                file_count = len(self.extract_file_paths(structure))
-                self.logger.info(f"  Successfully generated structure with {file_count} files")
                 return structure
-
             except Exception as e:
-                self.logger.error(f"  Attempt {attempt + 1} failed: {e}")
+                self.logger.error(f"  High-level attempt {attempt + 1} failed: {e}")
+                # Simplificado prompt para el retry si falla
                 if attempt < max_retries - 1:
-                    self.logger.info("  Retrying with simplified prompt...")
-                    user = (
-                        "Generate a SIMPLE project structure JSON for this project. "
-                        "Keep it minimal with only essential files.\n\n"
-                        f"README summary: {readme_content[:500]}...\n\n"
-                        "Output ONLY valid, complete JSON."
+                    self.logger.info("  Retrying high-level generation with simplified prompt...")
+                    system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation_simplified(readme_content)
+                else:
+                    self.logger.error("  All high-level attempts failed.")
+                    return {}
+        return {}
+    
+    def _recursively_generate_sub_structure(
+        self,
+        current_structure: dict,
+        readme_content: str,
+        max_retries: int,
+        parent_path: str = ""
+    ) -> dict:
+        """Recursively generates detailed structure for folders within the project."""
+        
+        # Deep copy to avoid modifying the original structure during recursion
+        detailed_structure = json.loads(json.dumps(current_structure))
+
+        for i, folder_data in enumerate(detailed_structure.get("folders", [])):
+            folder_name = folder_data.get("name")
+            if folder_name:
+                full_folder_path = str(Path(parent_path) / folder_name)
+                self.logger.info(f"    Generating sub-structure for folder: {full_folder_path}")
+
+                sub_structure_content = self._generate_folder_sub_structure(
+                    full_folder_path, readme_content, max_retries, detailed_structure
+                )
+                
+                if sub_structure_content:
+                    # Merge the generated sub-structure into the current folder_data
+                    folder_data["folders"] = sub_structure_content.get("folders", [])
+                    folder_data["files"] = sub_structure_content.get("files", [])
+                    # Recursively process this newly detailed sub-structure
+                    detailed_structure["folders"][i] = self._recursively_generate_sub_structure(
+                        folder_data, readme_content, max_retries, full_folder_path
                     )
                 else:
-                    self.logger.error("  All attempts failed. Using fallback structure.")
-                    return self.create_fallback_structure(readme_content)
+                    self.logger.warning(f"    Failed to generate sub-structure for {full_folder_path}. Leaving as is.")
 
+        return detailed_structure
+
+    def _generate_folder_sub_structure(
+        self,
+        folder_path: str,
+        readme_content: str,
+        max_retries: int,
+        overall_structure: dict
+    ) -> dict:
+        """Generates the immediate sub-folders and files for a specific folder path."""
+        # Provide more specific context including the overall structure but focusing on the current folder
+        overall_structure_str = json.dumps(overall_structure, indent=2)
+        system_prompt, user_prompt = AutoGenPrompts.sub_structure_generation(
+            folder_path, readme_content, overall_structure_str
+        )
+
+        for attempt in range(max_retries):
+            try:
+                self.logger.info(f"      Attempt {attempt + 1}/{max_retries} for {folder_path} sub-structure...")
+                response_data, usage = self.llm_client.chat(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    tools=[],
+                    options_override=self.options,
+                )
+                raw = response_data["message"]["content"]
+                self.logger.info(f"      Raw sub-structure response length: {len(raw)} characters")
+                sub_structure = self.parser.extract_json(raw)
+                if sub_structure is None:
+                    raise ValueError("Could not extract valid JSON from sub-structure response")
+                
+                # Ensure it only returns folders and files for the current path, not a full new path field
+                sub_structure.pop("path", None)
+                sub_structure.setdefault("folders", [])
+                sub_structure.setdefault("files", [])
+
+                return sub_structure
+            except Exception as e:
+                self.logger.error(f"      Sub-structure attempt {attempt + 1} for {folder_path} failed: {e}")
+                if attempt < max_retries - 1:
+                    self.logger.info("      Retrying sub-structure generation with simplified prompt...")
+                    system_prompt, user_prompt = AutoGenPrompts.sub_structure_generation_simplified(
+                        folder_path, readme_content, overall_structure_str
+                    )
+                else:
+                    self.logger.error(f"      All sub-structure attempts for {folder_path} failed.")
+                    return {}
         return {}
 
     @staticmethod

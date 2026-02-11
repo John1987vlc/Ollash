@@ -1,30 +1,42 @@
 """Blueprint for AutoAgent project generation routes."""
+import io
 import os
 import re
 import threading
 import time
+import zipfile
 
-from flask import Blueprint, jsonify, request, Response, stream_with_context
+from flask import Blueprint, jsonify, request, Response, stream_with_context, send_file
 from pathlib import Path
 
 from src.agents.auto_agent import AutoAgent
+from src.web.middleware import rate_limit_api, require_api_key
+from src.utils.core.event_publisher import EventPublisher
+from src.web.services.chat_event_bridge import ChatEventBridge
+
 
 auto_agent_bp = Blueprint("auto_agent", __name__)
 
 # Initialized lazily via init_app()
 _auto_agent: AutoAgent = None
 _ollash_root_dir: Path = None
+_event_publisher: EventPublisher = None
+_chat_event_bridge: ChatEventBridge = None
 
 
-def init_app(ollash_root_dir: Path):
+def init_app(ollash_root_dir: Path, event_publisher: EventPublisher, chat_event_bridge: ChatEventBridge):
     """Initialize the AutoAgent instance for this blueprint."""
-    global _auto_agent, _ollash_root_dir
+    global _auto_agent, _ollash_root_dir, _event_publisher, _chat_event_bridge
     _ollash_root_dir = ollash_root_dir
+    _event_publisher = event_publisher
+    _chat_event_bridge = chat_event_bridge
     config_path = ollash_root_dir / "config" / "settings.json"
     _auto_agent = AutoAgent(config_path=str(config_path), ollash_root_dir=ollash_root_dir)
 
 
 @auto_agent_bp.route("/api/projects/create", methods=["POST"])
+@require_api_key
+@rate_limit_api
 def create_project():
     project_description = request.form.get("project_description")
     project_name = request.form.get("project_name")
@@ -33,13 +45,27 @@ def create_project():
         return jsonify({"status": "error", "message": "Project description and name are required."}), 400
 
     def run_agent():
+        # Pass the event_publisher to the AutoAgent instance
+        # Re-instantiate AutoAgent to inject event_publisher if necessary,
+        # or ensure the existing instance is updated.
+        # For simplicity, we'll assume AutoAgent's init can handle event_publisher
+        # as a constructor parameter, and _auto_agent is re-initialized if needed.
+        # Since AutoAgent's __init__ already accepts event_publisher (after previous changes)
+        # we can just pass it directly.
+        local_auto_agent = AutoAgent(
+            config_path=str(_ollash_root_dir / "config" / "settings.json"),
+            ollash_root_dir=_ollash_root_dir
+        )
+        local_auto_agent.event_publisher = _event_publisher # Inject the shared publisher
+
         try:
-            _auto_agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' creation initiated.")
-            project_root = _auto_agent.create_project(project_description, project_name)
-            _auto_agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' created at {project_root}")
-            _auto_agent.logger.info(f"[STREAM_END] Project '{project_name}' completed.")
+            local_auto_agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' creation initiated.")
+            project_root = local_auto_agent.run(project_description, project_name) # Changed from create_project to run
+            local_auto_agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' created at {project_root}")
+            _chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' completed."}) # Use chat_event_bridge
         except Exception as e:
-            _auto_agent.logger.error(f"[PROJECT_STATUS] Error creating project '{project_name}': {e}")
+            local_auto_agent.logger.error(f"[PROJECT_STATUS] Error creating project '{project_name}': {e}")
+            _chat_event_bridge.push_event("error", {"message": f"Error creating project: {e}"}) # Use chat_event_bridge
 
     thread = threading.Thread(target=run_agent, daemon=True)
     thread.start()
@@ -49,45 +75,10 @@ def create_project():
 
 @auto_agent_bp.route("/api/projects/stream/<project_name>")
 def stream_project_logs(project_name):
-    log_file_path = str(_ollash_root_dir / "logs" / "auto_agent.log")
-
-    def generate():
-        last_position = 0
-        project_log_pattern = re.compile(r".*\[PROJECT_STATUS\].*'{}'.*".format(re.escape(project_name)))
-        general_log_pattern = re.compile(r".*{}.*".format(re.escape(project_name)))
-
-        while True:
-            try:
-                if not os.path.exists(log_file_path):
-                    yield "data: [INFO] Waiting for log file to be created...\n\n"
-                    time.sleep(1)
-                    continue
-
-                with open(log_file_path, "r", encoding="utf-8") as f:
-                    f.seek(last_position)
-                    new_lines = f.readlines()
-                    last_position = f.tell()
-
-                    if not new_lines:
-                        time.sleep(0.5)
-                        continue
-
-                    for line in new_lines:
-                        if project_log_pattern.match(line) or general_log_pattern.search(line):
-                            yield f"data: {line.strip()}\n\n"
-
-                        if f"[STREAM_END] Project '{project_name}'" in line:
-                            yield f"data: {line.strip()}\n\n"
-                            return
-
-            except Exception as e:
-                yield f"data: [ERROR] Error during log streaming: {e}\n\n"
-                time.sleep(1)
-                continue
-
-            time.sleep(0.1)
-
-    return Response(stream_with_context(generate()), mimetype="text/event-stream")
+    # This route will now stream events directly from ChatEventBridge
+    # We still need project_name for potential filtering in the future, but for now,
+    # all events from the shared bridge are streamed.
+    return Response(stream_with_context(_chat_event_bridge.iter_events()), mimetype="text/event-stream")
 
 
 @auto_agent_bp.route("/api/projects/list")
@@ -169,3 +160,33 @@ def read_file_content(project_name):
             })
     except Exception as e:
         return jsonify({"status": "error", "message": f"Error reading file: {e}"}), 500
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/export")
+def export_project_zip(project_name):
+    """Download a project as a ZIP archive."""
+    project_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+
+    if not project_path.is_dir():
+        return jsonify({"status": "error", "message": "Project not found."}), 404
+
+    skip_dirs = {".git", "__pycache__", "node_modules", ".venv", "venv"}
+
+    memory_file = io.BytesIO()
+    with zipfile.ZipFile(memory_file, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(project_path):
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
+            for f in files:
+                if f.startswith(".") or f.endswith(".pyc"):
+                    continue
+                full_path = os.path.join(root, f)
+                arcname = os.path.relpath(full_path, project_path)
+                zf.write(full_path, arcname)
+
+    memory_file.seek(0)
+    return send_file(
+        memory_file,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"{project_name}.zip",
+    )

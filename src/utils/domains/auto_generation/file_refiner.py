@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.agent_logger import AgentLogger
 from src.utils.core.llm_response_parser import LLMResponseParser
+from src.utils.core.documentation_manager import DocumentationManager # ADDED IMPORT
 from .prompt_templates import AutoGenPrompts
 
 
@@ -31,11 +32,13 @@ class FileRefiner:
         llm_client: OllamaClient,
         logger: AgentLogger,
         response_parser: LLMResponseParser,
+        documentation_manager: DocumentationManager, # ADDED PARAMETER
         options: dict = None,
     ):
         self.llm_client = llm_client
         self.logger = logger
         self.parser = response_parser
+        self.documentation_manager = documentation_manager # STORE IT
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
     def refine_file(
@@ -54,6 +57,23 @@ class FileRefiner:
             issues: Optional list of issue dicts from senior review, each with
                     'description', 'severity', 'recommendation', and optional 'file'.
         """
+
+        # Query documentation for relevant context
+        documentation_context = ""
+        # Create a more targeted query based on the file and issues if any
+        query_parts = [f"Refine {file_path}"]
+        if issues:
+            for issue in issues[:2]: # Take top 2 issues for query
+                query_parts.append(issue.get("description", ""))
+        query_parts.append(readme_excerpt[:100]) # Add a snippet of readme
+        
+        documentation_query = " ".join(query_parts)
+
+        retrieved_docs = self.documentation_manager.query_documentation(documentation_query, n_results=2) # Get top 2 results
+        if retrieved_docs:
+            documentation_context = "\n\nRelevant Documentation Snippets:\n" + "\n---\n".join([doc["document"] for doc in retrieved_docs])
+
+
         if issues:
             system, user = AutoGenPrompts.file_refinement_with_issues(
                 file_path, current_content, readme_excerpt, issues
@@ -62,6 +82,9 @@ class FileRefiner:
             system, user = AutoGenPrompts.file_refinement(
                 file_path, current_content, readme_excerpt
             )
+
+        # Append documentation context to the user prompt
+        user += documentation_context
 
         response_data, usage = self.llm_client.chat(
             messages=[

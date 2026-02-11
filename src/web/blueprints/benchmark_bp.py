@@ -9,6 +9,7 @@ from flask import Blueprint, jsonify, request, Response, stream_with_context
 from pathlib import Path
 
 from src.agents.auto_benchmarker import ModelBenchmarker
+from src.web.middleware import rate_limit_benchmark, require_api_key
 
 benchmark_bp = Blueprint("benchmark", __name__)
 
@@ -36,8 +37,7 @@ def list_models():
                 config = json.load(f)
             ollama_url = os.environ.get(
                 "OLLASH_OLLAMA_URL",
-                os.environ.get("MOLTBOT_OLLAMA_URL",
-                config.get("ollama_url", "http://localhost:11434")),
+                config.get("ollama_url", "http://localhost:11434"),
             )
         except Exception:
             ollama_url = "http://localhost:11434"
@@ -63,6 +63,8 @@ def list_models():
 
 
 @benchmark_bp.route("/api/benchmark/start", methods=["POST"])
+@require_api_key
+@rate_limit_benchmark
 def start_benchmark():
     """Start a benchmark run.
 

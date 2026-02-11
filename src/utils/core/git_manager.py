@@ -1,5 +1,5 @@
 import subprocess
-from typing import Optional, Dict, List, Any
+from typing import Dict, List, Any
 
 
 class GitManager:
@@ -41,7 +41,7 @@ class GitManager:
 
     def log(self, n: int = 5) -> str:
         """Historial de commits."""
-        result = self._run_git("log", f"--oneline", f"-n{n}")
+        result = self._run_git("log", "--oneline", f"-n{n}")
         return result.get("output", "")
 
     def branches(self) -> List[str]:

@@ -3,6 +3,8 @@ import queue
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+from src.utils.core.event_publisher import EventPublisher # ADDED IMPORT
+
 
 @dataclass
 class ChatEvent:
@@ -18,9 +20,25 @@ class ChatEventBridge:
     generator reads them via iter_events().
     """
 
-    def __init__(self):
+    def __init__(self, event_publisher: EventPublisher): # MODIFIED
         self.event_queue: queue.Queue[ChatEvent] = queue.Queue()
         self._closed = False
+        self.event_publisher = event_publisher # Store the event publisher
+
+        # Subscribe to all relevant event types from the EventPublisher
+        self.event_publisher.subscribe("phase_start", self.push_event)
+        self.event_publisher.subscribe("phase_complete", self.push_event)
+        self.event_publisher.subscribe("tool_start", self.push_event)
+        self.event_publisher.subscribe("tool_output", self.push_event)
+        self.event_publisher.subscribe("tool_end", self.push_event)
+        self.event_publisher.subscribe("project_complete", self.push_event)
+        self.event_publisher.subscribe("iteration_start", self.push_event)
+        self.event_publisher.subscribe("iteration_end", self.push_event)
+        self.event_publisher.subscribe("error", self.push_event)
+        self.event_publisher.subscribe("info", self.push_event) # General info messages
+        self.event_publisher.subscribe("warning", self.push_event) # General warning messages
+        self.event_publisher.subscribe("debug", self.push_event) # General debug messages
+
 
     def push_event(self, event_type: str, data: Optional[Dict[str, Any]] = None):
         """Push an event onto the queue (called from the agent thread)."""

@@ -1,12 +1,13 @@
 import json
+import logging
 import os
 import requests
 import traceback
+import asyncio
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from src.utils.core.agent_logger import AgentLogger
-from src.utils.core.token_tracker import TokenTracker
 from src.utils.core.file_manager import FileManager
 from src.utils.core.command_executor import CommandExecutor, SandboxLevel
 from src.utils.core.git_manager import GitManager
@@ -15,6 +16,12 @@ from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.memory_manager import MemoryManager
 from src.utils.core.tool_registry import ToolRegistry
 from src.utils.core.loop_detector import LoopDetector
+from src.agents.core_agent import CoreAgent # Import CoreAgent
+from src.utils.core.model_router import ModelRouter
+from src.utils.core.async_tool_executor import AsyncToolExecutor
+from src.utils.core.model_health_monitor import ModelHealthMonitor
+import src.utils.domains # This import triggers the tool registration decorators
+
 
 # Tool implementations
 from src.utils.core.tool_interface import ToolExecutor
@@ -45,34 +52,27 @@ MAX_INSTRUCTION_LENGTH = 10000
 # CODE AGENT (ENHANCED & FIXED)
 # ======================================================
 
-class DefaultAgent:
+class DefaultAgent(CoreAgent): # Inherit from CoreAgent
     def __init__(self, project_root: str | None = None, auto_confirm: bool = False, base_path: Path = Path.cwd(), event_bridge=None):
+        super().__init__(config_path=str(base_path / "config" / "settings.json"), ollash_root_dir=Path(project_root) if project_root else None, logger_name="DefaultAgent")
+        
         self._base_path = base_path # The base path where the agent's own config and prompts are located
         self.project_root = Path(project_root or self._base_path) # The project root for the current task
         self.auto_confirm = auto_confirm # Store the auto_confirm flag
         self._event_bridge = event_bridge  # Optional ChatEventBridge for web UI streaming
         
         # ---------------- LOGGING
-        self.logger = AgentLogger(
-            log_file=str(self.project_root / "agent.log")
-        )
         self.logger.info(f"\n{Fore.GREEN}{'='*60}")
         self.logger.info("Code Agent Initialized")
         self.logger.info(f"{'='*60}{Style.RESET_ALL}")
         self.logger.info(f"📁 Project: {self.project_root}")
 
-        # ---------------- CONFIG LOAD (relative to _base_path)
-        config_path = self._base_path / "config" / "settings.json"
-        if not config_path.exists():
-            self.logger.error(f"Config file not found: {config_path}")
-            raise FileNotFoundError(f"No existe config: {config_path}")
-
-        with open(config_path, "r", encoding="utf-8") as f:
-            self.config = json.load(f)
-
+        # ---------------- CONFIG LOAD (already handled by CoreAgent)
         self.max_iterations = self.config.get("max_iterations", 30)
 
         # ---------------- MEMORY MANAGEMENT
+        # MemoryManager needs a specific logger, can't directly use self.logger (which might be for CoreAgent)
+        # Re-initialize memory_manager here with the correct project_root and logger instance.
         self.memory_manager = MemoryManager(self.project_root, self.logger, config=self.config)
         self.conversation: List[Dict] = self.memory_manager.get_conversation_history()
         self.domain_context_memory: Dict[str, str] = self.memory_manager.get_domain_context_memory()
@@ -81,13 +81,13 @@ class DefaultAgent:
         self.checkpoint_counter: int = 0
 
         # Hybrid Brain Model Configuration (centralized in settings.json "models" section)
-        models_config = self.config.get("models", {})
-        self.reasoning_model = models_config.get("reasoning", self.config.get("reasoning_model", "gpt-oss:20b"))
-        self.coding_model = models_config.get("coding", self.config.get("coding_model", "qwen3-coder:30b"))
-        self.self_correction_model = models_config.get("self_correction", self.config.get("self_correction_model", "ministral-3:8b"))
-        self.orchestration_model = models_config.get("orchestration", self.config.get("orchestration_model", "ministral-3:8b"))
-        self.summarization_model = models_config.get("summarization", self.config.get("summarization_model", "gpt-oss:20b"))
-        self.current_llm_model = models_config.get("default", self.config.get("model", "qwen3-coder-next"))
+        # These are already in CoreAgent.LLM_ROLES, just setting local vars for convenience.
+        self.reasoning_model = self.config.get("models", {}).get("reasoning", self.config.get("reasoning_model", "gpt-oss:20b"))
+        self.coding_model = self.config.get("models", {}).get("coding", self.config.get("coding_model", "qwen3-coder:30b"))
+        self.self_correction_model = self.config.get("models", {}).get("self_correction", self.config.get("self_correction_model", "ministral-3:8b"))
+        self.orchestration_model = self.config.get("models", {}).get("orchestration", self.config.get("orchestration_model", "ministral-3:8b"))
+        self.summarization_model = self.config.get("models", {}).get("summarization", self.config.get("summarization_model", "gpt-oss:20b"))
+        self.current_llm_model = self.config.get("models", {}).get("default", self.config.get("model", "qwen3-coder-next"))
 
         # Load system prompt from file (relative to _base_path)
         default_prompt_path = self.config.get(
@@ -141,22 +141,31 @@ RULES:
 6. Be clear and concise in your explanations"""
 
 
-
-        # ---------------- TOKEN TRACKING
-        self.token_tracker = TokenTracker()
+        # ---------------- TOKEN TRACKING (already handled by CoreAgent)
 
         # ---------------- CORE SERVICES
+        # These services are now part of CoreAgent, just referencing them from self.
         try:
-            self.file_manager = FileManager(str(self.project_root))
-            self.command_executor = CommandExecutor(str(self.project_root), SandboxLevel.LIMITED, logger=self.logger)
+            self.file_manager = FileManager(str(self.project_root)) # FileManager still needs to be instantiated here as it's not in CoreAgent
+            # CommandExecutor is already in CoreAgent, but DefaultAgent has a more specific SandboxLevel.
+            # Re-initialize or update the sandbox level. For now, re-initialize.
+            self.command_executor = CommandExecutor(str(self.project_root), SandboxLevel.LIMITED, logger=self.logger, use_docker_sandbox=self.config.get("use_docker_sandbox", False))
             self.git_manager = GitManager(str(self.project_root))
             self.code_analyzer = CodeAnalyzer(str(self.project_root))
         except Exception as e:
             self.logger.error(f"Failed to initialize core services: {e}", e)
             raise
 
+        self.model_health_monitor = ModelHealthMonitor(self.logger, self.config)
+
+        # ---------------- TOOL REGISTRY (extracted from inline dicts)
+        self._tool_registry = ToolRegistry()
+        self._all_tool_instances_mapping = self._tool_registry.get_tool_mapping()
+        self._agent_tool_name_mappings = self._tool_registry.get_agent_tools()
+
         # ---------------- TOOL EXECUTOR & TOOL SETS
-        self.tool_executor = ToolExecutor(logger=self.logger, config=self.config, auto_confirm=self.auto_confirm) # Pass the logger and config instance and auto_confirm
+        self.tool_executor = ToolExecutor(logger=self.logger, config=self.config, auto_confirm=self.auto_confirm, tool_registry=self._tool_registry) # Pass the logger, config, auto_confirm, and tool_registry instance
+        self.async_tool_executor = AsyncToolExecutor(self._execute_single_tool)
         
         # Toolset configurations for lazy loading
         self._toolset_configs = {
@@ -178,7 +187,7 @@ RULES:
             },
             "planning_tools": {
                 "class": PlanningTools,
-                "init_args": {"logger": self.logger, "project_root": self.project_root} # agent_instance will be passed later
+                "init_args": {"logger": self.logger, "project_root": self.project_root, "agent_instance": self}
             },
             "network_tools": {
                 "class": NetworkTools,
@@ -186,7 +195,7 @@ RULES:
             },
             "system_tools": {
                 "class": SystemTools,
-                "init_args": {"command_executor": self.command_executor, "file_manager": self.file_manager, "logger": self.logger}
+                "init_args": {"command_executor": self.command_executor, "file_manager": self.file_manager, "logger": self.logger, "agent_instance": self}
             },
             "cybersecurity_tools": {
                 "class": CybersecurityTools,
@@ -219,51 +228,117 @@ RULES:
         }
         self._loaded_toolsets = {} # Cache for loaded toolset instances
 
-        # ---------------- OLLAMA
-        ollama_url = os.environ.get("OLLASH_OLLAMA_URL",
-                     os.environ.get("MOLTBOT_OLLAMA_URL",
-                     self.config.get("ollama_url", "http://localhost:11434")))
-        self.ollama = OllamaClient(
-            url=ollama_url,
-            model=self.current_llm_model,
-            timeout=self.config.get("timeout", 300),
-            logger=self.logger,
-            config=self.config
-        )
-
-        self.logger.info(f"Ollama: {ollama_url}")
+        # ---------------- OLLAMA (already handled by CoreAgent)
+        # self.ollama is initialized in CoreAgent.__init__
+        self.logger.info(f"Ollama: {self.llm_clients['default'].url}")
         self.logger.info(f"Model: {self.current_llm_model} (Initial)")
 
-        # ---------------- TOOL REGISTRY (extracted from inline dicts)
-        self._tool_registry = ToolRegistry()
-        self._all_tool_instances_mapping = ToolRegistry.TOOL_MAPPING
-        self._agent_tool_name_mappings = ToolRegistry.AGENT_TOOLS
+        # Initialize ModelRouter
+        self.model_router = ModelRouter(
+            llm_clients=self.llm_clients, # Pass the llm_clients dictionary from CoreAgent
+            logger=self.logger,
+            response_parser=self.response_parser,
+            event_publisher=self.event_publisher,
+            senior_reviewer_model_name="senior_reviewer", # Using the senior_reviewer role for selection
+            config=self.config
+        )
 
         self.active_agent_type = "orchestrator"
         self.active_tool_names = self._agent_tool_name_mappings[self.active_agent_type]
 
-        # ---------------- LOOP DETECTOR (extracted from inline logic)
+        # ---------------- LOOP DETECTOR
         self.loop_detector = LoopDetector(
             logger=self.logger,
-            embedding_client=self.ollama,
+            embedding_client=self.llm_clients["default"],
             threshold=self.config.get("loop_detection_threshold", 3),
             similarity_threshold=self.config.get("semantic_similarity_threshold", 0.95),
             stagnation_timeout_minutes=2
         )
 
+    async def _execute_single_tool(self, tool_call: Dict) -> Dict:
+        name = tool_call["function"]["name"]
+        args = tool_call["function"]["arguments"]
+
+        print(f"\n{Fore.CYAN}┌─ Tool Call ─────────────────{Style.RESET_ALL}")
+        self.logger.tool_call(name, args)
+        if self._event_bridge:
+            self._event_bridge.push_event("tool_call", {"name": name, "args": args})
+
+        try:
+            if name not in self.tool_functions:
+                error_msg = f"Tool '{name}' not implemented"
+                self.logger.error(error_msg)
+                return {
+                    "ok": False,
+                    "error": "tool_not_found",
+                    "message": error_msg,
+                    "available_tools": list(self.tool_functions.keys())
+                }
+
+            tool_func = self._get_tool_from_toolset(name)
+            result = tool_func(**args)
+
+            state_modifying_tools = ["write_file", "delete_file", "run_command", "install_package"]
+            if name in state_modifying_tools and result.get("ok", True):
+                self._create_checkpoint()
+
+            if result.get("ok", True):
+                self.loop_detector.record_action(name, args, result)
+                self.loop_detector.update_progress(name, result)
+
+                if self.loop_detector.detect_loop():
+                    loop_message = f"Detected a loop! The agent is repeatedly calling '{name}' with similar arguments/results. Human intervention required."
+                    self.logger.error(loop_message)
+                    return self._get_tool_from_toolset("require_human_gate")(
+                        action_description=loop_message,
+                        reason="Loop detected, agent is stuck in a repetitive action sequence."
+                    )
+
+            if name == "select_agent_type" and result.get("ok"):
+                new_agent_type = result.get("new_agent_type")
+                new_system_prompt = result.get("system_prompt")
+                if new_agent_type and new_system_prompt:
+                    self.active_agent_type = new_agent_type
+                    self.system_prompt = new_system_prompt
+                    self.active_tool_names = self._agent_tool_name_mappings[self.active_agent_type]
+                    self.logger.info(f"{Fore.GREEN}Switched agent type to '{self.active_agent_type}'. System prompt and available tools updated.{Style.RESET_ALL}")
+
+            success = result.get("ok", True) if isinstance(result, dict) else True
+            self.logger.tool_result(name, result, success)
+            if self._event_bridge:
+                result_str = json.dumps(result) if isinstance(result, dict) else str(result)
+                if len(result_str) > 2000:
+                    result_str = result_str[:2000] + "... [truncated]"
+                self._event_bridge.push_event("tool_result", {"name": name, "success": success, "result": result_str})
+
+            return result
+
+        except Exception as e:
+            error_msg = f"Tool execution failed: {str(e)}"
+            self.logger.error(error_msg, e)
+            if self._event_bridge:
+                self._event_bridge.push_event("error", {"message": error_msg, "tool": name})
+
+            # In async context, we return the error instead of handling it here
+            return {
+                "ok": False,
+                "error": error_msg,
+                "traceback": traceback.format_exc()
+            }
+        finally:
+            print(f"{Fore.CYAN}└────────────────────────────────────────{Style.RESET_ALL}")
+
     def _calculate_message_tokens(self, messages: List[Dict]) -> int:
         """Estimates the total number of tokens in a list of messages. Delegates to MemoryManager."""
-        return MemoryManager.estimate_tokens(messages)
+        return self.memory_manager.estimate_tokens(messages) # Corrected to use self.memory_manager
 
-
-    def _preprocess_instruction(self, instruction: str) -> tuple[str, str]:
+    async def _preprocess_instruction(self, instruction: str) -> tuple[str, str]:
         """
         Detects the language, translates to English, and refines the instruction.
         Returns (refined_english_instruction, original_language).
         """
         self.logger.info("Refining user instruction...")
         
-        # Prompt for a quick model (can use the same or a smaller one like tinyllama)
         refine_prompt = [
             {"role": "system", "content": "You are a prompt engineer. Translate the user's request to English if it's in another language. Then, expand and clarify the request to be more effective for a coding agent. Return ONLY the refined English text."},
             {"role": "user", "content": f"Refine this: {instruction}"}
@@ -271,18 +346,10 @@ RULES:
         
         try:
             # Use the orchestration model for pre-processing
-            preprocess_client = OllamaClient(
-                url=self.ollama.base_url,
-                model=self.orchestration_model,
-                timeout=self.ollama.timeout,
-                logger=self.logger,
-                config=self.config
-            )
-            response, _ = preprocess_client.chat(refine_prompt, tools=[])
+            preprocess_client = self.llm_clients["orchestration"]
+            response, _ = await preprocess_client.achat(refine_prompt, tools=[])
             refined_text = response.get("message", {}).get("content", instruction)
             
-            # Simple language detection (can use libraries like langdetect for more accuracy)
-            # For now, assume if original input has non-English characters, it's the target language.
             original_lang = "es" if any(ord(c) > 127 for c in instruction) else "en" # Very basic
             
             return refined_text, original_lang
@@ -290,7 +357,7 @@ RULES:
             self.logger.error(f"Error in pre-processing: {e}")
             return instruction, "en" # Fallback to original instruction and English
 
-    def _translate_to_user_language(self, text: str, target_lang: str) -> str:
+    async def _translate_to_user_language(self, text: str, target_lang: str) -> str:
         """Translates the final response to the user's original language."""
         if target_lang == "en":
             return text
@@ -301,15 +368,8 @@ RULES:
         ]
         
         try:
-            # Use the orchestration model for translation
-            translate_client = OllamaClient(
-                url=self.ollama.base_url,
-                model=self.orchestration_model,
-                timeout=self.ollama.timeout,
-                logger=self.logger,
-                config=self.config
-            )
-            response, _ = translate_client.chat(translation_prompt, tools=[])
+            translate_client = self.llm_clients["orchestration"]
+            response, _ = await translate_client.achat(translation_prompt, tools=[])
             return response.get("message", {}).get("content", text)
         except Exception as e:
             self.logger.error(f"Error in final translation: {e}")
@@ -328,7 +388,7 @@ RULES:
         else:
             return self.current_llm_model # Default model for general or unclassified tasks
 
-    def _classify_intent(self, instruction: str) -> str:
+    async def _classify_intent(self, instruction: str) -> str:
         """
         Uses an LLM call to classify the intent of the instruction.
         """
@@ -342,15 +402,8 @@ RULES:
         ]
         
         try:
-            # Use a dedicated OllamaClient instance for classification using the orchestration model
-            classification_ollama_client = OllamaClient(
-                url=self.ollama.base_url,
-                model=self.orchestration_model,
-                timeout=self.ollama.timeout,
-                logger=self.logger,
-                config=self.config
-            )
-            response_data, _ = classification_ollama_client.chat(classification_prompt, tools=[])
+            classification_ollama_client = self.llm_clients["orchestration"]
+            response_data, _ = await classification_ollama_client.achat(classification_prompt, tools=[])
             intent = response_data.get("message", {}).get("content", "General").strip()
             self.logger.info(f"Classified intent: {intent}")
             return intent
@@ -376,20 +429,13 @@ RULES:
             toolset_class = toolset_config["class"]
             init_args = toolset_config["init_args"].copy() # Use a copy to avoid modifying original
 
-            # Special handling for agent_instance for PlanningTools
             if toolset_identifier == "planning_tools":
                 init_args["agent_instance"] = self
 
-            # Special handling for orchestration_tools for require_human_gate
-            # We need the orchestration_tools instance for the loop detection logic directly.
-            # So, if this is orchestration_tools, we will just pass its instance directly.
-            # This is a bit of a circular dependency, but orchestration_tools should be lightweight.
-            # This block can be removed if orchestration_tools are just lazily loaded like others.
-            # For now, keeping it explicit as orchestration_tools is critical for some agent decisions.
             if toolset_identifier == "orchestration_tools" and not hasattr(self, 'orchestration_tools'):
                 self.orchestration_tools = toolset_class(**init_args)
                 self._loaded_toolsets[toolset_identifier] = self.orchestration_tools
-            elif toolset_identifier == "orchestration_tools": # If it's orchestration_tools but already loaded by some other path
+            elif toolset_identifier == "orchestration_tools":
                  self._loaded_toolsets[toolset_identifier] = getattr(self, 'orchestration_tools', toolset_class(**init_args))
             else:
                 self._loaded_toolsets[toolset_identifier] = toolset_class(**init_args)
@@ -406,7 +452,6 @@ RULES:
         """Creates a git checkpoint of the current project state."""
         self.logger.info("Creating a new checkpoint...")
         try:
-            # Use the git_manager to stage and commit
             self.git_manager.stage_all()
             commit_message = f"Checkpoint {self.checkpoint_counter}"
             self.git_manager.commit(commit_message)
@@ -415,18 +460,16 @@ RULES:
         except Exception as e:
             self.logger.error(f"Failed to create checkpoint: {e}")
             
-    def _handle_tool_error(self, error_msg: str, original_tool_call: Dict):
+    async def _handle_tool_error(self, error_msg: str, original_tool_call: Dict):
         """
         Handles a tool execution error with a layered orchestration approach.
         """
         self.logger.info("Handling tool error with layered orchestration...")
 
-        # Step 1: Search reasoning cache
         cached_solution = self.memory_manager.search_reasoning_cache(error_msg)
         if cached_solution:
             self.logger.info("Found a similar error in the reasoning cache. Applying cached solution.")
             try:
-                # Assuming the cached solution is a JSON string of tool calls
                 tool_calls = json.loads(cached_solution)
                 self.conversation.append({
                     "role": "assistant",
@@ -437,7 +480,6 @@ RULES:
             except json.JSONDecodeError as e:
                 self.logger.error(f"Failed to decode cached solution: {e}. Solution: {cached_solution}")
 
-        # Step 2: Escalate to a small model for a quick fix attempt
         self.logger.info(f"Escalating to small model ({self.self_correction_model}) for error analysis.")
         correction_prompt = [
             {"role": "system", "content": "You are a self-correction AI. Analyze the following error and provide a single tool call to fix it. Respond in JSON format with 'tool_calls' and a 'confidence' score (0.0 to 1.0)."},
@@ -445,12 +487,11 @@ RULES:
         ]
         
         try:
-            correction_client = OllamaClient(url=self.ollama.base_url, model=self.self_correction_model, timeout=self.config.get("timeout", 300), logger=self.logger, config=self.config)
-            response, _ = correction_client.chat(correction_prompt, tools=[])
+            correction_client = self.llm_clients["self_correction"]
+            response, _ = await correction_client.achat(correction_prompt, tools=[])
             
             response_content = response.get("message", {}).get("content", "")
             
-            # Try to parse the JSON response from the small model
             try:
                 solution_data = json.loads(response_content)
                 confidence = solution_data.get("confidence", 0.0)
@@ -463,8 +504,6 @@ RULES:
                         "content": "I have a potential fix for the error.",
                         "tool_calls": tool_calls
                     })
-                    # Store the successful solution in the cache after it's been validated by execution
-                    # This logic will be added in the main chat loop
                     return True
             except (json.JSONDecodeError, AttributeError):
                 self.logger.warning("Small model did not provide a valid JSON response for error correction.")
@@ -472,10 +511,7 @@ RULES:
         except Exception as e:
             self.logger.error(f"Error during small model self-correction: {e}")
 
-        # Step 3: Escalate to a large model if the small model fails or has low confidence
         self.logger.info(f"Escalating to large model ({self.reasoning_model}) for deeper error analysis.")
-        # The main loop will naturally handle this by re-prompting with the error message
-        # We just need to add the error to the conversation
         self.conversation.append({
             "role": "tool",
             "content": json.dumps({
@@ -497,26 +533,22 @@ RULES:
         if not domain_tools:
             return f"No tools registered for domain '{domain_type}'."
 
-        # Filter conversation for messages that reference domain-specific tools
         relevant_snippets = []
         for msg in self.conversation:
             content = msg.get("content", "")
             tool_calls = msg.get("tool_calls", [])
 
-            # Check tool call messages
             for tc in tool_calls:
                 tool_name = tc.get("function", {}).get("name", "")
                 if tool_name in domain_tools:
                     relevant_snippets.append(f"[tool_call] {tool_name}: {json.dumps(tc['function'].get('arguments', {}))[:200]}")
 
-            # Check tool result messages that follow domain tool calls
             if msg.get("role") == "tool" and content:
                 relevant_snippets.append(f"[tool_result] {content[:300]}")
 
         if not relevant_snippets:
             return f"No prior activity found for domain '{domain_type}'."
 
-        # Build a concise summary from the snippets (cap at 2000 chars)
         combined = "\n".join(relevant_snippets)
         if len(combined) > 2000:
             combined = combined[:2000] + "\n... (truncated)"
@@ -535,35 +567,36 @@ RULES:
                 active_tool_funcs[tool_name] = self._get_tool_from_toolset(tool_name)
             except (ValueError, AttributeError) as e:
                 self.logger.error(f"Failed to load active tool '{tool_name}': {e}")
-                # Optionally, re-raise or handle more gracefully. For now, skip this tool.
         return active_tool_funcs
 
-    def chat(self, instruction: str, auto_confirm: bool = False) -> str:
+    @property
+    def preference_manager(self):
+        """
+        Dynamically provides the currently active preference manager for the agent.
+        """
+        return self.memory_manager.get_preference_manager()
+
+    async def chat(self, instruction: str, auto_confirm: bool = False) -> str:
         # 0. Input validation
         if not instruction or not instruction.strip():
             return "Please provide an instruction."
         if len(instruction) > MAX_INSTRUCTION_LENGTH:
             return f"Instruction too long ({len(instruction)} chars). Maximum is {MAX_INSTRUCTION_LENGTH}."
 
-        # Reset loop detector for each new user turn
         self.loop_detector.reset()
 
         # 1. Pre-processing Phase (Input)
-        english_instruction, original_lang = self._preprocess_instruction(instruction)
+        english_instruction, original_lang = await self._preprocess_instruction(instruction)
         self.logger.info(f"Original Instruction: {instruction}")
         self.logger.info(f"Refined Instruction (EN): {english_instruction}")
 
-        # Append the refined English instruction to the conversation
         if not self.conversation or self.conversation[-1]["role"] != "user":
             self.conversation.append({"role": "user", "content": english_instruction})
         
-        # Classify intent for the current turn to select the appropriate model
-        # Use the initial English instruction to classify intent for the current turn's primary action
-        intent_for_this_turn = self._classify_intent(english_instruction)
+        intent_for_this_turn = await self._classify_intent(english_instruction)
         selected_model_for_this_turn = self._get_model_for_intent(intent_for_this_turn)
         
-        # Set the OllamaClient's model for this specific chat call
-        self.ollama.model = selected_model_for_this_turn
+        self.llm_clients["default"].model = selected_model_for_this_turn
         self.logger.info(f"🧠 Current turn model selected based on intent '{intent_for_this_turn}': {selected_model_for_this_turn}")
 
         messages = [
@@ -572,7 +605,7 @@ RULES:
         ]
 
         iterations = 0
-        last_error_context = None # To store context of the last error
+        last_error_context = None
 
         while iterations < self.max_iterations:
             iterations += 1
@@ -580,7 +613,6 @@ RULES:
             if self._event_bridge:
                 self._event_bridge.push_event("iteration", {"current": iterations, "max": self.max_iterations})
 
-            # --- Intelligent Memory Management (Task 5) ---
             if self.memory_manager.needs_summarization(self.conversation, self.system_prompt):
                 self.logger.info("Context token limit approaching. Delegating summarization to MemoryManager.")
                 self.conversation = self.memory_manager.summarize_and_clean(self.conversation)
@@ -588,144 +620,97 @@ RULES:
                     {"role": "system", "content": self.system_prompt},
                     *self.conversation
                 ]
-            # --- End Intelligent Memory Management ---
 
             try:
-                # Log API request
                 self.logger.api_request(len(messages), len(self.tool_functions)) 
                 
-                # Make API call
-                response, usage = self.ollama.chat(messages, self.tool_executor.get_tool_definitions(self.active_tool_names))
+                # Determine candidate model roles based on intent
+                candidate_model_roles: List[str] = []
+                if intent_for_this_turn == "Code Generation":
+                    candidate_model_roles = ["coder", "prototyper"]
+                elif intent_for_this_turn == "Reasoning/Architecture":
+                    candidate_model_roles = ["reasoning", "planner"]
+                elif intent_for_this_turn == "Self-Correction":
+                    candidate_model_roles = ["self_correction", "coder"]
+                else: # General or unclassified intent
+                    candidate_model_roles = ["default", "generalist"]
                 
-                # Track tokens
-                self.token_tracker.add_usage(
-                    usage["prompt_tokens"],
-                    usage["completion_tokens"]
+                # Ensure the selected model for this turn is always a candidate
+                # This ensures direct routing if only one is selected by _get_model_for_intent
+                if selected_model_for_this_turn not in [self.llm_clients[r].model for r in candidate_model_roles]:
+                    # Find the role for selected_model_for_this_turn and add it if not already there
+                    for role, model_key, default_model, _ in CoreAgent.LLM_ROLES:
+                        if self.llm_clients[role].model == selected_model_for_this_turn:
+                            if role not in candidate_model_roles:
+                                candidate_model_roles.append(role)
+                            break
+                            
+                # Use the model router to get the response
+                response, all_candidate_responses = await self.model_router.aroute_and_aggregate(
+                    messages=messages,
+                    candidate_model_roles=candidate_model_roles,
+                    tool_definitions=self.tool_executor.get_tool_definitions(self.active_tool_names),
+                    user_prompt_for_reviewer=english_instruction, # Original user instruction
+                    task_description=f"User wants to {intent_for_this_turn} for the project."
                 )
                 
-                # Display current usage
+                # Track tokens from the chosen response
+                chosen_usage = response.get("usage", {})
+                self.token_tracker.add_usage(
+                    chosen_usage.get("prompt_tokens", 0),
+                    chosen_usage.get("completion_tokens", 0)
+                )
+                
                 self.token_tracker.display_current()
                 
                 msg = response["message"]
 
-                # If the LLM responds with a plain message, treat it as a final answer.
                 if "tool_calls" not in msg:
                     self.logger.api_response(False)
                     final_response_en = msg.get("content", "") 
                     
-                    # If there was a previous error, and we got a final answer, store the solution
                     if last_error_context:
                         self.memory_manager.add_to_reasoning_cache(last_error_context["error"], final_response_en)
                         last_error_context = None
 
-                    final_response_translated = self._translate_to_user_language(final_response_en, original_lang)
+                    final_response_translated = await self._translate_to_user_language(final_response_en, original_lang)
                     self.conversation.append({"role": "assistant", "content": final_response_en})
                     self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
                     return final_response_translated 
 
-                # Process tool calls
                 tool_calls = msg["tool_calls"]
                 self.logger.api_response(True, len(tool_calls))
-                self.conversation.append(msg) # Add LLM's tool call message to conversation history
+                self.conversation.append(msg)
+                
+                results = await self.async_tool_executor.execute_in_parallel(tool_calls)
 
-                # Execute each tool call
-                for i, tc in enumerate(tool_calls, 1):
-                    name = tc["function"]["name"]
-                    args = tc["function"]["arguments"]
+                for result in results:
+                    self.conversation.append({
+                        "role": "tool",
+                        "content": json.dumps(result)
+                    })
                     
-                    print(f"\n{Fore.CYAN}┌─ Tool Call {i}/{len(tool_calls)} ─────────────────{Style.RESET_ALL}")
-                    self.logger.tool_call(name, args)
-                    if self._event_bridge:
-                        self._event_bridge.push_event("tool_call", {"name": name, "args": args, "index": i, "total": len(tool_calls)})
-                    
-                    try:
-                        # Check if tool exists
-                        if name not in self.tool_functions:
-                            error_msg = f"Tool '{name}' not implemented"
-                            self.logger.error(error_msg)
-                            result = {
-                                "ok": False,
-                                "error": "tool_not_found",
-                                "message": error_msg,
-                                "available_tools": list(self.tool_functions.keys())
-                            }
-                        else:
-                            # Execute tool using lazy loading
-                            result = self._get_tool_from_toolset(name)(**args)
-                            
-                            # --- Checkpoint after state-modifying tools ---
-                            state_modifying_tools = ["write_file", "delete_file", "run_command", "install_package"]
-                            if name in state_modifying_tools and result.get("ok", True):
-                                self._create_checkpoint()
-
-                                # If there was a previous error, and this tool call succeeded, store the solution
-                                if last_error_context:
-                                    solution = json.dumps([{"function": {"name": name, "arguments": args}}])
-                                    self.memory_manager.add_to_reasoning_cache(last_error_context["error"], solution)
-                                    last_error_context = None
-                            
-                            # --- Loop Detection (delegated to LoopDetector) ---
-                            if result.get("ok", True):
-                                self.loop_detector.record_action(name, args, result)
-                                self.loop_detector.update_progress(name, result)
-
-                                if self.loop_detector.detect_loop():
-                                    loop_message = f"Detected a loop! The agent is repeatedly calling '{name}' with similar arguments/results. Human intervention required."
-                                    self.logger.error(loop_message)
-                                    return self._get_tool_from_toolset("require_human_gate")(
-                                        action_description=loop_message,
-                                        reason="Loop detected, agent is stuck in a repetitive action sequence."
-                                    )
-                            # --- End Loop Detection ---
-
-                            # Old logic related to select_agent_type, keep it
-                            if name == "select_agent_type" and result.get("ok"):
-                                new_agent_type = result.get("new_agent_type")
-                                new_system_prompt = result.get("system_prompt")
-                                if new_agent_type and new_system_prompt:
-                                    self.active_agent_type = new_agent_type
-                                    self.system_prompt = new_system_prompt
-                                    self.active_tool_names = self._agent_tool_name_mappings[self.active_agent_type]
-                                    self.logger.info(f"{Fore.GREEN}Switched agent type to '{self.active_agent_type}'. System prompt and available tools updated.{Style.RESET_ALL}")
+                    if isinstance(result, dict) and not result.get("ok"):
+                        error_msg = result.get("error", "Unknown tool error")
+                        tool_name = "unknown" # This needs to be improved
                         
-                        success = result.get("ok", True) if isinstance(result, dict) else True
-                        
-                        self.logger.tool_result(name, result, success)
                         if self._event_bridge:
-                            # Truncate large results for the stream
-                            result_str = json.dumps(result) if isinstance(result, dict) else str(result)
-                            if len(result_str) > 2000:
-                                result_str = result_str[:2000] + "... [truncated]"
-                            self._event_bridge.push_event("tool_result", {"name": name, "success": success, "result": result_str})
-
-                        # Add result to conversation
-                        self.conversation.append({
-                            "role": "tool",
-                            "content": json.dumps(result)
-                        })
+                            self._event_bridge.push_event("error", {"message": error_msg, "tool": tool_name})
                         
-                    except Exception as e:
-                        error_msg = f"Tool execution failed: {str(e)}"
-                        self.logger.error(error_msg, e)
-                        if self._event_bridge:
-                            self._event_bridge.push_event("error", {"message": error_msg, "tool": name})
-
-                        last_error_context = {"error": error_msg, "tool_call": tc}
+                        original_tool_call = {} # This needs to be improved
+                        last_error_context = {"error": error_msg, "tool_call": original_tool_call}
                         
-                        if self._handle_tool_error(error_msg, tc):
-                            continue
+                        if await self._handle_tool_error(error_msg, original_tool_call):
+                            continue # Try to recover
                         
-                        # If auto_confirm is True and a tool fails, it's a critical error for the current step.
                         if auto_confirm:
                             return f"❌ Critical error during tool execution in auto-mode: {error_msg}. Human intervention required."
-                    
-                    print(f"{Fore.CYAN}└────────────────────────────────────────{Style.RESET_ALL}")
+
 
             except requests.exceptions.HTTPError as e:
                 self.logger.error("HTTP Error from Ollama API", e)
                 error_str = str(e)
                 
-                # Provide helpful error messages
                 if "tool" in error_str.lower() and "not found" in error_str.lower():
                     return (f"❌ API Error: The model tried to use a tool that doesn't exist.\n\n"
                            f"This usually means:\n"
@@ -740,7 +725,7 @@ RULES:
                 self.logger.error("Cannot connect to Ollama")
                 return ("❌ Connection Error: Cannot connect to Ollama.\n\n"
                        "Make sure Ollama is running: 'ollama serve'\n"
-                       f"Configured URL: {self.ollama.base_url}") # Use base_url from ollama client.
+                       f"Configured URL: {self.ollama.base_url}")
             
             except Exception as e:
                 self.logger.error(f"Unexpected error in iteration {iterations}", e)
@@ -748,10 +733,6 @@ RULES:
 
         self.logger.warning("Max iterations reached")
         return f"⚠️  Reached maximum iterations ({self.max_iterations})"
-
-    # ==================================================
-    # INTERACTIVE MODE
-    # ==================================================
 
     def chat_mode(self):
         """Interactive chat mode with enhanced UX"""
@@ -789,7 +770,7 @@ RULES:
                     continue
                     
                 print(f"\n{Fore.MAGENTA}🤖 Agent:{Style.RESET_ALL}")
-                response = self.chat(q)
+                response = asyncio.run(self.chat(q))
                 print(f"\n{response}\n")
                 
             except KeyboardInterrupt:
@@ -803,6 +784,14 @@ RULES:
                 self.logger.error("Error in chat mode", e)
                 print(f"\n{Fore.RED}❌ Error: {e}{Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}Check agent.log for details{Style.RESET_ALL}")
+
+
+    def run(self, *args, **kwargs):
+        """
+        Placeholder run method to satisfy the abstract method requirement from CoreAgent.
+        DefaultAgent uses chat_mode for interaction.
+        """
+        raise NotImplementedError("DefaultAgent is interactive via chat_mode, not meant to be called with run directly.")
 
 
 # ==================================================

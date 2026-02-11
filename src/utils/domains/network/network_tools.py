@@ -1,15 +1,26 @@
-from typing import Any # Added
-import platform # To determine OS type for platform-specific commands
-import re       # For regex parsing
-import json     # For structured output
+from typing import Any
+import platform
+import re
 from src.utils.core.command_executor import CommandExecutor
+from src.utils.core.tool_decorator import ollash_tool
 
 class NetworkTools:
     def __init__(self, command_executor: CommandExecutor, logger: Any):
         self.exec = command_executor
         self.logger = logger
-        self.os_type = platform.system() # "Windows", "Linux", "Darwin" (macOS)
+        self.os_type = platform.system()
 
+    @ollash_tool(
+        name="ping_host",
+        description="Sends ICMP echo requests to a network host to test reachability and measure round-trip time.",
+        parameters={
+            "host": {"type": "string", "description": "The hostname or IP address to ping."},
+            "count": {"type": "integer", "description": "Optional: Number of echo requests to send. Defaults to 4."}
+        },
+        toolset_id="network_tools",
+        agent_types=["network"],
+        required=["host"]
+    )
     def ping_host(self, host: str, count: int = 4):
         """
         Pings a specified host (IP address or hostname) to check network connectivity.
@@ -80,7 +91,18 @@ class NetworkTools:
             parsed_output["error"] = result.stderr
             return {"ok": False, "result": parsed_output}
 
-    def traceroute_host(self, host: str):
+    @ollash_tool(
+        name="traceroute_host",
+        description="Traces the network path to a host, showing hops and latencies.",
+        parameters={
+            "host": {"type": "string", "description": "The hostname or IP address to traceroute."},
+            "max_hops": {"type": "integer", "description": "Optional: Maximum number of hops to search for the target. Defaults to 30."}
+        },
+        toolset_id="network_tools",
+        agent_types=["network"],
+        required=["host"]
+    )
+    def traceroute_host(self, host: str, max_hops: int = 30):
         """
         Traces the network path to a specified host (IP address or hostname).
         Returns structured JSON output including hops and their response times.
@@ -88,9 +110,9 @@ class NetworkTools:
         self.logger.info(f"🗺️ Tracing route to host: {host}")
         command = ""
         if self.os_type == "Windows":
-            command = f"tracert {host}" 
+            command = f"tracert -h {max_hops} {host}" 
         else: # Linux or macOS
-            command = f"traceroute {host}"
+            command = f"traceroute -m {max_hops} {host}"
             
         result = self.exec.execute(command)
         
@@ -149,6 +171,13 @@ class NetworkTools:
             parsed_output["error"] = result.stderr
             return {"ok": False, "result": parsed_output}
 
+    @ollash_tool(
+        name="list_active_connections",
+        description="Lists all active network connections and listening ports on the system.",
+        parameters={"type": "object", "properties": {}},
+        toolset_id="network_tools",
+        agent_types=["network"]
+    )
     def list_active_connections(self):
         """
         Lists all active network connections on the system.
@@ -196,6 +225,17 @@ class NetworkTools:
             parsed_output["error"] = result.stderr
             return {"ok": False, "result": parsed_output}
 
+    @ollash_tool(
+        name="check_port_status",
+        description="Checks if a specific TCP port is open on a given host.",
+        parameters={
+            "host": {"type": "string", "description": "The target hostname or IP address."},
+            "port": {"type": "integer", "description": "The TCP port number to check."}
+        },
+        toolset_id="network_tools",
+        agent_types=["network"],
+        required=["host", "port"]
+    )
     def check_port_status(self, host: str, port: int):
         """
         Checks if a specific port is open on a given host.
