@@ -14,7 +14,7 @@ Ollash is an advanced, locally-run AI agent framework for developers and IT prof
 *   **Specialized Agents:** A suite of specialized agents for different domains, including code, network, system, and cybersecurity.
 *   **Knowledge Workspace:** A dynamic knowledge base that allows the agent to learn from documents and past interactions.
 *   **Proactive Automation:** A system for scheduling tasks, monitoring system resources, and sending real-time alerts.
-*   **Image Generation:** An integrated tool for generating images using Invoke AI.
+*   **Image Generation:** Fully integrated image generation with InvokeAI 6.10+ supporting text-to-image (text2img) and image-to-image (img2img) transformations with support for multiple models (FLUX, Stable Diffusion, Dreamshaper, Juggernaut XL).
 
 ---
 
@@ -66,6 +66,20 @@ For a more detailed overview of the architecture, please refer to the [Architect
     OLLASH_OLLAMA_URL=http://localhost:11434
     INVOKE_UI_URL=http://127.0.0.1:9090
     ```
+
+### Image Generation Setup (InvokeAI 6.10+)
+
+For image generation features, ensure InvokeAI 6.10+ is installed and running:
+1. **InvokeAI Installation:**
+   ```bash
+   pip install invokeai
+   invokeai-web  # Start the InvokeAI server (default: http://localhost:9090)
+   ```
+2. **Configure the INVOKE_UI_URL** in your `.env` file to match your InvokeAI server address.
+3. **Supported Features:**
+   - **Text-to-Image (text2img):** Generate images from text prompts
+   - **Image-to-Image (img2img):** Transform existing images with style/content modifications
+   - **Multiple Models:** FLUX, Stable Diffusion, Dreamshaper, Juggernaut XL, and more
 
 ### Running the Application
 

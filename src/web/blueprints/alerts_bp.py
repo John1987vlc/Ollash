@@ -21,11 +21,12 @@ def stream_alerts():
     Server-Sent Events endpoint for real-time alerts.
     Clients connect here to receive proactive notifications.
     """
-    def generate():
+    event_publisher = current_app.config.get('event_publisher')
+
+    def generate(publisher):
         # Get event publisher from app config
-        event_publisher = current_app.config.get('event_publisher')
         
-        if not event_publisher:
+        if not publisher:
             logger.warning("EventPublisher not available for alerts stream")
             yield f"data: {json.dumps({'error': 'EventPublisher not initialized'})}\n\n"
             return
@@ -34,11 +35,11 @@ def stream_alerts():
         queue = __import__('queue').Queue()
         
         # Subscribe to relevant events
-        subscriber_id = event_publisher.subscribe_queue("ui_alert", queue)
-        event_publisher.subscribe_queue("alert_triggered", queue)
-        event_publisher.subscribe_queue("task_execution_complete", queue)
-        event_publisher.subscribe_queue("task_execution_error", queue)
-        event_publisher.subscribe_queue("automation_started", queue)
+        subscriber_id = publisher.subscribe_queue("ui_alert", queue)
+        publisher.subscribe_queue("alert_triggered", queue)
+        publisher.subscribe_queue("task_execution_complete", queue)
+        publisher.subscribe_queue("task_execution_error", queue)
+        publisher.subscribe_queue("automation_started", queue)
         
         logger.info(f"🔌 Client connected to alert stream (subscriber: {subscriber_id})")
         
@@ -63,10 +64,10 @@ def stream_alerts():
             logger.error(f"Error in alert stream: {e}")
         finally:
             # Unsubscribe
-            event_publisher.unsubscribe(subscriber_id)
+            publisher.unsubscribe(subscriber_id)
     
     return Response(
-        generate(),
+        generate(event_publisher),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

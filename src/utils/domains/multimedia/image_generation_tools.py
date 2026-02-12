@@ -31,6 +31,7 @@ class ImageGeneratorTools:
         self.images_url = f"{self.api_base_url}/api/v1/images"
         self.queue_status_url = f"{self.api_base_url}/api/v1/queue/default/status"
         self.upload_url = f"{self.api_base_url}/api/v1/images/upload"
+        self.models_url = f"{self.api_base_url}/api/v2/models/"
         
         # Default output directory for generated images
         self.output_dir = Path(os.getenv(
@@ -38,6 +39,56 @@ class ImageGeneratorTools:
             self.config.get('image_output_dir', 'generated_images')
         ))
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Cache for model keys
+        self._model_cache = {}
+
+    def _get_model_key(self, model_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Obtiene la key UUID y metadata del modelo desde la API.
+        
+        Args:
+            model_name: Nombre del modelo (ej: "Dreamshaper 8")
+            
+        Returns:
+            Dict con key, hash, name, base, type del modelo o None si no se encuentra
+        """
+        # Verificar si ya está en caché
+        if model_name in self._model_cache:
+            return self._model_cache[model_name]
+        
+        try:
+            # Consultar la API para obtener todos los modelos
+            response = requests.get(self.models_url, timeout=10)
+            
+            if response.status_code != 200:
+                self.logger.error(f"Failed to fetch models: {response.status_code}")
+                return None
+            
+            data = response.json()
+            models = data.get("models", [])
+            
+            # Buscar el modelo por nombre
+            for model in models:
+                if model.get("name") == model_name and model.get("type") == "main":
+                    model_info = {
+                        "key": model.get("key"),
+                        "hash": model.get("hash", ""),
+                        "name": model.get("name"),
+                        "base": model.get("base"),
+                        "type": model.get("type")
+                    }
+                    
+                    # Guardar en caché
+                    self._model_cache[model_name] = model_info
+                    return model_info
+            
+            self.logger.warning(f"Model '{model_name}' not found in API")
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error fetching model info: {str(e)}")
+            return None
 
     def _create_text2img_graph(
         self,
@@ -56,6 +107,12 @@ class ImageGeneratorTools:
         
         This creates a node-based graph that InvokeAI can execute.
         """
+        # Obtener información del modelo desde la API
+        model_info = self._get_model_key(model_name)
+        
+        if not model_info:
+            raise ValueError(f"Model '{model_name}' not found. Use check_invoke_ui_status() to see available models.")
+        
         # Generate unique IDs for each node
         model_loader_id = str(uuid.uuid4())
         positive_prompt_id = str(uuid.uuid4())
@@ -66,24 +123,21 @@ class ImageGeneratorTools:
         
         if seed == -1:
             seed = int(time.time() * 1000) % (2**32)
-
-        # Determine base_model
-        base_model = "sd-1" if "XL" not in model_name else "sdxl"
         
         # Build the graph structure
         graph = {
             "nodes": {
-                # Main model loader
+                # Main model loader - Usando la información real de la API
                 model_loader_id: {
                     "type": "main_model_loader",
                     "id": model_loader_id,
                     "is_intermediate": True,
                     "model": {
-                        "key": f"sd-1/main/{model_name}",
-                        "hash": "",
-                        "name": model_name,
-                        "base": "sd-1.5",
-                        "type": "main"
+                        "key": model_info["key"],       # UUID del modelo
+                        "hash": model_info["hash"],     # Hash del modelo
+                        "name": model_info["name"],     # Nombre exacto
+                        "base": model_info["base"],     # Base (sd-1, sdxl, flux)
+                        "type": model_info["type"]      # Tipo (main)
                     }
                 },
                 # Positive prompt (CLIP encoder)
@@ -231,11 +285,18 @@ class ImageGeneratorTools:
         cfg_scale: float = 7.0,
         denoising_strength: float = 0.75,
         seed: int = -1,
-        scheduler: str = "euler"
+        scheduler: str = "euler",
+        model_name: str = "Dreamshaper 8"
     ) -> Dict[str, Any]:
         """
         Creates an image-to-image workflow graph for InvokeAI 6.10+
         """
+        # Obtener información del modelo desde la API
+        model_info = self._get_model_key(model_name)
+        
+        if not model_info:
+            raise ValueError(f"Model '{model_name}' not found. Use check_invoke_ui_status() to see available models.")
+        
         # Generate unique IDs for each node
         model_loader_id = str(uuid.uuid4())
         image_loader_id = str(uuid.uuid4())
@@ -252,11 +313,18 @@ class ImageGeneratorTools:
         # Build the graph structure
         graph = {
             "nodes": {
-                # Main model loader
+                # Main model loader - Usando la información real de la API
                 model_loader_id: {
                     "type": "main_model_loader",
                     "id": model_loader_id,
                     "is_intermediate": True,
+                    "model": {
+                        "key": model_info["key"],
+                        "hash": model_info["hash"],
+                        "name": model_info["name"],
+                        "base": model_info["base"],
+                        "type": model_info["type"]
+                    }
                 },
                 # Load input image
                 image_loader_id: {
@@ -360,17 +428,6 @@ class ImageGeneratorTools:
                         "field": "vae"
                     }
                 },
-                # Connect encoded latents to noise (for sizing)
-                {
-                    "source": {
-                        "node_id": image_to_latents_id,
-                        "field": "latents"
-                    },
-                    "destination": {
-                        "node_id": noise_id,
-                        "field": "latents"
-                    }
-                },
                 # Connect model UNet to denoiser
                 {
                     "source": {
@@ -452,54 +509,92 @@ class ImageGeneratorTools:
         
         return graph
 
-    def _wait_for_completion(self, session_id: str, timeout: int = 300) -> Optional[str]:
+    def _wait_for_completion(self, batch_id: str, item_ids: List[int], queue_id: str = "default", timeout: int = 300) -> Optional[str]:
         """
-        Wait for a session to complete and return the generated image name.
+        Wait for a batch to complete and return the generated image name.
+        Uses the correct InvokeAI 6.10+ API endpoint: /api/v1/queue/{queue_id}/i/{item_id}
         
         Args:
-            session_id: The session ID to monitor
+            batch_id: The batch ID from enqueue_batch response
+            item_ids: List of item IDs from enqueue_batch response
+            queue_id: The queue ID (default: "default")
             timeout: Maximum time to wait in seconds
             
         Returns:
             The image name if successful, None otherwise
         """
+        if not item_ids:
+            self.logger.error("❌ No item_ids provided")
+            return None
+        
+        item_id = item_ids[0]  # Use the first item
         start_time = time.time()
+        attempts = 0
         
         while time.time() - start_time < timeout:
+            attempts += 1
             try:
-                # Check queue status
-                response = requests.get(self.queue_status_url, timeout=10)
-                if response.status_code == 200:
-                    status = response.json()
+                # Use the CORRECT endpoint: /api/v1/queue/{queue_id}/i/{item_id}
+                item_response = requests.get(
+                    f"{self.api_base_url}/api/v1/queue/{queue_id}/i/{item_id}",
+                    timeout=10
+                )
+                
+                self.logger.debug(f"[Attempt {attempts}] Item status code: {item_response.status_code}")
+                
+                if item_response.status_code == 200:
+                    item_data = item_response.json()
+                    status = item_data.get("status", "unknown")
+                    self.logger.debug(f"Item status: {status}")
                     
-                    # Check if our session is complete
-                    # In InvokeAI 6.10+, completed items appear in the queue history
-                    # We need to check the session directly
-                    session_response = requests.get(
-                        f"{self.session_url}/{session_id}",
-                        timeout=10
-                    )
-                    
-                    if session_response.status_code == 200:
-                        session_data = session_response.json()
+                    if status == "completed":
+                        # Item completed, now find the image output
+                        session = item_data.get("session", {})
+                        results = session.get("results", {})
                         
-                        # Check if session has completed
-                        if session_data.get("is_complete", False):
-                            # Get the output image
-                            outputs = session_data.get("outputs", {})
-                            for node_id, output in outputs.items():
-                                if output.get("type") == "image_output":
-                                    image_data = output.get("image")
-                                    if image_data:
-                                        return image_data.get("image_name")
+                        self.logger.debug(f"Session results keys: {list(results.keys())}")
+                        
+                        # Look for the image output in results
+                        for node_id, result in results.items():
+                            result_type = result.get("type", "")
+                            self.logger.debug(f"Node {node_id}: type={result_type}")
+                            
+                            if result_type == "image_output":
+                                # Found the image output node
+                                image_data = result.get("image", {})
+                                if isinstance(image_data, dict):
+                                    image_name = image_data.get("image_name")
+                                    if image_name:
+                                        self.logger.info(f"✅ Found image_name: {image_name}")
+                                        return image_name
+                        
+                        # If we get here, item completed but image not found
+                        self.logger.warning(f"Item completed but image_output not found in results")
+                        return None
+                    
+                    elif status == "failed":
+                        self.logger.error(f"❌ Item failed")
+                        error = item_data.get("error")
+                        if error:
+                            self.logger.error(f"Error details: {error}")
+                        return None
+                    
+                    else:  # Processing or pending
+                        self.logger.debug(f"Item still processing... ({time.time() - start_time:.1f}s elapsed)")
+                
+                elif item_response.status_code == 404:
+                    self.logger.debug(f"Item {item_id} not yet ready (404)")
+                else:
+                    self.logger.warning(f"Unexpected status code: {item_response.status_code}")
                 
                 # Wait before next check
                 time.sleep(2)
                 
             except Exception as e:
-                self.logger.error(f"Error checking session status: {str(e)}")
+                self.logger.error(f"Error checking item status: {str(e)}", exc_info=True)
                 time.sleep(2)
         
+        self.logger.error(f"Timeout waiting for image generation after {timeout}s")
         return None
 
     def _download_image(self, image_name: str, output_path: Path) -> bool:
@@ -514,21 +609,44 @@ class ImageGeneratorTools:
             True if successful, False otherwise
         """
         try:
+            if not image_name:
+                self.logger.error("❌ Image name is empty or None")
+                return False
+            
             # Get image URL
             image_url = f"{self.images_url}/i/{image_name}/full"
+            self.logger.info(f"📍 Attempting to download from: {image_url}")
             
             response = requests.get(image_url, timeout=30)
+            self.logger.debug(f"Download response status: {response.status_code}")
+            
             if response.status_code == 200:
+                # Verify we got image data
+                if len(response.content) == 0:
+                    self.logger.error("❌ Downloaded file is empty")
+                    return False
+                
                 # Save the image
+                output_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(output_path, "wb") as f:
                     f.write(response.content)
+                
+                file_size = output_path.stat().st_size
+                self.logger.info(f"✅ Image downloaded successfully ({file_size} bytes): {output_path}")
                 return True
             else:
-                self.logger.error(f"Failed to download image: {response.status_code}")
+                self.logger.error(f"❌ Failed to download image: HTTP {response.status_code}")
+                self.logger.error(f"Response text: {response.text[:500]}")
                 return False
                 
+        except requests.exceptions.Timeout:
+            self.logger.error(f"❌ Download timeout for image: {image_name}")
+            return False
+        except requests.exceptions.ConnectionError as e:
+            self.logger.error(f"❌ Connection error downloading image: {str(e)}")
+            return False
         except Exception as e:
-            self.logger.error(f"Error downloading image: {str(e)}")
+            self.logger.error(f"❌ Error downloading image: {str(e)}", exc_info=True)
             return False
 
     @ollash_tool(
@@ -545,7 +663,7 @@ class ImageGeneratorTools:
             },
             "model_name": {
                 "type": "string",
-                "description": "Optional: The name of the Stable Diffusion model to use (e.g., 'Dreamshaper 8', 'Juggernaut XL v9'). Default: 'Dreamshaper 8'"
+                "description": "Optional: The name of the Stable Diffusion model to use. Available models: 'Dreamshaper 8' (SD1.5), 'Juggernaut XL v9' (SDXL), 'FLUX.1 dev (quantized)', 'FLUX.1 schnell (quantized)', 'FLUX Fill', 'Z-Image Turbo (quantized)'. Default: 'Dreamshaper 8'"
             },
             "steps": {
                 "type": "integer",
@@ -557,11 +675,11 @@ class ImageGeneratorTools:
             },
             "width": {
                 "type": "integer",
-                "description": "Image width in pixels. Default: 512"
+                "description": "Image width in pixels. SD1.5: 512, SDXL/FLUX: 1024. Default: 512"
             },
             "height": {
                 "type": "integer",
-                "description": "Image height in pixels. Default: 512"
+                "description": "Image height in pixels. SD1.5: 512, SDXL/FLUX: 1024. Default: 512"
             },
             "scheduler": {
                 "type": "string",
@@ -665,8 +783,10 @@ class ImageGeneratorTools:
             # Parse the response to get session info
             result = response.json()
             
-            # Extract batch/session ID
+            # Extract batch/session ID and item IDs
             batch_id = result.get("batch", {}).get("batch_id")
+            item_ids = result.get("item_ids", [])
+            
             if not batch_id:
                 self.logger.error("❌ No batch ID in response")
                 return {
@@ -674,14 +794,23 @@ class ImageGeneratorTools:
                     "error": "No batch ID returned from API"
                 }
             
-            self.logger.info(f"📋 Batch enqueued: {batch_id}")
+            if not item_ids:
+                self.logger.error("❌ No item IDs in response")
+                return {
+                    "ok": False,
+                    "error": "No item IDs returned from API"
+                }
+            
+            self.logger.info(f"📋 Batch enqueued: {batch_id} with items: {item_ids}")
             
             # Wait for completion
             self.logger.info("⏳ Waiting for image generation...")
-            image_name = self._wait_for_completion(batch_id, timeout=300)
+            image_name = self._wait_for_completion(batch_id, item_ids, timeout=300)
+            
+            self.logger.info(f"Result from _wait_for_completion: image_name={image_name}")
             
             if not image_name:
-                self.logger.error("❌ Image generation timed out or failed")
+                self.logger.error("❌ Image generation timed out or failed - _wait_for_completion returned None")
                 return {
                     "ok": False,
                     "error": "Image generation timed out or failed to complete"
@@ -708,6 +837,15 @@ class ImageGeneratorTools:
                 "steps": steps,
                 "invoke_image_name": image_name,
                 "model_name": model_name
+            }
+        
+        except ValueError as e:
+            # Error de modelo no encontrado
+            error_msg = str(e)
+            self.logger.error(f"❌ {error_msg}")
+            return {
+                "ok": False,
+                "error": error_msg
             }
         
         except requests.exceptions.ConnectionError as e:
@@ -754,7 +892,7 @@ class ImageGeneratorTools:
             },
             "model_name": {
                 "type": "string",
-                "description": "Optional: The name of the Stable Diffusion model to use (e.g., 'Dreamshaper 8', 'Juggernaut XL v9'). Default: 'Dreamshaper 8'"
+                "description": "Optional: The name of the Stable Diffusion model to use. Default: 'Dreamshaper 8'"
             },
             "steps": {
                 "type": "integer",
@@ -910,6 +1048,7 @@ class ImageGeneratorTools:
             # Parse the response
             result = response.json()
             batch_id = result.get("batch", {}).get("batch_id")
+            item_ids = result.get("item_ids", [])
             
             if not batch_id:
                 return {
@@ -917,13 +1056,22 @@ class ImageGeneratorTools:
                     "error": "No batch ID returned from API"
                 }
             
-            self.logger.info(f"📋 Batch enqueued: {batch_id}")
+            if not item_ids:
+                return {
+                    "ok": False,
+                    "error": "No item IDs returned from API"
+                }
+            
+            self.logger.info(f"📋 Batch enqueued: {batch_id} with items: {item_ids}")
             
             # Wait for completion
             self.logger.info("⏳ Waiting for image generation...")
-            output_image_name = self._wait_for_completion(batch_id, timeout=300)
+            output_image_name = self._wait_for_completion(batch_id, item_ids, timeout=300)
+            
+            self.logger.info(f"Result from _wait_for_completion: output_image_name={output_image_name}")
             
             if not output_image_name:
+                self.logger.error("❌ Image generation timed out or failed - _wait_for_completion returned None")
                 return {
                     "ok": False,
                     "error": "Image generation timed out or failed to complete"
@@ -951,6 +1099,14 @@ class ImageGeneratorTools:
                 "steps": steps,
                 "invoke_image_name": output_image_name,
                 "model_name": model_name
+            }
+        
+        except ValueError as e:
+            error_msg = str(e)
+            self.logger.error(f"❌ {error_msg}")
+            return {
+                "ok": False,
+                "error": error_msg
             }
         
         except requests.exceptions.ConnectionError as e:
@@ -1097,6 +1253,72 @@ class ImageGeneratorTools:
             }
 
     @ollash_tool(
+        name="list_available_models",
+        description="Lists all available models in InvokeAI with their details.",
+        parameters={
+            "model_type": {
+                "type": "string",
+                "description": "Optional: Filter by model type ('main', 'controlnet', 'ip_adapter', etc.)"
+            }
+        },
+        toolset_id="image_generator_tools",
+        agent_types=["system"],
+    )
+    def list_available_models(self, model_type: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Lists all available models from InvokeAI.
+        
+        Args:
+            model_type: Optional filter by model type
+            
+        Returns:
+            Dict with list of available models
+        """
+        try:
+            response = requests.get(self.models_url, timeout=10)
+            
+            if response.status_code != 200:
+                return {
+                    "ok": False,
+                    "error": f"Failed to fetch models: {response.status_code}"
+                }
+            
+            data = response.json()
+            models = data.get("models", [])
+            
+            # Filtrar por tipo si se especifica
+            if model_type:
+                models = [m for m in models if m.get("type") == model_type]
+            
+            # Organizar por base
+            by_base = {}
+            for model in models:
+                base = model.get("base", "unknown")
+                if base not in by_base:
+                    by_base[base] = []
+                
+                by_base[base].append({
+                    "name": model.get("name"),
+                    "type": model.get("type"),
+                    "format": model.get("format"),
+                    "key": model.get("key"),
+                    "description": model.get("description", "")
+                })
+            
+            return {
+                "ok": True,
+                "total": len(models),
+                "models_by_base": by_base,
+                "endpoint": self.models_url
+            }
+            
+        except Exception as e:
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+    @ollash_tool(
         name="check_invoke_ui_status",
         description="Checks if Invoke UI is running and accessible.",
         parameters={},
@@ -1118,13 +1340,24 @@ class ImageGeneratorTools:
             
             if response.status_code == 200:
                 version_info = response.json()
+                
+                # También obtener lista de modelos principales
+                models_info = self.list_available_models(model_type="main")
+                
+                main_models = []
+                if models_info.get("ok"):
+                    for base, models in models_info.get("models_by_base", {}).items():
+                        for model in models:
+                            main_models.append(f"{model['name']} ({base})")
+                
                 self.logger.info(f"✅ Invoke UI is running and accessible")
                 return {
                     "ok": True,
                     "status": "online",
                     "api_url": self.api_base_url,
                     "message": "Invoke UI is ready for image generation",
-                    "version": version_info.get("version", "unknown")
+                    "version": version_info.get("version", "unknown"),
+                    "available_main_models": main_models
                 }
             else:
                 return {
