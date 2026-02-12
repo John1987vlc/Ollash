@@ -46,7 +46,7 @@ class ContingencyPlanner:
         try:
             response, _ = self.client.chat(prompt, tools=[])
             content = response.get("message", {}).get("content", "")
-            plan = self.parser.parse_json(content)
+            plan = self.parser.extract_json(content)
             self.logger.info("Contingency plan generated successfully.")
             return plan or {}
         except Exception as e:

@@ -105,7 +105,7 @@ class CommandExecutor:
         
         return True, None, None
 
-    def execute(self, command: str | List[str], timeout: int = 60) -> ExecutionResult:
+    def execute(self, command: str | List[str], timeout: int = 60, dir_path: Optional[str] = None) -> ExecutionResult:
         """
         Ejecuta un comando y retorna el resultado.
         Prefiere shell=False para seguridad, pero puede usar shell=True si command es un string
@@ -114,6 +114,7 @@ class CommandExecutor:
         use_shell = False
         command_list: List[str]
         original_command = command
+        execution_dir = dir_path or self.working_dir
 
         if isinstance(command, str):
             # Special handling for Windows PowerShell calls
@@ -151,13 +152,13 @@ class CommandExecutor:
 
         if self.use_docker_sandbox:
             self.logger.info(f"Executing command in Docker sandbox: '{command}'")
-            return self.execute_in_docker(original_command, timeout, self.working_dir) # Pass original_command and working_dir
+            return self.execute_in_docker(original_command, timeout, execution_dir) # Pass original_command and execution_dir
 
         try:
             result = subprocess.run(
                 command_list, # Pass as list to subprocess.run
                 shell=use_shell,
-                cwd=self.working_dir,
+                cwd=execution_dir,
                 capture_output=True,
                 text=True,
                 timeout=timeout
@@ -269,12 +270,15 @@ except Exception as e:
             )
             self.logger.info(f"  Docker container '{container.name}' started for command: '{command}'")
 
+            # Calculate the relative path for workdir inside the container
+            container_workdir = Path(mount_path) / target_dir.relative_to(self.working_dir)
+
             exit_code, output = container.exec_run(
                 cmd=command_list,
                 stream=False,
                 demux=True, # Separate stdout and stderr
                 user="root", # Run as root to avoid permission issues with mounted volumes
-                workdir=str(target_dir.relative_to(self.working_dir)) # Set working dir inside container
+                workdir=str(container_workdir) # Set working dir inside container
             )
             
             stdout_output = output[0].decode('utf-8') if output[0] else ""

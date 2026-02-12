@@ -152,6 +152,31 @@ class SeniorReviewPhase(IAgentPhase):
 
         if not review_passed:
             self.context.logger.error("PHASE 8: Senior Review failed after multiple attempts. Manual intervention may be required.")
+            
+            # NEW: On second failure, attempt aggressive simplification
+            if review_attempt >= 2:
+                self.context.logger.warning("  PHASE 8: Attempting aggressive simplification to resolve issues...")
+                self.context.event_publisher.publish("tool_start", tool_name="aggressive_simplification")
+                
+                simplified_count = 0
+                for rel_path, content in list(generated_files.items()):
+                    if content and len(content) > 100 and not rel_path.endswith((".md", ".json", ".yml", ".yaml")):
+                        try:
+                            # Use FileRefiner to eliminate redundancy
+                            simplified = self.context.file_refiner.simplify_file_content(
+                                rel_path, content, remove_redundancy=True
+                            )
+                            if simplified and len(simplified) < len(content):
+                                generated_files[rel_path] = simplified
+                                self.context.file_manager.write_file(project_root / rel_path, simplified)
+                                simplified_count += 1
+                                self.context.logger.info(f"    ✓ Simplified {rel_path}")
+                        except Exception as e:
+                            self.context.logger.debug(f"    Simplification skipped for {rel_path}: {e}")
+                
+                self.context.logger.info(f"  Simplified {simplified_count} files to improve stability")
+                self.context.event_publisher.publish("tool_end", tool_name="aggressive_simplification", files_simplified=simplified_count)
+            
             self.context.file_manager.write_file(project_root / "SENIOR_REVIEW_FAILED.md", "Senior review failed after multiple attempts.")
             self.context.event_publisher.publish("phase_complete", phase="8", message="Senior Review failed", status="error")
         else:

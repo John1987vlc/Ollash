@@ -16,6 +16,7 @@ from src.interfaces.iagent_phase import IAgentPhase
 from src.agents.auto_agent_phases.phase_context import PhaseContext
 from src.agents.auto_agent_phases.readme_generation_phase import ReadmeGenerationPhase
 from src.agents.auto_agent_phases.structure_generation_phase import StructureGenerationPhase
+from src.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
 from src.agents.auto_agent_phases.structure_pre_review_phase import StructurePreReviewPhase
 from src.agents.auto_agent_phases.empty_file_scaffolding_phase import EmptyFileScaffoldingPhase
 from src.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
@@ -25,6 +26,7 @@ from src.agents.auto_agent_phases.code_quarantine_phase import CodeQuarantinePha
 from src.agents.auto_agent_phases.license_compliance_phase import LicenseCompliancePhase
 from src.agents.auto_agent_phases.dependency_reconciliation_phase import DependencyReconciliationPhase
 from src.agents.auto_agent_phases.test_generation_execution_phase import TestGenerationExecutionPhase
+from src.agents.auto_agent_phases.exhaustive_review_repair_phase import ExhaustiveReviewRepairPhase
 from src.agents.auto_agent_phases.final_review_phase import FinalReviewPhase
 from src.agents.auto_agent_phases.iterative_improvement_phase import IterativeImprovementPhase
 from src.agents.auto_agent_phases.content_completeness_phase import ContentCompletenessPhase
@@ -136,7 +138,7 @@ class AutoAgent(CoreAgent):
             documentation_manager, fragment_cache
         )
         file_refiner = FileRefiner(
-            self.llm_manager.get_client("coder"), self.logger, response_parser, documentation_manager, event_publisher
+            self.llm_manager.get_client("coder"), self.logger, response_parser, documentation_manager
         )
         file_completeness_checker = FileCompletenessChecker(
             self.llm_manager.get_client("coder"),
@@ -206,6 +208,7 @@ class AutoAgent(CoreAgent):
         self.phases: List[IAgentPhase] = [
             ReadmeGenerationPhase(self.phase_context),
             StructureGenerationPhase(self.phase_context),
+            LogicPlanningPhase(self.phase_context),
             StructurePreReviewPhase(self.phase_context),
             EmptyFileScaffoldingPhase(self.phase_context),
             FileContentGenerationPhase(self.phase_context),
@@ -215,6 +218,7 @@ class AutoAgent(CoreAgent):
             LicenseCompliancePhase(self.phase_context),
             DependencyReconciliationPhase(self.phase_context),
             TestGenerationExecutionPhase(self.phase_context),
+            ExhaustiveReviewRepairPhase(self.phase_context),  # NEW: Comprehensive repair before final reviews
             FinalReviewPhase(self.phase_context),
             IterativeImprovementPhase(self.phase_context),
             ContentCompletenessPhase(self.phase_context),

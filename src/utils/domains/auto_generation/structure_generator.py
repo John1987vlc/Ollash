@@ -60,7 +60,7 @@ class StructureGenerator:
     def _generate_high_level_structure(self, readme_content: str, max_retries: int, template_name: str) -> dict:
         """Generates the high-level (root) folders and files for the project."""
         system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation(
-            readme_content, template_name
+            readme_content
         )
 
         for attempt in range(max_retries):
@@ -93,7 +93,7 @@ class StructureGenerator:
                 if attempt < max_retries - 1:
                     self.logger.info("  Retrying high-level generation with simplified prompt...")
                     system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation_simplified(
-                        readme_content, template_name
+                        readme_content
                     )
                 else:
                     self.logger.error("  All high-level attempts failed.")

@@ -140,7 +140,7 @@ class PostMortemAnalyzer:
 class LearningIndexer:
     """Indexes correction patterns in ChromaDB for semantic retrieval."""
 
-    def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict):
+    def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict = None):
         self.logger = logger
         self.project_root = project_root
         
@@ -150,11 +150,16 @@ class LearningIndexer:
             self.collection = None
             return
 
-        self.client = ChromaClientManager.get_client(settings_manager, project_root)
-        self.collection = self.client.get_or_create_collection(
-            name="correction_patterns",
-            metadata={"hnsw:space": "cosine"},
-        )
+        try:
+            self.client = ChromaClientManager.get_client(settings_manager or {}, project_root)
+            self.collection = self.client.get_or_create_collection(
+                name="correction_patterns",
+                metadata={"hnsw:space": "cosine"},
+            )
+        except Exception as e:
+            self.logger.warning(f"Could not initialize ChromaDB for learning: {e}")
+            self.client = None
+            self.collection = None
 
     def index_pattern(self, pattern: CorrectionPattern):
         """Index a correction pattern for semantic search."""
@@ -240,11 +245,11 @@ Corrected Code:
 class AutomaticLearningSystem:
     """Orchestrates post-mortem analysis and learning."""
 
-    def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict):
+    def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict = None):
         self.logger = logger
         self.project_root = project_root
         self.analyzer = PostMortemAnalyzer(logger, project_root)
-        self.indexer = LearningIndexer(logger, project_root, settings_manager)
+        self.indexer = LearningIndexer(logger, project_root, settings_manager or {})
 
     def process_correction(
         self,

@@ -1,3 +1,4 @@
+import json
 from typing import Dict
 
 from src.utils.core.ollama_client import OllamaClient
@@ -51,8 +52,15 @@ class SeniorReviewer:
         If the initial response is not valid JSON, retries once with a simplified
         prompt to avoid wasting a review attempt with no actionable issues.
         """
+        project_summary = (
+            f"Project Name: {project_name}\n\n"
+            f"Description: {project_description}\n\n"
+            f"README:\n{readme_content}\n\n"
+            f"File Structure:\n{json.dumps(json_structure, indent=2)}\n\n"
+            f"Files:\n" + "\n".join(current_files.keys())
+        )
         system, user = AutoGenPrompts.senior_review_prompt(
-            project_description, project_name, readme_content, json_structure, current_files, review_attempt
+            project_summary
         )
         response_data, _ = self.llm_client.chat(
             messages=[

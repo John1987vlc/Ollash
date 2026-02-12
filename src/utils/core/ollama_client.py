@@ -50,7 +50,7 @@ class OllamaClient:
     def __init__(self, url: str, model: str, timeout: int, logger: AgentLogger, config: Dict, 
                  llm_recorder: LLMRecorder, # NEW
                  model_health_monitor: Optional[ModelHealthMonitor] = None):
-        self.base_url = url.rstrip('/')
+        self.base_url = str(url).rstrip('/')
         self.chat_url = f"{self.base_url}/api/chat"
         self.embed_url = f"{self.base_url}/api/embed"
         self.model = model

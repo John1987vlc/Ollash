@@ -96,6 +96,7 @@ class PhaseContext:
         self.error_knowledge_base = error_knowledge_base
         self.policy_enforcer = policy_enforcer
         self.rag_context_selector = rag_context_selector # NEW
+        self.auto_agent = auto_agent
 
         self.project_planner = project_planner
         self.structure_generator = structure_generator
@@ -115,6 +116,7 @@ class PhaseContext:
         self.current_project_structure: Dict[str, Any] = {}
         self.current_file_paths: List[str] = []
         self.current_readme_content: str = ""
+        self.logic_plan: Dict[str, Dict[str, Any]] = {}  # NEW: Store implementation plans
 
     def update_generated_data(self,
                               generated_files: Dict[str, str],

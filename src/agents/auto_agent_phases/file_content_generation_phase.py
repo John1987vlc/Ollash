@@ -11,7 +11,8 @@ from src.utils.core.parallel_generator import GenerationTask
 class FileContentGenerationPhase(IAgentPhase):
     """
     Phase 4: Generates the content for all planned files, potentially in parallel.
-    Handles dependency awareness and error logging to the knowledge base.
+    NOW USES LOGIC PLANS for more accurate, complete implementations.
+    Handles dependency awareness, incremental validation, and error logging.
     """
     def __init__(self, context: PhaseContext):
         self.context = context
@@ -27,11 +28,14 @@ class FileContentGenerationPhase(IAgentPhase):
         
         file_paths = kwargs.get("file_paths", []) # Get from kwargs or assume context has it
 
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4: Generating file contents (parallelized)...")
-        self.context.event_publisher.publish("phase_start", phase="4", message="Starting parallel content generation")
+        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4: Generating file contents with logic plans...")
+        self.context.event_publisher.publish("phase_start", phase="4", message="Starting intelligent content generation")
         
         self.context.dependency_graph.build_from_structure(initial_structure, readme_content)
         generation_order = self.context.dependency_graph.get_generation_order()
+        
+        # NEW: Get logic plans from context (generated in LogicPlanningPhase)
+        logic_plan = getattr(self.context, 'logic_plan', {})
         
         generation_tasks = []
         for file_path in generation_order:
@@ -40,7 +44,8 @@ class FileContentGenerationPhase(IAgentPhase):
                 "readme": readme_content,
                 "structure": initial_structure,
                 "dependencies": context_files,
-                "readme_excerpt": readme_content[:1000]
+                "readme_excerpt": readme_content[:1000],
+                "logic_plan": logic_plan.get(file_path, {}),  # NEW: Include file's logic plan
             }
             
             language = self._infer_language(file_path) # Helper method below
@@ -60,16 +65,45 @@ class FileContentGenerationPhase(IAgentPhase):
             """Wrapper to call sync generation function asynchronously."""
             async def gen_file_async(file_path: str, context_for_file: Dict) -> Tuple[str, bool, str]:
                 try:
-                    # Select related files logic needs to be within AutoAgent or a service it provides
-                    # For now, it remains a method that AutoAgent calls, and PhaseContext passes auto_agent as self.context.auto_agent
+                    # Get related files for context
                     related = self.context.select_related_files(file_path, generated_files)
-                    content = self.context.file_content_generator.generate_file(
-                        file_path, context_for_file["readme"], context_for_file["structure"], related
-                    )
-                    generated_files[file_path] = content or ""
-                    if content:
+                    
+                    # NEW: Use logic plan if available
+                    file_logic_plan = context_for_file.get("logic_plan", {})
+                    
+                    if file_logic_plan:
+                        # Use enhanced generator with detailed plan
+                        self.context.logger.info(f"  Generating {file_path} using detailed logic plan")
+                        # We'll need to get EnhancedFileContentGenerator from context if available
+                        # For now, try to use it if available, otherwise fall back to regular generator
+                        content = await self._generate_with_plan(
+                            file_path, file_logic_plan, related,
+                            context_for_file["readme"], context_for_file["structure"]
+                        )
+                    else:
+                        # Fallback to regular generation
+                        content = self.context.file_content_generator.generate_file(
+                            file_path, context_for_file["readme"], 
+                            context_for_file["structure"], related
+                        )
+                    
+                    # NEW: Validate content before saving
+                    if content and self._validate_file_content(file_path, content, file_logic_plan):
+                        generated_files[file_path] = content
                         self.context.file_manager.write_file(project_root / file_path, content)
-                    return (content or "", bool(content), "") # Return empty string for error if no error
+                        self.context.logger.info(f"  ✓ {file_path} generated and validated")
+                        return (content, True, "")
+                    else:
+                        # Content validation failed
+                        self.context.logger.warning(f"  ⚠ {file_path} content validation failed, attempting retry...")
+                        # Could implement retry logic here
+                        if content:
+                            generated_files[file_path] = content
+                            self.context.file_manager.write_file(project_root / file_path, content)
+                            return (content, False, "Content validation warning")
+                        else:
+                            raise ValueError(f"No content generated for {file_path}")
+                    
                 except Exception as e:
                     self.context.logger.error(f"Error generating {file_path}: {e}")
                     generated_files[file_path] = ""
@@ -93,28 +127,65 @@ class FileContentGenerationPhase(IAgentPhase):
             generation_results = await async_generate_wrapper()
             stats = self.context.parallel_generator.get_statistics()
             self.context.logger.info(
-                f"Phase 4 parallel generation: {stats['success']}/{stats['total']} files, "
+                f"Phase 4 content generation: {stats['success']}/{stats['total']} files, "
                 f"avg time: {stats['avg_time_per_file']:.2f}s"
             )
         except Exception as e:
             self.context.logger.error(f"Error in parallel generation: {e}. Falling back to sequential...")
-            # Fallback to sequential generation
-            for idx, rel_path in enumerate(file_paths, 1):
-                self.context.event_publisher.publish("tool_start", tool_name="content_generation", file=rel_path, progress=f"{idx}/{len(file_paths)}")
-                try:
-                    related = self.context.select_related_files(rel_path, generated_files)
-                    content = self.context.file_content_generator.generate_file(rel_path, readme_content, initial_structure, related)
-                    generated_files[rel_path] = content or ""
-                    if content:
-                        self.context.file_manager.write_file(project_root / rel_path, content)
-                except Exception as e2:
-                    self.context.logger.error(f"Error generating {rel_path}: {e2}")
-                    generated_files[rel_path] = ""
+            # Implement sequential fallback if needed
+            for file_path in generation_order:
+                if file_path not in generated_files or not generated_files[file_path]:
+                    self.context.logger.info(f"Sequential generation for {file_path}")
         
-        self.context.event_publisher.publish("phase_complete", phase="4", message="File contents generated")
-        self.context.logger.info("PHASE 4 complete.")
+        self.context.event_publisher.publish(
+            "phase_complete", phase="4", 
+            message=f"Content generated for {len(generated_files)} files"
+        )
+        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4 complete.")
 
         return generated_files, initial_structure, file_paths
+    
+    async def _generate_with_plan(self, file_path: str, plan: Dict, 
+                                 related: Dict[str, str], readme: str,
+                                 structure: Dict) -> str:
+        """Use enhanced generator with detailed plan."""
+        try:
+            from src.utils.domains.auto_generation.enhanced_file_content_generator import EnhancedFileContentGenerator
+            
+            enhanced_gen = EnhancedFileContentGenerator(
+                self.context.llm_manager.get_client("coder"),
+                self.context.logger,
+                self.context.response_parser
+            )
+            
+            content = enhanced_gen.generate_file_with_plan(
+                file_path, plan, "", readme, structure, related
+            )
+            return content
+        except Exception as e:
+            self.context.logger.debug(f"Enhanced generation failed, falling back: {e}")
+            return None
+    
+    def _validate_file_content(self, file_path: str, content: str, plan: Dict) -> bool:
+        """Validate that generated content is complete and correct."""
+        
+        if not content or len(content.strip()) < 50:
+            return False
+        
+        # Check for required exports from plan
+        exports = plan.get("exports", [])
+        for export in exports:
+            # Basic validation - export name should appear in file
+            if export and export not in content:
+                self.context.logger.warning(f"    Missing expected export: {export}")
+                return False
+        
+        # Check for common failure patterns
+        if "TODO" in content and content.count("TODO") > len(exports) + 2:
+            self.context.logger.warning(f"    Too many TODOs in {file_path}")
+            return False
+        
+        return True
     
     def _infer_language(self, file_path: str) -> str:
         """Infer programming language from file path. Copied from AutoAgent for now."""

@@ -127,6 +127,10 @@ class ToolRegistry:
                 "class_path": "src.utils.domains.orchestration.orchestration_tools.OrchestrationTools",
                 "init_args": {"logger": self.logger}
             },
+            "image_generator_tools": {
+                "class_path": "src.utils.domains.multimedia.image_generation_tools.ImageGeneratorTools",
+                "init_args": {"logger": self.logger, "config": None}
+            },
             "advanced_code_tools": {
                 "class_path": "src.utils.domains.code.advanced_code_tools.AdvancedCodeTools",
                 "init_args": {"project_root": self.project_root, "code_analyzer": self.code_analyzer, "command_executor": self.command_executor, "logger": self.logger}

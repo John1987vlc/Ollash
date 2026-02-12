@@ -15,6 +15,7 @@ from . import code
 from . import command_line
 from . import cybersecurity
 from . import git
+from . import multimedia
 from . import network
 from . import orchestration
 from . import planning
