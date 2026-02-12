@@ -68,7 +68,7 @@ class ImageGeneratorTools:
             seed = int(time.time() * 1000) % (2**32)
 
         # Determine base_model
-        base_model = "SDXL" if "XL" in model_name else "SD1"
+        base_model = "sd-1" if "XL" not in model_name else "sdxl"
         
         # Build the graph structure
         graph = {
@@ -79,8 +79,11 @@ class ImageGeneratorTools:
                     "id": model_loader_id,
                     "is_intermediate": True,
                     "model": {
-                        "base_model": base_model,
-                        "model_name": model_name
+                        "key": f"sd-1/main/{model_name}",
+                        "hash": "",
+                        "name": model_name,
+                        "base": "sd-1.5",
+                        "type": "main"
                     }
                 },
                 # Positive prompt (CLIP encoder)

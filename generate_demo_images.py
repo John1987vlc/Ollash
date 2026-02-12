@@ -39,9 +39,10 @@ def main():
         "steps": 30,
         "cfg_scale": 7.0,
         "scheduler": "euler",
+        "model_name": "Dreamshaper 8"
     }
     
-    result_1 = generator.generate_image(prompt=prompt_1, model_name="Dreamshaper 8", **params_1)
+    result_1 = generator.generate_image(prompt=prompt_1, **params_1)
     
     if result_1['ok']:
         image_path_1 = result_1['path']
@@ -69,12 +70,12 @@ def main():
         "cfg_scale": 7.5,
         "denoising": 0.6,  # Lower denoising = more faithful to original
         "sampler": "DPM",
+        "model_name": "Dreamshaper 8"
     }
     
     result_2 = generator.generate_image_from_image(
         image_path=image_path_1,
         prompt=prompt_2,
-        model_name="Dreamshaper 8", 
         **params_2
     )
     
