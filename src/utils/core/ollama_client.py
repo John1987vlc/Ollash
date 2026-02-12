@@ -373,8 +373,7 @@ class OllamaClient:
 
         payload = {
             "model": self.embedding_model,
-            "prompt": text,
-            "options": {"num_predict": 1, "keep_alive": "0s"}
+            "input": text,
         }
 
         start_time = time.monotonic()
@@ -390,7 +389,8 @@ class OllamaClient:
                 data = await response.json()
                 embeddings = data.get("embedding")
                 if not embeddings:
-                    raise ValueError("No embedding found in Ollama API response.")
+                    self.logger.error(f"Ollama embedding response structure: {data}")
+                    raise ValueError(f"No embedding found in Ollama API response. Full response: {data}")
                 self._embedding_cache.put(text, embeddings)
                 success = True
                 return embeddings
@@ -422,11 +422,7 @@ class OllamaClient:
 
         payload = {
             "model": self.embedding_model,
-            "prompt": text,
-            "options": {
-                "num_predict": 1, # Only need embedding, not text prediction
-                "keep_alive": "0s"
-            }
+            "input": text,
         }
         start_time = time.monotonic()
         success = False
@@ -447,9 +443,10 @@ class OllamaClient:
 
             data = r.json()
             embeddings = data.get("embedding")
-
+            
             if not embeddings:
-                raise ValueError("No embedding found in Ollama API response.")
+                self.logger.error(f"Ollama embedding response structure: {data}")
+                raise ValueError(f"No embedding found in Ollama API response. Full response: {data}")
 
             # Store in cache
             self._embedding_cache.put(text, embeddings)
@@ -479,7 +476,8 @@ class OllamaClient:
                         data = r.json()
                         embeddings = data.get("embedding")
                         if not embeddings:
-                            raise ValueError("No embedding found in Ollama API response after retry.")
+                            self.logger.error(f"Ollama embedding response after retry: {data}")
+                            raise ValueError(f"No embedding found in Ollama API response after retry. Full response: {data}")
                         success = True
                         return embeddings
                     except Exception as retry_e:

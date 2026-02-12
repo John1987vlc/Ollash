@@ -7,6 +7,7 @@ import chromadb
 from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.agent_logger import AgentLogger
 from src.utils.core.multi_format_ingester import MultiFormatIngester
+from src.utils.core.chroma_manager import ChromaClientManager
 
 
 class DocumentationManager:
@@ -27,7 +28,7 @@ class DocumentationManager:
         self.summaries_dir.mkdir(parents=True, exist_ok=True)
         self.indexed_cache.mkdir(parents=True, exist_ok=True)
 
-        self.chroma_client = chromadb.Client()
+        self.chroma_client = ChromaClientManager.get_client(self.config, self.project_root)
         self.documentation_collection = self.chroma_client.get_or_create_collection(name="documentation_store")
 
         # Embedding client - reuse or create new

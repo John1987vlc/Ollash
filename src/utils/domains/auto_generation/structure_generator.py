@@ -1,5 +1,6 @@
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Any
+import json
 
 from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.agent_logger import AgentLogger
@@ -29,7 +30,8 @@ class StructureGenerator:
         self.parser = response_parser
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def generate(self, readme_content: str, max_retries: int = 3, template_name: str = "default") -> dict:
+    def generate(self, readme_content: str, max_retries: int = 3, template_name: str = "default",
+                 python_version: str = "3.12", license_type: str = "MIT", include_docker: bool = False) -> dict:
         """Generate a JSON project structure from README content using a hierarchical approach.
 
         Includes retry logic and falls back to a basic structure on failure.
@@ -37,10 +39,14 @@ class StructureGenerator:
         self.logger.info("  Starting hierarchical structure generation...")
         
         # Phase 1: Generate high-level structure (root files and top-level folders)
-        high_level_structure = self._generate_high_level_structure(readme_content, max_retries, template_name)
+        high_level_structure = self._generate_high_level_structure(
+            readme_content, max_retries, template_name
+        )
         if not high_level_structure:
             self.logger.error("  Failed to generate high-level structure. Using fallback.")
-            return self.create_fallback_structure(readme_content, template_name)
+            return self.create_fallback_structure(
+                readme_content, template_name, python_version, license_type, include_docker
+            )
 
         # Phase 2: Recursively generate sub-structures for each folder
         final_structure = self._recursively_generate_sub_structure(
@@ -53,7 +59,9 @@ class StructureGenerator:
 
     def _generate_high_level_structure(self, readme_content: str, max_retries: int, template_name: str) -> dict:
         """Generates the high-level (root) folders and files for the project."""
-        system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation(readme_content, template_name)
+        system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation(
+            readme_content, template_name
+        )
 
         for attempt in range(max_retries):
             try:
@@ -76,17 +84,17 @@ class StructureGenerator:
                 structure.setdefault("folders", [])
                 structure.setdefault("files", [])
                 
-                # Basic validation for high-level structure to prevent infinite loops
                 if not structure["folders"] and not structure["files"]:
                     raise ValueError("High-level structure is empty. Rellamando a la funcion para regenerar el JSON de la estructura del proyecto")
 
                 return structure
             except Exception as e:
                 self.logger.error(f"  High-level attempt {attempt + 1} failed: {e}")
-                # Simplificado prompt para el retry si falla
                 if attempt < max_retries - 1:
                     self.logger.info("  Retrying high-level generation with simplified prompt...")
-                    system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation_simplified(readme_content, template_name)
+                    system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation_simplified(
+                        readme_content, template_name
+                    )
                 else:
                     self.logger.error("  All high-level attempts failed.")
                     return {}
@@ -102,7 +110,6 @@ class StructureGenerator:
     ) -> dict:
         """Recursively generates detailed structure for folders within the project."""
         
-        # Deep copy to avoid modifying the original structure during recursion
         detailed_structure = json.loads(json.dumps(current_structure))
 
         for i, folder_data in enumerate(detailed_structure.get("folders", [])):
@@ -116,10 +123,8 @@ class StructureGenerator:
                 )
                 
                 if sub_structure_content:
-                    # Merge the generated sub-structure into the current folder_data
                     folder_data["folders"] = sub_structure_content.get("folders", [])
                     folder_data["files"] = sub_structure_content.get("files", [])
-                    # Recursively process this newly detailed sub-structure
                     detailed_structure["folders"][i] = self._recursively_generate_sub_structure(
                         folder_data, readme_content, max_retries, full_folder_path, template_name
                     )
@@ -137,7 +142,6 @@ class StructureGenerator:
         template_name: str
     ) -> dict:
         """Generates the immediate sub-folders and files for a specific folder path."""
-        # Provide more specific context including the overall structure but focusing on the current folder
         overall_structure_str = json.dumps(overall_structure, indent=2)
         system_prompt, user_prompt = AutoGenPrompts.sub_structure_generation(
             folder_path, readme_content, overall_structure_str, template_name
@@ -160,7 +164,6 @@ class StructureGenerator:
                 if sub_structure is None:
                     raise ValueError("Could not extract valid JSON from sub-structure response")
                 
-                # Ensure it only returns folders and files for the current path, not a full new path field
                 sub_structure.pop("path", None)
                 sub_structure.setdefault("folders", [])
                 sub_structure.setdefault("files", [])
@@ -200,7 +203,6 @@ class StructureGenerator:
             file_path = project_root / current_path / file_name
             file_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # Check for name conflict: if a directory exists with the same name as the file
             if file_path.is_dir():
                 print(f"WARNING: Attempted to create file '{file_path}' but a directory with that name already exists. Skipping file creation.")
                 continue
@@ -217,7 +219,6 @@ class StructureGenerator:
             if folder_name:
                 new_path_full = project_root / current_path / folder_name
                 
-                # Check for name conflict: if a file exists with the same name as the directory
                 if new_path_full.is_file():
                     print(f"WARNING: Attempted to create directory '{new_path_full}' but a file with that name already exists. Skipping directory creation.")
                     continue
@@ -231,11 +232,10 @@ class StructureGenerator:
                 StructureGenerator.create_empty_files(project_root, folder_data, str(new_path_full.relative_to(project_root)))
 
     @staticmethod
-    def create_fallback_structure(readme_content: str, template_name: str = "default") -> dict:
-        """Create a basic fallback project structure when generation fails or a specific template is requested.
-
-        Uses predefined structures based on template_name.
-        """
+    def create_fallback_structure(readme_content: str, template_name: str = "default",
+                                  python_version: str = "3.12", license_type: str = "MIT",
+                                  include_docker: bool = False) -> dict:
+        """Create a basic fallback project structure when generation fails or a specific template is requested."""
         TEMPLATE_FALLBACKS = {
             "default": {
                 "path": "./",
@@ -283,7 +283,6 @@ class StructureGenerator:
             },
         }
 
-        # Return specific template fallback if found, otherwise return default
         if template_name in TEMPLATE_FALLBACKS:
             return TEMPLATE_FALLBACKS[template_name]
         else:

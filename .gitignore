@@ -15,7 +15,7 @@ dist/
 eggs/
 *.egg-info/
 .env/
-venv/
+venv_gemini
 *.egg
 
 # Editors

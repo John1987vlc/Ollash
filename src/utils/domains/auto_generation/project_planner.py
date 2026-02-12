@@ -22,7 +22,9 @@ class ProjectPlanner:
                         python_version: str = "3.12", license_type: str = "MIT",
                         include_docker: bool = False) -> str:
         """Generate a comprehensive README.md from a project description."""
-        system, user = AutoGenPrompts.readme_generation(project_description)
+        system, user = AutoGenPrompts.readme_generation(
+            project_description, template_name, python_version, license_type, include_docker
+        )
         response_data, usage = self.llm_client.chat(
             messages=[
                 {"role": "system", "content": system},

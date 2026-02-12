@@ -274,6 +274,104 @@ class AutoGenPrompts:
         return system, user
     
     @staticmethod
+    def file_content_generation(file_path: str, readme_content: str, json_structure: dict, related_files: Dict[str, str]) -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for generating file content."""
+        related_files_context = _format_related_files(related_files)
+        tech_summary = _detect_project_technologies(readme_content)
+
+        system = (
+            "You are an expert programmer. Your task is to generate the complete, "
+            "functional source code for a given file path based on the project context. "
+            "The project can be of ANY type. The code MUST be complete and production-ready.\n"
+            "Output ONLY the raw file content. Do NOT include markdown fences, "
+            "explanations, or any other prose. Start directly with the first line of the file."
+        )
+        user = (
+            f"Generate the complete source code for the following file: {file_path}\n\n"
+            f"{tech_summary}\n\n"
+            f"Project README:\n{readme_content}\n\n"
+            f"Overall Project Structure:\n{json.dumps(json_structure, indent=2)}\n"
+            f"{related_files_context}\n\n"
+            "Requirements:\n"
+            "- The code must be complete, functional, and production-ready.\n"
+            "- Implement all functions, classes, and logic based on the file's purpose within the project.\n"
+            "- Do not use placeholder comments like '// TODO' or '...'.\n"
+            "- Adhere to best practices for the detected programming language.\n"
+            "- Ensure the code is consistent with the overall project structure and other files.\n"
+            "- Output ONLY the raw file content, nothing else.\n"
+            "- Do NOT wrap in markdown code blocks."
+        )
+        return system, user
+
+    @staticmethod
+    def file_refinement(file_path: str, current_content: str, readme_excerpt: str) -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for refining a file."""
+        system = (
+            "You are a senior developer tasked with refining a file. "
+            "Review the code for correctness, completeness, and adherence to best practices. "
+            "Output ONLY the complete, corrected raw file content. "
+            "No markdown fences. No explanation."
+        )
+        user = (
+            f"Refine the following file: {file_path}\n\n"
+            f"Current content:\n```\n{current_content}\n```\n\n"
+            f"Project context:\n{readme_excerpt}\n\n"
+            "Requirements:\n"
+            "- Improve the code quality, clarity, and performance.\n"
+            "- Fix any potential bugs or logical errors.\n"
+            "- Ensure the code is complete and functional.\n"
+            "- Output ONLY the complete refined raw file content, nothing else."
+        )
+        return system, user
+
+    @staticmethod
+    def file_refinement_with_issues(file_path: str, current_content: str, readme_excerpt: str, issues: List[Dict]) -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for refining a file based on issues."""
+        issues_str = "\n".join([
+            f"- {issue['severity'].upper()}: {issue['description']} (Recommendation: {issue['recommendation']})"
+            for issue in issues
+        ])
+        system = (
+            f"You are fixing code in: {file_path} based on a list of issues.\n"
+            "Output ONLY the complete corrected raw file content. "
+            "No markdown fences. No explanation."
+        )
+        user = (
+            f"The following file has issues that need to be addressed. Analyze the issues and "
+            f"output the COMPLETE corrected file content to resolve them.\n\n"
+            f"File: {file_path}\n\n"
+            f"Issues to address:\n{issues_str}\n\n"
+            f"Current content:\n```\n{current_content}\n```\n\n"
+            f"Project context:\n{readme_excerpt}\n\n"
+            "Requirements:\n"
+            "- Address ALL listed issues.\n"
+            "- Ensure the corrected code is syntactically correct and adheres to best practices.\n"
+            "- Output ONLY the complete corrected raw file content, nothing else."
+        )
+        return system, user
+
+    @staticmethod
+    def file_fix(file_path: str, current_content: str, error_message: str) -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for fixing a file based on an error."""
+        system = (
+            f"You are fixing a syntax or logical error in: {file_path}.\n"
+            "Output ONLY the complete corrected raw file content. "
+            "No markdown fences. No explanation."
+        )
+        user = (
+            f"The following file has an error. Analyze the error and "
+            f"output the COMPLETE corrected file content to resolve it.\n\n"
+            f"File: {file_path}\n\n"
+            f"Error message:\n```\n{error_message}\n```\n\n"
+            f"Current content:\n```\n{current_content}\n```\n\n"
+            "Requirements:\n"
+            "- Fix the specified error.\n"
+            "- Ensure the corrected code is syntactically correct and adheres to best practices.\n"
+            "- Output ONLY the complete corrected raw file content, nothing else."
+        )
+        return system, user
+
+    @staticmethod
     def generate_unit_tests(file_path: str, content: str, readme_context: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for generating unit tests."""
         system = (

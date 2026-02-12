@@ -408,6 +408,10 @@ class PolicyEnforcer:
 
         return allowed, reason
 
+    def is_license_compliant(self, file_path: str) -> bool:
+        """Placeholder for license compliance check."""
+        return True
+
     def authorize_delete(self, file_path: str) -> Tuple[bool, str]:
         """Authorize a file deletion."""
         allowed, reason = self.profile_manager.check_operation(

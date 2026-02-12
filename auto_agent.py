@@ -32,7 +32,7 @@ def main():
     args = parser.parse_args()
 
     agent = AutoAgent(config_path=args.config)
-    path = agent.create_project(args.description, args.name, args.refine_loops)
+    path = agent.run(args.description, project_name=args.name, num_refine_loops=args.refine_loops)
 
     print(f"\n{'=' * 60}")
     print(f"Autonomous project creation finished")

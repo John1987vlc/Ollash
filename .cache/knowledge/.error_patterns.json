@@ -1,0 +1,22 @@
+{
+  "saved_at": "2026-02-12T19:26:36.513159",
+  "patterns": {
+    "486535486817": {
+      "pattern_id": "486535486817",
+      "error_type": "generation_failure",
+      "affected_file_type": ".html",
+      "description": "Error in index.html: type object 'AutoGenPrompts' has no attribute 'file_content_generation'",
+      "example_error": "type object 'AutoGenPrompts' has no attribute 'file_content_generation'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 6,
+      "severity": "medium",
+      "last_encountered": "2026-02-12T19:26:36.513159",
+      "tags": [
+        "generation_failure",
+        "type"
+      ]
+    }
+  }
+}

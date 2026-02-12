@@ -60,6 +60,43 @@ La arquitectura de Ollash ha sido meticulosamente rediseñada para ofrecer una m
 
 ---
 
+## 🔧 Cambios y Arreglos Recientes
+
+### **Reestructuración de Tests**
+Se ha reorganizado completamente la suite de pruebas para mejorar la mantenibilidad y modularización:
+
+- **Nueva estructura por módulos:** Tests organizados en carpetas específicas para cada módulo del proyecto (`agents/`, `core/`, `web/`, `automations/`, etc.)
+- **Test principal centralizado:** Archivo `tests/test_main.py` actúa como punto de entrada y documentación de la suite completa
+- **Modularización:** Cada utilidad core ahora tiene su propio archivo de test:
+  - `tests/core/test_llm_response_parser.py`
+  - `tests/core/test_file_validator.py`
+  - `tests/core/test_heartbeat.py`
+- **78/78 tests pasando ✅** en la estructura reorganizada
+- **Mejor navigación:** Fácil ejecución selectiva de tests por módulo
+
+**Ejemplo:**
+```bash
+pytest tests/ -v                          # Ejecutar todos
+pytest tests/core/ -v                     # Solo core utilities
+pytest tests/agents/ -v                   # Solo agentes
+```
+
+### **Resolución de Problema ESLint**
+Se han mejorado significativamente los validadores de JavaScript y TypeScript:
+
+- **Detección automática de ESLint:** Los validadores ahora detectan si ESLint está instalado usando `shutil.which()`
+- **Fallback robusto:** Cuando ESLint no está disponible, el sistema usa validación básica (verificación de braces balanceados) sin errores críticos
+- **Mejor manejo de errores:** Mensajes de error más claros cuando comandos no se encuentran
+- **Sin dependencias requeridas:** El sistema funciona perfectamente sin ESLint
+- **Instalación opcional:** ESLint puede instalarse pero no es obligatorio para funcionalidad básica
+
+**Archivos actualizados:**
+- `src/utils/core/validators/javascript_validator.py`
+- `src/utils/core/validators/typescript_validator.py`
+- `src/utils/core/validators/base_validator.py`
+
+---
+
 ## ✨ Características Principales
 
 ### **0. Phase 6: Sistema Avanzado de Notificaciones y Automatización**

@@ -133,6 +133,15 @@ class BaseValidator:
             return ValidationResult(file_path, ValidationStatus.VALID, success_message, lines, chars)
         else:
             error_message = result.stderr.strip() or result.stdout.strip()
+            
+            # Check if command not found
+            if "not found" in error_message.lower() or "is not recognized" in error_message.lower() or \
+               "no such file or directory" in error_message.lower():
+                return ValidationResult(
+                    file_path, ValidationStatus.SYNTAX_ERROR,
+                    f"Linter command not found: {command[0]}. " + error_message, lines, chars
+                )
+            
             if error_message:
                 parsed_errors = []
                 clean_error_message = []

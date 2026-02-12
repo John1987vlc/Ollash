@@ -16,11 +16,11 @@ from dataclasses import dataclass
 
 try:
     import chromadb
-    from chromadb.config import Settings
 except ImportError:
     chromadb = None
 
 from src.utils.core.agent_logger import AgentLogger
+from src.utils.core.chroma_manager import ChromaClientManager
 
 
 @dataclass
@@ -140,24 +140,17 @@ class PostMortemAnalyzer:
 class LearningIndexer:
     """Indexes correction patterns in ChromaDB for semantic retrieval."""
 
-    def __init__(self, logger: AgentLogger, project_root: Path):
+    def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict):
         self.logger = logger
         self.project_root = project_root
-        self.db_path = project_root / ".ollash" / "learning_db"
-        self.db_path.mkdir(parents=True, exist_ok=True)
-
+        
         if chromadb is None:
             self.logger.warning("ChromaDB not available for learning indexing")
             self.client = None
             self.collection = None
             return
 
-        settings = Settings(
-            chroma_db_impl="duckdb+parquet",
-            persist_directory=str(self.db_path),
-            anonymized_telemetry=False,
-        )
-        self.client = chromadb.Client(settings)
+        self.client = ChromaClientManager.get_client(settings_manager, project_root)
         self.collection = self.client.get_or_create_collection(
             name="correction_patterns",
             metadata={"hnsw:space": "cosine"},
@@ -247,11 +240,11 @@ Corrected Code:
 class AutomaticLearningSystem:
     """Orchestrates post-mortem analysis and learning."""
 
-    def __init__(self, logger: AgentLogger, project_root: Path):
+    def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict):
         self.logger = logger
         self.project_root = project_root
         self.analyzer = PostMortemAnalyzer(logger, project_root)
-        self.indexer = LearningIndexer(logger, project_root)
+        self.indexer = LearningIndexer(logger, project_root, settings_manager)
 
     def process_correction(
         self,

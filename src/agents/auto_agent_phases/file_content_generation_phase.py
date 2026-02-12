@@ -5,6 +5,7 @@ import asyncio
 from src.interfaces.iagent_phase import IAgentPhase
 from src.agents.auto_agent_phases.phase_context import PhaseContext
 from src.utils.domains.auto_generation.structure_generator import StructureGenerator # For extract_file_paths
+from src.utils.core.parallel_generator import GenerationTask
 
 
 class FileContentGenerationPhase(IAgentPhase):
