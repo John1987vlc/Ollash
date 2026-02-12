@@ -1095,3 +1095,141 @@ input:checked + .slider:before {
         max-height: 80vh;
     }
 }
+
+/* ==================== Phase Timeline Component ==================== */
+.phase-timeline-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: var(--spacing-lg) var(--spacing-xl);
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-lg);
+    overflow-x: auto; /* Allow scrolling if many phases */
+}
+
+.phase-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    flex-shrink: 0;
+    padding: 0 var(--spacing-md);
+    text-align: center;
+}
+
+.phase-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 20px; /* Aligns with the middle of the circle */
+    left: calc(50% + 20px); /* Starts after the circle */
+    right: calc(-50% + 20px); /* Ends before the next circle */
+    height: 2px;
+    background: var(--color-border);
+    z-index: 0;
+}
+
+.phase-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    font-size: 1.1rem;
+    position: relative;
+    z-index: 1;
+    transition: all 0.2s ease;
+}
+
+.phase-label {
+    margin-top: var(--spacing-sm);
+    font-size: 0.8rem;
+    color: var(--color-text-subtle);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Status styles */
+.phase-step.current .phase-circle {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+    box-shadow: 0 0 10px rgba(99,102,241,0.5);
+    transform: scale(1.1);
+}
+.phase-step.current .phase-label {
+    color: var(--color-primary);
+}
+
+.phase-step.completed .phase-circle {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    color: white;
+}
+.phase-step.completed .phase-label {
+    color: var(--color-success);
+}
+.phase-step.completed:not(:last-child)::after {
+    background: var(--color-success);
+}
+
+.phase-step.error .phase-circle {
+    background: var(--color-error);
+    border-color: var(--color-error);
+    color: white;
+}
+.phase-step.error .phase-label {
+    color: var(--color-error);
+}
+
+.phase-step.pending .phase-circle {
+    background: var(--color-surface-elevated);
+    border-color: var(--color-border);
+    color: var(--color-text-muted);
+}
+.phase-step.pending .phase-label {
+    color: var(--color-text-subtle);
+}
+
+/* Xterm.js Terminal Styling */
+#terminal-container {
+    padding: var(--spacing-sm);
+    background: #000; /* Black background for terminal */
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+}
+
+.xterm .xterm-viewport {
+    /* Hide scrollbar, xterm has its own */
+    overflow-y: hidden;
+}
+
+.xterm-theme {
+    /* Define a dark theme for xterm */
+    --background: #000;
+    --foreground: #F8F8F8;
+    --selectionBackground: #5F5F5F;
+    --black: #000000;
+    --red: #CD0000;
+    --green: #00CD00;
+    --yellow: #CDCD00;
+    --blue: #0000EE;
+    --magenta: #CD00CD;
+    --cyan: #00CDCD;
+    --white: #E5E5E5;
+    --brightBlack: #7F7F7F;
+    --brightRed: #FF0000;
+    --brightGreen: #00FF00;
+    --brightYellow: #FFFF00;
+    --brightBlue: #5C5CFF;
+    --brightMagenta: #FF00FF;
+    --brightCyan: #00FFFF;
+    --brightWhite: #FFFFFF;
+}

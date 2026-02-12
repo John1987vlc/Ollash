@@ -27,10 +27,10 @@ class TestAutoAgentInitialization:
 
         from src.agents.auto_agent import AutoAgent
         agent = AutoAgent(config_path=str(config_dir / "settings.json"))
-        assert len(agent.llm_clients) == 10
-        assert "prototyper" in agent.llm_clients
-        assert "coder" in agent.llm_clients
-        assert "planner" in agent.llm_clients
+        assert len(agent.llm_manager.llm_clients) == 12
+        assert "prototyper" in agent.llm_manager.llm_clients
+        assert "coder" in agent.llm_manager.llm_clients
+        assert "planner" in agent.llm_manager.llm_clients
 
     def test_init_uses_env_var_url(self, tmp_path, monkeypatch):
         monkeypatch.setenv("OLLASH_OLLAMA_URL", "http://custom:11434")
@@ -44,7 +44,7 @@ class TestAutoAgentInitialization:
 
         from src.agents.auto_agent import AutoAgent
         agent = AutoAgent(config_path=str(config_dir / "settings.json"))
-        assert agent.url == "http://custom:11434"
+        assert agent.llm_manager.ollama_url == "http://custom:11434"
 
 
 class TestLLMResponseParserIntegration:

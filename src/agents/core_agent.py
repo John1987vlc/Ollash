@@ -8,6 +8,7 @@ from typing import Dict, List, Tuple, Optional, Any
 from src.utils.core.ollama_client import OllamaClient
 from src.utils.core.agent_logger import AgentLogger
 from src.utils.core.token_tracker import TokenTracker
+from src.utils.core.llm_recorder import LLMRecorder
 from src.utils.core.llm_response_parser import LLMResponseParser
 from src.utils.core.command_executor import CommandExecutor
 from src.utils.core.file_validator import FileValidator
@@ -25,6 +26,10 @@ from src.utils.core.benchmark_model_selector import (
 )
 from src.utils.core.permission_profiles import PermissionProfileManager, PolicyEnforcer
 from src.utils.core.automatic_learning import AutomaticLearningSystem
+from src.utils.core.model_health_monitor import ModelHealthMonitor
+from src.utils.core.cross_reference_analyzer import CrossReferenceAnalyzer # NEW
+from src.services.llm_manager import LLMClientManager
+from src.core.kernel import AgentKernel
 
 
 class CoreAgent(ABC):
@@ -33,21 +38,7 @@ class CoreAgent(ABC):
     LLM client management, logging, command execution, and file handling.
     """
 
-    # Common LLM roles and their default models/timeouts
-    LLM_ROLES = [
-        ("prototyper", "prototyter_model", "gpt-oss:20b", 600),
-        ("coder", "coder_model", "qwen3-coder:30b", 480),
-        ("planner", "planner_model", "ministral-3:14b", 900),
-        ("generalist", "generalist_model", "ministral-3:8b", 300),
-        ("suggester", "suggester_model", "ministral-3:8b", 300),
-        ("improvement_planner", "improvement_planner_model", "ministral-3:14b", 900),
-        ("test_generator", "test_generator_model", "qwen3-coder:30b", 480),
-        ("senior_reviewer", "senior_reviewer_model", "ministral-3:14b", 900),
-        ("orchestration", "orchestration_model", "ministral-3:8b", 300), # Added orchestration role
-        ("analyst", "analyst_model", "ministral-3:14b", 600),  # NEW: Synthesis, key insights
-        ("writer", "writer_model", "ministral-3:8b", 450),     # NEW: Narratives, formatting, tone
-        ("default", "default_model", "qwen3-coder-next:14b", 600), # For DefaultAgent, generic tasks
-    ]
+
 
     # File categories for intelligent context selection
     _FRONTEND_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte", ".html", ".css", ".scss", ".less"}
@@ -139,18 +130,13 @@ class CoreAgent(ABC):
         "unique", "unsafe", "weak",
     }
 
-    def __init__(self, config_path: str = "config/settings.json", ollash_root_dir: Optional[Path] = None, logger_name: str = "CoreAgent"):
-        with open(config_path, "r") as f:
-            self.config = json.load(f)
+    def __init__(self, kernel: AgentKernel, logger_name: str = "CoreAgent", llm_manager: LLMClientManager = None, llm_recorder: LLMRecorder = None):
+        self.kernel = kernel
+        self.ollash_root_dir = self.kernel.ollash_root_dir
+        self.config = self.kernel.get_full_config() # Use kernel's config
+        self.logger = self.kernel.get_logger() # Use kernel's logger
+        self.llm_recorder = llm_recorder if llm_recorder else LLMRecorder(logger=self.logger) # Initialize if not provided
 
-        self.ollash_root_dir = ollash_root_dir if ollash_root_dir else Path(os.getcwd())
-        log_file_path = self.ollash_root_dir / "logs" / f"{logger_name.lower()}.log"
-
-        self.url = os.environ.get(
-            "OLLASH_OLLAMA_URL",
-            self.config.get("ollama_url", "http://localhost:11434"),
-        )
-        self.logger = AgentLogger(log_file=str(log_file_path), logger_name=logger_name)
         self.token_tracker = TokenTracker()
         self.response_parser = LLMResponseParser()
         
@@ -164,9 +150,22 @@ class CoreAgent(ABC):
         self.documentation_manager = DocumentationManager(
             project_root=self.ollash_root_dir,
             logger=self.logger,
+            llm_recorder=self.llm_recorder, # Pass llm_recorder
             config=self.config
         )
         self.event_publisher = EventPublisher()
+        self.cross_reference_analyzer = CrossReferenceAnalyzer(
+            project_root=self.ollash_root_dir,
+            logger=self.logger,
+            config=self.config,
+            llm_recorder=self.llm_recorder,
+        )
+        self.cross_reference_analyzer = CrossReferenceAnalyzer(
+            project_root=self.ollash_root_dir,
+            logger=self.logger,
+            config=self.config,
+            llm_recorder=self.llm_recorder,
+        )
 
         # Initialize new architectural modules (6 improvements)
         self.dependency_scanner = DependencyScanner(logger=self.logger)
@@ -176,34 +175,44 @@ class CoreAgent(ABC):
         )
         self.rate_limiter = ConcurrentGPUAwareRateLimiter(
             logger=self.logger,
-            gpu_memory_mb=self.config.get("gpu_memory_mb", 8000),
-            max_concurrent_requests=self.config.get("max_concurrent_requests", 3),
         )
-        self.session_resource_manager = SessionResourceManager(
-            logger=self.logger,
-            rate_limiter_config={
-                "gpu_memory_mb": self.config.get("gpu_memory_mb", 8000),
-                "max_concurrent_requests": self.config.get("max_concurrent_requests", 3),
-            },
-        )
+        self.session_resource_manager = SessionResourceManager()
         self.benchmark_selector = AutoModelSelector(
             logger=self.logger,
             benchmark_dir=self.ollash_root_dir / ".ollash" / "benchmarks",
         )
-        self.permission_manager = PermissionProfileManager(logger=self.logger)
-        self.policy_enforcer = PolicyEnforcer(
-            active_profile=self.permission_manager.get_profile("developer"),
+        self.permission_manager = PermissionProfileManager(
             logger=self.logger,
+            project_root=self.ollash_root_dir,
         )
+        self.policy_enforcer = PolicyEnforcer(
+            profile_manager=self.permission_manager,
+            logger=self.logger,
+            tool_settings_config=self.kernel.get_tool_settings_config(), # NEW
+        )
+        self.policy_enforcer.set_active_profile("developer") # Set active profile after initialization
         self.learning_system = AutomaticLearningSystem(
             logger=self.logger,
             project_root=self.ollash_root_dir,
         )
+        if llm_manager:
+            self.llm_manager = llm_manager
+        else:
+            self.llm_manager = LLMClientManager(
+                self.kernel.get_llm_models_config(),
+                self.kernel.get_tool_settings_config(), # NEW
+                self.logger,
+                self.ollash_root_dir,
+                session_resource_manager=self.session_resource_manager,
+                benchmark_selector=self.benchmark_selector,
+                llm_recorder=self.llm_recorder,
+                model_health_monitor=ModelHealthMonitor(
+                    logger=self.logger,
+                    config=self.config,
+                )
+            )
 
-        self.llm_clients: Dict[str, OllamaClient] = {}
-        self._initialize_llm_clients()
-
-        self.logger.info(f"{logger_name} initialized with 6 architectural improvements.")
+        self.logger.info(f"{logger_name} initialized with 6 architectural improvements and external LLM management.")
         self.logger.info(
             f"  ✓ DependencyScanner (multi-language desoupling)"
         )
@@ -223,39 +232,7 @@ class CoreAgent(ABC):
             f"  ✓ AutomaticLearningSystem (post-mortem pattern capture)"
         )
 
-    def _initialize_llm_clients(self):
-        """Create OllamaClient instances for each specialized LLM role.
-        
-        Uses BenchmarkModelSelector for auto-optimization if benchmark data exists,
-        otherwise falls back to configured defaults.
-        """
-        llm_config = self.config.get("auto_agent_llms", {})
-        timeout_config = self.config.get("auto_agent_timeouts", {})
 
-        # Try to integrate benchmark results for model optimization
-        optimized_config = self.benchmark_selector.generate_optimized_config()
-        if optimized_config:
-            self.logger.info("🎯 Applying benchmark-optimized model configuration")
-            llm_config.update(optimized_config)
-
-        for role, model_key, default_model, default_timeout in self.LLM_ROLES:
-            model = llm_config.get(model_key, default_model)
-            timeout = timeout_config.get(role, default_timeout)
-
-            # Initialize with GPU rate limiting
-            session_id = f"role_{role}"
-            rate_limiter = self.session_resource_manager.get_limiter(session_id)
-
-            self.llm_clients[role] = OllamaClient(
-                url=self.url,
-                model=model,
-                timeout=timeout,
-                logger=self.logger,
-                config=self.config,
-            )
-            self.logger.info(f"  {role:20} → {model:30} (timeout: {timeout}s)")
-
-        self.logger.info("CoreAgent LLM clients initialized.")
 
     @staticmethod
     def _save_file(file_path: Path, content: str):

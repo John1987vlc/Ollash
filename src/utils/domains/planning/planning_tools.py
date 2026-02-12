@@ -1,57 +1,77 @@
-from typing import List, Dict, Any, Optional
-from datetime import datetime
-from colorama import Fore, Style
-import json
-from pathlib import Path
-
+import asyncio
+from typing import Any, Dict, List, Optional
+from pathlib import Path # Added
 from src.utils.core.tool_decorator import ollash_tool
 
 class PlanningTools:
+    """
+    A collection of tools related to planning, agent orchestration, and asynchronous task management.
+    """
     def __init__(self, logger: Any, project_root: Path, agent_instance: Any):
         self.logger = logger
         self.project_root = project_root
-        self.agent = agent_instance # Store reference to the DefaultAgent instance
+        self.agent_instance = agent_instance # Used for delegating tool execution
 
     @ollash_tool(
         name="plan_actions",
-        description="Display and return the action plan for a given goal.",
+        description="Create a step-by-step plan before taking actions. ALWAYS use this first.",
         parameters={
-            "goal": {"type": "string", "description": "The main objective."},
-            "steps": {"type": "array", "description": "A list of steps to achieve the goal.", "items": {"type": "string"}},
-            "requires_confirmation": {"type": "boolean", "description": "Whether the plan requires user confirmation before execution."},
+            "goal": {"type": "string", "description": "Main objective to accomplish"},
+            "steps": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Detailed list of steps to accomplish the goal"
+            },
+            "requires_confirmation": {
+                "type": "boolean",
+                "description": "Whether this plan requires user confirmation before execution"
+            }
         },
+        required=["goal", "steps"],
         toolset_id="planning_tools",
-        agent_types=["orchestrator", "planner"],
-        required=["goal", "steps"]
+        agent_types=["orchestrator"]
     )
-    def plan_actions(self, goal: str, steps: List[str], requires_confirmation: bool = False):
-        """Display and return the action plan"""
-        plan = {
-            "goal": goal,
-            "steps": steps,
-            "requires_confirmation": requires_confirmation,
-            "created_at": datetime.now().isoformat()
-        }
-        
-        self.logger.info(f"\n{Fore.CYAN}{'='*60}")
-        self.logger.info("📋 ACTION PLAN")
-        self.logger.info(f"{'='*60}{Style.RESET_ALL}")
-        self.logger.info(f"🎯 Goal: {Fore.WHITE}{goal}{Style.RESET_ALL}")
-        self.logger.info(f"\n📝 Steps ({len(steps)}):")
-        for i, step in enumerate(steps, 1):
-            self.logger.info(f"  {Fore.YELLOW}{i}.{Style.RESET_ALL} {step}")
-        self.logger.info(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}\n")
-        
-        self.logger.info(f"Plan created: {goal}")
-        for i, step in enumerate(steps, 1):
-            self.logger.debug(f"  Step {i}: {step}")
+    def plan_actions(self, goal: str, steps: List[str], requires_confirmation: bool = False) -> Dict:
+        """
+        Creates a step-by-step plan for the agent to follow.
+        """
+        self.logger.info(f"Agent planning actions for goal: {goal}")
+        for i, step in enumerate(steps):
+            self.logger.info(f"Step {i+1}: {step}")
         
         return {
             "ok": True,
-            "goal": goal,
-            "steps": steps,
-            "plan_displayed": True,
-            "plan_data": plan # Return the full plan data
+            "result": {
+                "message": "Plan created successfully.",
+                "goal": goal,
+                "steps": steps,
+                "requires_confirmation": requires_confirmation
+            }
+        }
+
+    @ollash_tool(
+        name="select_agent_type",
+        description="Switches the agent's active persona and toolset to a specialized domain (e.g., 'code', 'system', 'network', 'cybersecurity', 'orchestrator'). This is a meta-tool for agent self-modification.",
+        parameters={
+            "agent_type": {"type": "string", "enum": ["orchestrator", "code", "network", "system", "cybersecurity", "bonus"], "description": "The type of specialized agent to switch to."},
+            "reason": {"type": "string", "description": "Explanation for why the agent type switch is necessary."}
+        },
+        required=["agent_type", "reason"],
+        toolset_id="planning_tools",
+        agent_types=["orchestrator"]
+    )
+    def select_agent_type(self, agent_type: str, reason: str) -> Dict:
+        """
+        Allows the orchestrator agent to switch to a specialized agent type.
+        This tool is handled internally by the agent to change its context and available tools.
+        """
+        self.logger.info(f"Agent requesting switch to agent type: {agent_type} because {reason}")
+        # This tool's actual logic (changing agent type) is handled by the calling agent (DefaultAgent)
+        return {
+            "ok": True,
+            "result": {
+                "message": f"Agent switch requested to {agent_type} for reason: {reason}. This action is handled internally by the agent."
+            }
         }
 
     @ollash_tool(
@@ -59,78 +79,73 @@ class PlanningTools:
         description="Submits a tool for asynchronous execution and returns a task ID.",
         parameters={
             "tool_name": {"type": "string", "description": "The name of the tool to execute asynchronously."},
+            "kwargs": {"type": "object", "description": "The keyword arguments to pass to the tool."}
         },
+        required=["tool_name"],
         toolset_id="planning_tools",
-        agent_types=["orchestrator"],
-        required=["tool_name"]
+        agent_types=["orchestrator"] # Orchestrator can initiate async tasks
     )
-    def run_async_tool(self, tool_name: str, **kwargs: Any) -> Dict[str, Any]:
+    async def run_async_tool(self, tool_name: str, kwargs: Dict = None) -> Dict:
         """
-        Submits a tool for asynchronous execution and returns a task ID.
+        Submits a tool to the asynchronous executor.
         """
-        try:
-            tool_func = self.agent._get_tool_from_toolset(tool_name)
-            task_id = self.agent.async_tool_executor.submit(tool_func, **kwargs)
-            return {"ok": True, "task_id": task_id, "status": "submitted"}
-        except (ValueError, AttributeError) as e:
-            self.logger.error(f"Error submitting async tool {tool_name}: {e}")
-            return {"ok": False, "error": str(e)}
+        if kwargs is None:
+            kwargs = {}
+        self.logger.info(f"Submitting tool '{tool_name}' for async execution with args: {kwargs}")
+        
+        # Delegate to the agent's async_tool_executor
+        if hasattr(self.agent_instance, 'async_tool_executor') and self.agent_instance.async_tool_executor:
+            # The async_tool_executor expects a tool_call dict, not individual name/kwargs
+            tool_call_dict = {"function": {"name": tool_name, "arguments": kwargs}}
+            task_id = await self.agent_instance.async_tool_executor.submit_single_tool_call(tool_call_dict)
+            return {
+                "ok": True,
+                "result": {
+                    "message": f"Tool '{tool_name}' submitted for async execution.",
+                    "task_id": task_id
+                }
+            }
+        else:
+            self.logger.error("AsyncToolExecutor not available on agent instance.")
+            return {
+                "ok": False,
+                "result": {
+                    "error": "Asynchronous tool executor not initialized."
+                }
+            }
 
     @ollash_tool(
         name="check_async_task_status",
         description="Checks the status of an asynchronous task by its ID.",
         parameters={
-            "task_id": {"type": "string", "description": "The ID of the task to check."},
+            "task_id": {"type": "string", "description": "The ID of the task to check."}
         },
+        required=["task_id"],
         toolset_id="planning_tools",
-        agent_types=["orchestrator"],
-        required=["task_id"]
+        agent_types=["orchestrator"]
     )
-    def check_async_task_status(self, task_id: str) -> Dict[str, Any]:
+    async def check_async_task_status(self, task_id: str) -> Dict:
         """
-        Checks the status of an asynchronous task by its ID.
+        Checks the status of a previously submitted asynchronous task.
         """
-        status = self.agent.async_tool_executor.get_status(task_id)
-        return {"ok": True, **status}
-
-    @ollash_tool(
-        name="set_user_preference",
-        description="Sets a preference value for the user.",
-        parameters={
-            "key": {"type": "string", "description": "The preference key."},
-            "value": {"type": "string", "description": "The preference value."},
-        },
-        toolset_id="planning_tools",
-        agent_types=["orchestrator"],
-        required=["key", "value"]
-    )
-    def set_user_preference(self, key: str, value: Any) -> Dict[str, Any]:
-        """Sets a user preference."""
-        try:
-            self.agent.memory_manager.get_preference_manager().set(key, value)
-            self.logger.info(f"Set user preference '{key}' to '{value}'")
-            return {"ok": True, "key": key, "value": value}
-        except Exception as e:
-            self.logger.error(f"Failed to set user preference '{key}': {e}")
-            return {"ok": False, "error": str(e)}
-
-    @ollash_tool(
-        name="get_user_preference",
-        description="Gets a preference value for the user.",
-        parameters={
-            "key": {"type": "string", "description": "The preference key."},
-            "default": {"type": "string", "description": "The default value if the key is not found."},
-        },
-        toolset_id="planning_tools",
-        agent_types=["orchestrator"],
-        required=["key"]
-    )
-    def get_user_preference(self, key: str, default: Any = None) -> Dict[str, Any]:
-        """Gets a user preference."""
-        try:
-            value = self.agent.memory_manager.get_preference_manager().get(key, default)
-            return {"ok": True, "key": key, "value": value}
-        except Exception as e:
-            self.logger.error(f"Failed to get user preference '{key}': {e}")
-            return {"ok": False, "error": str(e)}
-
+        self.logger.info(f"Checking status for async task ID: {task_id}")
+        
+        if hasattr(self.agent_instance, 'async_tool_executor') and self.agent_instance.async_tool_executor:
+            status = await self.agent_instance.async_tool_executor.get_task_status(task_id)
+            return {
+                "ok": True,
+                "result": {
+                    "task_id": task_id,
+                    "status": status.get('status'),
+                    "output": status.get('output'),
+                    "error": status.get('error')
+                }
+            }
+        else:
+            self.logger.error("AsyncToolExecutor not available on agent instance.")
+            return {
+                "ok": False,
+                "result": {
+                    "error": "Asynchronous tool executor not initialized."
+                }
+            }

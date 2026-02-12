@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const refactorCodeBtn = document.getElementById('refactor-code-btn');
     const phaseTimelineContainer = document.getElementById('phase-timeline-container');
     const phaseSteps = document.querySelectorAll('.phase-step');
+    const terminalTab = document.querySelector('[data-tab="terminal"]');
+    const terminalTabContent = document.getElementById('terminal-tab');
+    const terminalContainer = document.getElementById('terminal-container');
 
 
     // New DOM elements for structure editor
@@ -83,6 +86,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let monacoModel; // Current Monaco Editor model
     let monacoDecorations = []; // Decorations for highlighting lines
 
+    // Xterm.js instance
+    let term;
+    let fitAddon;
+    let currentCommand = '';
+    const prompt = '\x1b[1;34m$ \x1b[0m'; // Blue dollar sign prompt
+
     // Helper to update visibility of editor action buttons
     function updateEditorActionButtons() {
         if (currentFilePath) {
@@ -117,18 +126,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 previewTab.classList.add('active');
                 codeTab.classList.remove('active');
                 issuesTabContent.classList.remove('active');
+                terminalTabContent.classList.remove('active');
                 updatePreview();
             } else if (tabId === 'code') {
                 previewTab.classList.remove('active');
                 codeTab.classList.add('active');
                 issuesTabContent.classList.remove('active');
+                terminalTabContent.classList.remove('active');
                 // Ensure editor is laid out correctly when tab is shown
                 if (monacoEditor) monacoEditor.layout();
             } else if (tabId === 'issues') {
                 previewTab.classList.remove('active');
                 codeTab.classList.remove('active');
                 issuesTabContent.classList.add('active');
+                terminalTabContent.classList.remove('active');
                 loadProjectIssues(currentProject);
+            } else if (tabId === 'terminal') {
+                previewTab.classList.remove('active');
+                codeTab.classList.remove('active');
+                issuesTabContent.classList.remove('active');
+                terminalTabContent.classList.add('active');
+                if (term) {
+                    fitAddon.fit();
+                    term.focus();
+                }
             }
         });
     });
@@ -744,7 +765,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updatePhaseTimeline(phase, status) {
         phaseSteps.forEach(step => {
             const stepPhase = parseInt(step.dataset.phase);
-            step.classList.remove('current', 'completed', 'error', 'pending');
+            step.classList.remove('current', 'completed', 'error');
 
             if (stepPhase < phase) {
                 step.classList.add('completed');
@@ -754,7 +775,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 step.classList.add('pending');
             }
         });
-        phaseTimelineContainer.scrollLeft = phaseSteps[phase -1].offsetLeft - (phaseTimelineContainer.offsetWidth / 2) + (phaseSteps[phase -1].offsetWidth / 2);
+        if (phaseSteps[phase -1]) {
+            phaseTimelineContainer.scrollLeft = phaseSteps[phase -1].offsetLeft - (phaseTimelineContainer.offsetWidth / 2) + (phaseSteps[phase -1].offsetWidth / 2);
+        }
     }
 
     // ==================== File Tree ====================
@@ -1565,7 +1588,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Monaco Editor related global functions and styling
-// const monacoEditorContainer = document.getElementById('monaco-editor-container'); // Declared above now
 // This CSS is for the line highlighting in Monaco Editor
 const style = document.createElement('style');
 style.textContent = `

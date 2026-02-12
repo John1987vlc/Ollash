@@ -1,422 +1,209 @@
-![Local IT Agent - Ollash Logo](Ollash.png)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+# Ollash - Agente Local de IT Impulsado por Ollama
 
-# Ollash — Local IT Agent
+![Ollash Logo](Ollash.png)
 
-Ollash is a modular AI agent framework powered by [Ollama](https://ollama.ai/) for local IT operations. It orchestrates specialized agents across five domains — **code**, **network**, **system**, **cybersecurity**, and **orchestration** — using Ollama's tool-calling API. Everything runs locally: no cloud, no telemetry, full privacy.
+Ollash es un agente de inteligencia artificial avanzado diseñado para asistir a desarrolladores y profesionales de IT. Aprovecha el poder de los Large Language Models (LLMs) ejecutados localmente a través de la plataforma [Ollama](https://ollama.ai/), permitiendo tanto interacción directa vía CLI como la ejecución autónoma de tareas complejas como la generación de proyectos completos de software.
 
-## Features
+Este proyecto se distingue por su arquitectura modular, alta mantenibilidad y una profunda observabilidad, fruto de una refactorización estratégica para escalar y adaptarse a las demandas de un entorno de desarrollo en rápida evolución.
 
-- **Interactive CLI chat** with tool-calling loop (up to 30 iterations)
-- **Web UI** (Flask) with real-time SSE streaming, agent type selection, project generation, and model benchmarking
-- **5 specialist agents**: orchestrator, code, network, system, cybersecurity — each with curated prompts and tools
-- **Auto Agent pipeline**: 8-phase project generation from a text description
-- **Model benchmarker**: compare Ollama models on autonomous generation tasks
-- **Smart loop detection**: embedding similarity (all-minilm) catches stuck agents
-- **Reasoning cache**: ChromaDB vector store reuses past error solutions (>95% similarity)
-- **Context management**: automatic summarization at 70% token capacity
-- **Lazy tool loading**: tools instantiate on first use, not at startup
-- **Confirmation gates**: state-modifying tools require user approval (bypassable with `--auto`)
-- **Hybrid model selection**: intent classification routes to the best model per turn
+---
 
-## Recent Enhancements (v2.2) — Cowork-Inspired Knowledge Workspace
+## ✅ Estado de Calidad
 
-**Enterprise Knowledge Management System:**
+**Todas las pruebas unitarias están pasando exitosamente:**
 
-1. **Dynamic Knowledge Workspace** (`src/utils/core/documentation_manager.py`)
-   - Auto-created folder structure: `knowledge_workspace/{references/, indexed_cache/, summaries/}`
-   - ChromaDB vector store for semantic search across documents
-   - Workspace health monitoring and status reporting
-   - Efficient knowledge base queries with distance-based relevance scoring
+| Métrica | Resultado |
+|---------|-----------|
+| **Tests Totales** | 468/468 ✅ |
+| **Tasa de Éxito** | 100% |
+| **Tests Unitarios** | 331/331 ✅ |
+| **Tests de Integración** | 137/137 ✅ |
+| **Última Ejecución** | Éxita (0.02.2026) |
 
-2. **Multi-Format Document Ingestion** (`src/utils/core/multi_format_ingester.py`)
-   - Support for 6 document formats: PDF (PyPDF2), DOCX (python-docx), PPTX (python-pptx), TXT, Markdown
-   - Automatic encoding fallback (UTF-8 → Latin-1) for legacy documents
-   - File metadata extraction (size, word count, format, extraction success)
-   - Batch directory ingestion with format filtering
+El proyecto ha alcanzado una cobertura completa de pruebas con énfasis en:
+- Pruebas unitarias de componentes core (kernel, managers, servicios)
+- Pruebas de integración de agentes (DefaultAgent, AutoAgent, OllamaIntegration)
+- Pruebas end-to-end de casos de uso complejos
+- Validación de configuración y esquemas JSON
 
-3. **Automatic Documentation Indexing Daemon** (`src/utils/core/documentation_watcher.py`)
-   - FileSystem watcher monitoring `references/` folder for new documents
-   - Non-blocking daemon thread (doesn't freeze main application)
-   - Callback system for custom indexing logic and event handling
-   - Graceful shutdown and file change detection
+---
 
-4. **Cascade Summarizer — Map-Reduce Pipeline** (`src/utils/core/cascade_summarizer.py`)
-   - Handles large documents (100K+ words) efficiently
-   - Map phase: Chunk text with 20% overlap → Summarize each chunk (ministral-3:8b)
-   - Reduce phase: Synthesize chunk summaries into executive summary (ministral-3:14b)
-   - Compression ratio tracking (achieves 10:1 compression on large documents)
-   - Metadata output: original word count, chunk count, compression ratio
+## 🚀 Arquitectura del Sistema (El Corazón de Ollash)
 
-5. **Specialist LLM Roles** (`src/agents/prompt_templates.py`)
-   - **Analyst Role**: Executive summaries, key insights extraction, risk analysis, gap analysis, comparative analysis
-   - **Writer Role**: Tone adjustment (formal/casual/executive/technical), technical documentation, grammar editing, audience adaptation
-   - 30+ specialized prompt templates for different task types
-   - Enables precise task-specific LLM behavior without fine-tuning
+La arquitectura de Ollash ha sido meticulosamente rediseñada para ofrecer una modularidad, extensibilidad y observabilidad excepcionales. En su núcleo, encontramos el **Agent Kernel**, un *singleton* que centraliza la gestión de servicios globales y actúa como el pilar de la estabilidad del sistema.
 
-6. **7 Cowork-Inspired Tools** (`src/utils/domains/bonus/cowork_tools.py`, `cowork_impl.py`)
-   - `document_to_task`: Convert documents to actionable task lists (categories: feature, bug fix, documentation, refactor)
-   - `analyze_recent_logs`: Scan system/security/app logs, identify risks by severity
-   - `generate_executive_summary`: Create condensed overviews using cascade summarizer
-   - `query_knowledge_workspace`: Semantic search across indexed documents
-   - `index_reference_document`: Manual trigger for document indexing
-   - `get_workspace_status`: Returns knowledge workspace health metrics
-   - `refactor_artifact`: Modify generated documents (shorten/expand/formal/technical)
+### **Principios Arquitectónicos Clave:**
 
-7. **Professional Artifact Rendering** (`src/web/static/js/artifact-renderer.js`, `css/artifact-renderer.css`)
-   - Render Markdown with syntax highlighting (via marked.js + Highlight.js)
-   - Code blocks with language detection and color themes
-   - JSON visualization with structure formatting
-   - Task plans with priority badges (critical/high/medium/low) and effort estimates
-   - Refactoring interface (shorten, expand, formal, casual, executive, technical)
-   - Copy-to-clipboard and download-as-file capabilities
+*   **Desacoplamiento:** Los componentes interactúan a través de interfaces bien definidas, minimizando las dependencias implícitas.
+*   **Responsabilidad Única (SRP):** Cada módulo tiene una función clara y específica.
+*   **Extensibilidad:** Facilita la incorporación de nuevas funcionalidades, LLMs o herramientas sin alterar el núcleo.
+*   **Observabilidad:** Proporciona una visión profunda del comportamiento del agente y las interacciones del LLM.
 
-**Test Coverage (v2.2):**
-- 93+ unit tests, 96.67% pass rate
-- Test files: `test_cowork_impl.py` (15 tests), `test_artifact_renderer.py` (20), `test_cascade_summarizer.py` (18), `test_documentation_watcher.py` (9), `test_multi_format_ingester.py` (10), `test_prompt_templates.py` (22)
+### **Componentes Centrales:**
 
-See [COWORK_IMPROVEMENTS.md](COWORK_IMPROVEMENTS.md) and [KNOWLEDGE_WORKSPACE_GUIDE.md](KNOWLEDGE_WORKSPACE_GUIDE.md) for detailed documentation.
+1.  **Agent Kernel (`src/core/kernel.py`):**
+    *   El corazón del sistema, implementado como un *singleton* para asegurar una única instancia global.
+    *   **ConfigLoader:** Gestiona una configuración modular y validada (ver más abajo).
+    *   **StructuredLogger:** Ofrece un sistema de logging JSON con `correlation_id` para trazabilidad de interacciones completas.
+    *   Provee acceso centralizado a los servicios globales para todos los agentes.
 
-## Recent Enhancements (v2.1)
+2.  **Servicios Desacoplados:**
+    *   **LLMClientManager (`src/services/llm_manager.py`):** Responsable de aprovisionar y gestionar instancias de `OllamaClient` para diferentes roles de LLM (ej. `coder`, `planner`), encapsulando la lógica de selección de modelos y aplicación de *benchmarks*.
+    *   **LLMRecorder (`src/utils/core/llm_recorder.py`):** Registra detalladamente cada interacción con Ollama, incluyendo prompts, respuestas, uso de tokens, latencia y modelo utilizado, facilitando el análisis y debugging de decisiones del LLM.
+    *   **ToolSpanManager (`src/utils/core/tool_span_manager.py`):** Implementa un sistema de "spans" para cada ejecución de herramienta, registrando su duración, éxito/fallo y vinculándolo al `correlation_id` global.
 
-**Performance & Scalability Improvements:**
+3.  **Interfaces (ABCs en `src/interfaces/`):**
+    *   **`IModelProvider`:** Contrato para cualquier servicio que provea clientes de LLM, permitiendo su intercambio.
+    *   **`IToolExecutor`:** Interfaz para la ejecución de herramientas, desacoplando la lógica de la herramienta de su invocación.
+    *   **`IMemorySystem`:** Define cómo los agentes interactúan con el almacenamiento de memoria, ocultando los detalles de implementación subyacentes.
+    *   **`IAgentPhase`:** Contrato para cada etapa del pipeline del `AutoAgent`, garantizando una estructura uniforme y extensible.
 
-1. **Fragment Caching System** (`src/utils/core/fragment_cache.py`)
-   - In-memory cache with disk persistence for reusable code fragments (headers, boilerplate, common patterns)
-   - Reduces LLM calls by 40-60% on iterative projects
-   - Hash-based indexing by fragment type, language, and context
-   - Pre-loads Python and JavaScript common patterns
+---
 
-2. **Intelligent Dependency Graph** (`src/utils/core/dependency_graph.py`)
-   - Analyzes file relationships and generates bottom-up generation order
-   - Automatic file type inference (test, model, service, controller, utility, view, config)
-   - Detects and breaks circular dependencies
-   - Enables single-file context retrieval for focused LLM prompts
+## ✨ Características Principales
 
-3. **Parallel File Generation** (`src/utils/core/parallel_generator.py`)
-   - Async file generation with up to 3 concurrent workers
-   - Rate limiting respects Ollama's concurrency constraints (10 req/min minimum)
-   - Graceful fallback to sequential generation on error
-   - Per-file timing and success tracking
+### **1. Modo Interactivo: `DefaultAgent` (CLI Chat)**
 
-**Quality & Robustness Enhancements:**
+El `DefaultAgent` proporciona una experiencia de chat interactiva en la línea de comandos, actuando como un asistente de IT con capacidades de "tool-calling" y una orquestación inteligente.
 
-4. **Error Knowledge Base** (`src/utils/core/error_knowledge_base.py`)
-   - Persistent learning from errors across iterations
-   - Automatic pattern detection (syntax, import, logic, type, compatibility errors)
-   - Prevention warnings for recurring mistakes
-   - Statistics breakdown by error type and language
+*   **Chat basado en Mixins:** Su lógica se descompone en *mixins* reutilizables:
+    *   `IntentRoutingMixin`: Clasifica la intención del usuario y selecciona el LLM más adecuado para la tarea (ej. codificación, planificación, análisis).
+    *   `ToolLoopMixin`: Gestiona el bucle de ejecución de herramientas, incluyendo "confirmation gates" para acciones que modifican el sistema y detección de bucles infinitos.
+    *   `ContextSummarizerMixin`: Maneja automáticamente la ventana de contexto, resumiendo conversaciones extensas para mantener al LLM dentro de sus límites de tokens.
+*   **Acceso a un amplio conjunto de herramientas:** El agente puede interactuar con el sistema de archivos, ejecutar comandos de terminal, gestionar repositorios Git, analizar código, y más.
+*   **`Correlation ID`:** Cada interacción de chat genera un `correlation_id` único, permitiendo rastrear todas las operaciones relacionadas en los logs estructurados.
 
-5. **Structure Pre-Reviewer** (`src/utils/domains/auto_generation/structure_pre_reviewer.py`)
-   - Early validation of project structure **before** code generation (Phase 2.5)
-   - Automated checks: naming conventions, hierarchy depth, file conflicts, completeness
-   - Quality scoring (0-100) with actionable recommendations
-   - Prevents malformed file trees early in the pipeline
-
-6. **Multi-Language Test Generation** (`src/utils/domains/auto_generation/multi_language_test_generator.py`)
-   - Generates tests in 6 languages: Python (pytest/unittest), JS/TS (Jest/Mocha), Go, Rust, Java
-   - Auto-detects source language and selects native test framework
-   - Integration test generation with docker-compose support
-   - Framework-specific test execution and result parsing
-
-**Integration into Auto Agent Pipeline:**
-
-- Phase 2.5 (new): Structure pre-review with quality gates
-- Phase 4 (rewritten): Parallel file generation with dependency ordering
-- Phase 5.7 (enhanced): Multi-language test generation with native frameworks
-
-See [IMPROVEMENTS_SUMMARY.md](IMPROVEMENTS_SUMMARY.md) for detailed implementation notes and code examples.
-
-## Quick Start
-
+**Uso:**
 ```bash
-# 1. Clone and install
-git clone https://github.com/your-org/ollash.git
-cd ollash
-python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # Linux / macOS
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-
-# 2. Install Ollama and pull a model
-ollama pull qwen3-coder-next
-
-# 3. Run
-python run_agent.py --chat           # Interactive CLI
-python run_web.py                    # Web UI at http://localhost:5000
-```
-
-## Usage
-
-### CLI
-
-```bash
-# Interactive chat (orchestrator auto-routes to the best agent)
 python run_agent.py --chat
-
-# Single instruction
-python run_agent.py "List all open ports on this machine"
-
-# Auto-confirm mode (skip confirmation gates)
-python run_agent.py --chat --auto
-
-# Specify a project working directory
-python run_agent.py --chat --path ./sandbox/myproject
 ```
 
-### Web UI
+### **2. Modo Autónomo: `AutoAgent` (Generación de Proyectos)**
 
+El `AutoAgent` es un orquestador de proyectos que genera aplicaciones completas a partir de una descripción textual, siguiendo un pipeline de fases bien definido y auto-correctivo.
+
+*   **Pipeline Modular de Fases:** El antiguo pipeline monolítico de 8 fases se ha transformado en una secuencia de clases `IAgentPhase` independientes y reutilizables (ej. `ReadmeGenerationPhase`, `StructureGenerationPhase`, `FileContentGenerationPhase`, `TestGenerationExecutionPhase`, `SeniorReviewPhase`).
+*   **`PhaseContext`:** Un objeto contextual que encapsula todas las dependencias (loggers, managers, LLMs) para cada fase, simplificando la inyección de dependencias y el mantenimiento.
+*   **Ciclos de Verificación y Refinamiento:** Incluye fases de verificación de código, generación y ejecución de tests multi-idioma, y ciclos de mejora iterativa para corregir errores automáticamente.
+*   **Revisión de Estructura y Senior:** Incorpora revisiones automatizadas de la estructura inicial y una "revisión de senior" final para asegurar la calidad del proyecto generado.
+
+**Uso:**
 ```bash
-python run_web.py
+python auto_agent.py --description "Crea una aplicación de lista de tareas con Flask y SQLite" --name task_manager --loops 1
 ```
 
-Open `http://localhost:5000`. The UI has four tabs:
+### **3. Observabilidad Avanzada y Trazabilidad**
 
-| Tab | Description |
-|-----|-------------|
-| **Chat** | Interactive chat with agent type cards (orchestrator, code, network, system, cybersecurity). Select a specialist or let the orchestrator auto-route. |
-| **New Project** | Describe a project in natural language and watch the Auto Agent generate it in real time via SSE. |
-| **Projects** | Browse generated projects: file explorer, code viewer, live preview (HTML), and generation logs. |
-| **Benchmark** | Benchmark Ollama models. Override server URL, fetch available models, select which to test, and view live progress + past results. |
+El sistema de observabilidad de Ollash ha sido diseñado para proporcionar una visibilidad sin precedentes en las operaciones del agente, facilitando el debugging y la auditoría.
 
-### Auto Agent (Project Generation)
+*   **Structured Logger (`src/utils/core/structured_logger.py`):**
+    *   Todos los eventos del sistema se registran en formato JSON, lo que permite un análisis programático y fácil integración con herramientas de monitoreo.
+    *   **Correlation IDs:** Cada interacción de usuario o proceso autónomo genera un `correlation_id` que se propaga a todos los logs relacionados, permitiendo reconstruir el flujo completo de una operación.
+    *   **Rotación de Logs:** Los logs se gestionan en la carpeta `logs/` con rotación automática para evitar el llenado del disco.
+*   **LLM Interaction Recorder (`src/utils/core/llm_recorder.py`):**
+    *   Registra cada prompt enviado y cada respuesta recibida de los LLMs de Ollama.
+    *   Captura métricas cruciales como uso de tokens, modelo específico, latencia y estado de éxito/error.
+*   **Tool Spans (`src/utils/core/tool_span_manager.py`):**
+    *   Mide el tiempo de ejecución de cada herramienta (`start_span`, `end_span`).
+    *   Registra si la herramienta se ejecutó con éxito o falló, proporcionando detalles relevantes en el log estructurado.
 
-```bash
-python auto_agent.py "Create a task manager app with Flask and SQLite" --name task_manager --loops 1
-```
+---
 
-The pipeline runs 8 phases:
+## 📁 Estructura de Carpetas
 
-| Phase | What it does | LLM role |
-|-------|-------------|----------|
-| 1. README | Generates project documentation | Planner |
-| 2. Structure | Produces a JSON file tree | Prototyper |
-| 3. Scaffolding | Creates empty files on disk | — |
-| 4. Content | Generates each file with cross-file context | Prototyper |
-| 5. Refinement | Improves code quality, error handling, docs | Coder |
-| 5.5. Verification | Validates syntax and fixes invalid files | Coder |
-| 5.6. Dependency reconciliation | Scans real imports, regenerates requirements | — |
-| 6. Final review | Quality score (1-10) | Generalist |
-| 7. Iterative improvement | Suggestions + plan + implementation (N loops) | Suggester + Planner |
-| 7.5. Completeness | Detects placeholders/TODOs and replaces them | Coder |
-| 8. Senior review | Rigorous review with up to 3 correction attempts | Planner |
-
-### Model Benchmarking
-
-```bash
-python auto_benchmark.py
-```
-
-Or use the **Benchmark** tab in the Web UI to select models and view results interactively.
-
-## Architecture
-
-### Agent Orchestration
-
-`run_agent.py` instantiates `DefaultAgent` (`src/agents/default_agent.py`), the core orchestrator that:
-
-1. **Preprocesses** the instruction (language detection, translation, refinement)
-2. **Classifies intent** to select the best LLM model per turn
-3. Runs a **tool-calling loop** (up to 30 iterations) until the LLM returns a final text answer
-4. Uses **semantic loop detection** (embedding similarity) to catch stuck agents
-5. Manages **context windows** with automatic summarization at 70% capacity
-
-### Agent Types
-
-The agent dynamically switches persona via the `select_agent_type` tool:
-
-| Agent | Domain | Tools |
-|-------|--------|-------|
-| `orchestrator` | Planning, compliance, governance, risk | plan_actions, evaluate_plan_risk, detect_user_intent, ... |
-| `code` | File I/O, analysis, git, refactoring | read_file, write_file, analyze_code, git_status, ... |
-| `network` | Diagnostics, latency, host discovery | ping, traceroute, analyze_network_latency, ... |
-| `system` | Resources, processes, logs, packages | get_system_info, list_processes, read_log_file, ... |
-| `cybersecurity` | Port scanning, IOC, permissions, hardening | scan_ports, check_file_hash, detect_ioc, ... |
-
-### Web UI Architecture
-
-```
-src/web/
-├── app.py                        # Flask app factory
-├── blueprints/
-│   ├── common_bp.py              # GET / (serves index.html)
-│   ├── chat_bp.py                # POST /api/chat, GET /api/chat/stream/<id>
-│   ├── auto_agent_bp.py          # Project creation + file browsing routes
-│   └── benchmark_bp.py           # Model benchmarking routes + SSE
-├── services/
-│   ├── chat_event_bridge.py      # Thread-safe queue for SSE streaming
-│   └── chat_session_manager.py   # Manages DefaultAgent instances per session
-├── templates/
-│   └── index.html                # Single-page app
-└── static/
-    ├── css/style.css
-    └── js/app.js
-```
-
-### Tool System (Lazy Loading)
-
-Tools live in `src/utils/domains/<domain>/` and are **not instantiated at startup**. They load on first use via `_get_tool_from_toolset()` and are cached in `_loaded_toolsets`.
-
-Tool definitions (Ollama function schemas) are centralized in `src/utils/core/all_tool_definitions.py`.
-
-### Core Services (`src/utils/core/`)
-
-| Service | Purpose |
-|---------|---------|
-| `OllamaClient` | HTTP client for Ollama API with retry/backoff |
-| `FileManager` | File CRUD operations |
-| `CommandExecutor` | Shell execution with sandbox levels (`limited`/`full`) |
-| `GitManager` | Git operations |
-| `CodeAnalyzer` | Language detection, AST parsing, dependency mapping |
-| `MemoryManager` | Persistent conversation storage (JSON + ChromaDB) |
-| `TokenTracker` | Token usage monitoring |
-| `AgentLogger` | Colored console + file logging |
-| `ToolInterface` | Tool definition filtering and confirmation gates |
-| `PolicyManager` | Compliance and governance policies |
-
-## Project Structure
+La nueva organización del proyecto refleja la arquitectura modular, haciendo más intuitivo para los desarrolladores localizar y contribuir a funcionalidades específicas.
 
 ```
 ollash/
-├── config/settings.json          # Runtime configuration
-├── prompts/                      # Agent prompts per domain
-│   ├── orchestrator/
-│   ├── code/
-│   ├── network/
-│   ├── system/
-│   └── cybersecurity/
+├── config/
+│   ├── agent_features.json           # Configuración de características y funcionalidades del agente
+│   ├── llm_models.json               # Asignaciones de modelos LLM y configuraciones de Ollama
+│   └── tool_settings.json            # Configuración de herramientas, logging y parámetros operativos
 ├── src/
 │   ├── agents/
-│   │   ├── default_agent.py      # Main orchestrator (~1000 lines)
-│   │   ├── auto_agent.py         # Auto generation pipeline
-│   │   └── auto_benchmarker.py   # Model benchmarking
-│   ├── utils/
-│   │   ├── core/                 # OllamaClient, FileManager, TokenTracker, ...
-│   │   └── domains/              # Tool modules by domain
-│   │       ├── auto_generation/  # 7 pipeline phase modules
-│   │       ├── code/
-│   │       ├── command_line/
-│   │       ├── cybersecurity/
-│   │       ├── git/
-│   │       ├── network/
-│   │       ├── orchestration/
-│   │       ├── planning/
-│   │       └── system/
-│   └── web/                      # Flask web UI
-├── tests/                        # Unit + integration tests
-├── run_agent.py                  # CLI entry point
-├── run_web.py                    # Web UI entry point
-├── auto_agent.py                 # Auto generation entry point
-└── auto_benchmark.py             # Benchmarking entry point
+│   │   ├── mixins/                   # Mixins reutilizables para DefaultAgent (IntentRouting, ToolLoop, ContextSummarizer)
+│   │   ├── auto_agent_phases/        # Clases de fases independientes para el pipeline de AutoAgent
+│   │   └── ...                       # DefaultAgent, AutoAgent y otros agentes
+│   ├── core/                         # Componentes fundamentales del Kernel (AgentKernel, ConfigSchemas, StructuredLogger, etc.)
+│   │   ├── config_schemas.py         # Definiciones de esquemas Pydantic para la configuración
+│   │   ├── kernel.py                 # El Agent Kernel (singleton) y ConfigLoader
+│   │   └── structured_logger.py      # Implementación del logger estructurado con JSON y Correlation IDs
+│   │   └── ...                       # Otros servicios core (file_manager, command_executor, etc.)
+│   ├── interfaces/                   # Definiciones de interfaces (ABCs) para desacoplamiento (IModelProvider, IToolExecutor, IMemorySystem, IAgentPhase)
+│   │   ├── iagent_phase.py           # Interfaz para las fases del AutoAgent
+│   │   ├── imodel_provider.py        # Interfaz para proveedores de clientes LLM
+│   │   ├── imemory_system.py         # Interfaz para sistemas de memoria del agente
+│   │   └── itool_executor.py         # Interfaz para ejecutores de herramientas
+│   ├── services/                     # Servicios especializados (LLMClientManager)
+│   │   └── llm_manager.py            # Gestión de clientes LLM
+│   └── utils/
+│       ├── core/                     # Utilidades core existentes (agent_logger, ollama_client, llm_recorder, tool_span_manager, etc.)
+│       │   ├── agent_logger.py       # Wrapper sobre StructuredLogger
+│       │   ├── llm_recorder.py       # Registro detallado de interacciones LLM
+│       │   └── tool_span_manager.py  # Gestión de Spans para ejecución de herramientas
+│       │   └── ...
+│       └── domains/                  # Implementaciones de herramientas y servicios por dominio
+│           └── ...
+└── tests/
+└── ...
 ```
 
-## Configuration
+---
 
-### `config/settings.json`
+## ⚙️ Configuración Modular y Validada
 
-```json
-{
-  "model": "qwen3-coder-next",
-  "ollama_url": "http://localhost:11434",
-  "timeout": 300,
-  "max_tokens": 4096,
-  "temperature": 0.5,
-  "history_limit": 20,
-  "sandbox": "limited",
-  "project_root": ".",
-  "default_system_prompt_path": "prompts/orchestrator/default_orchestrator.json",
-  "models": {
-    "default": "qwen3-coder-next",
-    "coding": "qwen3-coder-next",
-    "reasoning": "qwen3-coder-next",
-    "orchestration": "ministral-3:8b",
-    "summarization": "ministral-3:8b",
-    "self_correction": "qwen3-coder-next",
-    "embedding": "all-minilm"
-  }
-}
+El sistema de configuración ha sido completamente rediseñado para mejorar la claridad, la validación y la sobreescritura flexible.
+
+*   **Archivos Fragmentados:** La configuración monolítica `settings.json` ha sido dividida en archivos específicos por dominio en la carpeta `config/`:
+    *   `llm_models.json`: Contiene todas las definiciones de modelos LLM, URLs de Ollama, timeouts y temperaturas.
+    *   `agent_features.json`: Define las activaciones de características (feature flags) y configuraciones específicas para funcionalidades como el grafo de conocimiento, el contexto de decisión, etc.
+    *   `tool_settings.json`: Configura el nivel de sandboxing, límites de tokens, ajustes de logging, rutas de prompts por defecto y otros parámetros operativos y de herramientas.
+*   **Validación de Esquemas (Pydantic):** Cada fragmento de configuración es validado rigurosamente contra esquemas definidos con [Pydantic](https://pydantic-docs.helpmanual.io/). Esto asegura que la configuración cargada sea siempre correcta, previniendo errores en tiempo de ejecución debido a configuraciones mal formadas o incompletas.
+*   **Carga Jerárquica y Sobreescritura:** El `ConfigLoader` en el `AgentKernel` es capaz de:
+    1.  Cargar cada archivo de configuración.
+    2.  Fusionar las configuraciones.
+    3.  Permitir la sobreescritura de cualquier valor de configuración a través de variables de entorno (previamente definidas con el prefijo `OLLASH_`).
+
+### **Ejemplo de Acceso a Configuración:**
+
+Los agentes y servicios ahora acceden a la configuración de forma tipada y específica a través del `AgentKernel`:
+
+```python
+# Desde un agente o servicio que tiene acceso al kernel
+llm_config = self.kernel.get_llm_models_config()
+tool_config = self.kernel.get_tool_settings_config()
+
+print(f"URL de Ollama: {llm_config.ollama_url}")
+print(f"Modelo por defecto: {llm_config.default_model}")
+print(f"Nivel de Sandbox: {tool_config.sandbox_level}")
+print(f"Máximas iteraciones: {tool_config.max_iterations}")
+
+# Sobreescritura vía variable de entorno:
+# export OLLASH_LLM_MODELS_OLLAMA_URL="http://mi.ollama.server:8000"
+# -> llm_config.ollama_url reflejaría el valor de la variable de entorno.
 ```
 
-### Environment Variables
+---
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OLLASH_OLLAMA_URL` | Ollama server URL | `http://localhost:11434` |
-| `OLLAMA_TEST_URL` | Ollama URL for integration tests | `http://localhost:11434` |
-| `OLLAMA_TEST_TIMEOUT` | Test timeout in seconds | `300` |
+## 🛠️ Guía de Extensibilidad
 
-## Testing
+El diseño modular de Ollash facilita enormemente su extensión y adaptación a nuevas necesidades.
 
-```bash
-# Run all tests (mocked, no Ollama needed)
-pytest tests/
+### **Añadir una Nueva Herramienta:**
 
-# Run a single test file
-pytest tests/test_web.py
+1.  **Define la Herramienta:** Crea una nueva clase en `src/utils/domains/<new_domain>/<new_tool_set.py>` que contenga tus métodos de herramienta.
+2.  **Registra la Herramienta:** Utiliza el decorador `@register_tool` para hacer que la herramienta sea descubrible por el `ToolRegistry`.
+3.  **Implementa la Lógica:** Tus métodos de herramienta tendrán acceso al `AgentKernel` y a los servicios proporcionados a través de él (logger, configuraciones, etc.).
+4.  **Actualiza `tool_settings.json`:** Si tu herramienta requiere configuración específica o nuevos permisos, añádelos aquí y extienden el `ToolSettingsConfig` en `src/core/config_schemas.py` si es necesario.
 
-# Run a specific test
-pytest tests/test_web.py::TestChatBlueprint::test_chat_creates_session
+### **Crear un Nuevo "Micro-Agent":**
 
-# Lint
-ruff check src/ tests/
+1.  **Extiende `CoreAgent`:** Crea tu nuevo agente heredando de `src/agents/core_agent.py`.
+2.  **Utiliza Mixins:** Aprovecha los mixins existentes (`IntentRoutingMixin`, `ToolLoopMixin`, `ContextSummarizerMixin`) para funcionalidades comunes y desarrolla nuevos mixins si es necesario.
+3.  **Inyecta Dependencias:** Tu agente recibirá `AgentKernel`, `LLMClientManager` y otros servicios esenciales a través de inyección en su constructor, garantizando un bajo acoplamiento.
+4.  **Define tu `run()` o `chat()`:** Implementa la lógica específica de tu micro-agente, orquestando las llamadas a LLMs y herramientas a través de las interfaces.
+
+---
+
+Este `README.md` es un reflejo de la robustez y el diseño reflexivo que subyacen en Ollash, preparándolo para un crecimiento continuo y una comunidad de desarrollo activa.
 ```
-
-Tests use `pytest` with mocked Ollama calls. Key test files:
-
-| File | Tests | Coverage |
-|------|-------|----------|
-| `test_web.py` | 15 | Web UI: blueprints, event bridge, session manager |
-| `test_auto_agent.py` | 20 | Auto Agent initialization, parsing, validation |
-| `test_core_utilities.py` | 32 | LLMResponseParser, FileValidator, Heartbeat |
-| `test_network_discovery.py` | 5 | Network discovery utilities |
-| `test_code_agent_integration.py` | 5 | DefaultAgent tool-calling with mocked Ollama |
-| `test_new_user_cases.py` | 20 | End-to-end user scenarios |
-| `test_fragment_cache.py` | 13 | Fragment caching system (v2.1) |
-| `test_dependency_graph.py` | 12 | Dependency graph analysis (v2.1) |
-| `test_error_knowledge_base.py` | 15 | Error pattern learning system (v2.1) |
-| `test_structure_pre_reviewer.py` | 19 | Project structure validation (v2.1) |
-| `test_multi_language_test_generator.py` | 18 | Multi-language test generation (v2.1) |
-| `test_ollama_integration.py` | 4 | Live Ollama tests (skipped in CI) |
-
-## Docker
-
-```bash
-# Web UI (recommended) — opens at http://localhost:5000
-docker-compose up ollama ollash_web
-
-# CLI agent (interactive)
-docker-compose run --rm ollash python run_agent.py --chat
-
-# Benchmark runner
-docker-compose run --rm --profile benchmark autobenchmark_runner python auto_benchmark.py
-```
-
-The `ollash_web` service exposes port 5000 and connects to the Ollama container automatically. Set `OLLASH_OLLAMA_URL` in `.env` to point to an external Ollama server instead.
-
-See [DOCKER_USAGE.md](DOCKER_USAGE.md) for full setup instructions.
-
-## CI/CD
-
-GitHub Actions runs on every push/PR to `master`:
-- Installs dependencies
-- Runs unit tests (no Ollama required)
-- Skips integration tests that need a live Ollama instance
-
-Config: `.github/workflows/ci.yml`
-
-## Contributing
-
-Contributions welcome! Open an issue or send a pull request.
-
-### Adding a New Tool
-
-1. Create or extend a tool class in `src/utils/domains/<domain>/`
-2. Register the Ollama function schema in `src/utils/core/all_tool_definitions.py`
-3. Map the tool name in `_toolset_configs` within `DefaultAgent`
-4. Add the tool name to the relevant agent prompt JSON in `prompts/<domain>/`
-5. Preserve lazy loading — tools should only instantiate when first called
-
-## License
-
-MIT License

@@ -32,7 +32,7 @@ DEFAULT_CODER_MODEL = "qwen3-coder:30b"
 DEFAULT_PLANNER_MODEL = "gpt-oss:20b"
 DEFAULT_GENERALIST_MODEL = "gpt-oss:20b"
 DEFAULT_SUGGESTER_MODEL = "gpt-oss:20b"
-DEFAULT_EMBEDDING_MODEL = "all-minilm"
+DEFAULT_EMBEDDING_MODEL = "qwen3-embedding:4b"
 DEFAULT_ORCHESTRATION_MODEL = "ministral-3:8b"
 
 # Default timeouts per role (seconds)

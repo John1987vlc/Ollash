@@ -1,111 +1,81 @@
 import logging
-import logging.handlers
 import json
-import os
 import traceback
-from typing import Dict, Optional
-from colorama import init, Fore, Style
+from typing import Dict, Optional, Any
+from colorama import init, Fore, Style # Still used for console output in chat_mode, not for file logs
 
 # Initialize colorama for Windows support
 init(autoreset=True)
 
-# Log rotation defaults
-_DEFAULT_MAX_BYTES = 5 * 1024 * 1024  # 5 MB per log file
-_DEFAULT_BACKUP_COUNT = 3  # Keep 3 rotated backups
+# Import the new StructuredLogger and correlation ID functions
+from src.utils.core.structured_logger import StructuredLogger, get_correlation_id
 
 
 class AgentLogger:
-    """Enhanced logging with colors and structure.
-
-    Uses RotatingFileHandler to prevent unbounded log growth.
-    Configurable via max_bytes and backup_count parameters.
+    """
+    A wrapper around StructuredLogger to provide agent-specific logging methods
+    and maintain compatibility with existing agent code.
+    It delegates to a StructuredLogger instance provided at initialization.
     """
 
-    def __init__(
-        self,
-        log_file: str = "agent.log",
-        max_bytes: int = _DEFAULT_MAX_BYTES,
-        backup_count: int = _DEFAULT_BACKUP_COUNT,
-        logger_name: str = "OllashAgent"
-    ):
-        self.logger = logging.getLogger(logger_name)
-        self.logger.setLevel(logging.DEBUG)
+    def __init__(self, structured_logger: StructuredLogger, logger_name: str = "OllashAgent"):
+        self._logger = structured_logger.get_logger()
+        self.name = logger_name # Store name for specific agent identification if needed
 
-        # Ensure handlers are not added multiple times
-        if not self.logger.handlers:
-            # Ensure log directory exists
-            log_dir = os.path.dirname(log_file)
-            if log_dir:
-                os.makedirs(log_dir, exist_ok=True)
+    def _log_to_structured(self, level: int, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
+        """Helper to log to the underlying StructuredLogger, injecting correlation ID."""
+        full_extra = extra if extra is not None else {}
+        # StructuredLogger's formatter already injects correlation_id, so no need to do it here again
+        self._logger.log(level, msg, extra=full_extra, **kwargs)
 
-            # Rotating file handler - detailed logs with automatic rotation
-            fh = logging.handlers.RotatingFileHandler(
-                log_file,
-                maxBytes=max_bytes,
-                backupCount=backup_count,
-                encoding="utf-8",
-            )
-            fh.setLevel(logging.DEBUG)
-            fh.setFormatter(logging.Formatter(
-                '%(asctime)s | %(levelname)-8s | %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            ))
-            self.logger.addHandler(fh)
-
-            # Console handler - important info only
-            ch = logging.StreamHandler()
-            ch.setLevel(logging.INFO)
-            ch.setFormatter(logging.Formatter('%(message)s'))
-            self.logger.addHandler(ch)
-    
     def tool_call(self, tool_name: str, args: Dict):
         """Log tool call with details"""
-        msg = f"🔧 TOOL CALL: {tool_name}"
-        self.logger.info(f"{Fore.CYAN}{msg}{Style.RESET_ALL}")
-        
-        # Log arguments
-        for key, value in args.items():
-            if key == "content" and isinstance(value, str) and len(value) > 100:
-                preview = value[:100] + "..."
-                self.logger.debug(f"   {key}: {preview}")
-            else:
-                self.logger.debug(f"   {key}: {value}")
+        console_msg = f"🔧 TOOL CALL: {tool_name}"
+        self.info(f"{Fore.CYAN}{console_msg}{Style.RESET_ALL}", extra={"type": "tool_call", "tool_name": tool_name, "args": args})
     
-    def tool_result(self, tool_name: str, result: Dict, success: bool = True):
+    def tool_result(self, tool_name: str, result: Dict, success: bool = True, latency_ms: Optional[float] = None):
         """Log tool result"""
         status = "✅ SUCCESS" if success else "❌ FAILED"
         color = Fore.GREEN if success else Fore.RED
-        self.logger.info(f"{color}{status}: {tool_name}{Style.RESET_ALL}")
-        self.logger.debug(f"   Result: {json.dumps(result, indent=2)[:200]}")
+        console_msg = f"{status}: {tool_name}"
+        extra_data = {"type": "tool_result", "tool_name": tool_name, "result": result, "success": success}
+        if latency_ms is not None:
+            extra_data["latency_ms"] = latency_ms
+        self.info(f"{color}{console_msg}{Style.RESET_ALL}", extra=extra_data)
     
     def api_request(self, messages_count: int, tools_count: int):
         """Log API request"""
-        msg = f"📡 API REQUEST: {messages_count} messages, {tools_count} tools available"
-        self.logger.info(f"{Fore.YELLOW}{msg}{Style.RESET_ALL}")
+        console_msg = f"📡 API REQUEST: {messages_count} messages, {tools_count} tools available"
+        self.info(f"{Fore.YELLOW}{console_msg}{Style.RESET_ALL}", extra={"type": "api_request", "messages_count": messages_count, "tools_count": tools_count})
     
-    def api_response(self, has_tool_calls: bool, tool_count: int = 0):
+    def api_response(self, has_tool_calls: bool, tool_count: int = 0, latency_ms: Optional[float] = None):
         """Log API response"""
         if has_tool_calls:
-            msg = f"📨 API RESPONSE: {tool_count} tool call(s)"
+            console_msg = f"📨 API RESPONSE: {tool_count} tool call(s)"
         else:
-            msg = "📨 API RESPONSE: Final answer"
-        self.logger.info(f"{Fore.YELLOW}{msg}{Style.RESET_ALL}")
+            console_msg = "📨 API RESPONSE: Final answer"
+        extra_data = {"type": "api_response", "has_tool_calls": has_tool_calls, "tool_count": tool_count}
+        if latency_ms is not None:
+            extra_data["latency_ms"] = latency_ms
+        self.info(f"{Fore.YELLOW}{console_msg}{Style.RESET_ALL}", extra=extra_data)
     
-    def error(self, error_msg: str, exception: Optional[Exception] = None):
+    def error(self, error_msg: str, exception: Optional[Exception] = None, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log error with full traceback"""
-        self.logger.error(f"{Fore.RED}❌ ERROR: {error_msg}{Style.RESET_ALL}")
+        console_msg = f"{Fore.RED}❌ ERROR: {error_msg}{Style.RESET_ALL}"
+        # structured_logger.py's JsonFormatter handles exc_info, so pass it directly.
+        self._log_to_structured(logging.ERROR, console_msg, exc_info=exception, extra=extra, **kwargs)
         if exception:
-            self.logger.error(f"   Exception: {str(exception)}")
-            self.logger.debug(traceback.format_exc())
+            self._log_to_structured(logging.DEBUG, traceback.format_exc(), extra={"type": "traceback_detail"}, **kwargs)
     
-    def info(self, msg: str):
+    def info(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log info message"""
-        self.logger.info(msg)
+        self._log_to_structured(logging.INFO, msg, extra=extra, **kwargs)
     
-    def debug(self, msg: str):
+    def debug(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log debug message"""
-        self.logger.debug(msg)
+        self._log_to_structured(logging.DEBUG, msg, extra=extra, **kwargs)
     
-    def warning(self, msg: str):
+    def warning(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log warning message"""
-        self.logger.warning(f"{Fore.YELLOW}⚠️  {msg}{Style.RESET_ALL}")
+        console_msg = f"{Fore.YELLOW}⚠️  {msg}{Style.RESET_ALL}"
+        self._log_to_structured(logging.WARNING, console_msg, extra=extra, **kwargs)

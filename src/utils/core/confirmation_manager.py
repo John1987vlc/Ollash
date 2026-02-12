@@ -2,7 +2,7 @@ from typing import Dict, List, Any
 from colorama import Fore, Style
 import re
 
-class ToolConfirmationManager:
+class ConfirmationManager:
     """Manages confirmation gates for state-modifying tools."""
     MODIFY_ACTIONS = {"write_file", "delete_file", "git_commit", "git_push"}
 

@@ -2,9 +2,11 @@
 import io
 import os
 import re
+import subprocess # Added for executing shell commands
 import threading
 import time
 import zipfile
+from typing import List, Dict # NEW
 
 from flask import Blueprint, jsonify, request, Response, stream_with_context, send_file
 from pathlib import Path
@@ -245,6 +247,42 @@ def save_file_content(project_name):
         return jsonify({"status": "success", "message": "File saved successfully."})
     except Exception as e:
         return jsonify({"status": "error", "message": f"Error saving file: {e}"}), 500
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/execute_command", methods=["POST"])
+@require_api_key
+@rate_limit_api
+def execute_command(project_name):
+    command = request.json.get("command")
+    if not command:
+        return jsonify({"status": "error", "message": "Command is required."}), 400
+
+    project_base_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+
+    # Security: Ensure command is executed within the project directory
+    if not project_base_path.is_dir():
+        return jsonify({"status": "error", "message": "Project not found."}), 404
+
+    try:
+        # Execute the command in the project's directory
+        # Using shell=True for convenience, but consider security implications
+        # For production, might want to parse command and arguments explicitly
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=project_base_path,
+            check=False # Do not raise CalledProcessError for non-zero exit codes
+        )
+        return jsonify({
+            "status": "success",
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "returncode": result.returncode
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Error executing command: {e}"}), 500
 
 
 @auto_agent_bp.route("/api/projects/<project_name>/export")

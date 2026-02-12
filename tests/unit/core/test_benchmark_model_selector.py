@@ -18,46 +18,58 @@ def mock_logger():
     return MagicMock()
 
 
+import os
+import datetime # Added for timestamp
+
 @pytest.fixture
 def tmp_benchmarks(tmp_path):
     """Create temporary benchmark directory with test data."""
     bench_dir = tmp_path / "benchmarks"
     bench_dir.mkdir()
     
-    # Create sample benchmark results
-    results = {
-        "qwen3-coder": {
-            "refinement": {
-                "success_rate": 0.92,
-                "quality_score": 0.88,
-                "avg_tokens": 450,
-                "avg_time_ms": 5200,
-            },
-            "planner": {
-                "success_rate": 0.78,
-                "quality_score": 0.75,
-                "avg_tokens": 600,
-                "avg_time_ms": 6100,
-            },
+    # Create sample benchmark results as individual JSON files
+    sample_results = [
+        {
+            "model_name": "qwen3-coder",
+            "task_type": "refinement",
+            "success_rate": 0.92,
+            "quality_score": 0.88,
+            "avg_tokens": 450,
+            "avg_time_ms": 5200,
+            "timestamp": datetime.datetime.now().isoformat()
         },
-        "ministral-3": {
-            "refinement": {
-                "success_rate": 0.85,
-                "quality_score": 0.82,
-                "avg_tokens": 400,
-                "avg_time_ms": 4200,
-            },
-            "planner": {
-                "success_rate": 0.88,
-                "quality_score": 0.86,
-                "avg_tokens": 580,
-                "avg_time_ms": 5500,
-            },
+        {
+            "model_name": "qwen3-coder",
+            "task_type": "planner",
+            "success_rate": 0.78,
+            "quality_score": 0.75,
+            "avg_tokens": 600,
+            "avg_time_ms": 6100,
+            "timestamp": datetime.datetime.now().isoformat()
         },
-    }
-    
-    with open(bench_dir / "results.json", "w") as f:
-        json.dump(results, f)
+        {
+            "model_name": "ministral-3",
+            "task_type": "refinement",
+            "success_rate": 0.85,
+            "quality_score": 0.82,
+            "avg_tokens": 400,
+            "avg_time_ms": 4200,
+            "timestamp": datetime.datetime.now().isoformat()
+        },
+        {
+            "model_name": "ministral-3",
+            "task_type": "planner",
+            "success_rate": 0.88,
+            "quality_score": 0.86,
+            "avg_tokens": 580,
+            "avg_time_ms": 5500,
+            "timestamp": datetime.datetime.now().isoformat()
+        },
+    ]
+
+    for i, result_data in enumerate(sample_results):
+        with open(bench_dir / f"result_{i}.json", "w") as f:
+            json.dump(result_data, f, indent=2)
     
     return bench_dir
 
@@ -134,7 +146,7 @@ class TestBenchmarkDatabase:
         
         best = db.get_best_model(
             task_type="refinement",
-            metric="speed",
+            metric="avg_time_ms", # Changed from "speed"
         )
         
         # ministral has 4200ms, qwen has 5200ms
@@ -165,7 +177,7 @@ class TestBenchmarkDatabase:
         )
         
         # Should handle gracefully
-        assert db.results == {}
+        assert db.results == [] # Changed from {} to []
 
 
 class TestAutoModelSelector:
@@ -178,7 +190,7 @@ class TestAutoModelSelector:
             benchmark_dir=tmp_benchmarks,
         )
         
-        assert selector.db is not None
+        assert selector.benchmark_db is not None # Changed from .db to .benchmark_db
 
     def test_generate_optimized_config(self, mock_logger, tmp_benchmarks):
         """Test generating optimized configuration."""
@@ -188,17 +200,24 @@ class TestAutoModelSelector:
             confidence_threshold=0.7,
         )
         
-        config = selector.generate_optimized_config()
+        base_config = { # Added base_config
+            "models": {
+                "coder": "old-coder-model",
+                "planner": "old-planner-model"
+            }
+        }
+        config = selector.generate_optimized_config(base_config=base_config) # Passed base_config
         
-        # Should return dictionary or None
-        assert config is None or isinstance(config, dict)
+        # Should return dictionary with models updated
+        assert config is not None and isinstance(config, dict) # Modified assertion
+        assert "models" in config and "coder" in config["models"] # Check structure
+        assert isinstance(config["models"]["coder"], str) # Check type
 
     def test_suggest_model_improvements(self, mock_logger, tmp_benchmarks):
         """Test suggesting model improvements."""
         selector = AutoModelSelector(
             logger=mock_logger,
             benchmark_dir=tmp_benchmarks,
-            improvement_threshold=0.1,
         )
         
         suggestions = selector.suggest_model_improvements()
@@ -214,21 +233,26 @@ class TestAutoModelSelector:
             confidence_threshold=0.95,  # Very high threshold
         )
         
-        config = selector.generate_optimized_config()
+        base_config = { # Added base_config
+            "models": {
+                "coder": "old-coder-model",
+                "planner": "old-planner-model"
+            }
+        }
+        config = selector.generate_optimized_config(base_config=base_config) # Passed base_config
         
-        # With high threshold, might return empty config
-        # This is expected behavior
-        if config:
-            # If config returned, validate structure
-            assert isinstance(config, dict)
+        # With high threshold, it should likely not find a model with 0.95 success rate
+        assert config["models"]["coder"] == "old-coder-model" # Assert old model is kept
+        assert config["models"]["planner"] == "old-planner-model" # Assert old model is kept
 
     def test_integration_with_settings(self, mock_logger, tmp_benchmarks, tmp_path):
         """Test integrating benchmark results into settings.json."""
         settings_file = tmp_path / "settings.json"
         settings = {
-            "auto_agent_llms": {
-                "coder_model": "qwen3-coder:30b",
-                "planner_model": "ministral-3:14b",
+            "models": { # Changed from auto_agent_llms to models
+                "coder": "qwen3-coder:30b", # Changed from coder_model to coder
+                "planner": "ministral-3:14b", # Changed from planner_model to planner
+                "some_other_model": "old-model"
             }
         }
         
@@ -240,7 +264,9 @@ class TestAutoModelSelector:
             benchmark_dir=tmp_benchmarks,
         )
         
-        optimized = selector.generate_optimized_config()
+        optimized = selector.generate_optimized_config(base_config=settings) # Passed base_config
         
-        # Should be able to generate config
-        assert optimized is None or isinstance(optimized, dict)
+        # Should be able to generate config with updated models
+        assert optimized is not None and isinstance(optimized, dict) # Modified assertion
+        assert "models" in optimized and "coder" in optimized["models"] # Check structure exists
+        assert isinstance(optimized["models"]["coder"], str) # Verify coder model is string

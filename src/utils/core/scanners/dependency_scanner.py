@@ -247,6 +247,56 @@ class GoDependencyScanner(LanguageDependencyScanner):
 
         return {m for m in modules if "/" in m}  # Only third-party
 
+    def reconcile(
+        self,
+        files: Dict[str, str],
+        project_root: Path,
+        logger: AgentLogger,
+    ) -> Dict[str, str]:
+        """Reconcile go.mod require block with actual Go imports."""
+        mod_key = None
+        for path in files:
+            if Path(path).name == "go.mod":
+                mod_key = path
+                break
+
+        if not mod_key:
+            return files
+
+        scanned_modules = self.scan_imports(files)
+        if not scanned_modules:
+            logger.info(f"  {mod_key}: no third-party Go imports found. Keeping as is.")
+            return files
+
+        mod_content = files[mod_key]
+        require_lines = re.findall(r'^\s+\S+\s+v\S+', mod_content, re.MULTILINE)
+
+        if len(require_lines) > len(scanned_modules) * 3: # Use a heuristic to decide if file is "too big"
+            logger.info(
+                f"  Regenerating {mod_key} require block: {len(require_lines)} → "
+                f"{len(scanned_modules)} modules"
+            )
+            module_line = re.search(r'^module\s+\S+', mod_content, re.MULTILINE)
+            go_version = re.search(r'^go\s+\S+', mod_content, re.MULTILINE)
+
+            new_content = ""
+            if module_line:
+                new_content += module_line.group(0) + "\n\n"
+            if go_version:
+                new_content += go_version.group(0) + "\n\n"
+            new_content += "require (\n"
+            for mod in sorted(scanned_modules): # Sort for deterministic output
+                new_content += f"\t{mod} v0.0.0\n" # Use v0.0.0 or actual versions if available
+            new_content += ")\n"
+
+            files[mod_key] = new_content
+        else:
+            logger.info(
+                f"  {mod_key} looks reasonable ({len(require_lines)} requires). Keeping as is."
+            )
+
+        return files
+
 
 class RustDependencyScanner(LanguageDependencyScanner):
     """Scan and reconcile Rust crate dependencies."""
@@ -257,14 +307,18 @@ class RustDependencyScanner(LanguageDependencyScanner):
     def scan_imports(self, files: Dict[str, str]) -> Set[str]:
         """Extract crates from Rust source files."""
         crates = set()
+        std_libs = {"std"}
 
         for filename, content in files.items():
             if filename.endswith(".rs"):
                 # Find extern crate and use statements
                 for match in re.finditer(r"extern\s+crate\s+(\w+)", content):
-                    crates.add(match.group(1))
-                for match in re.finditer(r"use\s+(\w+)::", content):
-                    crates.add(match.group(1))
+                    if match.group(1) not in std_libs:
+                        crates.add(match.group(1))
+                for match in re.finditer(r"use\s+((?:\w|:)+)", content):
+                    crate = match.group(1).split("::")[0]
+                    if crate not in std_libs:
+                        crates.add(crate)
 
         return crates
 

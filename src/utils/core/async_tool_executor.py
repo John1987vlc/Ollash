@@ -14,16 +14,17 @@ from src.utils.core.tool_registry import ToolRegistry
 class AsyncToolExecutor:
     """Executes a list of tool calls asynchronously."""
 
-    def __init__(self, tool_executor_callback):
+    def __init__(self, tool_executor_callback, tool_registry: ToolRegistry):
         """
         Initializes the AsyncToolExecutor.
 
         Args:
             tool_executor_callback: A callback function that can execute a single tool call.
                                   This is typically a method on the agent instance.
+            tool_registry: The ToolRegistry instance to use for tool lookup.
         """
         self.execute_single_tool = tool_executor_callback
-        self.tool_registry = ToolRegistry()
+        self.tool_registry = tool_registry
 
     async def execute_in_parallel(self, tool_calls: List[Dict[str, Any]]) -> List[Any]:
         """

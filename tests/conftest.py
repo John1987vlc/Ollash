@@ -5,7 +5,13 @@ from pathlib import Path
 import pytest
 import json
 from unittest.mock import patch, MagicMock, AsyncMock
+
+# Ensure the project root is on the Python path for absolute imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 from src.utils.core.ollama_client import OllamaClient # Import the real class
+import chromadb # Import chromadb to patch it
+from src.services.llm_manager import LLMClientManager # NEW
 
 
 # Centralized test configuration — override via environment variables
@@ -33,14 +39,10 @@ def mock_ollama_client_factory(mocker):
     Each mock instance will have default achat and embedd side effects.
     Accepts all arguments from OllamaClient.__init__
     """
-    def _factory(url=None, model=None, timeout=None, logger=None, config=None, model_health_monitor=None):
+    def _factory(url=None, model=None, timeout=None, logger=None, config=None, model_health_monitor=None, llm_recorder=None): # Added llm_recorder
         # Use MagicMock without spec to allow any attributes
         mock_client = MagicMock()
-        # Create AsyncMock for achat that repeats responses as needed
-        async def mock_achat(*args, **kwargs):
-            return ({"message": {"content": f"generic mocked response from {model}"}}, {"prompt_tokens": 1, "completion_tokens": 1})
-        
-        mock_client.achat = AsyncMock(side_effect=mock_achat)
+        mock_client.achat = AsyncMock() # No default side_effect here
         mock_client.embedd = AsyncMock(return_value={"embedding": [0.1]*384})
         mock_client.model = model if model else "mocked-model"
         mock_client.base_url = url if url else TEST_OLLAMA_URL
@@ -60,6 +62,34 @@ def patch_ollama_client_class(mocker, mock_ollama_client_factory):
     mocker.patch('src.utils.core.ollama_client.OllamaClient', side_effect=mock_ollama_client_factory)
 
 
+@pytest.fixture
+def mock_chromadb_client_factory(mocker):
+    """
+    Fixture that provides a factory function to create mocked chromadb.Client instances.
+    """
+    def _factory(*args, **kwargs):
+        mock_collection = MagicMock()
+        mock_collection.count.return_value = 0
+        mock_collection.add.return_value = None
+        mock_collection.query.return_value = {"ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]]}
+        mock_collection.delete.return_value = None
+
+        mock_client = MagicMock() # Removed spec=chromadb.Client
+        mock_client.get_or_create_collection.return_value = mock_collection
+        mock_client.delete_collection.return_value = None
+        mock_client.reset.return_value = None # Add reset for ephemeral client cleanup
+        return mock_client
+    return _factory
+
+
+@pytest.fixture(autouse=True) # Apply this globally to all tests
+def patch_chromadb_client_class(mocker, mock_chromadb_client_factory):
+    """
+    Patches the chromadb.Client class so that any instantiation creates a mock.
+    """
+    mocker.patch('chromadb.Client', side_effect=mock_chromadb_client_factory)
+
+
 # Helper fixture for creating a temporary project root with necessary config and prompt files
 @pytest.fixture
 def temp_project_root(tmp_path):
@@ -77,6 +107,7 @@ def temp_project_root(tmp_path):
         "timeout": 300,
         "ollama_retries": 1,
         "ollama_backoff_factor": 0.1,
+        "auto_confirm_tools": False, # NEWLY ADDED
         "models": { # Ensure these exist for CoreAgent initialization
             "default": "test-model",
             "prototyper": "test-prototyper",
@@ -173,11 +204,38 @@ def temp_project_root(tmp_path):
 
 # Fixture for the DefaultAgent instance, using the common temp_project_root
 @pytest.fixture
-def default_agent(temp_project_root):
-    """Fixture for DefaultAgent with mocked OllamaClient instances."""
+def default_agent(temp_project_root, mock_ollama_client_factory, mocker):
+    """Fixture for DefaultAgent with mocked LLMClientManager and OllamaClient instances."""
     from src.agents.default_agent import DefaultAgent
-    agent = DefaultAgent(project_root=str(temp_project_root))
-    # The llm_clients dictionary inside agent already contains mock instances due to patch_ollama_client_class
+
+    # Create a mock LLMClientManager
+    mock_llm_manager = MagicMock(spec=LLMClientManager)
+    
+    # Populate its llm_clients with mocked OllamaClient instances
+    # Each mocked OllamaClient needs an AsyncMock for achat
+    mock_llm_manager.llm_clients = {
+        "default": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-default", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "orchestration": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-orchestration", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "coder": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-coder", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "senior_reviewer": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-senior-reviewer", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "prototyper": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-prototyper", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "planner": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-planner", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "generalist": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-generalist", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "suggester": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-suggester", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "improvement_planner": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-improvement-planner", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "test_generator": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-test-generator", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "analyst": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-analyst", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        "writer": MagicMock(achat=AsyncMock(), embedd=AsyncMock(return_value={"embedding": [0.1]*384}), model="mocked-writer", base_url=TEST_OLLAMA_URL, url=TEST_OLLAMA_URL, timeout=TEST_TIMEOUT),
+        # Add other roles as needed by tests
+    }
+
+    # Ensure get_client returns the correct mock OllamaClient
+    mock_llm_manager.get_client.side_effect = lambda role: mock_llm_manager.llm_clients.get(role)
+
+    # Patch LLMClientManager when it's instantiated inside DefaultAgent (via CoreAgent)
+    mocker.patch('src.agents.core_agent.LLMClientManager', return_value=mock_llm_manager)
+
+    agent = DefaultAgent(project_root=str(temp_project_root), llm_manager=mock_llm_manager)
     yield agent
 
 # Fixture for live_ollash_agent (for tests that might need a different name)

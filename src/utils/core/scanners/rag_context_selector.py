@@ -55,13 +55,12 @@ class RAGContextSelector:
         self,
         project_root: Path,
         logger: AgentLogger,
-        token_tracker: TokenTracker,
         max_context_tokens: int = 4096,
         overlap_fraction: float = 0.6,  # Cosine similarity threshold
     ):
         self.project_root = project_root
         self.logger = logger
-        self.token_tracker = token_tracker
+
         self.max_context_tokens = max_context_tokens
         self.overlap_fraction = overlap_fraction
         
@@ -179,19 +178,18 @@ class RAGContextSelector:
         # 1. Always include explicitly required files
         if required_files:
             for file_path in required_files:
-                if file_path in self.project_root:
-                    full_path = self.project_root / file_path
-                    if full_path.exists():
-                        content = full_path.read_text()
-                        tokens = self.token_tracker.estimate_tokens(content)
-                        if token_count + tokens < self.max_context_tokens:
-                            context_parts.append(f"# {file_path}\n{content}")
-                            token_count += tokens
+                full_path = self.project_root / file_path
+                if full_path.exists():
+                    content = full_path.read_text()
+                    tokens = self._estimate_tokens(content)
+                    if token_count + tokens < self.max_context_tokens:
+                        context_parts.append(f"# {file_path}\n{content}")
+                        token_count += tokens
 
         # 2. Add relevant semantic fragments
         fragments = self.select_relevant_fragments(task_description)
         for fragment in fragments:
-            tokens = self.token_tracker.estimate_tokens(fragment.content)
+            tokens = self._estimate_tokens(fragment.content)
             if token_count + tokens < self.max_context_tokens:
                 header = (
                     f"# {fragment.file_path} (lines {fragment.start_line}-{fragment.end_line})"
@@ -201,6 +199,11 @@ class RAGContextSelector:
 
         context = "\n\n---\n\n".join(context_parts)
         return context, token_count
+
+    def _estimate_tokens(self, text: str) -> int:
+        """Estimate token count for a given text using a simple heuristic."""
+        # This is a basic heuristic; a more accurate one would use a tokenizer
+        return len(text) // 4 # Average 4 chars per token for English text
 
     def _detect_language(self, file_path: str) -> str:
         """Detect programming language from file extension."""
@@ -246,14 +249,12 @@ class SemanticContextManager:
         self,
         project_root: Path,
         logger: AgentLogger,
-        token_tracker: TokenTracker,
     ):
         self.project_root = project_root
         self.logger = logger
         self.selector = RAGContextSelector(
             project_root=project_root,
             logger=logger,
-            token_tracker=token_tracker,
         )
 
     def prepare_context_for_phase(

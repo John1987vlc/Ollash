@@ -1,0 +1,44 @@
+{
+  "license_header:python": {
+    "content": "\"\"\"\\nMIT License\\n\\nCopyright (c) 2026\\n\\nPermission is hereby granted...\\n\"\"\"\\n",
+    "created_at": "2026-02-12T00:31:34.600319",
+    "hits": 0,
+    "fragment_type": "license_header",
+    "language": "python",
+    "metadata": {
+      "license": "MIT",
+      "language": "python"
+    }
+  },
+  "test_boilerplate:python": {
+    "content": "import pytest\\nfrom unittest.mock import Mock, patch\\n\\n\\nclass Test{{ClassName}}:\\n    \"\"\"Test suite for {{module_name}}.\"\"\"\\n\\n    def setup_method(self):\\n        \"\"\"Set up test fixtures.\"\"\"\\n        pass\\n\\n    def teardown_method(self):\\n        \"\"\"Clean up after tests.\"\"\"\\n        pass\\n",
+    "created_at": "2026-02-12T00:31:34.600319",
+    "hits": 0,
+    "fragment_type": "test_boilerplate",
+    "language": "python",
+    "metadata": {
+      "test_framework": "pytest"
+    }
+  },
+  "license_header:javascript": {
+    "content": "/**\\n * MIT License\\n * Copyright (c) 2026\\n */\\n",
+    "created_at": "2026-02-12T00:31:34.600319",
+    "hits": 0,
+    "fragment_type": "license_header",
+    "language": "javascript",
+    "metadata": {
+      "license": "MIT",
+      "language": "javascript"
+    }
+  },
+  "test_boilerplate:javascript": {
+    "content": "const assert = require('assert');\\n\\ndescribe('{{ClassName}}', () => {\\n  before(() => {\\n    // Setup\\n  });\\n\\n  it('should...', () => {\\n    assert.ok(true);\\n  });\\n});",
+    "created_at": "2026-02-12T00:31:34.600319",
+    "hits": 0,
+    "fragment_type": "test_boilerplate",
+    "language": "javascript",
+    "metadata": {
+      "test_framework": "mocha"
+    }
+  }
+}

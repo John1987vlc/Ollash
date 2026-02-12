@@ -11,11 +11,13 @@ from src.utils.core.preference_manager import PreferenceManager
 class MemoryManager:
     def __init__(self, project_root: Path, logger: Any, config: Optional[Dict] = None,
                  embedding_client: Optional[Any] = None,
-                 summarization_client: Optional[Any] = None):
+                 summarization_client: Optional[Any] = None,
+                 llm_recorder: Any = None):
         self.project_root = project_root
         self.memory_file = self.project_root / ".agent_memory.json"
         self.logger = logger
         self.config = config or {}
+        self.llm_recorder = llm_recorder # Store llm_recorder
         self.memory: Dict[str, Any] = {}
         self._load_memory()
 
@@ -50,24 +52,36 @@ class MemoryManager:
         if embedding_client is not None:
             self.embedding_client = embedding_client
         else:
+            # Create a consolidated config dictionary for OllamaClient
+            ollama_client_config_dict = {
+                "ollama_max_retries": self.config.get("ollama_max_retries", 5),
+                "ollama_backoff_factor": self.config.get("ollama_backoff_factor", 1.0),
+                "ollama_retry_status_forcelist": self.config.get("ollama_retry_status_forcelist", [429, 500, 502, 503, 504]),
+                "embedding_cache": self.config.get("embedding_cache", {}),
+                "project_root": str(self.project_root), # Pass project_root as string
+                "ollama_embedding_model": self.config.get("ollama_embedding_model", "all-minilm"),
+            }
+            ollama_timeout = self.config.get("timeout", 300) # Extract timeout here
             self.embedding_client = OllamaClient(
                 url=ollama_url,
-                model=models_config.get("embedding",
-                       self.config.get("ollama_embedding_model", "all-minilm")),
-                timeout=self.config.get("timeout", 300),
+                model=self.config.get("embedding", "all-minilm"), # Use specific model or default
+                timeout=ollama_timeout, # Pass as positional argument
                 logger=self.logger,
-                config=self.config
+                config=ollama_client_config_dict,
+                llm_recorder=self.llm_recorder
             )
 
         if summarization_client is not None:
             self._summarization_client = summarization_client
         else:
+            ollama_timeout = self.config.get("timeout", 300) # Extract timeout here
             self._summarization_client = OllamaClient(
                 url=ollama_url,
                 model=self.summarization_model,
-                timeout=self.config.get("timeout", 300),
+                timeout=ollama_timeout, # Pass as positional argument
                 logger=self.logger,
-                config=self.config
+                config=ollama_client_config_dict, # Use the consolidated config dict
+                llm_recorder=self.llm_recorder
             )
 
     # ----------------------------------------------------------------

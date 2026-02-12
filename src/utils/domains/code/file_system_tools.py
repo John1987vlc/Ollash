@@ -6,11 +6,11 @@ from typing import Dict, List, Any, Optional
 from colorama import Fore, Style
 
 from src.utils.core.file_manager import FileManager
-from src.utils.core.confirmation_manager import ToolConfirmationManager
+from src.utils.core.confirmation_manager import ConfirmationManager
 from src.utils.core.tool_decorator import ollash_tool
 
 class FileSystemTools:
-    def __init__(self, project_root: Path, file_manager: FileManager, logger: Any, tool_executor: ToolConfirmationManager):
+    def __init__(self, project_root: Path, file_manager: FileManager, logger: Any, tool_executor: ConfirmationManager):
         self.project_root = project_root
         self.files = file_manager
         self.logger = logger

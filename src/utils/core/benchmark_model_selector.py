@@ -23,10 +23,10 @@ class ModelBenchmarkResult:
     model_name: str
     task_type: str  # "refinement", "coder", "planner", "generalist", etc.
     success_rate: float  # 0.0 to 1.0
-    avg_tokens_used: float
-    avg_time_seconds: float
+    avg_tokens: float
+    avg_time_ms: float
     quality_score: float  # 1-10
-    timestamp: str
+    timestamp: Optional[str] = None
 
 
 class BenchmarkDatabase:
@@ -52,8 +52,8 @@ class BenchmarkDatabase:
                         model_name=data["model_name"],
                         task_type=data["task_type"],
                         success_rate=data["success_rate"],
-                        avg_tokens_used=data["avg_tokens_used"],
-                        avg_time_seconds=data["avg_time_seconds"],
+                        avg_tokens=data["avg_tokens"],
+                        avg_time_ms=data["avg_time_ms"],
                         quality_score=data["quality_score"],
                         timestamp=data["timestamp"],
                     )
@@ -65,12 +65,12 @@ class BenchmarkDatabase:
         self,
         task_type: str,
         metric: str = "success_rate",
-    ) -> Optional[str]:
+    ) -> Optional[ModelBenchmarkResult]: # Changed return type hint
         """Get the best-performing model for a task.
         
         Args:
             task_type: Task category (refinement, coder, planner, etc.)
-            metric: Ranking metric (success_rate, quality_score, avg_time_seconds)
+            metric: Ranking metric (success_rate, quality_score, avg_time_ms) # Updated metric comment
             
         Returns:
             Best model name or None if no data available
@@ -83,12 +83,12 @@ class BenchmarkDatabase:
             best = max(relevant_results, key=lambda r: r.success_rate)
         elif metric == "quality_score":
             best = max(relevant_results, key=lambda r: r.quality_score)
-        elif metric == "avg_time_seconds":
-            best = min(relevant_results, key=lambda r: r.avg_time_seconds)
+        elif metric == "avg_time_ms": # Changed to avg_time_ms
+            best = min(relevant_results, key=lambda r: r.avg_time_ms) # Changed to avg_time_ms
         else:
             return None
 
-        return best.model_name
+        return best # Return the full object
 
     def get_model_rank(self, task_type: str) -> List[Tuple[str, float]]:
         """Get all models ranked by success rate for a task."""
@@ -122,8 +122,8 @@ class BenchmarkDatabase:
             "samples": len(relevant),
             "avg_success_rate": mean(r.success_rate for r in relevant),
             "median_quality": median(r.quality_score for r in relevant),
-            "avg_time_seconds": mean(r.avg_time_seconds for r in relevant),
-            "avg_tokens": mean(r.avg_tokens_used for r in relevant),
+            "avg_time_ms": mean(r.avg_time_ms for r in relevant),
+            "avg_tokens": mean(r.avg_tokens for r in relevant),
         }
 
 

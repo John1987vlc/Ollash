@@ -19,7 +19,12 @@ from src.web.blueprints.metrics_bp import metrics_bp, init_app as init_metrics
 from src.web.blueprints.monitors_bp import monitors_bp, init_app as init_monitors
 from src.web.blueprints.triggers_bp import triggers_bp, init_app as init_triggers
 from src.web.blueprints.alerts_bp import alerts_bp, init_app as init_alerts
-from src.web.blueprints.automations_bp_api import automations_bp as automations_api_bp, init_app as init_automations_api
+from src.web.blueprints.automations_bp_api import automations_api_bp, init_app as init_automations_api
+from src.web.blueprints.analysis_bp import analysis_bp, init_app as init_analysis
+from src.web.blueprints.artifacts_bp import artifacts_bp, init_app as init_artifacts
+from src.web.blueprints.learning_bp import learning_bp, init_app as init_learning
+from src.web.blueprints.refinement_bp import refinement_bp, init_refinement
+from src.web.blueprints.multimodal_bp import multimodal_bp, init_app as init_multimodal
 from src.web.middleware import add_cors_headers
 
 logger = logging.getLogger(__name__)
@@ -113,6 +118,41 @@ def create_app(ollash_root_dir: Path = None) -> Flask:
     except Exception as e:
         logger.error(f"Failed to initialize triggers: {e}")
 
+    # Initialize analysis blueprint (Cross-Reference, Knowledge Graph, Decision Context)
+    try:
+        init_analysis(app)
+        logger.info("✓ Analysis system (Cross-Reference, Knowledge Graph, Decision Context) initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize analysis system: {e}")
+
+    # Initialize artifacts blueprint (Interactive Reports, Diagrams, Checklists, etc.)
+    try:
+        init_artifacts(app)
+        logger.info("✓ Artifacts system (Interactive panels) initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize artifacts system: {e}")
+
+    # Initialize learning blueprint (Preferences, Pattern Analysis, Behavior Tuning)
+    try:
+        init_learning(app)
+        logger.info("✓ Learning system (Preferences, Patterns, Behavior Tuning) initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize learning system: {e}")
+
+    # Initialize refinement blueprint (Feedback Refinement, Source Validation)
+    try:
+        init_refinement(app)
+        logger.info("✓ Refinement system (Feedback Cycles, Validation) initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize refinement system: {e}")
+
+    # Initialize multimodal blueprint (OCR, Multimedia Ingestion, Speech Transcription)
+    try:
+        init_multimodal(app)
+        logger.info("✓ Multimodal system (OCR, Ingestion, Speech) initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize multimodal system: {e}")
+
     # Register blueprints
     app.register_blueprint(common_bp)
     app.register_blueprint(auto_agent_bp)
@@ -124,6 +164,11 @@ def create_app(ollash_root_dir: Path = None) -> Flask:
     app.register_blueprint(triggers_bp)
     app.register_blueprint(alerts_bp)
     app.register_blueprint(automations_api_bp)
+    app.register_blueprint(analysis_bp)
+    app.register_blueprint(artifacts_bp)
+    app.register_blueprint(learning_bp)
+    app.register_blueprint(refinement_bp)
+    app.register_blueprint(multimodal_bp)
 
     return app
 

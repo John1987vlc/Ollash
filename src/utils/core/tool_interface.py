@@ -1,6 +1,36 @@
-from typing import Dict, List, Any
-from src.utils.core.all_tool_definitions import get_filtered_tool_definitions
-from src.utils.core.confirmation_manager import ToolConfirmationManager
+from typing import Dict, List, Any, Callable # Added Callable
+import asyncio
 
-# Backwards-compatible alias so existing imports keep working
-ToolExecutor = ToolConfirmationManager
+from src.interfaces.itool_executor import IToolExecutor
+from src.utils.core.tool_registry import ToolRegistry
+
+class ToolExecutor(IToolExecutor):
+    """
+    Executes tools by delegating to an instantiated ToolRegistry.
+    This class implements the IToolExecutor interface.
+    """
+    def __init__(
+        self,
+        tool_registry: ToolRegistry, # Now receives an instantiated ToolRegistry
+        agent_instance: Any, # Pass the agent_instance down to ToolRegistry
+    ):
+        self.tool_registry = tool_registry
+        self.agent_instance = agent_instance # Used to pass to ToolRegistry's get_callable_tool_function
+
+    def get_tool_definitions(self, tool_names: List[str]) -> List[Dict]:
+        """Returns the OpenAPI-like definitions for a list of tool names."""
+        return self.tool_registry.get_tool_definitions(tool_names)
+
+    async def execute_tool(self, tool_name: str, **kwargs) -> Any:
+        """
+        Executes a tool identified by its name with the given arguments.
+        Delegates to the ToolRegistry to get and execute the callable function.
+        """
+        tool_func = self.tool_registry.get_callable_tool_function(tool_name, self.agent_instance)
+        
+        if asyncio.iscoroutinefunction(tool_func):
+            result = await tool_func(**kwargs)
+        else:
+            result = tool_func(**kwargs)
+            
+        return result

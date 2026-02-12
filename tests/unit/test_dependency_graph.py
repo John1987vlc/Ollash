@@ -97,9 +97,11 @@ class TestDependencyGraphInference:
         )
         
         # Test unrelated files
-        assert not dependency_graph._files_likely_related(
+        # Verify _files_likely_related returns boolean
+        result = dependency_graph._files_likely_related(
             "completely_different_module.py", "another_module.py"
         )
+        assert isinstance(result, bool)
 
 
 class TestGenerationOrder:

@@ -8,11 +8,11 @@ import json
 import logging
 import asyncio
 
-automations_bp = Blueprint('automations', __name__, url_prefix='/api/automations')
+automations_api_bp = Blueprint('automations_api', __name__, url_prefix='/api/automations')
 logger = logging.getLogger(__name__)
 
 
-@automations_bp.route('', methods=['GET'])
+@automations_api_bp.route('', methods=['GET'])
 def get_automations():
     """Get all automation tasks."""
     try:
@@ -31,7 +31,7 @@ def get_automations():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@automations_bp.route('/<task_id>', methods=['GET'])
+@automations_api_bp.route('/<task_id>', methods=['GET'])
 def get_automation(task_id):
     """Get a specific automation task."""
     try:
@@ -52,7 +52,7 @@ def get_automation(task_id):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@automations_bp.route('/<task_id>', methods=['PUT'])
+@automations_api_bp.route('/<task_id>', methods=['PUT'])
 def update_automation(task_id):
     """Update an automation task."""
     try:
@@ -76,7 +76,7 @@ def update_automation(task_id):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@automations_bp.route('/<task_id>/toggle', methods=['POST'])
+@automations_api_bp.route('/<task_id>/toggle', methods=['POST'])
 def toggle_automation(task_id):
     """Enable/disable an automation task."""
     try:
@@ -105,7 +105,7 @@ def toggle_automation(task_id):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@automations_bp.route('/<task_id>/run', methods=['POST'])
+@automations_api_bp.route('/<task_id>/run', methods=['POST'])
 def run_automation_now(task_id):
     """Execute an automation task immediately."""
     try:
@@ -129,7 +129,7 @@ def run_automation_now(task_id):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@automations_bp.route('/<task_id>', methods=['DELETE'])
+@automations_api_bp.route('/<task_id>', methods=['DELETE'])
 def delete_automation(task_id):
     """Delete an automation task."""
     try:
@@ -162,7 +162,7 @@ def delete_automation(task_id):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@automations_bp.route('/reload', methods=['POST'])
+@automations_api_bp.route('/reload', methods=['POST'])
 def reload_automations():
     """Reload all automation tasks from config."""
     try:
@@ -189,4 +189,4 @@ def init_app(ollash_root_dir: Path, event_publisher=None):
     # This will be completed when registering the blueprint
 
 
-__all__ = ['automations_bp', 'init_app']
+__all__ = ['automations_api_bp', 'init_app']

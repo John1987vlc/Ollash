@@ -14,6 +14,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 
 from src.utils.core.agent_logger import AgentLogger
+from src.core.config_schemas import ToolSettingsConfig # NEW: For accessing auto_confirm_tools
 
 
 class Permission(Enum):
@@ -290,10 +291,71 @@ class PolicyEnforcer:
         self,
         profile_manager: PermissionProfileManager,
         logger: AgentLogger,
+        tool_settings_config: ToolSettingsConfig, # NEW
     ):
         self.profile_manager = profile_manager
         self.logger = logger
+        self.tool_settings_config = tool_settings_config # NEW
         self.active_profile = "sandbox"  # Default restrictive
+        self._state_modifying_tools = { # NEW: Hardcoded for now, could be dynamic
+            "write_file": Permission.WRITE,
+            "replace": Permission.WRITE,
+            "run_shell_command": Permission.EXECUTE,
+            "delete_file": Permission.DELETE,
+            "git_commit": Permission.WRITE,
+            "git_push": Permission.WRITE,
+            "write_todos": Permission.WRITE,
+            "remove_dir": Permission.DELETE,
+            "move_file": Permission.WRITE,
+            "move_dir": Permission.WRITE,
+            "copy_file": Permission.WRITE,
+            "copy_dir": Permission.WRITE,
+            "create_dir": Permission.WRITE,
+        }
+
+    def set_active_profile(self, profile_name: str) -> bool:
+        """Switch to a different permission profile."""
+        if profile_name not in self.profile_manager.list_profiles():
+            self.logger.error(f"Profile '{profile_name}' not found")
+            return False
+
+        self.active_profile = profile_name
+        self.logger.info(f"🔐 Switched to permission profile: {profile_name}")
+        return True
+
+    def is_auto_approve_enabled(self) -> bool: # NEW METHOD
+        """Checks if auto-approval for state-modifying tools is enabled."""
+        return self.tool_settings_config.auto_confirm_tools
+
+    def is_tool_state_modifying(self, tool_name: str) -> bool: # NEW METHOD
+        """Checks if a given tool is considered state-modifying."""
+        return tool_name in self._state_modifying_tools
+
+    def get_permission_for_tool(self, tool_name: str) -> Optional[Permission]: # NEW METHOD
+        """Returns the associated permission for a given tool, if it's state-modifying."""
+        return self._state_modifying_tools.get(tool_name)
+
+    def authorize_tool_execution(self, tool_name: str, resource_path: str = "", context: Optional[Dict] = None) -> Tuple[bool, str]: # NEW METHOD
+        """Authorizes a tool execution, delegating to specific authorize methods if applicable."""
+        permission = self.get_permission_for_tool(tool_name)
+        if not permission:
+            # If not a state-modifying tool, it's implicitly allowed through this mechanism
+            return True, "Tool is not considered state-modifying by policy."
+
+        # Delegate to specific authorization methods if they exist and are more granular
+        if tool_name == "write_file" or tool_name == "replace":
+            return self.authorize_file_write(resource_path, file_size_bytes=context.get("file_size_bytes", 0) if context else 0)
+        elif tool_name == "run_shell_command":
+            return self.authorize_shell_command(resource_path) # resource_path here is the command itself
+        elif tool_name == "delete_file" or tool_name == "remove_dir":
+            return self.authorize_delete(resource_path)
+        elif tool_name.startswith("git_"): # Generic for git operations
+            return self.profile_manager.check_operation(self.active_profile, permission, resource_path or "git_repo", context)
+        elif tool_name in ["move_file", "move_dir", "copy_file", "copy_dir", "create_dir"]:
+            return self.profile_manager.check_operation(self.active_profile, permission, resource_path, context)
+        
+        # Fallback for other state-modifying tools without specific authorize_ methods
+        return self.profile_manager.check_operation(self.active_profile, permission, resource_path, context)
 
     def set_active_profile(self, profile_name: str) -> bool:
         """Switch to a different permission profile."""

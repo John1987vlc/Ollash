@@ -1,10 +1,10 @@
 from typing import Any
 import re # Added
 from src.utils.core.git_manager import GitManager
-from src.utils.core.confirmation_manager import ToolConfirmationManager
+from src.utils.core.confirmation_manager import ConfirmationManager
 
 class GitOperationsTools:
-    def __init__(self, git_manager: GitManager, logger: Any, tool_executor: ToolConfirmationManager):
+    def __init__(self, git_manager: GitManager, logger: Any, tool_executor: ConfirmationManager):
         self.git = git_manager
         self.logger = logger
         self.tool_executor = tool_executor

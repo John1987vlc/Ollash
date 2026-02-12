@@ -10,10 +10,11 @@ from src.utils.core.multi_format_ingester import MultiFormatIngester
 
 
 class DocumentationManager:
-    def __init__(self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None):
+    def __init__(self, project_root: Path, logger: AgentLogger, llm_recorder: Any, config: Optional[Dict] = None):
         self.project_root = project_root
         self.logger = logger
         self.config = config or {}
+        self.llm_recorder = llm_recorder # Store llm_recorder
 
         # Knowledge workspace paths
         self.knowledge_workspace = project_root / "knowledge_workspace"
@@ -30,18 +31,24 @@ class DocumentationManager:
         self.documentation_collection = self.chroma_client.get_or_create_collection(name="documentation_store")
 
         # Embedding client - reuse or create new
-        models_config = self.config.get("models", {})
-        ollama_url = os.environ.get(
-            "OLLASH_OLLAMA_URL",
-            self.config.get("ollama_url", "http://localhost:11434"),
-        )
+        # Create a consolidated config dictionary for OllamaClient
+        ollama_client_config_dict = {
+            "ollama_max_retries": self.config.get("ollama_max_retries", 5),
+            "ollama_backoff_factor": self.config.get("ollama_backoff_factor", 1.0),
+            "ollama_retry_status_forcelist": self.config.get("ollama_retry_status_forcelist", [429, 500, 502, 503, 504]),
+            "embedding_cache": self.config.get("embedding_cache", {}),
+            "project_root": str(self.project_root), # Pass project_root as string
+            "ollama_embedding_model": self.config.get("ollama_embedding_model", "all-minilm"),
+        }
+        ollama_url = os.environ.get("OLLASH_OLLAMA_URL", self.config.get("ollama_url", "http://localhost:11434"))
+        ollama_timeout = self.config.get("timeout", 300) # Extract timeout here
         self.embedding_client = OllamaClient(
             url=ollama_url,
-            model=models_config.get("embedding",
-                   self.config.get("ollama_embedding_model", "all-minilm")),
-            timeout=self.config.get("timeout", 300),
+            model=self.config.get("embedding", "all-minilm"), # Get embedding model from config
+            timeout=ollama_timeout, # Pass as positional argument
             logger=self.logger,
-            config=self.config
+            config=ollama_client_config_dict,
+            llm_recorder=self.llm_recorder # Pass llm_recorder here
         )
 
         # Multi-format ingester

@@ -1,14 +1,23 @@
 import importlib
 import os
 import pkgutil
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, Callable
+from pathlib import Path
 
 # Import the discovery functions from the decorator module
 from .tool_decorator import (
     get_async_eligible_tools,
     get_discovered_agent_tools,
     get_discovered_tool_mapping,
+    get_discovered_definitions,
 )
+
+# Import manager classes
+from src.utils.core.agent_logger import AgentLogger
+from src.utils.core.file_manager import FileManager
+from src.utils.core.command_executor import CommandExecutor
+from src.utils.core.git_manager import GitManager
+from src.utils.core.code_analyzer import CodeAnalyzer
 
 
 def discover_tools(base_path: str = "src/utils/domains"):
@@ -50,12 +59,95 @@ class ToolRegistry:
     This class now dynamically discovers tools decorated with @ollash_tool,
     eliminating the need for manual static registration. To ensure tools are
     discovered, their modules must be imported at application startup.
+    It also manages the instantiation and retrieval of callable tool functions.
     """
 
-    # These are now class-level caches populated by the dynamic discovery functions.
     _TOOL_MAPPING: Optional[Dict[str, tuple]] = None
     _AGENT_TOOLS: Optional[Dict[str, List[str]]] = None
     _ASYNC_ELIGIBLE_TOOLS: Optional[List[str]] = None
+
+    def __init__(
+        self,
+        logger: AgentLogger,
+        project_root: Path,
+        file_manager: FileManager,
+        command_executor: CommandExecutor,
+        git_manager: GitManager,
+        code_analyzer: CodeAnalyzer,
+        tool_executor: Any, # The actual ToolExecutor instance will be passed here.
+    ):
+        self.logger = logger
+        self.project_root = project_root
+        self.file_manager = file_manager
+        self.command_executor = command_executor
+        self.git_manager = git_manager
+        self.code_analyzer = code_analyzer
+        self.tool_executor = tool_executor # The ToolExecutor that will use this registry
+
+        self._loaded_toolsets: Dict[str, Any] = {} # To store instances of toolsets
+
+        self._initialize_if_needed() # Ensure class-level caches are populated
+
+        # This mapping is used to get the class and init_args for each toolset.
+        # This is now owned by ToolRegistry.
+        self._toolset_configs = {
+            "file_system_tools": {
+                "class_path": "src.utils.domains.code.file_system_tools.FileSystemTools",
+                "init_args": {"project_root": self.project_root, "file_manager": self.file_manager, "logger": self.logger, "tool_executor": self.tool_executor}
+            },
+            "code_analysis_tools": {
+                "class_path": "src.utils.domains.code.code_analysis_tools.CodeAnalysisTools",
+                "init_args": {"project_root": self.project_root, "code_analyzer": self.code_analyzer, "command_executor": self.command_executor, "logger": self.logger}
+            },
+            "command_line_tools": {
+                "class_path": "src.utils.domains.command_line.command_line_tools.CommandLineTools",
+                "init_args": {"command_executor": self.command_executor, "logger": self.logger}
+            },
+            "git_operations_tools": {
+                "class_path": "src.utils.domains.git.git_operations_tools.GitOperationsTools",
+                "init_args": {"git_manager": self.git_manager, "logger": self.logger, "tool_executor": self.tool_executor}
+            },
+            "planning_tools": {
+                "class_path": "src.utils.domains.planning.planning_tools.PlanningTools",
+                "init_args": {"logger": self.logger, "project_root": self.project_root, "agent_instance": None} # agent_instance set dynamically
+            },
+            "network_tools": {
+                "class_path": "src.utils.domains.network.network_tools.NetworkTools",
+                "init_args": {"command_executor": self.command_executor, "logger": self.logger}
+            },
+            "system_tools": {
+                "class_path": "src.utils.domains.system.system_tools.SystemTools",
+                "init_args": {"command_executor": self.command_executor, "file_manager": self.file_manager, "logger": self.logger, "agent_instance": None} # agent_instance set dynamically
+            },
+            "cybersecurity_tools": {
+                "class_path": "src.utils.domains.cybersecurity.cybersecurity_tools.CybersecurityTools",
+                "init_args": {"command_executor": self.command_executor, "file_manager": self.file_manager, "logger": self.logger}
+            },
+            "orchestration_tools": {
+                "class_path": "src.utils.domains.orchestration.orchestration_tools.OrchestrationTools",
+                "init_args": {"logger": self.logger}
+            },
+            "advanced_code_tools": {
+                "class_path": "src.utils.domains.code.advanced_code_tools.AdvancedCodeTools",
+                "init_args": {"project_root": self.project_root, "code_analyzer": self.code_analyzer, "command_executor": self.command_executor, "logger": self.logger}
+            },
+            "advanced_system_tools": {
+                "class_path": "src.utils.domains.system.advanced_system_tools.AdvancedSystemTools",
+                "init_args": {"command_executor": self.command_executor, "logger": self.logger}
+            },
+            "advanced_network_tools": {
+                "class_path": "src.utils.domains.network.advanced_network_tools.AdvancedNetworkTools",
+                "init_args": {"command_executor": self.command_executor, "logger": self.logger}
+            },
+            "advanced_cybersecurity_tools": {
+                "class_path": "src.utils.domains.cybersecurity.advanced_cybersecurity_tools.AdvancedCybersecurityTools",
+                "init_args": {"command_executor": self.command_executor, "file_manager": self.file_manager, "logger": self.logger}
+            },
+            "bonus_tools": {
+                "class_path": "src.utils.domains.bonus.bonus_tools.BonusTools",
+                "init_args": {"logger": self.logger}
+            }
+        }
 
     @classmethod
     def _initialize_if_needed(cls):
@@ -111,7 +203,6 @@ class ToolRegistry:
     def get_tool_definitions(self, active_tool_names: List[str]) -> List[Dict]:
         """Returns the OpenAPI-like definitions for the given active tool names."""
         self._initialize_if_needed() # Ensure tools are discovered
-        from .tool_decorator import get_discovered_definitions
         
         all_definitions = get_discovered_definitions()
         definitions = []
@@ -120,6 +211,44 @@ class ToolRegistry:
             if tool_name in active_tool_names:
                 definitions.append(tool_def)
         return definitions
+
+    def get_callable_tool_function(self, tool_name: str, agent_instance: Any) -> Callable:
+        """
+        Retrieves the callable function for a given tool, lazily instantiating its toolset if necessary.
+        """
+        toolset_identifier, method_name_in_toolset = self.get_tool_mapping().get(tool_name)
+
+        if toolset_identifier not in self._loaded_toolsets:
+            toolset_config = self._toolset_configs.get(toolset_identifier)
+            if not toolset_config:
+                raise ValueError(f"Toolset configuration for '{toolset_identifier}' not found in registry.")
+            
+            class_path = toolset_config["class_path"]
+            module_name, class_name = class_path.rsplit(".", 1)
+            
+            # Dynamically import the module and get the class
+            try:
+                module = importlib.import_module(module_name)
+                toolset_class = getattr(module, class_name)
+            except (ImportError, AttributeError) as e:
+                raise RuntimeError(f"Failed to dynamically load toolset class {class_path}: {e}")
+
+            init_args = toolset_config["init_args"].copy() # Use a copy to avoid modifying original
+
+            # Dynamically set agent_instance for toolsets that require it
+            if toolset_identifier == "planning_tools" or toolset_identifier == "system_tools":
+                init_args["agent_instance"] = agent_instance
+            
+            self.logger.debug(f"Lazily instantiating toolset: {toolset_identifier} from {class_path} with args: {init_args}")
+            self._loaded_toolsets[toolset_identifier] = toolset_class(**init_args)
+        
+        toolset_instance = self._loaded_toolsets[toolset_identifier]
+        tool_func = getattr(toolset_instance, method_name_in_toolset, None)
+
+        if not tool_func:
+            raise AttributeError(f"Method '{method_name_in_toolset}' not found in toolset '{toolset_identifier}'.")
+            
+        return tool_func
 
 
 # Discover tools immediately when the module is loaded.
