@@ -62,6 +62,47 @@ La arquitectura de Ollash ha sido meticulosamente rediseñada para ofrecer una m
 
 ## ✨ Características Principales
 
+### **0. Phase 6: Sistema Avanzado de Notificaciones y Automatización**
+
+**Phase 6** introduce un conjunto poderoso de componentes para mejorar la comunicación, inteligencia y automatización del sistema:
+
+#### **7 Nuevos Managers de Núcleo:**
+- **AdaptiveNotificationUI**: Crea artefactos visuales interactivos (diagramas Mermaid, árboles de decisión, tarjetas de métricas)
+- **WebhookManager**: Envía notificaciones a Slack, Discord, Teams y webhooks personalizados
+- **ActivityReportGenerator**: Genera reportes diarios, análisis de tendencias y detección de anomalías
+- **VoiceCommandProcessor**: Convierte comandos de voz en acciones ejecutables
+- **MemoryOfDecisions**: Registra decisiones y aprende de resultados para sugerencias inteligentes
+- **FeedbackCycleManager**: Extrae preferencias de usuario del feedback para personalización
+- **AdvancedTriggerManager**: Crea automatizaciones complejas con lógica AND/OR/NOT/XOR
+
+#### **REST API Completa:**
+- 30+ endpoints para exponer toda la funcionalidad de Phase 6
+- Integración Flask lista para producción
+- Soporte para operaciones por lotes y exportación de datos
+
+#### **Guías y Documentación:**
+- `PHASE_6_GETTING_STARTED.md`: Inicio rápido en 15 minutos
+- `PHASE_6_API_INTEGRATION.md`: Referencia completa de API con ejemplos
+- `PHASE_6_COMPLETION_SUMMARY.md`: Resumen técnico detallado
+- `FILE_STRUCTURE_PHASE6.md`: Guía de navegación y arquitectura
+
+**Uso:**
+```python
+from src.utils.core.webhook_manager import get_webhook_manager, WebhookType
+from src.utils.core.voice_command_processor import get_voice_command_processor
+
+# Enviar notificación a Slack
+webhooks = get_webhook_manager()
+webhooks.register_webhook("slack", WebhookType.SLACK, "https://hooks.slack.com/...")
+webhooks.send_to_webhook_sync(message="Alerta del sistema", title="⚠️ Status")
+
+# Procesar comando de voz
+voice = get_voice_command_processor()
+command = voice.process_voice_input("crear tarea para mañana")
+```
+
+---
+
 ### **1. Modo Interactivo: `DefaultAgent` (CLI Chat)**
 
 El `DefaultAgent` proporciona una experiencia de chat interactiva en la línea de comandos, actuando como un asistente de IT con capacidades de "tool-calling" y una orquestación inteligente.
