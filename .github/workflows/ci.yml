@@ -83,7 +83,7 @@ jobs:
         pytest tests/ -v --tb=short --timeout=120 --ignore=tests/test_ollama_integration.py --html=report.html --self-contained-html 2>/dev/null || true
     - name: Upload test results
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-results-${{ matrix.python-version }}
         path: report.html
@@ -144,7 +144,7 @@ jobs:
         safety check --json || true
     - name: Upload security results
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-reports
         path: bandit-report.json
