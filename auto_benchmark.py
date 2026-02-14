@@ -7,7 +7,9 @@ Usage:
 """
 import argparse
 
-from src.agents.auto_benchmarker import ModelBenchmarker
+# Use the new centralized config
+from backend.core.config import config as central_config
+from backend.agents.auto_benchmarker import ModelBenchmarker
 
 
 def main():
@@ -18,28 +20,36 @@ def main():
         "--models", nargs="*",
         help="Models to benchmark. If not provided, all local models are used.",
     )
-    parser.add_argument(
-        "--config", default="config/settings.json",
-        help="Path to the configuration file.",
-    )
     args = parser.parse_args()
 
-    benchmarker = ModelBenchmarker(config_path=args.config)
+    # Instantiate the benchmarker without config path
+    benchmarker = ModelBenchmarker()
 
     if args.models:
-        models = args.models
-        print(f"Benchmarking specific models: {', '.join(models)}")
+        models_to_run = args.models
+        print(f"Benchmarking specific models: {', '.join(models_to_run)}")
     else:
-        models = benchmarker.get_local_models()
-        if not models:
+        all_local_models = benchmarker.get_local_models()
+        if not all_local_models:
             print("No local Ollama models found. Pull some first (e.g., 'ollama pull llama2').")
             return
-        benchmarker.print_model_table(models)
+        
+        chat_models = [m for m in all_local_models if m not in benchmarker.embedding_models and "embed" not in m]
+        excluded_models = [m for m in all_local_models if m not in chat_models]
 
-    benchmarker.run_benchmark(models)
+        if excluded_models:
+            print(f"\nExcluding embedding models: {', '.join(excluded_models)}")
+
+        models_to_run = chat_models
+        benchmarker.print_model_table(models_to_run)
+
+    benchmarker.run_benchmark(models_to_run)
     log_path = benchmarker.save_logs()
 
-    summary_model = benchmarker.config.get("summary_model", "ministral-3:8b")
+    # Get summary model from the new centralized config
+    summary_model = (central_config.LLM_MODELS.get("models", {})
+                     .get("summarization", central_config.DEFAULT_MODEL))
+    
     print(f"\nGenerating summary with model: {summary_model}")
     report = benchmarker.generate_summary(summary_model)
 

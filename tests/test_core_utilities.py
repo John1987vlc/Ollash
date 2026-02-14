@@ -1,9 +1,9 @@
 """Tests for core utilities: LLMResponseParser, FileValidator, Heartbeat."""
 import json
 
-from src.utils.core.llm_response_parser import LLMResponseParser
-from src.utils.core.file_validator import FileValidator, ValidationStatus
-from src.utils.core.heartbeat import Heartbeat
+from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.file_validator import FileValidator, ValidationStatus
+from backend.utils.core.heartbeat import Heartbeat
 
 
 class TestLLMResponseParser:

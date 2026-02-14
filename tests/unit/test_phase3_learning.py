@@ -14,7 +14,7 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import Mock, patch
 
-from src.utils.core.preference_manager_extended import (
+from backend.utils.core.preference_manager_extended import (
     PreferenceManagerExtended,
     PreferenceProfile,
     CommunicationProfile,
@@ -22,12 +22,12 @@ from src.utils.core.preference_manager_extended import (
     ComplexityLevel,
     InteractionPreference
 )
-from src.utils.core.pattern_analyzer import (
+from backend.utils.core.pattern_analyzer import (
     PatternAnalyzer,
     FeedbackEntry,
     SentimentType
 )
-from src.utils.core.behavior_tuner import (
+from backend.utils.core.behavior_tuner import (
     BehaviorTuner,
     TuningConfig,
     TuningParameter
@@ -390,7 +390,7 @@ class TestLearningBlueprint:
     def client(self):
         """Create Flask test client."""
         from flask import Flask
-        from src.web.blueprints.learning_bp import learning_bp
+        from frontend.blueprints.learning_bp import learning_bp
         
         app = Flask(__name__)
         app.config['TESTING'] = True

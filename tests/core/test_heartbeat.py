@@ -1,5 +1,5 @@
 """Tests for Heartbeat."""
-from src.utils.core.heartbeat import Heartbeat
+from backend.utils.core.heartbeat import Heartbeat
 
 
 class TestHeartbeat:

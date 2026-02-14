@@ -5,7 +5,7 @@ Unit tests for MultiLanguageTestGenerator system.
 import pytest
 from unittest.mock import Mock
 
-from src.utils.domains.auto_generation.multi_language_test_generator import (
+from backend.utils.domains.auto_generation.multi_language_test_generator import (
     MultiLanguageTestGenerator,
     LanguageFrameworkMap,
     TestFramework

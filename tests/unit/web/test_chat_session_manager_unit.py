@@ -29,9 +29,9 @@ class TestChatSessionManager:
             fname = "default_agent.json" if domain == "code" else f"default_{domain}_agent.json"
             (d / fname).write_text(json.dumps({"system_prompt": "test", "tools": []}))
 
-        with patch("src.web.services.chat_session_manager.DefaultAgent"):
-            from src.web.services.chat_session_manager import ChatSessionManager
-            from src.utils.core.event_publisher import EventPublisher
+        with patch("frontend.services.chat_session_manager.DefaultAgent"):
+            from frontend.services.chat_session_manager import ChatSessionManager
+            from backend.utils.core.event_publisher import EventPublisher
             publisher = EventPublisher()
             mgr = ChatSessionManager(tmp_path, event_publisher=publisher)
             session_id = mgr.create_session()
@@ -39,9 +39,9 @@ class TestChatSessionManager:
             assert mgr.get_session(session_id) is not None
 
     def test_max_sessions_limit(self):
-        with patch("src.web.services.chat_session_manager.DefaultAgent"):
-            from src.web.services.chat_session_manager import ChatSessionManager
-            from src.utils.core.event_publisher import EventPublisher
+        with patch("frontend.services.chat_session_manager.DefaultAgent"):
+            from frontend.services.chat_session_manager import ChatSessionManager
+            from backend.utils.core.event_publisher import EventPublisher
             publisher = EventPublisher()
             mgr = ChatSessionManager(Path("."), event_publisher=publisher)
             for _ in range(5):
@@ -50,7 +50,7 @@ class TestChatSessionManager:
                 mgr.create_session()
 
     def test_agent_type_sets_active_type(self):
-        with patch("src.web.services.chat_session_manager.DefaultAgent") as MockAgent:
+        with patch("frontend.services.chat_session_manager.DefaultAgent") as MockAgent:
             mock_instance = MockAgent.return_value
             mock_instance._agent_tool_name_mappings = {
                 "code": ["read_file", "write_file"],
@@ -59,8 +59,8 @@ class TestChatSessionManager:
             mock_instance.active_agent_type = "orchestrator"
             mock_instance.active_tool_names = ["plan_actions"]
 
-            from src.web.services.chat_session_manager import ChatSessionManager
-            from src.utils.core.event_publisher import EventPublisher
+            from frontend.services.chat_session_manager import ChatSessionManager
+            from backend.utils.core.event_publisher import EventPublisher
             publisher = EventPublisher()
             mgr = ChatSessionManager(Path("."), event_publisher=publisher)
             mgr.create_session(agent_type="code")

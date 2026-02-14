@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from typing import List
 
-from src.utils.core.ocr_processor import OCRProcessor, PDFOCRProcessor, OCRConfig, OCRResult
+from backend.utils.core.ocr_processor import OCRProcessor, PDFOCRProcessor, OCRConfig, OCRResult
 
 
 # ========================
@@ -135,7 +135,7 @@ class TestMultimediaIngester:
     @pytest.fixture
     def ingester(self, temp_workspace):
         """Create multimedia ingester instance"""
-        from src.utils.core.multimedia_ingester import MultimediaIngester
+        from backend.utils.core.multimedia_ingester import MultimediaIngester
         return MultimediaIngester(workspace_path=temp_workspace)
     
     @pytest.fixture
@@ -166,19 +166,19 @@ class TestMultimediaIngester:
     
     def test_format_detection_text(self, ingester, sample_text_file):
         """Test format detection for text files"""
-        from src.utils.core.multimedia_ingester import DocumentType
+        from backend.utils.core.multimedia_ingester import DocumentType
         fmt = ingester.detect_format(sample_text_file)
         assert fmt == DocumentType.TEXT
     
     def test_format_detection_markdown(self, ingester, sample_markdown_file):
         """Test format detection for markdown files"""
-        from src.utils.core.multimedia_ingester import DocumentType
+        from backend.utils.core.multimedia_ingester import DocumentType
         fmt = ingester.detect_format(sample_markdown_file)
         assert fmt == DocumentType.MARKDOWN
     
     def test_format_detection_json(self, ingester, sample_json_file):
         """Test format detection for JSON files"""
-        from src.utils.core.multimedia_ingester import DocumentType
+        from backend.utils.core.multimedia_ingester import DocumentType
         fmt = ingester.detect_format(sample_json_file)
         assert fmt == DocumentType.TEXT  # JSON detected as text, parsed specially
     
@@ -242,7 +242,7 @@ class TestMultimediaIngester:
         doc_id = Path(sample_text_file).stem
         
         # Create new ingester and verify cache
-        from src.utils.core.multimedia_ingester import MultimediaIngester
+        from backend.utils.core.multimedia_ingester import MultimediaIngester
         ingester2 = MultimediaIngester(workspace_path=ingester.workspace)
         assert doc_id in ingester2.parsed_documents
 
@@ -263,7 +263,7 @@ class TestSpeechTranscriber:
     @pytest.fixture
     def transcriber(self, temp_workspace):
         """Create speech transcriber instance"""
-        from src.utils.core.speech_transcriber import SpeechTranscriber, TranscriptionConfig
+        from backend.utils.core.speech_transcriber import SpeechTranscriber, TranscriptionConfig
         config = TranscriptionConfig(model_name="whisper-tiny")
         return SpeechTranscriber(workspace_path=temp_workspace, config=config)
     
@@ -341,7 +341,7 @@ class TestSpeechTranscriber:
     
     def test_confidence_calculation(self, transcriber):
         """Test confidence score calculation"""
-        from src.utils.core.speech_transcriber import ConfidenceSegment
+        from backend.utils.core.speech_transcriber import ConfidenceSegment
         
         segments = [
             ConfidenceSegment(0, 100, "text1", 0.9),
@@ -367,7 +367,7 @@ class TestSpeechTranscriber:
     
     def test_match_confidence_thresholds(self, transcriber):
         """Test confidence threshold matching"""
-        from src.utils.core.speech_transcriber import TranscriptionResult, ConfidenceSegment
+        from backend.utils.core.speech_transcriber import TranscriptionResult, ConfidenceSegment
         
         # Create 3 segments with different confidence levels
         # Note: is_uncertain should be True for segments with confidence < 0.7
@@ -393,7 +393,7 @@ class TestSpeechTranscriber:
     
     def test_transcript_summary(self, transcriber):
         """Test transcript summary generation"""
-        from src.utils.core.speech_transcriber import TranscriptionResult, ConfidenceSegment
+        from backend.utils.core.speech_transcriber import TranscriptionResult, ConfidenceSegment
         
         segments = [ConfidenceSegment(0, 100, "word one", 0.9)]
         # Count unique words: word, one, two, three, four = 5 words
@@ -446,7 +446,7 @@ class TestMultimodalIntegration:
     
     def test_workflow_text_to_normalized(self, temp_workspace):
         """Test complete text ingestion workflow"""
-        from src.utils.core.multimedia_ingester import MultimediaIngester
+        from backend.utils.core.multimedia_ingester import MultimediaIngester
         
         # Create sample document
         doc_path = Path(temp_workspace) / "sample.txt"
@@ -462,9 +462,9 @@ class TestMultimodalIntegration:
     
     def test_system_health(self, temp_workspace):
         """Test system components are operational"""
-        from src.utils.core.ocr_processor import OCRProcessor
-        from src.utils.core.multimedia_ingester import MultimediaIngester
-        from src.utils.core.speech_transcriber import SpeechTranscriber
+        from backend.utils.core.ocr_processor import OCRProcessor
+        from backend.utils.core.multimedia_ingester import MultimediaIngester
+        from backend.utils.core.speech_transcriber import SpeechTranscriber
         
         ocr = OCRProcessor(workspace_path=temp_workspace)
         ingester = MultimediaIngester(workspace_path=temp_workspace)

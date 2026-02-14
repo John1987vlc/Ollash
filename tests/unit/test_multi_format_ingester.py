@@ -8,8 +8,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 
-from src.utils.core.multi_format_ingester import MultiFormatIngester
-from src.utils.core.agent_logger import AgentLogger
+from backend.utils.core.multi_format_ingester import MultiFormatIngester
+from backend.utils.core.agent_logger import AgentLogger
 
 
 @pytest.fixture
@@ -133,7 +133,7 @@ class TestMultiFormatIngester:
         finally:
             file_path.unlink()
 
-    @patch('src.utils.core.multi_format_ingester.MultiFormatIngester._extract_pdf')
+    @patch('backend.utils.core.multi_format_ingester.MultiFormatIngester._extract_pdf')
     def test_pdf_extraction_called(self, mock_pdf, ingester):
         """Test that PDF extraction is called for PDF files"""
         mock_pdf.return_value = "PDF Content"

@@ -6,9 +6,9 @@ Tests Map-Reduce summarization pipeline
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 
-from src.utils.core.cascade_summarizer import CascadeSummarizer
-from src.utils.core.ollama_client import OllamaClient
-from src.utils.core.agent_logger import AgentLogger
+from backend.utils.core.cascade_summarizer import CascadeSummarizer
+from backend.utils.core.ollama_client import OllamaClient
+from backend.utils.core.agent_logger import AgentLogger
 
 
 @pytest.fixture

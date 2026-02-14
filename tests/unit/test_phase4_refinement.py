@@ -9,17 +9,17 @@ import tempfile
 from pathlib import Path
 from datetime import datetime
 
-from src.utils.core.feedback_refinement_manager import (
+from backend.utils.core.feedback_refinement_manager import (
     FeedbackRefinementManager,
     ParagraphContext,
     RefinementRecord,
 )
-from src.utils.core.source_validator import (
+from backend.utils.core.source_validator import (
     SourceValidator,
     ValidationResult,
     ValidationIssue,
 )
-from src.utils.core.refinement_orchestrator import (
+from backend.utils.core.refinement_orchestrator import (
     RefinementOrchestrator,
     RefinementWorkflow,
     RefinementStrategy,

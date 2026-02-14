@@ -6,7 +6,7 @@ Usage:
 """
 import argparse
 
-from src.agents.auto_agent import AutoAgent
+from backend.agents.auto_agent import AutoAgent
 
 
 def main():
@@ -22,16 +22,13 @@ def main():
         help="Name of the project directory.",
     )
     parser.add_argument(
-        "--config", default="config/settings.json",
-        help="Path to the configuration file.",
-    )
-    parser.add_argument(
         "--refine-loops", type=int, default=0,
         help="Number of iterative refinement loops to run after initial generation.",
     )
     args = parser.parse_args()
 
-    agent = AutoAgent(config_path=args.config)
+    # Instantiate AutoAgent without config_path
+    agent = AutoAgent()
     path = agent.run(args.description, project_name=args.name, num_refine_loops=args.refine_loops)
 
     print(f"\n{'=' * 60}")

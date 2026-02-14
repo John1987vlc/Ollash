@@ -5,7 +5,7 @@ Unit tests for DependencyGraph system.
 import pytest
 from unittest.mock import Mock
 
-from src.utils.core.dependency_graph import DependencyGraph
+from backend.utils.core.dependency_graph import DependencyGraph
 
 
 @pytest.fixture

@@ -9,9 +9,9 @@ import time
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch, call
 
-from src.utils.core.documentation_watcher import DocumentationWatcher
-from src.utils.core.agent_logger import AgentLogger
-from src.utils.core.documentation_manager import DocumentationManager
+from backend.utils.core.documentation_watcher import DocumentationWatcher
+from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.documentation_manager import DocumentationManager
 
 
 @pytest.fixture

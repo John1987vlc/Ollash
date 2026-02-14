@@ -4,7 +4,7 @@ from unittest.mock import patch
 from colorama import Fore, Style
 
 # Removed imports: DefaultAgent, ExecutionResult, SandboxLevel
-from src.utils.core.agent_logger import AgentLogger
+from backend.utils.core.agent_logger import AgentLogger
 
 
 # Rely on conftest.py for mock_ollama_client and temp_project_root fixtures

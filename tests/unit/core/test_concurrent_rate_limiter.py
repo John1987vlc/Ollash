@@ -5,7 +5,7 @@ import threading
 import time
 from unittest.mock import MagicMock
 
-from src.utils.core.concurrent_rate_limiter import (
+from backend.utils.core.concurrent_rate_limiter import (
     GlobalGPUResourceTracker,
     ConcurrentGPUAwareRateLimiter,
     SessionResourceManager,

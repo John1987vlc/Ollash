@@ -8,7 +8,7 @@ from datetime import datetime
 
 def test_notification_manager_initialization(tmp_path):
     """Test that NotificationManager initializes correctly"""
-    from src.utils.core.notification_manager import NotificationManager
+    from backend.utils.core.notification_manager import NotificationManager
     
     nm = NotificationManager()
     assert nm is not None
@@ -17,7 +17,7 @@ def test_notification_manager_initialization(tmp_path):
 
 def test_notification_manager_email_subscription(tmp_path):
     """Test email subscription functionality"""
-    from src.utils.core.notification_manager import NotificationManager
+    from backend.utils.core.notification_manager import NotificationManager
     
     nm = NotificationManager()
     
@@ -35,7 +35,7 @@ def test_notification_manager_email_subscription(tmp_path):
 
 def test_task_scheduler_initialization():
     """Test TaskScheduler initialization"""
-    from src.utils.core.task_scheduler import TaskScheduler
+    from backend.utils.core.task_scheduler import TaskScheduler
     
     scheduler = TaskScheduler()
     assert scheduler is not None
@@ -45,7 +45,7 @@ def test_task_scheduler_initialization():
 
 def test_task_scheduler_trigger_creation():
     """Test trigger creation for different schedule types"""
-    from src.utils.core.task_scheduler import TaskScheduler
+    from backend.utils.core.task_scheduler import TaskScheduler
     
     scheduler = TaskScheduler()
     
@@ -72,8 +72,8 @@ def test_task_scheduler_trigger_creation():
 
 def test_automation_executor_initialization(tmp_path):
     """Test AutomationTaskExecutor initialization"""
-    from src.utils.core.automation_executor import AutomationTaskExecutor
-    from src.utils.core.event_publisher import EventPublisher
+    from backend.utils.core.automation_executor import AutomationTaskExecutor
+    from backend.utils.core.event_publisher import EventPublisher
     
     ollash_root = tmp_path / "ollash"
     ollash_root.mkdir()
@@ -88,7 +88,7 @@ def test_automation_executor_initialization(tmp_path):
 
 def test_automations_bp_storage(tmp_path):
     """Test automations blueprint storage functionality"""
-    import src.web.blueprints.automations_bp as auto_bp
+    import frontend.blueprints.automations_bp as auto_bp
     
     # Mock storage file
     storage_file = tmp_path / "scheduled_tasks.json"
@@ -120,7 +120,7 @@ def test_automations_bp_storage(tmp_path):
 
 def test_html_email_building():
     """Test HTML email generation"""
-    from src.utils.core.notification_manager import NotificationManager
+    from backend.utils.core.notification_manager import NotificationManager
     
     nm = NotificationManager()
     html = nm._build_html_email(
@@ -138,8 +138,8 @@ def test_html_email_building():
 @pytest.mark.asyncio
 async def test_automation_executor_task_execution(tmp_path):
     """Test task execution (without actual agent)"""
-    from src.utils.core.automation_executor import AutomationTaskExecutor
-    from src.utils.core.event_publisher import EventPublisher
+    from backend.utils.core.automation_executor import AutomationTaskExecutor
+    from backend.utils.core.event_publisher import EventPublisher
     
     ollash_root = tmp_path / "ollash"
     ollash_root.mkdir()

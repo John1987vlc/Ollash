@@ -17,29 +17,9 @@ services:
       retries: 5
       start_period: 15s
 
-  ollash:
+  app:
     build: .
-    container_name: ollash_agent
-    depends_on:
-      ollama:
-        condition: service_healthy
-    volumes:
-      - .:/app
-      - ./logs:/app/logs
-      - ./generated_projects:/app/generated_projects
-    environment:
-      OLLASH_OLLAMA_URL: ${OLLASH_OLLAMA_URL:-http://ollama:11434}
-      PYTHONUNBUFFERED: 1
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-    stdin_open: true
-    tty: true
-
-  ollash_web:
-    build: .
-    container_name: ollash_web_ui
+    container_name: ollash_app
     depends_on:
       ollama:
         condition: service_healthy
@@ -49,55 +29,13 @@ services:
       - .:/app
       - ./logs:/app/logs
       - ./generated_projects:/app/generated_projects
-    environment:
-      OLLASH_OLLAMA_URL: ${OLLASH_OLLAMA_URL:-http://ollama:11434}
-      FLASK_DEBUG: "1"
-      PYTHONUNBUFFERED: 1
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-    command: python run_web.py
-
-  autobenchmark_runner:
-    build: .
-    container_name: autobenchmark_agent
-    depends_on:
-      ollama:
-        condition: service_healthy
-    volumes:
-      - .:/app
-      - ./logs:/app/logs
-      - ./generated_projects:/app/generated_projects
-    environment:
-      OLLASH_OLLAMA_URL: ${OLLASH_OLLAMA_URL:-http://ollama:11434}
-      PYTHONUNBUFFERED: 1
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-    profiles:
-      - benchmark
-
-  auto_agent_runner:
-    build: .
-    container_name: auto_agent
-    depends_on:
-      ollama:
-        condition: service_healthy
-    volumes:
-      - .:/app
-      - ./logs:/app/logs
-      - ./generated_projects:/app/generated_projects/auto_agent_projects
-    environment:
-      OLLASH_OLLAMA_URL: ${OLLASH_OLLAMA_URL:-http://ollama:11434}
-      PYTHONUNBUFFERED: 1
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-    profiles:
-      - auto
+    env_file:
+      - .env
+    # The default command is now `python run_web.py` from the Dockerfile.
+    # To run the CLI agent, use:
+    # docker-compose run --rm app python run_agent.py --chat
+    stdin_open: true
+    tty: true
 
 volumes:
   ollama_data:

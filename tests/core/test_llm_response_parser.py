@@ -1,7 +1,7 @@
 """Tests for LLMResponseParser."""
 import json
 
-from src.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.llm_response_parser import LLMResponseParser
 
 
 class TestLLMResponseParser:

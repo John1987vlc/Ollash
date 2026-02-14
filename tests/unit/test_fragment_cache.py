@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from unittest.mock import Mock
 
-from src.utils.core.fragment_cache import FragmentCache
+from backend.utils.core.fragment_cache import FragmentCache
 
 
 @pytest.fixture

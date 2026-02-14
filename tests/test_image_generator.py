@@ -1,8 +1,8 @@
 import asyncio
 from pathlib import Path
-from src.utils.domains.multimedia.image_generation_tools import ImageGeneratorTools
-from src.utils.core.agent_logger import AgentLogger
-from src.utils.core.structured_logger import StructuredLogger
+from backend.utils.domains.multimedia.image_generation_tools import ImageGeneratorTools
+from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.structured_logger import StructuredLogger
 from dotenv import load_dotenv # Import load_dotenv
 
 async def main():

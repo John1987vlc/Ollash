@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from src.utils.core.automatic_learning import (
+from backend.utils.core.automatic_learning import (
     CorrectionPattern,
     PostMortemAnalyzer,
     LearningIndexer,
@@ -205,7 +205,7 @@ class TestLearningIndexer:
 
     def test_chromadb_unavailable(self, mock_logger, tmp_project):
         """Test graceful handling when ChromaDB is unavailable."""
-        with patch("src.utils.core.automatic_learning.chromadb", None):
+        with patch("backend.utils.core.automatic_learning.chromadb", None):
             indexer = LearningIndexer(
                 logger=mock_logger,
                 project_root=tmp_project,

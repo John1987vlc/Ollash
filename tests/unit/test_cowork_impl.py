@@ -9,10 +9,10 @@ import json
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 
-from src.utils.domains.bonus.cowork_impl import CoworkTools
-from src.utils.core.agent_logger import AgentLogger
-from src.utils.core.documentation_manager import DocumentationManager
-from src.utils.core.ollama_client import OllamaClient
+from backend.utils.domains.bonus.cowork_impl import CoworkTools
+from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.documentation_manager import DocumentationManager
+from backend.utils.core.ollama_client import OllamaClient
 
 
 @pytest.fixture
@@ -104,7 +104,7 @@ class TestCoworkTools:
         test_doc.write_text("Implement authentication\nAdd logging\nSetup monitoring")
         
         # Mock ingester
-        with patch('src.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
+        with patch('backend.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "Implement auth\nAdd logging\nSetup monitoring"
             mock_ingester_class.return_value = mock_ingester
@@ -129,7 +129,7 @@ class TestCoworkTools:
         test_doc = doc_manager.references_dir / "test.txt"
         test_doc.write_text("Some requirement")
         
-        with patch('src.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
+        with patch('backend.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "Requirement text"
             cowork.ingester = mock_ingester
@@ -199,7 +199,7 @@ class TestCoworkTools:
         test_doc = doc_manager.references_dir / "spec.txt"
         test_doc.write_text("System specification with " + "many words " * 100)
         
-        with patch('src.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
+        with patch('backend.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "System spec content"
             cowork.ingester = mock_ingester
@@ -223,7 +223,7 @@ class TestCoworkTools:
         test_doc = doc_manager.references_dir / "doc.txt"
         test_doc.write_text("Content")
         
-        with patch('src.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
+        with patch('backend.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "Document content"
             cowork.ingester = mock_ingester

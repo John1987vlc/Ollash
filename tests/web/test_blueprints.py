@@ -1,4 +1,4 @@
-"""Unit tests for the Ollash Web UI (src/web/)."""
+"""Unit tests for the Ollash Web UI (frontend/)."""
 import json
 import pytest
 from unittest.mock import patch, MagicMock
@@ -8,59 +8,38 @@ from pathlib import Path
 @pytest.fixture
 def app(tmp_path):
     """Create a Flask test app with mocked dependencies."""
-    # Create minimal config
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    (config_dir / "settings.json").write_text(json.dumps({
-        "model": "test-model",
-        "ollama_url": "http://localhost:11434",
-        "timeout": 30,
-        "max_tokens": 1024,
-        "temperature": 0.5,
-        "history_limit": 10,
-        "sandbox": "limited",
-        "project_root": ".",
-        "default_system_prompt_path": "prompts/orchestrator/default_orchestrator.json",
-        "models": {"default": "test-model", "coding": "test-model",
-                   "reasoning": "test-model", "orchestration": "test-model",
-                   "summarization": "test-model", "self_correction": "test-model",
-                   "embedding": "test-model"},
-        "auto_agent_llms": {
-            "prototyper_model": "test", "coder_model": "test",
-            "planner_model": "test", "generalist_model": "test",
-            "suggester_model": "test", "improvement_planner_model": "test",
-            "senior_reviewer_model": "test"
-        },
-        "auto_agent_timeouts": {
-            "prototyper": 60, "coder": 60, "planner": 60,
-            "generalist": 60, "suggester": 60,
-            "improvement_planner": 60, "senior_reviewer": 60
-        }
-    }))
+    # Create a .env file with minimal necessary config for the web UI to start
+    (tmp_path / ".env").write_text(f"""
+OLLAMA_URL=http://localhost:11434
+DEFAULT_MODEL=test-model
+LLM_MODELS_JSON='{{"models": {{"default": "test-model", "coder": "test-coder"}}}}'
+TOOL_SETTINGS_JSON='{{"default_system_prompt_path": "prompts/orchestrator/default_orchestrator.json"}}'
+""")
 
-    # Create prompts directory
+    # Create prompts directory and a dummy prompt file
     prompts_dir = tmp_path / "prompts" / "orchestrator"
     prompts_dir.mkdir(parents=True)
     (prompts_dir / "default_orchestrator.json").write_text(json.dumps({
-        "system_prompt": "You are a test agent.",
-        "tools": ["plan_actions", "select_agent_type"]
+        "prompt": "You are a test agent.",
+        "tools": ["plan_actions"]
     }))
-
+    
     # Create other prompt dirs needed by DefaultAgent
     for domain in ["code", "network", "system", "cybersecurity"]:
         d = tmp_path / "prompts" / domain
         d.mkdir(parents=True, exist_ok=True)
-        (d / f"default_{domain}_agent.json" if domain != "code" else d / "default_agent.json").write_text(
-            json.dumps({"system_prompt": f"You are a {domain} agent.", "tools": []})
-        )
+        fname = "default_agent.json" if domain == "code" else f"default_{domain}_agent.json"
+        (d / fname).write_text(json.dumps({"prompt": f"You are a {domain} agent.", "tools": []}))
+
 
     # Create logs dir
     (tmp_path / "logs").mkdir()
 
-    # Patch AutoAgent and DefaultAgent to prevent real Ollama connections
-    with patch("src.web.blueprints.auto_agent_bp.AutoAgent"), \
-         patch("src.web.blueprints.benchmark_bp.ModelBenchmarker"):
-        from src.web.app import create_app
+    # Patch modules that would make external calls or are heavy to instantiate
+    with patch("frontend.blueprints.auto_agent_bp.AutoAgent"), \
+         patch("frontend.blueprints.benchmark_bp.ModelBenchmarker"), \
+         patch("frontend.services.chat_session_manager.DefaultAgent"):
+        from frontend.app import create_app
         flask_app = create_app(ollash_root_dir=tmp_path)
         flask_app.config["TESTING"] = True
         yield flask_app
@@ -109,7 +88,7 @@ class TestChatBlueprint:
         assert data["status"] == "error"
 
     def test_chat_creates_session(self, client):
-        with patch("src.web.blueprints.chat_bp._session_manager") as mock_mgr:
+        with patch("frontend.blueprints.chat_bp._session_manager") as mock_mgr:
             mock_mgr.get_session.return_value = None
             mock_mgr.create_session.return_value = "abc123"
 
@@ -123,7 +102,7 @@ class TestChatBlueprint:
             mock_mgr.create_session.assert_called_once()
 
     def test_chat_passes_agent_type(self, client):
-        with patch("src.web.blueprints.chat_bp._session_manager") as mock_mgr:
+        with patch("frontend.blueprints.chat_bp._session_manager") as mock_mgr:
             mock_mgr.get_session.return_value = None
             mock_mgr.create_session.return_value = "abc123"
 
@@ -134,13 +113,13 @@ class TestChatBlueprint:
             mock_mgr.create_session.assert_called_once_with(None, "cybersecurity")
 
     def test_chat_stream_404_unknown_session(self, client):
-        with patch("src.web.blueprints.chat_bp._session_manager") as mock_mgr:
+        with patch("frontend.blueprints.chat_bp._session_manager") as mock_mgr:
             mock_mgr.get_session.return_value = None
             resp = client.get("/api/chat/stream/nonexistent")
             assert resp.status_code == 404
 
     def test_chat_max_sessions_error(self, client):
-        with patch("src.web.blueprints.chat_bp._session_manager") as mock_mgr:
+        with patch("frontend.blueprints.chat_bp._session_manager") as mock_mgr:
             mock_mgr.get_session.return_value = None
             mock_mgr.create_session.side_effect = RuntimeError("Maximum concurrent sessions (5) reached.")
 
@@ -154,8 +133,8 @@ class TestChatBlueprint:
 
 class TestBenchmarkBlueprint:
     def test_models_endpoint(self, client):
-        with patch("src.web.blueprints.benchmark_bp.requests.get") as mock_get, \
-             patch("src.web.blueprints.benchmark_bp.ModelBenchmarker") as MockBench:
+        with patch("frontend.blueprints.benchmark_bp.requests.get") as mock_get, \
+             patch("frontend.blueprints.benchmark_bp.ModelBenchmarker") as MockBench:
             MockBench.format_size.side_effect = lambda b: f"{b / 1e9:.1f} GB"
 
             mock_resp = MagicMock()
@@ -178,7 +157,7 @@ class TestBenchmarkBlueprint:
 
     def test_models_connection_error(self, client):
         import requests as req_lib
-        with patch("src.web.blueprints.benchmark_bp.requests.get",
+        with patch("frontend.blueprints.benchmark_bp.requests.get",
                     side_effect=req_lib.ConnectionError("refused")):
             resp = client.get("/api/benchmark/models?url=http://bad:1234")
             assert resp.status_code == 503

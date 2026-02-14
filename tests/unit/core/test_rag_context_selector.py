@@ -4,12 +4,12 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from src.utils.core.scanners.rag_context_selector import (
+from backend.utils.core.scanners.rag_context_selector import (
     RAGContextSelector,
     CodeFragment,
     SemanticContextManager,
 )
-from src.utils.core.token_tracker import TokenTracker # Import TokenTracker
+from backend.utils.core.token_tracker import TokenTracker # Import TokenTracker
 
 
 @pytest.fixture

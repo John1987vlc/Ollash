@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from src.utils.core.scanners.dependency_scanner import (
+from backend.utils.core.scanners.dependency_scanner import (
     PythonDependencyScanner,
     NodeDependencyScanner,
     GoDependencyScanner,

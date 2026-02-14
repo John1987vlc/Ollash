@@ -20,9 +20,25 @@ Ollash is an advanced, locally-run AI agent framework for developers and IT prof
 
 ## 🏗️ Architecture
 
-Ollash is built on a modular and extensible architecture that makes it easy to add new agents, tools, and features. Core functionalities are provided by a set of specialized services, such as the `LLMClientManager`, `ToolExecutorService`, and `MemoryService`. The system's behavior is controlled by a set of configuration files, allowing for easy customization.
+Ollash is built on a modular and extensible architecture. The project is logically split into `backend/` for core Python logic (agents, core services, utilities) and `frontend/` for the Flask web application. Core functionalities are provided by a set of specialized services, such as the `LLMClientManager`, `ToolExecutorService`, and `MemoryService`. The system's behavior is controlled by a set of configuration files, allowing for easy customization.
 
 For a more detailed overview of the architecture, please refer to the [Architecture Documentation](docs/Haiku/ARCHITECTURE_DIAGRAM.md).
+
+## 📁 Project Structure
+
+The project follows a well-organized directory structure to separate concerns and improve maintainability:
+
+*   **`backend/`**: Contains all Python backend source code, including agent implementations, core utilities, services, and interfaces. This is the new home for the core logic previously found in `src/`.
+*   **`frontend/`**: Houses the Flask web application, including `app.py`, blueprints, services, static assets, and HTML templates.
+*   **`docs/`**: Documentation files such as `GEMINI.md`, `CLAUDE.md`, and `DEPLOYMENT_STATUS.md`.
+*   **`prompts/`**: Stores JSON configuration for agent prompts by domain.
+*   **`tests/`**: Contains all unit and integration tests for the project.
+*   **`reports/`**: Stores test results and other generated reports.
+*   **`scripts/`**: Utility and debugging scripts.
+*   **`.ollash/`**: Configuration and memory files specific to the agent's runtime, such as `.agent_memory.json` and ChromaDB data.
+*   **`requirements.txt`**, **`requirements-dev.txt`**: Python dependency lists.
+*   **`.env.example`**: Template for environment variables.
+*   **`run_agent.py`**, **`run_web.py`**, **`auto_agent.py`**, **`auto_benchmark.py`**: Main entry points for the application.
 
 ---
 
@@ -100,19 +116,12 @@ For image generation features, ensure InvokeAI 6.10+ is installed and running:
 
 ### Testing
 
-To run the test suite and verify the installation:
+To run the complete test suite:
 ```bash
 pytest
 ```
 
----
-
-## 🤝 Contributing
-
-We welcome contributions to Ollash! Please see our [Contributing Guide](CONTRIBUTING.md) for more details on how to get started.
-
----
-
-## 📜 License
-
-Ollash is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+To run linting checks:
+```bash
+ruff check backend/ frontend/ tests/
+```

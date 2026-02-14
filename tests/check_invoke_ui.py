@@ -15,7 +15,7 @@ sys.path.insert(0, str(project_root))
 
 def check_invoke_ui():
     """Verificar conexion a Invoke UI"""
-    from src.utils.domains.multimedia.image_generation_tools import ImageGeneratorTools
+    from backend.utils.domains.multimedia.image_generation_tools import ImageGeneratorTools
     import logging
     
     # Configurar logging - SILENCIAR

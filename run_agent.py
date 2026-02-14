@@ -11,7 +11,7 @@ Uso:
     python run_agent.py --auto-create --project-description "Flask REST API" --project-name myapi
 """
 
-from src.agents.default_agent import DefaultAgent
+from backend.agents.default_agent import DefaultAgent
 from colorama import Fore, Style, init
 from pathlib import Path # Added
 
@@ -55,20 +55,18 @@ def main():
     print(f"{Fore.CYAN}{'=' * 60}")
     sys.stdout.flush()
 
-    if args.auto_create:
-        from src.agents.auto_agent import AutoAgent
-        config_path = str(base_path / "config" / "settings.json")
-        auto_agent = AutoAgent(config_path=config_path)
-        description = args.project_description
-        if not description:
-            description = input("Enter project description: ").strip()
-            if not description:
-                print("No description provided. Exiting.")
+            if args.auto_create:
+                from backend.agents.auto_agent import AutoAgent
+                auto_agent = AutoAgent()
+                description = args.project_description
+                if not description:
+                    description = input("Enter project description: ").strip()
+                    if not description:
+                        print("No description provided. Exiting.")
+                        return
+                path = auto_agent.run(description, project_name=args.project_name)
+                print(f"\n{Fore.GREEN}Project created at: {path}{Style.RESET_ALL}")
                 return
-        path = auto_agent.create_project(description, args.project_name)
-        print(f"\n{Fore.GREEN}Project created at: {path}{Style.RESET_ALL}")
-        return
-
     if args.chat:
         agent.chat_mode()
 

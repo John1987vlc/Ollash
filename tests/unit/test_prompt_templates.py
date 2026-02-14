@@ -5,7 +5,7 @@ Tests prompt templates for Analyst, Writer, and Orchestrator roles
 
 import pytest
 
-from src.agents.prompt_templates import RolePromptTemplates
+from backend.agents.prompt_templates import RolePromptTemplates
 
 
 class TestRolePromptTemplates:

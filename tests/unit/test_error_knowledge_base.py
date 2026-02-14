@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from unittest.mock import Mock
 
-from src.utils.core.error_knowledge_base import ErrorKnowledgeBase, ErrorPattern
+from backend.utils.core.error_knowledge_base import ErrorKnowledgeBase, ErrorPattern
 
 
 @pytest.fixture

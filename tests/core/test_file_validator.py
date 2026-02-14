@@ -1,5 +1,5 @@
 """Tests for FileValidator."""
-from src.utils.core.file_validator import FileValidator, ValidationStatus
+from backend.utils.core.file_validator import FileValidator, ValidationStatus
 
 
 class TestFileValidator:
