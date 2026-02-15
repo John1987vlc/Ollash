@@ -1,21 +1,17 @@
 """Unit tests for RAGContextSelector module."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from backend.utils.core.scanners.rag_context_selector import (
-    RAGContextSelector,
-    CodeFragment,
-    SemanticContextManager,
-)
+    CodeFragment, RAGContextSelector, SemanticContextManager)
 
 
 @pytest.fixture
 def mock_logger():
     """Create a mock logger."""
     return MagicMock()
-
-
 
 
 @pytest.fixture
@@ -68,7 +64,7 @@ class TestCodeFragment:
 class TestRAGContextSelector:
     """Test RAGContextSelector core functionality."""
 
-    def test_initialization(self, selector, mock_logger): # Remove mock_token_tracker
+    def test_initialization(self, selector, mock_logger):  # Remove mock_token_tracker
         """Test that selector initializes correctly."""
         assert selector.logger is not None
         assert selector.project_root is not None
@@ -113,14 +109,33 @@ class TestRAGContextSelector:
     def test_build_context_respects_token_limit(self, selector):
         """Test that context building respects token limits."""
         # Mock index_code_fragments and select_relevant_fragments to control behavior
-        with patch.object(selector, 'index_code_fragments') as mock_index:
-            with patch.object(selector, 'select_relevant_fragments') as mock_select_fragments:
+        with patch.object(selector, "index_code_fragments") as mock_index:
+            with patch.object(
+                selector, "select_relevant_fragments"
+            ) as mock_select_fragments:
                 # Simulate some fragments being indexed and selected
-                mock_index.return_value = None # No actual indexing needed for this test
+                mock_index.return_value = (
+                    None  # No actual indexing needed for this test
+                )
                 mock_select_fragments.return_value = [
-                    CodeFragment(file_path="large_file.py", language="python", content="x" * 500, start_line=1),
-                    CodeFragment(file_path="medium_file.py", language="python", content="y" * 300, start_line=1),
-                    CodeFragment(file_path="small_file.py", language="python", content="z" * 100, start_line=1),
+                    CodeFragment(
+                        file_path="large_file.py",
+                        language="python",
+                        content="x" * 500,
+                        start_line=1,
+                    ),
+                    CodeFragment(
+                        file_path="medium_file.py",
+                        language="python",
+                        content="y" * 300,
+                        start_line=1,
+                    ),
+                    CodeFragment(
+                        file_path="small_file.py",
+                        language="python",
+                        content="z" * 100,
+                        start_line=1,
+                    ),
                 ]
 
                 # Set a specific token limit for the test
@@ -140,7 +155,9 @@ class TestRAGContextSelector:
 class TestSemanticContextManager:
     """Test SemanticContextManager high-level API."""
 
-    def test_initialization(self, mock_logger, tmp_project): # Remove mock_token_tracker
+    def test_initialization(
+        self, mock_logger, tmp_project
+    ):  # Remove mock_token_tracker
         """Test SemanticContextManager initialization."""
         manager = SemanticContextManager(
             logger=mock_logger,
@@ -150,7 +167,9 @@ class TestSemanticContextManager:
         assert manager.logger is not None
         assert manager.selector is not None
 
-    def test_prepare_context_for_phase(self, mock_logger, tmp_project): # Remove mock_token_tracker
+    def test_prepare_context_for_phase(
+        self, mock_logger, tmp_project
+    ):  # Remove mock_token_tracker
         """Test preparing context for a specific phase."""
         manager = SemanticContextManager(
             logger=mock_logger,
@@ -175,7 +194,9 @@ class TestSemanticContextManager:
             # ChromaDB might not be available
             pass
 
-    def test_context_phases(self, mock_logger, tmp_project): # Remove mock_token_tracker
+    def test_context_phases(
+        self, mock_logger, tmp_project
+    ):  # Remove mock_token_tracker
         """Test that context manager supports different phases."""
         manager = SemanticContextManager(
             logger=mock_logger,

@@ -6,9 +6,10 @@ including latency, error rates, and availability.
 """
 
 from collections import deque
-from typing import Dict, Any
+from typing import Any, Dict
 
 from backend.utils.core.agent_logger import AgentLogger
+
 
 class ModelHealthMonitor:
     """Monitors the health of Ollama models."""
@@ -60,7 +61,9 @@ class ModelHealthMonitor:
             return {"status": "unknown"}
 
         avg_latency = sum(self.latencies[model_name]) / len(self.latencies[model_name])
-        error_rate = sum(self.error_rates[model_name]) / len(self.error_rates[model_name])
+        error_rate = sum(self.error_rates[model_name]) / len(
+            self.error_rates[model_name]
+        )
 
         return {
             "status": "ok",
@@ -81,16 +84,20 @@ class ModelHealthMonitor:
         """
         stats = self.get_health_stats(model_name)
         if stats["status"] == "unknown":
-            return True # Assume healthy if no data
+            return True  # Assume healthy if no data
 
         max_latency = self.config.get("max_latency_seconds", 10.0)
         max_error_rate = self.config.get("max_error_rate", 0.5)
 
         if stats["avg_latency"] > max_latency:
-            self.logger.warning(f"Model {model_name} is unhealthy: average latency {stats['avg_latency']:.2f}s exceeds threshold of {max_latency}s.")
+            self.logger.warning(
+                f"Model {model_name} is unhealthy: average latency {stats['avg_latency']:.2f}s exceeds threshold of {max_latency}s."
+            )
             return False
         if stats["error_rate"] > max_error_rate:
-            self.logger.warning(f"Model {model_name} is unhealthy: error rate {stats['error_rate']:.2%} exceeds threshold of {max_error_rate:.2%}.")
+            self.logger.warning(
+                f"Model {model_name} is unhealthy: error rate {stats['error_rate']:.2%} exceeds threshold of {max_error_rate:.2%}."
+            )
             return False
 
         return True

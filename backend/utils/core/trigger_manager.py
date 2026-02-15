@@ -2,15 +2,16 @@
 
 import logging
 import re
-from typing import Dict, List, Any, Callable
 from datetime import datetime
 from enum import Enum
+from typing import Any, Callable, Dict, List
 
 logger = logging.getLogger(__name__)
 
 
 class OperatorType(Enum):
     """Supported comparison operators."""
+
     EQUAL = "=="
     NOT_EQUAL = "!="
     GREATER_THAN = ">"
@@ -35,13 +36,19 @@ class TriggerEvaluator:
             OperatorType.LESS_THAN: lambda a, b: a < b,
             OperatorType.GREATER_EQUAL: lambda a, b: a >= b,
             OperatorType.LESS_EQUAL: lambda a, b: a <= b,
-            OperatorType.CONTAINS: lambda a, b: b in a if isinstance(a, (str, list)) else False,
-            OperatorType.NOT_CONTAINS: lambda a, b: b not in a if isinstance(a, (str, list)) else True,
+            OperatorType.CONTAINS: lambda a, b: b in a
+            if isinstance(a, (str, list))
+            else False,
+            OperatorType.NOT_CONTAINS: lambda a, b: b not in a
+            if isinstance(a, (str, list))
+            else True,
             OperatorType.IN_RANGE: self._check_range,
             OperatorType.PATTERN_MATCH: self._check_pattern,
         }
 
-    def evaluate_condition(self, condition: Dict[str, Any], context: Dict[str, Any]) -> bool:
+    def evaluate_condition(
+        self, condition: Dict[str, Any], context: Dict[str, Any]
+    ) -> bool:
         """
         Evaluate a single condition.
 
@@ -147,7 +154,9 @@ class TriggerEvaluator:
 class ConditionalTrigger:
     """Represents a conditional trigger that can be enabled/disabled."""
 
-    def __init__(self, trigger_id: str, rule: Dict[str, Any], actions: List[Dict[str, Any]]):
+    def __init__(
+        self, trigger_id: str, rule: Dict[str, Any], actions: List[Dict[str, Any]]
+    ):
         """
         Initialize a conditional trigger.
 
@@ -164,7 +173,9 @@ class ConditionalTrigger:
         self.trigger_count = 0
         self.evaluator = TriggerEvaluator()
 
-    def should_trigger(self, context: Dict[str, Any], cooldown_minutes: int = 0) -> bool:
+    def should_trigger(
+        self, context: Dict[str, Any], cooldown_minutes: int = 0
+    ) -> bool:
         """
         Determine if this trigger should execute.
 
@@ -181,6 +192,7 @@ class ConditionalTrigger:
         # Check cooldown
         if self.last_triggered and cooldown_minutes > 0:
             from datetime import timedelta
+
             cooldown_end = self.last_triggered + timedelta(minutes=cooldown_minutes)
             if datetime.now() < cooldown_end:
                 return False
@@ -204,8 +216,10 @@ class ConditionalTrigger:
             "rule": self.rule,
             "actions": self.actions,
             "enabled": self.enabled,
-            "last_triggered": self.last_triggered.isoformat() if self.last_triggered else None,
-            "trigger_count": self.trigger_count
+            "last_triggered": self.last_triggered.isoformat()
+            if self.last_triggered
+            else None,
+            "trigger_count": self.trigger_count,
         }
 
 
@@ -217,7 +231,9 @@ class TriggerManager:
         self.triggers: Dict[str, ConditionalTrigger] = {}
         self.history: List[Dict[str, Any]] = []
 
-    def add_trigger(self, trigger_id: str, rule: Dict[str, Any], actions: List[Dict[str, Any]]) -> bool:
+    def add_trigger(
+        self, trigger_id: str, rule: Dict[str, Any], actions: List[Dict[str, Any]]
+    ) -> bool:
         """Add a new trigger."""
         try:
             if trigger_id in self.triggers:
@@ -253,7 +269,9 @@ class TriggerManager:
             return True
         return False
 
-    def evaluate_all(self, context: Dict[str, Any], cooldown_minutes: int = 0) -> List[Dict[str, Any]]:
+    def evaluate_all(
+        self, context: Dict[str, Any], cooldown_minutes: int = 0
+    ) -> List[Dict[str, Any]]:
         """
         Evaluate all active triggers against current context.
 
@@ -272,7 +290,7 @@ class TriggerManager:
                 triggered_info = {
                     "trigger_id": trigger_id,
                     "triggered_at": datetime.now().isoformat(),
-                    "actions": trigger.get_actions()
+                    "actions": trigger.get_actions(),
                 }
                 triggered.append(triggered_info)
                 self.history.append(triggered_info)

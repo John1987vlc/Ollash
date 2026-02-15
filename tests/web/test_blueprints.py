@@ -1,23 +1,22 @@
-import json
-import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
-from flask import Flask
 import importlib
+import json
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+from flask import Flask
 
 # Import blueprints to be tested
-from frontend.blueprints import (
-    common_bp,
-    benchmark_bp,
-    auto_agent_bp
-)
-from frontend.blueprints import register_blueprints # Import the new registration function
-from frontend.services.chat_session_manager import ChatSessionManager # Import the actual class for type hinting (not for direct patching here)
+from frontend.blueprints import (  # Import the new registration function
+    auto_agent_bp, benchmark_bp, common_bp, register_blueprints)
+from frontend.services.chat_session_manager import \
+    ChatSessionManager  # Import the actual class for type hinting (not for direct patching here)
 
 # Import the chat_bp module directly (not the Blueprint object from __init__.py)
 # This is needed to access module-level globals like _session_manager
-chat_bp_module = importlib.import_module('frontend.blueprints.chat_bp')
+chat_bp_module = importlib.import_module("frontend.blueprints.chat_bp")
 chat_bp = chat_bp_module.chat_bp  # The Blueprint object
+
 
 @pytest.fixture
 def app(tmp_path, monkeypatch):
@@ -33,9 +32,9 @@ def app(tmp_path, monkeypatch):
     # Mock the event publisher and bridge
     mock_event_publisher = MagicMock()
     mock_chat_event_bridge = MagicMock()
-    mock_alert_manager = MagicMock() # Mock alert manager
-    mock_logger = MagicMock() # Mock logger
-    app.config['logger'] = mock_logger # Add mock logger to app.config
+    mock_alert_manager = MagicMock()  # Mock alert manager
+    mock_logger = MagicMock()  # Mock logger
+    app.config["logger"] = mock_logger  # Add mock logger to app.config
 
     # Create a mock session manager instance that will be injected into chat_bp
     app.mock_session_manager_instance = MagicMock(spec=ChatSessionManager)
@@ -45,8 +44,8 @@ def app(tmp_path, monkeypatch):
     # before calling register_blueprints. This ensures that the centralized
     # function is tested, but the individual init_app logic is mocked.
     for bp_module in [common_bp, benchmark_bp, auto_agent_bp]:
-        if hasattr(bp_module, 'init_app'):
-            monkeypatch.setattr(bp_module, 'init_app', lambda *args, **kwargs: None)
+        if hasattr(bp_module, "init_app"):
+            monkeypatch.setattr(bp_module, "init_app", lambda *args, **kwargs: None)
 
     register_blueprints(
         app=app,
@@ -60,15 +59,17 @@ def app(tmp_path, monkeypatch):
     # AFTER register_blueprints runs and init_chat sets chat_bp._session_manager
     # We explicitly override it with our mock to ensure it's used in tests.
     # The _session_manager is a global in the chat_bp module, not an attribute of the chat_bp Blueprint object.
-    monkeypatch.setattr(chat_bp_module, "_session_manager", app.mock_session_manager_instance)
-
+    monkeypatch.setattr(
+        chat_bp_module, "_session_manager", app.mock_session_manager_instance
+    )
 
     with app.app_context():
         # Patch external dependencies for all tests in this file
-        with patch("backend.agents.auto_agent.AutoAgent"), \
-             patch("backend.agents.auto_benchmarker.ModelBenchmarker"), \
-             patch("frontend.services.chat_session_manager.DefaultAgent"):
+        with patch("backend.agents.auto_agent.AutoAgent"), patch(
+            "backend.agents.auto_benchmarker.ModelBenchmarker"
+        ), patch("frontend.services.chat_session_manager.DefaultAgent"):
             yield app
+
 
 @pytest.fixture
 def client(app):
@@ -93,19 +94,21 @@ class TestChatBlueprint:
         assert resp.status_code == 400
 
     def test_chat_creates_session(self, client, app):
-        mock_mgr = app.mock_session_manager_instance # Use the mock set by the fixture
+        mock_mgr = app.mock_session_manager_instance  # Use the mock set by the fixture
         mock_session_id = "new-dynamic-session-id"
         mock_mgr.create_session.return_value = mock_session_id
         mock_mgr.get_session.return_value = None  # No existing session
 
-        resp = client.post("/api/chat", json={"message": "hello", "agent_type": "default"})
+        resp = client.post(
+            "/api/chat", json={"message": "hello", "agent_type": "default"}
+        )
         assert resp.status_code == 200
         assert resp.get_json()["session_id"] == mock_session_id
         # create_session is called with positional args (project_path, agent_type)
         mock_mgr.create_session.assert_called_once_with(None, "default")
 
     def test_chat_passes_agent_type(self, client, app):
-        mock_mgr = app.mock_session_manager_instance # Use the mock set by the fixture
+        mock_mgr = app.mock_session_manager_instance  # Use the mock set by the fixture
         mock_session_id = "new-dynamic-session-id-code"
         mock_mgr.create_session.return_value = mock_session_id
         mock_mgr.get_session.return_value = None  # No existing session
@@ -120,20 +123,23 @@ class TestChatBlueprint:
         assert resp.status_code == 404
 
     def test_chat_max_sessions_error(self, client, app):
-        mock_mgr = app.mock_session_manager_instance # Use the mock set by the fixture
+        mock_mgr = app.mock_session_manager_instance  # Use the mock set by the fixture
         # Simulate session limit reached by raising RuntimeError from create_session
         mock_mgr.create_session.side_effect = RuntimeError("Session limit reached")
 
         resp = client.post("/api/chat", json={"message": "test"})
-        assert resp.status_code == 429 # Too Many Requests
+        assert resp.status_code == 429  # Too Many Requests
         assert "Session limit reached" in resp.get_json()["message"]
+
 
 class TestBenchmarkBlueprint:
     def test_models_endpoint(self, client, monkeypatch):
         # This test now needs to patch requests inside the blueprint's scope
         with patch("requests.get") as mock_get:
             mock_get.return_value.status_code = 200
-            mock_get.return_value.json.return_value = {"models": [{"name": "test-model", "size": 1000}]}
+            mock_get.return_value.json.return_value = {
+                "models": [{"name": "test-model", "size": 1000}]
+            }
             mock_get.return_value.raise_for_status = lambda: None
 
             resp = client.get("/api/benchmark/models")
@@ -145,6 +151,7 @@ class TestBenchmarkBlueprint:
 
     def test_models_connection_error(self, client, monkeypatch):
         import requests
+
         with patch("requests.get", side_effect=requests.ConnectionError()):
             resp = client.get("/api/benchmark/models")
             # ConnectionError returns 503, not 500
@@ -175,7 +182,9 @@ class TestBenchmarkBlueprint:
         fake_result = log_dir / "auto_benchmark_results_20260101_120000.json"
         fake_result.write_text(json.dumps([{"model": "test", "score": 8}]))
 
-        resp = client.get("/api/benchmark/results/auto_benchmark_results_20260101_120000.json")
+        resp = client.get(
+            "/api/benchmark/results/auto_benchmark_results_20260101_120000.json"
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["status"] == "ok"

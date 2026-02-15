@@ -4,17 +4,20 @@ Orchestrates multi-step refinement workflows and coordinates managers
 """
 
 import json
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import List, Dict, Optional
 from pathlib import Path
-from .feedback_refinement_manager import FeedbackRefinementManager, ParagraphContext
+from typing import Dict, List, Optional
+
+from .feedback_refinement_manager import (FeedbackRefinementManager,
+                                          ParagraphContext)
 from .source_validator import SourceValidator
 
 
 @dataclass
 class RefinementWorkflow:
     """Represents a complete refinement workflow"""
+
     workflow_id: str
     source_id: str
     document_text: str
@@ -34,6 +37,7 @@ class RefinementWorkflow:
 @dataclass
 class RefinementStrategy:
     """Configuration for a refinement strategy"""
+
     name: str
     description: str
     critique_types: List[str]  # ['clarity', 'conciseness', 'accuracy', 'structure']
@@ -62,7 +66,7 @@ class RefinementOrchestrator:
             critique_types=["clarity"],
             validation_threshold=0.8,
             auto_apply=True,
-            iteration_limit=1
+            iteration_limit=1,
         ),
         "comprehensive": RefinementStrategy(
             name="comprehensive",
@@ -70,7 +74,7 @@ class RefinementOrchestrator:
             critique_types=["clarity", "conciseness", "structure"],
             validation_threshold=0.75,
             auto_apply=False,
-            iteration_limit=3
+            iteration_limit=3,
         ),
         "accuracy_focused": RefinementStrategy(
             name="accuracy_focused",
@@ -78,7 +82,7 @@ class RefinementOrchestrator:
             critique_types=["accuracy"],
             validation_threshold=0.85,
             auto_apply=False,
-            iteration_limit=2
+            iteration_limit=2,
         ),
         "aggressive_rewrite": RefinementStrategy(
             name="aggressive_rewrite",
@@ -87,8 +91,8 @@ class RefinementOrchestrator:
             validation_threshold=0.7,
             auto_apply=False,
             iteration_limit=5,
-            target_readability=80.0
-        )
+            target_readability=80.0,
+        ),
     }
 
     def __init__(self, workspace_path: str = "knowledge_workspace"):
@@ -117,7 +121,7 @@ class RefinementOrchestrator:
     def _save_workflow(self, workflow: RefinementWorkflow):
         """Persist workflow state"""
         workflow_file = self.workflows_dir / f"{workflow.workflow_id}.json"
-        with open(workflow_file, 'w') as f:
+        with open(workflow_file, "w") as f:
             json.dump(workflow.to_dict(), f, indent=2)
         self.active_workflows[workflow.workflow_id] = workflow
 
@@ -126,7 +130,7 @@ class RefinementOrchestrator:
         workflow_id: str,
         source_id: str,
         document_text: str,
-        strategy: str = "comprehensive"
+        strategy: str = "comprehensive",
     ) -> RefinementWorkflow:
         """
         Create a new refinement workflow
@@ -147,7 +151,9 @@ class RefinementOrchestrator:
         self.validator.register_source(source_id, document_text)
 
         # Extract paragraphs
-        paragraphs = self.refinement_manager.extract_paragraphs(document_text, source_id)
+        paragraphs = self.refinement_manager.extract_paragraphs(
+            document_text, source_id
+        )
 
         # Create workflow
         workflow = RefinementWorkflow(
@@ -157,13 +163,16 @@ class RefinementOrchestrator:
             created_at=datetime.now().isoformat(),
             status="created",
             total_steps=len(paragraphs) * 3,  # analyze, critique, validate for each
-            paragraphs=[{
-                "index": p.index,
-                "text": p.text,
-                "original_text": p.original_text,
-                "readability": p.readability_score,
-                "word_count": p.word_count
-            } for p in paragraphs]
+            paragraphs=[
+                {
+                    "index": p.index,
+                    "text": p.text,
+                    "original_text": p.original_text,
+                    "readability": p.readability_score,
+                    "word_count": p.word_count,
+                }
+                for p in paragraphs
+            ],
         )
 
         self._save_workflow(workflow)
@@ -184,17 +193,19 @@ class RefinementOrchestrator:
             "total_paragraphs": len(workflow.paragraphs),
             "paragraphs_needing_improvement": [],
             "readability_distribution": self._calculate_distribution(workflow),
-            "average_readability": self._calculate_average_readability(workflow)
+            "average_readability": self._calculate_average_readability(workflow),
         }
 
         # Identify low-readability paragraphs
         for para in workflow.paragraphs:
             if para["readability"] < 50:
-                analysis["paragraphs_needing_improvement"].append({
-                    "index": para["index"],
-                    "readability": para["readability"],
-                    "word_count": para["word_count"]
-                })
+                analysis["paragraphs_needing_improvement"].append(
+                    {
+                        "index": para["index"],
+                        "readability": para["readability"],
+                        "word_count": para["word_count"],
+                    }
+                )
 
         return analysis
 
@@ -202,7 +213,7 @@ class RefinementOrchestrator:
         self,
         workflow_id: str,
         strategy_name: str = "comprehensive",
-        paragraph_indices: Optional[List[int]] = None
+        paragraph_indices: Optional[List[int]] = None,
     ) -> Dict:
         """
         Execute refinement workflow
@@ -230,7 +241,7 @@ class RefinementOrchestrator:
             "strategy": strategy_name,
             "refinements": [],
             "validations": [],
-            "summary": {}
+            "summary": {},
         }
 
         # Determine which paragraphs to refine
@@ -242,17 +253,16 @@ class RefinementOrchestrator:
 
                 # Perform refinements based on strategy
                 para_results = self._refine_paragraph(
-                    workflow_id,
-                    idx,
-                    para_data,
-                    strategy
+                    workflow_id, idx, para_data, strategy
                 )
 
                 results["refinements"].append(para_results)
 
         # Validate all refinements
         workflow.status = "validating"
-        validation_summary = self._validate_refinements(workflow_id, results["refinements"])
+        validation_summary = self._validate_refinements(
+            workflow_id, results["refinements"]
+        )
         results["validations"] = validation_summary
 
         # Update workflow
@@ -270,7 +280,7 @@ class RefinementOrchestrator:
         workflow_id: str,
         para_index: int,
         para_data: Dict,
-        strategy: RefinementStrategy
+        strategy: RefinementStrategy,
     ) -> Dict:
         """Refine a single paragraph"""
         result = {
@@ -278,7 +288,7 @@ class RefinementOrchestrator:
             "original_text": para_data["text"],
             "critiques": [],
             "refinement": para_data["text"],  # Start with original
-            "iteration": 0
+            "iteration": 0,
         }
 
         current_text = para_data["text"]
@@ -290,15 +300,12 @@ class RefinementOrchestrator:
                     index=para_index,
                     text=current_text,
                     original_text=para_data["original_text"],
-                    source_id=self.active_workflows[workflow_id].source_id
+                    source_id=self.active_workflows[workflow_id].source_id,
                 ),
-                critique_type
+                critique_type,
             )
 
-            result["critiques"].append({
-                "type": critique_type,
-                "feedback": critique
-            })
+            result["critiques"].append({"type": critique_type, "feedback": critique})
 
         # Simulate refinement (in real impl, would use LLM)
         if strategy.auto_apply:
@@ -320,16 +327,14 @@ class RefinementOrchestrator:
 
         # Remove common filler words if conciseness in strategy
         if "conciseness" in strategy.critique_types:
-            fillers = ['very', 'really', 'actually', 'basically']
+            fillers = ["very", "really", "actually", "basically"]
             for filler in fillers:
                 refined = refined.replace(f" {filler} ", " ")
 
         return refined
 
     def _validate_refinements(
-        self,
-        workflow_id: str,
-        refinements: List[Dict]
+        self, workflow_id: str, refinements: List[Dict]
     ) -> List[Dict]:
         """Validate all refinements"""
         workflow = self.active_workflows[workflow_id]
@@ -340,15 +345,17 @@ class RefinementOrchestrator:
                 original_text=ref["original_text"],
                 refined_text=ref["refinement"],
                 source_id=workflow.source_id,
-                validation_type="full"
+                validation_type="full",
             )
 
-            validation_results.append({
-                "paragraph_index": ref["paragraph_index"],
-                "is_valid": result.is_valid,
-                "score": result.validation_score,
-                "issues": len(result.issues)
-            })
+            validation_results.append(
+                {
+                    "paragraph_index": ref["paragraph_index"],
+                    "is_valid": result.is_valid,
+                    "score": result.validation_score,
+                    "issues": len(result.issues),
+                }
+            )
 
         return validation_results
 
@@ -364,8 +371,10 @@ class RefinementOrchestrator:
             "created_at": workflow.created_at,
             "total_paragraphs": len(workflow.paragraphs),
             "refinements_applied": len(workflow.refinements_applied),
-            "validations_passed": len([v for v in workflow.validations if v.get("is_valid")]),
-            "metrics": workflow.metrics
+            "validations_passed": len(
+                [v for v in workflow.validations if v.get("is_valid")]
+            ),
+            "metrics": workflow.metrics,
         }
 
     def _calculate_distribution(self, workflow: RefinementWorkflow) -> Dict:
@@ -374,14 +383,16 @@ class RefinementOrchestrator:
         return {
             "min": min(scores) if scores else 0,
             "max": max(scores) if scores else 0,
-            "avg": sum(scores) / len(scores) if scores else 0
+            "avg": sum(scores) / len(scores) if scores else 0,
         }
 
     def _calculate_average_readability(self, workflow: RefinementWorkflow) -> float:
         """Calculate average readability"""
         if not workflow.paragraphs:
             return 0.0
-        return sum(p["readability"] for p in workflow.paragraphs) / len(workflow.paragraphs)
+        return sum(p["readability"] for p in workflow.paragraphs) / len(
+            workflow.paragraphs
+        )
 
     def _calculate_workflow_metrics(self, workflow: RefinementWorkflow) -> Dict:
         """Calculate final metrics for workflow"""
@@ -389,20 +400,28 @@ class RefinementOrchestrator:
             "total_paragraphs": len(workflow.paragraphs),
             "refined": len(workflow.refinements_applied),
             "validated": len(workflow.validations),
-            "passed_validation": len([v for v in workflow.validations if v.get("is_valid")]),
-            "completion_time": (
-                datetime.fromisoformat(workflow.created_at)
-            ).isoformat() if workflow.created_at else None
+            "passed_validation": len(
+                [v for v in workflow.validations if v.get("is_valid")]
+            ),
+            "completion_time": (datetime.fromisoformat(workflow.created_at)).isoformat()
+            if workflow.created_at
+            else None,
         }
 
     def list_workflows(self) -> List[Dict]:
         """List all workflows"""
         return [
             {
-                "workflow_id": wf.workflow_id if hasattr(wf, 'workflow_id') else wf["workflow_id"],
-                "status": wf.status if hasattr(wf, 'status') else wf["status"],
-                "created_at": wf.created_at if hasattr(wf, 'created_at') else wf["created_at"],
-                "source_id": wf.source_id if hasattr(wf, 'source_id') else wf["source_id"]
+                "workflow_id": wf.workflow_id
+                if hasattr(wf, "workflow_id")
+                else wf["workflow_id"],
+                "status": wf.status if hasattr(wf, "status") else wf["status"],
+                "created_at": wf.created_at
+                if hasattr(wf, "created_at")
+                else wf["created_at"],
+                "source_id": wf.source_id
+                if hasattr(wf, "source_id")
+                else wf["source_id"],
             }
             for wf in self.active_workflows.values()
         ]
@@ -431,9 +450,12 @@ class RefinementOrchestrator:
 
     def _export_text(self, workflow: RefinementWorkflow) -> str:
         """Export as plain text"""
-        lines = [f"Refined Document: {workflow.workflow_id}",
-                f"Generated: {workflow.created_at}",
-                "=" * 50, ""]
+        lines = [
+            f"Refined Document: {workflow.workflow_id}",
+            f"Generated: {workflow.created_at}",
+            "=" * 50,
+            "",
+        ]
 
         for ref in workflow.refinements_applied:
             lines.append(ref["refinement"])
@@ -443,9 +465,7 @@ class RefinementOrchestrator:
 
     def _export_markdown(self, workflow: RefinementWorkflow) -> str:
         """Export as markdown"""
-        lines = [f"# {workflow.workflow_id}",
-                f"*Generated: {workflow.created_at}*",
-                ""]
+        lines = [f"# {workflow.workflow_id}", f"*Generated: {workflow.created_at}*", ""]
 
         for ref in workflow.refinements_applied:
             lines.append(ref["refinement"])
@@ -458,7 +478,7 @@ class RefinementOrchestrator:
         html_parts = [
             f"<html><head><title>{workflow.workflow_id}</title></head><body>",
             f"<h1>{workflow.workflow_id}</h1>",
-            f"<p><em>Generated: {workflow.created_at}</em></p>"
+            f"<p><em>Generated: {workflow.created_at}</em></p>",
         ]
 
         for ref in workflow.refinements_applied:

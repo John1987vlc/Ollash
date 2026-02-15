@@ -7,12 +7,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from backend.utils.domains.multimedia.image_generation_tools import ImageGeneratorTools
 import logging
 
+from backend.utils.domains.multimedia.image_generation_tools import \
+    ImageGeneratorTools
+
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -25,9 +26,7 @@ image_gen = ImageGeneratorTools(logger=logger)
 # 1. Generar imagen inicial
 print("\n1. Generando imagen inicial...")
 initial_result = image_gen.generate_image(
-    prompt="a beautiful red car",
-    steps=5,
-    filename="input_car"
+    prompt="a beautiful red car", steps=5, filename="input_car"
 )
 
 if not initial_result.get("ok"):
@@ -44,7 +43,7 @@ img2img_result = image_gen.generate_image_from_image(
     image_path=input_image_path,
     denoising_strength=0.75,
     steps=5,
-    filename="output_car"
+    filename="output_car",
 )
 
 print("\n" + "=" * 80)
@@ -59,4 +58,3 @@ else:
     print(f"   Error: {img2img_result.get('error')}")
 
 print("=" * 80)
-

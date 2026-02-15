@@ -1,8 +1,10 @@
-from typing import Any
 import platform
 import re
+from typing import Any
+
 from backend.utils.core.command_executor import CommandExecutor
 from backend.utils.core.tool_decorator import ollash_tool
+
 
 class NetworkTools:
     def __init__(self, command_executor: CommandExecutor, logger: Any):
@@ -14,12 +16,18 @@ class NetworkTools:
         name="ping_host",
         description="Sends ICMP echo requests to a network host to test reachability and measure round-trip time.",
         parameters={
-            "host": {"type": "string", "description": "The hostname or IP address to ping."},
-            "count": {"type": "integer", "description": "Optional: Number of echo requests to send. Defaults to 4."}
+            "host": {
+                "type": "string",
+                "description": "The hostname or IP address to ping.",
+            },
+            "count": {
+                "type": "integer",
+                "description": "Optional: Number of echo requests to send. Defaults to 4.",
+            },
         },
         toolset_id="network_tools",
         agent_types=["network"],
-        required=["host"]
+        required=["host"],
     )
     def ping_host(self, host: str, count: int = 4):
         """
@@ -29,9 +37,9 @@ class NetworkTools:
         self.logger.info(f"🌐 Pinging host: {host} ({count} times)")
         command = ""
         if self.os_type == "Windows":
-             command = f"ping -n {count} {host}"
-        else: # Linux or macOS
-             command = f"ping -c {count} {host}"
+            command = f"ping -n {count} {host}"
+        else:  # Linux or macOS
+            command = f"ping -c {count} {host}"
 
         result = self.exec.execute(command)
 
@@ -43,7 +51,7 @@ class NetworkTools:
             "avg_rtt_ms": None,
             "min_rtt_ms": None,
             "max_rtt_ms": None,
-            "raw_output": result.stdout
+            "raw_output": result.stdout,
         }
 
         if result.success:
@@ -71,13 +79,20 @@ class NetworkTools:
                     parsed_output["max_rtt_ms"] = int(max_match.group(1))
             # Parse Linux/macOS ping output
             else:
-                sent_received_match = re.search(r"(\d+) packets transmitted, (\d+) received", result.stdout)
+                sent_received_match = re.search(
+                    r"(\d+) packets transmitted, (\d+) received", result.stdout
+                )
                 loss_match = re.search(r"(\d+\.?\d*)% packet loss", result.stdout)
-                rtt_match = re.search(r"min/avg/max/mdev = (\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*) ms", result.stdout)
+                rtt_match = re.search(
+                    r"min/avg/max/mdev = (\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*) ms",
+                    result.stdout,
+                )
 
                 if sent_received_match:
                     parsed_output["packets_sent"] = int(sent_received_match.group(1))
-                    parsed_output["packets_received"] = int(sent_received_match.group(2))
+                    parsed_output["packets_received"] = int(
+                        sent_received_match.group(2)
+                    )
                 if loss_match:
                     parsed_output["packet_loss_percent"] = float(loss_match.group(1))
                 if rtt_match:
@@ -95,12 +110,18 @@ class NetworkTools:
         name="traceroute_host",
         description="Traces the network path to a host, showing hops and latencies.",
         parameters={
-            "host": {"type": "string", "description": "The hostname or IP address to traceroute."},
-            "max_hops": {"type": "integer", "description": "Optional: Maximum number of hops to search for the target. Defaults to 30."}
+            "host": {
+                "type": "string",
+                "description": "The hostname or IP address to traceroute.",
+            },
+            "max_hops": {
+                "type": "integer",
+                "description": "Optional: Maximum number of hops to search for the target. Defaults to 30.",
+            },
         },
         toolset_id="network_tools",
         agent_types=["network"],
-        required=["host"]
+        required=["host"],
     )
     def traceroute_host(self, host: str, max_hops: int = 30):
         """
@@ -111,16 +132,12 @@ class NetworkTools:
         command = ""
         if self.os_type == "Windows":
             command = f"tracert -h {max_hops} {host}"
-        else: # Linux or macOS
+        else:  # Linux or macOS
             command = f"traceroute -m {max_hops} {host}"
 
         result = self.exec.execute(command)
 
-        parsed_output = {
-            "host": host,
-            "hops": [],
-            "raw_output": result.stdout
-        }
+        parsed_output = {"host": host, "hops": [], "raw_output": result.stdout}
 
         if result.success:
             self.logger.info(f"✅ Traceroute successful to {host}")
@@ -130,7 +147,10 @@ class NetworkTools:
                 # Example: "  1     1 ms     1 ms     1 ms  router.local [192.168.1.1]"
                 # Example: "  2    10 ms    12 ms    11 ms  some.isp.com [1.2.3.4]"
                 for line in lines:
-                    match = re.search(r"^\s*(\d+)\s+([\d.<>msh\* ]+)\s+([a-zA-Z0-9.-]+(?: \[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])?)", line)
+                    match = re.search(
+                        r"^\s*(\d+)\s+([\d.<>msh\* ]+)\s+([a-zA-Z0-9.-]+(?: \[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])?)",
+                        line,
+                    )
                     if match:
                         hop_num = int(match.group(1))
                         times_str = match.group(2).strip()
@@ -138,17 +158,29 @@ class NetworkTools:
 
                         times = re.findall(r"(\d+)\s*ms", times_str)
 
-                        parsed_output["hops"].append({
-                            "hop": hop_num,
-                            "ip_address": re.search(r"\[(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\]", ip_hostname).group(1) if '[' in ip_hostname else ip_hostname,
-                            "hostname": ip_hostname.split(' ')[0] if '[' in ip_hostname else None,
-                            "rtt_ms": [int(t) for t in times] if times else None,
-                            "raw": line.strip()
-                        })
-            else: # Linux/macOS
+                        parsed_output["hops"].append(
+                            {
+                                "hop": hop_num,
+                                "ip_address": re.search(
+                                    r"\[(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\]",
+                                    ip_hostname,
+                                ).group(1)
+                                if "[" in ip_hostname
+                                else ip_hostname,
+                                "hostname": ip_hostname.split(" ")[0]
+                                if "[" in ip_hostname
+                                else None,
+                                "rtt_ms": [int(t) for t in times] if times else None,
+                                "raw": line.strip(),
+                            }
+                        )
+            else:  # Linux/macOS
                 # Example: " 1  router.local (192.168.1.1)  1.234 ms  2.345 ms  3.456 ms"
                 for line in lines:
-                    match = re.search(r"^\s*(\d+)\s+([a-zA-Z0-9.-]+)\s+\((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\)\s+(.*)", line)
+                    match = re.search(
+                        r"^\s*(\d+)\s+([a-zA-Z0-9.-]+)\s+\((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\)\s+(.*)",
+                        line,
+                    )
                     if match:
                         hop_num = int(match.group(1))
                         hostname = match.group(2)
@@ -157,13 +189,15 @@ class NetworkTools:
 
                         times = re.findall(r"(\d+\.?\d*)\s*ms", times_str)
 
-                        parsed_output["hops"].append({
-                            "hop": hop_num,
-                            "hostname": hostname,
-                            "ip_address": ip_address,
-                            "rtt_ms": [float(t) for t in times] if times else None,
-                            "raw": line.strip()
-                        })
+                        parsed_output["hops"].append(
+                            {
+                                "hop": hop_num,
+                                "hostname": hostname,
+                                "ip_address": ip_address,
+                                "rtt_ms": [float(t) for t in times] if times else None,
+                                "raw": line.strip(),
+                            }
+                        )
 
             return {"ok": True, "result": parsed_output}
         else:
@@ -176,7 +210,7 @@ class NetworkTools:
         description="Lists all active network connections and listening ports on the system.",
         parameters={"type": "object", "properties": {}},
         toolset_id="network_tools",
-        agent_types=["network"]
+        agent_types=["network"],
     )
     def list_active_connections(self):
         """
@@ -184,13 +218,10 @@ class NetworkTools:
         Returns structured JSON output including protocol, local address, foreign address, and state.
         """
         self.logger.info("🔗 Listing active network connections...")
-        command = "netstat -an" # Common for Windows/Linux/macOS
+        command = "netstat -an"  # Common for Windows/Linux/macOS
         result = self.exec.execute(command)
 
-        parsed_output = {
-            "connections": [],
-            "raw_output": result.stdout
-        }
+        parsed_output = {"connections": [], "raw_output": result.stdout}
 
         if result.success:
             self.logger.info("✅ Successfully listed active connections.")
@@ -199,25 +230,27 @@ class NetworkTools:
             # Skip header lines
             data_started = False
             for line in lines:
-                if "Proto" in line or "Protocol" in line: # Header line
+                if "Proto" in line or "Protocol" in line:  # Header line
                     data_started = True
                     continue
                 if not data_started or not line.strip():
                     continue
 
                 parts = line.split()
-                if len(parts) >= 4: # Minimum parts for a connection
+                if len(parts) >= 4:  # Minimum parts for a connection
                     proto = parts[0]
                     local_address = parts[1]
                     foreign_address = parts[2]
                     state = parts[3] if len(parts) > 3 else "N/A"
 
-                    parsed_output["connections"].append({
-                        "protocol": proto,
-                        "local_address": local_address,
-                        "foreign_address": foreign_address,
-                        "state": state
-                    })
+                    parsed_output["connections"].append(
+                        {
+                            "protocol": proto,
+                            "local_address": local_address,
+                            "foreign_address": foreign_address,
+                            "state": state,
+                        }
+                    )
 
             return {"ok": True, "result": parsed_output}
         else:
@@ -229,12 +262,15 @@ class NetworkTools:
         name="check_port_status",
         description="Checks if a specific TCP port is open on a given host.",
         parameters={
-            "host": {"type": "string", "description": "The target hostname or IP address."},
-            "port": {"type": "integer", "description": "The TCP port number to check."}
+            "host": {
+                "type": "string",
+                "description": "The target hostname or IP address.",
+            },
+            "port": {"type": "integer", "description": "The TCP port number to check."},
         },
         toolset_id="network_tools",
         agent_types=["network"],
-        required=["host", "port"]
+        required=["host", "port"],
     )
     def check_port_status(self, host: str, port: int):
         """
@@ -244,17 +280,19 @@ class NetworkTools:
         self.logger.info(f"🔍 Checking port {port} on {host}...")
         command = ""
         if self.os_type == "Windows":
-             command = f"powershell -command \"Test-NetConnection -ComputerName {host} -Port {port}\""
-        else: # Linux or macOS
-             command = f"nc -vz {host} {port}" # nc for Linux/macOS
+            command = f'powershell -command "Test-NetConnection -ComputerName {host} -Port {port}"'
+        else:  # Linux or macOS
+            command = f"nc -vz {host} {port}"  # nc for Linux/macOS
 
-        result = self.exec.execute(command, timeout=5) # Short timeout for port check
+        result = self.exec.execute(command, timeout=5)  # Short timeout for port check
 
         status = "closed/unreachable"
         if result.success and (
-            ("succeeded" in result.stdout) or
-            ("TcpTestSucceeded : True" in result.stdout) or
-            ("Connection to" in result.stderr and "succeeded!" in result.stderr) # nc output to stderr on success
+            ("succeeded" in result.stdout)
+            or ("TcpTestSucceeded : True" in result.stdout)
+            or (
+                "Connection to" in result.stderr and "succeeded!" in result.stderr
+            )  # nc output to stderr on success
         ):
             status = "open"
             self.logger.info(f"✅ Port {port} on {host} is {status}.")
@@ -264,11 +302,13 @@ class NetworkTools:
                     "host": host,
                     "port": port,
                     "status": status,
-                    "raw_output": result.stdout + result.stderr
-                }
+                    "raw_output": result.stdout + result.stderr,
+                },
             }
         else:
-            self.logger.info(f"❌ Port {port} on {host} is {status}. Error: {result.stderr}")
+            self.logger.info(
+                f"❌ Port {port} on {host} is {status}. Error: {result.stderr}"
+            )
             return {
                 "ok": False,
                 "result": {
@@ -276,6 +316,6 @@ class NetworkTools:
                     "port": port,
                     "status": status,
                     "error": result.stderr,
-                    "raw_output": result.stdout + result.stderr
-                }
+                    "raw_output": result.stdout + result.stderr,
+                },
             }

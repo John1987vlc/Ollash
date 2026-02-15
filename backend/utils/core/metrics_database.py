@@ -2,10 +2,10 @@
 
 import json
 import logging
-from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
 import threading
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class MetricsDatabase:
         category: str,
         metric_name: str,
         value: Any,
-        tags: Optional[Dict[str, str]] = None
+        tags: Optional[Dict[str, str]] = None,
     ) -> None:
         """
         Record a new metric value.
@@ -50,17 +50,13 @@ class MetricsDatabase:
                 data = []
                 if metric_file.exists():
                     try:
-                        with open(metric_file, 'r') as f:
+                        with open(metric_file, "r") as f:
                             data = json.load(f)
                     except (json.JSONDecodeError, IOError):
                         data = []
 
                 # Append new record
-                record = {
-                    "timestamp": timestamp,
-                    "value": value,
-                    "tags": tags or {}
-                }
+                record = {"timestamp": timestamp, "value": value, "tags": tags or {}}
                 data.append(record)
 
                 # Keep only last 1000 records per metric (configurable)
@@ -68,7 +64,7 @@ class MetricsDatabase:
                     data = data[-1000:]
 
                 # Save updated data
-                with open(metric_file, 'w') as f:
+                with open(metric_file, "w") as f:
                     json.dump(data, f, indent=2)
 
                 # Update cache
@@ -76,7 +72,7 @@ class MetricsDatabase:
                 self._cache[cache_key] = {
                     "last_value": value,
                     "last_timestamp": timestamp,
-                    "record_count": len(data)
+                    "record_count": len(data),
                 }
 
                 logger.debug(f"Recorded metric {category}/{metric_name}: {value}")
@@ -89,7 +85,7 @@ class MetricsDatabase:
         category: str,
         metric_name: str,
         hours: int = 24,
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
         Get historical data for a metric.
@@ -110,13 +106,14 @@ class MetricsDatabase:
                 return []
 
             with self._lock:
-                with open(metric_file, 'r') as f:
+                with open(metric_file, "r") as f:
                     data = json.load(f)
 
             # Filter by time
             cutoff_time = datetime.now() - timedelta(hours=hours)
             filtered = [
-                record for record in data
+                record
+                for record in data
                 if datetime.fromisoformat(record["timestamp"]) > cutoff_time
             ]
 
@@ -127,13 +124,13 @@ class MetricsDatabase:
             return filtered
 
         except Exception as e:
-            logger.error(f"Error retrieving metric history {category}/{metric_name}: {e}")
+            logger.error(
+                f"Error retrieving metric history {category}/{metric_name}: {e}"
+            )
             return []
 
     def get_latest_metric(
-        self,
-        category: str,
-        metric_name: str
+        self, category: str, metric_name: str
     ) -> Optional[Dict[str, Any]]:
         """
         Get the most recent value of a metric.
@@ -152,7 +149,7 @@ class MetricsDatabase:
                 return None
 
             with self._lock:
-                with open(metric_file, 'r') as f:
+                with open(metric_file, "r") as f:
                     data = json.load(f)
 
             if data:
@@ -160,14 +157,13 @@ class MetricsDatabase:
             return None
 
         except Exception as e:
-            logger.error(f"Error retrieving latest metric {category}/{metric_name}: {e}")
+            logger.error(
+                f"Error retrieving latest metric {category}/{metric_name}: {e}"
+            )
             return None
 
     def get_metric_stats(
-        self,
-        category: str,
-        metric_name: str,
-        hours: int = 24
+        self, category: str, metric_name: str, hours: int = 24
     ) -> Optional[Dict[str, Any]]:
         """
         Get statistics (min, max, avg) for a metric over a time period.
@@ -204,7 +200,7 @@ class MetricsDatabase:
                 "avg": sum(values) / len(values),
                 "latest": values[-1],
                 "count": len(values),
-                "period_hours": hours
+                "period_hours": hours,
             }
 
         except Exception as e:
@@ -225,20 +221,23 @@ class MetricsDatabase:
             with self._lock:
                 for metric_file in self.db_path.glob("*.json"):
                     try:
-                        with open(metric_file, 'r') as f:
+                        with open(metric_file, "r") as f:
                             data = json.load(f)
 
                         # Filter out old records
                         filtered = [
-                            record for record in data
+                            record
+                            for record in data
                             if record.get("timestamp", "") > cutoff_iso
                         ]
 
                         # Save cleaned data
-                        with open(metric_file, 'w') as f:
+                        with open(metric_file, "w") as f:
                             json.dump(filtered, f, indent=2)
 
-                        logger.debug(f"Cleaned {metric_file.name}: {len(data) - len(filtered)} old records removed")
+                        logger.debug(
+                            f"Cleaned {metric_file.name}: {len(data) - len(filtered)} old records removed"
+                        )
 
                     except Exception as e:
                         logger.error(f"Error cleaning {metric_file.name}: {e}")

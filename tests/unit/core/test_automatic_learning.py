@@ -1,15 +1,14 @@
 """Unit tests for AutomaticLearningSystem module."""
 
-import pytest
 import json
 from unittest.mock import MagicMock, patch
 
-from backend.utils.core.automatic_learning import (
-    CorrectionPattern,
-    PostMortemAnalyzer,
-    LearningIndexer,
-    AutomaticLearningSystem,
-)
+import pytest
+
+from backend.utils.core.automatic_learning import (AutomaticLearningSystem,
+                                                   CorrectionPattern,
+                                                   LearningIndexer,
+                                                   PostMortemAnalyzer)
 
 
 @pytest.fixture

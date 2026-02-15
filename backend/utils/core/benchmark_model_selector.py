@@ -8,10 +8,10 @@ Benefit: Self-tuning configuration without manual settings.json edits.
 """
 
 import json
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from pathlib import Path
 from statistics import mean, median
+from typing import Dict, List, Optional, Tuple
 
 from backend.utils.core.agent_logger import AgentLogger
 
@@ -28,12 +28,22 @@ class ModelBenchmarkResult:
     quality_score: float  # 1-10
 
     # NEW: Metrics for advanced phase evaluation
-    hallucination_ratio: float = 0.0  # LogicPlanningPhase: plan_vs_implementation mismatch
-    repair_efficiency: float = 0.0  # ExhaustiveReviewRepairPhase: errors_fixed_in_one_pass / total_errors
-    rag_context_effectiveness: float = 0.0  # DependencyReconciliationPhase: relevant_files_retrieved / total_relevant
+    hallucination_ratio: float = (
+        0.0  # LogicPlanningPhase: plan_vs_implementation mismatch
+    )
+    repair_efficiency: float = (
+        0.0  # ExhaustiveReviewRepairPhase: errors_fixed_in_one_pass / total_errors
+    )
+    rag_context_effectiveness: float = (
+        0.0  # DependencyReconciliationPhase: relevant_files_retrieved / total_relevant
+    )
     logic_plan_coverage: float = 0.0  # Percentage of logic plan items implemented
-    circular_dep_resolution_rate: float = 0.0  # StructurePreReviewPhase: successfully resolved circular deps
-    code_smell_detection_rate: float = 0.0  # SeniorReviewPhase: subtle errors detected / total injected
+    circular_dep_resolution_rate: float = (
+        0.0  # StructurePreReviewPhase: successfully resolved circular deps
+    )
+    code_smell_detection_rate: float = (
+        0.0  # SeniorReviewPhase: subtle errors detected / total injected
+    )
 
     timestamp: Optional[str] = None
     phase_name: Optional[str] = None  # Phase that was benchmarked
@@ -67,22 +77,30 @@ class BenchmarkDatabase:
                         quality_score=data["quality_score"],
                         hallucination_ratio=data.get("hallucination_ratio", 0.0),
                         repair_efficiency=data.get("repair_efficiency", 0.0),
-                        rag_context_effectiveness=data.get("rag_context_effectiveness", 0.0),
+                        rag_context_effectiveness=data.get(
+                            "rag_context_effectiveness", 0.0
+                        ),
                         logic_plan_coverage=data.get("logic_plan_coverage", 0.0),
-                        circular_dep_resolution_rate=data.get("circular_dep_resolution_rate", 0.0),
-                        code_smell_detection_rate=data.get("code_smell_detection_rate", 0.0),
+                        circular_dep_resolution_rate=data.get(
+                            "circular_dep_resolution_rate", 0.0
+                        ),
+                        code_smell_detection_rate=data.get(
+                            "code_smell_detection_rate", 0.0
+                        ),
                         timestamp=data.get("timestamp"),
                         phase_name=data.get("phase_name"),
                     )
                     self.results.append(result)
             except (json.JSONDecodeError, KeyError) as e:
-                self.logger.warning(f"Failed to load benchmark result {result_file}: {e}")
+                self.logger.warning(
+                    f"Failed to load benchmark result {result_file}: {e}"
+                )
 
     def get_best_model(
         self,
         task_type: str,
         metric: str = "success_rate",
-    ) -> Optional[ModelBenchmarkResult]: # Changed return type hint
+    ) -> Optional[ModelBenchmarkResult]:  # Changed return type hint
         """Get the best-performing model for a task.
 
         Args:
@@ -100,12 +118,14 @@ class BenchmarkDatabase:
             best = max(relevant_results, key=lambda r: r.success_rate)
         elif metric == "quality_score":
             best = max(relevant_results, key=lambda r: r.quality_score)
-        elif metric == "avg_time_ms": # Changed to avg_time_ms
-            best = min(relevant_results, key=lambda r: r.avg_time_ms) # Changed to avg_time_ms
+        elif metric == "avg_time_ms":  # Changed to avg_time_ms
+            best = min(
+                relevant_results, key=lambda r: r.avg_time_ms
+            )  # Changed to avg_time_ms
         else:
             return None
 
-        return best # Return the full object
+        return best  # Return the full object
 
     def get_model_rank(self, task_type: str) -> List[Tuple[str, float]]:
         """Get all models ranked by success rate for a task."""
@@ -117,16 +137,15 @@ class BenchmarkDatabase:
             grouped[r.model_name].append(r.success_rate)
 
         # Average success rate per model
-        model_scores = {
-            model: mean(scores) for model, scores in grouped.items()
-        }
+        model_scores = {model: mean(scores) for model, scores in grouped.items()}
 
         return sorted(model_scores.items(), key=lambda x: x[1], reverse=True)
 
     def get_stats_for_model(self, model_name: str, task_type: str) -> Optional[Dict]:
         """Get aggregated statistics for a model on a task."""
         relevant = [
-            r for r in self.results
+            r
+            for r in self.results
             if r.model_name == model_name and r.task_type == task_type
         ]
 
@@ -147,7 +166,7 @@ class BenchmarkDatabase:
         self,
         model_name: str,
         phase_name: str,
-        weights: Optional[Dict[str, float]] = None
+        weights: Optional[Dict[str, float]] = None,
     ) -> float:
         """
         Evaluate model performance on a specific phase with weighted metrics.
@@ -188,7 +207,8 @@ class BenchmarkDatabase:
 
         # Get relevant results for this model and phase
         relevant = [
-            r for r in self.results
+            r
+            for r in self.results
             if r.model_name == model_name and r.phase_name == phase_name
         ]
 
@@ -200,7 +220,9 @@ class BenchmarkDatabase:
         avg_quality = mean(r.quality_score for r in relevant) / 10.0  # Normalize to 0-1
         avg_time = mean(r.avg_time_ms for r in relevant)
         max_time = max((r.avg_time_ms for r in relevant), default=1000)
-        time_efficiency = 1.0 - min(avg_time / max_time, 1.0)  # Normalize: faster = higher
+        time_efficiency = 1.0 - min(
+            avg_time / max_time, 1.0
+        )  # Normalize: faster = higher
 
         avg_hallucination = mean(r.hallucination_ratio for r in relevant)
         avg_repair_efficiency = mean(r.repair_efficiency for r in relevant)
@@ -212,10 +234,16 @@ class BenchmarkDatabase:
         score += weights.get("success_rate", 0.0) * avg_success * 10
         score += weights.get("quality_score", 0.0) * avg_quality * 10
         score += weights.get("response_time", 0.0) * time_efficiency * 10
-        score += weights.get("hallucination_ratio", 0.0) * (1.0 - avg_hallucination) * 10
+        score += (
+            weights.get("hallucination_ratio", 0.0) * (1.0 - avg_hallucination) * 10
+        )
         score += weights.get("repair_efficiency", 0.0) * avg_repair_efficiency * 10
-        score += weights.get("rag_context_effectiveness", 0.0) * avg_rag_effectiveness * 10
-        score += weights.get("code_smell_detection", 0.0) * avg_code_smell_detection * 10
+        score += (
+            weights.get("rag_context_effectiveness", 0.0) * avg_rag_effectiveness * 10
+        )
+        score += (
+            weights.get("code_smell_detection", 0.0) * avg_code_smell_detection * 10
+        )
 
         # Normalize to 0-10 range
         return max(0.0, min(score, 10.0))
@@ -339,7 +367,9 @@ class AutoModelSelector:
 
             if best_model:
                 # Get statistics to ensure confidence
-                stats = self.benchmark_db.get_stats_for_model(best_model.model_name, task_type)
+                stats = self.benchmark_db.get_stats_for_model(
+                    best_model.model_name, task_type
+                )
                 if stats and stats["avg_success_rate"] >= self.confidence_threshold:
                     old_model = models_section.get(role, "unknown")
                     models_section[role] = best_model.model_name
@@ -354,15 +384,15 @@ class AutoModelSelector:
                     rescue = self.get_rescue_model(role, best_model.model_name)
                     if rescue:
                         rescue_models_section[role] = rescue
-                        self.logger.info(
-                            f"  🚨 {role} rescue model: {rescue}"
-                        )
+                        self.logger.info(f"  🚨 {role} rescue model: {rescue}")
 
         optimized["models"] = models_section
         if rescue_models_section:
             optimized["rescue_models"] = rescue_models_section
         optimized["benchmark_optimized"] = True
-        optimized["optimization_timestamp"] = __import__("datetime").datetime.now().isoformat()
+        optimized["optimization_timestamp"] = (
+            __import__("datetime").datetime.now().isoformat()
+        )
 
         return optimized
 
@@ -384,13 +414,15 @@ class AutoModelSelector:
                 improvement_margin = (best_score - second_score) * 100 if second else 0
 
                 if improvement_margin > 10:  # >10% improvement
-                    suggestions.append({
-                        "role": role,
-                        "current_recommendation": best,
-                        "alternative": second,
-                        "improvement_percent": improvement_margin,
-                        "confidence": best_score,
-                    })
+                    suggestions.append(
+                        {
+                            "role": role,
+                            "current_recommendation": best,
+                            "alternative": second,
+                            "improvement_percent": improvement_margin,
+                            "confidence": best_score,
+                        }
+                    )
 
         return suggestions
 

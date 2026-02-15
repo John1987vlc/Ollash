@@ -11,21 +11,23 @@ Extended test generation that supports multiple languages:
 Also handles integration test generation and docker-compose orchestration.
 """
 
-from typing import Dict, List, Any, Optional, Tuple
-from pathlib import Path
-from enum import Enum
 import json
 import re
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.command_executor import CommandExecutor
-from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
+from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.ollama_client import OllamaClient
+from backend.utils.domains.auto_generation.prompt_templates import \
+    AutoGenPrompts
 
 
 class TestFramework(Enum):
     """Supported test frameworks."""
+
     PYTEST = "pytest"  # Python
     UNITTEST = "unittest"  # Python
     JEST = "jest"  # JavaScript
@@ -138,7 +140,9 @@ class MultiLanguageTestGenerator:
             self.logger.warning(f"No test framework available for {language}")
             return None
 
-        self.logger.info(f"Generating {framework.value} tests for {file_path} ({language})...")
+        self.logger.info(
+            f"Generating {framework.value} tests for {file_path} ({language})..."
+        )
 
         # Get language-specific prompts
         system_prompt, user_prompt = self._get_test_prompts(
@@ -158,7 +162,9 @@ class MultiLanguageTestGenerator:
             test_content = self.parser.extract_raw_content(raw_response)
 
             if test_content:
-                self.logger.info(f"Tests generated for {file_path} using {framework.value}")
+                self.logger.info(
+                    f"Tests generated for {file_path} using {framework.value}"
+                )
                 return test_content
             else:
                 self.logger.warning(f"LLM returned no test content for {file_path}")
@@ -255,7 +261,7 @@ Format as a single test file with clear organization."""
             return {
                 "success": False,
                 "output": f"No test framework for {language}",
-                "failures": []
+                "failures": [],
             }
 
         self.logger.info(f"Executing {framework.value} tests...")
@@ -275,13 +281,11 @@ Format as a single test file with clear organization."""
             return {
                 "success": False,
                 "output": f"Unsupported framework: {framework.value}",
-                "failures": []
+                "failures": [],
             }
 
     def _execute_pytest(
-        self,
-        project_root: Path,
-        test_file_paths: List[Path]
+        self, project_root: Path, test_file_paths: List[Path]
     ) -> Dict[str, Any]:
         """Execute pytest tests."""
         try:
@@ -289,7 +293,7 @@ Format as a single test file with clear organization."""
                 "pytest",
                 "--json-report",
                 "--json-report-file=.pytest_report.json",
-                "-v"
+                "-v",
             ] + [str(p.relative_to(project_root)) for p in test_file_paths]
 
             result = self.command_executor.execute(
@@ -302,7 +306,7 @@ Format as a single test file with clear organization."""
                 "success": result.success,
                 "output": result.stdout or result.stderr,
                 "failures": failures,
-                "framework": "pytest"
+                "framework": "pytest",
             }
 
         except Exception as e:
@@ -311,14 +315,11 @@ Format as a single test file with clear organization."""
                 "success": False,
                 "output": str(e),
                 "failures": [],
-                "framework": "pytest"
+                "framework": "pytest",
             }
 
     def _execute_nodejs_tests(
-        self,
-        project_root: Path,
-        test_file_paths: List[Path],
-        framework: TestFramework
+        self, project_root: Path, test_file_paths: List[Path], framework: TestFramework
     ) -> Dict[str, Any]:
         """Execute Jest or Mocha tests."""
         try:
@@ -337,7 +338,7 @@ Format as a single test file with clear organization."""
                 "success": result.success,
                 "output": result.stdout or result.stderr,
                 "failures": failures,
-                "framework": framework.value
+                "framework": framework.value,
             }
 
         except Exception as e:
@@ -346,7 +347,7 @@ Format as a single test file with clear organization."""
                 "success": False,
                 "output": str(e),
                 "failures": [],
-                "framework": framework.value
+                "framework": framework.value,
             }
 
     def _execute_go_tests(self, project_root: Path) -> Dict[str, Any]:
@@ -363,7 +364,7 @@ Format as a single test file with clear organization."""
                 "success": result.success,
                 "output": result.stdout or result.stderr,
                 "failures": failures,
-                "framework": "go test"
+                "framework": "go test",
             }
 
         except Exception as e:
@@ -372,7 +373,7 @@ Format as a single test file with clear organization."""
                 "success": False,
                 "output": str(e),
                 "failures": [],
-                "framework": "go test"
+                "framework": "go test",
             }
 
     def _execute_rust_tests(self, project_root: Path) -> Dict[str, Any]:
@@ -389,7 +390,7 @@ Format as a single test file with clear organization."""
                 "success": result.success,
                 "output": result.stdout or result.stderr,
                 "failures": failures,
-                "framework": "cargo"
+                "framework": "cargo",
             }
 
         except Exception as e:
@@ -398,13 +399,11 @@ Format as a single test file with clear organization."""
                 "success": False,
                 "output": str(e),
                 "failures": [],
-                "framework": "cargo"
+                "framework": "cargo",
             }
 
     def _execute_java_tests(
-        self,
-        project_root: Path,
-        framework: TestFramework
+        self, project_root: Path, framework: TestFramework
     ) -> Dict[str, Any]:
         """Execute Java tests (JUnit or Gradle)."""
         try:
@@ -423,7 +422,7 @@ Format as a single test file with clear organization."""
                 "success": result.success,
                 "output": result.stdout or result.stderr,
                 "failures": failures,
-                "framework": framework.value
+                "framework": framework.value,
             }
 
         except Exception as e:
@@ -432,7 +431,7 @@ Format as a single test file with clear organization."""
                 "success": False,
                 "output": str(e),
                 "failures": [],
-                "framework": framework.value
+                "framework": framework.value,
             }
 
     def _get_test_prompts(
@@ -441,7 +440,7 @@ Format as a single test file with clear organization."""
         content: str,
         readme: str,
         language: str,
-        framework: TestFramework
+        framework: TestFramework,
     ) -> Tuple[str, str]:
         """Get language and framework specific test prompts."""
         framework_templates = {
@@ -461,7 +460,9 @@ Format as a single test file with clear organization."""
             # Fallback to generic
             return AutoGenPrompts.generate_unit_tests(file_path, content, readme)
 
-    def _pytest_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
+    def _pytest_prompt(
+        self, file_path: str, content: str, readme: str
+    ) -> Tuple[str, str]:
         """Generate pytest-specific prompt."""
         system = """You are an expert Python test engineer using pytest.
 Create comprehensive pytest unit tests with fixtures, mocking, and edge cases."""
@@ -482,7 +483,9 @@ Generate pytest tests with:
 
         return system, user
 
-    def _jest_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
+    def _jest_prompt(
+        self, file_path: str, content: str, readme: str
+    ) -> Tuple[str, str]:
         """Generate Jest-specific prompt."""
         system = """You are an expert JavaScript test engineer using Jest.
 Create comprehensive Jest unit tests with describe blocks and mocking."""
@@ -503,7 +506,9 @@ Generate Jest tests with:
 
         return system, user
 
-    def _go_test_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
+    def _go_test_prompt(
+        self, file_path: str, content: str, readme: str
+    ) -> Tuple[str, str]:
         """Generate Go test-specific prompt."""
         system = """You are an expert Go test engineer.
 Create comprehensive Go tests using the testing package."""
@@ -524,7 +529,9 @@ Generate Go tests with:
 
         return system, user
 
-    def _mocha_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
+    def _mocha_prompt(
+        self, file_path: str, content: str, readme: str
+    ) -> Tuple[str, str]:
         """Generate Mocha-specific prompt."""
         system = """You are an expert JavaScript test engineer using Mocha.
 Create comprehensive Mocha tests with assertions."""
@@ -545,7 +552,9 @@ Generate Mocha tests with:
 
         return system, user
 
-    def _cargo_test_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
+    def _cargo_test_prompt(
+        self, file_path: str, content: str, readme: str
+    ) -> Tuple[str, str]:
         """Generate Rust/Cargo test prompt."""
         system = """You are an expert Rust test engineer.
 Create comprehensive Cargo tests using #[cfg(test)]."""
@@ -566,7 +575,9 @@ Generate Cargo tests with:
 
         return system, user
 
-    def _unittest_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
+    def _unittest_prompt(
+        self, file_path: str, content: str, readme: str
+    ) -> Tuple[str, str]:
         """Generate unittest-specific prompt."""
         system = """You are an expert Python test engineer using unittest.
 Create comprehensive unittest tests with setUp/tearDown."""
@@ -587,7 +598,9 @@ Generate unittest tests with:
 
         return system, user
 
-    def _junit_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
+    def _junit_prompt(
+        self, file_path: str, content: str, readme: str
+    ) -> Tuple[str, str]:
         """Generate JUnit-specific prompt."""
         system = """You are an expert Java test engineer using JUnit.
 Create comprehensive JUnit tests with annotations."""
@@ -608,11 +621,7 @@ Generate JUnit tests with:
 
         return system, user
 
-    def _detect_services(
-        self,
-        project_root: Path,
-        readme: str
-    ) -> List[Dict[str, str]]:
+    def _detect_services(self, project_root: Path, readme: str) -> List[Dict[str, str]]:
         """Scan project to detect services."""
         services = []
 
@@ -621,11 +630,13 @@ Generate JUnit tests with:
             if file_path.is_file():
                 name = file_path.stem.lower()
                 if any(x in name for x in ["server", "service", "api", "app"]):
-                    services.append({
-                        "name": name,
-                        "path": str(file_path.relative_to(project_root)),
-                        "port": 8000 + len(services)
-                    })
+                    services.append(
+                        {
+                            "name": name,
+                            "path": str(file_path.relative_to(project_root)),
+                            "port": 8000 + len(services),
+                        }
+                    )
 
         return services
 
@@ -634,11 +645,7 @@ Generate JUnit tests with:
         compose = {
             "version": "3.8",
             "services": {},
-            "networks": {
-                "test-network": {
-                    "driver": "bridge"
-                }
-            }
+            "networks": {"test-network": {"driver": "bridge"}},
         }
 
         for service in services:
@@ -646,7 +653,7 @@ Generate JUnit tests with:
                 "build": ".",
                 "ports": [f"{service.get('port', 8000)}:8000"],
                 "networks": ["test-network"],
-                "environment": {"TEST_MODE": "true"}
+                "environment": {"TEST_MODE": "true"},
             }
 
         return json.dumps(compose, indent=2)
@@ -662,11 +669,13 @@ Generate JUnit tests with:
                 failures = []
                 for test in report.get("tests", []):
                     if test["outcome"] == "failed":
-                        failures.append({
-                            "name": test["nodeid"],
-                            "message": test.get("call", {}).get("longrepr", ""),
-                            "path": test["nodeid"].split("::")[0],
-                        })
+                        failures.append(
+                            {
+                                "name": test["nodeid"],
+                                "message": test.get("call", {}).get("longrepr", ""),
+                                "path": test["nodeid"].split("::")[0],
+                            }
+                        )
                 return failures
         except Exception as e:
             self.logger.error(f"Error parsing pytest failures: {e}")

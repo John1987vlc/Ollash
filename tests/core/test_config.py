@@ -1,7 +1,9 @@
 """Tests for the centralized configuration system."""
 import importlib
 import json
+
 from backend.core import config as agent_config
+
 
 def test_config_loads_from_env(monkeypatch):
     """
@@ -30,6 +32,7 @@ def test_config_loads_from_env(monkeypatch):
     assert agent_config.config.TOOL_SETTINGS["max_iterations"] == 99
     assert agent_config.config.TOOL_SETTINGS["auto_confirm_tools"] is True
 
+
 def test_legacy_ollama_url_override(monkeypatch):
     """
     Tests that 'ollama_url' within LLM_MODELS_JSON correctly overrides
@@ -41,9 +44,7 @@ def test_legacy_ollama_url_override(monkeypatch):
     models_config = {
         "ollama_url": legacy_url,
         "default_model": "some-model",
-        "models": {
-            "coder": "coder-model"
-        }
+        "models": {"coder": "coder-model"},
     }
 
     monkeypatch.setenv("OLLAMA_URL", base_url)

@@ -1,9 +1,11 @@
 """Tests for automation system"""
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 # Import functions directly from the module under test
+
 
 def test_notification_manager_initialization(tmp_path):
     """Test that NotificationManager initializes correctly"""
@@ -21,15 +23,15 @@ def test_notification_manager_email_subscription(tmp_path):
     nm = NotificationManager()
 
     # Valid email
-    assert nm.subscribe_email('test@example.com') == True
-    assert 'test@example.com' in nm.subscribed_emails
+    assert nm.subscribe_email("test@example.com") == True
+    assert "test@example.com" in nm.subscribed_emails
 
     # Invalid email
-    assert nm.subscribe_email('invalid-email') == False
+    assert nm.subscribe_email("invalid-email") == False
 
     # Unsubscribe
-    assert nm.unsubscribe_email('test@example.com') == True
-    assert 'test@example.com' not in nm.subscribed_emails
+    assert nm.unsubscribe_email("test@example.com") == True
+    assert "test@example.com" not in nm.subscribed_emails
 
 
 def test_task_scheduler_initialization():
@@ -49,22 +51,22 @@ def test_task_scheduler_trigger_creation():
     scheduler = TaskScheduler()
 
     # Test hourly trigger
-    data = {'schedule': 'hourly'}
+    data = {"schedule": "hourly"}
     trigger = scheduler._get_trigger(data)
     assert trigger is not None
 
     # Test daily trigger
-    data = {'schedule': 'daily'}
+    data = {"schedule": "daily"}
     trigger = scheduler._get_trigger(data)
     assert trigger is not None
 
     # Test weekly trigger
-    data = {'schedule': 'weekly'}
+    data = {"schedule": "weekly"}
     trigger = scheduler._get_trigger(data)
     assert trigger is not None
 
     # Test custom cron trigger
-    data = {'schedule': 'custom', 'cron': '0 8 * * *'}
+    data = {"schedule": "custom", "cron": "0 8 * * *"}
     trigger = scheduler._get_trigger(data)
     assert trigger is not None
 
@@ -87,6 +89,7 @@ def test_automation_executor_initialization(tmp_path):
 
 class MockPath:
     """A mock Path class to simulate path operations for testing without subclassing Path."""
+
     def __init__(self, path_str):
         self._path_str = str(path_str) if path_str else "."
         self._exists = False
@@ -124,9 +127,7 @@ def test_html_email_building():
 
     nm = NotificationManager()
     html = nm._build_html_email(
-        title="Test Title",
-        content="<p>Test content</p>",
-        status="success"
+        title="Test Title", content="<p>Test content</p>", status="success"
     )
 
     assert "<!DOCTYPE html>" in html
@@ -148,19 +149,15 @@ async def test_automation_executor_task_execution(tmp_path):
     executor = AutomationTaskExecutor(ollash_root, event_pub)
 
     # Mock task data - this will fail because no actual agent
-    task_data = {
-        'name': 'Test Task',
-        'agent': 'orchestrator',
-        'prompt': 'Test prompt'
-    }
+    task_data = {"name": "Test Task", "agent": "orchestrator", "prompt": "Test prompt"}
 
     # We expect this to fail gracefully
-    result = await executor.execute_task('test_123', task_data)
+    result = await executor.execute_task("test_123", task_data)
 
-    assert result['task_id'] == 'test_123'
-    assert result['task_name'] == 'Test Task'
+    assert result["task_id"] == "test_123"
+    assert result["task_name"] == "Test Task"
     # Status might be error since we don't have a real Ollash setup
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

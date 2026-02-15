@@ -7,15 +7,17 @@ and maintaining proper context ordering.
 
 import asyncio
 import time
-from typing import Dict, List, Optional, Callable, Any, Tuple
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
 from backend.utils.core.agent_logger import AgentLogger
 
 
 @dataclass
 class GenerationTask:
     """Represents a single file generation task."""
+
     file_path: str
     context: Dict[str, Any]
     priority: int = 0  # Higher = process first
@@ -38,6 +40,7 @@ class GenerationTask:
 @dataclass
 class GenerationResult:
     """Result of a generation task."""
+
     file_path: str
     content: Optional[str]
     success: bool
@@ -162,7 +165,9 @@ class ParallelFileGenerator:
 
         # Create worker coroutines
         workers = [
-            self._worker(task_queue, progress_callback, completed_files, dependency_order)
+            self._worker(
+                task_queue, progress_callback, completed_files, dependency_order
+            )
             for _ in range(self.rate_limiter.max_concurrent)
         ]
 
@@ -267,9 +272,7 @@ class ParallelFileGenerator:
                 await self.rate_limiter.release()
 
     def _get_file_dependencies(
-        self,
-        file_path: str,
-        dependency_order: List[str]
+        self, file_path: str, dependency_order: List[str]
     ) -> List[str]:
         """Get files that must be generated before this one."""
         if file_path not in dependency_order:
@@ -293,7 +296,9 @@ class ParallelFileGenerator:
             "failed": len(failed),
             "success_rate": len(successful) / len(self.results) if self.results else 0,
             "total_duration_seconds": total_duration,
-            "avg_time_per_file": total_duration / len(self.results) if self.results else 0,
+            "avg_time_per_file": total_duration / len(self.results)
+            if self.results
+            else 0,
             "failed_files": self.failed_files,
         }
 
@@ -310,28 +315,18 @@ class AsyncFileGenerationAdapter:
         self.max_workers = max_workers
         self.executor = None
 
-    async def call_sync_function(
-        self,
-        sync_fn: Callable,
-        *args,
-        **kwargs
-    ) -> Any:
+    async def call_sync_function(self, sync_fn: Callable, *args, **kwargs) -> Any:
         """
         Call a synchronous function without blocking the event loop.
         Uses ThreadPoolExecutor for CPU-bound work.
         """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None,  # Use default executor
-            lambda: sync_fn(*args, **kwargs)
+            None, lambda: sync_fn(*args, **kwargs)  # Use default executor
         )
 
     async def generate_file_async(
-        self,
-        file_path: str,
-        content_generator_fn: Callable,
-        *args,
-        **kwargs
+        self, file_path: str, content_generator_fn: Callable, *args, **kwargs
     ) -> Tuple[Optional[str], bool, Optional[str]]:
         """
         Generate file content asynchronously.
@@ -341,10 +336,7 @@ class AsyncFileGenerationAdapter:
         """
         try:
             content = await self.call_sync_function(
-                content_generator_fn,
-                file_path,
-                *args,
-                **kwargs
+                content_generator_fn, file_path, *args, **kwargs
             )
             return (content, True, None)
         except Exception as e:

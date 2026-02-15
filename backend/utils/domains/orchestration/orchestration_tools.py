@@ -1,12 +1,13 @@
-import platform # Added
+import json  # Added
+import platform  # Added
+from pathlib import Path  # Added
 from typing import Any, Dict, List, Optional
-from pathlib import Path # Added
-import json # Added
+
 
 class OrchestrationTools:
     def __init__(self, logger: Any):
         self.logger = logger
-        self.os_type = platform.system() # "Windows", "Linux", "Darwin" (macOS)
+        self.os_type = platform.system()  # "Windows", "Linux", "Darwin" (macOS)
 
     def evaluate_plan_risk(self, plan: Dict) -> Dict:
         """
@@ -19,9 +20,33 @@ class OrchestrationTools:
         risk_level = "low"
 
         high_risk_keywords = {
-            "security": ["delete_file", "rm ", "format ", "git push --force", "revoke", "disable security", "open port", "firewall off"],
-            "technical": ["install package", "update system", "reboot", "shutdown", "modify critical config", "overwrite"],
-            "impact": ["delete", "remove", "all files", "entire directory", "production", "deploy", "wipe"]
+            "security": [
+                "delete_file",
+                "rm ",
+                "format ",
+                "git push --force",
+                "revoke",
+                "disable security",
+                "open port",
+                "firewall off",
+            ],
+            "technical": [
+                "install package",
+                "update system",
+                "reboot",
+                "shutdown",
+                "modify critical config",
+                "overwrite",
+            ],
+            "impact": [
+                "delete",
+                "remove",
+                "all files",
+                "entire directory",
+                "production",
+                "deploy",
+                "wipe",
+            ],
         }
 
         for step in plan.get("steps", []):
@@ -29,10 +54,14 @@ class OrchestrationTools:
             for risk_type, keywords in high_risk_keywords.items():
                 for keyword in keywords:
                     if keyword in step_lower:
-                        risks.append({"type": risk_type, "keyword": keyword, "step": step})
+                        risks.append(
+                            {"type": risk_type, "keyword": keyword, "step": step}
+                        )
                         if risk_type in ["security", "impact"]:
                             risk_level = "high"
-                        elif risk_level == "low": # Upgrade from low to medium if technical risk found
+                        elif (
+                            risk_level == "low"
+                        ):  # Upgrade from low to medium if technical risk found
                             risk_level = "medium"
 
         if not risks:
@@ -46,8 +75,8 @@ class OrchestrationTools:
                 "risk_level": risk_level,
                 "details": details,
                 "findings": risks,
-                "plan_evaluated": plan
-            }
+                "plan_evaluated": plan,
+            },
         }
 
     def detect_user_intent(self, user_request: str) -> Dict:
@@ -63,7 +92,7 @@ class OrchestrationTools:
             "audit": ["audit", "review", "check compliance", "security report"],
             "incident": ["incident", "outage", "down", "unresponsive", "urgent"],
             "learning": ["learn", "how to", "explain", "tutorial", "example"],
-            "exploration": ["explore", "look at", "show", "what is", "analyze", "find"]
+            "exploration": ["explore", "look at", "show", "what is", "analyze", "find"],
         }
 
         detected_intents = {}
@@ -77,12 +106,16 @@ class OrchestrationTools:
         if detected_intents:
             # Select the intent with the most matching keywords
             best_intent = max(detected_intents, key=detected_intents.get)
-            confidence = detected_intents[best_intent] / len(user_request_lower.split()) # Simple confidence
+            confidence = detected_intents[best_intent] / len(
+                user_request_lower.split()
+            )  # Simple confidence
             details = f"Detected intent '{best_intent}' based on keywords."
         else:
             best_intent = "exploration"
             confidence = 0.5
-            details = "No specific intent keywords detected. Defaulting to 'exploration'."
+            details = (
+                "No specific intent keywords detected. Defaulting to 'exploration'."
+            )
 
         return {
             "ok": True,
@@ -90,8 +123,8 @@ class OrchestrationTools:
                 "intent": best_intent,
                 "confidence": round(confidence, 2),
                 "details": details,
-                "matching_keywords": detected_intents
-            }
+                "matching_keywords": detected_intents,
+            },
         }
 
     def require_human_gate(self, action_description: str, reason: str) -> Dict:
@@ -103,13 +136,13 @@ class OrchestrationTools:
         self.logger.warning(message)
 
         return {
-            "ok": False, # Indicate that the action itself was not completed due to gate
+            "ok": False,  # Indicate that the action itself was not completed due to gate
             "result": {
                 "status": "human_gate_requested",
                 "action_description": action_description,
                 "reason": reason,
-                "details": message
-            }
+                "details": message,
+            },
         }
 
     def summarize_session_state(self, agent_state: Optional[Dict] = None) -> Dict:
@@ -121,10 +154,22 @@ class OrchestrationTools:
         self.logger.info("Summarizing session state...")
 
         # Default/generic values
-        active_agent = agent_state.get("active_agent", "unknown") if agent_state else "orchestrator"
-        conversation_length = agent_state.get("conversation_length", 0) if agent_state else 0
-        last_user_request = agent_state.get("last_user_request", "N/A") if agent_state else "N/A"
-        current_plan_goal = agent_state.get("current_plan_goal", "No active plan") if agent_state else "No active plan"
+        active_agent = (
+            agent_state.get("active_agent", "unknown")
+            if agent_state
+            else "orchestrator"
+        )
+        conversation_length = (
+            agent_state.get("conversation_length", 0) if agent_state else 0
+        )
+        last_user_request = (
+            agent_state.get("last_user_request", "N/A") if agent_state else "N/A"
+        )
+        current_plan_goal = (
+            agent_state.get("current_plan_goal", "No active plan")
+            if agent_state
+            else "No active plan"
+        )
 
         summary_details = f"Currently operating in '{active_agent}' context. "
         summary_details += f"Conversation has {conversation_length} turns. "
@@ -139,11 +184,13 @@ class OrchestrationTools:
                 "active_agent_context": active_agent,
                 "current_plan_goal": current_plan_goal,
                 "last_user_request": last_user_request,
-                "details_note": "This summary is limited by the context provided to this tool. For full details, the agent's complete state is required."
-            }
+                "details_note": "This summary is limited by the context provided to this tool. For full details, the agent's complete state is required.",
+            },
         }
 
-    def explain_decision(self, decision_id: Optional[str] = None, current_context: Optional[Dict] = None) -> Dict:
+    def explain_decision(
+        self, decision_id: Optional[str] = None, current_context: Optional[Dict] = None
+    ) -> Dict:
         """
         Explains why the agent made a specific decision and what alternatives it discarded.
         This implementation provides a generic explanation. A more complete version would
@@ -172,8 +219,8 @@ class OrchestrationTools:
                 "alternatives_discarded": alternatives,
                 "confidence": round(confidence, 2),
                 "decision_id": decision_id,
-                "details_note": "A deeper explanation requires more detailed internal state and reasoning logs from the CodeAgent."
-            }
+                "details_note": "A deeper explanation requires more detailed internal state and reasoning logs from the CodeAgent.",
+            },
         }
 
     def validate_environment_expectations(self, expectations: Dict) -> Dict:
@@ -189,27 +236,59 @@ class OrchestrationTools:
         if "os_type" in expectations:
             expected_os = expectations["os_type"].lower()
             current_os = self.os_type.lower()
-            if expected_os in current_os: # Check for partial match (e.g., 'linux' in 'gnulinux')
-                validation_results.append({"check": "os_type", "expected": expected_os, "actual": current_os, "status": "match"})
+            if (
+                expected_os in current_os
+            ):  # Check for partial match (e.g., 'linux' in 'gnulinux')
+                validation_results.append(
+                    {
+                        "check": "os_type",
+                        "expected": expected_os,
+                        "actual": current_os,
+                        "status": "match",
+                    }
+                )
             else:
-                validation_results.append({"check": "os_type", "expected": expected_os, "actual": current_os, "status": "mismatch"})
+                validation_results.append(
+                    {
+                        "check": "os_type",
+                        "expected": expected_os,
+                        "actual": current_os,
+                        "status": "mismatch",
+                    }
+                )
                 overall_status = "mismatch"
 
         # Validate OS Version (basic check, more complex would need SystemTools)
         if "os_version_prefix" in expectations:
             expected_version_prefix = str(expectations["os_version_prefix"])
-            current_os_version = platform.version() # More detailed version info
+            current_os_version = platform.version()  # More detailed version info
             if current_os_version.startswith(expected_version_prefix):
-                validation_results.append({"check": "os_version", "expected_prefix": expected_version_prefix, "actual": current_os_version, "status": "match"})
+                validation_results.append(
+                    {
+                        "check": "os_version",
+                        "expected_prefix": expected_version_prefix,
+                        "actual": current_os_version,
+                        "status": "match",
+                    }
+                )
             else:
-                validation_results.append({"check": "os_version", "expected_prefix": expected_version_prefix, "actual": current_os_version, "status": "mismatch"})
+                validation_results.append(
+                    {
+                        "check": "os_version",
+                        "expected_prefix": expected_version_prefix,
+                        "actual": current_os_version,
+                        "status": "mismatch",
+                    }
+                )
                 overall_status = "mismatch"
 
         # Placeholder for other checks (permissions, network, etc.)
         if overall_status == "match":
             details = "All checked environment expectations are met."
         else:
-            details = "Some environment expectations do not match. See findings for details."
+            details = (
+                "Some environment expectations do not match. See findings for details."
+            )
 
         return {
             "ok": overall_status == "match",
@@ -218,8 +297,8 @@ class OrchestrationTools:
                 "details": details,
                 "findings": validation_results,
                 "checked_expectations": expectations,
-                "note": "Advanced checks (e.g., specific permissions, network config) would require integration with SystemTools/NetworkTools or more OS-specific commands."
-            }
+                "note": "Advanced checks (e.g., specific permissions, network config) would require integration with SystemTools/NetworkTools or more OS-specific commands.",
+            },
         }
 
     def detect_configuration_drift(self, baseline_file: str, current_file: str) -> Dict:
@@ -227,36 +306,58 @@ class OrchestrationTools:
         Detects deviations with respect to a known baseline.
         Reads and compares the content of two files line by line.
         """
-        self.logger.info(f"Detecting configuration drift between {baseline_file} and {current_file}...")
+        self.logger.info(
+            f"Detecting configuration drift between {baseline_file} and {current_file}..."
+        )
 
         try:
             baseline_path = Path(baseline_file)
             current_path = Path(current_file)
 
             if not baseline_path.exists():
-                return {"ok": False, "result": {"error": f"Baseline file not found: {baseline_file}"}}
+                return {
+                    "ok": False,
+                    "result": {"error": f"Baseline file not found: {baseline_file}"},
+                }
             if not current_path.exists():
-                return {"ok": False, "result": {"error": f"Current file not found: {current_file}"}}
+                return {
+                    "ok": False,
+                    "result": {"error": f"Current file not found: {current_file}"},
+                }
 
-            baseline_content = baseline_path.read_text(encoding="utf-8", errors="ignore").splitlines()
-            current_content = current_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+            baseline_content = baseline_path.read_text(
+                encoding="utf-8", errors="ignore"
+            ).splitlines()
+            current_content = current_path.read_text(
+                encoding="utf-8", errors="ignore"
+            ).splitlines()
 
             drift_detected = False
             differences = []
 
             max_lines = max(len(baseline_content), len(current_content))
             for i in range(max_lines):
-                line_in_baseline = baseline_content[i].strip() if i < len(baseline_content) else ""
-                line_in_current = current_content[i].strip() if i < len(current_content) else ""
+                line_in_baseline = (
+                    baseline_content[i].strip() if i < len(baseline_content) else ""
+                )
+                line_in_current = (
+                    current_content[i].strip() if i < len(current_content) else ""
+                )
 
                 if line_in_baseline != line_in_current:
                     drift_detected = True
-                    differences.append({
-                        "line": i + 1,
-                        "baseline_content": line_in_baseline,
-                        "current_content": line_in_current,
-                        "type": "modified" if line_in_baseline and line_in_current else "added" if line_in_current else "removed"
-                    })
+                    differences.append(
+                        {
+                            "line": i + 1,
+                            "baseline_content": line_in_baseline,
+                            "current_content": line_in_current,
+                            "type": "modified"
+                            if line_in_baseline and line_in_current
+                            else "added"
+                            if line_in_current
+                            else "removed",
+                        }
+                    )
 
             if drift_detected:
                 details = f"Configuration drift detected between {baseline_file} and {current_file}. Found {len(differences)} differences."
@@ -273,65 +374,88 @@ class OrchestrationTools:
                     "differences": differences,
                     "baseline": baseline_file,
                     "current": current_file,
-                    "note": "This is a line-by-line textual comparison. Semantic differences in structured config files might require more advanced parsing."
-                }
+                    "note": "This is a line-by-line textual comparison. Semantic differences in structured config files might require more advanced parsing.",
+                },
             }
 
         except Exception as e:
             self.logger.error(f"Error detecting configuration drift: {e}", e)
-            return {"ok": False, "result": {"error": str(e), "baseline": baseline_file, "current": current_file}}
+            return {
+                "ok": False,
+                "result": {
+                    "error": str(e),
+                    "baseline": baseline_file,
+                    "current": current_file,
+                },
+            }
 
-    def evaluate_compliance(self, compliance_standard: str, audit_scope: List[str]) -> Dict:
+    def evaluate_compliance(
+        self, compliance_standard: str, audit_scope: List[str]
+    ) -> Dict:
         """
         Evaluates system configurations and practices against a specified compliance standard (e.g., ISO 27001, GDPR).
         Provides a generic evaluation framework, emphasizing the need for detailed, tool-specific checks.
         """
-        self.logger.info(f"Evaluating compliance against {compliance_standard} for scope: {audit_scope}")
+        self.logger.info(
+            f"Evaluating compliance against {compliance_standard} for scope: {audit_scope}"
+        )
 
         findings = []
         overall_status = "needs_assessment"
         summary = f"Compliance evaluation initiated for '{compliance_standard}'. Detailed assessment requires tool integration."
 
         # Simulate some findings based on common compliance areas
-        findings.append({
-            "control_area": "Access Control",
-            "status": "partial_assessment",
-            "details": "Access control policies and configurations need to be thoroughly reviewed (e.g., via `analyze_permissions` tool).",
-            "recommendation": "Use `analyze_permissions` on relevant paths."
-        })
-        findings.append({
-            "control_area": "Data Protection",
-            "status": "pending_assessment",
-            "details": "Data encryption, backup, and retention policies require verification. Sensitive data discovery is also needed.",
-            "recommendation": "Integrate with file content scanning and data classification tools."
-        })
-        findings.append({
-            "control_area": "Security Monitoring",
-            "status": "partial_assessment",
-            "details": "Logs and security events need to be collected and reviewed for suspicious activities (e.g., via `detect_ioc` tool).",
-            "recommendation": "Use `detect_ioc` and log analysis tools."
-        })
-        findings.append({
-            "control_area": "Configuration Management",
-            "status": "pending_assessment",
-            "details": "System and application configurations must be hardened and regularly audited for drift (e.g., via `detect_configuration_drift` tool).",
-            "recommendation": "Use `detect_configuration_drift` against known baselines."
-        })
+        findings.append(
+            {
+                "control_area": "Access Control",
+                "status": "partial_assessment",
+                "details": "Access control policies and configurations need to be thoroughly reviewed (e.g., via `analyze_permissions` tool).",
+                "recommendation": "Use `analyze_permissions` on relevant paths.",
+            }
+        )
+        findings.append(
+            {
+                "control_area": "Data Protection",
+                "status": "pending_assessment",
+                "details": "Data encryption, backup, and retention policies require verification. Sensitive data discovery is also needed.",
+                "recommendation": "Integrate with file content scanning and data classification tools.",
+            }
+        )
+        findings.append(
+            {
+                "control_area": "Security Monitoring",
+                "status": "partial_assessment",
+                "details": "Logs and security events need to be collected and reviewed for suspicious activities (e.g., via `detect_ioc` tool).",
+                "recommendation": "Use `detect_ioc` and log analysis tools.",
+            }
+        )
+        findings.append(
+            {
+                "control_area": "Configuration Management",
+                "status": "pending_assessment",
+                "details": "System and application configurations must be hardened and regularly audited for drift (e.g., via `detect_configuration_drift` tool).",
+                "recommendation": "Use `detect_configuration_drift` against known baselines.",
+            }
+        )
 
         if compliance_standard.lower() == "gdpr":
-            findings.append({
-                "control_area": "Privacy Impact Assessment (PIA)",
-                "status": "pending_assessment",
-                "details": "Verify that PIAs are conducted and documented for all data processing activities.",
-                "recommendation": "Manual review of PIA documentation."
-            })
+            findings.append(
+                {
+                    "control_area": "Privacy Impact Assessment (PIA)",
+                    "status": "pending_assessment",
+                    "details": "Verify that PIAs are conducted and documented for all data processing activities.",
+                    "recommendation": "Manual review of PIA documentation.",
+                }
+            )
         elif compliance_standard.lower() == "iso 27001":
-            findings.append({
-                "control_area": "Risk Assessment & Treatment",
-                "status": "pending_assessment",
-                "details": "Review the organization's risk assessment methodology and treatment plans.",
-                "recommendation": "Manual review of risk management documentation."
-            })
+            findings.append(
+                {
+                    "control_area": "Risk Assessment & Treatment",
+                    "status": "pending_assessment",
+                    "details": "Review the organization's risk assessment methodology and treatment plans.",
+                    "recommendation": "Manual review of risk management documentation.",
+                }
+            )
 
         return {
             "ok": True,
@@ -341,8 +465,8 @@ class OrchestrationTools:
                 "overall_status": overall_status,
                 "summary": summary,
                 "findings": findings,
-                "note": "A true compliance audit is a complex process involving multiple tools, human expertise, and documentation review. This tool provides a high-level overview and areas for further investigation."
-            }
+                "note": "A true compliance audit is a complex process involving multiple tools, human expertise, and documentation review. This tool provides a high-level overview and areas for further investigation.",
+            },
         }
 
     def generate_audit_report(self, report_format: str = "json") -> Dict:
@@ -360,33 +484,33 @@ class OrchestrationTools:
                 {
                     "title": "Risk Assessment Overview",
                     "content": "Overall system risk appears low/medium (placeholder). Refer to `evaluate_plan_risk` for details.",
-                    "note": "Requires integration with `evaluate_plan_risk` output."
+                    "note": "Requires integration with `evaluate_plan_risk` output.",
                 },
                 {
                     "title": "Compliance Status",
                     "content": "Compliance status is 'needs_assessment' (placeholder). Refer to `evaluate_compliance` for details.",
-                    "note": "Requires integration with `evaluate_compliance` output."
+                    "note": "Requires integration with `evaluate_compliance` output.",
                 },
                 {
                     "title": "Security Posture",
                     "content": "Security posture is rated 'Good' (placeholder). Refer to `security_posture_score` for details.",
-                    "note": "Requires integration with `security_posture_score` output."
+                    "note": "Requires integration with `security_posture_score` output.",
                 },
                 {
                     "title": "Environment Validation",
                     "content": "Environment expectations are assumed met (placeholder). Refer to `validate_environment_expectations` for details.",
-                    "note": "Requires integration with `validate_environment_expectations` output."
+                    "note": "Requires integration with `validate_environment_expectations` output.",
                 },
                 {
                     "title": "Configuration Drift",
                     "content": "No configuration drift detected (placeholder). Refer to `detect_configuration_drift` for details.",
-                    "note": "Requires integration with `detect_configuration_drift` output."
+                    "note": "Requires integration with `detect_configuration_drift` output.",
                 },
                 {
                     "title": "Recommendations",
-                    "content": "To get a comprehensive report, execute specific analysis tools (e.g., security scans, permission audits) and ensure their outputs are accessible for aggregation."
-                }
-            ]
+                    "content": "To get a comprehensive report, execute specific analysis tools (e.g., security scans, permission audits) and ensure their outputs are accessible for aggregation.",
+                },
+            ],
         }
 
         if report_format == "json":
@@ -396,15 +520,20 @@ class OrchestrationTools:
             for section in report_content["sections"]:
                 formatted_report += f"\n{section['title']}:\n  {section['content']}\n"
         else:
-            return {"ok": False, "result": {"error": f"Unsupported report format: {report_format}. Supported formats are 'json' and 'text'."}}
+            return {
+                "ok": False,
+                "result": {
+                    "error": f"Unsupported report format: {report_format}. Supported formats are 'json' and 'text'."
+                },
+            }
 
         return {
             "ok": True,
             "result": {
                 "format": report_format,
                 "report_content": formatted_report,
-                "summary": "Generic audit report generated. Integrate with live tool outputs for meaningful data."
-            }
+                "summary": "Generic audit report generated. Integrate with live tool outputs for meaningful data.",
+            },
         }
 
     def propose_governance_policy(self, policy_type: str, scope: List[str]) -> Dict:
@@ -412,7 +541,9 @@ class OrchestrationTools:
         Proposes new governance policies or updates existing ones based on compliance gaps or best practices.
         Generates a generic policy outline based on the specified type and scope.
         """
-        self.logger.info(f"Proposing governance policy of type '{policy_type}' for scope: {scope}")
+        self.logger.info(
+            f"Proposing governance policy of type '{policy_type}' for scope: {scope}"
+        )
 
         policy_template = {
             "title": f"Draft Governance Policy: {policy_type.replace('_', ' ').title()}",
@@ -422,42 +553,56 @@ class OrchestrationTools:
             "objectives": [
                 "Establish clear guidelines for [policy_type] within the specified scope.",
                 "Ensure compliance with relevant regulations and internal standards.",
-                "Mitigate risks associated with [policy_type] practices."
+                "Mitigate risks associated with [policy_type] practices.",
             ],
             "key_principles": [],
             "responsibilities": {
                 "owner": "Placeholder: Define Policy Owner",
-                "review_frequency": "Annually"
+                "review_frequency": "Annually",
             },
-            "review_date": "YYYY-MM-DD (placeholder)"
+            "review_date": "YYYY-MM-DD (placeholder)",
         }
 
         if policy_type.lower() == "data_handling":
-            policy_template["key_principles"].extend([
-                "Principle of Data Minimization",
-                "Principle of Purpose Limitation",
-                "Principle of Storage Limitation",
-                "Principle of Confidentiality and Integrity"
-            ])
-            policy_template["objectives"].insert(0, "Protect sensitive data throughout its lifecycle.")
+            policy_template["key_principles"].extend(
+                [
+                    "Principle of Data Minimization",
+                    "Principle of Purpose Limitation",
+                    "Principle of Storage Limitation",
+                    "Principle of Confidentiality and Integrity",
+                ]
+            )
+            policy_template["objectives"].insert(
+                0, "Protect sensitive data throughout its lifecycle."
+            )
         elif policy_type.lower() == "access_control":
-            policy_template["key_principles"].extend([
-                "Principle of Least Privilege",
-                "Principle of Separation of Duties",
-                "Principle of Need-to-Know"
-            ])
-            policy_template["objectives"].insert(0, "Ensure appropriate access to systems and information.")
+            policy_template["key_principles"].extend(
+                [
+                    "Principle of Least Privilege",
+                    "Principle of Separation of Duties",
+                    "Principle of Need-to-Know",
+                ]
+            )
+            policy_template["objectives"].insert(
+                0, "Ensure appropriate access to systems and information."
+            )
         elif policy_type.lower() == "incident_response":
-            policy_template["key_principles"].extend([
-                "Principle of Preparedness",
-                "Principle of Timely Detection",
-                "Principle of Effective Response",
-                "Principle of Post-Incident Learning"
-            ])
-            policy_template["objectives"].insert(0, "Define procedures for managing security incidents effectively.")
+            policy_template["key_principles"].extend(
+                [
+                    "Principle of Preparedness",
+                    "Principle of Timely Detection",
+                    "Principle of Effective Response",
+                    "Principle of Post-Incident Learning",
+                ]
+            )
+            policy_template["objectives"].insert(
+                0, "Define procedures for managing security incidents effectively."
+            )
         else:
             policy_template["key_principles"].append("General Best Practice Principles")
-            policy_template["objectives"].insert(0, "Establish sound governance practices.")
+            policy_template["objectives"].insert(
+                0, "Establish sound governance practices."
+            )
 
         return {
             "ok": True,
@@ -465,6 +610,6 @@ class OrchestrationTools:
                 "policy_type": policy_type,
                 "proposed_policy": policy_template,
                 "summary": f"Draft governance policy for '{policy_type}' generated. Content should be reviewed and expanded with specific organizational details. (Scope: {', '.join(scope)})",
-                "note": "A complete policy requires specific details, legal review, and alignment with organizational context."
-            }
+                "note": "A complete policy requires specific details, legal review, and alignment with organizational context.",
+            },
         }

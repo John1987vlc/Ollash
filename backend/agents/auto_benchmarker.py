@@ -1,31 +1,71 @@
 import json
 import time
-import requests
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List
+
+import requests
 
 # Use the new centralized config
 from backend.core.config import config as central_config
-
-from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.core.token_tracker import TokenTracker
 from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.heartbeat import Heartbeat
-from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.file_validator import FileValidator
-from backend.utils.core.structured_logger import StructuredLogger
+from backend.utils.core.heartbeat import Heartbeat
 from backend.utils.core.llm_recorder import LLMRecorder
+from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.ollama_client import OllamaClient
+from backend.utils.core.structured_logger import StructuredLogger
+from backend.utils.core.token_tracker import TokenTracker
 
 
 class ModelBenchmarker:
     """Benchmarks Ollama models on autonomous project generation tasks."""
 
     SIZE_TIERS = [
-        (10, "small", {"num_ctx": 4096, "num_predict": 2048, "temperature": 0.5, "keep_alive": "0s"}, 300),
-        (30, "medium", {"num_ctx": 2048, "num_predict": 1024, "temperature": 0.5, "keep_alive": "0s"}, 480),
-        (70, "large", {"num_ctx": 1024, "num_predict": 512, "temperature": 0.5, "keep_alive": "0s"}, 600),
-        (float("inf"), "xlarge", {"num_ctx": 512, "num_predict": 256, "temperature": 0.5, "keep_alive": "0s"}, 900),
+        (
+            10,
+            "small",
+            {
+                "num_ctx": 4096,
+                "num_predict": 2048,
+                "temperature": 0.5,
+                "keep_alive": "0s",
+            },
+            300,
+        ),
+        (
+            30,
+            "medium",
+            {
+                "num_ctx": 2048,
+                "num_predict": 1024,
+                "temperature": 0.5,
+                "keep_alive": "0s",
+            },
+            480,
+        ),
+        (
+            70,
+            "large",
+            {
+                "num_ctx": 1024,
+                "num_predict": 512,
+                "temperature": 0.5,
+                "keep_alive": "0s",
+            },
+            600,
+        ),
+        (
+            float("inf"),
+            "xlarge",
+            {
+                "num_ctx": 512,
+                "num_predict": 256,
+                "temperature": 0.5,
+                "keep_alive": "0s",
+            },
+            900,
+        ),
     ]
 
     def __init__(self):
@@ -36,36 +76,51 @@ class ModelBenchmarker:
         self.config = {
             **(central_config.TOOL_SETTINGS or {}),
             **(central_config.LLM_MODELS or {}),
-            **(central_config.AGENT_FEATURES or {})
+            **(central_config.AGENT_FEATURES or {}),
         }
 
         log_file_path = Path("logs") / "auto_benchmark_debug.log"
-        structured_logger = StructuredLogger(log_file_path=log_file_path, logger_name="AutoBenchmarkLogger")
-        self.logger = AgentLogger(structured_logger=structured_logger, logger_name="AutoBenchmark")
+        structured_logger = StructuredLogger(
+            log_file_path=log_file_path, logger_name="AutoBenchmarkLogger"
+        )
+        self.logger = AgentLogger(
+            structured_logger=structured_logger, logger_name="AutoBenchmark"
+        )
         self.response_parser = LLMResponseParser()
         self.file_validator = FileValidator(logger=self.logger)
         self.results: List[dict] = []
         self._model_sizes: Dict[str, int] = {}
 
-        embedding_model_name = (central_config.LLM_MODELS.get("models", {})
-                                .get("embedding", "all-minilm:latest"))
+        embedding_model_name = central_config.LLM_MODELS.get("models", {}).get(
+            "embedding", "all-minilm:latest"
+        )
         self.embedding_models = [embedding_model_name]
 
         self.test_tasks = self._load_tasks()
 
         self.thematic_categories = {
-            "Generacion_Aplicaciones": ["web_app", "cli_tool", "game_simple", "data_script", "utility_tool"],
+            "Generacion_Aplicaciones": [
+                "web_app",
+                "cli_tool",
+                "game_simple",
+                "data_script",
+                "utility_tool",
+            ],
             "Coherencia_Logica": ["logic_flow", "error_handling"],
             "Calidad_Codigo": ["code_structure", "readability", "functionality"],
         }
-        self.generated_projects_dir = Path("generated_projects") / "auto_benchmark_projects"
+        self.generated_projects_dir = (
+            Path("generated_projects") / "auto_benchmark_projects"
+        )
         self.generated_projects_dir.mkdir(parents=True, exist_ok=True)
 
     def _load_tasks(self) -> list:
         """Load benchmark tasks from the central configuration."""
         tasks = central_config.AUTO_BENCHMARK_TASKS
         if not tasks:
-            self.logger.warning("Auto benchmark tasks not found in config. Using empty list.")
+            self.logger.warning(
+                "Auto benchmark tasks not found in config. Using empty list."
+            )
             return []
         return tasks
 
@@ -101,7 +156,11 @@ class ModelBenchmarker:
             if gb < max_gb:
                 return opts.copy(), timeout, tier
         # Fallback (should not reach here)
-        return self.SIZE_TIERS[-1][2].copy(), self.SIZE_TIERS[-1][3], self.SIZE_TIERS[-1][1]
+        return (
+            self.SIZE_TIERS[-1][2].copy(),
+            self.SIZE_TIERS[-1][3],
+            self.SIZE_TIERS[-1][1],
+        )
 
     def run_benchmark(self, models_to_test: List[str]):
         """Run benchmark across all specified models and tasks."""
@@ -114,13 +173,17 @@ class ModelBenchmarker:
             model_project_dir.mkdir(exist_ok=True)
 
             model_size = self._model_sizes.get(model_name, 0)
-            model_options, model_timeout, size_tier = self.compute_model_options(model_size)
+            model_options, model_timeout, size_tier = self.compute_model_options(
+                model_size
+            )
             size_str = f" ({self.format_size(model_size)})" if model_size else ""
 
             print(f"{'=' * 60}")
             print(f"[{model_idx}/{total_models}] Testing model: {model_name}{size_str}")
-            print(f"   Tier: {size_tier} | num_ctx: {model_options['num_ctx']} | "
-                  f"num_predict: {model_options['num_predict']} | timeout: {model_timeout}s")
+            print(
+                f"   Tier: {size_tier} | num_ctx: {model_options['num_ctx']} | "
+                f"num_predict: {model_options['num_predict']} | timeout: {model_timeout}s"
+            )
             print(f"{'=' * 60}", flush=True)
 
             tracker = TokenTracker()
@@ -131,7 +194,7 @@ class ModelBenchmarker:
                 timeout=model_timeout,
                 logger=self.logger,
                 config=self.config,
-                llm_recorder=llm_recorder
+                llm_recorder=llm_recorder,
             )
 
             model_start_time = time.time()
@@ -145,7 +208,12 @@ class ModelBenchmarker:
                 task_difficulty = task_data.get("difficulty", "unknown")
                 time_limit_minutes = task_data.get("time_limit_minutes", 5)
 
-                difficulty_icons = {"basic": "[B]", "intermediate": "[I]", "advanced": "[A]", "extreme": "[E]"}
+                difficulty_icons = {
+                    "basic": "[B]",
+                    "intermediate": "[I]",
+                    "advanced": "[A]",
+                    "extreme": "[E]",
+                }
                 diff_icon = difficulty_icons.get(task_difficulty, "[?]")
                 task_label = f"Project {task_idx}/{total_tasks} {diff_icon} {task_difficulty} ({task_name})"
                 task_status = "Success"
@@ -155,7 +223,9 @@ class ModelBenchmarker:
                 project_path = model_project_dir / f"project_{task_idx}_{task_type}"
                 project_path.mkdir(exist_ok=True)
 
-                print(f"  > {task_label} (Limit: {time_limit_minutes} min)...", flush=True)
+                print(
+                    f"  > {task_label} (Limit: {time_limit_minutes} min)...", flush=True
+                )
                 task_start = time.time()
                 heartbeat = Heartbeat(model_name, task_label, logger=self.logger)
                 heartbeat.start()
@@ -177,52 +247,69 @@ class ModelBenchmarker:
                     options_with_timeout = model_options.copy()
                     options_with_timeout["timeout"] = current_task_timeout
 
-                    response, usage = client.chat(messages, tools=[], options_override=options_with_timeout)
+                    response, usage = client.chat(
+                        messages, tools=[], options_override=options_with_timeout
+                    )
 
                     task_tokens_prompt = usage.get("prompt_tokens", 0)
                     task_tokens_completion = usage.get("completion_tokens", 0)
                     tracker.add_usage(task_tokens_prompt, task_tokens_completion)
                     task_response_content = response["message"]["content"]
 
-                    self._save_generated_project(project_path, task_response_content, task_description)
+                    self._save_generated_project(
+                        project_path, task_response_content, task_description
+                    )
 
                 except Exception as e:
                     task_status = f"Failed: {str(e)}"
                     model_overall_status = "Failed (some tasks failed)"
-                    self.logger.error(f"Error for model {model_name} ({task_name}): {e}")
+                    self.logger.error(
+                        f"Error for model {model_name} ({task_name}): {e}"
+                    )
                 finally:
                     heartbeat.stop()
 
                 task_elapsed = time.time() - task_start
                 task_mins, task_secs = divmod(int(task_elapsed), 60)
                 status_icon = "OK" if task_status == "Success" else "FAIL"
-                print(f"  [{status_icon}] {task_label} - {task_mins}m {task_secs}s | "
-                      f"tokens: {task_tokens_prompt}+{task_tokens_completion}", flush=True)
+                print(
+                    f"  [{status_icon}] {task_label} - {task_mins}m {task_secs}s | "
+                    f"tokens: {task_tokens_prompt}+{task_tokens_completion}",
+                    flush=True,
+                )
 
-                outputs.append({
-                    "task_name": task_name,
-                    "task_description": task_description,
-                    "type": task_type,
-                    "status": task_status,
-                    "response_preview": (
-                        task_response_content[:500] + "..."
-                        if len(task_response_content) > 500
-                        else task_response_content
-                    ),
-                    "project_dir": str(project_path),
-                    "tokens_prompt": task_tokens_prompt,
-                    "tokens_completion": task_tokens_completion,
-                    "duration_sec": round(task_elapsed, 2),
-                })
+                outputs.append(
+                    {
+                        "task_name": task_name,
+                        "task_description": task_description,
+                        "type": task_type,
+                        "status": task_status,
+                        "response_preview": (
+                            task_response_content[:500] + "..."
+                            if len(task_response_content) > 500
+                            else task_response_content
+                        ),
+                        "project_dir": str(project_path),
+                        "tokens_prompt": task_tokens_prompt,
+                        "tokens_completion": task_tokens_completion,
+                        "duration_sec": round(task_elapsed, 2),
+                    }
+                )
 
             model_duration = time.time() - model_start_time
             model_mins, model_secs = divmod(int(model_duration), 60)
             successful_tasks = sum(1 for o in outputs if o["status"] == "Success")
-            print(f"\n  Model {model_name} done: {successful_tasks}/{total_tasks} OK "
-                  f"in {model_mins}m {model_secs}s", flush=True)
+            print(
+                f"\n  Model {model_name} done: {successful_tasks}/{total_tasks} OK "
+                f"in {model_mins}m {model_secs}s",
+                flush=True,
+            )
 
             # Calculate thematic scores
-            thematic_scores = {theme: {"score": 0, "tasks_count": 0} for theme in self.thematic_categories}
+            thematic_scores = {
+                theme: {"score": 0, "tasks_count": 0}
+                for theme in self.thematic_categories
+            }
             for output in outputs:
                 for theme, task_types in self.thematic_categories.items():
                     if output["type"] in task_types:
@@ -233,43 +320,59 @@ class ModelBenchmarker:
             final_thematic = {}
             for theme, data in thematic_scores.items():
                 if data["tasks_count"] > 0:
-                    final_thematic[theme] = round(data["score"] / data["tasks_count"], 2)
+                    final_thematic[theme] = round(
+                        data["score"] / data["tasks_count"], 2
+                    )
                 else:
                     final_thematic[theme] = 0.0
 
             tokens_generated = tracker.session_total_tokens
-            tokens_per_second = round(tokens_generated / model_duration, 2) if model_duration > 0 else 0.0
+            tokens_per_second = (
+                round(tokens_generated / model_duration, 2)
+                if model_duration > 0
+                else 0.0
+            )
 
-            self.results.append({
-                "model": model_name,
-                "model_size_bytes": model_size,
-                "model_size_human": self.format_size(model_size) if model_size else "unknown",
-                "size_tier": size_tier,
-                "options_used": {
-                    "num_ctx": model_options["num_ctx"],
-                    "num_predict": model_options["num_predict"],
-                    "timeout_base": model_timeout,
-                    "temperature": model_options["temperature"],
-                },
-                "overall_status": model_overall_status,
-                "duration_sec": round(model_duration, 2),
-                "tokens_per_second": tokens_per_second,
-                "total_tokens_session": {
-                    "prompt": tracker.session_prompt_tokens,
-                    "completion": tracker.session_completion_tokens,
-                    "total": tokens_generated,
-                },
-                "thematic_scores": final_thematic,
-                "projects_results": outputs,
-            })
+            self.results.append(
+                {
+                    "model": model_name,
+                    "model_size_bytes": model_size,
+                    "model_size_human": self.format_size(model_size)
+                    if model_size
+                    else "unknown",
+                    "size_tier": size_tier,
+                    "options_used": {
+                        "num_ctx": model_options["num_ctx"],
+                        "num_predict": model_options["num_predict"],
+                        "timeout_base": model_timeout,
+                        "temperature": model_options["temperature"],
+                    },
+                    "overall_status": model_overall_status,
+                    "duration_sec": round(model_duration, 2),
+                    "tokens_per_second": tokens_per_second,
+                    "total_tokens_session": {
+                        "prompt": tracker.session_prompt_tokens,
+                        "completion": tracker.session_completion_tokens,
+                        "total": tokens_generated,
+                    },
+                    "thematic_scores": final_thematic,
+                    "projects_results": outputs,
+                }
+            )
 
-    def _save_generated_project(self, project_dir: Path, model_response: str, task_description: str):
+    def _save_generated_project(
+        self, project_dir: Path, model_response: str, task_description: str
+    ):
         """Parse model response and save as project files."""
         project_dir.mkdir(parents=True, exist_ok=True)
 
         # Always save the raw response and description
-        (project_dir / "model_response.txt").write_text(model_response, encoding="utf-8")
-        (project_dir / "task_description.txt").write_text(task_description, encoding="utf-8")
+        (project_dir / "model_response.txt").write_text(
+            model_response, encoding="utf-8"
+        )
+        (project_dir / "task_description.txt").write_text(
+            task_description, encoding="utf-8"
+        )
 
         # Extract and save individual files
         files = self.response_parser.extract_multiple_files(model_response)
@@ -294,7 +397,7 @@ class ModelBenchmarker:
             timeout=summary_timeout,
             logger=self.logger,
             config=self.config,
-            llm_recorder=llm_recorder
+            llm_recorder=llm_recorder,
         )
 
         report_data = json.dumps(self.results, indent=2)
@@ -308,7 +411,9 @@ class ModelBenchmarker:
             "Provide insights into which models excel in autonomous project generation."
         )
         try:
-            response, _ = summary_client.chat([{"role": "user", "content": prompt}], tools=[])
+            response, _ = summary_client.chat(
+                [{"role": "user", "content": prompt}], tools=[]
+            )
             return response["message"]["content"]
         except Exception as e:
             self.logger.error(f"Error generating summary: {e}")
@@ -318,7 +423,10 @@ class ModelBenchmarker:
         """Save benchmark results to a timestamped JSON file."""
         log_dir = Path("logs")
         log_dir.mkdir(exist_ok=True)
-        output_file = log_dir / f"auto_benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        output_file = (
+            log_dir
+            / f"auto_benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
         with open(output_file, "w") as f:
             json.dump(self.results, f, indent=2)
         return output_file
@@ -326,11 +434,19 @@ class ModelBenchmarker:
     def print_model_table(self, models: List[str]):
         """Print a formatted table of models with their options."""
         print("\nModels sorted by size (ascending):")
-        print(f"  {'#':<4} {'Model':<35} {'Size':>8}  {'Tier':<7} {'ctx':>5} {'pred':>5} {'tout':>5}")
-        print(f"  {'-' * 4} {'-' * 35} {'-' * 8}  {'-' * 7} {'-' * 5} {'-' * 5} {'-' * 5}")
+        print(
+            f"  {'#':<4} {'Model':<35} {'Size':>8}  {'Tier':<7} {'ctx':>5} {'pred':>5} {'tout':>5}"
+        )
+        print(
+            f"  {'-' * 4} {'-' * 35} {'-' * 8}  {'-' * 7} {'-' * 5} {'-' * 5} {'-' * 5}"
+        )
         for i, name in enumerate(models, 1):
             size = self._model_sizes.get(name, 0)
             opts, tout, tier = self.compute_model_options(size)
-            print(f"  {i:<4} {name:<35} {self.format_size(size):>8}  {tier:<7} "
-                  f"{opts['num_ctx']:>5} {opts['num_predict']:>5} {tout:>5}s")
-        print(f"\n  Total: {len(models)} models, {len(self.test_tasks)} projects per model")
+            print(
+                f"  {i:<4} {name:<35} {self.format_size(size):>8}  {tier:<7} "
+                f"{opts['num_ctx']:>5} {opts['num_predict']:>5} {tout:>5}s"
+            )
+        print(
+            f"\n  Total: {len(models)} models, {len(self.test_tasks)} projects per model"
+        )

@@ -1,15 +1,16 @@
 """Tests for core utilities: LLMResponseParser, FileValidator, Heartbeat."""
 import json
 
-from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.file_validator import FileValidator, ValidationStatus
 from backend.utils.core.heartbeat import Heartbeat
+from backend.utils.core.llm_response_parser import LLMResponseParser
 
 
 class TestLLMResponseParser:
-
     def test_extract_raw_content_plain_text(self):
-        assert LLMResponseParser.extract_raw_content('print("hello")') == 'print("hello")'
+        assert (
+            LLMResponseParser.extract_raw_content('print("hello")') == 'print("hello")'
+        )
 
     def test_extract_raw_content_strips_markdown(self):
         text = '```python\nprint("hello")\n```'
@@ -20,15 +21,15 @@ class TestLLMResponseParser:
         assert LLMResponseParser.extract_raw_content("   ") == ""
 
     def test_extract_single_code_block(self):
-        text = '```python\nx = 1\ny = 2\n```'
+        text = "```python\nx = 1\ny = 2\n```"
         assert LLMResponseParser.extract_single_code_block(text) == "x = 1\ny = 2"
 
     def test_extract_single_code_block_no_lang(self):
-        text = '```\nx = 1\n```'
+        text = "```\nx = 1\n```"
         assert LLMResponseParser.extract_single_code_block(text) == "x = 1"
 
     def test_extract_single_code_block_unclosed(self):
-        text = '```python\nx = 1\ny = 2'
+        text = "```python\nx = 1\ny = 2"
         result = LLMResponseParser.extract_single_code_block(text)
         assert "x = 1" in result
 
@@ -69,9 +70,9 @@ class TestLLMResponseParser:
             "```\n"
             "\n"
             "# filename: config.json\n"
-            '```json\n'
+            "```json\n"
             '{"key": "value"}\n'
-            '```'
+            "```"
         )
         files = LLMResponseParser.extract_multiple_files(response)
         assert "main.py" in files
@@ -83,17 +84,12 @@ class TestLLMResponseParser:
         assert LLMResponseParser.extract_multiple_files("no files here") == {}
 
     def test_extract_multiple_files_unclosed_block(self):
-        response = (
-            "# filename: test.py\n"
-            "```python\n"
-            "x = 1\n"
-        )
+        response = "# filename: test.py\n" "```python\n" "x = 1\n"
         files = LLMResponseParser.extract_multiple_files(response)
         assert "test.py" in files
 
 
 class TestFileValidator:
-
     def setup_method(self):
         self.v = FileValidator()
 
@@ -168,7 +164,6 @@ class TestFileValidator:
 
 
 class TestHeartbeat:
-
     def test_heartbeat_start_stop(self):
         hb = Heartbeat("test-model", "test-task", interval=60)
         hb.start()
@@ -179,6 +174,7 @@ class TestHeartbeat:
         class FakeLogger:
             def __init__(self):
                 self.messages = []
+
             def info(self, msg):
                 self.messages.append(msg)
 

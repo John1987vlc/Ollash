@@ -3,17 +3,19 @@ Manages the lifecycle of OllamaClient instances based on configured agent roles.
 """
 from typing import Dict, Optional
 
-from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.llm_recorder import LLMRecorder
 from backend.core.config_schemas import LLMModelsConfig, ToolSettingsConfig
 from backend.interfaces.imodel_provider import IModelProvider
+from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.llm_recorder import LLMRecorder
+from backend.utils.core.ollama_client import OllamaClient
+
 
 class LLMClientManager(IModelProvider):
     """
     Manages the provisioning and lifecycle of OllamaClient instances.
     It maps abstract "agent roles" to specific, configured LLM models.
     """
+
     def __init__(
         self,
         config: LLMModelsConfig,
@@ -57,15 +59,17 @@ class LLMClientManager(IModelProvider):
             return self.clients_by_model[model_name]
 
         # Otherwise, create a new client for this model and cache it.
-        self.logger.info(f"Creating new OllamaClient for model '{model_name}' (for role '{role}').")
+        self.logger.info(
+            f"Creating new OllamaClient for model '{model_name}' (for role '{role}')."
+        )
 
         new_client = OllamaClient(
             url=str(self.config.ollama_url),
             model=model_name,
             timeout=self.config.default_timeout,
             logger=self.logger,
-            config=self.tool_settings.model_dump(), # Pass tool settings
-            llm_recorder=self.recorder
+            config=self.tool_settings.model_dump(),  # Pass tool settings
+            llm_recorder=self.recorder,
         )
 
         self.clients_by_model[model_name] = new_client

@@ -1,9 +1,10 @@
 import json
 from typing import Dict
 
-from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.ollama_client import OllamaClient
+
 from .prompt_templates import AutoGenPrompts
 
 
@@ -59,9 +60,7 @@ class SeniorReviewer:
             f"File Structure:\n{json.dumps(json_structure, indent=2)}\n\n"
             f"Files:\n" + "\n".join(current_files.keys())
         )
-        system, user = AutoGenPrompts.senior_review_prompt(
-            project_summary
-        )
+        system, user = AutoGenPrompts.senior_review_prompt(project_summary)
         response_data, _ = self.llm_client.chat(
             messages=[
                 {"role": "system", "content": system},
@@ -82,8 +81,14 @@ class SeniorReviewer:
             review_results = self._retry_json_extraction(raw_review)
 
         if review_results is None:
-            self.logger.error("Senior Reviewer could not produce valid JSON after retry. Assuming failed.")
-            return {"status": "failed", "summary": "LLM returned invalid JSON review.", "issues": []}
+            self.logger.error(
+                "Senior Reviewer could not produce valid JSON after retry. Assuming failed."
+            )
+            return {
+                "status": "failed",
+                "summary": "LLM returned invalid JSON review.",
+                "issues": [],
+            }
 
         # Ensure 'status', 'summary', and 'issues' keys are present
         review_results.setdefault("status", "failed")

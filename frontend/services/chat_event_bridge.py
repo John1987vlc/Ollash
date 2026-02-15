@@ -3,12 +3,13 @@ import queue
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from backend.utils.core.event_publisher import EventPublisher # ADDED IMPORT
+from backend.utils.core.event_publisher import EventPublisher  # ADDED IMPORT
 
 
 @dataclass
 class ChatEvent:
     """A structured event pushed from DefaultAgent to the SSE stream."""
+
     event_type: str  # iteration, tool_call, tool_result, final_answer, error, stream_end
     data: Dict[str, Any] = field(default_factory=dict)
 
@@ -20,10 +21,10 @@ class ChatEventBridge:
     generator reads them via iter_events().
     """
 
-    def __init__(self, event_publisher: EventPublisher): # MODIFIED
+    def __init__(self, event_publisher: EventPublisher):  # MODIFIED
         self.event_queue: queue.Queue[ChatEvent] = queue.Queue()
         self._closed = False
-        self.event_publisher = event_publisher # Store the event publisher
+        self.event_publisher = event_publisher  # Store the event publisher
 
         # Subscribe to all relevant event types from the EventPublisher
         self.event_publisher.subscribe("phase_start", self.push_event)
@@ -35,10 +36,13 @@ class ChatEventBridge:
         self.event_publisher.subscribe("iteration_start", self.push_event)
         self.event_publisher.subscribe("iteration_end", self.push_event)
         self.event_publisher.subscribe("error", self.push_event)
-        self.event_publisher.subscribe("info", self.push_event) # General info messages
-        self.event_publisher.subscribe("warning", self.push_event) # General warning messages
-        self.event_publisher.subscribe("debug", self.push_event) # General debug messages
-
+        self.event_publisher.subscribe("info", self.push_event)  # General info messages
+        self.event_publisher.subscribe(
+            "warning", self.push_event
+        )  # General warning messages
+        self.event_publisher.subscribe(
+            "debug", self.push_event
+        )  # General debug messages
 
     def push_event(self, event_type: str, data: Optional[Dict[str, Any]] = None):
         """Push an event onto the queue (called from the agent thread)."""

@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 import numpy as np
 
 from backend.utils.core.agent_logger import AgentLogger
@@ -9,10 +10,14 @@ from backend.utils.core.agent_logger import AgentLogger
 class LoopDetector:
     """Detects semantic loops and stagnation in agent tool-calling sequences."""
 
-    def __init__(self, logger: AgentLogger, embedding_client: Any,
-                 threshold: int = 3,
-                 similarity_threshold: float = 0.95,
-                 stagnation_timeout_minutes: int = 2):
+    def __init__(
+        self,
+        logger: AgentLogger,
+        embedding_client: Any,
+        threshold: int = 3,
+        similarity_threshold: float = 0.95,
+        stagnation_timeout_minutes: int = 2,
+    ):
         self.logger = logger
         self.embedding_client = embedding_client
         self.threshold = threshold
@@ -25,11 +30,14 @@ class LoopDetector:
 
     def _get_action_embedding(self, action_data: Dict) -> List[float]:
         """Generates an embedding for a given action (tool call and its result)."""
-        action_string = json.dumps({
-            "tool_name": action_data["tool_name"],
-            "args": action_data["args"],
-            "result": action_data["result"]
-        }, sort_keys=True)
+        action_string = json.dumps(
+            {
+                "tool_name": action_data["tool_name"],
+                "args": action_data["args"],
+                "result": action_data["result"],
+            },
+            sort_keys=True,
+        )
 
         try:
             return self.embedding_client.get_embedding(action_string)
@@ -53,12 +61,14 @@ class LoopDetector:
 
     def record_action(self, tool_name: str, args: Dict, result: Any):
         """Records a tool action for loop detection analysis."""
-        self.history.append({
-            "tool_name": tool_name,
-            "args": args,
-            "result": result,
-            "timestamp": datetime.now()
-        })
+        self.history.append(
+            {
+                "tool_name": tool_name,
+                "args": args,
+                "result": result,
+                "timestamp": datetime.now(),
+            }
+        )
 
     def detect_loop(self) -> bool:
         """Detects loops based on semantic similarity and stagnation."""
@@ -66,12 +76,14 @@ class LoopDetector:
             return False
 
         # Semantic similarity loop detection
-        recent_actions = self.history[-self.threshold:]
+        recent_actions = self.history[-self.threshold :]
         recent_embeddings = [self._get_action_embedding(a) for a in recent_actions]
 
         is_similar_streak = True
         for i in range(len(recent_embeddings) - 1):
-            similarity = self._cosine_similarity(recent_embeddings[i], recent_embeddings[i + 1])
+            similarity = self._cosine_similarity(
+                recent_embeddings[i], recent_embeddings[i + 1]
+            )
             if similarity < self.similarity_threshold:
                 is_similar_streak = False
                 break

@@ -6,4 +6,4 @@ Provides tools for image generation using StableMatrix/WebUI Stable Diffusion.
 
 from .image_generation_tools import ImageGeneratorTools
 
-__all__ = ['ImageGeneratorTools']
+__all__ = ["ImageGeneratorTools"]

@@ -9,12 +9,18 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "host": {"type": "string", "description": "The hostname or IP address to ping."},
-                    "count": {"type": "integer", "description": "Optional: Number of echo requests to send. Defaults to 4."}
+                    "host": {
+                        "type": "string",
+                        "description": "The hostname or IP address to ping.",
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "Optional: Number of echo requests to send. Defaults to 4.",
+                    },
                 },
-                "required": ["host"]
-            }
-        }
+                "required": ["host"],
+            },
+        },
     },
     {
         "type": "function",
@@ -24,20 +30,26 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "host": {"type": "string", "description": "The hostname or IP address to traceroute."},
-                    "max_hops": {"type": "integer", "description": "Optional: Maximum number of hops to search for the target. Defaults to 30."}
+                    "host": {
+                        "type": "string",
+                        "description": "The hostname or IP address to traceroute.",
+                    },
+                    "max_hops": {
+                        "type": "integer",
+                        "description": "Optional: Maximum number of hops to search for the target. Defaults to 30.",
+                    },
                 },
-                "required": ["host"]
-            }
-        }
+                "required": ["host"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "list_active_connections",
             "description": "Lists all active network connections and listening ports on the system.",
-            "parameters": {"type": "object", "properties": {}}
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -47,12 +59,18 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "host": {"type": "string", "description": "The target hostname or IP address."},
-                    "port": {"type": "integer", "description": "The TCP port number to check."}
+                    "host": {
+                        "type": "string",
+                        "description": "The target hostname or IP address.",
+                    },
+                    "port": {
+                        "type": "integer",
+                        "description": "The TCP port number to check.",
+                    },
                 },
-                "required": ["host", "port"]
-            }
-        }
+                "required": ["host", "port"],
+            },
+        },
     },
     {
         "type": "function",
@@ -62,11 +80,14 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "target_host": {"type": "string", "description": "The target host to analyze latency against."}
+                    "target_host": {
+                        "type": "string",
+                        "description": "The target host to analyze latency against.",
+                    }
                 },
-                "required": ["target_host"]
-            }
-        }
+                "required": ["target_host"],
+            },
+        },
     },
     {
         "type": "function",
@@ -80,12 +101,12 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
                     "expected_ports": {
                         "type": "array",
                         "items": {"type": "integer"},
-                        "description": "A list of ports that are expected to be open."
-                    }
+                        "description": "A list of ports that are expected to be open.",
+                    },
                 },
-                "required": ["host", "expected_ports"]
-            }
-        }
+                "required": ["host", "expected_ports"],
+            },
+        },
     },
     {
         "type": "function",
@@ -95,9 +116,12 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "subnet": {"type": "string", "description": "The subnet to scan (e.g., '192.168.1.0/24'). If not provided, will attempt to auto-detect."}
-                }
-            }
-        }
+                    "subnet": {
+                        "type": "string",
+                        "description": "The subnet to scan (e.g., '192.168.1.0/24'). If not provided, will attempt to auto-detect.",
+                    }
+                },
+            },
+        },
     },
 ]

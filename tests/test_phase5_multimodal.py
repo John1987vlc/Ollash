@@ -3,16 +3,17 @@ Phase 5 Multimodal & OCR Tests
 Comprehensive test suite for OCR, multimedia ingestion, and speech transcription
 """
 
-import pytest
 import tempfile
 from pathlib import Path
 
-from backend.utils.core.ocr_processor import OCRProcessor, OCRConfig
+import pytest
 
+from backend.utils.core.ocr_processor import OCRConfig, OCRProcessor
 
 # ========================
 # OCR Processor Tests
 # ========================
+
 
 class TestOCRProcessor:
     """Test OCR processing functionality"""
@@ -36,20 +37,25 @@ class TestOCRProcessor:
         import struct
         import zlib
 
-        png_signature = b'\x89PNG\r\n\x1a\n'
+        png_signature = b"\x89PNG\r\n\x1a\n"
         # IHDR chunk (1x1 image, 8-bit)
-        ihdr_data = struct.pack('>IIBBBBB', 1, 1, 8, 0, 0, 0, 0)
-        ihdr_crc = zlib.crc32(b'IHDR' + ihdr_data) & 0xffffffff
-        ihdr = struct.pack('>I', 13) + b'IHDR' + ihdr_data + struct.pack('>I', ihdr_crc)
+        ihdr_data = struct.pack(">IIBBBBB", 1, 1, 8, 0, 0, 0, 0)
+        ihdr_crc = zlib.crc32(b"IHDR" + ihdr_data) & 0xFFFFFFFF
+        ihdr = struct.pack(">I", 13) + b"IHDR" + ihdr_data + struct.pack(">I", ihdr_crc)
 
         # IDAT chunk (minimal data)
-        idat_data = zlib.compress(b'\x00\x00')
-        idat_crc = zlib.crc32(b'IDAT' + idat_data) & 0xffffffff
-        idat = struct.pack('>I', len(idat_data)) + b'IDAT' + idat_data + struct.pack('>I', idat_crc)
+        idat_data = zlib.compress(b"\x00\x00")
+        idat_crc = zlib.crc32(b"IDAT" + idat_data) & 0xFFFFFFFF
+        idat = (
+            struct.pack(">I", len(idat_data))
+            + b"IDAT"
+            + idat_data
+            + struct.pack(">I", idat_crc)
+        )
 
         # IEND chunk
-        iend_crc = zlib.crc32(b'IEND') & 0xffffffff
-        iend = struct.pack('>I', 0) + b'IEND' + struct.pack('>I', iend_crc)
+        iend_crc = zlib.crc32(b"IEND") & 0xFFFFFFFF
+        iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
 
         png_data = png_signature + ihdr + idat + iend
 
@@ -96,7 +102,7 @@ class TestOCRProcessor:
         ocr_processor.processed_images["test_id"] = {
             "image_id": "test_id",
             "extracted_text": "Test text",
-            "confidence": 0.95
+            "confidence": 0.95,
         }
         ocr_processor._save_cache()
 
@@ -121,6 +127,7 @@ class TestOCRProcessor:
 # Multimedia Ingester Tests
 # ========================
 
+
 class TestMultimediaIngester:
     """Test document ingestion and parsing"""
 
@@ -134,6 +141,7 @@ class TestMultimediaIngester:
     def ingester(self, temp_workspace):
         """Create multimedia ingester instance"""
         from backend.utils.core.multimedia_ingester import MultimediaIngester
+
         return MultimediaIngester(workspace_path=temp_workspace)
 
     @pytest.fixture
@@ -147,7 +155,9 @@ class TestMultimediaIngester:
     def sample_markdown_file(self, temp_workspace):
         """Create sample markdown file"""
         md_path = Path(temp_workspace) / "test.md"
-        md_path.write_text("# Heading 1\n\nSome text here.\n\n## Heading 2\n\n- List item 1\n- List item 2\n")
+        md_path.write_text(
+            "# Heading 1\n\nSome text here.\n\n## Heading 2\n\n- List item 1\n- List item 2\n"
+        )
         return str(md_path)
 
     @pytest.fixture
@@ -165,18 +175,21 @@ class TestMultimediaIngester:
     def test_format_detection_text(self, ingester, sample_text_file):
         """Test format detection for text files"""
         from backend.utils.core.multimedia_ingester import DocumentType
+
         fmt = ingester.detect_format(sample_text_file)
         assert fmt == DocumentType.TEXT
 
     def test_format_detection_markdown(self, ingester, sample_markdown_file):
         """Test format detection for markdown files"""
         from backend.utils.core.multimedia_ingester import DocumentType
+
         fmt = ingester.detect_format(sample_markdown_file)
         assert fmt == DocumentType.MARKDOWN
 
     def test_format_detection_json(self, ingester, sample_json_file):
         """Test format detection for JSON files"""
         from backend.utils.core.multimedia_ingester import DocumentType
+
         fmt = ingester.detect_format(sample_json_file)
         assert fmt == DocumentType.TEXT  # JSON detected as text, parsed specially
 
@@ -241,6 +254,7 @@ class TestMultimediaIngester:
 
         # Create new ingester and verify cache
         from backend.utils.core.multimedia_ingester import MultimediaIngester
+
         ingester2 = MultimediaIngester(workspace_path=ingester.workspace)
         assert doc_id in ingester2.parsed_documents
 
@@ -248,6 +262,7 @@ class TestMultimediaIngester:
 # ========================
 # Speech Transcriber Tests
 # ========================
+
 
 class TestSpeechTranscriber:
     """Test speech transcription functionality"""
@@ -261,7 +276,9 @@ class TestSpeechTranscriber:
     @pytest.fixture
     def transcriber(self, temp_workspace):
         """Create speech transcriber instance"""
-        from backend.utils.core.speech_transcriber import SpeechTranscriber, TranscriptionConfig
+        from backend.utils.core.speech_transcriber import (SpeechTranscriber,
+                                                           TranscriptionConfig)
+
         config = TranscriptionConfig(model_name="whisper-tiny")
         return SpeechTranscriber(workspace_path=temp_workspace, config=config)
 
@@ -283,23 +300,24 @@ class TestSpeechTranscriber:
 
         # RIFF header
         riff_size = 36 + audio_data_size
-        riff_header = b'RIFF' + struct.pack('<I', riff_size) + b'WAVE'
+        riff_header = b"RIFF" + struct.pack("<I", riff_size) + b"WAVE"
 
         # fmt subchunk
         fmt_size = 16
-        fmt_data = struct.pack('<HHIIHH',
+        fmt_data = struct.pack(
+            "<HHIIHH",
             1,  # PCM format
             channels,
             sample_rate,
             sample_rate * channels * bits_per_sample // 8,
             channels * bits_per_sample // 8,
-            bits_per_sample
+            bits_per_sample,
         )
-        fmt_subchunk = b'fmt ' + struct.pack('<I', fmt_size) + fmt_data
+        fmt_subchunk = b"fmt " + struct.pack("<I", fmt_size) + fmt_data
 
         # data subchunk
-        audio_data = b'\x00' * audio_data_size
-        data_subchunk = b'data' + struct.pack('<I', audio_data_size) + audio_data
+        audio_data = b"\x00" * audio_data_size
+        data_subchunk = b"data" + struct.pack("<I", audio_data_size) + audio_data
 
         wav_file = riff_header + fmt_subchunk + data_subchunk
         wav_path.write_bytes(wav_file)
@@ -344,7 +362,7 @@ class TestSpeechTranscriber:
         segments = [
             ConfidenceSegment(0, 100, "text1", 0.9),
             ConfidenceSegment(100, 200, "text2", 0.8),
-            ConfidenceSegment(200, 300, "text3", 0.85)
+            ConfidenceSegment(200, 300, "text3", 0.85),
         ]
 
         confidence = transcriber._calculate_confidence(segments)
@@ -356,7 +374,7 @@ class TestSpeechTranscriber:
         result = transcriber.integrate_web_speech_result(
             audio_id="test_audio",
             web_speech_transcript="This is a test transcript.",
-            web_speech_confidence=0.95
+            web_speech_confidence=0.95,
         )
 
         assert result.audio_id == "test_audio"
@@ -365,21 +383,24 @@ class TestSpeechTranscriber:
 
     def test_match_confidence_thresholds(self, transcriber):
         """Test confidence threshold matching"""
-        from backend.utils.core.speech_transcriber import TranscriptionResult, ConfidenceSegment
+        from backend.utils.core.speech_transcriber import (ConfidenceSegment,
+                                                           TranscriptionResult)
 
         # Create 3 segments with different confidence levels
         # Note: is_uncertain should be True for segments with confidence < 0.7
         segments = [
             ConfidenceSegment(0, 1000, "high conf text", 0.95, is_uncertain=False),
             ConfidenceSegment(1000, 2000, "low", 0.5, is_uncertain=True),
-            ConfidenceSegment(2000, 3000, "high conf text two", 0.92, is_uncertain=False)
+            ConfidenceSegment(
+                2000, 3000, "high conf text two", 0.92, is_uncertain=False
+            ),
         ]
 
         result = TranscriptionResult(
             audio_id="test",
             transcript="high conf text low high conf text two",
             confidence=0.8,
-            segments=segments
+            segments=segments,
         )
 
         analysis = transcriber.match_confidence_thresholds(result, threshold=0.7)
@@ -391,7 +412,8 @@ class TestSpeechTranscriber:
 
     def test_transcript_summary(self, transcriber):
         """Test transcript summary generation"""
-        from backend.utils.core.speech_transcriber import TranscriptionResult, ConfidenceSegment
+        from backend.utils.core.speech_transcriber import (ConfidenceSegment,
+                                                           TranscriptionResult)
 
         segments = [ConfidenceSegment(0, 100, "word one", 0.9)]
         # Count unique words: word, one, two, three, four = 5 words
@@ -401,7 +423,7 @@ class TestSpeechTranscriber:
             transcript="word one two three four five",
             confidence=0.9,
             duration_seconds=10,
-            segments=segments
+            segments=segments,
         )
 
         summary = transcriber.get_transcript_summary(result)
@@ -433,6 +455,7 @@ class TestSpeechTranscriber:
 # Integration Tests
 # ========================
 
+
 class TestMultimodalIntegration:
     """Integration tests for multimodal system"""
 
@@ -460,8 +483,8 @@ class TestMultimodalIntegration:
 
     def test_system_health(self, temp_workspace):
         """Test system components are operational"""
-        from backend.utils.core.ocr_processor import OCRProcessor
         from backend.utils.core.multimedia_ingester import MultimediaIngester
+        from backend.utils.core.ocr_processor import OCRProcessor
         from backend.utils.core.speech_transcriber import SpeechTranscriber
 
         ocr = OCRProcessor(workspace_path=temp_workspace)

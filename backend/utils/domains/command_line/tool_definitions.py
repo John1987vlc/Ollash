@@ -9,12 +9,18 @@ COMMAND_LINE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "command": {"type": "string", "description": "The shell command to execute."},
-                    "timeout": {"type": "integer", "description": "Optional: Maximum time in seconds to wait for the command to complete. Defaults to 300 seconds."}
+                    "command": {
+                        "type": "string",
+                        "description": "The shell command to execute.",
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Optional: Maximum time in seconds to wait for the command to complete. Defaults to 300 seconds.",
+                    },
                 },
-                "required": ["command"]
-            }
-        }
+                "required": ["command"],
+            },
+        },
     },
     {
         "type": "function",
@@ -24,15 +30,18 @@ COMMAND_LINE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "test_path": {"type": "string", "description": "Optional: Path to a specific test file or directory. If not provided, runs all tests."},
+                    "test_path": {
+                        "type": "string",
+                        "description": "Optional: Path to a specific test file or directory. If not provided, runs all tests.",
+                    },
                     "args": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Optional: Additional arguments to pass to the test runner (e.g., ['-k', 'test_my_feature'])."
-                    }
-                }
-            }
-        }
+                        "description": "Optional: Additional arguments to pass to the test runner (e.g., ['-k', 'test_my_feature']).",
+                    },
+                },
+            },
+        },
     },
     {
         "type": "function",
@@ -45,10 +54,10 @@ COMMAND_LINE_TOOL_DEFINITIONS: List[Dict] = [
                     "target_files": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Optional: List of files to validate. If not provided, validates all changed files or the entire project."
+                        "description": "Optional: List of files to validate. If not provided, validates all changed files or the entire project.",
                     }
-                }
-            }
-        }
+                },
+            },
+        },
     },
 ]

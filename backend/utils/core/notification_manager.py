@@ -1,12 +1,12 @@
 """Notification Manager - Handles multi-channel notifications (Email, UI, etc.)"""
 
+import logging
 import os
 import smtplib
-import logging
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-from typing import Optional, List
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +16,12 @@ class NotificationManager:
 
     def __init__(self):
         """Initialize notification manager with SMTP config from env."""
-        self.smtp_server = os.environ.get('SMTP_SERVER')
-        self.smtp_port = int(os.environ.get('SMTP_PORT', '587'))
-        self.smtp_user = os.environ.get('SMTP_USER')
-        self.smtp_password = os.environ.get('SMTP_PASSWORD')
-        self.from_email = os.environ.get('NOTIFICATION_FROM_EMAIL')
-        self.from_name = os.environ.get('NOTIFICATION_FROM_NAME', 'Ollash Agent')
+        self.smtp_server = os.environ.get("SMTP_SERVER")
+        self.smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+        self.smtp_user = os.environ.get("SMTP_USER")
+        self.smtp_password = os.environ.get("SMTP_PASSWORD")
+        self.from_email = os.environ.get("NOTIFICATION_FROM_EMAIL")
+        self.from_name = os.environ.get("NOTIFICATION_FROM_NAME", "Ollash Agent")
 
         # Email channels to be stored (for future persistence)
         self.subscribed_emails = set()
@@ -30,12 +30,9 @@ class NotificationManager:
 
     def _validate_smtp_config(self):
         """Check if SMTP configuration is valid."""
-        self.smtp_enabled = all([
-            self.smtp_server,
-            self.smtp_user,
-            self.smtp_password,
-            self.from_email
-        ])
+        self.smtp_enabled = all(
+            [self.smtp_server, self.smtp_user, self.smtp_password, self.from_email]
+        )
 
         if not self.smtp_enabled:
             logger.warning(
@@ -43,7 +40,9 @@ class NotificationManager:
                 "Set SMTP_SERVER, SMTP_USER, SMTP_PASSWORD, NOTIFICATION_FROM_EMAIL in .env"
             )
         else:
-            logger.info(f"Email notifications enabled (SMTP: {self.smtp_server}:{self.smtp_port})")
+            logger.info(
+                f"Email notifications enabled (SMTP: {self.smtp_server}:{self.smtp_port})"
+            )
 
     def subscribe_email(self, email: str) -> bool:
         """
@@ -75,7 +74,7 @@ class NotificationManager:
         agent_type: str,
         result: str,
         recipient_emails: Optional[List[str]] = None,
-        success: bool = True
+        success: bool = True,
     ) -> bool:
         """
         Send notification about a completed task.
@@ -110,13 +109,11 @@ class NotificationManager:
                     <pre style="overflow-x: auto; max-height: 300px;">{result}</pre>
                 </div>
             """,
-            status="success" if success else "error"
+            status="success" if success else "error",
         )
 
         return self._send_email(
-            subject=subject,
-            html_body=html_body,
-            recipient_emails=recipient_emails
+            subject=subject, html_body=html_body, recipient_emails=recipient_emails
         )
 
     def send_threshold_alert(
@@ -126,7 +123,7 @@ class NotificationManager:
         metric_value: float,
         threshold: float,
         unit: str = "%",
-        recipient_emails: Optional[List[str]] = None
+        recipient_emails: Optional[List[str]] = None,
     ) -> bool:
         """
         Send alert when a metric crosses a threshold.
@@ -159,13 +156,11 @@ class NotificationManager:
                 <p><strong>Threshold:</strong> {threshold}{unit}</p>
                 <p><strong>Alert Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
             """,
-            status="warning"
+            status="warning",
         )
 
         return self._send_email(
-            subject=subject,
-            html_body=html_body,
-            recipient_emails=recipient_emails
+            subject=subject, html_body=html_body, recipient_emails=recipient_emails
         )
 
     def send_error_notification(
@@ -173,7 +168,7 @@ class NotificationManager:
         task_name: str,
         error_message: str,
         error_type: str = "General Error",
-        recipient_emails: Optional[List[str]] = None
+        recipient_emails: Optional[List[str]] = None,
     ) -> bool:
         """
         Send error notification.
@@ -205,20 +200,15 @@ class NotificationManager:
                     <pre style="overflow-x: auto; max-height: 300px; color: #991b1b;">{error_message}</pre>
                 </div>
             """,
-            status="error"
+            status="error",
         )
 
         return self._send_email(
-            subject=subject,
-            html_body=html_body,
-            recipient_emails=recipient_emails
+            subject=subject, html_body=html_body, recipient_emails=recipient_emails
         )
 
     def send_custom_notification(
-        self,
-        subject: str,
-        html_body: str,
-        recipient_emails: Optional[List[str]] = None
+        self, subject: str, html_body: str, recipient_emails: Optional[List[str]] = None
     ) -> bool:
         """
         Send a custom notification.
@@ -235,14 +225,14 @@ class NotificationManager:
             recipient_emails = list(self.subscribed_emails)
 
         return self._send_email(
-            subject=subject,
-            html_body=html_body,
-            recipient_emails=recipient_emails
+            subject=subject, html_body=html_body, recipient_emails=recipient_emails
         )
 
     # ==================== Private Methods ====================
 
-    def _send_email(self, subject: str, html_body: str, recipient_emails: List[str]) -> bool:
+    def _send_email(
+        self, subject: str, html_body: str, recipient_emails: List[str]
+    ) -> bool:
         """
         Send email via SMTP.
 
@@ -264,13 +254,13 @@ class NotificationManager:
 
         try:
             # Create message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = f"{self.from_name} <{self.from_email}>"
-            msg['To'] = ', '.join(recipient_emails)
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = ", ".join(recipient_emails)
 
             # Add HTML body
-            html_part = MIMEText(html_body, 'html')
+            html_part = MIMEText(html_body, "html")
             msg.attach(html_part)
 
             # Send via SMTP
@@ -279,19 +269,16 @@ class NotificationManager:
                 server.login(self.smtp_user, self.smtp_password)
                 server.send_message(msg)
 
-            logger.info(f"Email sent successfully to {len(recipient_emails)} recipient(s)")
+            logger.info(
+                f"Email sent successfully to {len(recipient_emails)} recipient(s)"
+            )
             return True
 
         except Exception as e:
             logger.error(f"Failed to send email: {e}")
             return False
 
-    def _build_html_email(
-        self,
-        title: str,
-        content: str,
-        status: str = "info"
-    ) -> str:
+    def _build_html_email(self, title: str, content: str, status: str = "info") -> str:
         """
         Build a formatted HTML email.
 
@@ -304,13 +291,13 @@ class NotificationManager:
             str: Complete HTML email
         """
         status_colors = {
-            'info': '#6366f1',
-            'success': '#10b981',
-            'warning': '#f59e0b',
-            'error': '#ef4444'
+            "info": "#6366f1",
+            "success": "#10b981",
+            "warning": "#f59e0b",
+            "error": "#ef4444",
         }
 
-        status_color = status_colors.get(status, status_colors['info'])
+        status_color = status_colors.get(status, status_colors["info"])
 
         return f"""
 <!DOCTYPE html>
@@ -386,10 +373,15 @@ class NotificationManager:
     @staticmethod
     def _is_valid_email(email: str) -> bool:
         """Simple email validation."""
-        return '@' in email and '.' in email.split('@')[1]
+        return "@" in email and "." in email.split("@")[1]
 
-    def send_ui_notification(self, message: str, notification_type: str = "info",
-                            title: str = None, data: dict = None) -> bool:
+    def send_ui_notification(
+        self,
+        message: str,
+        notification_type: str = "info",
+        title: str = None,
+        data: dict = None,
+    ) -> bool:
         """
         Send a real-time notification to the UI via EventPublisher.
 
@@ -404,13 +396,14 @@ class NotificationManager:
         """
         try:
             from backend.utils.core.event_publisher import EventPublisher
+
             publisher = EventPublisher()
 
             notification_data = {
                 "message": message,
                 "type": notification_type,
                 "title": title or notification_type.upper(),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             if data:

@@ -1,13 +1,14 @@
 """Blueprint for task automation scheduling."""
-from flask import Blueprint, jsonify, request
-from datetime import datetime
-from pathlib import Path
 import json
 import logging
+from datetime import datetime
+from pathlib import Path
 
-from frontend.middleware import require_api_key
-from backend.utils.core.task_scheduler import get_scheduler
+from flask import Blueprint, jsonify, request
+
 from backend.utils.core.automation_executor import get_task_executor
+from backend.utils.core.task_scheduler import get_scheduler
+from frontend.middleware import require_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ def load_tasks_from_storage():
     global _scheduled_tasks
     if _tasks_storage_file and _tasks_storage_file.exists():
         try:
-            with open(_tasks_storage_file, 'r') as f:
+            with open(_tasks_storage_file, "r") as f:
                 _scheduled_tasks = json.load(f)
         except Exception as e:
             print(f"Error loading tasks: {e}")
@@ -60,7 +61,7 @@ def save_tasks_to_storage():
     """Save scheduled tasks to JSON file."""
     if _tasks_storage_file:
         try:
-            with open(_tasks_storage_file, 'w') as f:
+            with open(_tasks_storage_file, "w") as f:
                 json.dump(_scheduled_tasks, f, indent=2)
         except Exception as e:
             print(f"Error saving tasks: {e}")
@@ -72,19 +73,21 @@ def get_automations():
     """Fetch all scheduled tasks."""
     tasks_list = []
     for task_id, task in _scheduled_tasks.items():
-        tasks_list.append({
-            "id": task_id,
-            "name": task.get("name"),
-            "agent": task.get("agent"),
-            "prompt": task.get("prompt"),
-            "schedule": task.get("schedule"),
-            "cron": task.get("cron"),
-            "nextRun": task.get("nextRun"),
-            "lastRun": task.get("lastRun"),
-            "status": task.get("status", "active"),
-            "notifyEmail": task.get("notifyEmail", False),
-            "createdAt": task.get("createdAt")
-        })
+        tasks_list.append(
+            {
+                "id": task_id,
+                "name": task.get("name"),
+                "agent": task.get("agent"),
+                "prompt": task.get("prompt"),
+                "schedule": task.get("schedule"),
+                "cron": task.get("cron"),
+                "nextRun": task.get("nextRun"),
+                "lastRun": task.get("lastRun"),
+                "status": task.get("status", "active"),
+                "notifyEmail": task.get("notifyEmail", False),
+                "createdAt": task.get("createdAt"),
+            }
+        )
     return jsonify(tasks_list)
 
 
@@ -111,7 +114,7 @@ def create_automation():
         "status": "active",
         "createdAt": datetime.now().isoformat(),
         "lastRun": None,
-        "nextRun": None
+        "nextRun": None,
     }
 
     save_tasks_to_storage()
@@ -122,11 +125,12 @@ def create_automation():
         if not success:
             logger.warning(f"Failed to schedule task {task_id} with APScheduler")
 
-    return jsonify({
-        "status": "created",
-        "id": task_id,
-        "task": _scheduled_tasks[task_id]
-    }), 201
+    return (
+        jsonify(
+            {"status": "created", "id": task_id, "task": _scheduled_tasks[task_id]}
+        ),
+        201,
+    )
 
 
 @automations_bp.route("/api/automations/<task_id>", methods=["DELETE"])
@@ -161,11 +165,13 @@ def toggle_automation(task_id):
             else:
                 _scheduler.pause_task(task_id)
 
-        return jsonify({
-            "id": task_id,
-            "status": task["status"],
-            "message": f"Task {task['name']} is now {task['status']}"
-        })
+        return jsonify(
+            {
+                "id": task_id,
+                "status": task["status"],
+                "message": f"Task {task['name']} is now {task['status']}",
+            }
+        )
     return jsonify({"error": "Task not found"}), 404
 
 
@@ -185,6 +191,7 @@ def run_automation_now(task_id):
         try:
             # Execute in thread to avoid blocking
             import threading
+
             def _run():
                 _executor.execute_task_sync(task_id, task)
 
@@ -194,14 +201,17 @@ def run_automation_now(task_id):
             logger.error(f"Error executing task {task_id}: {e}")
             return jsonify({"error": f"Failed to execute task: {str(e)}"}), 500
 
-    return jsonify({
-        "id": task_id,
-        "status": "executing",
-        "message": f"Task '{task['name']}' started"
-    })
+    return jsonify(
+        {
+            "id": task_id,
+            "status": "executing",
+            "message": f"Task '{task['name']}' started",
+        }
+    )
 
 
 # ==================== Helper Functions ====================
+
 
 def _reschedule_all_tasks():
     """Re-schedule all active tasks from storage on startup."""
@@ -230,10 +240,12 @@ async def _execute_scheduled_task(task_id: str, task_data: dict):
 
     # Get recipient emails from task config
     recipient_emails = None
-    if task_data.get('notifyEmail'):
+    if task_data.get("notifyEmail"):
         # TODO: Get user's configured email addresses
         # For now, we'll just use the manager's subscribed emails
-        from backend.utils.core.notification_manager import get_notification_manager
+        from backend.utils.core.notification_manager import \
+            get_notification_manager
+
         nm = get_notification_manager()
         recipient_emails = list(nm.subscribed_emails) if nm.subscribed_emails else None
 

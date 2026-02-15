@@ -8,20 +8,22 @@ Extends NotificationManager with webhook-based communication for:
 - Custom webhooks
 """
 
-import os
-import logging
 import asyncio
-import aiohttp
-from datetime import datetime
-from typing import Optional, Dict, List, Any
-from enum import Enum
+import logging
+import os
 from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
 
 class WebhookType(Enum):
     """Supported webhook platforms."""
+
     SLACK = "slack"
     DISCORD = "discord"
     TEAMS = "teams"
@@ -30,6 +32,7 @@ class WebhookType(Enum):
 
 class MessagePriority(Enum):
     """Message priority levels."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -39,6 +42,7 @@ class MessagePriority(Enum):
 @dataclass
 class WebhookConfig:
     """Configuration for a webhook endpoint."""
+
     name: str
     webhook_type: WebhookType
     webhook_url: str
@@ -74,25 +78,25 @@ class WebhookManager:
         """Load webhook configurations from environment variables."""
         try:
             # Check for webhook URLs in environment
-            if slack_url := os.environ.get('WEBHOOK_SLACK_URL'):
+            if slack_url := os.environ.get("WEBHOOK_SLACK_URL"):
                 self.register_webhook(
                     name="default_slack",
                     webhook_type=WebhookType.SLACK,
-                    webhook_url=slack_url
+                    webhook_url=slack_url,
                 )
 
-            if discord_url := os.environ.get('WEBHOOK_DISCORD_URL'):
+            if discord_url := os.environ.get("WEBHOOK_DISCORD_URL"):
                 self.register_webhook(
                     name="default_discord",
                     webhook_type=WebhookType.DISCORD,
-                    webhook_url=discord_url
+                    webhook_url=discord_url,
                 )
 
-            if teams_url := os.environ.get('WEBHOOK_TEAMS_URL'):
+            if teams_url := os.environ.get("WEBHOOK_TEAMS_URL"):
                 self.register_webhook(
                     name="default_teams",
                     webhook_type=WebhookType.TEAMS,
-                    webhook_url=teams_url
+                    webhook_url=teams_url,
                 )
 
             logger.info(f"Loaded {len(self.webhooks)} webhooks from environment")
@@ -107,7 +111,7 @@ class WebhookManager:
         webhook_url: str,
         retry_attempts: int = 3,
         retry_delay_seconds: int = 5,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """
         Register a new webhook endpoint.
@@ -124,7 +128,7 @@ class WebhookManager:
             bool: True if registered successfully
         """
         try:
-            if not webhook_url.startswith(('http://', 'https://')):
+            if not webhook_url.startswith(("http://", "https://")):
                 logger.error(f"Invalid webhook URL for {name}: {webhook_url}")
                 return False
 
@@ -134,7 +138,7 @@ class WebhookManager:
                 webhook_url=webhook_url,
                 retry_attempts=retry_attempts,
                 retry_delay_seconds=retry_delay_seconds,
-                metadata=metadata or {}
+                metadata=metadata or {},
             )
 
             self.webhooks[name] = config
@@ -160,7 +164,7 @@ class WebhookManager:
         title: Optional[str] = None,
         priority: MessagePriority = MessagePriority.MEDIUM,
         color: Optional[str] = None,
-        fields: Optional[Dict[str, str]] = None
+        fields: Optional[Dict[str, str]] = None,
     ) -> bool:
         """
         Send a message to a registered webhook.
@@ -191,7 +195,7 @@ class WebhookManager:
             title=title,
             priority=priority,
             color=color,
-            fields=fields
+            fields=fields,
         )
 
         return await self._send_with_retry(webhook, payload)
@@ -201,7 +205,7 @@ class WebhookManager:
         message: str,
         title: Optional[str] = None,
         priority: MessagePriority = MessagePriority.MEDIUM,
-        webhook_types: Optional[List[WebhookType]] = None
+        webhook_types: Optional[List[WebhookType]] = None,
     ) -> Dict[str, bool]:
         """
         Send a message to all or specific webhook types.
@@ -228,15 +232,13 @@ class WebhookManager:
                 continue
 
             payload = self._build_payload(
-                webhook.webhook_type,
-                message=message,
-                title=title,
-                priority=priority
+                webhook.webhook_type, message=message, title=title, priority=priority
             )
 
             tasks.append(
-                self._send_with_retry(webhook, payload)
-                .then(lambda success, n=name: results.update({n: success}))
+                self._send_with_retry(webhook, payload).then(
+                    lambda success, n=name: results.update({n: success})
+                )
             )
 
         # Execute all sends concurrently
@@ -252,7 +254,7 @@ class WebhookManager:
         title: Optional[str] = None,
         priority: MessagePriority = MessagePriority.MEDIUM,
         color: Optional[str] = None,
-        fields: Optional[Dict[str, str]] = None
+        fields: Optional[Dict[str, str]] = None,
     ) -> bool:
         """
         Synchronous version of send_to_webhook (convenience wrapper).
@@ -296,7 +298,7 @@ class WebhookManager:
         title: Optional[str] = None,
         priority: MessagePriority = MessagePriority.MEDIUM,
         color: Optional[str] = None,
-        fields: Optional[Dict[str, str]] = None
+        fields: Optional[Dict[str, str]] = None,
     ) -> bool:
         """Internal synchronous send using requests library."""
         try:
@@ -312,21 +314,23 @@ class WebhookManager:
                 title=title,
                 priority=priority,
                 color=color,
-                fields=fields
+                fields=fields,
             )
 
             response = requests.post(
                 webhook.webhook_url,
                 json=payload,
                 timeout=webhook.timeout_seconds,
-                headers=webhook.headers or {}
+                headers=webhook.headers or {},
             )
 
             if response.status_code in (200, 201, 204):
                 logger.info(f"Message sent to {webhook_name}")
                 return True
             else:
-                self._log_failed_delivery(webhook_name, response.status_code, response.text)
+                self._log_failed_delivery(
+                    webhook_name, response.status_code, response.text
+                )
                 return False
 
         except Exception as e:
@@ -335,9 +339,7 @@ class WebhookManager:
             return False
 
     async def _send_with_retry(
-        self,
-        webhook: WebhookConfig,
-        payload: Dict[str, Any]
+        self, webhook: WebhookConfig, payload: Dict[str, Any]
     ) -> bool:
         """Send message to webhook with retry logic."""
         last_error = None
@@ -349,17 +351,17 @@ class WebhookManager:
                         webhook.webhook_url,
                         json=payload,
                         timeout=aiohttp.ClientTimeout(seconds=webhook.timeout_seconds),
-                        headers=webhook.headers or {'Content-Type': 'application/json'}
+                        headers=webhook.headers or {"Content-Type": "application/json"},
                     ) as response:
                         if response.status in (200, 201, 204):
-                            logger.info(f"Message sent to {webhook.name} (attempt {attempt + 1})")
+                            logger.info(
+                                f"Message sent to {webhook.name} (attempt {attempt + 1})"
+                            )
                             return True
                         else:
                             text = await response.text()
                             self._log_failed_delivery(
-                                webhook.name,
-                                response.status,
-                                text
+                                webhook.name, response.status, text
                             )
                             last_error = f"HTTP {response.status}"
 
@@ -370,14 +372,16 @@ class WebhookManager:
 
             # Wait before retry (exponential backoff)
             if attempt < webhook.retry_attempts - 1:
-                wait_time = webhook.retry_delay_seconds * (2 ** attempt)
+                wait_time = webhook.retry_delay_seconds * (2**attempt)
                 logger.warning(
                     f"Retry {attempt + 1}/{webhook.retry_attempts} for {webhook.name} "
                     f"in {wait_time}s"
                 )
                 await asyncio.sleep(wait_time)
 
-        logger.error(f"Failed to send to {webhook.name} after {webhook.retry_attempts} attempts: {last_error}")
+        logger.error(
+            f"Failed to send to {webhook.name} after {webhook.retry_attempts} attempts: {last_error}"
+        )
         return False
 
     # ==================== Message Format Builders ====================
@@ -389,7 +393,7 @@ class WebhookManager:
         title: Optional[str] = None,
         priority: MessagePriority = MessagePriority.MEDIUM,
         color: Optional[str] = None,
-        fields: Optional[Dict[str, str]] = None
+        fields: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Build payload for the specific webhook format."""
 
@@ -402,14 +406,19 @@ class WebhookManager:
         elif webhook_type == WebhookType.TEAMS:
             return self._build_teams_payload(message, title, color, fields)
         else:
-            return {"message": message, "title": title, "color": color, "fields": fields}
+            return {
+                "message": message,
+                "title": title,
+                "color": color,
+                "fields": fields,
+            }
 
     def _build_slack_payload(
         self,
         message: str,
         title: Optional[str] = None,
         color: str = "#808080",
-        fields: Optional[Dict[str, str]] = None
+        fields: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Build Slack message format (Block Kit)."""
         blocks = [
@@ -417,29 +426,29 @@ class WebhookManager:
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*{title}*\n{message}" if title else message
-                }
+                    "text": f"*{title}*\n{message}" if title else message,
+                },
             }
         ]
 
         if fields:
             field_blocks = [
-                {"type": "mrkdwn", "text": f"*{k}*\n{v}"}
-                for k, v in fields.items()
+                {"type": "mrkdwn", "text": f"*{k}*\n{v}"} for k, v in fields.items()
             ]
             if field_blocks:
-                blocks.append({
-                    "type": "section",
-                    "fields": field_blocks
-                })
+                blocks.append({"type": "section", "fields": field_blocks})
 
-        blocks.append({
-            "type": "context",
-            "elements": [{
-                "type": "mrkdwn",
-                "text": f"_Ollash Agent | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_"
-            }]
-        })
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"_Ollash Agent | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_",
+                    }
+                ],
+            }
+        )
 
         return {"blocks": blocks}
 
@@ -448,18 +457,18 @@ class WebhookManager:
         message: str,
         title: Optional[str] = None,
         color: str = "#808080",
-        fields: Optional[Dict[str, str]] = None
+        fields: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Build Discord embed format."""
 
         # Convert hex color to decimal for Discord
-        color_int = int(color.lstrip('#'), 16)
+        color_int = int(color.lstrip("#"), 16)
 
         embed = {
             "title": title or "Ollash Notification",
             "description": message,
             "color": color_int,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         if fields:
@@ -477,7 +486,7 @@ class WebhookManager:
         message: str,
         title: Optional[str] = None,
         color: str = "#808080",
-        fields: Optional[Dict[str, str]] = None
+        fields: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Build Microsoft Teams Adaptive Card format."""
 
@@ -486,67 +495,54 @@ class WebhookManager:
                 "type": "TextBlock",
                 "text": title or "Ollash Notification",
                 "weight": "bolder",
-                "size": "large"
+                "size": "large",
             },
-            {
-                "type": "TextBlock",
-                "text": message,
-                "wrap": True
-            }
+            {"type": "TextBlock", "text": message, "wrap": True},
         ]
 
         if fields:
-            facts = [
-                {"name": k, "value": v}
-                for k, v in fields.items()
-            ]
-            body.append({
-                "type": "FactSet",
-                "facts": facts
-            })
+            facts = [{"name": k, "value": v} for k, v in fields.items()]
+            body.append({"type": "FactSet", "facts": facts})
 
         return {
             "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
             "type": "AdaptiveCard",
             "version": "1.4",
             "body": body,
-            "msTeams": {
-                "width": "Full"
-            }
+            "msTeams": {"width": "Full"},
         }
 
     @staticmethod
     def _get_color_for_priority(priority: MessagePriority) -> str:
         """Get hex color for priority level."""
         colors = {
-            MessagePriority.LOW: "#3b82f6",      # Blue
-            MessagePriority.MEDIUM: "#f59e0b",   # Amber
-            MessagePriority.HIGH: "#ef5350",     # Red
-            MessagePriority.CRITICAL: "#8b0000"  # Dark Red
+            MessagePriority.LOW: "#3b82f6",  # Blue
+            MessagePriority.MEDIUM: "#f59e0b",  # Amber
+            MessagePriority.HIGH: "#ef5350",  # Red
+            MessagePriority.CRITICAL: "#8b0000",  # Dark Red
         }
         return colors.get(priority, "#808080")
 
     # ==================== Logging & Diagnostics ====================
 
     def _log_failed_delivery(
-        self,
-        webhook_name: str,
-        error_code: Any,
-        error_details: str
+        self, webhook_name: str, error_code: Any, error_details: str
     ) -> None:
         """Log a failed delivery attempt."""
         failure = {
             "webhook": webhook_name,
             "timestamp": datetime.now().isoformat(),
             "error_code": str(error_code),
-            "error_details": error_details[:200]  # Truncate for storage
+            "error_details": error_details[:200],  # Truncate for storage
         }
 
         self.failed_deliveries.append(failure)
 
         # Keep only the last N failures
         if len(self.failed_deliveries) > self.max_failed_deliveries_log:
-            self.failed_deliveries = self.failed_deliveries[-self.max_failed_deliveries_log:]
+            self.failed_deliveries = self.failed_deliveries[
+                -self.max_failed_deliveries_log :
+            ]
 
         logger.warning(f"Failed delivery to {webhook_name}: {error_code}")
 
@@ -561,7 +557,7 @@ class WebhookManager:
                 "enabled": webhook.enabled,
                 "type": webhook.webhook_type.value,
                 "last_attempt": None,  # Would be tracked in production
-                "success_count": 0  # Would be tracked in production
+                "success_count": 0,  # Would be tracked in production
             }
             for name, webhook in self.webhooks.items()
         }

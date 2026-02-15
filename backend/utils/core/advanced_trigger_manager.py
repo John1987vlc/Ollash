@@ -10,16 +10,17 @@ Extends the basic TriggerManager (src/utils/core/trigger_manager.py) with:
 """
 
 import logging
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Callable
 from enum import Enum
-from dataclasses import dataclass, asdict
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class LogicOperator(Enum):
     """Logical operators for combining conditions."""
+
     AND = "and"
     OR = "or"
     NOT = "not"
@@ -28,6 +29,7 @@ class LogicOperator(Enum):
 
 class TriggerState(Enum):
     """State of a trigger."""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     FIRED = "fired"
@@ -37,6 +39,7 @@ class TriggerState(Enum):
 
 class TimeWindowType(Enum):
     """Types of time windows."""
+
     LAST_MINUTES = "last_minutes"
     LAST_HOURS = "last_hours"
     LAST_DAYS = "last_days"
@@ -47,6 +50,7 @@ class TimeWindowType(Enum):
 @dataclass
 class CompositeTriggerCondition:
     """A condition that combines multiple sub-conditions with logic."""
+
     id: str
     operator: LogicOperator
     sub_conditions: List[Dict[str, Any]]  # Can be simple or composite
@@ -60,6 +64,7 @@ class CompositeTriggerCondition:
 @dataclass
 class TriggerDependency:
     """Dependency between triggers."""
+
     dependent_trigger_id: str
     required_trigger_id: str
     condition: str  # "must_have_fired", "must_not_fire", etc.
@@ -96,7 +101,7 @@ class AdvancedTriggerManager:
         composite_condition: CompositeTriggerCondition,
         action_callback: Optional[Callable] = None,
         cooldown_seconds: int = 0,
-        enabled: bool = True
+        enabled: bool = True,
     ) -> bool:
         """
         Register a trigger with composite (AND/OR/NOT) conditions.
@@ -122,7 +127,7 @@ class AdvancedTriggerManager:
                 "enabled": enabled,
                 "created_at": datetime.now().isoformat(),
                 "last_fired": None,
-                "fire_count": 0
+                "fire_count": 0,
             }
 
             self.trigger_states[trigger_id] = TriggerState.INACTIVE
@@ -140,8 +145,10 @@ class AdvancedTriggerManager:
         name: str,
         states: List[str],
         initial_state: str,
-        transitions: Dict[str, List[Dict[str, Any]]],  # from_state -> [conditions, to_state]
-        action_on_transition: Optional[Callable] = None
+        transitions: Dict[
+            str, List[Dict[str, Any]]
+        ],  # from_state -> [conditions, to_state]
+        action_on_transition: Optional[Callable] = None,
     ) -> bool:
         """
         Register a state machine-based trigger.
@@ -167,7 +174,7 @@ class AdvancedTriggerManager:
                 "transitions": transitions,
                 "action_on_transition": action_on_transition,
                 "state_enter_time": datetime.now().isoformat(),
-                "state_history": [(initial_state, datetime.now().isoformat())]
+                "state_history": [(initial_state, datetime.now().isoformat())],
             }
 
             self.trigger_states[trigger_id] = TriggerState.ACTIVE
@@ -184,7 +191,7 @@ class AdvancedTriggerManager:
         dependent_trigger_id: str,
         required_trigger_id: str,
         condition: str = "must_have_fired",
-        within_timeframe_ms: Optional[int] = None
+        within_timeframe_ms: Optional[int] = None,
     ) -> bool:
         """
         Add a dependency between triggers.
@@ -203,7 +210,7 @@ class AdvancedTriggerManager:
                 dependent_trigger_id=dependent_trigger_id,
                 required_trigger_id=required_trigger_id,
                 condition=condition,
-                within_timeframe=within_timeframe_ms
+                within_timeframe=within_timeframe_ms,
             )
 
             if dependent_trigger_id not in self.dependencies:
@@ -221,11 +228,7 @@ class AdvancedTriggerManager:
             logger.error(f"Failed to add dependency: {e}")
             return False
 
-    def evaluate_trigger(
-        self,
-        trigger_id: str,
-        context: Dict[str, Any]
-    ) -> bool:
+    def evaluate_trigger(self, trigger_id: str, context: Dict[str, Any]) -> bool:
         """
         Evaluate if a trigger should fire.
 
@@ -262,8 +265,7 @@ class AdvancedTriggerManager:
                 return self._evaluate_state_machine(trigger_id, context)
             else:
                 return self._evaluate_composite_condition(
-                    trigger.get("condition"),
-                    context
+                    trigger.get("condition"), context
                 )
 
         except Exception as e:
@@ -272,9 +274,7 @@ class AdvancedTriggerManager:
             return False
 
     def fire_trigger(
-        self,
-        trigger_id: str,
-        context: Dict[str, Any] = None
+        self, trigger_id: str, context: Dict[str, Any] = None
     ) -> Dict[str, Any]:
         """
         Fire a trigger (execute its action).
@@ -298,12 +298,14 @@ class AdvancedTriggerManager:
                 "trigger_id": trigger_id,
                 "trigger_name": trigger.get("name"),
                 "fired_at": datetime.now().isoformat(),
-                "callback_result": None
+                "callback_result": None,
             }
 
             if trigger.get("action_callback"):
                 try:
-                    result["callback_result"] = trigger["action_callback"](context or {})
+                    result["callback_result"] = trigger["action_callback"](
+                        context or {}
+                    )
                 except Exception as e:
                     logger.error(f"Callback error for {trigger_id}: {e}")
                     result["callback_error"] = str(e)
@@ -320,7 +322,7 @@ class AdvancedTriggerManager:
             # Record in history
             self.firing_history.append(result)
             if len(self.firing_history) > self.max_history:
-                self.firing_history = self.firing_history[-self.max_history:]
+                self.firing_history = self.firing_history[-self.max_history :]
 
             logger.info(f"Trigger fired: {trigger.get('name')} ({trigger_id})")
             return result
@@ -340,17 +342,19 @@ class AdvancedTriggerManager:
         trigger_ids = list(self.triggers.keys())
 
         for i, tid1 in enumerate(trigger_ids):
-            for tid2 in trigger_ids[i+1:]:
+            for tid2 in trigger_ids[i + 1 :]:
                 # Check if triggers might fire simultaneously
                 if self._triggers_could_conflict(tid1, tid2):
-                    conflicts.append({
-                        "trigger1": tid1,
-                        "trigger2": tid2,
-                        "trigger1_name": self.triggers[tid1].get("name"),
-                        "trigger2_name": self.triggers[tid2].get("name"),
-                        "conflict_type": "simultaneous_fire",
-                        "recommendation": "Add dependency or exclusive conditions"
-                    })
+                    conflicts.append(
+                        {
+                            "trigger1": tid1,
+                            "trigger2": tid2,
+                            "trigger1_name": self.triggers[tid1].get("name"),
+                            "trigger2_name": self.triggers[tid2].get("name"),
+                            "conflict_type": "simultaneous_fire",
+                            "recommendation": "Add dependency or exclusive conditions",
+                        }
+                    )
 
         return conflicts
 
@@ -372,18 +376,21 @@ class AdvancedTriggerManager:
             return {
                 "id": trigger_id,
                 "name": trigger.get("name"),
-                "state": self.trigger_states.get(trigger_id, TriggerState.INACTIVE).value,
+                "state": self.trigger_states.get(
+                    trigger_id, TriggerState.INACTIVE
+                ).value,
                 "enabled": trigger.get("enabled"),
                 "fire_count": trigger.get("fire_count"),
                 "last_fired": trigger.get("last_fired"),
-                "in_cooldown": self.trigger_states.get(trigger_id) == TriggerState.COOLDOWN
+                "in_cooldown": self.trigger_states.get(trigger_id)
+                == TriggerState.COOLDOWN,
             }
         else:
             return {
                 tid: {
                     "name": t.get("name"),
                     "state": self.trigger_states.get(tid, TriggerState.INACTIVE).value,
-                    "fire_count": t.get("fire_count", 0)
+                    "fire_count": t.get("fire_count", 0),
                 }
                 for tid, t in self.triggers.items()
             }
@@ -391,9 +398,7 @@ class AdvancedTriggerManager:
     # ==================== Private Methods ====================
 
     def _evaluate_composite_condition(
-        self,
-        condition: Dict[str, Any],
-        context: Dict[str, Any]
+        self, condition: Dict[str, Any], context: Dict[str, Any]
     ) -> bool:
         """Recursively evaluate composite condition."""
         if not condition:
@@ -431,9 +436,7 @@ class AdvancedTriggerManager:
         return False
 
     def _evaluate_simple_condition(
-        self,
-        condition: Dict[str, Any],
-        context: Dict[str, Any]
+        self, condition: Dict[str, Any], context: Dict[str, Any]
     ) -> bool:
         """Evaluate a simple condition."""
         metric = condition.get("metric")
@@ -466,11 +469,7 @@ class AdvancedTriggerManager:
 
         return False
 
-    def _evaluate_state_machine(
-        self,
-        trigger_id: str,
-        context: Dict[str, Any]
-    ) -> bool:
+    def _evaluate_state_machine(self, trigger_id: str, context: Dict[str, Any]) -> bool:
         """Evaluate a state machine trigger."""
         trigger = self.triggers[trigger_id]
         current_state = trigger.get("current_state")
@@ -573,11 +572,7 @@ class AdvancedTriggerManager:
 
         # Check if they have overlapping conditions
         # This is a placeholder - actual implementation would be more thorough
-        return (
-            t1.get("enabled", True) and
-            t2.get("enabled", True) and
-            tid1 != tid2
-        )
+        return t1.get("enabled", True) and t2.get("enabled", True) and tid1 != tid2
 
 
 # Global instance

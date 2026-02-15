@@ -1,9 +1,10 @@
 """Blueprint for DefaultAgent interactive chat routes."""
-from flask import Blueprint, jsonify, request, Response, stream_with_context
 from pathlib import Path
 
-from frontend.services.chat_session_manager import ChatSessionManager
+from flask import Blueprint, Response, jsonify, request, stream_with_context
+
 from frontend.middleware import rate_limit_chat, require_api_key
+from frontend.services.chat_session_manager import ChatSessionManager
 
 chat_bp = Blueprint("chat", __name__)
 

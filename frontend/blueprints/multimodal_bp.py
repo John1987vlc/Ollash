@@ -3,26 +3,26 @@ Phase 5: Multimodal Input & OCR Blueprint
 REST API for OCR, document ingestion, and audio transcription
 """
 
-from flask import Blueprint, request, jsonify
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
 
-from backend.utils.core.ocr_processor import OCRProcessor, PDFOCRProcessor
+from flask import Blueprint, jsonify, request
+
+from backend.core.kernel import AgentKernel  # Import AgentKernel
+from backend.utils.core.agent_logger import AgentLogger  # For type hinting
 from backend.utils.core.multimedia_ingester import MultimediaIngester
+from backend.utils.core.ocr_processor import OCRProcessor, PDFOCRProcessor
 from backend.utils.core.speech_transcriber import SpeechTranscriber
-from backend.core.kernel import AgentKernel # Import AgentKernel
-from backend.utils.core.agent_logger import AgentLogger # For type hinting
-
 
 # Create blueprint
-multimodal_bp = Blueprint('multimodal', __name__, url_prefix='/api/multimodal')
+multimodal_bp = Blueprint("multimodal", __name__, url_prefix="/api/multimodal")
 
 # Global managers (initialized in init_app)
 ocr_processor: Optional[OCRProcessor] = None
 multimedia_ingester: Optional[MultimediaIngester] = None
 speech_transcriber: Optional[SpeechTranscriber] = None
-logger: Optional[AgentLogger] = None # Declare global logger with correct type
+logger: Optional[AgentLogger] = None  # Declare global logger with correct type
 
 
 def init_app(app, ollash_root_dir: Path):
@@ -33,7 +33,9 @@ def init_app(app, ollash_root_dir: Path):
     _kernel = AgentKernel(ollash_root_dir=ollash_root_dir)
     logger = _kernel.get_logger()
 
-    multimodal_workspace_path = str(ollash_root_dir / "knowledge_workspace") # Assumes knowledge_workspace is the subdir
+    multimodal_workspace_path = str(
+        ollash_root_dir / "knowledge_workspace"
+    )  # Assumes knowledge_workspace is the subdir
 
     # Initialize OCR processor
     ocr_processor = OCRProcessor(workspace_path=multimodal_workspace_path)
@@ -53,7 +55,8 @@ def init_app(app, ollash_root_dir: Path):
 # OCR Endpoints
 # ========================
 
-@multimodal_bp.route('/ocr/process', methods=['POST'])
+
+@multimodal_bp.route("/ocr/process", methods=["POST"])
 def ocr_process_image():
     """
     Process a single image with OCR
@@ -66,16 +69,18 @@ def ocr_process_image():
     """
     try:
         data = request.get_json() or {}
-        image_path = data.get('image_path')
-        image_id = data.get('image_id')
+        image_path = data.get("image_path")
+        image_id = data.get("image_id")
 
         if not image_path:
             return jsonify({"error": "image_path required"}), 400
 
         result = ocr_processor.process_image(image_path, image_id)
 
-        logger.info(f"OCR processed image: {image_path}",
-                   extra={"image_id": result.image_id, "confidence": result.confidence})
+        logger.info(
+            f"OCR processed image: {image_path}",
+            extra={"image_id": result.image_id, "confidence": result.confidence},
+        )
 
         return jsonify(result.to_dict()), 200
     except FileNotFoundError as e:
@@ -89,7 +94,7 @@ def ocr_process_image():
         return jsonify({"error": "OCR processing failed"}), 500
 
 
-@multimodal_bp.route('/ocr/batch', methods=['POST'])
+@multimodal_bp.route("/ocr/batch", methods=["POST"])
 def ocr_batch_process():
     """
     Process multiple images
@@ -102,28 +107,37 @@ def ocr_batch_process():
     """
     try:
         data = request.get_json() or {}
-        image_paths = data.get('image_paths', [])
-        image_ids = data.get('image_ids')
+        image_paths = data.get("image_paths", [])
+        image_ids = data.get("image_ids")
 
         if not image_paths:
             return jsonify({"error": "image_paths required"}), 400
 
         results = ocr_processor.process_batch(image_paths, image_ids)
 
-        logger.info(f"Batch OCR processed {len(results)} images",
-                   extra={"avg_confidence": sum([r.confidence for r in results]) / len(results)})
+        logger.info(
+            f"Batch OCR processed {len(results)} images",
+            extra={
+                "avg_confidence": sum([r.confidence for r in results]) / len(results)
+            },
+        )
 
-        return jsonify({
-            "results": [r.to_dict() for r in results],
-            "count": len(results),
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return (
+            jsonify(
+                {
+                    "results": [r.to_dict() for r in results],
+                    "count": len(results),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            ),
+            200,
+        )
     except Exception as e:
         logger.error(f"Batch OCR error: {e}")
         return jsonify({"error": "Batch processing failed"}), 500
 
 
-@multimodal_bp.route('/ocr/directory', methods=['POST'])
+@multimodal_bp.route("/ocr/directory", methods=["POST"])
 def ocr_directory():
     """
     Process all images in a directory
@@ -136,28 +150,35 @@ def ocr_directory():
     """
     try:
         data = request.get_json() or {}
-        directory_path = data.get('directory_path')
-        pattern = data.get('pattern', '*.png')
+        directory_path = data.get("directory_path")
+        pattern = data.get("pattern", "*.png")
 
         if not directory_path:
             return jsonify({"error": "directory_path required"}), 400
 
         results = ocr_processor.extract_text_from_directory(directory_path, pattern)
 
-        logger.info(f"OCR processed directory: {directory_path}",
-                   extra={"files_processed": len(results)})
+        logger.info(
+            f"OCR processed directory: {directory_path}",
+            extra={"files_processed": len(results)},
+        )
 
-        return jsonify({
-            "results": results,
-            "count": len(results),
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return (
+            jsonify(
+                {
+                    "results": results,
+                    "count": len(results),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            ),
+            200,
+        )
     except Exception as e:
         logger.error(f"Directory OCR error: {e}")
         return jsonify({"error": "Directory processing failed"}), 500
 
 
-@multimodal_bp.route('/ocr/pdf', methods=['POST'])
+@multimodal_bp.route("/ocr/pdf", methods=["POST"])
 def ocr_pdf():
     """
     Process PDF file page by page
@@ -169,7 +190,7 @@ def ocr_pdf():
     """
     try:
         data = request.get_json() or {}
-        pdf_path = data.get('pdf_path')
+        pdf_path = data.get("pdf_path")
 
         if not pdf_path:
             return jsonify({"error": "pdf_path required"}), 400
@@ -177,14 +198,18 @@ def ocr_pdf():
         pdf_processor = PDFOCRProcessor(ocr_processor)
         results = pdf_processor.process_pdf(pdf_path)
 
-        logger.info(f"OCR processed PDF: {pdf_path}",
-                   extra={"pages": len(results)})
+        logger.info(f"OCR processed PDF: {pdf_path}", extra={"pages": len(results)})
 
-        return jsonify({
-            "results": {str(k): v.to_dict() for k, v in results.items()},
-            "page_count": len(results),
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return (
+            jsonify(
+                {
+                    "results": {str(k): v.to_dict() for k, v in results.items()},
+                    "page_count": len(results),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            ),
+            200,
+        )
     except FileNotFoundError as e:
         logger.warning(f"PDF not found: {e}")
         return jsonify({"error": str(e)}), 404
@@ -196,16 +221,13 @@ def ocr_pdf():
         return jsonify({"error": "PDF processing failed"}), 500
 
 
-@multimodal_bp.route('/ocr/stats', methods=['GET'])
+@multimodal_bp.route("/ocr/stats", methods=["GET"])
 def ocr_stats():
     """Get OCR processing statistics"""
     try:
         stats = ocr_processor.get_processing_stats()
 
-        return jsonify({
-            "stats": stats,
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return jsonify({"stats": stats, "timestamp": datetime.now().isoformat()}), 200
     except Exception as e:
         logger.error(f"Stats error: {e}")
         return jsonify({"error": "Failed to get stats"}), 500
@@ -215,7 +237,8 @@ def ocr_stats():
 # Multimedia Ingestion Endpoints
 # ========================
 
-@multimodal_bp.route('/ingest/file', methods=['POST'])
+
+@multimodal_bp.route("/ingest/file", methods=["POST"])
 def ingest_file():
     """
     Ingest a single document
@@ -228,21 +251,23 @@ def ingest_file():
     """
     try:
         data = request.get_json() or {}
-        file_path = data.get('file_path')
-        ingest_id = data.get('ingest_id')
+        file_path = data.get("file_path")
+        ingest_id = data.get("ingest_id")
 
         if not file_path:
             return jsonify({"error": "file_path required"}), 400
 
         document = multimedia_ingester.ingest_file(file_path, ingest_id)
 
-        logger.info(f"Document ingested: {file_path}",
-                   extra={"doc_id": document.document_id, "blocks": len(document.blocks)})
+        logger.info(
+            f"Document ingested: {file_path}",
+            extra={"doc_id": document.document_id, "blocks": len(document.blocks)},
+        )
 
-        return jsonify({
-            **document.to_dict(),
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return (
+            jsonify({**document.to_dict(), "timestamp": datetime.now().isoformat()}),
+            200,
+        )
     except FileNotFoundError as e:
         logger.warning(f"File not found: {e}")
         return jsonify({"error": str(e)}), 404
@@ -254,7 +279,7 @@ def ingest_file():
         return jsonify({"error": "Document ingestion failed"}), 500
 
 
-@multimodal_bp.route('/ingest/batch', methods=['POST'])
+@multimodal_bp.route("/ingest/batch", methods=["POST"])
 def ingest_batch():
     """
     Ingest multiple documents
@@ -267,28 +292,35 @@ def ingest_batch():
     """
     try:
         data = request.get_json() or {}
-        file_paths = data.get('file_paths', [])
-        ingest_ids = data.get('ingest_ids')
+        file_paths = data.get("file_paths", [])
+        ingest_ids = data.get("ingest_ids")
 
         if not file_paths:
             return jsonify({"error": "file_paths required"}), 400
 
         documents = multimedia_ingester.ingest_batch(file_paths, ingest_ids)
 
-        logger.info(f"Batch ingested {len(documents)} documents",
-                   extra={"total_blocks": sum(len(d.blocks) for d in documents)})
+        logger.info(
+            f"Batch ingested {len(documents)} documents",
+            extra={"total_blocks": sum(len(d.blocks) for d in documents)},
+        )
 
-        return jsonify({
-            "results": [d.to_dict() for d in documents],
-            "count": len(documents),
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return (
+            jsonify(
+                {
+                    "results": [d.to_dict() for d in documents],
+                    "count": len(documents),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            ),
+            200,
+        )
     except Exception as e:
         logger.error(f"Batch ingestion error: {e}")
         return jsonify({"error": "Batch ingestion failed"}), 500
 
 
-@multimodal_bp.route('/ingest/directory', methods=['POST'])
+@multimodal_bp.route("/ingest/directory", methods=["POST"])
 def ingest_directory():
     """
     Ingest all documents in a directory
@@ -300,27 +332,33 @@ def ingest_directory():
     """
     try:
         data = request.get_json() or {}
-        directory_path = data.get('directory_path')
+        directory_path = data.get("directory_path")
 
         if not directory_path:
             return jsonify({"error": "directory_path required"}), 400
 
         documents = multimedia_ingester.ingest_directory(directory_path)
 
-        logger.info(f"Directory ingested: {directory_path}",
-                   extra={"documents": len(documents)})
+        logger.info(
+            f"Directory ingested: {directory_path}", extra={"documents": len(documents)}
+        )
 
-        return jsonify({
-            "results": [d.to_dict() for d in documents],
-            "count": len(documents),
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return (
+            jsonify(
+                {
+                    "results": [d.to_dict() for d in documents],
+                    "count": len(documents),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            ),
+            200,
+        )
     except Exception as e:
         logger.error(f"Directory ingestion error: {e}")
         return jsonify({"error": "Directory ingestion failed"}), 500
 
 
-@multimodal_bp.route('/ingest/normalize', methods=['POST'])
+@multimodal_bp.route("/ingest/normalize", methods=["POST"])
 def ingest_normalize():
     """
     Normalize parsed document content
@@ -332,7 +370,7 @@ def ingest_normalize():
     """
     try:
         data = request.get_json() or {}
-        document_id = data.get('document_id')
+        document_id = data.get("document_id")
 
         if not document_id:
             return jsonify({"error": "document_id required"}), 400
@@ -343,43 +381,45 @@ def ingest_normalize():
 
         doc_data = multimedia_ingester.parsed_documents[document_id]
         # Reconstruct document object - need to handle dataclass conversion
-        from backend.utils.core.multimedia_ingester import ParsedDocument, ContentBlock
+        from backend.utils.core.multimedia_ingester import (ContentBlock,
+                                                            ParsedDocument)
 
-        blocks = [ContentBlock(**b) for b in doc_data.get('blocks', [])]
+        blocks = [ContentBlock(**b) for b in doc_data.get("blocks", [])]
         document = ParsedDocument(
-            document_id=doc_data['document_id'],
-            original_path=doc_data['original_path'],
-            document_type=doc_data['document_type'],
-            content_format=doc_data['content_format'],
+            document_id=doc_data["document_id"],
+            original_path=doc_data["original_path"],
+            document_type=doc_data["document_type"],
+            content_format=doc_data["content_format"],
             blocks=blocks,
-            metadata=doc_data.get('metadata', {}),
-            raw_text=doc_data.get('raw_text', '')
+            metadata=doc_data.get("metadata", {}),
+            raw_text=doc_data.get("raw_text", ""),
         )
 
         normalization = multimedia_ingester.normalize_content(document)
 
-        logger.info(f"Document normalized: {document_id}",
-                   extra={"quality": normalization.quality_score})
+        logger.info(
+            f"Document normalized: {document_id}",
+            extra={"quality": normalization.quality_score},
+        )
 
-        return jsonify({
-            **normalization.to_dict(),
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return (
+            jsonify(
+                {**normalization.to_dict(), "timestamp": datetime.now().isoformat()}
+            ),
+            200,
+        )
     except Exception as e:
         logger.error(f"Normalization error: {e}")
         return jsonify({"error": "Normalization failed"}), 500
 
 
-@multimodal_bp.route('/ingest/stats', methods=['GET'])
+@multimodal_bp.route("/ingest/stats", methods=["GET"])
 def ingest_stats():
     """Get ingestion statistics"""
     try:
         stats = multimedia_ingester.get_ingestion_stats()
 
-        return jsonify({
-            "stats": stats,
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return jsonify({"stats": stats, "timestamp": datetime.now().isoformat()}), 200
     except Exception as e:
         logger.error(f"Stats error: {e}")
         return jsonify({"error": "Failed to get stats"}), 500
@@ -389,7 +429,8 @@ def ingest_stats():
 # Speech Transcription Endpoints
 # ========================
 
-@multimodal_bp.route('/speech/transcribe', methods=['POST'])
+
+@multimodal_bp.route("/speech/transcribe", methods=["POST"])
 def transcribe_audio():
     """
     Transcribe audio file
@@ -402,22 +443,26 @@ def transcribe_audio():
     """
     try:
         data = request.get_json() or {}
-        audio_path = data.get('audio_path')
-        audio_id = data.get('audio_id')
+        audio_path = data.get("audio_path")
+        audio_id = data.get("audio_id")
 
         if not audio_path:
             return jsonify({"error": "audio_path required"}), 400
 
         result = speech_transcriber.transcribe_audio(audio_path, audio_id)
 
-        logger.info(f"Audio transcribed: {audio_path}",
-                   extra={"transcript_length": len(result.transcript),
-                          "confidence": result.confidence})
+        logger.info(
+            f"Audio transcribed: {audio_path}",
+            extra={
+                "transcript_length": len(result.transcript),
+                "confidence": result.confidence,
+            },
+        )
 
-        return jsonify({
-            **result.to_dict(),
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return (
+            jsonify({**result.to_dict(), "timestamp": datetime.now().isoformat()}),
+            200,
+        )
     except FileNotFoundError as e:
         logger.warning(f"Audio file not found: {e}")
         return jsonify({"error": str(e)}), 404
@@ -432,7 +477,7 @@ def transcribe_audio():
         return jsonify({"error": "Transcription failed"}), 500
 
 
-@multimodal_bp.route('/speech/stream', methods=['POST'])
+@multimodal_bp.route("/speech/stream", methods=["POST"])
 def stream_transcribe():
     """
     Stream transcription for long audio
@@ -445,22 +490,28 @@ def stream_transcribe():
     """
     try:
         data = request.get_json() or {}
-        audio_path = data.get('audio_path')
-        chunk_duration = data.get('chunk_duration_ms', 1000)
+        audio_path = data.get("audio_path")
+        chunk_duration = data.get("chunk_duration_ms", 1000)
 
         if not audio_path:
             return jsonify({"error": "audio_path required"}), 400
 
         results = speech_transcriber.stream_transcription(audio_path, chunk_duration)
 
-        logger.info(f"Audio streaming transcribed: {audio_path}",
-                   extra={"chunks": len(results)})
+        logger.info(
+            f"Audio streaming transcribed: {audio_path}", extra={"chunks": len(results)}
+        )
 
-        return jsonify({
-            "results": [r.to_dict() for r in results],
-            "chunk_count": len(results),
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return (
+            jsonify(
+                {
+                    "results": [r.to_dict() for r in results],
+                    "chunk_count": len(results),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            ),
+            200,
+        )
     except ImportError as e:
         logger.error(f"Missing dependency: {e}")
         return jsonify({"error": "Streaming requires pydub library"}), 400
@@ -469,7 +520,7 @@ def stream_transcribe():
         return jsonify({"error": "Streaming transcription failed"}), 500
 
 
-@multimodal_bp.route('/speech/integrate-web', methods=['POST'])
+@multimodal_bp.route("/speech/integrate-web", methods=["POST"])
 def integrate_web_speech():
     """
     Integrate Web Speech API result
@@ -483,9 +534,9 @@ def integrate_web_speech():
     """
     try:
         data = request.get_json() or {}
-        audio_id = data.get('audio_id')
-        transcript = data.get('transcript')
-        confidence = data.get('confidence', 0.9)
+        audio_id = data.get("audio_id")
+        transcript = data.get("transcript")
+        confidence = data.get("confidence", 0.9)
 
         if not audio_id or not transcript:
             return jsonify({"error": "audio_id and transcript required"}), 400
@@ -494,19 +545,21 @@ def integrate_web_speech():
             audio_id, transcript, confidence
         )
 
-        logger.info(f"Web Speech API result integrated: {audio_id}",
-                   extra={"confidence": confidence})
+        logger.info(
+            f"Web Speech API result integrated: {audio_id}",
+            extra={"confidence": confidence},
+        )
 
-        return jsonify({
-            **result.to_dict(),
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return (
+            jsonify({**result.to_dict(), "timestamp": datetime.now().isoformat()}),
+            200,
+        )
     except Exception as e:
         logger.error(f"Integration error: {e}")
         return jsonify({"error": "Integration failed"}), 500
 
 
-@multimodal_bp.route('/speech/analyze-confidence', methods=['POST'])
+@multimodal_bp.route("/speech/analyze-confidence", methods=["POST"])
 def analyze_confidence():
     """
     Analyze confidence thresholds for transcription
@@ -519,8 +572,8 @@ def analyze_confidence():
     """
     try:
         data = request.get_json() or {}
-        audio_id = data.get('audio_id')
-        threshold = data.get('threshold', 0.7)
+        audio_id = data.get("audio_id")
+        threshold = data.get("threshold", 0.7)
 
         if not audio_id:
             return jsonify({"error": "audio_id required"}), 400
@@ -530,28 +583,26 @@ def analyze_confidence():
             return jsonify({"error": "Transcription not found"}), 404
 
         trans_data = speech_transcriber.transcriptions[audio_id]
-        from backend.utils.core.speech_transcriber import TranscriptionResult, ConfidenceSegment
+        from backend.utils.core.speech_transcriber import (ConfidenceSegment,
+                                                           TranscriptionResult)
 
-        segments = [ConfidenceSegment(**s) for s in trans_data.get('segments', [])]
+        segments = [ConfidenceSegment(**s) for s in trans_data.get("segments", [])]
         result = TranscriptionResult(
             audio_id=audio_id,
-            transcript=trans_data['transcript'],
-            confidence=trans_data['confidence'],
-            segments=segments
+            transcript=trans_data["transcript"],
+            confidence=trans_data["confidence"],
+            segments=segments,
         )
 
         analysis = speech_transcriber.match_confidence_thresholds(result, threshold)
 
-        return jsonify({
-            **analysis,
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return jsonify({**analysis, "timestamp": datetime.now().isoformat()}), 200
     except Exception as e:
         logger.error(f"Analysis error: {e}")
         return jsonify({"error": "Analysis failed"}), 500
 
 
-@multimodal_bp.route('/speech/summary', methods=['POST'])
+@multimodal_bp.route("/speech/summary", methods=["POST"])
 def speech_summary():
     """
     Get summary of transcription
@@ -563,7 +614,7 @@ def speech_summary():
     """
     try:
         data = request.get_json() or {}
-        audio_id = data.get('audio_id')
+        audio_id = data.get("audio_id")
 
         if not audio_id:
             return jsonify({"error": "audio_id required"}), 400
@@ -573,39 +624,34 @@ def speech_summary():
             return jsonify({"error": "Transcription not found"}), 404
 
         trans_data = speech_transcriber.transcriptions[audio_id]
-        from backend.utils.core.speech_transcriber import TranscriptionResult, ConfidenceSegment
+        from backend.utils.core.speech_transcriber import (ConfidenceSegment,
+                                                           TranscriptionResult)
 
-        segments = [ConfidenceSegment(**s) for s in trans_data.get('segments', [])]
+        segments = [ConfidenceSegment(**s) for s in trans_data.get("segments", [])]
         result = TranscriptionResult(
             audio_id=audio_id,
-            transcript=trans_data['transcript'],
-            confidence=trans_data['confidence'],
-            duration_seconds=trans_data.get('duration_seconds', 0),
-            processing_time_ms=trans_data.get('processing_time_ms', 0),
-            segments=segments
+            transcript=trans_data["transcript"],
+            confidence=trans_data["confidence"],
+            duration_seconds=trans_data.get("duration_seconds", 0),
+            processing_time_ms=trans_data.get("processing_time_ms", 0),
+            segments=segments,
         )
 
         summary = speech_transcriber.get_transcript_summary(result)
 
-        return jsonify({
-            **summary,
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return jsonify({**summary, "timestamp": datetime.now().isoformat()}), 200
     except Exception as e:
         logger.error(f"Summary error: {e}")
         return jsonify({"error": "Failed to generate summary"}), 500
 
 
-@multimodal_bp.route('/speech/stats', methods=['GET'])
+@multimodal_bp.route("/speech/stats", methods=["GET"])
 def speech_stats():
     """Get speech transcription statistics"""
     try:
         stats = speech_transcriber.get_transcription_stats()
 
-        return jsonify({
-            "stats": stats,
-            "timestamp": datetime.now().isoformat()
-        }), 200
+        return jsonify({"stats": stats, "timestamp": datetime.now().isoformat()}), 200
     except Exception as e:
         logger.error(f"Stats error: {e}")
         return jsonify({"error": "Failed to get stats"}), 500
@@ -615,11 +661,12 @@ def speech_stats():
 # Configuration Endpoints
 # ========================
 
-@multimodal_bp.route('/config/ocr', methods=['GET', 'POST'])
+
+@multimodal_bp.route("/config/ocr", methods=["GET", "POST"])
 def config_ocr():
     """Get or set OCR configuration"""
     try:
-        if request.method == 'GET':
+        if request.method == "GET":
             config = ocr_processor.config.to_dict()
             return jsonify(config), 200
 
@@ -637,11 +684,11 @@ def config_ocr():
         return jsonify({"error": "Configuration failed"}), 500
 
 
-@multimodal_bp.route('/config/speech', methods=['GET', 'POST'])
+@multimodal_bp.route("/config/speech", methods=["GET", "POST"])
 def config_speech():
     """Get or set speech transcription configuration"""
     try:
-        if request.method == 'GET':
+        if request.method == "GET":
             config = speech_transcriber.config.to_dict()
             return jsonify(config), 200
 
@@ -658,15 +705,19 @@ def config_speech():
         return jsonify({"error": "Configuration failed"}), 500
 
 
-@multimodal_bp.route('/health', methods=['GET'])
+@multimodal_bp.route("/health", methods=["GET"])
 def health_check():
     """Health check for multimodal services"""
     try:
         health_status = {
             "ocr_processor": "operational" if ocr_processor else "not_initialized",
-            "multimedia_ingester": "operational" if multimedia_ingester else "not_initialized",
-            "speech_transcriber": "operational" if speech_transcriber else "not_initialized",
-            "timestamp": datetime.now().isoformat()
+            "multimedia_ingester": "operational"
+            if multimedia_ingester
+            else "not_initialized",
+            "speech_transcriber": "operational"
+            if speech_transcriber
+            else "not_initialized",
+            "timestamp": datetime.now().isoformat(),
         }
 
         return jsonify(health_status), 200

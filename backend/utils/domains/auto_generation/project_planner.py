@@ -1,5 +1,6 @@
-from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.ollama_client import OllamaClient
+
 from .prompt_templates import AutoGenPrompts
 
 
@@ -13,17 +14,28 @@ class ProjectPlanner:
         "keep_alive": "0s",
     }
 
-    def __init__(self, llm_client: OllamaClient, logger: AgentLogger, options: dict = None):
+    def __init__(
+        self, llm_client: OllamaClient, logger: AgentLogger, options: dict = None
+    ):
         self.llm_client = llm_client
         self.logger = logger
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def generate_readme(self, project_description: str, template_name: str = "default",
-                        python_version: str = "3.12", license_type: str = "MIT",
-                        include_docker: bool = False) -> str:
+    def generate_readme(
+        self,
+        project_description: str,
+        template_name: str = "default",
+        python_version: str = "3.12",
+        license_type: str = "MIT",
+        include_docker: bool = False,
+    ) -> str:
         """Generate a comprehensive README.md from a project description."""
         system, user = AutoGenPrompts.readme_generation(
-            project_description, template_name, python_version, license_type, include_docker
+            project_description,
+            template_name,
+            python_version,
+            license_type,
+            include_docker,
         )
         response_data, usage = self.llm_client.chat(
             messages=[

@@ -1,14 +1,15 @@
 """Execution Plan tracking system for AutoAgent pipeline milestones."""
 
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, field
-from enum import Enum
-from datetime import datetime
 import json
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 
 class MilestoneStatus(str, Enum):
     """Status of a milestone in the execution plan."""
+
     PENDING = "PENDING"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
@@ -19,6 +20,7 @@ class MilestoneStatus(str, Enum):
 @dataclass
 class Milestone:
     """Represents a single milestone in the execution plan."""
+
     id: str  # e.g., "0.5", "1", "2", etc.
     name: str
     description: str
@@ -30,7 +32,9 @@ class Milestone:
     end_time: Optional[str] = None
     error_message: Optional[str] = None
     output_summary: Optional[str] = None
-    dependencies: List[str] = field(default_factory=list)  # IDs of milestone dependencies
+    dependencies: List[str] = field(
+        default_factory=list
+    )  # IDs of milestone dependencies
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert milestone to dictionary."""
@@ -78,7 +82,6 @@ class ExecutionPlan:
         """
         # Create milestone for each phase
         for idx, phase in enumerate(phases):
-
             # Generate milestone ID and name
             if isinstance(phase, type):
                 phase_class_name = phase.__name__
@@ -106,7 +109,9 @@ class ExecutionPlan:
             self.milestones[milestone_id].status = MilestoneStatus.IN_PROGRESS
             self.milestones[milestone_id].start_time = datetime.now().isoformat()
 
-    def complete_milestone(self, milestone_id: str, output_summary: Optional[str] = None) -> None:
+    def complete_milestone(
+        self, milestone_id: str, output_summary: Optional[str] = None
+    ) -> None:
         """Mark a milestone as completed."""
         if milestone_id in self.milestones:
             milestone = self.milestones[milestone_id]
@@ -147,11 +152,23 @@ class ExecutionPlan:
             Dictionary with progress metrics
         """
         total = len(self.milestones)
-        completed = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.COMPLETED)
-        failed = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.FAILED)
-        in_progress = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.IN_PROGRESS)
-        skipped = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.SKIPPED)
-        pending = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.PENDING)
+        completed = sum(
+            1 for m in self.milestones.values() if m.status == MilestoneStatus.COMPLETED
+        )
+        failed = sum(
+            1 for m in self.milestones.values() if m.status == MilestoneStatus.FAILED
+        )
+        in_progress = sum(
+            1
+            for m in self.milestones.values()
+            if m.status == MilestoneStatus.IN_PROGRESS
+        )
+        skipped = sum(
+            1 for m in self.milestones.values() if m.status == MilestoneStatus.SKIPPED
+        )
+        pending = sum(
+            1 for m in self.milestones.values() if m.status == MilestoneStatus.PENDING
+        )
 
         return {
             "project_name": self.project_name,
@@ -190,7 +207,9 @@ class ExecutionPlan:
         """Mark the entire execution plan as complete."""
         self.completion_time = datetime.now().isoformat()
 
-    def get_milestone_id_by_phase_class_name(self, phase_class_name: str) -> Optional[str]:
+    def get_milestone_id_by_phase_class_name(
+        self, phase_class_name: str
+    ) -> Optional[str]:
         """
         Retrieves the milestone ID for a given phase class name.
         """
@@ -199,7 +218,9 @@ class ExecutionPlan:
                 return milestone_id
         return None
 
-    def _get_milestone_info(self, phase_class_name: str, phase_index: int) -> Dict[str, Any]:
+    def _get_milestone_info(
+        self, phase_class_name: str, phase_index: int
+    ) -> Dict[str, Any]:
         """
         Get milestone information for a specific phase.
 
@@ -343,5 +364,5 @@ class ExecutionPlan:
                 "description": f"Execute {phase_class_name}",
                 "estimated_duration": 60,
                 "dependencies": [],
-            }
+            },
         )

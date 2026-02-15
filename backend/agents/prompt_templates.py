@@ -41,7 +41,6 @@ Document:
 {content}
 
 Executive Summary (focus on business/technical impact):""",
-
         "key_insights": """Review the provided information and extract the 5 most critical insights.
 
 Information:
@@ -53,7 +52,6 @@ Format your response as:
    Evidence: [Supporting data]
 
 Critical Insights:""",
-
         "risk_analysis": """Analyze the following text for risks, security issues, or concerns.
 
 Content:
@@ -66,7 +64,6 @@ For each identified risk, provide:
 - Mitigation: [Recommended action]
 
 Risk Analysis:""",
-
         "gap_analysis": """Identify gaps, missing information, or inconsistencies in:
 
 Content:
@@ -78,7 +75,6 @@ Structure your response:
 - Recommendation: [How to address it]
 
 Gap Analysis:""",
-
         "comparative_analysis": """Compare and contrast the following items. Highlight similarities, differences, and trade-offs.
 
 Item A:
@@ -138,7 +134,6 @@ Requirements:
 - Keep length appropriate for tone (executive = brief, technical = detailed)
 
 Rewritten ({tone}) text:""",
-
         "executive_brief": """Create an executive brief from the following technical content.
 
 Technical Content:
@@ -153,7 +148,6 @@ Executive Brief should:
 - Avoid technical jargon
 
 Executive Brief:""",
-
         "technical_documentation": """Transform the following outline/notes into professional technical documentation.
 
 Source Material:
@@ -170,7 +164,6 @@ Documentation should include:
 Format as markdown with proper hierarchy.
 
 Technical Documentation:""",
-
         "grammar_edit": """Review and polish the following text for grammar, clarity, and style.
 
 Original text:
@@ -186,7 +179,6 @@ Improvements to make:
 Return the polished version with brief notes on major changes.
 
 Edited text:""",
-
         "content_restructure": """Reorganize the following content for better logical flow and readability.
 
 Original content:
@@ -201,7 +193,6 @@ New structure should:
 - Add visual/structural breaks for readability
 
 Restructured content (use markdown):""",
-
         "audience_adaptation": """Adapt the following technical content for these different audiences:
 
 Original content:
@@ -272,4 +263,3 @@ Orchestration rules:
             return template.format(**kwargs)
 
         return template
-

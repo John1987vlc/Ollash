@@ -1,9 +1,10 @@
 """Task Scheduler for Ollash - Manages scheduled task execution."""
 
+import logging
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -69,9 +70,9 @@ class TaskScheduler:
                 trigger=trigger,
                 args=job_args,
                 id=task_id,
-                name=task_data.get('name', 'Unnamed Task'),
+                name=task_data.get("name", "Unnamed Task"),
                 replace_existing=True,
-                max_instances=1
+                max_instances=1,
             )
 
             logger.info(f"Task {task_id} scheduled successfully")
@@ -148,11 +149,13 @@ class TaskScheduler:
             job = self.scheduler.get_job(task_id)
             if job:
                 return {
-                    'id': job.id,
-                    'name': job.name,
-                    'next_run_time': job.next_run_time.isoformat() if job.next_run_time else None,
-                    'trigger': str(job.trigger),
-                    'paused': job.paused
+                    "id": job.id,
+                    "name": job.name,
+                    "next_run_time": job.next_run_time.isoformat()
+                    if job.next_run_time
+                    else None,
+                    "trigger": str(job.trigger),
+                    "paused": job.paused,
                 }
             return None
         except Exception as e:
@@ -168,11 +171,13 @@ class TaskScheduler:
             jobs = self.scheduler.get_jobs()
             return [
                 {
-                    'id': job.id,
-                    'name': job.name,
-                    'next_run_time': job.next_run_time.isoformat() if job.next_run_time else None,
-                    'trigger': str(job.trigger),
-                    'paused': job.paused
+                    "id": job.id,
+                    "name": job.name,
+                    "next_run_time": job.next_run_time.isoformat()
+                    if job.next_run_time
+                    else None,
+                    "trigger": str(job.trigger),
+                    "paused": job.paused,
                 }
                 for job in jobs
             ]
@@ -201,20 +206,20 @@ class TaskScheduler:
         Returns:
             APScheduler trigger object or None
         """
-        schedule_type = task_data.get('schedule')
+        schedule_type = task_data.get("schedule")
 
         try:
-            if schedule_type == 'hourly':
+            if schedule_type == "hourly":
                 return IntervalTrigger(hours=1)
-            elif schedule_type == 'daily':
+            elif schedule_type == "daily":
                 # Daily at 8:00 AM
                 return CronTrigger(hour=8, minute=0)
-            elif schedule_type == 'weekly':
+            elif schedule_type == "weekly":
                 # Weekly on Monday at 8:00 AM
-                return CronTrigger(day_of_week='0', hour=8, minute=0)
-            elif schedule_type == 'custom':
+                return CronTrigger(day_of_week="0", hour=8, minute=0)
+            elif schedule_type == "custom":
                 # Use provided cron expression
-                cron_expr = task_data.get('cron', '0 8 * * *')
+                cron_expr = task_data.get("cron", "0 8 * * *")
                 return CronTrigger.from_crontab(cron_expr)
             else:
                 logger.warning(f"Unknown schedule type: {schedule_type}")

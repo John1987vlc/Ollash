@@ -2,12 +2,12 @@
 Unit tests for StructurePreReviewer system.
 """
 
-import pytest
 from unittest.mock import Mock
 
+import pytest
+
 from backend.utils.domains.auto_generation.structure_pre_reviewer import (
-    StructurePreReviewer, StructureIssue, StructureReview
-)
+    StructureIssue, StructurePreReviewer, StructureReview)
 
 
 @pytest.fixture
@@ -31,9 +31,7 @@ def mock_response_parser():
 @pytest.fixture
 def pre_reviewer(mock_llm_client, mock_logger, mock_response_parser):
     """Create a StructurePreReviewer instance."""
-    return StructurePreReviewer(
-        mock_llm_client, mock_logger, mock_response_parser
-    )
+    return StructurePreReviewer(mock_llm_client, mock_logger, mock_response_parser)
 
 
 @pytest.fixture
@@ -53,18 +51,12 @@ def good_structure():
                 "folders": [
                     {"name": "models", "files": ["user.py", "product.py"]},
                     {"name": "services", "files": ["user_service.py"]},
-                ]
+                ],
             },
-            {
-                "name": "tests",
-                "files": ["test_models.py", "test_services.py"]
-            },
-            {
-                "name": "docs",
-                "files": ["API.md", "SETUP.md"]
-            }
+            {"name": "tests", "files": ["test_models.py", "test_services.py"]},
+            {"name": "docs", "files": ["API.md", "SETUP.md"]},
         ],
-        "files": ["README.md", "requirements.txt", "LICENSE"]
+        "files": ["README.md", "requirements.txt", "LICENSE"],
     }
 
 
@@ -76,19 +68,34 @@ def poor_structure():
             {
                 "name": "a",
                 "folders": [
-                    {"name": "b", "folders": [
-                        {"name": "c", "folders": [
-                            {"name": "d", "folders": [
-                                {"name": "e", "folders": [
-                                    {"name": "f", "files": ["deep_file.py"]}
-                                ]}
-                            ]}
-                        ]}
-                    ]}
-                ]
+                    {
+                        "name": "b",
+                        "folders": [
+                            {
+                                "name": "c",
+                                "folders": [
+                                    {
+                                        "name": "d",
+                                        "folders": [
+                                            {
+                                                "name": "e",
+                                                "folders": [
+                                                    {
+                                                        "name": "f",
+                                                        "files": ["deep_file.py"],
+                                                    }
+                                                ],
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
             }
         ],
-        "files": ["file1.py", "file2.js", "file-3.py", "other_file.py"]
+        "files": ["file1.py", "file2.js", "file-3.py", "other_file.py"],
     }
 
 
@@ -102,7 +109,7 @@ class TestStructureIssue:
             severity="high",
             description="Mixed naming conventions found",
             affected_paths=["file_1.py", "file-2.py"],
-            suggestion="Use consistent naming convention"
+            suggestion="Use consistent naming convention",
         )
 
         assert issue.category == "naming"
@@ -116,7 +123,7 @@ class TestStructureIssue:
             severity="medium",
             description="Test issue",
             affected_paths=["dir/file"],
-            suggestion="Fix it"
+            suggestion="Fix it",
         )
 
         result = issue.to_dict()
@@ -135,7 +142,7 @@ class TestStructureReview:
             status="passed",
             issues=[],
             recommendations=["Recommendation 1"],
-            metric_breakdown={"hierarchy": 90, "naming": 85}
+            metric_breakdown={"hierarchy": 90, "naming": 85},
         )
 
         assert review.quality_score == 85.5
@@ -150,7 +157,7 @@ class TestStructureReview:
             status="needs_improvement",
             issues=[],
             recommendations=[],
-            metric_breakdown={}
+            metric_breakdown={},
         )
 
         result = review.to_dict()
@@ -191,9 +198,11 @@ class TestNamingConventions:
         issues, score = pre_reviewer._check_naming_conventions(poor_structure)
 
         # Should detect mixed naming (snake_case and kebab-case)
-        if any("-" in f and "_" in f for folder_files in [
-            poor_structure.get("files", [])
-        ] for f in folder_files):
+        if any(
+            "-" in f and "_" in f
+            for folder_files in [poor_structure.get("files", [])]
+            for f in folder_files
+        ):
             # Mixed naming exists, so we might detect it
             pass
 
@@ -210,10 +219,8 @@ class TestConflictDetection:
     def test_conflict_detection(self, pre_reviewer):
         """Test detection of file/folder conflicts."""
         conflicting_structure = {
-            "folders": [
-                {"name": "models", "files": ["models.py", "other.py"]}
-            ],
-            "files": []
+            "folders": [{"name": "models", "files": ["models.py", "other.py"]}],
+            "files": [],
         }
 
         issues, score = pre_reviewer._check_naming_conflicts(conflicting_structure)
@@ -237,7 +244,7 @@ class TestCompletenessCheck:
         """Test detection of missing test directory."""
         structure = {
             "folders": [{"name": "src", "files": ["main.py"]}],
-            "files": ["README.md"]
+            "files": ["README.md"],
         }
 
         issues, score = pre_reviewer._check_completeness(structure, "Project")
@@ -257,10 +264,7 @@ class TestOrganizationCheck:
 
     def test_missing_config_dir(self, pre_reviewer):
         """Test detection of missing config directory."""
-        structure = {
-            "folders": [{"name": "src", "files": []}],
-            "files": ["main.py"]
-        }
+        structure = {"folders": [{"name": "src", "files": []}], "files": ["main.py"]}
 
         issues, score = pre_reviewer._check_organization(structure)
 
@@ -274,9 +278,7 @@ class TestFullReview:
     def test_review_good_structure(self, pre_reviewer, good_structure, sample_readme):
         """Test review of good structure."""
         review = pre_reviewer.review_structure(
-            sample_readme,
-            good_structure,
-            "MyProject"
+            sample_readme, good_structure, "MyProject"
         )
 
         assert isinstance(review, StructureReview)
@@ -286,21 +288,17 @@ class TestFullReview:
     def test_review_poor_structure(self, pre_reviewer, poor_structure):
         """Test review of poor structure."""
         review = pre_reviewer.review_structure(
-            "Simple project",
-            poor_structure,
-            "PoorProject"
+            "Simple project", poor_structure, "PoorProject"
         )
 
         assert isinstance(review, StructureReview)
         # Review should return a quality_score
-        assert hasattr(review, 'quality_score')
+        assert hasattr(review, "quality_score")
         assert 0 <= review.quality_score <= 100
 
     def test_review_has_metrics(self, pre_reviewer, good_structure, sample_readme):
         """Test that review includes all metrics."""
-        review = pre_reviewer.review_structure(
-            sample_readme, good_structure, "Test"
-        )
+        review = pre_reviewer.review_structure(sample_readme, good_structure, "Test")
 
         assert "hierarchy" in review.metric_breakdown
         assert "naming" in review.metric_breakdown

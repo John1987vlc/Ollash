@@ -6,16 +6,18 @@ with dynamic quality metrics to guide improvement iterations.
 """
 
 import json
-from typing import Dict, List, Tuple
 from dataclasses import dataclass
-from backend.utils.core.ollama_client import OllamaClient
+from typing import Dict, List, Tuple
+
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.ollama_client import OllamaClient
 
 
 @dataclass
 class StructureIssue:
     """Represents a structural issue found during review."""
+
     category: str  # "naming", "organization", "hierarchy", "completeness"
     severity: str  # "low", "medium", "high", "critical"
     description: str
@@ -35,6 +37,7 @@ class StructureIssue:
 @dataclass
 class StructureReview:
     """Result of structure pre-review."""
+
     quality_score: float  # 0-100
     confidence: float  # 0-1 (how confident is the review)
     status: str  # "passed", "needs_improvement", "critical"
@@ -86,10 +89,7 @@ class StructurePreReviewer:
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
     def review_structure(
-        self,
-        readme_content: str,
-        structure: Dict,
-        project_name: str = "project"
+        self, readme_content: str, structure: Dict, project_name: str = "project"
     ) -> StructureReview:
         """
         Perform comprehensive structure pre-review.
@@ -130,8 +130,10 @@ class StructurePreReviewer:
         quality_score = self._calculate_quality_score(metric_scores, llm_issues)
 
         # Determine status
-        status = "passed" if quality_score >= 80 else (
-            "needs_improvement" if quality_score >= 60 else "critical"
+        status = (
+            "passed"
+            if quality_score >= 80
+            else ("needs_improvement" if quality_score >= 60 else "critical")
         )
 
         # Generate recommendations
@@ -163,30 +165,36 @@ class StructurePreReviewer:
         # Check for files in root (usually not ideal)
         root_files = [f for f in files if "/" not in f]
         if len(root_files) > 5:
-            issues.append(StructureIssue(
-                category="hierarchy",
-                severity="medium",
-                description="Too many files in project root",
-                affected_paths=root_files[:5],
-                suggestion="Organize root files into subdirectories (src/, config/, docs/, etc.)"
-            ))
+            issues.append(
+                StructureIssue(
+                    category="hierarchy",
+                    severity="medium",
+                    description="Too many files in project root",
+                    affected_paths=root_files[:5],
+                    suggestion="Organize root files into subdirectories (src/, config/, docs/, etc.)",
+                )
+            )
             score -= 10
 
         # Check for deep nesting
         max_depth = max((p.count("/") for p in files), default=0)
         if max_depth > 6:
-            issues.append(StructureIssue(
-                category="hierarchy",
-                severity="low",
-                description=f"Deep folder nesting (depth={max_depth})",
-                affected_paths=[],
-                suggestion="Flatten some folder levels for better accessibility"
-            ))
+            issues.append(
+                StructureIssue(
+                    category="hierarchy",
+                    severity="low",
+                    description=f"Deep folder nesting (depth={max_depth})",
+                    affected_paths=[],
+                    suggestion="Flatten some folder levels for better accessibility",
+                )
+            )
             score -= 5
 
         return issues, score
 
-    def _check_naming_conventions(self, structure: Dict) -> Tuple[List[StructureIssue], float]:
+    def _check_naming_conventions(
+        self, structure: Dict
+    ) -> Tuple[List[StructureIssue], float]:
         """Check naming consistency."""
         issues = []
         score = 100.0
@@ -207,18 +215,22 @@ class StructurePreReviewer:
             Kebab_case_count = sum(1 for f in file_list if "-" in f)
 
             if Snake_case_count > 0 and Kebab_case_count > 0:
-                issues.append(StructureIssue(
-                    category="naming",
-                    severity="low",
-                    description="Mixed naming conventions in same file type",
-                    affected_paths=file_list[:3],
-                    suggestion="Use consistent naming (e.g., all snake_case or all kebab-case)"
-                ))
+                issues.append(
+                    StructureIssue(
+                        category="naming",
+                        severity="low",
+                        description="Mixed naming conventions in same file type",
+                        affected_paths=file_list[:3],
+                        suggestion="Use consistent naming (e.g., all snake_case or all kebab-case)",
+                    )
+                )
                 score -= 5
 
         return issues, score
 
-    def _check_naming_conflicts(self, structure: Dict) -> Tuple[List[StructureIssue], float]:
+    def _check_naming_conflicts(
+        self, structure: Dict
+    ) -> Tuple[List[StructureIssue], float]:
         """Check for naming conflicts (file with folder name)."""
         issues = []
         score = 100.0
@@ -233,21 +245,21 @@ class StructurePreReviewer:
         conflicts = file_bases & folder_bases
 
         if conflicts:
-            issues.append(StructureIssue(
-                category="naming",
-                severity="critical",
-                description=f"Naming conflicts: {len(conflicts)} file/folder conflicts",
-                affected_paths=sorted(conflicts),
-                suggestion="Rename files or folders to remove conflicts"
-            ))
+            issues.append(
+                StructureIssue(
+                    category="naming",
+                    severity="critical",
+                    description=f"Naming conflicts: {len(conflicts)} file/folder conflicts",
+                    affected_paths=sorted(conflicts),
+                    suggestion="Rename files or folders to remove conflicts",
+                )
+            )
             score -= 20
 
         return issues, score
 
     def _check_completeness(
-        self,
-        structure: Dict,
-        readme: str
+        self, structure: Dict, readme: str
     ) -> Tuple[List[StructureIssue], float]:
         """Check for required files based on project type."""
         issues = []
@@ -266,26 +278,27 @@ class StructurePreReviewer:
 
         missing = []
         for req_name, req_patterns in required_sets.items():
-            has = any(
-                any(p in f for p in req_patterns)
-                for f in files
-            )
+            has = any(any(p in f for p in req_patterns) for f in files)
             if not has and req_name != "license":  # License is optional
                 missing.append(req_name)
                 score -= 5
 
         if missing:
-            issues.append(StructureIssue(
-                category="completeness",
-                severity="medium",
-                description=f"Missing recommended files: {', '.join(missing)}",
-                affected_paths=[],
-                suggestion=f"Add {', '.join(missing)} files"
-            ))
+            issues.append(
+                StructureIssue(
+                    category="completeness",
+                    severity="medium",
+                    description=f"Missing recommended files: {', '.join(missing)}",
+                    affected_paths=[],
+                    suggestion=f"Add {', '.join(missing)} files",
+                )
+            )
 
         return issues, score
 
-    def _check_organization(self, structure: Dict) -> Tuple[List[StructureIssue], float]:
+    def _check_organization(
+        self, structure: Dict
+    ) -> Tuple[List[StructureIssue], float]:
         """Check logical organization (src/, tests/, etc.)."""
         issues = []
         score = 100.0
@@ -295,34 +308,35 @@ class StructurePreReviewer:
         # Check for separate test folder
         has_tests = any("test" in f for f in folders)
         if not has_tests:
-            issues.append(StructureIssue(
-                category="organization",
-                severity="low",
-                description="No separate test directory",
-                affected_paths=[],
-                suggestion="Create tests/ or test/ folder for test files"
-            ))
+            issues.append(
+                StructureIssue(
+                    category="organization",
+                    severity="low",
+                    description="No separate test directory",
+                    affected_paths=[],
+                    suggestion="Create tests/ or test/ folder for test files",
+                )
+            )
             score -= 3
 
         # Check for config folder
         has_config = any("config" in f or "conf" in f for f in folders)
         if not has_config:
-            issues.append(StructureIssue(
-                category="organization",
-                severity="low",
-                description="No config directory",
-                affected_paths=[],
-                suggestion="Create config/ folder for configuration files"
-            ))
+            issues.append(
+                StructureIssue(
+                    category="organization",
+                    severity="low",
+                    description="No config directory",
+                    affected_paths=[],
+                    suggestion="Create config/ folder for configuration files",
+                )
+            )
             score -= 3
 
         return issues, score
 
     def _get_llm_structure_review(
-        self,
-        readme: str,
-        structure: Dict,
-        project_name: str
+        self, readme: str, structure: Dict, project_name: str
     ) -> List[StructureIssue]:
         """Get LLM's subjective review of structure."""
         issues = []
@@ -370,13 +384,15 @@ Respond ONLY with valid JSON (no markdown):
                 result = json.loads(raw)
 
                 for issue_data in result.get("issues", []):
-                    issues.append(StructureIssue(
-                        category=issue_data.get("category", "organization"),
-                        severity=issue_data.get("severity", "low"),
-                        description=issue_data.get("description", ""),
-                        affected_paths=[],
-                        suggestion=issue_data.get("suggestion", "")
-                    ))
+                    issues.append(
+                        StructureIssue(
+                            category=issue_data.get("category", "organization"),
+                            severity=issue_data.get("severity", "low"),
+                            description=issue_data.get("description", ""),
+                            affected_paths=[],
+                            suggestion=issue_data.get("suggestion", ""),
+                        )
+                    )
             except json.JSONDecodeError:
                 self.logger.debug("LLM structure review did not return valid JSON")
 
@@ -386,9 +402,7 @@ Respond ONLY with valid JSON (no markdown):
         return issues
 
     def _calculate_quality_score(
-        self,
-        metrics: Dict[str, float],
-        issues: List[StructureIssue]
+        self, metrics: Dict[str, float], issues: List[StructureIssue]
     ) -> float:
         """Calculate overall quality score 0-100."""
         # Start with average of metrics
@@ -404,9 +418,7 @@ Respond ONLY with valid JSON (no markdown):
         return max(0, min(100, base_score))
 
     def _generate_recommendations(
-        self,
-        issues: List[StructureIssue],
-        status: str
+        self, issues: List[StructureIssue], status: str
     ) -> List[str]:
         """Generate actionable recommendations from issues."""
         recommendations = []
@@ -420,7 +432,9 @@ Respond ONLY with valid JSON (no markdown):
 
         # Generate recommendations per category
         for category, cat_issues in by_category.items():
-            high_priority = [i for i in cat_issues if i.severity in ("high", "critical")]
+            high_priority = [
+                i for i in cat_issues if i.severity in ("high", "critical")
+            ]
             if high_priority:
                 recommendations.append(
                     f"Fix {len(high_priority)} critical {category} issues: "

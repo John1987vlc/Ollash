@@ -1,11 +1,12 @@
 """Blueprint for system metrics dashboard and analytics."""
 
-from flask import Blueprint, jsonify, request
-from pathlib import Path
 import logging
+from pathlib import Path
 
-from frontend.middleware import require_api_key
+from flask import Blueprint, jsonify, request
+
 from backend.utils.core.metrics_database import get_metrics_database
+from frontend.middleware import require_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +25,15 @@ def init_app(ollash_root_dir: Path):
 @require_api_key
 def get_metric_categories():
     """Get available metric categories."""
-    return jsonify({
-        "categories": [
-            {"id": "system", "name": "System Metrics", "icon": "🖥️"},
-            {"id": "network", "name": "Network Metrics", "icon": "🌐"},
-            {"id": "security", "name": "Security Metrics", "icon": "🔒"}
-        ]
-    })
+    return jsonify(
+        {
+            "categories": [
+                {"id": "system", "name": "System Metrics", "icon": "🖥️"},
+                {"id": "network", "name": "Network Metrics", "icon": "🌐"},
+                {"id": "security", "name": "Security Metrics", "icon": "🔒"},
+            ]
+        }
+    )
 
 
 @metrics_bp.route("/api/metrics/<category>", methods=["GET"])
@@ -56,19 +59,17 @@ def get_category_metrics(category: str):
             if latest:
                 stats = _metrics_db.get_metric_stats(category, metric_name, hours=hours)
 
-                metrics.append({
-                    "name": metric_name,
-                    "latest_value": latest.get("value"),
-                    "latest_timestamp": latest.get("timestamp"),
-                    "stats": stats,
-                    "unit": _get_metric_unit(category, metric_name)
-                })
+                metrics.append(
+                    {
+                        "name": metric_name,
+                        "latest_value": latest.get("value"),
+                        "latest_timestamp": latest.get("timestamp"),
+                        "stats": stats,
+                        "unit": _get_metric_unit(category, metric_name),
+                    }
+                )
 
-        return jsonify({
-            "category": category,
-            "hours": hours,
-            "metrics": metrics
-        })
+        return jsonify({"category": category, "hours": hours, "metrics": metrics})
 
     except Exception as e:
         logger.error(f"Error retrieving metrics for {category}: {e}")
@@ -86,15 +87,19 @@ def get_metric_history(category: str, metric_name: str):
         if not _metrics_db:
             return jsonify({"error": "Metrics database not initialized"}), 503
 
-        history = _metrics_db.get_metric_history(category, metric_name, hours=hours, limit=limit)
+        history = _metrics_db.get_metric_history(
+            category, metric_name, hours=hours, limit=limit
+        )
 
-        return jsonify({
-            "category": category,
-            "metric": metric_name,
-            "hours": hours,
-            "records": history,
-            "count": len(history)
-        })
+        return jsonify(
+            {
+                "category": category,
+                "metric": metric_name,
+                "hours": hours,
+                "records": history,
+                "count": len(history),
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error retrieving history for {category}/{metric_name}: {e}")
@@ -116,12 +121,14 @@ def get_metric_statistics(category: str, metric_name: str):
         if not stats:
             return jsonify({"error": "No data available"}), 404
 
-        return jsonify({
-            "category": category,
-            "metric": metric_name,
-            "period_hours": hours,
-            "statistics": stats
-        })
+        return jsonify(
+            {
+                "category": category,
+                "metric": metric_name,
+                "period_hours": hours,
+                "statistics": stats,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error calculating stats: {e}")
@@ -150,23 +157,27 @@ def get_dashboard_summary():
                 latest = _metrics_db.get_latest_metric(category, metric_name)
 
                 if latest:
-                    category_metrics.append({
-                        "name": metric_name,
-                        "value": latest.get("value"),
-                        "timestamp": latest.get("timestamp")
-                    })
+                    category_metrics.append(
+                        {
+                            "name": metric_name,
+                            "value": latest.get("value"),
+                            "timestamp": latest.get("timestamp"),
+                        }
+                    )
 
             if category_metrics:
                 summary[category] = {
                     "count": len(category_metrics),
-                    "latest_metrics": category_metrics[:5]  # Last 5 metrics
+                    "latest_metrics": category_metrics[:5],  # Last 5 metrics
                 }
 
-        return jsonify({
-            "timestamp": __import__("datetime").datetime.now().isoformat(),
-            "period_hours": hours,
-            "summary": summary
-        })
+        return jsonify(
+            {
+                "timestamp": __import__("datetime").datetime.now().isoformat(),
+                "period_hours": hours,
+                "summary": summary,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error getting dashboard summary: {e}")
@@ -185,10 +196,9 @@ def cleanup_old_metrics():
 
         _metrics_db.clear_old_metrics(days=days)
 
-        return jsonify({
-            "status": "success",
-            "message": f"Cleaned metrics older than {days} days"
-        })
+        return jsonify(
+            {"status": "success", "message": f"Cleaned metrics older than {days} days"}
+        )
 
     except Exception as e:
         logger.error(f"Error cleaning metrics: {e}")
@@ -204,7 +214,7 @@ def _get_metric_unit(category: str, metric_name: str) -> str:
         "usage": "%",
         "free": "MB",
         "latency": "ms",
-        "count": "count"
+        "count": "count",
     }
 
     for key, unit in units.items():

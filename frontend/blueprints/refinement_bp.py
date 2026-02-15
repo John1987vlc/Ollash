@@ -3,12 +3,14 @@ Phase 4: Refinement Blueprint
 Flask blueprint exposing refinement workflow capabilities via REST API
 """
 
-from flask import Blueprint, request, jsonify
 from pathlib import Path
-from backend.utils.core.feedback_refinement_manager import FeedbackRefinementManager
-from backend.utils.core.source_validator import SourceValidator
-from backend.utils.core.refinement_orchestrator import RefinementOrchestrator
 
+from flask import Blueprint, jsonify, request
+
+from backend.utils.core.feedback_refinement_manager import \
+    FeedbackRefinementManager
+from backend.utils.core.refinement_orchestrator import RefinementOrchestrator
+from backend.utils.core.source_validator import SourceValidator
 
 # Initialize managers
 refinement_manager = None
@@ -20,21 +22,22 @@ def init_refinement(app=None):
     """Initialize refinement managers"""
     global refinement_manager, validator, orchestrator
 
-    workspace = Path(app.config.get('KNOWLEDGE_WORKSPACE', 'knowledge_workspace'))
+    workspace = Path(app.config.get("KNOWLEDGE_WORKSPACE", "knowledge_workspace"))
     refinement_manager = FeedbackRefinementManager(str(workspace))
     validator = SourceValidator(str(workspace))
     orchestrator = RefinementOrchestrator(str(workspace))
 
 
 # Create blueprint
-refinement_bp = Blueprint('refinement', __name__, url_prefix='/api/refinement')
+refinement_bp = Blueprint("refinement", __name__, url_prefix="/api/refinement")
 
 
 # =====================
 # WORKFLOW MANAGEMENT
 # =====================
 
-@refinement_bp.route('/workflow/create', methods=['POST'])
+
+@refinement_bp.route("/workflow/create", methods=["POST"])
 def create_workflow():
     """
     Create a new refinement workflow
@@ -61,35 +64,29 @@ def create_workflow():
             workflow_id=workflow_id,
             source_id=source_id,
             document_text=document_text,
-            strategy=strategy
+            strategy=strategy,
         )
 
-        return jsonify({
-            "status": "success",
-            "workflow": workflow.to_dict()
-        }), 201
+        return jsonify({"status": "success", "workflow": workflow.to_dict()}), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@refinement_bp.route('/workflow/<workflow_id>/analyze', methods=['GET'])
+@refinement_bp.route("/workflow/<workflow_id>/analyze", methods=["GET"])
 def analyze_workflow(workflow_id):
     """Analyze document and identify refinement candidates"""
     try:
         analysis = orchestrator.analyze_document(workflow_id)
-        return jsonify({
-            "status": "success",
-            "analysis": analysis
-        }), 200
+        return jsonify({"status": "success", "analysis": analysis}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@refinement_bp.route('/workflow/<workflow_id>/refine', methods=['POST'])
+@refinement_bp.route("/workflow/<workflow_id>/refine", methods=["POST"])
 def refine_workflow(workflow_id):
     """
     Execute refinement workflow
@@ -106,51 +103,44 @@ def refine_workflow(workflow_id):
         indices = data.get("paragraph_indices")
 
         results = orchestrator.refine_workflow(
-            workflow_id=workflow_id,
-            strategy_name=strategy,
-            paragraph_indices=indices
+            workflow_id=workflow_id, strategy_name=strategy, paragraph_indices=indices
         )
 
-        return jsonify({
-            "status": "success",
-            "results": results
-        }), 200
+        return jsonify({"status": "success", "results": results}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@refinement_bp.route('/workflow/<workflow_id>/status', methods=['GET'])
+@refinement_bp.route("/workflow/<workflow_id>/status", methods=["GET"])
 def get_workflow_status(workflow_id):
     """Get current status of workflow"""
     try:
         status = orchestrator.get_workflow_status(workflow_id)
         if "error" in status:
             return jsonify(status), 404
-        return jsonify({
-            "status": "success",
-            "workflow": status
-        }), 200
+        return jsonify({"status": "success", "workflow": status}), 200
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@refinement_bp.route('/workflow/list', methods=['GET'])
+@refinement_bp.route("/workflow/list", methods=["GET"])
 def list_workflows():
     """List all workflows"""
     try:
         workflows = orchestrator.list_workflows()
-        return jsonify({
-            "status": "success",
-            "count": len(workflows),
-            "workflows": workflows
-        }), 200
+        return (
+            jsonify(
+                {"status": "success", "count": len(workflows), "workflows": workflows}
+            ),
+            200,
+        )
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@refinement_bp.route('/workflow/<workflow_id>/export', methods=['GET'])
+@refinement_bp.route("/workflow/<workflow_id>/export", methods=["GET"])
 def export_workflow(workflow_id):
     """
     Export refined document
@@ -166,10 +156,14 @@ def export_workflow(workflow_id):
         content_types = {
             "text": "text/plain",
             "markdown": "text/markdown",
-            "html": "text/html"
+            "html": "text/html",
         }
 
-        return content, 200, {"Content-Type": content_types.get(format_type, "text/plain")}
+        return (
+            content,
+            200,
+            {"Content-Type": content_types.get(format_type, "text/plain")},
+        )
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
     except Exception as e:
@@ -180,7 +174,8 @@ def export_workflow(workflow_id):
 # PARAGRAPH REFINEMENT
 # =====================
 
-@refinement_bp.route('/paragraph/critique', methods=['POST'])
+
+@refinement_bp.route("/paragraph/critique", methods=["POST"])
 def critique_paragraph():
     """
     Generate critique for a paragraph
@@ -204,25 +199,27 @@ def critique_paragraph():
         from .utils.core.feedback_refinement_manager import ParagraphContext
 
         para = ParagraphContext(
-            index=0,
-            text=text,
-            original_text=text,
-            source_id=source_id
+            index=0, text=text, original_text=text, source_id=source_id
         )
 
         critique = refinement_manager.generate_critique(para, critique_type)
 
-        return jsonify({
-            "status": "success",
-            "critique_type": critique_type,
-            "critique": critique,
-            "readability_score": para.readability_score
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "critique_type": critique_type,
+                    "critique": critique,
+                    "readability_score": para.readability_score,
+                }
+            ),
+            200,
+        )
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@refinement_bp.route('/paragraph/compare', methods=['POST'])
+@refinement_bp.route("/paragraph/compare", methods=["POST"])
 def compare_paragraphs():
     """
     Compare original and refined versions
@@ -243,10 +240,7 @@ def compare_paragraphs():
 
         comparison = validator.compare_versions(original, refined)
 
-        return jsonify({
-            "status": "success",
-            "comparison": comparison
-        }), 200
+        return jsonify({"status": "success", "comparison": comparison}), 200
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
@@ -255,7 +249,8 @@ def compare_paragraphs():
 # VALIDATION
 # =====================
 
-@refinement_bp.route('/validate', methods=['POST'])
+
+@refinement_bp.route("/validate", methods=["POST"])
 def validate_refinement():
     """
     Validate a refinement against source
@@ -282,30 +277,32 @@ def validate_refinement():
             original_text=original,
             refined_text=refined,
             source_id=source_id,
-            validation_type=val_type
+            validation_type=val_type,
         )
 
-        return jsonify({
-            "status": "success",
-            "is_valid": result.is_valid,
-            "validation_score": result.validation_score,
-            "confidence": result.confidence_level,
-            "issue_count": len(result.issues),
-            "issues": [issue.to_dict() for issue in result.issues]
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "is_valid": result.is_valid,
+                    "validation_score": result.validation_score,
+                    "confidence": result.confidence_level,
+                    "issue_count": len(result.issues),
+                    "issues": [issue.to_dict() for issue in result.issues],
+                }
+            ),
+            200,
+        )
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@refinement_bp.route('/validation/report', methods=['GET'])
+@refinement_bp.route("/validation/report", methods=["GET"])
 def get_validation_report():
     """Get overall validation statistics"""
     try:
         report = validator.get_validation_report()
-        return jsonify({
-            "status": "success",
-            "report": report
-        }), 200
+        return jsonify({"status": "success", "report": report}), 200
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
@@ -314,7 +311,8 @@ def get_validation_report():
 # SOURCE MANAGEMENT
 # =====================
 
-@refinement_bp.route('/source/register', methods=['POST'])
+
+@refinement_bp.route("/source/register", methods=["POST"])
 def register_source():
     """
     Register a source document
@@ -335,15 +333,17 @@ def register_source():
 
         success = validator.register_source(source_id, source_text)
 
-        return jsonify({
-            "status": "success" if success else "failed",
-            "source_id": source_id
-        }), 201 if success else 400
+        return (
+            jsonify(
+                {"status": "success" if success else "failed", "source_id": source_id}
+            ),
+            201 if success else 400,
+        )
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@refinement_bp.route('/source/<source_id>', methods=['GET'])
+@refinement_bp.route("/source/<source_id>", methods=["GET"])
 def get_source(source_id):
     """Retrieve a registered source"""
     try:
@@ -351,11 +351,10 @@ def get_source(source_id):
         if not source:
             return jsonify({"error": f"Source '{source_id}' not found"}), 404
 
-        return jsonify({
-            "status": "success",
-            "source_id": source_id,
-            "content": source
-        }), 200
+        return (
+            jsonify({"status": "success", "source_id": source_id, "content": source}),
+            200,
+        )
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
@@ -364,20 +363,18 @@ def get_source(source_id):
 # REFINEMENT METRICS
 # =====================
 
-@refinement_bp.route('/metrics/summary', methods=['GET'])
+
+@refinement_bp.route("/metrics/summary", methods=["GET"])
 def get_refinement_summary():
     """Get overall refinement metrics"""
     try:
         summary = refinement_manager.get_refinement_summary()
-        return jsonify({
-            "status": "success",
-            "metrics": summary
-        }), 200
+        return jsonify({"status": "success", "metrics": summary}), 200
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@refinement_bp.route('/strategies', methods=['GET'])
+@refinement_bp.route("/strategies", methods=["GET"])
 def list_strategies():
     """List available refinement strategies"""
     try:
@@ -386,16 +383,21 @@ def list_strategies():
                 "name": strategy.name,
                 "description": strategy.description,
                 "critique_types": strategy.critique_types,
-                "iteration_limit": strategy.iteration_limit
+                "iteration_limit": strategy.iteration_limit,
             }
             for strategy in orchestrator.STRATEGIES.values()
         ]
 
-        return jsonify({
-            "status": "success",
-            "count": len(strategies),
-            "strategies": strategies
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "count": len(strategies),
+                    "strategies": strategies,
+                }
+            ),
+            200,
+        )
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
@@ -403,6 +405,7 @@ def list_strategies():
 # =====================
 # ERROR HANDLERS
 # =====================
+
 
 @refinement_bp.errorhandler(404)
 def not_found(e):

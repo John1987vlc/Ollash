@@ -1,9 +1,10 @@
 from typing import Dict
 
-from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.file_validator import FileValidator, ValidationStatus
+from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.ollama_client import OllamaClient
+
 from .prompt_templates import AutoGenPrompts
 
 
@@ -38,7 +39,9 @@ class FileCompletenessChecker:
         self.max_retries = max_retries_per_file
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def verify_and_fix(self, files: Dict[str, str], readme_context: str = "") -> Dict[str, str]:
+    def verify_and_fix(
+        self, files: Dict[str, str], readme_context: str = ""
+    ) -> Dict[str, str]:
         """Validate all files. For failures, attempt LLM-based fix up to max_retries times.
 
         Args:
@@ -67,7 +70,9 @@ class FileCompletenessChecker:
             current_content = fixed_files[result.file_path]
 
             for attempt in range(1, self.max_retries + 1):
-                self.logger.info(f"    Fix attempt {attempt}/{self.max_retries} for {result.file_path}")
+                self.logger.info(
+                    f"    Fix attempt {attempt}/{self.max_retries} for {result.file_path}"
+                )
 
                 system, user = AutoGenPrompts.file_fix(
                     result.file_path, current_content, result.message
@@ -89,7 +94,9 @@ class FileCompletenessChecker:
 
                     if new_result.status == ValidationStatus.VALID:
                         fixed_files[result.file_path] = new_content
-                        self.logger.info(f"    FIXED: {result.file_path} on attempt {attempt}")
+                        self.logger.info(
+                            f"    FIXED: {result.file_path} on attempt {attempt}"
+                        )
                         break
                     else:
                         self.logger.warning(

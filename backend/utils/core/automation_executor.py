@@ -3,18 +3,18 @@ Automation Task Executor - Executes scheduled automation tasks with conditional 
 """
 
 import asyncio
-import threading
 import logging
-from pathlib import Path
-from typing import Optional, Dict, Any
+import threading
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from backend.agents.default_agent import DefaultAgent
-from frontend.services.chat_event_bridge import ChatEventBridge
 from backend.utils.core.event_publisher import EventPublisher
-from backend.utils.core.notification_manager import get_notification_manager
 from backend.utils.core.metrics_database import get_metrics_database
+from backend.utils.core.notification_manager import get_notification_manager
 from backend.utils.core.trigger_manager import get_trigger_manager
+from frontend.services.chat_event_bridge import ChatEventBridge
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class AutomationTaskExecutor:
                 "timestamp": datetime.now().isoformat(),
                 "system": {},
                 "network": {},
-                "security": {}
+                "security": {},
             }
 
             # Gather system metrics
@@ -121,8 +121,8 @@ class AutomationTaskExecutor:
                                 "name": action.get("name", "Triggered Action"),
                                 "agent": action.get("agent", "orchestrator"),
                                 "prompt": action.get("prompt", ""),
-                                "notifyEmail": action.get("notify_email", False)
-                            }
+                                "notifyEmail": action.get("notify_email", False),
+                            },
                         )
                         results.append(result)
 
@@ -131,31 +131,31 @@ class AutomationTaskExecutor:
                         self.notification_manager.send_alert(
                             title=action.get("title", "Automation Alert"),
                             message=action.get("message", ""),
-                            severity=action.get("severity", "info")
+                            severity=action.get("severity", "info"),
                         )
-                        results.append({
-                            "action": "notification_sent",
-                            "status": "success"
-                        })
+                        results.append(
+                            {"action": "notification_sent", "status": "success"}
+                        )
 
                     elif action_type == "publish_event":
                         # Publish event
                         self.event_publisher.publish(
                             action.get("event_name", "automation:triggered"),
-                            event_data=action.get("event_data", {})
+                            event_data=action.get("event_data", {}),
                         )
-                        results.append({
-                            "action": "event_published",
-                            "status": "success"
-                        })
+                        results.append(
+                            {"action": "event_published", "status": "success"}
+                        )
 
                 except Exception as e:
                     logger.error(f"Error executing triggered action: {e}")
-                    results.append({
-                        "action": action.get("name", "unknown"),
-                        "status": "error",
-                        "error": str(e)
-                    })
+                    results.append(
+                        {
+                            "action": action.get("name", "unknown"),
+                            "status": "error",
+                            "error": str(e),
+                        }
+                    )
 
         return results
 
@@ -163,7 +163,7 @@ class AutomationTaskExecutor:
         self,
         task_id: str,
         task_data: Dict[str, Any],
-        recipient_emails: Optional[list] = None
+        recipient_emails: Optional[list] = None,
     ) -> Dict[str, Any]:
         """
         Execute an automation task.
@@ -185,22 +185,24 @@ class AutomationTaskExecutor:
                 'executed_at': ISO timestamp
             }
         """
-        task_name = task_data.get('name', 'Unknown Task')
-        agent_type = task_data.get('agent', 'orchestrator')
-        prompt = task_data.get('prompt', '')
-        notify_email = task_data.get('notifyEmail', False)
+        task_name = task_data.get("name", "Unknown Task")
+        agent_type = task_data.get("agent", "orchestrator")
+        prompt = task_data.get("prompt", "")
+        notify_email = task_data.get("notifyEmail", False)
 
         result = {
-            'task_id': task_id,
-            'task_name': task_name,
-            'agent_type': agent_type,
-            'status': 'error',
-            'output': '',
-            'error': None
+            "task_id": task_id,
+            "task_name": task_name,
+            "agent_type": agent_type,
+            "status": "error",
+            "output": "",
+            "error": None,
         }
 
         try:
-            logger.info(f"Executing task {task_id}: {task_name} with agent {agent_type}")
+            logger.info(
+                f"Executing task {task_id}: {task_name} with agent {agent_type}"
+            )
 
             # Create a temporary event bridge for this execution
             bridge = ChatEventBridge(self.event_publisher)
@@ -221,8 +223,8 @@ class AutomationTaskExecutor:
             # Execute prompt in thread to avoid blocking
             output = await asyncio.to_thread(agent.chat, prompt)
 
-            result['status'] = 'success'
-            result['output'] = output
+            result["status"] = "success"
+            result["output"] = output
             logger.info(f"Task {task_id} completed successfully")
 
             # Send email notification if requested
@@ -232,37 +234,45 @@ class AutomationTaskExecutor:
                     agent_type=agent_type,
                     result=output,
                     recipient_emails=recipient_emails,
-                    success=True
+                    success=True,
                 )
 
             # Publish event for UI feedback
-            self.event_publisher.publish('task:completed', event_data={
-                'task_id': task_id,
-                'task_name': task_name,
-                'output': output
-            })
+            self.event_publisher.publish(
+                "task:completed",
+                event_data={
+                    "task_id": task_id,
+                    "task_name": task_name,
+                    "output": output,
+                },
+            )
 
         except Exception as e:
             error_msg = str(e)
-            result['status'] = 'error'
-            result['error'] = error_msg
-            logger.error(f"Task {task_id} failed with error: {error_msg}", exc_info=True)
+            result["status"] = "error"
+            result["error"] = error_msg
+            logger.error(
+                f"Task {task_id} failed with error: {error_msg}", exc_info=True
+            )
 
             # Send error notification email
             if notify_email and recipient_emails:
                 self.notification_manager.send_error_notification(
                     task_name=task_name,
                     error_message=error_msg,
-                    error_type='Agent Execution Error',
-                    recipient_emails=recipient_emails
+                    error_type="Agent Execution Error",
+                    recipient_emails=recipient_emails,
                 )
 
             # Publish error event
-            self.event_publisher.publish('task:error', event_data={
-                'task_id': task_id,
-                'task_name': task_name,
-                'error': error_msg
-            })
+            self.event_publisher.publish(
+                "task:error",
+                event_data={
+                    "task_id": task_id,
+                    "task_name": task_name,
+                    "error": error_msg,
+                },
+            )
 
         return result
 
@@ -270,7 +280,7 @@ class AutomationTaskExecutor:
         self,
         task_id: str,
         task_data: Dict[str, Any],
-        recipient_emails: Optional[list] = None
+        recipient_emails: Optional[list] = None,
     ) -> Dict[str, Any]:
         """
         Execute task synchronously (blocking).
@@ -303,7 +313,7 @@ _executor_instance = None
 
 def get_task_executor(
     ollash_root_dir: Optional[Path] = None,
-    event_publisher: Optional[EventPublisher] = None
+    event_publisher: Optional[EventPublisher] = None,
 ) -> AutomationTaskExecutor:
     """
     Get or create the global task executor instance.

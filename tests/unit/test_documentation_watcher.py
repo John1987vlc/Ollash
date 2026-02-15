@@ -3,14 +3,15 @@ Unit Tests for DocumentationWatcher
 Tests automatic document indexing and monitoring
 """
 
-import pytest
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock
 
-from backend.utils.core.documentation_watcher import DocumentationWatcher
+import pytest
+
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.documentation_manager import DocumentationManager
+from backend.utils.core.documentation_watcher import DocumentationWatcher
 
 
 @pytest.fixture
@@ -44,7 +45,7 @@ def watcher(doc_manager, logger):
         references_dir=refs_dir,
         documentation_manager=doc_manager,
         logger=logger,
-        check_interval=1
+        check_interval=1,
     )
     yield watcher
     watcher.stop()
@@ -59,9 +60,7 @@ class TestDocumentationWatcher:
         refs_dir.mkdir(exist_ok=True)
 
         watcher = DocumentationWatcher(
-            references_dir=refs_dir,
-            documentation_manager=doc_manager,
-            logger=logger
+            references_dir=refs_dir, documentation_manager=doc_manager, logger=logger
         )
 
         assert watcher.references_dir == refs_dir
@@ -91,7 +90,9 @@ class TestDocumentationWatcher:
 
     def test_manual_index(self, watcher, logger):
         """Test manual indexing of a file"""
-        with tempfile.NamedTemporaryFile(suffix='.txt', dir=watcher.references_dir, delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            suffix=".txt", dir=watcher.references_dir, delete=False
+        ) as f:
             f.write(b"Test content")
             f.flush()
             file_path = Path(f.name)
@@ -141,9 +142,7 @@ class TestDocumentationWatcher:
         doc_manager = Mock(spec=DocumentationManager)
 
         watcher = DocumentationWatcher(
-            references_dir=refs_dir,
-            documentation_manager=doc_manager,
-            logger=logger
+            references_dir=refs_dir, documentation_manager=doc_manager, logger=logger
         )
 
         # Should not raise exception
@@ -184,4 +183,3 @@ class TestDocumentationWatcher:
         finally:
             supported_file.unlink()
             unsupported_file.unlink()
-

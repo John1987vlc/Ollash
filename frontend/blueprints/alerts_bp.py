@@ -2,13 +2,14 @@
 Alerts API Blueprint - Exposes alert endpoints and SSE streams
 """
 
-from flask import Blueprint, jsonify, request, Response, current_app
-from pathlib import Path
 import json
 import logging
-import queue # Import queue module
+import queue  # Import queue module
+from pathlib import Path
 
-alerts_bp = Blueprint('alerts', __name__, url_prefix='/api/alerts')
+from flask import Blueprint, Response, current_app, jsonify, request
+
+alerts_bp = Blueprint("alerts", __name__, url_prefix="/api/alerts")
 logger = logging.getLogger(__name__)
 
 
@@ -16,23 +17,24 @@ logger = logging.getLogger(__name__)
 _alert_subscribers = []
 
 
-@alerts_bp.route('/stream')
+@alerts_bp.route("/stream")
 def stream_alerts():
     """
     Server-Sent Events endpoint for real-time alerts.
     Clients connect here to receive proactive notifications.
     """
-    event_publisher = current_app.config.get('event_publisher')
+    event_publisher = current_app.config.get("event_publisher")
 
     def generate(publisher):
-
         if not publisher:
             logger.warning("EventPublisher not available for alerts stream")
             yield f"data: {json.dumps({'error': 'EventPublisher not initialized'})}\n\n"
             return
 
         # Create a subscription queue for this client
-        event_queue = queue.Queue() # Renamed to event_queue to avoid conflict with imported queue module
+        event_queue = (
+            queue.Queue()
+        )  # Renamed to event_queue to avoid conflict with imported queue module
 
         # Define a callback function to put events into the queue
         def _event_callback(event_type, event_data):
@@ -54,11 +56,15 @@ def stream_alerts():
                     event_type, event_data = event_queue.get(timeout=30)
 
                     # Format as SSE
-                    data = json.dumps(event_data) if isinstance(event_data, dict) else str(event_data)
+                    data = (
+                        json.dumps(event_data)
+                        if isinstance(event_data, dict)
+                        else str(event_data)
+                    )
                     yield f"event: {event_type}\n"
                     yield f"data: {data}\n\n"
 
-                except queue.Empty: # Use the imported queue.Empty
+                except queue.Empty:  # Use the imported queue.Empty
                     # Send heartbeat to keep connection alive
                     yield ": heartbeat\n\n"
 
@@ -80,56 +86,48 @@ def stream_alerts():
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
-@alerts_bp.route('', methods=['GET'])
+@alerts_bp.route("", methods=["GET"])
 def get_alerts():
     """Get configured alerts."""
     try:
-        alert_manager = current_app.config.get('alert_manager')
+        alert_manager = current_app.config.get("alert_manager")
         if not alert_manager:
             return jsonify({"ok": False, "error": "Alert manager not initialized"}), 500
 
         alerts = alert_manager.get_active_alerts()
-        return jsonify({
-            "ok": True,
-            "alerts": alerts,
-            "total": len(alerts)
-        })
+        return jsonify({"ok": True, "alerts": alerts, "total": len(alerts)})
     except Exception as e:
         logger.error(f"Error getting alerts: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@alerts_bp.route('/history', methods=['GET'])
+@alerts_bp.route("/history", methods=["GET"])
 def get_alert_history():
     """Get recent alert history."""
     try:
-        alert_manager = current_app.config.get('alert_manager')
+        alert_manager = current_app.config.get("alert_manager")
         if not alert_manager:
             return jsonify({"ok": False, "error": "Alert manager not initialized"}), 500
 
-        limit = request.args.get('limit', 50, type=int)
+        limit = request.args.get("limit", 50, type=int)
         history = alert_manager.get_alert_history(limit=limit)
 
-        return jsonify({
-            "ok": True,
-            "history": history,
-            "total": len(history)
-        })
+        return jsonify({"ok": True, "history": history, "total": len(history)})
     except Exception as e:
         logger.error(f"Error getting alert history: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@alerts_bp.route('/<alert_id>/disable', methods=['POST'])
+@alerts_bp.route("/<alert_id>/disable", methods=["POST"])
 def disable_alert(alert_id):
     """Disable a specific alert."""
     try:
-        alert_manager = current_app.config.get('alert_manager')
+        alert_manager = current_app.config.get("alert_manager")
         if not alert_manager:
             return jsonify({"ok": False, "error": "Alert manager not initialized"}), 500
 
@@ -143,11 +141,11 @@ def disable_alert(alert_id):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@alerts_bp.route('/<alert_id>/enable', methods=['POST'])
+@alerts_bp.route("/<alert_id>/enable", methods=["POST"])
 def enable_alert(alert_id):
     """Enable a specific alert."""
     try:
-        alert_manager = current_app.config.get('alert_manager')
+        alert_manager = current_app.config.get("alert_manager")
         if not alert_manager:
             return jsonify({"ok": False, "error": "Alert manager not initialized"}), 500
 
@@ -161,11 +159,11 @@ def enable_alert(alert_id):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@alerts_bp.route('/history/clear', methods=['POST'])
+@alerts_bp.route("/history/clear", methods=["POST"])
 def clear_history():
     """Clear alert history."""
     try:
-        alert_manager = current_app.config.get('alert_manager')
+        alert_manager = current_app.config.get("alert_manager")
         if not alert_manager:
             return jsonify({"ok": False, "error": "Alert manager not initialized"}), 500
 
@@ -183,5 +181,4 @@ def init_app(ollash_root_dir: Path, event_publisher=None, alert_manager=None):
     # This will be completed when registering the blueprint
 
 
-__all__ = ['alerts_bp', 'init_app']
-
+__all__ = ["alerts_bp", "init_app"]

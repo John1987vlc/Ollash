@@ -1,12 +1,12 @@
 """Project Analysis Phase - Analyzes existing code and plans improvements."""
 
-from typing import Dict, Any, List, Tuple
-from pathlib import Path
 import json
 import re
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
-from backend.interfaces.iagent_phase import IAgentPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
+from backend.interfaces.iagent_phase import IAgentPhase
 
 
 class ProjectAnalysisPhase(IAgentPhase):
@@ -26,14 +26,16 @@ class ProjectAnalysisPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(self,
-                      project_description: str,
-                      project_name: str,
-                      project_root: Path,
-                      readme_content: str,
-                      initial_structure: Dict[str, Any],
-                      generated_files: Dict[str, str],
-                      **kwargs: Any) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
+    async def execute(
+        self,
+        project_description: str,
+        project_name: str,
+        project_root: Path,
+        readme_content: str,
+        initial_structure: Dict[str, Any],
+        generated_files: Dict[str, str],
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         """
         Analyzes the existing project and generates improvement plan.
         """
@@ -44,16 +46,16 @@ class ProjectAnalysisPhase(IAgentPhase):
             f"({len(generated_files)} files, {len(file_paths)} paths)..."
         )
         self.context.event_publisher.publish(
-            "phase_start",
-            phase="0.5",
-            message="Analyzing existing project code"
+            "phase_start", phase="0.5", message="Analyzing existing project code"
         )
 
         # Step 1: Analyze current codebase
         codebase_analysis = await self._analyze_codebase(generated_files, file_paths)
 
         # Step 2: Compare with project description
-        gaps = await self._identify_gaps(project_description, codebase_analysis, readme_content)
+        gaps = await self._identify_gaps(
+            project_description, codebase_analysis, readme_content
+        )
 
         # Step 3: Generate improvement plan
         logic_plan = await self._generate_improvement_plan(
@@ -70,7 +72,9 @@ class ProjectAnalysisPhase(IAgentPhase):
         }
 
         analysis_file = project_root / "ANALYSIS_REPORT.json"
-        self.context.file_manager.write_file(analysis_file, json.dumps(analysis_report, indent=2))
+        self.context.file_manager.write_file(
+            analysis_file, json.dumps(analysis_report, indent=2)
+        )
         generated_files["ANALYSIS_REPORT.json"] = json.dumps(analysis_report, indent=2)
 
         # Store in context for use by subsequent phases
@@ -84,7 +88,7 @@ class ProjectAnalysisPhase(IAgentPhase):
         self.context.event_publisher.publish(
             "phase_complete",
             phase="0.5",
-            message=f"Analysis complete: {improvement_count} improvements, {refactor_count} refactoring opportunities"
+            message=f"Analysis complete: {improvement_count} improvements, {refactor_count} refactoring opportunities",
         )
         self.context.logger.info(
             f"[PROJECT_NAME:{project_name}] PHASE 0.5 complete: "
@@ -93,8 +97,9 @@ class ProjectAnalysisPhase(IAgentPhase):
 
         return generated_files, initial_structure, file_paths
 
-    async def _analyze_codebase(self, generated_files: Dict[str, str],
-                               file_paths: List[str]) -> Dict[str, Any]:
+    async def _analyze_codebase(
+        self, generated_files: Dict[str, str], file_paths: List[str]
+    ) -> Dict[str, Any]:
         """
         Analyzes the existing codebase to understand structure and patterns.
 
@@ -113,12 +118,8 @@ class ProjectAnalysisPhase(IAgentPhase):
             "total_lines_of_code": 0,
             "code_patterns": [],
             "dependencies": [],
-            "test_coverage": {
-                "has_tests": False,
-                "test_files": [],
-                "source_files": []
-            },
-            "file_details": []
+            "test_coverage": {"has_tests": False, "test_files": [], "source_files": []},
+            "file_details": [],
         }
 
         # Group files by language
@@ -162,9 +163,12 @@ class ProjectAnalysisPhase(IAgentPhase):
 
         return analysis
 
-    async def _identify_gaps(self, project_description: str,
-                            codebase_analysis: Dict[str, Any],
-                            readme_content: str) -> Dict[str, Any]:
+    async def _identify_gaps(
+        self,
+        project_description: str,
+        codebase_analysis: Dict[str, Any],
+        readme_content: str,
+    ) -> Dict[str, Any]:
         """
         Compares the existing codebase with the project description
         to identify gaps and missing features.
@@ -172,7 +176,9 @@ class ProjectAnalysisPhase(IAgentPhase):
         Returns:
             Dictionary with identified gaps, missing features, and improvement opportunities
         """
-        self.context.logger.info("  Identifying gaps between current state and requirements...")
+        self.context.logger.info(
+            "  Identifying gaps between current state and requirements..."
+        )
 
         # Prepare context for LLM
         analysis_context = f"""
@@ -230,7 +236,7 @@ Respond with a JSON structure containing:
             response_text = response_data.get("content", "")
 
             # Extract JSON from response
-            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            json_match = re.search(r"\{[\s\S]*\}", response_text)
             if json_match:
                 gaps = json.loads(json_match.group())
             else:
@@ -241,7 +247,7 @@ Respond with a JSON structure containing:
                     "refactoring_opportunities": [],
                     "missing_features": [],
                     "test_gaps": [],
-                    "summary": response_text
+                    "summary": response_text,
                 }
 
             return gaps
@@ -254,13 +260,16 @@ Respond with a JSON structure containing:
                 "refactoring_opportunities": [],
                 "missing_features": [],
                 "test_gaps": [],
-                "summary": f"Error during analysis: {str(e)}"
+                "summary": f"Error during analysis: {str(e)}",
             }
 
-    async def _generate_improvement_plan(self, gaps: Dict[str, Any],
-                                        codebase_analysis: Dict[str, Any],
-                                        project_description: str,
-                                        generated_files: Dict[str, str]) -> Dict[str, Any]:
+    async def _generate_improvement_plan(
+        self,
+        gaps: Dict[str, Any],
+        codebase_analysis: Dict[str, Any],
+        project_description: str,
+        generated_files: Dict[str, str],
+    ) -> Dict[str, Any]:
         """
         Generates a detailed improvement plan based on identified gaps.
 
@@ -318,8 +327,8 @@ Respond with a JSON structure containing:
         # Python imports
         if file_path.endswith(".py"):
             import_patterns = [
-                r'^import\s+(\S+)',
-                r'^from\s+(\S+)\s+import',
+                r"^import\s+(\S+)",
+                r"^from\s+(\S+)\s+import",
             ]
             for pattern in import_patterns:
                 matches = re.findall(pattern, content, re.MULTILINE)

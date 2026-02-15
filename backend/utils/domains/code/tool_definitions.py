@@ -9,10 +9,13 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "Optional: The path to the project root or sub-directory to analyze. Defaults to current project root."}
-                }
-            }
-        }
+                    "path": {
+                        "type": "string",
+                        "description": "Optional: The path to the project root or sub-directory to analyze. Defaults to current project root.",
+                    }
+                },
+            },
+        },
     },
     {
         "type": "function",
@@ -22,13 +25,22 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "The path to the file to read."},
-                    "start_line": {"type": "integer", "description": "Optional: Starting line number (1-based) to read."},
-                    "end_line": {"type": "integer", "description": "Optional: Ending line number (1-based) to read."}
+                    "path": {
+                        "type": "string",
+                        "description": "The path to the file to read.",
+                    },
+                    "start_line": {
+                        "type": "integer",
+                        "description": "Optional: Starting line number (1-based) to read.",
+                    },
+                    "end_line": {
+                        "type": "integer",
+                        "description": "Optional: Ending line number (1-based) to read.",
+                    },
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -41,12 +53,12 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
                     "paths": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "A list of paths to the files to read."
+                        "description": "A list of paths to the files to read.",
                     }
                 },
-                "required": ["paths"]
-            }
-        }
+                "required": ["paths"],
+            },
+        },
     },
     {
         "type": "function",
@@ -56,13 +68,22 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "The path to the file to write."},
-                    "content": {"type": "string", "description": "The content to write to the file."},
-                    "reason": {"type": "string", "description": "The reason for writing this file, for user confirmation."}
+                    "path": {
+                        "type": "string",
+                        "description": "The path to the file to write.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The content to write to the file.",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "The reason for writing this file, for user confirmation.",
+                    },
                 },
-                "required": ["path", "content", "reason"]
-            }
-        }
+                "required": ["path", "content", "reason"],
+            },
+        },
     },
     {
         "type": "function",
@@ -72,12 +93,18 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "The path to the file to delete."},
-                    "reason": {"type": "string", "description": "The reason for deleting this file, for user confirmation."}
+                    "path": {
+                        "type": "string",
+                        "description": "The path to the file to delete.",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "The reason for deleting this file, for user confirmation.",
+                    },
                 },
-                "required": ["path", "reason"]
-            }
-        }
+                "required": ["path", "reason"],
+            },
+        },
     },
     {
         "type": "function",
@@ -87,13 +114,22 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path1": {"type": "string", "description": "Path to the first file."},
-                    "path2": {"type": "string", "description": "Optional: Path to the second file."},
-                    "inline_content": {"type": "string", "description": "Optional: Content to compare with path1 if path2 is not provided."}
+                    "path1": {
+                        "type": "string",
+                        "description": "Path to the first file.",
+                    },
+                    "path2": {
+                        "type": "string",
+                        "description": "Optional: Path to the second file.",
+                    },
+                    "inline_content": {
+                        "type": "string",
+                        "description": "Optional: Content to compare with path1 if path2 is not provided.",
+                    },
                 },
-                "required": ["path1"]
-            }
-        }
+                "required": ["path1"],
+            },
+        },
     },
     {
         "type": "function",
@@ -103,11 +139,14 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "The path to the file to summarize."}
+                    "path": {
+                        "type": "string",
+                        "description": "The path to the file to summarize.",
+                    }
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -120,12 +159,12 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
                     "paths": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "A list of paths to the files to summarize."
+                        "description": "A list of paths to the files to summarize.",
                     }
                 },
-                "required": ["paths"]
-            }
-        }
+                "required": ["paths"],
+            },
+        },
     },
     {
         "type": "function",
@@ -135,13 +174,22 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "pattern": {"type": "string", "description": "The regex pattern to search for."},
-                    "file_pattern": {"type": "string", "description": "Optional: Glob pattern to filter files (e.g., '*.py', 'src/**/*.js')."},
-                    "case_sensitive": {"type": "boolean", "description": "Optional: Whether the search should be case-sensitive. Defaults to false."}
+                    "pattern": {
+                        "type": "string",
+                        "description": "The regex pattern to search for.",
+                    },
+                    "file_pattern": {
+                        "type": "string",
+                        "description": "Optional: Glob pattern to filter files (e.g., '*.py', 'src/**/*.js').",
+                    },
+                    "case_sensitive": {
+                        "type": "boolean",
+                        "description": "Optional: Whether the search should be case-sensitive. Defaults to false.",
+                    },
                 },
-                "required": ["pattern"]
-            }
-        }
+                "required": ["pattern"],
+            },
+        },
     },
     {
         "type": "function",
@@ -151,13 +199,22 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "The path to the directory to list."},
-                    "recursive": {"type": "boolean", "description": "Optional: Whether to list contents recursively. Defaults to false."},
-                    "include_hidden": {"type": "boolean", "description": "Optional: Whether to include hidden files. Defaults to false."}
+                    "path": {
+                        "type": "string",
+                        "description": "The path to the directory to list.",
+                    },
+                    "recursive": {
+                        "type": "boolean",
+                        "description": "Optional: Whether to list contents recursively. Defaults to false.",
+                    },
+                    "include_hidden": {
+                        "type": "boolean",
+                        "description": "Optional: Whether to include hidden files. Defaults to false.",
+                    },
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -167,11 +224,14 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "The file or directory path to analyze."}
+                    "path": {
+                        "type": "string",
+                        "description": "The file or directory path to analyze.",
+                    }
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -181,12 +241,18 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "file_path": {"type": "string", "description": "The path to the file to be refactored."},
-                    "line_number": {"type": "integer", "description": "Optional line number to focus the refactor suggestion."}
+                    "file_path": {
+                        "type": "string",
+                        "description": "The path to the file to be refactored.",
+                    },
+                    "line_number": {
+                        "type": "integer",
+                        "description": "Optional line number to focus the refactor suggestion.",
+                    },
                 },
-                "required": ["file_path"]
-            }
-        }
+                "required": ["file_path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -196,11 +262,14 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "package_or_module": {"type": "string", "description": "The name of the package or module to map."}
+                    "package_or_module": {
+                        "type": "string",
+                        "description": "The name of the package or module to map.",
+                    }
                 },
-                "required": ["package_or_module"]
-            }
-        }
+                "required": ["package_or_module"],
+            },
+        },
     },
     {
         "type": "function",
@@ -213,11 +282,11 @@ CODE_TOOL_DEFINITIONS: List[Dict] = [
                     "file_paths": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "A list of at least two configuration file paths to compare."
+                        "description": "A list of at least two configuration file paths to compare.",
                     }
                 },
-                "required": ["file_paths"]
-            }
-        }
+                "required": ["file_paths"],
+            },
+        },
     },
 ]

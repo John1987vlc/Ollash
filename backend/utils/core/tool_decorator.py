@@ -8,7 +8,6 @@ without manual registration in all_tool_definitions.py or ToolRegistry.
 import functools
 from typing import Callable, Dict, List, Optional
 
-
 # Global registries populated by the decorator
 _DISCOVERED_TOOLS: Dict[str, Dict] = {}
 _DISCOVERED_DEFINITIONS: List[Dict] = []

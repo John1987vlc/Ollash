@@ -1,11 +1,14 @@
 import json
+from pathlib import Path  # Added for Path.suffix
 from typing import Dict
-from pathlib import Path # Added for Path.suffix
-from backend.utils.core.ollama_client import OllamaClient
+
 from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.documentation_manager import \
+    DocumentationManager  # ADDED IMPORT
+from backend.utils.core.fragment_cache import FragmentCache  # CACHE SUPPORT
 from backend.utils.core.llm_response_parser import LLMResponseParser
-from backend.utils.core.documentation_manager import DocumentationManager # ADDED IMPORT
-from backend.utils.core.fragment_cache import FragmentCache # CACHE SUPPORT
+from backend.utils.core.ollama_client import OllamaClient
+
 from .prompt_templates import AutoGenPrompts
 
 
@@ -27,15 +30,15 @@ class FileContentGenerator:
         llm_client: OllamaClient,
         logger: AgentLogger,
         response_parser: LLMResponseParser,
-        documentation_manager: DocumentationManager, # ADDED PARAMETER
-        fragment_cache: FragmentCache = None, # CACHE SUPPORT
+        documentation_manager: DocumentationManager,  # ADDED PARAMETER
+        fragment_cache: FragmentCache = None,  # CACHE SUPPORT
         options: dict = None,
     ):
         self.llm_client = llm_client
         self.logger = logger
         self.parser = response_parser
-        self.documentation_manager = documentation_manager # STORE IT
-        self.fragment_cache = fragment_cache # Optional cache
+        self.documentation_manager = documentation_manager  # STORE IT
+        self.fragment_cache = fragment_cache  # Optional cache
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
     def generate_file(
@@ -62,22 +65,25 @@ class FileContentGenerator:
         # if project description is available, use it
         if json_structure and "description" in json_structure:
             query_terms.append(json_structure["description"])
-        elif "title" in json_structure: # Fallback to title
+        elif "title" in json_structure:  # Fallback to title
             query_terms.append(json_structure["title"])
 
         # Add terms from the readme that might be relevant
         readme_summary_len = min(500, len(readme_content))
         query_terms.append(readme_content[:readme_summary_len])
 
-
         documentation_context = ""
         # Create a more targeted query
         documentation_query = f"How to implement {file_path} for a project described as: {readme_content[:200]}..."
 
-        retrieved_docs = self.documentation_manager.query_documentation(documentation_query, n_results=2) # Get top 2 results
+        retrieved_docs = self.documentation_manager.query_documentation(
+            documentation_query, n_results=2
+        )  # Get top 2 results
         if retrieved_docs:
-            documentation_context = "\n\nRelevant Documentation Snippets:\n" + "\n---\n".join([doc["document"] for doc in retrieved_docs])
-
+            documentation_context = (
+                "\n\nRelevant Documentation Snippets:\n"
+                + "\n---\n".join([doc["document"] for doc in retrieved_docs])
+            )
 
         for attempt in range(max_retries):
             system_prompt, user_prompt = AutoGenPrompts.file_content_generation(

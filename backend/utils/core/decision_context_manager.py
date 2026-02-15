@@ -7,10 +7,10 @@ anteriores similares.
 """
 
 import json
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from backend.utils.core.agent_logger import AgentLogger
 
@@ -18,6 +18,7 @@ from backend.utils.core.agent_logger import AgentLogger
 @dataclass
 class Decision:
     """Representa una decisión registrada."""
+
     id: str
     timestamp: str
     project: str
@@ -50,7 +51,9 @@ class DecisionContextManager:
     - Almacenar outcomes para aprendizaje continuo
     """
 
-    def __init__(self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None):
+    def __init__(
+        self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None
+    ):
         self.project_root = project_root
         self.logger = logger
         self.config = config or {}
@@ -72,7 +75,7 @@ class DecisionContextManager:
         category: str,
         context: Dict[str, Any],
         project: Optional[str] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
     ) -> str:
         """
         Registra una nueva decisión.
@@ -100,7 +103,7 @@ class DecisionContextManager:
                 decision=decision,
                 reasoning=reasoning,
                 context=context,
-                tags=tags or []
+                tags=tags or [],
             )
 
             self.decisions[decision_id] = dec
@@ -121,7 +124,7 @@ class DecisionContextManager:
         problem: str,
         category: Optional[str] = None,
         project: Optional[str] = None,
-        max_results: int = 5
+        max_results: int = 5,
     ) -> List[Decision]:
         """
         Busca decisiones similares en el historial.
@@ -171,9 +174,7 @@ class DecisionContextManager:
             return []
 
     def suggest_based_on_history(
-        self,
-        question: str,
-        category: Optional[str] = None
+        self, question: str, category: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Sugiere soluciones basadas en decisiones históricas.
@@ -186,14 +187,14 @@ class DecisionContextManager:
             suggestions = []
             for decision in similar_decisions:
                 suggestion = {
-                    'based_on_decision_id': decision.id,
-                    'decision': decision.decision,
-                    'reasoning': decision.reasoning,
-                    'project': decision.project,
-                    'timestamp': decision.timestamp,
-                    'outcome': decision.outcome,
-                    'tags': decision.tags,
-                    'relevance': 'based_on_similarity'
+                    "based_on_decision_id": decision.id,
+                    "decision": decision.decision,
+                    "reasoning": decision.reasoning,
+                    "project": decision.project,
+                    "timestamp": decision.timestamp,
+                    "outcome": decision.outcome,
+                    "tags": decision.tags,
+                    "relevance": "based_on_similarity",
                 }
                 suggestions.append(suggestion)
 
@@ -204,11 +205,7 @@ class DecisionContextManager:
             self.logger.error(f"Error suggesting from history: {e}")
             return []
 
-    def update_outcome(
-        self,
-        decision_id: str,
-        outcome: Dict[str, Any]
-    ) -> bool:
+    def update_outcome(self, decision_id: str, outcome: Dict[str, Any]) -> bool:
         """
         Actualiza el outcome de una decisión registrada.
 
@@ -240,8 +237,7 @@ class DecisionContextManager:
         """
         try:
             project_decisions = [
-                d for d in self.decisions.values()
-                if d.project == project
+                d for d in self.decisions.values() if d.project == project
             ]
 
             # Agrupar por categoría
@@ -258,15 +254,14 @@ class DecisionContextManager:
             lessons = self._extract_lessons(project_decisions)
 
             context = {
-                'project': project,
-                'total_decisions': len(project_decisions),
-                'decisions_by_category': {
-                    cat: len(decs)
-                    for cat, decs in by_category.items()
+                "project": project,
+                "total_decisions": len(project_decisions),
+                "decisions_by_category": {
+                    cat: len(decs) for cat, decs in by_category.items()
                 },
-                'patterns': patterns,
-                'lessons_learned': lessons,
-                'timestamp': self._get_timestamp()
+                "patterns": patterns,
+                "lessons_learned": lessons,
+                "timestamp": self._get_timestamp(),
             }
 
             return context
@@ -289,33 +284,33 @@ class DecisionContextManager:
         """Obtiene estadísticas del historial de decisiones."""
         try:
             if not self.decisions:
-                return {'total_decisions': 0}
+                return {"total_decisions": 0}
 
             # Agrupar por categoría
             by_category = {}
             by_project = {}
 
             for decision in self.decisions.values():
-                by_category[decision.category] = by_category.get(decision.category, 0) + 1
+                by_category[decision.category] = (
+                    by_category.get(decision.category, 0) + 1
+                )
                 by_project[decision.project] = by_project.get(decision.project, 0) + 1
 
             # Calcular decisiones con outcomes
             with_outcomes = sum(1 for d in self.decisions.values() if d.outcome)
 
             stats = {
-                'total_decisions': len(self.decisions),
-                'decisions_with_outcomes': with_outcomes,
-                'by_category': by_category,
-                'by_project': by_project,
-                'projects_count': len(by_project),
-                'oldest_decision': min(
-                    (d.timestamp for d in self.decisions.values()),
-                    default=None
+                "total_decisions": len(self.decisions),
+                "decisions_with_outcomes": with_outcomes,
+                "by_category": by_category,
+                "by_project": by_project,
+                "projects_count": len(by_project),
+                "oldest_decision": min(
+                    (d.timestamp for d in self.decisions.values()), default=None
                 ),
-                'latest_decision': max(
-                    (d.timestamp for d in self.decisions.values()),
-                    default=None
-                )
+                "latest_decision": max(
+                    (d.timestamp for d in self.decisions.values()), default=None
+                ),
             }
 
             return stats
@@ -324,7 +319,9 @@ class DecisionContextManager:
             self.logger.error(f"Error getting statistics: {e}")
             return {}
 
-    def export_project_memory(self, project: str, output_path: Optional[Path] = None) -> Dict:
+    def export_project_memory(
+        self, project: str, output_path: Optional[Path] = None
+    ) -> Dict:
         """
         Exporta la memoria de un proyecto en formato JSON.
 
@@ -335,14 +332,14 @@ class DecisionContextManager:
             decisions = [d.to_dict() for d in self.get_all_decisions(project)]
 
             export = {
-                'project': project,
-                'context': context,
-                'decisions': decisions,
-                'export_timestamp': self._get_timestamp()
+                "project": project,
+                "context": context,
+                "decisions": decisions,
+                "export_timestamp": self._get_timestamp(),
             }
 
             if output_path:
-                with open(output_path, 'w', encoding='utf-8') as f:
+                with open(output_path, "w", encoding="utf-8") as f:
                     json.dump(export, f, indent=2, ensure_ascii=False)
                 self.logger.info(f"Exported project memory to {output_path}")
 
@@ -368,8 +365,10 @@ class DecisionContextManager:
         for category, decs in categories.items():
             if len(decs) > 1:
                 # Este es un patrón: múltiples decisiones en la misma categoría
-                pattern = f"Multiple {category} decisions detected - " \
-                         f"this is a recurring concern in this project"
+                pattern = (
+                    f"Multiple {category} decisions detected - "
+                    f"this is a recurring concern in this project"
+                )
                 patterns.append(pattern)
 
         return patterns
@@ -380,35 +379,37 @@ class DecisionContextManager:
 
         for decision in decisions:
             if decision.outcome:
-                success = decision.outcome.get('success', False)
-                lesson_text = decision.outcome.get('lesson', '')
+                success = decision.outcome.get("success", False)
+                lesson_text = decision.outcome.get("lesson", "")
 
                 if lesson_text:
-                    lessons.append({
-                        'lesson': lesson_text,
-                        'from_decision': decision.decision,
-                        'successful': success
-                    })
+                    lessons.append(
+                        {
+                            "lesson": lesson_text,
+                            "from_decision": decision.decision,
+                            "successful": success,
+                        }
+                    )
 
         return lessons
 
     def _generate_decision_id(self) -> str:
         """Genera un ID único para una decisión."""
         import uuid
+
         return f"dec_{uuid.uuid4().hex[:8]}"
 
     def _save_decisions(self):
         """Guarda las decisiones a archivo JSON."""
         try:
             data = {
-                'decisions': {
-                    dec_id: dec.to_dict()
-                    for dec_id, dec in self.decisions.items()
+                "decisions": {
+                    dec_id: dec.to_dict() for dec_id, dec in self.decisions.items()
                 },
-                'last_updated': self._get_timestamp()
+                "last_updated": self._get_timestamp(),
             }
 
-            with open(self.decisions_file, 'w', encoding='utf-8') as f:
+            with open(self.decisions_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
 
             self.logger.debug("Saved decision history")
@@ -421,10 +422,10 @@ class DecisionContextManager:
             if not self.decisions_file.exists():
                 return
 
-            with open(self.decisions_file, 'r', encoding='utf-8') as f:
+            with open(self.decisions_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            for dec_id, dec_data in data.get('decisions', {}).items():
+            for dec_id, dec_data in data.get("decisions", {}).items():
                 # Reconstruir Decision object
                 decision = Decision(**dec_data)
                 self.decisions[dec_id] = decision

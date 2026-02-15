@@ -9,12 +9,18 @@ CYBERSECURITY_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "host": {"type": "string", "description": "The target hostname or IP address."},
-                    "ports": {"type": "string", "description": "Optional: Port range (e.g., '1-1024') or specific ports (e.g., '22,80,443'). Defaults to common ports."}
+                    "host": {
+                        "type": "string",
+                        "description": "The target hostname or IP address.",
+                    },
+                    "ports": {
+                        "type": "string",
+                        "description": "Optional: Port range (e.g., '1-1024') or specific ports (e.g., '22,80,443'). Defaults to common ports.",
+                    },
                 },
-                "required": ["host"]
-            }
-        }
+                "required": ["host"],
+            },
+        },
     },
     {
         "type": "function",
@@ -25,12 +31,19 @@ CYBERSECURITY_TOOL_DEFINITIONS: List[Dict] = [
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "Path to the file."},
-                    "expected_hash": {"type": "string", "description": "The known good hash to compare against."},
-                    "hash_type": {"type": "string", "enum": ["md5", "sha256"], "description": "The type of hash to calculate. Defaults to sha256."}
+                    "expected_hash": {
+                        "type": "string",
+                        "description": "The known good hash to compare against.",
+                    },
+                    "hash_type": {
+                        "type": "string",
+                        "enum": ["md5", "sha256"],
+                        "description": "The type of hash to calculate. Defaults to sha256.",
+                    },
                 },
-                "required": ["path", "expected_hash"]
-            }
-        }
+                "required": ["path", "expected_hash"],
+            },
+        },
     },
     {
         "type": "function",
@@ -40,16 +53,19 @@ CYBERSECURITY_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "log_path": {"type": "string", "description": "Path to the security log file."},
+                    "log_path": {
+                        "type": "string",
+                        "description": "Path to the security log file.",
+                    },
                     "keywords": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Optional: List of keywords to search for."
-                    }
+                        "description": "Optional: List of keywords to search for.",
+                    },
                 },
-                "required": ["log_path"]
-            }
-        }
+                "required": ["log_path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -59,19 +75,22 @@ CYBERSECURITY_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "os_type": {"type": "string", "description": "The type of operating system (e.g., 'Windows', 'Linux', 'macOS')."}
+                    "os_type": {
+                        "type": "string",
+                        "description": "The type of operating system (e.g., 'Windows', 'Linux', 'macOS').",
+                    }
                 },
-                "required": ["os_type"]
-            }
-        }
+                "required": ["os_type"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "assess_attack_surface",
             "description": "Evaluates the attack surface by combining open ports, services, users, and configurations.",
-            "parameters": {"type": "object", "properties": {}}
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -84,12 +103,15 @@ CYBERSECURITY_TOOL_DEFINITIONS: List[Dict] = [
                     "paths_to_scan": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Optional: List of file/directory paths to scan for IOCs."
+                        "description": "Optional: List of file/directory paths to scan for IOCs.",
                     },
-                    "hash_to_check": {"type": "string", "description": "Optional: A specific file hash to check against known IOCs."}
-                }
-            }
-        }
+                    "hash_to_check": {
+                        "type": "string",
+                        "description": "Optional: A specific file hash to check against known IOCs.",
+                    },
+                },
+            },
+        },
     },
     {
         "type": "function",
@@ -99,18 +121,21 @@ CYBERSECURITY_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "The file or directory path to analyze permissions for."}
+                    "path": {
+                        "type": "string",
+                        "description": "The file or directory path to analyze permissions for.",
+                    }
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "security_posture_score",
             "description": "Calculates a security posture score with an explanation.",
-            "parameters": {"type": "object", "properties": {}}
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
 ]

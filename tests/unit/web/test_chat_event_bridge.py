@@ -1,9 +1,11 @@
 """Unit tests for src/web/services/chat_event_bridge.py."""
 
+
 class TestChatEventBridge:
     def test_push_and_iter(self):
-        from frontend.services.chat_event_bridge import ChatEventBridge
         from backend.utils.core.event_publisher import EventPublisher
+        from frontend.services.chat_event_bridge import ChatEventBridge
+
         publisher = EventPublisher()
         bridge = ChatEventBridge(publisher)
         bridge.push_event("test", {"key": "value"})
@@ -15,8 +17,9 @@ class TestChatEventBridge:
         assert len(data_events) >= 2  # test event + stream_end
 
     def test_close_sends_stream_end(self):
-        from frontend.services.chat_event_bridge import ChatEventBridge
         from backend.utils.core.event_publisher import EventPublisher
+        from frontend.services.chat_event_bridge import ChatEventBridge
+
         publisher = EventPublisher()
         bridge = ChatEventBridge(publisher)
         bridge.close()

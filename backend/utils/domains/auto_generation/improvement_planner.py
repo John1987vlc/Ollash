@@ -1,8 +1,9 @@
 from typing import Dict, List
 
-from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.ollama_client import OllamaClient
+
 from .prompt_templates import AutoGenPrompts
 
 
@@ -41,7 +42,11 @@ class ImprovementPlanner:
         Returns a dictionary representing the plan.
         """
         system, user = AutoGenPrompts.generate_improvement_plan_prompt(
-            suggestions, project_description, readme_content, json_structure, current_files
+            suggestions,
+            project_description,
+            readme_content,
+            json_structure,
+            current_files,
         )
         response_data, _ = self.llm_client.chat(
             messages=[

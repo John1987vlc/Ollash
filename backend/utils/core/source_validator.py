@@ -4,17 +4,18 @@ Validates refined content against original sources for accuracy
 """
 
 import json
-from dataclasses import dataclass, asdict, field
-from datetime import datetime
-from typing import List, Dict, Optional
-from pathlib import Path
-from difflib import SequenceMatcher
 import re
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Dict, List, Optional
 
 
 @dataclass
 class ValidationIssue:
     """Represents a validation problem"""
+
     severity: str  # 'critical', 'warning', 'info'
     issue_type: str  # 'contradiction', 'factual_drift', 'semantic_change'
     original_text: str
@@ -30,6 +31,7 @@ class ValidationIssue:
 @dataclass
 class ValidationResult:
     """Result of validating a refinement"""
+
     is_valid: bool
     validation_score: float  # 0-100
     issues: List[ValidationIssue] = field(default_factory=list)
@@ -37,10 +39,7 @@ class ValidationResult:
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_dict(self):
-        return {
-            **asdict(self),
-            "issues": [issue.to_dict() for issue in self.issues]
-        }
+        return {**asdict(self), "issues": [issue.to_dict() for issue in self.issues]}
 
 
 class SourceValidator:
@@ -72,7 +71,7 @@ class SourceValidator:
 
     def _save_validations(self):
         """Persist validation history"""
-        with open(self.validation_log, 'w') as f:
+        with open(self.validation_log, "w") as f:
             json.dump(self.validations, f, indent=2)
 
     def register_source(self, source_id: str, source_text: str) -> bool:
@@ -88,7 +87,7 @@ class SourceValidator:
         """
         source_file = self.sources_dir / f"{source_id}.txt"
         try:
-            with open(source_file, 'w') as f:
+            with open(source_file, "w") as f:
                 f.write(source_text)
             return True
         except Exception as e:
@@ -108,7 +107,7 @@ class SourceValidator:
         original_text: str,
         refined_text: str,
         source_id: str,
-        validation_type: str = "full"
+        validation_type: str = "full",
     ) -> ValidationResult:
         """
         Validate a refinement against source
@@ -126,13 +125,15 @@ class SourceValidator:
         result = ValidationResult(is_valid=True, validation_score=100.0)
 
         if not source:
-            result.issues.append(ValidationIssue(
-                severity="warning",
-                issue_type="info",
-                original_text=original_text,
-                refined_text=refined_text,
-                issue_description=f"Source '{source_id}' not found for validation"
-            ))
+            result.issues.append(
+                ValidationIssue(
+                    severity="warning",
+                    issue_type="info",
+                    original_text=original_text,
+                    refined_text=refined_text,
+                    issue_description=f"Source '{source_id}' not found for validation",
+                )
+            )
             result.confidence_level = "low"
             return result
 
@@ -143,16 +144,16 @@ class SourceValidator:
             )
 
         if validation_type in ["full", "factual"]:
-            self._check_factual_consistency(
-                refined_text, source, original_text, result
-            )
+            self._check_factual_consistency(refined_text, source, original_text, result)
 
         # Calculate overall score
         if result.issues:
             critical_count = len([i for i in result.issues if i.severity == "critical"])
             warning_count = len([i for i in result.issues if i.severity == "warning"])
 
-            result.validation_score = max(0, 100 - (critical_count * 20 + warning_count * 5))
+            result.validation_score = max(
+                0, 100 - (critical_count * 20 + warning_count * 5)
+            )
             result.is_valid = result.validation_score >= 70  # Threshold
             result.confidence_level = "medium" if warning_count > 0 else "high"
 
@@ -163,17 +164,13 @@ class SourceValidator:
         return result
 
     def _check_semantic_preservation(
-        self,
-        original: str,
-        refined: str,
-        source: str,
-        result: ValidationResult
+        self, original: str, refined: str, source: str, result: ValidationResult
     ):
         """Check if meaning is preserved in refinement"""
 
         # Check semantic similarity using word overlap
-        original_words = set(word.lower() for word in re.findall(r'\b\w+\b', original))
-        refined_words = set(word.lower() for word in re.findall(r'\b\w+\b', refined))
+        original_words = set(word.lower() for word in re.findall(r"\b\w+\b", original))
+        refined_words = set(word.lower() for word in re.findall(r"\b\w+\b", refined))
 
         if not original_words:
             return
@@ -181,32 +178,36 @@ class SourceValidator:
         similarity = len(original_words & refined_words) / len(original_words)
 
         if similarity < 0.3:
-            result.issues.append(ValidationIssue(
-                severity="critical",
-                issue_type="semantic_change",
-                original_text=original[:100],
-                refined_text=refined[:100],
-                issue_description="Refined text has significantly different vocabulary (semantic drift)",
-                suggestion="Review refinement to ensure meaning is preserved",
-                confidence=0.9
-            ))
+            result.issues.append(
+                ValidationIssue(
+                    severity="critical",
+                    issue_type="semantic_change",
+                    original_text=original[:100],
+                    refined_text=refined[:100],
+                    issue_description="Refined text has significantly different vocabulary (semantic drift)",
+                    suggestion="Review refinement to ensure meaning is preserved",
+                    confidence=0.9,
+                )
+            )
         elif similarity < 0.5:
-            result.issues.append(ValidationIssue(
-                severity="warning",
-                issue_type="semantic_change",
-                original_text=original[:100],
-                refined_text=refined[:100],
-                issue_description="Refined text vocabulary differs notably from original",
-                suggestion="Verify the key concepts are still present",
-                confidence=0.8
-            ))
+            result.issues.append(
+                ValidationIssue(
+                    severity="warning",
+                    issue_type="semantic_change",
+                    original_text=original[:100],
+                    refined_text=refined[:100],
+                    issue_description="Refined text vocabulary differs notably from original",
+                    suggestion="Verify the key concepts are still present",
+                    confidence=0.8,
+                )
+            )
 
     def _check_factual_consistency(
         self,
         refined_text: str,
         source: str,
         original_text: str,
-        result: ValidationResult
+        result: ValidationResult,
     ):
         """Check if refined text contradicts source facts"""
 
@@ -214,7 +215,9 @@ class SourceValidator:
         quoted_pattern = r'"([^"]+)"'
         quoted_facts = re.findall(quoted_pattern, original_text)
 
-        number_pattern = r'\d+\.?\d*\s*(?:%|million|billion|thousand|years?|days?|hours?|kb|mb|gb)?'
+        number_pattern = (
+            r"\d+\.?\d*\s*(?:%|million|billion|thousand|years?|days?|hours?|kb|mb|gb)?"
+        )
         numeric_facts = re.findall(number_pattern, original_text)
 
         all_facts = quoted_facts + numeric_facts
@@ -222,49 +225,50 @@ class SourceValidator:
         # Check if facts are preserved in source and refined version
         for fact in all_facts:
             if fact in source and fact not in refined_text:
-                result.issues.append(ValidationIssue(
-                    severity="warning",
-                    issue_type="factual_drift",
-                    original_text=original_text[:100],
-                    refined_text=refined_text[:100],
-                    issue_description=f"Factual element missing in refined text: '{fact[:50]}'",
-                    suggestion="Ensure important facts are preserved in refinement",
-                    confidence=0.7
-                ))
+                result.issues.append(
+                    ValidationIssue(
+                        severity="warning",
+                        issue_type="factual_drift",
+                        original_text=original_text[:100],
+                        refined_text=refined_text[:100],
+                        issue_description=f"Factual element missing in refined text: '{fact[:50]}'",
+                        suggestion="Ensure important facts are preserved in refinement",
+                        confidence=0.7,
+                    )
+                )
 
     def _check_for_contradictions(
-        self,
-        refined_text: str,
-        original_text: str,
-        source: str
+        self, refined_text: str, original_text: str, source: str
     ) -> List[ValidationIssue]:
         """Check for direct contradictions"""
         issues = []
 
         # Look for negations or opposite claims
-        negation_words = ['not', 'no', 'never', 'neither', 'cannot', 'should not']
+        negation_words = ["not", "no", "never", "neither", "cannot", "should not"]
 
-        original_has_negation = any(word in original_text.lower() for word in negation_words)
-        refined_has_negation = any(word in refined_text.lower() for word in negation_words)
+        original_has_negation = any(
+            word in original_text.lower() for word in negation_words
+        )
+        refined_has_negation = any(
+            word in refined_text.lower() for word in negation_words
+        )
 
         if original_has_negation != refined_has_negation:
-            issues.append(ValidationIssue(
-                severity="critical",
-                issue_type="contradiction",
-                original_text=original_text[:100],
-                refined_text=refined_text[:100],
-                issue_description="Refinement may contradict original (negation changed)",
-                suggestion="Review polarity of statements in refinement",
-                confidence=0.6
-            ))
+            issues.append(
+                ValidationIssue(
+                    severity="critical",
+                    issue_type="contradiction",
+                    original_text=original_text[:100],
+                    refined_text=refined_text[:100],
+                    issue_description="Refinement may contradict original (negation changed)",
+                    suggestion="Review polarity of statements in refinement",
+                    confidence=0.6,
+                )
+            )
 
         return issues
 
-    def compare_versions(
-        self,
-        original: str,
-        refined: str
-    ) -> Dict:
+    def compare_versions(self, original: str, refined: str) -> Dict:
         """
         Compare two versions of text
 
@@ -287,7 +291,7 @@ class SourceValidator:
             "refined_length": len(refined_words),
             "words_added": max(0, added),
             "words_removed": max(0, removed),
-            "percent_changed": round((1 - similarity_ratio) * 100, 1)
+            "percent_changed": round((1 - similarity_ratio) * 100, 1),
         }
 
     def suggest_rollback(self, result: ValidationResult) -> bool:
@@ -305,21 +309,18 @@ class SourceValidator:
     def get_validation_report(self) -> Dict:
         """Get overall validation statistics"""
         if not self.validations:
-            return {
-                "total_validations": 0,
-                "passed": 0,
-                "failed": 0,
-                "avg_score": 0
-            }
+            return {"total_validations": 0, "passed": 0, "failed": 0, "avg_score": 0}
 
         passed = len([v for v in self.validations if v["is_valid"]])
         failed = len(self.validations) - passed
-        avg_score = sum(v["validation_score"] for v in self.validations) / len(self.validations)
+        avg_score = sum(v["validation_score"] for v in self.validations) / len(
+            self.validations
+        )
 
         return {
             "total_validations": len(self.validations),
             "passed": passed,
             "failed": failed,
             "pass_rate": round(passed / len(self.validations) * 100, 1),
-            "avg_score": round(avg_score, 1)
+            "avg_score": round(avg_score, 1),
         }

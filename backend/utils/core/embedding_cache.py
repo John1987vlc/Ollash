@@ -82,8 +82,7 @@ class EmbeddingCache:
         evicted = 0
         with self._lock:
             expired_keys = [
-                k for k, (_, ts) in self._cache.items()
-                if now - ts > self._ttl
+                k for k, (_, ts) in self._cache.items() if now - ts > self._ttl
             ]
             for k in expired_keys:
                 del self._cache[k]

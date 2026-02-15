@@ -6,7 +6,7 @@ that are marked as 'async_safe' in the ToolRegistry.
 """
 
 import asyncio
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from backend.utils.core.tool_registry import ToolRegistry
 

@@ -1,8 +1,9 @@
 import json
 from typing import Dict, List
 
-from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.ollama_client import OllamaClient
+
 from .prompt_templates import AutoGenPrompts
 
 
@@ -16,7 +17,9 @@ class ProjectReviewer:
         "keep_alive": "0s",
     }
 
-    def __init__(self, llm_client: OllamaClient, logger: AgentLogger, options: dict = None):
+    def __init__(
+        self, llm_client: OllamaClient, logger: AgentLogger, options: dict = None
+    ):
         self.llm_client = llm_client
         self.logger = logger
         self.options = options or self.DEFAULT_OPTIONS.copy()

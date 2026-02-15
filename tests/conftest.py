@@ -1,16 +1,21 @@
-import pytest
-from pathlib import Path
 import json
-# Removed importlib as it's no longer needed for module reloading hacks
+from pathlib import Path
+
+import pytest
 
 from backend.agents.default_agent import DefaultAgent
+from backend.core.config import \
+    reload_config  # Still needed for refreshing our own config
 from backend.core.kernel import AgentKernel
-from backend.core.config import reload_config # Still needed for refreshing our own config
+
+# Removed importlib as it's no longer needed for module reloading hacks
+
 
 
 # Constants for tests
 TEST_OLLAMA_URL = "http://localhost:11434"
 TEST_TIMEOUT = 300
+
 
 @pytest.fixture(autouse=True)
 def mock_chromadb_client(mocker):
@@ -26,9 +31,10 @@ def mock_chromadb_client(mocker):
     # This prevents the "An instance of Chroma already exists" error.
     try:
         import chromadb.config
-        mocker.patch.object(chromadb.config.Settings, 'instances', {})
+
+        mocker.patch.object(chromadb.config.Settings, "instances", {})
     except (ImportError, AttributeError):
-        pass # If chromadb isn't installed or structure changes, don't fail all tests
+        pass  # If chromadb isn't installed or structure changes, don't fail all tests
 
 
 @pytest.fixture(scope="function")
@@ -52,6 +58,7 @@ def temp_project_root(tmp_path: Path) -> Path:
 
     return project_root
 
+
 @pytest.fixture(scope="function")
 def default_agent(monkeypatch, temp_project_root: Path) -> DefaultAgent:
     """
@@ -61,14 +68,16 @@ def default_agent(monkeypatch, temp_project_root: Path) -> DefaultAgent:
     # Monkeypatch settings BEFORE reloading config and creating the agent
     monkeypatch.setenv("PROMPTS_DIR", str(temp_project_root / "prompts"))
     monkeypatch.setenv("USE_BENCHMARK_SELECTOR", "False")
-    monkeypatch.setenv("AGENT_FEATURES_JSON", json.dumps({"enable_auto_learning": False}))
+    monkeypatch.setenv(
+        "AGENT_FEATURES_JSON", json.dumps({"enable_auto_learning": False})
+    )
     monkeypatch.setenv("OLLAMA_URL", TEST_OLLAMA_URL)
 
     # Set LLM_MODELS_JSON explicitly for tests in conftest
     models_config = {
         "ollama_url": TEST_OLLAMA_URL,
         "default_model": "mistral:latest",
-        "default_timeout": TEST_TIMEOUT, # Include default_timeout
+        "default_timeout": TEST_TIMEOUT,  # Include default_timeout
         "agent_roles": {
             "prototyper": "test-proto",
             "coder": "test-coder",
@@ -78,8 +87,8 @@ def default_agent(monkeypatch, temp_project_root: Path) -> DefaultAgent:
             "improvement_planner": "test-improvement-planner",
             "senior_reviewer": "test-senior-reviewer",
             "test_generator": "test-test-generator",
-            "default": "test-default" # Ensure a default is present for get_client("default")
-        }
+            "default": "test-default",  # Ensure a default is present for get_client("default")
+        },
     }
     monkeypatch.setenv("LLM_MODELS_JSON", json.dumps(models_config))
 

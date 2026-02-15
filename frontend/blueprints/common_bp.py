@@ -1,8 +1,9 @@
 """Blueprint for shared routes (index page, health check)."""
 import json
-import requests
-from flask import Blueprint, render_template, jsonify
 from pathlib import Path
+
+import requests
+from flask import Blueprint, jsonify, render_template
 
 common_bp = Blueprint("common", __name__)
 
@@ -27,6 +28,7 @@ def status():
         with open(config_path, "r") as f:
             config = json.load(f)
         import os
+
         ollama_url = os.environ.get(
             "OLLASH_OLLAMA_URL",
             config.get("ollama_url", "http://localhost:11434"),

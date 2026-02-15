@@ -1,17 +1,20 @@
-
 """Prompt templates for auto-generation workflows."""
 
-from typing import Tuple
 from pathlib import Path
+from typing import Tuple
 
 
 class AutoGenPrompts:
     """Static methods for generating prompts for various auto-generation phases."""
 
     @staticmethod
-    def readme_generation(project_description: str, template_name: str = "default",
-                         python_version: str = "3.12", license_type: str = "MIT",
-                         include_docker: bool = False) -> Tuple[str, str]:
+    def readme_generation(
+        project_description: str,
+        template_name: str = "default",
+        python_version: str = "3.12",
+        license_type: str = "MIT",
+        include_docker: bool = False,
+    ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for README generation."""
         system = (
             "You are an expert technical writer. Create engaging, clear README.md files "
@@ -37,17 +40,15 @@ class AutoGenPrompts:
             "Example format:\n"
             "```json\n"
             "{\n"
-            "  \"path\": \"./\",\n"
-            "  \"folders\": [\n"
-            "    {\"name\": \"src\", \"folders\": [], \"files\": [\"main.py\"]}\n"
+            '  "path": "./",\n'
+            '  "folders": [\n'
+            '    {"name": "src", "folders": [], "files": ["main.py"]}\n'
             "  ],\n"
-            "  \"files\": [\"README.md\"]\n"
+            '  "files": ["README.md"]\n'
             "}\n"
             "```"
         )
-        user = (
-            f"Create a high-level project structure for:\n\n{description}"
-        )
+        user = f"Create a high-level project structure for:\n\n{description}"
         return system, user
 
     @staticmethod
@@ -59,11 +60,11 @@ class AutoGenPrompts:
             "Example format:\n"
             "```json\n"
             "{\n"
-            "  \"path\": \"./\",\n"
-            "  \"folders\": [\n"
-            "    {\"name\": \"src\", \"folders\": [], \"files\": [\"main.py\"]}\n"
+            '  "path": "./",\n'
+            '  "folders": [\n'
+            '    {"name": "src", "folders": [], "files": ["main.py"]}\n'
             "  ],\n"
-            "  \"files\": [\"README.md\"]\n"
+            '  "files": ["README.md"]\n'
             "}\n"
             "```"
         )
@@ -91,15 +92,15 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def file_content_generation_basic(file_path: str, parent_context: str) -> Tuple[str, str]:
+    def file_content_generation_basic(
+        file_path: str, parent_context: str
+    ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for basic file content generation."""
         system = (
             "You are an expert software developer. Generate clean, complete, and well-structured code "
             "that follows best practices and the provided context."
         )
-        user = (
-            f"Generate content for file '{file_path}' with the following context:\n\n{parent_context}"
-        )
+        user = f"Generate content for file '{file_path}' with the following context:\n\n{parent_context}"
         return system, user
 
     @staticmethod
@@ -109,45 +110,41 @@ class AutoGenPrompts:
             "You are a senior code reviewer. Refine and improve the provided code "
             "while maintaining its intended functionality."
         )
-        user = (
-            f"Please refine and improve the content of '{file_path}':\n\n{content}"
-        )
+        user = f"Please refine and improve the content of '{file_path}':\n\n{content}"
         return system, user
 
     @staticmethod
-    def file_refinement_with_issues(file_path: str, content: str, issues: str) -> Tuple[str, str]:
+    def file_refinement_with_issues(
+        file_path: str, content: str, issues: str
+    ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file refinement with issues."""
         system = (
             "You are a senior code reviewer. Fix the identified issues in the code "
             "while improving overall quality."
         )
-        user = (
-            f"Fix these issues in '{file_path}':\n{issues}\n\nCurrent content:\n{content}"
-        )
+        user = f"Fix these issues in '{file_path}':\n{issues}\n\nCurrent content:\n{content}"
         return system, user
 
     @staticmethod
     def file_fix(file_path: str, content: str, error: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file fixing."""
-        system = (
-            "You are an expert debugger. Analyze the error and fix the code accordingly."
-        )
+        system = "You are an expert debugger. Analyze the error and fix the code accordingly."
         user = (
             f"Fix this error in '{file_path}':\n\nError: {error}\n\nContent:\n{content}"
         )
         return system, user
 
     @staticmethod
-    def generate_unit_tests(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
+    def generate_unit_tests(
+        file_path: str, content: str, readme: str = ""
+    ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for unit test generation."""
         system = (
             "You are a QA engineer. Generate comprehensive, clear unit tests "
             "that cover the main functionality and edge cases."
         )
         context = f"Project info:\n{readme}\n\n" if readme else ""
-        user = (
-            f"{context}Generate unit tests for '{file_path}':\n\n{content}"
-        )
+        user = f"{context}Generate unit tests for '{file_path}':\n\n{content}"
         return system, user
 
     @staticmethod
@@ -157,9 +154,7 @@ class AutoGenPrompts:
             "You are a senior architect. Suggest impactful improvements for the project "
             "that enhance functionality, performance, and maintainability."
         )
-        user = (
-            f"Suggest improvements for this project:\n\n{project_summary}"
-        )
+        user = f"Suggest improvements for this project:\n\n{project_summary}"
         return system, user
 
     @staticmethod
@@ -181,9 +176,7 @@ class AutoGenPrompts:
             "You are a senior software architect with years of experience. "
             "Provide a comprehensive but concise review of the project's quality and completeness."
         )
-        user = (
-            f"Review this project:\n\n{project_summary}"
-        )
+        user = f"Review this project:\n\n{project_summary}"
         return system, user
 
     @staticmethod
@@ -202,7 +195,9 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def file_content_generation(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
+    def file_content_generation(
+        file_path: str, content: str, readme: str = ""
+    ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file content generation."""
         system = (
             "You are an expert software developer generating production-ready code. "
@@ -211,39 +206,39 @@ class AutoGenPrompts:
             "Make code immediately usable."
         )
 
-        file_ext = Path(file_path).suffix.lower() if 'Path' in locals() else ''
+        file_ext = Path(file_path).suffix.lower() if "Path" in locals() else ""
 
         # Specialized prompts by file type
         type_guidance = ""
-        if file_ext in ['.py', '.pyi']:
+        if file_ext in [".py", ".pyi"]:
             type_guidance = (
                 "\n- Use Python best practices and PEP 8\n"
                 "- Include type hints for all functions\n"
                 "- Add docstrings\n"
                 "- Handle errors appropriately"
             )
-        elif file_ext in ['.js', '.jsx']:
+        elif file_ext in [".js", ".jsx"]:
             type_guidance = (
                 "\n- Use modern ES6+ syntax\n"
                 "- No async/await issues\n"
                 "- All functions must work immediately\n"
                 "- No console errors"
             )
-        elif file_ext in ['.ts', '.tsx']:
+        elif file_ext in [".ts", ".tsx"]:
             type_guidance = (
                 "\n- Use proper TypeScript type annotations\n"
                 "- Interface definitions required\n"
                 "- Strict null checks\n"
                 "- No 'any' types unless necessary"
             )
-        elif file_ext in ['.html', '.vue']:
+        elif file_ext in [".html", ".vue"]:
             type_guidance = (
                 "\n- Use semantic HTML5\n"
                 "- Proper accessibility attributes\n"
                 "- Include DOCTYPE and meta tags\n"
                 "- Valid markup structure"
             )
-        elif file_ext in ['.css', '.scss']:
+        elif file_ext in [".css", ".scss"]:
             type_guidance = (
                 "\n- Modern CSS (flexbox, grid)\n"
                 "- Responsive design\n"
@@ -276,4 +271,3 @@ class AutoGenPrompts:
             f"Create an architecture plan for the following project:\n\n{description}"
         )
         return system, user
-

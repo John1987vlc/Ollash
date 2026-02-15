@@ -8,22 +8,14 @@ Tests for:
 - Learning API Blueprint
 """
 
-import pytest
 import json
 
+import pytest
+
+from backend.utils.core.behavior_tuner import BehaviorTuner, TuningParameter
+from backend.utils.core.pattern_analyzer import PatternAnalyzer, SentimentType
 from backend.utils.core.preference_manager_extended import (
-    PreferenceManagerExtended,
-    CommunicationStyle,
-    ComplexityLevel
-)
-from backend.utils.core.pattern_analyzer import (
-    PatternAnalyzer,
-    SentimentType
-)
-from backend.utils.core.behavior_tuner import (
-    BehaviorTuner,
-    TuningParameter
-)
+    CommunicationStyle, ComplexityLevel, PreferenceManagerExtended)
 
 
 class TestPreferenceManagerExtended:
@@ -69,7 +61,7 @@ class TestPreferenceManagerExtended:
         updated = pref_mgr.update_communication_style(
             "user001",
             style=CommunicationStyle.FORMAL,
-            complexity=ComplexityLevel.EXPERT
+            complexity=ComplexityLevel.EXPERT,
         )
 
         assert updated.communication.style == CommunicationStyle.FORMAL
@@ -83,7 +75,7 @@ class TestPreferenceManagerExtended:
             "user002",
             feedback_type="positive",
             keywords=["fast", "accurate"],
-            command="analyze"
+            command="analyze",
         )
 
         assert profile.total_interactions == 1
@@ -99,8 +91,7 @@ class TestPreferenceManagerExtended:
         # Add multiple interactions
         for i in range(5):
             pref_mgr.add_interaction(
-                "user003",
-                feedback_type="positive" if i < 4 else "negative"
+                "user003", feedback_type="positive" if i < 4 else "negative"
             )
 
         recs = pref_mgr.get_recommendations("user003")
@@ -142,7 +133,7 @@ class TestPatternAnalyzer:
             task_type="analysis",
             sentiment=SentimentType.POSITIVE,
             score=4.5,
-            comment="Great results"
+            comment="Great results",
         )
 
         assert entry.user_id == "user001"
@@ -158,7 +149,7 @@ class TestPatternAnalyzer:
                 task_type="analysis",
                 sentiment=SentimentType.POSITIVE,
                 score=4.5,
-                affected_component="cross_reference"
+                affected_component="cross_reference",
             )
 
         patterns = pattern_analyzer.get_patterns()
@@ -193,7 +184,7 @@ class TestPatternAnalyzer:
             "analysis",
             SentimentType.POSITIVE,
             4.0,
-            affected_component="knowledge_graph"
+            affected_component="knowledge_graph",
         )
 
         health = pattern_analyzer.get_component_health("knowledge_graph")
@@ -248,7 +239,7 @@ class TestBehaviorTuner:
             TuningParameter.RESPONSE_LENGTH,
             1500,
             reason="User feedback",
-            confidence=0.8
+            confidence=0.8,
         )
 
         config = tuner.get_current_config()
@@ -258,9 +249,7 @@ class TestBehaviorTuner:
     def test_handle_negative_feedback(self, tuner):
         """Test adaptation to negative feedback."""
         tuner.adapt_to_feedback(
-            feedback_score=1.5,
-            feedback_type="response_length",
-            keywords=["too_long"]
+            feedback_score=1.5, feedback_type="response_length", keywords=["too_long"]
         )
 
         # Should reduce response length (with learning rate <1.0, may not be exactly)
@@ -273,21 +262,19 @@ class TestBehaviorTuner:
         initial_config = tuner.get_current_config()
 
         tuner.adapt_to_feedback(
-            feedback_score=5.0,
-            feedback_type="general",
-            keywords=[]
+            feedback_score=5.0, feedback_type="general", keywords=[]
         )
 
         # Config should not change significantly
         new_config = tuner.get_current_config()
-        assert new_config["max_response_length"] == initial_config["max_response_length"]
+        assert (
+            new_config["max_response_length"] == initial_config["max_response_length"]
+        )
 
     def test_toggle_feature(self, tuner):
         """Test feature toggling."""
         success = tuner.toggle_feature(
-            "cross_reference",
-            enabled=False,
-            reason="Testing"
+            "cross_reference", enabled=False, reason="Testing"
         )
 
         assert success
@@ -297,11 +284,7 @@ class TestBehaviorTuner:
     def test_reset_to_defaults(self, tuner):
         """Test resetting to default configuration."""
         # Make changes
-        tuner.update_parameter(
-            TuningParameter.RESPONSE_LENGTH,
-            1000,
-            confidence=0.9
-        )
+        tuner.update_parameter(TuningParameter.RESPONSE_LENGTH, 1000, confidence=0.9)
 
         # Reset
         tuner.reset_to_defaults()
@@ -341,7 +324,7 @@ class TestLearningIntegration:
             user_id="user_int001",
             task_type="analysis",
             sentiment=SentimentType.POSITIVE,
-            score=4.5
+            score=4.5,
         )
 
         # Both should work independently
@@ -363,7 +346,7 @@ class TestLearningIntegration:
                 "analysis",
                 SentimentType.NEGATIVE,
                 2.0,
-                keywords=["too_long"]
+                keywords=["too_long"],
             )
 
         # Tuner adapts
@@ -382,17 +365,18 @@ class TestLearningBlueprint:
     def client(self):
         """Create Flask test client."""
         from flask import Flask
+
         from frontend.blueprints.learning_bp import learning_bp
 
         app = Flask(__name__)
-        app.config['TESTING'] = True
+        app.config["TESTING"] = True
         app.register_blueprint(learning_bp)
 
         return app.test_client()
 
     def test_health_check(self, client):
         """Test learning system health check endpoint."""
-        response = client.get('/api/learning/health-check')
+        response = client.get("/api/learning/health-check")
 
         assert response.status_code in [200, 500]  # May not have temp dirs
         data = response.get_json()
@@ -400,7 +384,7 @@ class TestLearningBlueprint:
 
     def test_get_preference_profile(self, client):
         """Test getting preference profile."""
-        response = client.get('/api/learning/preferences/profile/test_user')
+        response = client.get("/api/learning/preferences/profile/test_user")
 
         assert response.status_code in [200, 404, 500]  # Depends on initialization
         if response.status_code == 200:
@@ -409,21 +393,20 @@ class TestLearningBlueprint:
 
 
 # Parametrized tests for behavior variations
-@pytest.mark.parametrize("style,complexity", [
-    (CommunicationStyle.CONCISE, ComplexityLevel.BEGINNER),
-    (CommunicationStyle.DETAILED, ComplexityLevel.EXPERT),
-    (CommunicationStyle.FORMAL, ComplexityLevel.INTERMEDIATE),
-])
+@pytest.mark.parametrize(
+    "style,complexity",
+    [
+        (CommunicationStyle.CONCISE, ComplexityLevel.BEGINNER),
+        (CommunicationStyle.DETAILED, ComplexityLevel.EXPERT),
+        (CommunicationStyle.FORMAL, ComplexityLevel.INTERMEDIATE),
+    ],
+)
 def test_preference_combinations(tmp_path, style, complexity):
     """Test various preference combinations."""
     mgr = PreferenceManagerExtended(workspace_root=tmp_path)
     profile = mgr.create_profile(f"user_{style.value}_{complexity.value}")
 
-    mgr.update_communication_style(
-        profile.user_id,
-        style=style,
-        complexity=complexity
-    )
+    mgr.update_communication_style(profile.user_id, style=style, complexity=complexity)
 
     updated = mgr.get_profile(profile.user_id)
     assert updated.communication.style == style

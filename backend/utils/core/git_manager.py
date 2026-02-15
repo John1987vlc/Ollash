@@ -1,5 +1,5 @@
 import subprocess
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 
 class GitManager:
@@ -12,15 +12,12 @@ class GitManager:
         """Ejecuta un comando git."""
         try:
             result = subprocess.run(
-                ["git"] + list(args),
-                cwd=self.repo_path,
-                capture_output=True,
-                text=True
+                ["git"] + list(args), cwd=self.repo_path, capture_output=True, text=True
             )
             return {
                 "success": result.returncode == 0,
                 "output": result.stdout.strip(),
-                "error": result.stderr.strip()
+                "error": result.stderr.strip(),
             }
         except FileNotFoundError:
             return {"success": False, "output": "", "error": "Git no instalado"}
@@ -118,7 +115,7 @@ class GitManager:
         affected_files = []
 
         for line in output_lines:
-            parts = line.split('\t')
+            parts = line.split("\t")
             if len(parts) == 3:
                 try:
                     added = int(parts[0])
@@ -136,6 +133,5 @@ class GitManager:
             "added": total_added,
             "deleted": total_deleted,
             "total": total_added + total_deleted,
-            "files": affected_files
+            "files": affected_files,
         }
-

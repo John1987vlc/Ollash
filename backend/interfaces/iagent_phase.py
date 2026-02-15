@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Tuple
-from pathlib import Path # NEW
+from pathlib import Path  # NEW
+from typing import Any, Dict, List, Tuple
+
 
 class IAgentPhase(ABC):
     """
@@ -10,14 +11,16 @@ class IAgentPhase(ABC):
     """
 
     @abstractmethod
-    async def execute(self,
-                      project_description: str,
-                      project_name: str,
-                      project_root: Path, # Assuming Path is imported elsewhere
-                      readme_content: str,
-                      initial_structure: Dict[str, Any],
-                      generated_files: Dict[str, str], # Current state of generated files
-                      **kwargs: Any) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
+    async def execute(
+        self,
+        project_description: str,
+        project_name: str,
+        project_root: Path,  # Assuming Path is imported elsewhere
+        readme_content: str,
+        initial_structure: Dict[str, Any],
+        generated_files: Dict[str, str],  # Current state of generated files
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         """
         Executes the logic for this specific phase of the AutoAgent pipeline.
 

@@ -1,12 +1,12 @@
 """Blueprint for model benchmarking routes."""
 import json
 import os
-import threading
 import queue
+import threading
+from pathlib import Path
 
 import requests
-from flask import Blueprint, jsonify, request, Response, stream_with_context
-from pathlib import Path
+from flask import Blueprint, Response, jsonify, request, stream_with_context
 
 from backend.agents.auto_benchmarker import ModelBenchmarker
 from frontend.middleware import rate_limit_benchmark, require_api_key
@@ -14,7 +14,9 @@ from frontend.middleware import rate_limit_benchmark, require_api_key
 benchmark_bp = Blueprint("benchmark", __name__)
 
 _ollash_root_dir: Path = None
-_active_run: dict = None  # {"thread": Thread, "queue": Queue, "benchmarker": ModelBenchmarker}
+_active_run: dict = (
+    None  # {"thread": Thread, "queue": Queue, "benchmarker": ModelBenchmarker}
+)
 
 
 def init_app(ollash_root_dir: Path):
@@ -50,14 +52,24 @@ def list_models():
         result = []
         for m in models_sorted:
             size_bytes = m.get("size", 0)
-            result.append({
-                "name": m["name"],
-                "size_bytes": size_bytes,
-                "size_human": ModelBenchmarker.format_size(size_bytes),
-            })
+            result.append(
+                {
+                    "name": m["name"],
+                    "size_bytes": size_bytes,
+                    "size_human": ModelBenchmarker.format_size(size_bytes),
+                }
+            )
         return jsonify({"status": "ok", "ollama_url": ollama_url, "models": result})
     except requests.ConnectionError:
-        return jsonify({"status": "error", "message": f"Cannot connect to Ollama at {ollama_url}"}), 503
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": f"Cannot connect to Ollama at {ollama_url}",
+                }
+            ),
+            503,
+        )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -73,14 +85,20 @@ def start_benchmark():
     global _active_run
 
     if _active_run and _active_run["thread"].is_alive():
-        return jsonify({"status": "error", "message": "A benchmark is already running."}), 429
+        return (
+            jsonify({"status": "error", "message": "A benchmark is already running."}),
+            429,
+        )
 
     data = request.get_json(force=True)
     models = data.get("models", [])
     ollama_url = data.get("ollama_url", "").strip()
 
     if not models:
-        return jsonify({"status": "error", "message": "At least one model is required."}), 400
+        return (
+            jsonify({"status": "error", "message": "At least one model is required."}),
+            400,
+        )
 
     event_queue = queue.Queue()
     config_path = str(_ollash_root_dir / "config" / "settings.json")
@@ -105,12 +123,16 @@ def start_benchmark():
             total_models = len(models)
 
             for model_idx, model_name in enumerate(models, 1):
-                event_queue.put(json.dumps({
-                    "type": "model_start",
-                    "model": model_name,
-                    "index": model_idx,
-                    "total": total_models,
-                }))
+                event_queue.put(
+                    json.dumps(
+                        {
+                            "type": "model_start",
+                            "model": model_name,
+                            "index": model_idx,
+                            "total": total_models,
+                        }
+                    )
+                )
 
                 # Run benchmark for this single model
                 benchmarker.results = []
@@ -118,30 +140,42 @@ def start_benchmark():
 
                 if benchmarker.results:
                     result = benchmarker.results[0]
-                    event_queue.put(json.dumps({
-                        "type": "model_done",
-                        "model": model_name,
-                        "index": model_idx,
-                        "total": total_models,
-                        "result": result,
-                    }))
+                    event_queue.put(
+                        json.dumps(
+                            {
+                                "type": "model_done",
+                                "model": model_name,
+                                "index": model_idx,
+                                "total": total_models,
+                                "result": result,
+                            }
+                        )
+                    )
 
             # Save all results
             benchmarker.results = []
             benchmarker.run_benchmark(models)
             log_path = benchmarker.save_logs()
 
-            event_queue.put(json.dumps({
-                "type": "benchmark_done",
-                "results_file": str(log_path),
-                "results": benchmarker.results,
-            }))
+            event_queue.put(
+                json.dumps(
+                    {
+                        "type": "benchmark_done",
+                        "results_file": str(log_path),
+                        "results": benchmarker.results,
+                    }
+                )
+            )
 
         except Exception as e:
-            event_queue.put(json.dumps({
-                "type": "error",
-                "message": str(e),
-            }))
+            event_queue.put(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": str(e),
+                    }
+                )
+            )
         finally:
             event_queue.put(None)  # Sentinel
 
@@ -168,7 +202,7 @@ def stream_benchmark():
             try:
                 msg = event_queue.get(timeout=30)
                 if msg is None:
-                    yield "data: {\"type\": \"stream_end\"}\n\n"
+                    yield 'data: {"type": "stream_end"}\n\n'
                     return
                 yield f"data: {msg}\n\n"
             except queue.Empty:
@@ -188,11 +222,13 @@ def list_results():
     results = []
     if log_dir.exists():
         for f in sorted(log_dir.glob("auto_benchmark_results_*.json"), reverse=True):
-            results.append({
-                "filename": f.name,
-                "path": str(f),
-                "modified": f.stat().st_mtime,
-            })
+            results.append(
+                {
+                    "filename": f.name,
+                    "path": str(f),
+                    "modified": f.stat().st_mtime,
+                }
+            )
     return jsonify({"status": "ok", "results": results})
 
 
@@ -200,7 +236,9 @@ def list_results():
 def get_result(filename):
     """Load a specific benchmark result file."""
     # Security: only allow expected filenames
-    if not filename.startswith("auto_benchmark_results_") or not filename.endswith(".json"):
+    if not filename.startswith("auto_benchmark_results_") or not filename.endswith(
+        ".json"
+    ):
         return jsonify({"status": "error", "message": "Invalid filename."}), 400
 
     file_path = _ollash_root_dir / "logs" / filename

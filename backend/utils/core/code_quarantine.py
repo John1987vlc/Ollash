@@ -12,6 +12,7 @@ from typing import List
 
 from backend.utils.core.agent_logger import AgentLogger
 
+
 class CodeQuarantine:
     """Manages the code quarantine area."""
 

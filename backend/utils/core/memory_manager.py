@@ -1,7 +1,8 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import chromadb
 
 from backend.utils.core.ollama_client import OllamaClient
@@ -9,15 +10,20 @@ from backend.utils.core.preference_manager import PreferenceManager
 
 
 class MemoryManager:
-    def __init__(self, project_root: Path, logger: Any, config: Optional[Dict] = None,
-                 embedding_client: Optional[Any] = None,
-                 summarization_client: Optional[Any] = None,
-                 llm_recorder: Any = None):
+    def __init__(
+        self,
+        project_root: Path,
+        logger: Any,
+        config: Optional[Dict] = None,
+        embedding_client: Optional[Any] = None,
+        summarization_client: Optional[Any] = None,
+        llm_recorder: Any = None,
+    ):
         self.project_root = project_root
         self.memory_file = self.project_root / ".agent_memory.json"
         self.logger = logger
         self.config = config or {}
-        self.llm_recorder = llm_recorder # Store llm_recorder
+        self.llm_recorder = llm_recorder  # Store llm_recorder
         self.memory: Dict[str, Any] = {}
         self._load_memory()
 
@@ -26,18 +32,24 @@ class MemoryManager:
 
         # Context management parameters
         self.max_context_tokens = self.config.get("max_context_tokens", 4000)
-        self.summarization_threshold_ratio = self.config.get("summarization_threshold_ratio", 0.7)
+        self.summarization_threshold_ratio = self.config.get(
+            "summarization_threshold_ratio", 0.7
+        )
         self.keep_last_n_messages = self.config.get("keep_last_n_messages", 3)
 
         # LRU cache settings
-        self._reasoning_cache_max_size: int = self.config.get("reasoning_cache_max_size", 500)
+        self._reasoning_cache_max_size: int = self.config.get(
+            "reasoning_cache_max_size", 500
+        )
 
         # Cumulative summary: persisted across summarization rounds
         self._cumulative_summary: str = self.get("cumulative_summary", "")
 
         # Reasoning Cache (ChromaDB)
         self.chroma_client = chromadb.Client()
-        self.reasoning_cache_collection = self.chroma_client.get_or_create_collection(name="reasoning_cache")
+        self.reasoning_cache_collection = self.chroma_client.get_or_create_collection(
+            name="reasoning_cache"
+        )
 
         # Accept injected clients or create fallback instances
         models_config = self.config.get("models", {})
@@ -45,9 +57,13 @@ class MemoryManager:
             "OLLASH_OLLAMA_URL",
             self.config.get("ollama_url", "http://localhost:11434"),
         )
-        self.summarization_model = models_config.get("summarization",
-                                    self.config.get("summarization_model",
-                                    self.config.get("summary_model", "ministral-3:8b")))
+        self.summarization_model = models_config.get(
+            "summarization",
+            self.config.get(
+                "summarization_model",
+                self.config.get("summary_model", "ministral-3:8b"),
+            ),
+        )
 
         if embedding_client is not None:
             self.embedding_client = embedding_client
@@ -56,32 +72,38 @@ class MemoryManager:
             ollama_client_config_dict = {
                 "ollama_max_retries": self.config.get("ollama_max_retries", 5),
                 "ollama_backoff_factor": self.config.get("ollama_backoff_factor", 1.0),
-                "ollama_retry_status_forcelist": self.config.get("ollama_retry_status_forcelist", [429, 500, 502, 503, 504]),
+                "ollama_retry_status_forcelist": self.config.get(
+                    "ollama_retry_status_forcelist", [429, 500, 502, 503, 504]
+                ),
                 "embedding_cache": self.config.get("embedding_cache", {}),
-                "project_root": str(self.project_root), # Pass project_root as string
-                "ollama_embedding_model": self.config.get("ollama_embedding_model", "all-minilm"),
+                "project_root": str(self.project_root),  # Pass project_root as string
+                "ollama_embedding_model": self.config.get(
+                    "ollama_embedding_model", "all-minilm"
+                ),
             }
-            ollama_timeout = self.config.get("timeout", 300) # Extract timeout here
+            ollama_timeout = self.config.get("timeout", 300)  # Extract timeout here
             self.embedding_client = OllamaClient(
                 url=ollama_url,
-                model=self.config.get("embedding", "all-minilm"), # Use specific model or default
-                timeout=ollama_timeout, # Pass as positional argument
+                model=self.config.get(
+                    "embedding", "all-minilm"
+                ),  # Use specific model or default
+                timeout=ollama_timeout,  # Pass as positional argument
                 logger=self.logger,
                 config=ollama_client_config_dict,
-                llm_recorder=self.llm_recorder
+                llm_recorder=self.llm_recorder,
             )
 
         if summarization_client is not None:
             self._summarization_client = summarization_client
         else:
-            ollama_timeout = self.config.get("timeout", 300) # Extract timeout here
+            ollama_timeout = self.config.get("timeout", 300)  # Extract timeout here
             self._summarization_client = OllamaClient(
                 url=ollama_url,
                 model=self.summarization_model,
-                timeout=ollama_timeout, # Pass as positional argument
+                timeout=ollama_timeout,  # Pass as positional argument
                 logger=self.logger,
-                config=ollama_client_config_dict, # Use the consolidated config dict
-                llm_recorder=self.llm_recorder
+                config=ollama_client_config_dict,  # Use the consolidated config dict
+                llm_recorder=self.llm_recorder,
             )
 
     # ----------------------------------------------------------------
@@ -99,10 +121,14 @@ class MemoryManager:
                 self.logger.error(f"Error decoding memory file {self.memory_file}: {e}")
                 self.memory = {}
             except Exception as e:
-                self.logger.error(f"Unexpected error loading memory from {self.memory_file}: {e}")
+                self.logger.error(
+                    f"Unexpected error loading memory from {self.memory_file}: {e}"
+                )
                 self.memory = {}
         else:
-            self.logger.info("No existing memory file found, starting with empty memory.")
+            self.logger.info(
+                "No existing memory file found, starting with empty memory."
+            )
 
     def _save_memory(self):
         """Saves current memory to the .agent_memory.json file."""
@@ -173,7 +199,9 @@ class MemoryManager:
     # Intelligent context management
     # ----------------------------------------------------------------
 
-    def needs_summarization(self, conversation: List[Dict], system_prompt: str = "") -> bool:
+    def needs_summarization(
+        self, conversation: List[Dict], system_prompt: str = ""
+    ) -> bool:
         """Returns True when the conversation + system prompt approaches MAX_CONTEXT_TOKENS."""
         all_messages = []
         if system_prompt:
@@ -197,8 +225,8 @@ class MemoryManager:
             self.logger.info("Not enough conversation history to summarize.")
             return conversation
 
-        messages_to_summarize = conversation[:-self.keep_last_n_messages]
-        remaining_messages = conversation[-self.keep_last_n_messages:]
+        messages_to_summarize = conversation[: -self.keep_last_n_messages]
+        remaining_messages = conversation[-self.keep_last_n_messages :]
 
         if not messages_to_summarize:
             return conversation
@@ -218,28 +246,38 @@ class MemoryManager:
             )
 
         summarization_prompt = [
-            {"role": "system", "content": (
-                "You are an expert summarizer. Condense the following conversation history "
-                "into a concise summary (2-4 sentences) that captures the main points, "
-                "decisions made, tools used, results obtained, and current state of the task. "
-                "This summary will be used as context for future interactions. "
-                "Focus on key information that the agent needs to continue effectively."
-            )},
-            {"role": "user", "content": (
-                context_preamble
-                + "\n".join(
-                    f"[{m.get('role', '?')}]: {m.get('content', '')[:500]}"
-                    for m in messages_to_summarize
-                )
-            )}
+            {
+                "role": "system",
+                "content": (
+                    "You are an expert summarizer. Condense the following conversation history "
+                    "into a concise summary (2-4 sentences) that captures the main points, "
+                    "decisions made, tools used, results obtained, and current state of the task. "
+                    "This summary will be used as context for future interactions. "
+                    "Focus on key information that the agent needs to continue effectively."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    context_preamble
+                    + "\n".join(
+                        f"[{m.get('role', '?')}]: {m.get('content', '')[:500]}"
+                        for m in messages_to_summarize
+                    )
+                ),
+            },
         ]
 
         try:
-            response_data, _ = self._summarization_client.chat(summarization_prompt, tools=[])
+            response_data, _ = self._summarization_client.chat(
+                summarization_prompt, tools=[]
+            )
             new_summary = response_data.get("message", {}).get("content", "")
 
             if not new_summary:
-                self.logger.warning("Summarization returned empty. Keeping conversation as-is.")
+                self.logger.warning(
+                    "Summarization returned empty. Keeping conversation as-is."
+                )
                 return conversation
 
             # Update cumulative summary
@@ -247,7 +285,10 @@ class MemoryManager:
             self.set("cumulative_summary", new_summary)
 
             cleaned = [
-                {"role": "system", "content": f"Previous Conversation Summary: {new_summary}"}
+                {
+                    "role": "system",
+                    "content": f"Previous Conversation Summary: {new_summary}",
+                }
             ] + remaining_messages
 
             tokens_before = self.estimate_tokens(conversation)
@@ -279,9 +320,11 @@ class MemoryManager:
                 embeddings=[error_embedding],
                 documents=[solution],
                 metadatas=[{"error": error}],
-                ids=[error_hash]
+                ids=[error_hash],
             )
-            self.logger.info(f"Added new reasoning to cache for error: {error[:100]}...")
+            self.logger.info(
+                f"Added new reasoning to cache for error: {error[:100]}..."
+            )
         except Exception as e:
             self.logger.error(f"Failed to add to reasoning cache: {e}")
 
@@ -295,7 +338,9 @@ class MemoryManager:
                 all_items = self.reasoning_cache_collection.peek(evict_count)
                 if all_items and all_items.get("ids"):
                     self.reasoning_cache_collection.delete(ids=all_items["ids"])
-                    self.logger.info(f"Evicted {len(all_items['ids'])} old entries from reasoning cache (LRU).")
+                    self.logger.info(
+                        f"Evicted {len(all_items['ids'])} old entries from reasoning cache (LRU)."
+                    )
         except Exception as e:
             self.logger.error(f"Failed to evict reasoning cache: {e}")
 
@@ -305,13 +350,18 @@ class MemoryManager:
             error_embedding = self.embedding_client.get_embedding(error)
 
             results = self.reasoning_cache_collection.query(
-                query_embeddings=[error_embedding],
-                n_results=1
+                query_embeddings=[error_embedding], n_results=1
             )
 
-            if results and results["distances"][0] and results["distances"][0][0] >= threshold:
+            if (
+                results
+                and results["distances"][0]
+                and results["distances"][0][0] >= threshold
+            ):
                 solution = results["documents"][0][0]
-                self.logger.info(f"Found similar reasoning in cache with similarity {results['distances'][0][0]}. Reusing solution.")
+                self.logger.info(
+                    f"Found similar reasoning in cache with similarity {results['distances'][0][0]}. Reusing solution."
+                )
                 return solution
             else:
                 self.logger.info("No sufficiently similar reasoning found in cache.")

@@ -5,18 +5,20 @@ Stores and retrieves learned patterns from code generation failures
 to prevent repeating the same mistakes across projects.
 """
 
-import json
 import hashlib
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-from datetime import datetime
+import json
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 from backend.utils.core.agent_logger import AgentLogger
 
 
 @dataclass
 class ErrorPattern:
     """Represents a learned error pattern."""
+
     pattern_id: str
     error_type: str  # syntax, logic, compatibility, semantic, etc.
     affected_file_type: str  # .py, .js, .go, etc.
@@ -71,10 +73,7 @@ class ErrorKnowledgeBase:
     """
 
     def __init__(
-        self,
-        knowledge_dir: Path,
-        logger: AgentLogger,
-        enable_persistence: bool = True
+        self, knowledge_dir: Path, logger: AgentLogger, enable_persistence: bool = True
     ):
         """
         Initialize error knowledge base.
@@ -125,7 +124,9 @@ class ErrorKnowledgeBase:
         if pattern_id in self.patterns:
             self.patterns[pattern_id].frequency += 1
             self.patterns[pattern_id].last_encountered = datetime.now().isoformat()
-            self.logger.debug(f"Updated error pattern {pattern_id} (frequency: {self.patterns[pattern_id].frequency})")
+            self.logger.debug(
+                f"Updated error pattern {pattern_id} (frequency: {self.patterns[pattern_id].frequency})"
+            )
         else:
             # Create new pattern
             language = self._detect_language(file_path)
@@ -156,7 +157,7 @@ class ErrorKnowledgeBase:
         file_path: str,
         language: str,
         error_type: Optional[str] = None,
-        max_results: int = 5
+        max_results: int = 5,
     ) -> List[ErrorPattern]:
         """
         Find similar error patterns for prevention.
@@ -205,10 +206,7 @@ class ErrorKnowledgeBase:
         if not similar:
             return ""
 
-        warnings = [
-            "Based on past issues, be careful to avoid:",
-            ""
-        ]
+        warnings = ["Based on past issues, be careful to avoid:", ""]
 
         for i, pattern in enumerate(similar, 1):
             warnings.append(f"{i}. [{pattern.severity.upper()}] {pattern.description}")
@@ -228,13 +226,19 @@ class ErrorKnowledgeBase:
 
         for pattern in self.patterns.values():
             # By error type
-            by_type[pattern.error_type] = by_type.get(pattern.error_type, 0) + pattern.frequency
+            by_type[pattern.error_type] = (
+                by_type.get(pattern.error_type, 0) + pattern.frequency
+            )
 
             # By language
-            by_language[pattern.language] = by_language.get(pattern.language, 0) + pattern.frequency
+            by_language[pattern.language] = (
+                by_language.get(pattern.language, 0) + pattern.frequency
+            )
 
             # By severity
-            by_severity[pattern.severity] = by_severity.get(pattern.severity, 0) + pattern.frequency
+            by_severity[pattern.severity] = (
+                by_severity.get(pattern.severity, 0) + pattern.frequency
+            )
 
         total_errors = sum(p.frequency for p in self.patterns.values())
 
@@ -255,7 +259,7 @@ class ErrorKnowledgeBase:
         }
 
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
         self.logger.info(f"Knowledge base exported to {output_file}")
@@ -326,10 +330,10 @@ class ErrorKnowledgeBase:
         try:
             data = {
                 "saved_at": datetime.now().isoformat(),
-                "patterns": {k: v.to_dict() for k, v in self.patterns.items()}
+                "patterns": {k: v.to_dict() for k, v in self.patterns.items()},
             }
 
-            with open(self.kb_file, 'w', encoding='utf-8') as f:
+            with open(self.kb_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, default=str)
         except Exception as e:
             self.logger.warning(f"Failed to save error knowledge base: {e}")
@@ -340,7 +344,7 @@ class ErrorKnowledgeBase:
             return
 
         try:
-            with open(self.kb_file, 'r', encoding='utf-8') as f:
+            with open(self.kb_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             for pattern_id, pattern_data in data.get("patterns", {}).items():

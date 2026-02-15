@@ -2,8 +2,9 @@
 Unit tests for DependencyGraph system.
 """
 
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from backend.utils.core.dependency_graph import DependencyGraph
 
@@ -29,22 +30,16 @@ def sample_structure():
                 "name": "src",
                 "files": ["main.py", "config.py"],
                 "folders": [
-                    {
-                        "name": "models",
-                        "files": ["user.py", "product.py"]
-                    },
+                    {"name": "models", "files": ["user.py", "product.py"]},
                     {
                         "name": "services",
-                        "files": ["user_service.py", "product_service.py"]
-                    }
-                ]
+                        "files": ["user_service.py", "product_service.py"],
+                    },
+                ],
             },
-            {
-                "name": "tests",
-                "files": ["test_main.py", "test_user_service.py"]
-            }
+            {"name": "tests", "files": ["test_main.py", "test_user_service.py"]},
         ],
-        "files": ["README.md", "requirements.txt"]
+        "files": ["README.md", "requirements.txt"],
     }
 
 

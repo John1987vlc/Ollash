@@ -9,11 +9,14 @@ BONUS_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "change_description": {"type": "string", "description": "A clear description of the proposed change."}
+                    "change_description": {
+                        "type": "string",
+                        "description": "A clear description of the proposed change.",
+                    }
                 },
-                "required": ["change_description"]
-            }
-        }
+                "required": ["change_description"],
+            },
+        },
     },
     {
         "type": "function",
@@ -23,11 +26,14 @@ BONUS_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "incident_or_task_description": {"type": "string", "description": "Description of the incident or task to generate a runbook for."}
+                    "incident_or_task_description": {
+                        "type": "string",
+                        "description": "Description of the incident or task to generate a runbook for.",
+                    }
                 },
-                "required": ["incident_or_task_description"]
-            }
-        }
+                "required": ["incident_or_task_description"],
+            },
+        },
     },
     {
         "type": "function",
@@ -39,9 +45,9 @@ BONUS_TOOL_DEFINITIONS: List[Dict] = [
                 "properties": {
                     "text": {"type": "string", "description": "The text to analyze."}
                 },
-                "required": ["text"]
-            }
-        }
+                "required": ["text"],
+            },
+        },
     },
     {
         "type": "function",
@@ -51,12 +57,18 @@ BONUS_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "prompt": {"type": "string", "description": "The prompt for content generation."},
-                    "style": {"type": "string", "description": "The desired style (e.g., 'neutral', 'formal', 'poetic')."}
+                    "prompt": {
+                        "type": "string",
+                        "description": "The prompt for content generation.",
+                    },
+                    "style": {
+                        "type": "string",
+                        "description": "The desired style (e.g., 'neutral', 'formal', 'poetic').",
+                    },
                 },
-                "required": ["prompt"]
-            }
-        }
+                "required": ["prompt"],
+            },
+        },
     },
     {
         "type": "function",
@@ -67,10 +79,13 @@ BONUS_TOOL_DEFINITIONS: List[Dict] = [
                 "type": "object",
                 "properties": {
                     "text": {"type": "string", "description": "The text to translate."},
-                    "target_language": {"type": "string", "description": "The target language (e.g., 'en', 'es', 'fr')."}
+                    "target_language": {
+                        "type": "string",
+                        "description": "The target language (e.g., 'en', 'es', 'fr').",
+                    },
                 },
-                "required": ["text", "target_language"]
-            }
-        }
+                "required": ["text", "target_language"],
+            },
+        },
     },
 ]

@@ -3,7 +3,6 @@ from backend.utils.core.file_validator import FileValidator, ValidationStatus
 
 
 class TestFileValidator:
-
     def setup_method(self):
         self.v = FileValidator()
 

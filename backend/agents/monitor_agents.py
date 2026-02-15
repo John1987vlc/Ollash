@@ -2,13 +2,13 @@
 
 import asyncio
 import logging
-from pathlib import Path
-from typing import Dict, Any, Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from backend.agents.default_agent import DefaultAgent
-from backend.utils.core.metrics_database import get_metrics_database
 from backend.utils.core.event_publisher import EventPublisher
+from backend.utils.core.metrics_database import get_metrics_database
 from frontend.services.chat_event_bridge import ChatEventBridge
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ class SystemMonitorAgent:
                 project_root=None,
                 auto_confirm=True,
                 base_path=self.ollash_root_dir,
-                event_bridge=bridge
+                event_bridge=bridge,
             )
             agent.active_agent_type = "system"
 
@@ -57,7 +57,7 @@ class SystemMonitorAgent:
 4. System uptime
 5. Running processes count
 
-Format as structured data and highlight any critical issues."""
+Format as structured data and highlight any critical issues.""",
             )
 
             # Parse and record metrics
@@ -70,7 +70,7 @@ Format as structured data and highlight any critical issues."""
                 "status": "healthy" if not issues else "issues_found",
                 "timestamp": datetime.now().isoformat(),
                 "report": result,
-                "issues": issues
+                "issues": issues,
             }
 
         except Exception as e:
@@ -90,7 +90,7 @@ Format as structured data and highlight any critical issues."""
                 project_root=None,
                 auto_confirm=True,
                 base_path=self.ollash_root_dir,
-                event_bridge=bridge
+                event_bridge=bridge,
             )
             agent.active_agent_type = "system"
 
@@ -103,13 +103,13 @@ Format as structured data and highlight any critical issues."""
 3. Check for unused dependencies or old virtual environments
 4. Report total space that could be freed
 
-Don't delete anything yet, just report findings."""
+Don't delete anything yet, just report findings.""",
             )
 
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
-                "cleanup_report": result
+                "cleanup_report": result,
             }
 
         except Exception as e:
@@ -132,7 +132,7 @@ Don't delete anything yet, just report findings."""
                 project_root=None,
                 auto_confirm=True,
                 base_path=self.ollash_root_dir,
-                event_bridge=bridge
+                event_bridge=bridge,
             )
             agent.active_agent_type = "system"
 
@@ -145,13 +145,13 @@ Don't delete anything yet, just report findings."""
 3. Critical events
 4. Performance issues
 
-Summarize findings by severity."""
+Summarize findings by severity.""",
             )
 
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
-                "analysis": result
+                "analysis": result,
             }
 
         except Exception as e:
@@ -163,11 +163,17 @@ Summarize findings by severity."""
         try:
             # Simple extraction - can be enhanced with better parsing
             if "CPU" in report or "cpu" in report:
-                self.metrics_db.record_metric("system", "cpu_check", 1, {"reported": True})
+                self.metrics_db.record_metric(
+                    "system", "cpu_check", 1, {"reported": True}
+                )
             if "RAM" in report or "Memory" in report or "memory" in report:
-                self.metrics_db.record_metric("system", "memory_check", 1, {"reported": True})
+                self.metrics_db.record_metric(
+                    "system", "memory_check", 1, {"reported": True}
+                )
             if "Disk" in report or "disk" in report:
-                self.metrics_db.record_metric("system", "disk_check", 1, {"reported": True})
+                self.metrics_db.record_metric(
+                    "system", "disk_check", 1, {"reported": True}
+                )
         except Exception as e:
             logger.error(f"Error recording system metrics: {e}")
 
@@ -178,16 +184,13 @@ Summarize findings by severity."""
         keywords = {
             "critical": ["CRITICAL", "ERROR", "FAIL", "Down", "offline"],
             "warning": ["WARNING", "WARN", "High", "Low disk", "Memory pressure"],
-            "info": ["INFO", "OK", "Healthy"]
+            "info": ["INFO", "OK", "Healthy"],
         }
 
         for issue_type, keywords_list in keywords.items():
             for keyword in keywords_list:
                 if keyword in report:
-                    issues.append({
-                        "severity": issue_type,
-                        "keyword": keyword
-                    })
+                    issues.append({"severity": issue_type, "keyword": keyword})
 
         return issues
 
@@ -201,7 +204,9 @@ class NetworkMonitorAgent:
         self.event_publisher = event_publisher
         self.metrics_db = get_metrics_database(ollash_root_dir)
 
-    async def check_services_uptime(self, services: Optional[list] = None) -> Dict[str, Any]:
+    async def check_services_uptime(
+        self, services: Optional[list] = None
+    ) -> Dict[str, Any]:
         """
         Check uptime of critical services using heartbeat pings.
 
@@ -217,7 +222,7 @@ class NetworkMonitorAgent:
                 project_root=None,
                 auto_confirm=True,
                 base_path=self.ollash_root_dir,
-                event_bridge=bridge
+                event_bridge=bridge,
             )
             agent.active_agent_type = "network"
 
@@ -234,16 +239,18 @@ For each service, report:
 1. Host/IP
 2. Response time (ping)
 3. Status (UP/DOWN)
-4. Last successful connection time"""
+4. Last successful connection time""",
             )
 
             # Record metrics
-            self.metrics_db.record_metric("network", "uptime_check", 1, {"result": "completed"})
+            self.metrics_db.record_metric(
+                "network", "uptime_check", 1, {"result": "completed"}
+            )
 
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
-                "services_report": result
+                "services_report": result,
             }
 
         except Exception as e:
@@ -266,7 +273,7 @@ For each service, report:
                 project_root=None,
                 auto_confirm=True,
                 base_path=self.ollash_root_dir,
-                event_bridge=bridge
+                event_bridge=bridge,
             )
             agent.active_agent_type = "network"
 
@@ -283,15 +290,17 @@ For each port, report:
 1. Port number
 2. Status (OPEN/CLOSED/FILTERED)
 3. Service listening (if identifiable)
-4. Last seen change"""
+4. Last seen change""",
             )
 
-            self.metrics_db.record_metric("network", "port_check", 1, {"result": "completed"})
+            self.metrics_db.record_metric(
+                "network", "port_check", 1, {"result": "completed"}
+            )
 
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
-                "ports_report": result
+                "ports_report": result,
             }
 
         except Exception as e:
@@ -324,7 +333,7 @@ class SecurityMonitorAgent:
                 project_root=None,
                 auto_confirm=True,
                 base_path=self.ollash_root_dir,
-                event_bridge=bridge
+                event_bridge=bridge,
             )
             agent.active_agent_type = "cybersecurity"
 
@@ -332,7 +341,7 @@ class SecurityMonitorAgent:
                 file_paths = [
                     "config/settings.json",
                     "requirements.txt",
-                    "docker-compose.yml"
+                    "docker-compose.yml",
                 ]
 
             files_str = ", ".join(file_paths)
@@ -345,15 +354,17 @@ For each file:
 1. Calculate current hash (MD5/SHA256)
 2. Check file size and modification time
 3. Verify permissions
-4. Report any unauthorized changes detected"""
+4. Report any unauthorized changes detected""",
             )
 
-            self.metrics_db.record_metric("security", "integrity_scan", 1, {"result": "completed"})
+            self.metrics_db.record_metric(
+                "security", "integrity_scan", 1, {"result": "completed"}
+            )
 
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
-                "integrity_report": result
+                "integrity_report": result,
             }
 
         except Exception as e:
@@ -373,7 +384,7 @@ For each file:
                 project_root=None,
                 auto_confirm=True,
                 base_path=self.ollash_root_dir,
-                event_bridge=bridge
+                event_bridge=bridge,
             )
             agent.active_agent_type = "cybersecurity"
 
@@ -388,15 +399,17 @@ For each file:
 4. Process anomalies
 5. Network suspicious connections
 
-Summarize threats by severity (Critical/High/Medium/Low)"""
+Summarize threats by severity (Critical/High/Medium/Low)""",
             )
 
-            self.metrics_db.record_metric("security", "log_analysis", 1, {"result": "completed"})
+            self.metrics_db.record_metric(
+                "security", "log_analysis", 1, {"result": "completed"}
+            )
 
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
-                "security_analysis": result
+                "security_analysis": result,
             }
 
         except Exception as e:
@@ -416,7 +429,7 @@ Summarize threats by severity (Critical/High/Medium/Low)"""
                 project_root=None,
                 auto_confirm=True,
                 base_path=self.ollash_root_dir,
-                event_bridge=bridge
+                event_bridge=bridge,
             )
             agent.active_agent_type = "cybersecurity"
 
@@ -429,15 +442,17 @@ Summarize threats by severity (Critical/High/Medium/Low)"""
 2. Check npm packages if any
 3. Check system-level libraries
 4. List outdated packages
-5. Report CVEs and severity levels"""
+5. Report CVEs and severity levels""",
             )
 
-            self.metrics_db.record_metric("security", "vulnerability_scan", 1, {"result": "completed"})
+            self.metrics_db.record_metric(
+                "security", "vulnerability_scan", 1, {"result": "completed"}
+            )
 
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
-                "vulnerability_report": result
+                "vulnerability_report": result,
             }
 
         except Exception as e:
@@ -447,12 +462,11 @@ Summarize threats by severity (Critical/High/Medium/Low)"""
 
 # Factory function to create monitor agents
 def create_monitor_agents(
-    ollash_root_dir: Path,
-    event_publisher: EventPublisher
+    ollash_root_dir: Path, event_publisher: EventPublisher
 ) -> Dict[str, Any]:
     """Create all monitor agent instances."""
     return {
         "system": SystemMonitorAgent(ollash_root_dir, event_publisher),
         "network": NetworkMonitorAgent(ollash_root_dir, event_publisher),
-        "security": SecurityMonitorAgent(ollash_root_dir, event_publisher)
+        "security": SecurityMonitorAgent(ollash_root_dir, event_publisher),
     }

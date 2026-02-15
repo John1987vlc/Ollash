@@ -1,37 +1,48 @@
-from typing import Dict, Any, List, Tuple
+from collections import defaultdict  # NEW
 from pathlib import Path
-from collections import defaultdict # NEW
-
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.llm_response_parser import LLMResponseParser
-from backend.utils.core.file_manager import FileManager
-from backend.utils.core.file_validator import FileValidator
-from backend.utils.core.documentation_manager import DocumentationManager
-from backend.utils.core.event_publisher import EventPublisher
-from backend.utils.core.code_quarantine import CodeQuarantine
-from backend.utils.core.fragment_cache import FragmentCache
-from backend.utils.core.dependency_graph import DependencyGraph
-from backend.utils.core.parallel_generator import ParallelFileGenerator # NEW
-from backend.utils.core.error_knowledge_base import ErrorKnowledgeBase
-from backend.utils.core.permission_profiles import PolicyEnforcer
-from backend.utils.core.scanners.rag_context_selector import RAGContextSelector # NEW
-
-# Specialized AutoAgent services
-from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
-from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
-from backend.utils.domains.auto_generation.file_content_generator import FileContentGenerator
-from backend.utils.domains.auto_generation.file_refiner import FileRefiner
-from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
-from backend.utils.domains.auto_generation.project_reviewer import ProjectReviewer
-from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
-from backend.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
-from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
-from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
-from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
-from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
+from typing import Any, Dict, List, Tuple
 
 # Interfaces
 from backend.interfaces.imodel_provider import IModelProvider
+from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.code_quarantine import CodeQuarantine
+from backend.utils.core.dependency_graph import DependencyGraph
+from backend.utils.core.documentation_manager import DocumentationManager
+from backend.utils.core.error_knowledge_base import ErrorKnowledgeBase
+from backend.utils.core.event_publisher import EventPublisher
+from backend.utils.core.file_manager import FileManager
+from backend.utils.core.file_validator import FileValidator
+from backend.utils.core.fragment_cache import FragmentCache
+from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.parallel_generator import ParallelFileGenerator  # NEW
+from backend.utils.core.permission_profiles import PolicyEnforcer
+from backend.utils.core.scanners.rag_context_selector import \
+    RAGContextSelector  # NEW
+from backend.utils.domains.auto_generation.contingency_planner import \
+    ContingencyPlanner
+from backend.utils.domains.auto_generation.file_completeness_checker import \
+    FileCompletenessChecker
+from backend.utils.domains.auto_generation.file_content_generator import \
+    FileContentGenerator
+from backend.utils.domains.auto_generation.file_refiner import FileRefiner
+from backend.utils.domains.auto_generation.improvement_planner import \
+    ImprovementPlanner
+from backend.utils.domains.auto_generation.improvement_suggester import \
+    ImprovementSuggester
+from backend.utils.domains.auto_generation.multi_language_test_generator import \
+    MultiLanguageTestGenerator
+# Specialized AutoAgent services
+from backend.utils.domains.auto_generation.project_planner import \
+    ProjectPlanner
+from backend.utils.domains.auto_generation.project_reviewer import \
+    ProjectReviewer
+from backend.utils.domains.auto_generation.senior_reviewer import \
+    SeniorReviewer
+from backend.utils.domains.auto_generation.structure_generator import \
+    StructureGenerator
+from backend.utils.domains.auto_generation.structure_pre_reviewer import \
+    StructurePreReviewer
+
 
 class PhaseContext:
     """
@@ -40,44 +51,65 @@ class PhaseContext:
     """
 
     # File categories for intelligent context selection (Moved from CoreAgent)
-    _FRONTEND_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte", ".html", ".css", ".scss", ".less"}
+    _FRONTEND_EXTENSIONS = {
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".vue",
+        ".svelte",
+        ".html",
+        ".css",
+        ".scss",
+        ".less",
+    }
     _BACKEND_ROUTE_PATTERNS = {"routes", "views", "api", "endpoints", "controllers"}
-    _DEPENDENCY_FILES = {"requirements.txt", "package.json", "Cargo.toml", "go.mod", "Gemfile", "pyproject.toml", "build.gradle", "pom.xml", "Dockerfile"}
+    _DEPENDENCY_FILES = {
+        "requirements.txt",
+        "package.json",
+        "Cargo.toml",
+        "go.mod",
+        "Gemfile",
+        "pyproject.toml",
+        "build.gradle",
+        "pom.xml",
+        "Dockerfile",
+    }
 
-
-    def __init__(self,
-                 config: Dict[str, Any],
-                 logger: AgentLogger,
-                 ollash_root_dir: Path,
-                 llm_manager: IModelProvider,
-                 response_parser: LLMResponseParser,
-                 file_manager: FileManager,
-                 file_validator: FileValidator,
-                 documentation_manager: DocumentationManager,
-                 event_publisher: EventPublisher,
-                 code_quarantine: CodeQuarantine,
-                 fragment_cache: FragmentCache,
-                 dependency_graph: DependencyGraph,
-                 parallel_generator: ParallelFileGenerator,
-                 error_knowledge_base: ErrorKnowledgeBase,
-                 policy_enforcer: PolicyEnforcer,
-                 rag_context_selector: RAGContextSelector, # NEW
-                 # Specialized AutoAgent services
-                 project_planner: ProjectPlanner,
-                 structure_generator: StructureGenerator,
-                 file_content_generator: FileContentGenerator,
-                 file_refiner: FileRefiner,
-                 file_completeness_checker: FileCompletenessChecker,
-                 project_reviewer: ProjectReviewer,
-                 improvement_suggester: ImprovementSuggester,
-                 improvement_planner: ImprovementPlanner,
-                 senior_reviewer: SeniorReviewer,
-                 test_generator: MultiLanguageTestGenerator,
-                 contingency_planner: ContingencyPlanner,
-                 structure_pre_reviewer: StructurePreReviewer,
-                 generated_projects_dir: Path,
-                 auto_agent: Any = None, # Temporary for now, to allow calling _reconcile_requirements from AutoAgent
-                 ):
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        logger: AgentLogger,
+        ollash_root_dir: Path,
+        llm_manager: IModelProvider,
+        response_parser: LLMResponseParser,
+        file_manager: FileManager,
+        file_validator: FileValidator,
+        documentation_manager: DocumentationManager,
+        event_publisher: EventPublisher,
+        code_quarantine: CodeQuarantine,
+        fragment_cache: FragmentCache,
+        dependency_graph: DependencyGraph,
+        parallel_generator: ParallelFileGenerator,
+        error_knowledge_base: ErrorKnowledgeBase,
+        policy_enforcer: PolicyEnforcer,
+        rag_context_selector: RAGContextSelector,  # NEW
+        # Specialized AutoAgent services
+        project_planner: ProjectPlanner,
+        structure_generator: StructureGenerator,
+        file_content_generator: FileContentGenerator,
+        file_refiner: FileRefiner,
+        file_completeness_checker: FileCompletenessChecker,
+        project_reviewer: ProjectReviewer,
+        improvement_suggester: ImprovementSuggester,
+        improvement_planner: ImprovementPlanner,
+        senior_reviewer: SeniorReviewer,
+        test_generator: MultiLanguageTestGenerator,
+        contingency_planner: ContingencyPlanner,
+        structure_pre_reviewer: StructurePreReviewer,
+        generated_projects_dir: Path,
+        auto_agent: Any = None,  # Temporary for now, to allow calling _reconcile_requirements from AutoAgent
+    ):
         self.config = config
         self.logger = logger
         self.ollash_root_dir = ollash_root_dir
@@ -93,7 +125,7 @@ class PhaseContext:
         self.parallel_generator = parallel_generator
         self.error_knowledge_base = error_knowledge_base
         self.policy_enforcer = policy_enforcer
-        self.rag_context_selector = rag_context_selector # NEW
+        self.rag_context_selector = rag_context_selector  # NEW
         self.auto_agent = auto_agent
 
         self.project_planner = project_planner
@@ -114,13 +146,17 @@ class PhaseContext:
         self.current_project_structure: Dict[str, Any] = {}
         self.current_file_paths: List[str] = []
         self.current_readme_content: str = ""
-        self.logic_plan: Dict[str, Dict[str, Any]] = {}  # NEW: Store implementation plans
+        self.logic_plan: Dict[
+            str, Dict[str, Any]
+        ] = {}  # NEW: Store implementation plans
 
-    def update_generated_data(self,
-                              generated_files: Dict[str, str],
-                              project_structure: Dict[str, Any],
-                              file_paths: List[str],
-                              readme_content: str):
+    def update_generated_data(
+        self,
+        generated_files: Dict[str, str],
+        project_structure: Dict[str, Any],
+        file_paths: List[str],
+        readme_content: str,
+    ):
         """Updates the current state of generated data within the context."""
         self.current_generated_files.update(generated_files)
         self.current_project_structure = project_structure
@@ -227,7 +263,9 @@ class PhaseContext:
         }
         return language_map.get(ext, "unknown")
 
-    def group_files_by_language(self, files: Dict[str, str]) -> Dict[str, List[Tuple[str, str]]]:
+    def group_files_by_language(
+        self, files: Dict[str, str]
+    ) -> Dict[str, List[Tuple[str, str]]]:
         """Group files by programming language."""
         grouped = defaultdict(list)
 
@@ -263,7 +301,7 @@ class PhaseContext:
         readme: str,
         structure: Dict,
         files: Dict[str, str],
-        file_paths: List[str]
+        file_paths: List[str],
     ) -> Tuple[Dict[str, str], Dict, List[str]]:
         """Implement contingency plan from planner."""
         actions = plan.get("actions", [])
@@ -297,16 +335,22 @@ class PhaseContext:
                 issues = action.get("issues", [])
                 if target_path and target_path in files:
                     try:
-                        refined = self.file_refiner.refine_file(target_path, files[target_path], readme[:2000], issues)
+                        refined = self.file_refiner.refine_file(
+                            target_path, files[target_path], readme[:2000], issues
+                        )
                         if refined:
                             files[target_path] = refined
-                            self.file_manager.write_file(project_root / target_path, refined)
+                            self.file_manager.write_file(
+                                project_root / target_path, refined
+                            )
                     except Exception as e:
                         self.logger.error(f"Error refining {target_path}: {e}")
 
         return files, structure, file_paths
 
-    def ingest_existing_project(self, project_path: Path) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
+    def ingest_existing_project(
+        self, project_path: Path
+    ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         """
         Loads an existing project into the agent's state.
 
@@ -331,14 +375,49 @@ class PhaseContext:
 
         # Define extensions and directories to load (exclude build, cache, etc)
         source_extensions = {
-            ".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java",
-            ".cpp", ".c", ".cs", ".rb", ".php", ".swift", ".kt", ".json",
-            ".yaml", ".yml", ".xml", ".md", ".txt", ".html", ".css", ".scss", ".less"
+            ".py",
+            ".js",
+            ".jsx",
+            ".ts",
+            ".tsx",
+            ".go",
+            ".rs",
+            ".java",
+            ".cpp",
+            ".c",
+            ".cs",
+            ".rb",
+            ".php",
+            ".swift",
+            ".kt",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".xml",
+            ".md",
+            ".txt",
+            ".html",
+            ".css",
+            ".scss",
+            ".less",
         }
 
-        exclude_dirs = {"__pycache__", ".git", ".venv", "venv", "node_modules", ".cache",
-                       "dist", "build", ".pytest_cache", ".mypy_cache", ".egg-info",
-                       ".idea", ".vscode", "target"}
+        exclude_dirs = {
+            "__pycache__",
+            ".git",
+            ".venv",
+            "venv",
+            "node_modules",
+            ".cache",
+            "dist",
+            "build",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".egg-info",
+            ".idea",
+            ".vscode",
+            "target",
+        }
 
         try:
             project_path = Path(project_path)
@@ -347,7 +426,7 @@ class PhaseContext:
                 return {}, {}, []
 
             # Walk through project directory
-            for root, dirs, files_in_dir in __import__('os').walk(project_path):
+            for root, dirs, files_in_dir in __import__("os").walk(project_path):
                 # Filter out excluded directories
                 dirs[:] = [d for d in dirs if d not in exclude_dirs]
 
@@ -374,7 +453,9 @@ class PhaseContext:
                         loaded_files[rel_path_str] = content
                         file_paths.append(rel_path_str)
 
-                        self.logger.debug(f"  Loaded: {rel_path_str} ({len(content)} bytes)")
+                        self.logger.debug(
+                            f"  Loaded: {rel_path_str} ({len(content)} bytes)"
+                        )
                     except Exception as e:
                         self.logger.warning(f"Could not load {rel_path}: {e}")
 
@@ -382,8 +463,12 @@ class PhaseContext:
             structure = self._build_structure_from_files(loaded_files)
 
             # Update context state
-            self.update_generated_data(loaded_files, structure, file_paths, readme_content)
-            self.logger.info(f"✅ Ingested {len(loaded_files)} files from existing project")
+            self.update_generated_data(
+                loaded_files, structure, file_paths, readme_content
+            )
+            self.logger.info(
+                f"✅ Ingested {len(loaded_files)} files from existing project"
+            )
 
             return loaded_files, structure, file_paths
 
@@ -413,7 +498,7 @@ class PhaseContext:
             current[filename] = {
                 "type": "file",
                 "extension": Path(filename).suffix,
-                "language": self.infer_language(filename)
+                "language": self.infer_language(filename),
             }
 
         return structure

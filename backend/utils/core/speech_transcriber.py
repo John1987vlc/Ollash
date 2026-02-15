@@ -3,18 +3,20 @@ Phase 5: Speech Transcriber
 Handles audio input and transcription from Web Speech API and server-side processing
 """
 
-import json
 import base64
-from dataclasses import dataclass, asdict, field
+import json
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import List, Dict, Optional
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
+from typing import Dict, List, Optional
+
 import requests
 
 
 class AudioFormat(Enum):
     """Supported audio formats"""
+
     WAV = "wav"
     MP3 = "mp3"
     OGG = "ogg"
@@ -25,6 +27,7 @@ class AudioFormat(Enum):
 
 class TranscriptionModel(Enum):
     """Available transcription models"""
+
     WHISPER_TINY = "whisper-tiny"
     WHISPER_BASE = "whisper-base"
     WHISPER_SMALL = "whisper-small"
@@ -34,6 +37,7 @@ class TranscriptionModel(Enum):
 @dataclass
 class ConfidenceSegment:
     """Speech segment with confidence score"""
+
     start_time_ms: float
     end_time_ms: float
     text: str
@@ -47,6 +51,7 @@ class ConfidenceSegment:
 @dataclass
 class TranscriptionResult:
     """Result from audio transcription"""
+
     audio_id: str
     transcript: str
     confidence: float  # Overall confidence 0-1
@@ -68,6 +73,7 @@ class TranscriptionResult:
 @dataclass
 class AudioInput:
     """Audio input metadata"""
+
     audio_id: str
     file_path: Optional[str] = None
     format: AudioFormat = AudioFormat.WAV
@@ -84,6 +90,7 @@ class AudioInput:
 @dataclass
 class TranscriptionConfig:
     """Configuration for transcription"""
+
     ollama_host: str = "http://localhost:11434"
     model_name: str = "whisper-tiny"  # Fast, can use tiny/base/small/medium
     language: str = "en"
@@ -108,7 +115,11 @@ class SpeechTranscriber:
     6. Integration with Web Speech API results
     """
 
-    def __init__(self, workspace_path: str = "knowledge_workspace", config: Optional[TranscriptionConfig] = None):
+    def __init__(
+        self,
+        workspace_path: str = "knowledge_workspace",
+        config: Optional[TranscriptionConfig] = None,
+    ):
         self.workspace = Path(workspace_path)
         self.speech_dir = self.workspace / "speech"
         self.speech_dir.mkdir(parents=True, exist_ok=True)
@@ -126,7 +137,7 @@ class SpeechTranscriber:
 
     def _save_cache(self):
         """Persist transcription results"""
-        with open(self.results_cache, 'w') as f:
+        with open(self.results_cache, "w") as f:
             json.dump(self.transcriptions, f, indent=2)
 
     def _validate_audio(self, audio_path: str) -> bool:
@@ -137,7 +148,7 @@ class SpeechTranscriber:
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
         # Check format
-        suffix = path.suffix.lstrip('.').lower()
+        suffix = path.suffix.lstrip(".").lower()
         try:
             AudioFormat[suffix.upper()]
         except KeyError:
@@ -154,6 +165,7 @@ class SpeechTranscriber:
         """Estimate audio duration from file size"""
         try:
             from pydub import AudioSegment
+
             audio = AudioSegment.from_file(audio_path)
             return len(audio) / 1000.0  # Convert milliseconds to seconds
         except ImportError:
@@ -162,7 +174,9 @@ class SpeechTranscriber:
             size = Path(audio_path).stat().st_size
             return size / (16000 * 2)
 
-    def transcribe_audio(self, audio_path: str, audio_id: Optional[str] = None) -> TranscriptionResult:
+    def transcribe_audio(
+        self, audio_path: str, audio_id: Optional[str] = None
+    ) -> TranscriptionResult:
         """
         Transcribe audio file using Ollama Whisper model
 
@@ -205,14 +219,17 @@ class SpeechTranscriber:
 
         return result
 
-    def _call_ollama_transcribe(self, audio_path: str, audio_id: str, duration_seconds: float) -> TranscriptionResult:
+    def _call_ollama_transcribe(
+        self, audio_path: str, audio_id: str, duration_seconds: float
+    ) -> TranscriptionResult:
         """Call Whisper model via Ollama for transcription"""
         import time
+
         start_time = time.time()
 
         # Read and encode audio
-        with open(audio_path, 'rb') as f:
-            audio_data = base64.b64encode(f.read()).decode('utf-8')
+        with open(audio_path, "rb") as f:
+            audio_data = base64.b64encode(f.read()).decode("utf-8")
 
         url = f"{self.config.ollama_host}/api/generate"
 
@@ -227,7 +244,9 @@ class SpeechTranscriber:
         }
 
         try:
-            response = requests.post(url, json=payload, timeout=self.config.timeout_seconds)
+            response = requests.post(
+                url, json=payload, timeout=self.config.timeout_seconds
+            )
             response.raise_for_status()
 
             data = response.json()
@@ -248,7 +267,7 @@ class SpeechTranscriber:
                 duration_seconds=duration_seconds,
                 processing_time_ms=processing_time,
                 segments=segments,
-                model_used=self.config.model_name
+                model_used=self.config.model_name,
             )
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Ollama transcription error: {e}")
@@ -258,7 +277,7 @@ class SpeechTranscriber:
         segments = []
 
         # Split by sentences (simplified)
-        sentences = transcript.split('. ')
+        sentences = transcript.split(". ")
 
         # Estimate timing (naive approach: equal distribution)
         total_segments = len(sentences)
@@ -275,7 +294,7 @@ class SpeechTranscriber:
                 end_time_ms=((idx + 1) / total_segments) * 1000,
                 text=sentence.strip(),
                 confidence=confidence,
-                is_uncertain=confidence < 0.7
+                is_uncertain=confidence < 0.7,
             )
             segments.append(segment)
 
@@ -311,7 +330,9 @@ class SpeechTranscriber:
         avg_confidence = sum(s.confidence for s in segments) / len(segments)
         return avg_confidence
 
-    def stream_transcription(self, audio_path: str, chunk_duration_ms: int = 1000) -> List[TranscriptionResult]:
+    def stream_transcription(
+        self, audio_path: str, chunk_duration_ms: int = 1000
+    ) -> List[TranscriptionResult]:
         """
         Stream transcription by processing audio in chunks
 
@@ -354,7 +375,9 @@ class SpeechTranscriber:
 
         return results
 
-    def integrate_web_speech_result(self, audio_id: str, web_speech_transcript: str, web_speech_confidence: float) -> TranscriptionResult:
+    def integrate_web_speech_result(
+        self, audio_id: str, web_speech_transcript: str, web_speech_confidence: float
+    ) -> TranscriptionResult:
         """
         Integrate transcription result from Web Speech API
 
@@ -375,7 +398,7 @@ class SpeechTranscriber:
             transcript=web_speech_transcript,
             confidence=web_speech_confidence,
             segments=segments,
-            model_used="web-speech-api"
+            model_used="web-speech-api",
         )
 
         # Cache result
@@ -384,7 +407,9 @@ class SpeechTranscriber:
 
         return result
 
-    def match_confidence_thresholds(self, result: TranscriptionResult, threshold: float = 0.7) -> Dict:
+    def match_confidence_thresholds(
+        self, result: TranscriptionResult, threshold: float = 0.7
+    ) -> Dict:
         """
         Analyze which segments meet confidence threshold
 
@@ -404,7 +429,9 @@ class SpeechTranscriber:
             "below_threshold_count": len(below_threshold),
             "above_threshold_text": " ".join([s.text for s in above_threshold]),
             "below_threshold_text": " ".join([s.text for s in below_threshold]),
-            "confidence_ratio": len(above_threshold) / len(result.segments) if result.segments else 0
+            "confidence_ratio": len(above_threshold) / len(result.segments)
+            if result.segments
+            else 0,
         }
 
     def get_transcript_summary(self, result: TranscriptionResult) -> Dict:
@@ -428,7 +455,9 @@ class SpeechTranscriber:
             "uncertain_segments": len(result.get_uncertain_segments()),
             "duration_seconds": result.duration_seconds,
             "processing_time_ms": result.processing_time_ms,
-            "wpm": (word_count / result.duration_seconds) if result.duration_seconds > 0 else 0
+            "wpm": (word_count / result.duration_seconds)
+            if result.duration_seconds > 0
+            else 0,
         }
 
     def get_transcription_stats(self) -> Dict:
@@ -438,7 +467,7 @@ class SpeechTranscriber:
                 "total_transcribed": 0,
                 "avg_confidence": 0,
                 "total_words": 0,
-                "total_duration_seconds": 0
+                "total_duration_seconds": 0,
             }
 
         transcriptions = list(self.transcriptions.values())
@@ -451,10 +480,7 @@ class SpeechTranscriber:
             "avg_confidence": sum(confidences) / len(confidences) if confidences else 0,
             "total_words": sum(words),
             "total_duration_seconds": sum(durations),
-            "most_recent": max(
-                [t["timestamp"] for t in transcriptions],
-                default=None
-            )
+            "most_recent": max([t["timestamp"] for t in transcriptions], default=None),
         }
 
     def clear_cache(self):

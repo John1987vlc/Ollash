@@ -2,9 +2,10 @@
 Unit tests for FragmentCache system.
 """
 
-import pytest
 import json
 from unittest.mock import Mock
+
+import pytest
 
 from backend.utils.core.fragment_cache import FragmentCache
 
@@ -33,9 +34,7 @@ class TestFragmentCacheBasics:
     def test_cache_set_and_get(self, fragment_cache):
         """Test setting and getting a fragment."""
         fragment_cache.set(
-            "license_header",
-            "python",
-            "# MIT License\nCopyright (c) 2026"
+            "license_header", "python", "# MIT License\nCopyright (c) 2026"
         )
 
         result = fragment_cache.get("license_header", "python")
@@ -72,10 +71,7 @@ class TestFragmentCacheBasics:
         context = "project description"
 
         fragment_cache.set(
-            "class_template",
-            "python",
-            "class MyClass: pass",
-            context=context
+            "class_template", "python", "class MyClass: pass", context=context
         )
 
         # With same context
@@ -92,6 +88,7 @@ class TestFragmentCacheValidation:
 
     def test_cache_validation_function(self, fragment_cache):
         """Test custom validation function."""
+
         def validate_syntax(content):
             return "class" in content
 
@@ -105,9 +102,7 @@ class TestFragmentCacheValidation:
 
         # Invalid fragment
         fragment_cache.set("invalid", "python", "just some text")
-        result = fragment_cache.get(
-            "invalid", "python", validate_fn=validate_syntax
-        )
+        result = fragment_cache.get("invalid", "python", validate_fn=validate_syntax)
         assert result is None
 
 

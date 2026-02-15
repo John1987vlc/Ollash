@@ -4,23 +4,24 @@ Handles paragraph-level critique, refinement, and validation cycles
 """
 
 import json
-from dataclasses import dataclass, asdict, field
-from datetime import datetime
-from typing import List, Dict, Optional
-from pathlib import Path
 import re
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
 
 
 @dataclass
 class ParagraphContext:
     """Represents a text paragraph with metadata"""
+
     index: int
     text: str
     original_text: str
     source_id: str
     word_count: int = 0
     readability_score: float = 0.0
-    refinement_history: List['RefinementRecord'] = field(default_factory=list)
+    refinement_history: List["RefinementRecord"] = field(default_factory=list)
 
     def __post_init__(self):
         self.word_count = len(self.text.split())
@@ -33,16 +34,19 @@ class ParagraphContext:
             return 0.0
 
         avg_word_length = sum(len(w) for w in words) / len(words)
-        avg_sentence_length = len(words) / max(len(self.text.split('.')), 1)
+        avg_sentence_length = len(words) / max(len(self.text.split(".")), 1)
 
         # Flesch-Kincaid simplified: lower is better (more readable)
-        score = min(100, max(0, 100 - (avg_word_length * 4 + avg_sentence_length * 1.5)))
+        score = min(
+            100, max(0, 100 - (avg_word_length * 4 + avg_sentence_length * 1.5))
+        )
         return score
 
 
 @dataclass
 class RefinementRecord:
     """Records a single refinement action"""
+
     timestamp: str
     action_type: str  # 'critique', 'refine', 'validate', 'rollback'
     original: str
@@ -59,6 +63,7 @@ class RefinementRecord:
 @dataclass
 class RefinementMetrics:
     """Tracks refinement performance"""
+
     total_paragraphs: int = 0
     refined_count: int = 0
     validation_passed: int = 0
@@ -103,7 +108,7 @@ class FeedbackRefinementManager:
             "validation_passed": 0,
             "validation_failed": 0,
             "avg_readability_improvement": 0.0,
-            "total_iterations": 0
+            "total_iterations": 0,
         }
 
     def _load_history(self) -> List:
@@ -115,12 +120,12 @@ class FeedbackRefinementManager:
 
     def _save_metrics(self):
         """Persist metrics"""
-        with open(self.metrics_file, 'w') as f:
+        with open(self.metrics_file, "w") as f:
             json.dump(self.metrics, f, indent=2)
 
     def _save_history(self):
         """Persist history"""
-        with open(self.history_file, 'w') as f:
+        with open(self.history_file, "w") as f:
             json.dump(self.history, f, indent=2)
 
     def extract_paragraphs(self, text: str, source_id: str) -> List[ParagraphContext]:
@@ -135,7 +140,7 @@ class FeedbackRefinementManager:
             List of ParagraphContext objects
         """
         # Split by double newlines or paragraph markers
-        paragraphs = re.split(r'\n\n+', text.strip())
+        paragraphs = re.split(r"\n\n+", text.strip())
 
         contexts = []
         for idx, para in enumerate(paragraphs):
@@ -144,7 +149,7 @@ class FeedbackRefinementManager:
                     index=idx,
                     text=para.strip(),
                     original_text=para.strip(),
-                    source_id=source_id
+                    source_id=source_id,
                 )
                 contexts.append(context)
 
@@ -154,9 +159,7 @@ class FeedbackRefinementManager:
         return contexts
 
     def select_paragraphs_for_refinement(
-        self,
-        paragraphs: List[ParagraphContext],
-        criteria: Dict
+        self, paragraphs: List[ParagraphContext], criteria: Dict
     ) -> List[ParagraphContext]:
         """
         Select paragraphs matching refinement criteria
@@ -193,9 +196,7 @@ class FeedbackRefinementManager:
         return selected
 
     def generate_critique(
-        self,
-        paragraph: ParagraphContext,
-        critique_type: str = "clarity"
+        self, paragraph: ParagraphContext, critique_type: str = "clarity"
     ) -> str:
         """
         Generate critique for a paragraph
@@ -211,7 +212,7 @@ class FeedbackRefinementManager:
             "clarity": self._critique_clarity,
             "conciseness": self._critique_conciseness,
             "accuracy": self._critique_accuracy,
-            "structure": self._critique_structure
+            "structure": self._critique_structure,
         }
 
         critique_fn = critiques.get(critique_type, self._critique_clarity)
@@ -223,13 +224,15 @@ class FeedbackRefinementManager:
         issues = []
 
         # Check for overly long sentences
-        sentences = re.split(r'[.!?]+', text)
+        sentences = re.split(r"[.!?]+", text)
         long_sentences = [s for s in sentences if len(s.split()) > 25]
         if long_sentences:
-            issues.append(f"Found {len(long_sentences)} sentences over 25 words (clarity issue)")
+            issues.append(
+                f"Found {len(long_sentences)} sentences over 25 words (clarity issue)"
+            )
 
         # Check for passive voice
-        passive_patterns = [r'\bis\b.*\bed\b', r'\bwas\b.*\bed\b', r'\bwere\b.*\bed\b']
+        passive_patterns = [r"\bis\b.*\bed\b", r"\bwas\b.*\bed\b", r"\bwere\b.*\bed\b"]
         passive_count = sum(len(re.findall(p, text)) for p in passive_patterns)
         if passive_count > 2:
             issues.append(f"Excessive passive voice ({passive_count} instances)")
@@ -260,7 +263,7 @@ class FeedbackRefinementManager:
             redundancies.append(f"Repeated words: {list(repeated.keys())}")
 
         # Check for filler words
-        fillers = ['very', 'really', 'actually', 'basically', 'basically', 'literally']
+        fillers = ["very", "really", "actually", "basically", "basically", "literally"]
         filler_count = len([w for w in words if w in fillers])
         if filler_count > 0:
             redundancies.append(f"Found {filler_count} filler words")
@@ -278,7 +281,7 @@ class FeedbackRefinementManager:
         """Analyze paragraph structure"""
         issues = []
 
-        sentences = re.split(r'[.!?]+', para.text.strip())
+        sentences = re.split(r"[.!?]+", para.text.strip())
         sentences = [s.strip() for s in sentences if s.strip()]
 
         if len(sentences) < 2:
@@ -298,10 +301,7 @@ class FeedbackRefinementManager:
         return "Structure issues: " + "; ".join(issues)
 
     def apply_refinement(
-        self,
-        paragraph: ParagraphContext,
-        refinement: str,
-        critique: str
+        self, paragraph: ParagraphContext, refinement: str, critique: str
     ) -> RefinementRecord:
         """
         Record and apply a refinement to a paragraph
@@ -320,7 +320,7 @@ class FeedbackRefinementManager:
             original=paragraph.text,
             refined=refinement,
             critique=critique,
-            applied=True
+            applied=True,
         )
 
         # Calculate readability improvement
@@ -330,9 +330,10 @@ class FeedbackRefinementManager:
 
         self.metrics["refined_count"] += 1
         self.metrics["avg_readability_improvement"] = (
-            (self.metrics["avg_readability_improvement"] * (self.metrics["refined_count"] - 1) + (new_score - old_score))
-            / self.metrics["refined_count"]
-        )
+            self.metrics["avg_readability_improvement"]
+            * (self.metrics["refined_count"] - 1)
+            + (new_score - old_score)
+        ) / self.metrics["refined_count"]
         self.metrics["total_iterations"] += 1
 
         paragraph.refinement_history.append(record)
@@ -372,10 +373,14 @@ class FeedbackRefinementManager:
             "total_paragraphs": self.metrics["total_paragraphs"],
             "refined": self.metrics["refined_count"],
             "refinement_rate": (
-                self.metrics["refined_count"] / max(self.metrics["total_paragraphs"], 1) * 100
+                self.metrics["refined_count"]
+                / max(self.metrics["total_paragraphs"], 1)
+                * 100
             ),
-            "avg_readability_improvement": round(self.metrics["avg_readability_improvement"], 2),
+            "avg_readability_improvement": round(
+                self.metrics["avg_readability_improvement"], 2
+            ),
             "validation_passed": self.metrics["validation_passed"],
             "validation_failed": self.metrics["validation_failed"],
-            "total_iterations": self.metrics["total_iterations"]
+            "total_iterations": self.metrics["total_iterations"],
         }

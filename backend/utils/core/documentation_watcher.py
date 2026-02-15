@@ -5,9 +5,9 @@ Uses file system events to trigger DocumentationManager indexing.
 
 import threading
 import time
-from pathlib import Path
-from typing import Optional, Callable, Dict
 from datetime import datetime
+from pathlib import Path
+from typing import Callable, Dict, Optional
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.documentation_manager import DocumentationManager
@@ -166,4 +166,3 @@ class DocumentationWatcher:
         except Exception as e:
             self.logger.error(f"Manual index failed: {e}")
             return False
-

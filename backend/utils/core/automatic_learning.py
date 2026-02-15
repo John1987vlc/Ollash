@@ -7,12 +7,12 @@ Design: Automatic knowledge capture from each project's failure→success cycles
 Benefit: Agent learns from its own corrections in real-time.
 """
 
+import hashlib
 import json
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
-from datetime import datetime
-import hashlib
-from dataclasses import dataclass
 
 try:
     import chromadb
@@ -107,9 +107,8 @@ class PostMortemAnalyzer:
 
     def save_pattern(self, pattern: CorrectionPattern) -> Path:
         """Save a correction pattern to disk."""
-        filename = (
-            f"{pattern.error_signature}_{pattern.project_name}_{pattern.timestamp}"
-            .replace(":", "-")
+        filename = f"{pattern.error_signature}_{pattern.project_name}_{pattern.timestamp}".replace(
+            ":", "-"
         )
         file_path = self.postmortem_dir / f"{filename}.json"
 
@@ -140,7 +139,9 @@ class PostMortemAnalyzer:
 class LearningIndexer:
     """Indexes correction patterns in ChromaDB for semantic retrieval."""
 
-    def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict = None):
+    def __init__(
+        self, logger: AgentLogger, project_root: Path, settings_manager: dict = None
+    ):
         self.logger = logger
         self.project_root = project_root
 
@@ -151,7 +152,9 @@ class LearningIndexer:
             return
 
         try:
-            self.client = ChromaClientManager.get_client(settings_manager or {}, project_root)
+            self.client = ChromaClientManager.get_client(
+                settings_manager or {}, project_root
+            )
             self.collection = self.client.get_or_create_collection(
                 name="correction_patterns",
                 metadata={"hnsw:space": "cosine"},
@@ -245,7 +248,9 @@ Corrected Code:
 class AutomaticLearningSystem:
     """Orchestrates post-mortem analysis and learning."""
 
-    def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict = None):
+    def __init__(
+        self, logger: AgentLogger, project_root: Path, settings_manager: dict = None
+    ):
         self.logger = logger
         self.project_root = project_root
         self.analyzer = PostMortemAnalyzer(logger, project_root)
@@ -290,9 +295,7 @@ class AutomaticLearningSystem:
             # Index
             self.indexer.index_pattern(pattern)
 
-            self.logger.info(
-                "✅ Successfully processed and indexed correction pattern"
-            )
+            self.logger.info("✅ Successfully processed and indexed correction pattern")
             return True
 
         except Exception as e:
@@ -371,6 +374,8 @@ class AutomaticLearningSystem:
             else None,
         }
 
-        self.logger.info(f"📊 Learning Report: {report['total_patterns']} patterns indexed")
+        self.logger.info(
+            f"📊 Learning Report: {report['total_patterns']} patterns indexed"
+        )
 
         return report

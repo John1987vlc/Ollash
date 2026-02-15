@@ -1,5 +1,6 @@
 from typing import Any, Dict
 
+
 class BonusTools:
     def __init__(self, logger: Any):
         self.logger = logger
@@ -8,7 +9,9 @@ class BonusTools:
         """
         Estimates how many components, users, or services will be affected by a change.
         """
-        self.logger.info(f"Estimating blast radius for change: '{change_description[:50]}...'")
+        self.logger.info(
+            f"Estimating blast radius for change: '{change_description[:50]}...'"
+        )
         # Placeholder implementation
         return {
             "ok": True,
@@ -16,29 +19,40 @@ class BonusTools:
                 "blast_radius": "medium",
                 "affected_components": [
                     {"name": "authentication_service", "impact": "high"},
-                    {"name": "user_profile_page", "impact": "medium"}
+                    {"name": "user_profile_page", "impact": "medium"},
                 ],
-                "summary": "Placeholder: Change is expected to affect 2 components, with a high impact on authentication."
-            }
+                "summary": "Placeholder: Change is expected to affect 2 components, with a high impact on authentication.",
+            },
         }
 
     def generate_runbook(self, incident_or_task_description: str) -> Dict:
         """
         Generates a human-readable runbook from repeated actions or resolved incidents.
         """
-        self.logger.info(f"Generating runbook for: '{incident_or_task_description[:50]}...'")
+        self.logger.info(
+            f"Generating runbook for: '{incident_or_task_description[:50]}...'"
+        )
         # Placeholder implementation
         return {
             "ok": True,
             "result": {
                 "runbook_title": f"Runbook for {incident_or_task_description}",
                 "steps": [
-                    {"step": 1, "action": "Check for recent deployments in the affected service."},
-                    {"step": 2, "action": "Analyze the service logs for error messages."},
-                    {"step": 3, "action": "If errors indicate a database connection issue, check the database health."}
+                    {
+                        "step": 1,
+                        "action": "Check for recent deployments in the affected service.",
+                    },
+                    {
+                        "step": 2,
+                        "action": "Analyze the service logs for error messages.",
+                    },
+                    {
+                        "step": 3,
+                        "action": "If errors indicate a database connection issue, check the database health.",
+                    },
                 ],
-                "summary": "Placeholder: Generated a 3-step runbook."
-            }
+                "summary": "Placeholder: Generated a 3-step runbook.",
+            },
         }
 
     def analyze_sentiment(self, text: str) -> Dict:
@@ -48,8 +62,28 @@ class BonusTools:
         """
         self.logger.info(f"Analyzing sentiment for text: '{text[:50]}...'")
 
-        positive_keywords = ["good", "great", "excellent", "happy", "love", "positive", "awesome", "fantastic", "amazing"]
-        negative_keywords = ["bad", "poor", "terrible", "unhappy", "hate", "negative", "awful", "horrible", "frustrating"]
+        positive_keywords = [
+            "good",
+            "great",
+            "excellent",
+            "happy",
+            "love",
+            "positive",
+            "awesome",
+            "fantastic",
+            "amazing",
+        ]
+        negative_keywords = [
+            "bad",
+            "poor",
+            "terrible",
+            "unhappy",
+            "hate",
+            "negative",
+            "awful",
+            "horrible",
+            "frustrating",
+        ]
 
         text_lower = text.lower()
         positive_score = sum(text_lower.count(keyword) for keyword in positive_keywords)
@@ -72,8 +106,8 @@ class BonusTools:
                 "confidence": round(confidence, 2),
                 "positive_matches": positive_score,
                 "negative_matches": negative_score,
-                "details": "Basic keyword-based sentiment analysis. For advanced analysis, integrate with NLP libraries or APIs."
-            }
+                "details": "Basic keyword-based sentiment analysis. For advanced analysis, integrate with NLP libraries or APIs.",
+            },
         }
 
     def generate_creative_content(self, prompt: str, style: str = "neutral") -> Dict:
@@ -81,7 +115,9 @@ class BonusTools:
         Generates creative text content based on a prompt and desired style.
         Provides a generic response based on the prompt and specified style.
         """
-        self.logger.info(f"Generating creative content for prompt: '{prompt[:50]}...' in style: {style}")
+        self.logger.info(
+            f"Generating creative content for prompt: '{prompt[:50]}...' in style: {style}"
+        )
 
         generated_content = ""
 
@@ -102,8 +138,8 @@ class BonusTools:
                 "content": generated_content,
                 "style": style,
                 "prompt": prompt,
-                "details": "This is a basic creative content generator. For advanced and nuanced content, integrate with a powerful LLM API."
-            }
+                "details": "This is a basic creative content generator. For advanced and nuanced content, integrate with a powerful LLM API.",
+            },
         }
 
     def translate_text(self, text: str, target_language: str = "en") -> Dict:
@@ -113,7 +149,9 @@ class BonusTools:
         """
         self.logger.info(f"Translating text to {target_language}: '{text[:50]}...'")
 
-        translated_text = f"[Translated to {target_language}]: {text}" # Default generic translation
+        translated_text = (
+            f"[Translated to {target_language}]: {text}"  # Default generic translation
+        )
 
         # Simulate translations for common languages
         if target_language.lower() == "es":
@@ -144,6 +182,6 @@ class BonusTools:
                 "translated_text": translated_text,
                 "original_text": text,
                 "target_language": target_language,
-                "details": "This is a basic text translation. For accurate and robust translation, integrate with a dedicated translation API."
-            }
+                "details": "This is a basic text translation. For accurate and robust translation, integrate with a dedicated translation API.",
+            },
         }

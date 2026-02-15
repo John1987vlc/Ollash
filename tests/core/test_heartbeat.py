@@ -3,7 +3,6 @@ from backend.utils.core.heartbeat import Heartbeat
 
 
 class TestHeartbeat:
-
     def test_heartbeat_start_stop(self):
         hb = Heartbeat("test-model", "test-task", interval=60)
         hb.start()
@@ -14,6 +13,7 @@ class TestHeartbeat:
         class FakeLogger:
             def __init__(self):
                 self.messages = []
+
             def info(self, msg):
                 self.messages.append(msg)
 

@@ -71,7 +71,7 @@ class LLMResponseParser:
 
         # Strategy 3: find first { to last }
         if "{" in code_content:
-            json_str = code_content[code_content.index("{"):]
+            json_str = code_content[code_content.index("{") :]
             if "}" in json_str:
                 json_str = json_str[: json_str.rindex("}") + 1]
                 # Try fixing common issues
@@ -162,7 +162,9 @@ class LLMResponseParser:
                 if in_code_block:
                     # End of block
                     if current_filename:
-                        files[current_filename] = "\n".join(current_file_content).strip()
+                        files[current_filename] = "\n".join(
+                            current_file_content
+                        ).strip()
                     current_file_content = []
                     current_filename = None
                     in_code_block = False
@@ -182,7 +184,9 @@ class LLMResponseParser:
                         current_filename = None
             elif in_code_block:
                 # Check for filename directive inside the code block
-                if current_filename is None and stripped.startswith(("# filename:", "// filename:")):
+                if current_filename is None and stripped.startswith(
+                    ("# filename:", "// filename:")
+                ):
                     raw = stripped.split(":", 1)[1].strip()
                     current_filename = (
                         Path(raw).as_posix().replace("..", "").lstrip("/")

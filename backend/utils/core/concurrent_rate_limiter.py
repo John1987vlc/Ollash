@@ -7,8 +7,8 @@ Design: Singleton pattern with threading locks for global state.
 Benefit: Prevents OOM errors and resource contention across agents.
 """
 
-import time
 import threading
+import time
 from collections import deque
 
 from backend.utils.core.agent_logger import AgentLogger
@@ -112,8 +112,7 @@ class GlobalGPUResourceTracker:
         """Check if adding tokens would exceed RPM limit."""
         with self._state_lock:
             return (
-                self._tokens_per_minute_global + tokens
-                <= self._max_tokens_per_minute
+                self._tokens_per_minute_global + tokens <= self._max_tokens_per_minute
             )
 
 
@@ -210,7 +209,9 @@ class ConcurrentGPUAwareRateLimiter:
         with self._lock:
             now = time.time()
             active_requests = sum(1 for ts in self._request_timestamps if now - ts < 60)
-            active_tokens = sum(tokens for ts, tokens in self._token_usage if now - ts < 60)
+            active_tokens = sum(
+                tokens for ts, tokens in self._token_usage if now - ts < 60
+            )
 
             status = {
                 "requests_per_minute": active_requests,
@@ -260,7 +261,4 @@ class SessionResourceManager:
     def get_all_sessions_status(cls) -> dict:
         """Get status of all active sessions."""
         with cls._sessions_lock:
-            return {
-                sid: limiter.get_status()
-                for sid, limiter in cls._sessions.items()
-            }
+            return {sid: limiter.get_status() for sid, limiter in cls._sessions.items()}

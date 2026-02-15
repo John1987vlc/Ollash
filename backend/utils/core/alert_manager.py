@@ -4,9 +4,9 @@ Monitors metrics and triggers notifications when thresholds are exceeded
 """
 
 import logging
-from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 from threading import Lock
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class AlertManager:
                     **alert_config,
                     "last_triggered": None,
                     "trigger_count": 0,
-                    "enabled": True
+                    "enabled": True,
                 }
             logger.info(f"✅ Registered alert: {alert_id}")
             return True
@@ -81,7 +81,9 @@ class AlertManager:
             self.alert_callbacks[alert_id] = callback
             logger.info(f"Registered callback for alert: {alert_id}")
 
-    def check_alert(self, alert_id: str, current_value: float) -> Optional[Dict[str, Any]]:
+    def check_alert(
+        self, alert_id: str, current_value: float
+    ) -> Optional[Dict[str, Any]]:
         """
         Check if an alert should trigger based on current metric value.
 
@@ -107,7 +109,9 @@ class AlertManager:
             operator = alert.get("operator", ">")
             severity = alert.get("severity", self.SEVERITY_WARNING)
 
-            should_trigger = self._evaluate_threshold(current_value, threshold, operator)
+            should_trigger = self._evaluate_threshold(
+                current_value, threshold, operator
+            )
 
             if not should_trigger:
                 return None
@@ -135,7 +139,7 @@ class AlertManager:
                 "threshold": threshold,
                 "operator": operator,
                 "timestamp": datetime.now().isoformat(),
-                "trigger_count": alert["trigger_count"]
+                "trigger_count": alert["trigger_count"],
             }
 
             # Add to history
@@ -145,8 +149,9 @@ class AlertManager:
 
             return alert_info
 
-    def trigger_alert(self, alert_id: str, alert_info: Dict[str, Any],
-                     channels: List[str] = None) -> bool:
+    def trigger_alert(
+        self, alert_id: str, alert_info: Dict[str, Any], channels: List[str] = None
+    ) -> bool:
         """
         Trigger an alert with notifications.
 
@@ -172,17 +177,21 @@ class AlertManager:
             operator = alert_info.get("operator", ">")
 
             if current is not None and threshold is not None:
-                message += f"\n\nCurrent Value: {current}\nThreshold: {threshold} ({operator})"
+                message += (
+                    f"\n\nCurrent Value: {current}\nThreshold: {threshold} ({operator})"
+                )
 
             # Log the alert
             if "log" in channels:
                 log_level = {
                     self.SEVERITY_INFO: logging.INFO,
                     self.SEVERITY_WARNING: logging.WARNING,
-                    self.SEVERITY_CRITICAL: logging.CRITICAL
+                    self.SEVERITY_CRITICAL: logging.CRITICAL,
                 }.get(severity, logging.INFO)
 
-                logger.log(log_level, f"🚨 ALERT [{severity.upper()}]: {title} - {message}")
+                logger.log(
+                    log_level, f"🚨 ALERT [{severity.upper()}]: {title} - {message}"
+                )
 
             # UI notification
             if "ui" in channels and self.notification_manager:
@@ -190,7 +199,7 @@ class AlertManager:
                     message=message,
                     notification_type=severity,
                     title=f"🚨 {title}",
-                    data={"alert_id": alert_id, **alert_info}
+                    data={"alert_id": alert_id, **alert_info},
                 )
 
             # Email notification
@@ -198,7 +207,7 @@ class AlertManager:
                 self.notification_manager.send_email(
                     subject=f"[{severity.upper()}] Ollash Alert: {title}",
                     to_email=None,  # Use subscribed emails
-                    content=self._format_alert_email(alert_info)
+                    content=self._format_alert_email(alert_info),
                 )
 
             # Execute custom callback if registered
@@ -218,8 +227,9 @@ class AlertManager:
             logger.error(f"❌ Failed to trigger alert {alert_id}: {e}")
             return False
 
-    def _evaluate_threshold(self, current_value: float, threshold: float,
-                           operator: str) -> bool:
+    def _evaluate_threshold(
+        self, current_value: float, threshold: float, operator: str
+    ) -> bool:
         """Evaluate if threshold is exceeded."""
         try:
             if operator == ">":

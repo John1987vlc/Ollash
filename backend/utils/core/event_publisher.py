@@ -1,4 +1,5 @@
-from typing import Callable, Dict, Any, List
+from typing import Any, Callable, Dict, List
+
 
 class EventPublisher:
     """A simple publisher-subscriber mechanism for emitting events."""
@@ -8,7 +9,8 @@ class EventPublisher:
 
     def subscribe(self, event_type: str, callback: Callable):
         """Registers a callback function for a given event type.
-        If the callback is already subscribed to this event type, it won't be added again."""
+        If the callback is already subscribed to this event type, it won't be added again.
+        """
         if event_type not in self._subscribers:
             self._subscribers[event_type] = []
         if callback not in self._subscribers[event_type]:
@@ -20,15 +22,17 @@ class EventPublisher:
             try:
                 self._subscribers[event_type].remove(callback)
             except ValueError:
-                pass # Callback not found, already unsubscribed or never subscribed
+                pass  # Callback not found, already unsubscribed or never subscribed
 
-    def publish(self, event_type: str, event_data: Dict[str, Any] = None, **kwargs: Any):
+    def publish(
+        self, event_type: str, event_data: Dict[str, Any] = None, **kwargs: Any
+    ):
         """Publishes an event to all subscribed listeners."""
         if event_type not in self._subscribers:
-            return # No subscribers for this event type
+            return  # No subscribers for this event type
 
         full_event_data = event_data if event_data is not None else {}
-        full_event_data.update(kwargs) # Merge additional kwargs into event_data
+        full_event_data.update(kwargs)  # Merge additional kwargs into event_data
 
         for callback in self._subscribers[event_type]:
             try:

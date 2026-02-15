@@ -1,6 +1,6 @@
 import shutil
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 
 class FileManager:
@@ -13,14 +13,14 @@ class FileManager:
         """Lee el contenido de un archivo."""
         file_path = self.root / path
         if file_path.exists():
-            return file_path.read_text(encoding='utf-8')
+            return file_path.read_text(encoding="utf-8")
         raise FileNotFoundError(f"No existe: {path}")
 
     def write_file(self, path: str, content: str) -> str:
         """Escribe contenido a un archivo."""
         file_path = self.root / path
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content, encoding='utf-8')
+        file_path.write_text(content, encoding="utf-8")
         return f"✅ Escrito: {path}"
 
     def create_directory(self, path: str) -> str:
@@ -58,6 +58,6 @@ class FileManager:
                 "tamaño": stat.st_size,
                 "modificado": stat.st_mtime,
                 "es_archivo": file_path.is_file(),
-                "es_dir": file_path.is_dir()
+                "es_dir": file_path.is_dir(),
             }
         return {"error": "Archivo no encontrado"}

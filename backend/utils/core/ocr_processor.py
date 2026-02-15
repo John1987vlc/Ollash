@@ -3,18 +3,20 @@ Phase 5: OCR Processor
 Handles optical character recognition using deepseek-ocr:3b model via Ollama
 """
 
-import json
 import base64
-from dataclasses import dataclass, asdict, field
+import json
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import List, Dict, Optional
-from pathlib import Path
-import requests
 from enum import Enum
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import requests
 
 
 class ImageFormat(Enum):
     """Supported image formats"""
+
     PNG = "png"
     JPG = "jpeg"
     PDF = "pdf"
@@ -24,6 +26,7 @@ class ImageFormat(Enum):
 @dataclass
 class OCRResult:
     """Result from OCR processing"""
+
     image_id: str
     extracted_text: str
     confidence: float  # 0-1, how confident the OCR is
@@ -39,12 +42,15 @@ class OCRResult:
 @dataclass
 class OCRConfig:
     """Configuration for OCR processing"""
+
     ollama_host: str = "http://localhost:11434"
     model_name: str = "deepseek-ocr:3b"
     temperature: float = 0.0  # Deterministic for OCR
     timeout_seconds: int = 120
     max_image_size_mb: int = 50
-    supported_formats: List[str] = field(default_factory=lambda: ["png", "jpg", "jpeg", "pdf", "webp"])
+    supported_formats: List[str] = field(
+        default_factory=lambda: ["png", "jpg", "jpeg", "pdf", "webp"]
+    )
 
     def to_dict(self):
         return asdict(self)
@@ -62,7 +68,11 @@ class OCRProcessor:
     5. Cache results locally
     """
 
-    def __init__(self, workspace_path: str = "knowledge_workspace", config: Optional[OCRConfig] = None):
+    def __init__(
+        self,
+        workspace_path: str = "knowledge_workspace",
+        config: Optional[OCRConfig] = None,
+    ):
         self.workspace = Path(workspace_path)
         self.ocr_dir = self.workspace / "ocr"
         self.ocr_dir.mkdir(parents=True, exist_ok=True)
@@ -80,14 +90,14 @@ class OCRProcessor:
 
     def _save_cache(self):
         """Persist processed results"""
-        with open(self.results_cache, 'w') as f:
+        with open(self.results_cache, "w") as f:
             json.dump(self.processed_images, f, indent=2)
 
     def _encode_image_to_base64(self, image_path: str) -> str:
         """Encode image file to base64 for API"""
         try:
-            with open(image_path, 'rb') as f:
-                return base64.b64encode(f.read()).decode('utf-8')
+            with open(image_path, "rb") as f:
+                return base64.b64encode(f.read()).decode("utf-8")
         except Exception as e:
             raise ValueError(f"Failed to encode image: {e}")
 
@@ -99,18 +109,24 @@ class OCRProcessor:
             raise FileNotFoundError(f"Image not found: {image_path}")
 
         # Check format
-        suffix = path.suffix.lstrip('.').lower()
+        suffix = path.suffix.lstrip(".").lower()
         if suffix not in self.config.supported_formats:
-            raise ValueError(f"Unsupported format: {suffix}. Supported: {self.config.supported_formats}")
+            raise ValueError(
+                f"Unsupported format: {suffix}. Supported: {self.config.supported_formats}"
+            )
 
         # Check size
         size_mb = path.stat().st_size / (1024 * 1024)
         if size_mb > self.config.max_image_size_mb:
-            raise ValueError(f"Image too large: {size_mb}MB (max: {self.config.max_image_size_mb}MB)")
+            raise ValueError(
+                f"Image too large: {size_mb}MB (max: {self.config.max_image_size_mb}MB)"
+            )
 
         return True
 
-    def process_image(self, image_path: str, image_id: Optional[str] = None) -> OCRResult:
+    def process_image(
+        self, image_path: str, image_id: Optional[str] = None
+    ) -> OCRResult:
         """
         Process an image and extract text using deepseek-ocr:3b
 
@@ -154,6 +170,7 @@ class OCRProcessor:
     def _call_ollama_ocr(self, image_base64: str, image_id: str) -> OCRResult:
         """Call deepseek-ocr:3b model via Ollama"""
         import time
+
         start_time = time.time()
 
         # Prepare request to Ollama
@@ -171,13 +188,17 @@ class OCRProcessor:
         }
 
         try:
-            response = requests.post(url, json=payload, timeout=self.config.timeout_seconds)
+            response = requests.post(
+                url, json=payload, timeout=self.config.timeout_seconds
+            )
             response.raise_for_status()
 
             data = response.json()
             extracted_text = data.get("response", "")
 
-            processing_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+            processing_time = (
+                time.time() - start_time
+            ) * 1000  # Convert to milliseconds
 
             # Parse response to detect blocks and confidence
             blocks = self._parse_text_blocks(extracted_text)
@@ -190,7 +211,7 @@ class OCRProcessor:
                 extracted_text=extracted_text,
                 confidence=confidence,
                 processing_time_ms=processing_time,
-                blocks=blocks
+                blocks=blocks,
             )
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Ollama API error: {e}")
@@ -198,16 +219,16 @@ class OCRProcessor:
     def _parse_text_blocks(self, text: str) -> List[Dict]:
         """Parse extracted text into blocks"""
         blocks = []
-        for idx, line in enumerate(text.split('\n')):
+        for idx, line in enumerate(text.split("\n")):
             if line.strip():
-                blocks.append({
-                    "block_id": idx,
-                    "text": line.strip(),
-                    "confidence": 0.9
-                })
+                blocks.append(
+                    {"block_id": idx, "text": line.strip(), "confidence": 0.9}
+                )
         return blocks
 
-    def process_batch(self, image_paths: List[str], image_ids: Optional[List[str]] = None) -> List[OCRResult]:
+    def process_batch(
+        self, image_paths: List[str], image_ids: Optional[List[str]] = None
+    ) -> List[OCRResult]:
         """
         Process multiple images
 
@@ -232,7 +253,9 @@ class OCRProcessor:
 
         return results
 
-    def extract_text_from_directory(self, directory_path: str, pattern: str = "*.png") -> Dict[str, str]:
+    def extract_text_from_directory(
+        self, directory_path: str, pattern: str = "*.png"
+    ) -> Dict[str, str]:
         """
         Process all images in a directory
 
@@ -258,7 +281,7 @@ class OCRProcessor:
             return {
                 "total_processed": 0,
                 "avg_confidence": 0,
-                "avg_processing_time_ms": 0
+                "avg_processing_time_ms": 0,
             }
 
         confidences = [img["confidence"] for img in self.processed_images.values()]
@@ -270,8 +293,8 @@ class OCRProcessor:
             "avg_processing_time_ms": sum(times) / len(times) if times else 0,
             "most_recent": max(
                 [img["timestamp"] for img in self.processed_images.values()],
-                default=None
-            )
+                default=None,
+            ),
         }
 
     def clear_cache(self):
@@ -303,7 +326,9 @@ class PDFOCRProcessor:
         try:
             from pdf2image import convert_from_path
         except ImportError:
-            raise ImportError("pdf2image not installed. Install with: pip install pdf2image")
+            raise ImportError(
+                "pdf2image not installed. Install with: pip install pdf2image"
+            )
 
         pdf_path = Path(pdf_path)
         if not pdf_path.exists():
@@ -316,7 +341,7 @@ class PDFOCRProcessor:
         for page_num, image in enumerate(images, start=1):
             # Save temporary image
             temp_image_path = self.ocr.ocr_dir / f"temp_page_{page_num}.png"
-            image.save(str(temp_image_path), 'PNG')
+            image.save(str(temp_image_path), "PNG")
 
             # Process with OCR
             image_id = f"{pdf_path.stem}_page_{page_num}"

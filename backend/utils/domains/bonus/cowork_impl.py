@@ -5,13 +5,13 @@ Handles document-to-task conversion, log analysis, and executive summarization.
 
 import json
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.documentation_manager import DocumentationManager
 from backend.utils.core.cascade_summarizer import CascadeSummarizer
-from backend.utils.core.ollama_client import OllamaClient
+from backend.utils.core.documentation_manager import DocumentationManager
 from backend.utils.core.multi_format_ingester import MultiFormatIngester
+from backend.utils.core.ollama_client import OllamaClient
 
 
 class CoworkTools:
@@ -52,7 +52,7 @@ class CoworkTools:
         if not doc_path.exists():
             return {
                 "status": "error",
-                "message": f"Document not found: {document_name}"
+                "message": f"Document not found: {document_name}",
             }
 
         try:
@@ -61,7 +61,7 @@ class CoworkTools:
             if not content:
                 return {
                     "status": "error",
-                    "message": f"Could not extract content from {document_name}"
+                    "message": f"Could not extract content from {document_name}",
                 }
 
             # Analyze requirements using analyst role
@@ -92,7 +92,7 @@ Return ONLY valid JSON array of tasks, no other text."""
             if not response:
                 return {
                     "status": "error",
-                    "message": "Failed to generate tasks from document"
+                    "message": "Failed to generate tasks from document",
                 }
 
             # Parse generated tasks
@@ -103,13 +103,14 @@ Return ONLY valid JSON array of tasks, no other text."""
             except json.JSONDecodeError:
                 # Try to extract JSON from response
                 import re
-                json_match = re.search(r'\[.*\]', response, re.DOTALL)
+
+                json_match = re.search(r"\[.*\]", response, re.DOTALL)
                 if json_match:
                     tasks = json.loads(json_match.group())
                 else:
                     return {
                         "status": "error",
-                        "message": "Could not parse generated tasks as JSON"
+                        "message": "Could not parse generated tasks as JSON",
                     }
 
             # Enrich tasks with metadata
@@ -132,15 +133,14 @@ Return ONLY valid JSON array of tasks, no other text."""
                 "status": "success",
                 "tasks_generated": len(enriched_tasks),
                 "tasks": enriched_tasks,
-                "saved_to": str(self.tasks_file) if output_format in ["json", "both"] else None,
+                "saved_to": str(self.tasks_file)
+                if output_format in ["json", "both"]
+                else None,
             }
 
         except Exception as e:
             self.logger.error(f"document_to_task failed: {e}")
-            return {
-                "status": "error",
-                "message": str(e)
-            }
+            return {"status": "error", "message": str(e)}
 
     def analyze_recent_logs(
         self,
@@ -156,10 +156,7 @@ Return ONLY valid JSON array of tasks, no other text."""
         log_paths = self._get_log_paths(log_type)
 
         if not log_paths:
-            return {
-                "status": "warning",
-                "message": f"No {log_type} logs found"
-            }
+            return {"status": "warning", "message": f"No {log_type} logs found"}
 
         try:
             # Read recent logs
@@ -176,10 +173,7 @@ Return ONLY valid JSON array of tasks, no other text."""
                     continue
 
             if not log_content.strip():
-                return {
-                    "status": "warning",
-                    "message": "No readable log entries found"
-                }
+                return {"status": "warning", "message": "No readable log entries found"}
 
             # Analyze logs using analyst role
             prompt = f"""You are a security and systems analyst. Review the following logs
@@ -208,15 +202,13 @@ Format as JSON array. Only include {risk_threshold} and above severity."""
             )
 
             if not response:
-                return {
-                    "status": "error",
-                    "message": "Failed to analyze logs"
-                }
+                return {"status": "error", "message": "Failed to analyze logs"}
 
             # Parse risks
             try:
                 import re
-                json_match = re.search(r'\[.*\]', response, re.DOTALL)
+
+                json_match = re.search(r"\[.*\]", response, re.DOTALL)
                 risks = json.loads(json_match.group()) if json_match else []
             except Exception as e:
                 self.logger.warning(f"Could not parse risks as JSON: {e}")
@@ -233,10 +225,7 @@ Format as JSON array. Only include {risk_threshold} and above severity."""
 
         except Exception as e:
             self.logger.error(f"analyze_recent_logs failed: {e}")
-            return {
-                "status": "error",
-                "message": str(e)
-            }
+            return {"status": "error", "message": str(e)}
 
     def generate_executive_summary(
         self,
@@ -254,7 +243,7 @@ Format as JSON array. Only include {risk_threshold} and above severity."""
         if not doc_path.exists():
             return {
                 "status": "error",
-                "message": f"Document not found: {document_name}"
+                "message": f"Document not found: {document_name}",
             }
 
         try:
@@ -263,7 +252,7 @@ Format as JSON array. Only include {risk_threshold} and above severity."""
             if not content:
                 return {
                     "status": "error",
-                    "message": f"Could not extract content from {document_name}"
+                    "message": f"Could not extract content from {document_name}",
                 }
 
             # Use cascade summarizer for long documents
@@ -318,10 +307,7 @@ Content:
 
         except Exception as e:
             self.logger.error(f"generate_executive_summary failed: {e}")
-            return {
-                "status": "error",
-                "message": str(e)
-            }
+            return {"status": "error", "message": str(e)}
 
     # ========== HELPER METHODS ==========
 
@@ -355,7 +341,7 @@ Content:
             "security": ["auth.log", "secure"],
             "network": ["syslog"],  # Often contains network logs
             "database": ["mysql.err", "postgres.log", "mongodb.log"],
-            "all": ["*.log"]
+            "all": ["*.log"],
         }
 
         log_names = log_maps.get(log_type, [])
@@ -370,4 +356,3 @@ Content:
                     paths.append(p)
 
         return paths[:5]  # Limit to 5 log files
-

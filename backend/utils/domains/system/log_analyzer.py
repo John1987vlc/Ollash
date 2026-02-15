@@ -6,9 +6,10 @@ anomalies.
 """
 
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 from backend.utils.core.agent_logger import AgentLogger
+
 
 class LogAnalyzer:
     """Analyzes log files for errors and anomalies."""
@@ -52,9 +53,10 @@ class LogAnalyzer:
                         results["warning_count"] += 1
                         results["warnings"].append(line.strip())
 
-            self.logger.info(f"Analyzed log file {file_path}: {results['error_count']} errors, {results['warning_count']} warnings.")
+            self.logger.info(
+                f"Analyzed log file {file_path}: {results['error_count']} errors, {results['warning_count']} warnings."
+            )
             return {"status": "ok", "results": results}
         except Exception as e:
             self.logger.error(f"Failed to analyze log file {file_path}: {e}")
             return {"status": "error", "message": str(e)}
-

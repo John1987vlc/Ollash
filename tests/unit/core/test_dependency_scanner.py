@@ -1,15 +1,12 @@
 """Unit tests for Dependency Scanner module."""
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from backend.utils.core.scanners.dependency_scanner import (
-    PythonDependencyScanner,
-    NodeDependencyScanner,
-    GoDependencyScanner,
-    RustDependencyScanner,
-    DependencyScanner,
-)
+    DependencyScanner, GoDependencyScanner, NodeDependencyScanner,
+    PythonDependencyScanner, RustDependencyScanner)
 
 
 @pytest.fixture
@@ -129,7 +126,7 @@ class TestDependencyScanner:
             "main.py": "import flask",
             "index.js": "const express = require('express');",
             "main.go": 'import "github.com/gin-gonic/gin"',
-            "main.rs": "use tokio;"
+            "main.rs": "use tokio;",
         }
         all_imports = scanner.scan_all_imports(files)
 
@@ -147,7 +144,7 @@ class TestDependencyScanner:
 
         files = {
             "main.py": "import requests\nimport flask",
-            "requirements.txt": req_content
+            "requirements.txt": req_content,
         }
 
         result = scanner.reconcile_dependencies(files, tmp_path)

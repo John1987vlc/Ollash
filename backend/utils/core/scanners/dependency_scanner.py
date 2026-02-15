@@ -16,7 +16,8 @@ import json
 import re
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Set, Optional
+from typing import Dict, Optional, Set
+
 from backend.utils.core.agent_logger import AgentLogger
 
 
@@ -58,25 +59,97 @@ class PythonDependencyScanner(LanguageDependencyScanner):
         """Extract third-party packages from Python source files."""
         packages = set()
         stdlib_modules = {
-            "os", "sys", "re", "json", "pathlib", "typing", "abc",
-            "collections", "itertools", "functools", "operator",
-            "datetime", "time", "calendar", "math", "random",
-            "statistics", "decimal", "fractions", "cmath",
-            "hashlib", "hmac", "secrets", "urllib", "http",
-            "email", "mailbox", "mimetypes", "base64", "binascii",
-            "quopri", "socketserver", "socket", "ssl", "select",
-            "selectors", "asyncio", "threading", "multiprocessing",
-            "concurrent", "subprocess", "socket", "ssl",
-            "struct", "codecs", "io", "tempfile", "glob",
-            "fnmatch", "linecache", "shutil", "sqlite3",
-            "zlib", "gzip", "bz2", "lzma", "zipfile", "tarfile",
-            "csv", "configparser", "netrc", "xdrlib", "plistlib",
-            "pickle", "copyreg", "shelve", "dbm", "marshal",
-            "sqlite3", "unittest", "doctest", "pdb", "trace",
-            "logging", "getpass", "curses", "argparse", "getopt",
-            "warnings", "contextlib", "enum", "numbers", "decimal",
-            "warnings", "dataclasses", "typing", "pydoc",
-            "doctest", "test", "lib2to3", "warnings",
+            "os",
+            "sys",
+            "re",
+            "json",
+            "pathlib",
+            "typing",
+            "abc",
+            "collections",
+            "itertools",
+            "functools",
+            "operator",
+            "datetime",
+            "time",
+            "calendar",
+            "math",
+            "random",
+            "statistics",
+            "decimal",
+            "fractions",
+            "cmath",
+            "hashlib",
+            "hmac",
+            "secrets",
+            "urllib",
+            "http",
+            "email",
+            "mailbox",
+            "mimetypes",
+            "base64",
+            "binascii",
+            "quopri",
+            "socketserver",
+            "socket",
+            "ssl",
+            "select",
+            "selectors",
+            "asyncio",
+            "threading",
+            "multiprocessing",
+            "concurrent",
+            "subprocess",
+            "socket",
+            "ssl",
+            "struct",
+            "codecs",
+            "io",
+            "tempfile",
+            "glob",
+            "fnmatch",
+            "linecache",
+            "shutil",
+            "sqlite3",
+            "zlib",
+            "gzip",
+            "bz2",
+            "lzma",
+            "zipfile",
+            "tarfile",
+            "csv",
+            "configparser",
+            "netrc",
+            "xdrlib",
+            "plistlib",
+            "pickle",
+            "copyreg",
+            "shelve",
+            "dbm",
+            "marshal",
+            "sqlite3",
+            "unittest",
+            "doctest",
+            "pdb",
+            "trace",
+            "logging",
+            "getpass",
+            "curses",
+            "argparse",
+            "getopt",
+            "warnings",
+            "contextlib",
+            "enum",
+            "numbers",
+            "decimal",
+            "warnings",
+            "dataclasses",
+            "typing",
+            "pydoc",
+            "doctest",
+            "test",
+            "lib2to3",
+            "warnings",
         }
 
         for filename, content in files.items():
@@ -147,12 +220,40 @@ class NodeDependencyScanner(LanguageDependencyScanner):
         """Extract third-party packages from JS/TS source files."""
         packages = set()
         builtin_modules = {
-            "fs", "path", "http", "https", "os", "sys", "util",
-            "events", "stream", "crypto", "zlib", "assert", "child_process",
-            "cluster", "dns", "domain", "net", "dgram", "readline",
-            "repl", "tty", "vm", "process", "buffer", "querystring",
-            "url", "punycode", "string_decoder", "timers", "console",
-            "module", "perf_hooks", "inspector", "async_hooks",
+            "fs",
+            "path",
+            "http",
+            "https",
+            "os",
+            "sys",
+            "util",
+            "events",
+            "stream",
+            "crypto",
+            "zlib",
+            "assert",
+            "child_process",
+            "cluster",
+            "dns",
+            "domain",
+            "net",
+            "dgram",
+            "readline",
+            "repl",
+            "tty",
+            "vm",
+            "process",
+            "buffer",
+            "querystring",
+            "url",
+            "punycode",
+            "string_decoder",
+            "timers",
+            "console",
+            "module",
+            "perf_hooks",
+            "inspector",
+            "async_hooks",
         }
 
         for filename, content in files.items():
@@ -165,7 +266,11 @@ class NodeDependencyScanner(LanguageDependencyScanner):
                     module = match.group(1) or match.group(2)
                     # Extract top-level package name
                     package = module.split("/")[0]
-                    if package and not package.startswith(".") and package not in builtin_modules:
+                    if (
+                        package
+                        and not package.startswith(".")
+                        and package not in builtin_modules
+                    ):
                         packages.add(package)
 
         return packages
@@ -264,15 +369,17 @@ class GoDependencyScanner(LanguageDependencyScanner):
             return files
 
         mod_content = files[mod_key]
-        require_lines = re.findall(r'^\s+\S+\s+v\S+', mod_content, re.MULTILINE)
+        require_lines = re.findall(r"^\s+\S+\s+v\S+", mod_content, re.MULTILINE)
 
-        if len(require_lines) > len(scanned_modules) * 3: # Use a heuristic to decide if file is "too big"
+        if (
+            len(require_lines) > len(scanned_modules) * 3
+        ):  # Use a heuristic to decide if file is "too big"
             logger.info(
                 f"  Regenerating {mod_key} require block: {len(require_lines)} → "
                 f"{len(scanned_modules)} modules"
             )
-            module_line = re.search(r'^module\s+\S+', mod_content, re.MULTILINE)
-            go_version = re.search(r'^go\s+\S+', mod_content, re.MULTILINE)
+            module_line = re.search(r"^module\s+\S+", mod_content, re.MULTILINE)
+            go_version = re.search(r"^go\s+\S+", mod_content, re.MULTILINE)
 
             new_content = ""
             if module_line:
@@ -280,8 +387,10 @@ class GoDependencyScanner(LanguageDependencyScanner):
             if go_version:
                 new_content += go_version.group(0) + "\n\n"
             new_content += "require (\n"
-            for mod in sorted(scanned_modules): # Sort for deterministic output
-                new_content += f"\t{mod} v0.0.0\n" # Use v0.0.0 or actual versions if available
+            for mod in sorted(scanned_modules):  # Sort for deterministic output
+                new_content += (
+                    f"\t{mod} v0.0.0\n"  # Use v0.0.0 or actual versions if available
+                )
             new_content += ")\n"
 
             files[mod_key] = new_content
@@ -338,9 +447,7 @@ class RustDependencyScanner(LanguageDependencyScanner):
             logger.info(f"  {cargo_key}: no third-party crates found. Keeping as is.")
             return files
 
-        logger.info(
-            f"  {cargo_key}: detected {len(scanned_crates)} third-party crates"
-        )
+        logger.info(f"  {cargo_key}: detected {len(scanned_crates)} third-party crates")
         return files
 
 

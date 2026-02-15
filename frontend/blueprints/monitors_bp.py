@@ -1,13 +1,14 @@
 """Blueprint for triggering proactive monitoring agents."""
 
-from flask import Blueprint, jsonify, request
-from pathlib import Path
-import logging
 import asyncio
+import logging
+from pathlib import Path
 
-from frontend.middleware import require_api_key
-from backend.utils.core.event_publisher import EventPublisher
+from flask import Blueprint, jsonify, request
+
 from backend.agents.monitor_agents import create_monitor_agents
+from backend.utils.core.event_publisher import EventPublisher
+from frontend.middleware import require_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -28,39 +29,34 @@ def init_app(ollash_root_dir: Path, event_publisher: EventPublisher):
 @require_api_key
 def get_available_monitors():
     """Get list of available monitoring agents."""
-    return jsonify({
-        "monitors": [
-            {
-                "id": "system",
-                "name": "System Monitor",
-                "description": "Health checks, cleanup, log analysis",
-                "capabilities": [
-                    "health_check",
-                    "cleanup",
-                    "analyze_logs"
-                ]
-            },
-            {
-                "id": "network",
-                "name": "Network Monitor",
-                "description": "Uptime checks, port monitoring",
-                "capabilities": [
-                    "check_services_uptime",
-                    "detect_port_issues"
-                ]
-            },
-            {
-                "id": "security",
-                "name": "Security Monitor",
-                "description": "Integrity scanning, vulnerability checks",
-                "capabilities": [
-                    "integrity_scan",
-                    "security_log_analysis",
-                    "vulnerability_scan"
-                ]
-            }
-        ]
-    })
+    return jsonify(
+        {
+            "monitors": [
+                {
+                    "id": "system",
+                    "name": "System Monitor",
+                    "description": "Health checks, cleanup, log analysis",
+                    "capabilities": ["health_check", "cleanup", "analyze_logs"],
+                },
+                {
+                    "id": "network",
+                    "name": "Network Monitor",
+                    "description": "Uptime checks, port monitoring",
+                    "capabilities": ["check_services_uptime", "detect_port_issues"],
+                },
+                {
+                    "id": "security",
+                    "name": "Security Monitor",
+                    "description": "Integrity scanning, vulnerability checks",
+                    "capabilities": [
+                        "integrity_scan",
+                        "security_log_analysis",
+                        "vulnerability_scan",
+                    ],
+                },
+            ]
+        }
+    )
 
 
 @monitors_bp.route("/api/monitors/system/health-check", methods=["POST"])
@@ -71,6 +67,7 @@ def run_system_health_check():
         return jsonify({"error": "Monitor agents not initialized"}), 503
 
     try:
+
         def _run_check():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -85,11 +82,9 @@ def run_system_health_check():
         # Execute in background thread
         result = _run_check()
 
-        return jsonify({
-            "status": "completed",
-            "check_type": "system_health",
-            "result": result
-        })
+        return jsonify(
+            {"status": "completed", "check_type": "system_health", "result": result}
+        )
 
     except Exception as e:
         logger.error(f"Error running system health check: {e}")
@@ -104,6 +99,7 @@ def run_system_cleanup():
         return jsonify({"error": "Monitor agents not initialized"}), 503
 
     try:
+
         def _run_cleanup():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -117,11 +113,9 @@ def run_system_cleanup():
 
         result = _run_cleanup()
 
-        return jsonify({
-            "status": "completed",
-            "check_type": "system_cleanup",
-            "result": result
-        })
+        return jsonify(
+            {"status": "completed", "check_type": "system_cleanup", "result": result}
+        )
 
     except Exception as e:
         logger.error(f"Error running system cleanup: {e}")
@@ -152,11 +146,9 @@ def analyze_system_logs():
 
         result = _run_analysis()
 
-        return jsonify({
-            "status": "completed",
-            "check_type": "log_analysis",
-            "result": result
-        })
+        return jsonify(
+            {"status": "completed", "check_type": "log_analysis", "result": result}
+        )
 
     except Exception as e:
         logger.error(f"Error analyzing logs: {e}")
@@ -187,11 +179,9 @@ def check_network_uptime():
 
         result = _run_check()
 
-        return jsonify({
-            "status": "completed",
-            "check_type": "network_uptime",
-            "result": result
-        })
+        return jsonify(
+            {"status": "completed", "check_type": "network_uptime", "result": result}
+        )
 
     except Exception as e:
         logger.error(f"Error checking network uptime: {e}")
@@ -222,11 +212,9 @@ def detect_port_issues():
 
         result = _run_check()
 
-        return jsonify({
-            "status": "completed",
-            "check_type": "port_detection",
-            "result": result
-        })
+        return jsonify(
+            {"status": "completed", "check_type": "port_detection", "result": result}
+        )
 
     except Exception as e:
         logger.error(f"Error detecting port issues: {e}")
@@ -257,11 +245,9 @@ def run_integrity_scan():
 
         result = _run_scan()
 
-        return jsonify({
-            "status": "completed",
-            "check_type": "integrity_scan",
-            "result": result
-        })
+        return jsonify(
+            {"status": "completed", "check_type": "integrity_scan", "result": result}
+        )
 
     except Exception as e:
         logger.error(f"Error running integrity scan: {e}")
@@ -276,6 +262,7 @@ def analyze_security_logs():
         return jsonify({"error": "Monitor agents not initialized"}), 503
 
     try:
+
         def _run_analysis():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -289,11 +276,13 @@ def analyze_security_logs():
 
         result = _run_analysis()
 
-        return jsonify({
-            "status": "completed",
-            "check_type": "security_log_analysis",
-            "result": result
-        })
+        return jsonify(
+            {
+                "status": "completed",
+                "check_type": "security_log_analysis",
+                "result": result,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error analyzing security logs: {e}")
@@ -308,6 +297,7 @@ def scan_vulnerabilities():
         return jsonify({"error": "Monitor agents not initialized"}), 503
 
     try:
+
         def _run_scan():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -321,11 +311,13 @@ def scan_vulnerabilities():
 
         result = _run_scan()
 
-        return jsonify({
-            "status": "completed",
-            "check_type": "vulnerability_scan",
-            "result": result
-        })
+        return jsonify(
+            {
+                "status": "completed",
+                "check_type": "vulnerability_scan",
+                "result": result,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error scanning vulnerabilities: {e}")

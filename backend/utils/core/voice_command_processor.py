@@ -9,16 +9,17 @@ Features:
 """
 
 import logging
-from datetime import datetime
-from typing import Optional, Dict, List, Any
-from enum import Enum
 from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class CommandType(Enum):
     """Types of voice commands."""
+
     ADD_TASK = "add_task"
     QUERY_STATUS = "query_status"
     EXECUTE_ACTION = "execute_action"
@@ -31,14 +32,16 @@ class CommandType(Enum):
 
 class CommandConfidence(Enum):
     """Confidence levels for command recognition."""
-    HIGH = "high"        # > 80%
-    MEDIUM = "medium"    # 50-80%
-    LOW = "low"          # < 50%
+
+    HIGH = "high"  # > 80%
+    MEDIUM = "medium"  # 50-80%
+    LOW = "low"  # < 50%
 
 
 @dataclass
 class VoiceCommand:
     """Structured voice command."""
+
     id: str
     timestamp: str
     raw_text: str
@@ -58,7 +61,7 @@ class VoiceCommand:
             "confidence": self.confidence,
             "confidence_level": self.confidence_level.value,
             "parameters": self.parameters,
-            "language": self.language
+            "language": self.language,
         }
 
 
@@ -84,10 +87,7 @@ class VoiceCommandProcessor:
         logger.info("VoiceCommandProcessor initialized")
 
     def process_voice_input(
-        self,
-        transcribed_text: str,
-        confidence: float = 0.0,
-        language: str = "en"
+        self, transcribed_text: str, confidence: float = 0.0, language: str = "en"
     ) -> VoiceCommand:
         """
         Process transcribed voice input and classify the command.
@@ -125,13 +125,13 @@ class VoiceCommandProcessor:
                 confidence=final_confidence,
                 confidence_level=confidence_level,
                 parameters=parameters,
-                language=language
+                language=language,
             )
 
             # Store in history
             self.command_history.append(command)
             if len(self.command_history) > self.max_history:
-                self.command_history = self.command_history[-self.max_history:]
+                self.command_history = self.command_history[-self.max_history :]
 
             logger.info(
                 f"Voice command processed: {command_type.value} "
@@ -161,7 +161,7 @@ class VoiceCommandProcessor:
                 return {
                     "success": False,
                     "message": f"Command confidence too low ({command.confidence:.1f}%). Please repeat.",
-                    "require_confirmation": True
+                    "require_confirmation": True,
                 }
 
             # Route to handler based on command type
@@ -180,15 +180,12 @@ class VoiceCommandProcessor:
             else:
                 return {
                     "success": False,
-                    "message": f"Unknown command type: {command.command_type.value}"
+                    "message": f"Unknown command type: {command.command_type.value}",
                 }
 
         except Exception as e:
             logger.error(f"Failed to execute voice command: {e}")
-            return {
-                "success": False,
-                "message": f"Execution error: {str(e)}"
-            }
+            return {"success": False, "message": f"Execution error: {str(e)}"}
 
     # ==================== Command Classification ====================
 
@@ -203,12 +200,30 @@ class VoiceCommandProcessor:
 
         # Strong patterns for command types
         patterns_high_confidence = [
-            (CommandType.ADD_TASK, ["add task", "create task", "new task", "remind me", "schedule task"]),
-            (CommandType.QUERY_STATUS, ["what's", "whats", "how is", "status", "check", "is the"]),
-            (CommandType.GET_REPORT, ["report", "summary", "overview", "analytics", "show me"]),
-            (CommandType.PROVIDE_FEEDBACK, ["feedback", "this is too", "could be more", "should be", "is unclear"]),
-            (CommandType.CONFIGURE_SETTING, ["set", "configure", "change", "update", "enable", "disable"]),
-            (CommandType.SCHEDULE_TASK, ["schedule", "run in", "every", "daily", "weekly", "monthly"])
+            (
+                CommandType.ADD_TASK,
+                ["add task", "create task", "new task", "remind me", "schedule task"],
+            ),
+            (
+                CommandType.QUERY_STATUS,
+                ["what's", "whats", "how is", "status", "check", "is the"],
+            ),
+            (
+                CommandType.GET_REPORT,
+                ["report", "summary", "overview", "analytics", "show me"],
+            ),
+            (
+                CommandType.PROVIDE_FEEDBACK,
+                ["feedback", "this is too", "could be more", "should be", "is unclear"],
+            ),
+            (
+                CommandType.CONFIGURE_SETTING,
+                ["set", "configure", "change", "update", "enable", "disable"],
+            ),
+            (
+                CommandType.SCHEDULE_TASK,
+                ["schedule", "run in", "every", "daily", "weekly", "monthly"],
+            ),
         ]
 
         # Check patterns
@@ -225,7 +240,9 @@ class VoiceCommandProcessor:
 
     # ==================== Parameter Extraction ====================
 
-    def _extract_parameters(self, text: str, command_type: CommandType) -> Dict[str, Any]:
+    def _extract_parameters(
+        self, text: str, command_type: CommandType
+    ) -> Dict[str, Any]:
         """Extract parameters from voice input based on command type."""
 
         if command_type == CommandType.ADD_TASK:
@@ -244,10 +261,11 @@ class VoiceCommandProcessor:
     def _extract_task_parameters(self, text: str) -> Dict[str, Any]:
         """Extract task creation parameters."""
         return {
-            "title": self._extract_quoted_string(text) or self._extract_first_sentence(text),
+            "title": self._extract_quoted_string(text)
+            or self._extract_first_sentence(text),
             "priority": self._extract_priority(text),
             "due_date": self._extract_due_date(text),
-            "category": self._extract_category(text)
+            "category": self._extract_category(text),
         }
 
     def _extract_query_parameters(self, text: str) -> Dict[str, Any]:
@@ -255,7 +273,7 @@ class VoiceCommandProcessor:
         return {
             "query": text,
             "metric": self._extract_metric(text),
-            "time_range": self._extract_time_range(text)
+            "time_range": self._extract_time_range(text),
         }
 
     def _extract_schedule_parameters(self, text: str) -> Dict[str, Any]:
@@ -263,7 +281,7 @@ class VoiceCommandProcessor:
         return {
             "frequency": self._extract_frequency(text),
             "time": self._extract_time(text),
-            "task_description": self._extract_first_sentence(text)
+            "task_description": self._extract_first_sentence(text),
         }
 
     def _extract_report_parameters(self, text: str) -> Dict[str, Any]:
@@ -271,7 +289,7 @@ class VoiceCommandProcessor:
         return {
             "report_type": self._extract_report_type(text),
             "time_range": self._extract_time_range(text),
-            "format": self._extract_format(text) or "summary"
+            "format": self._extract_format(text) or "summary",
         }
 
     def _extract_feedback_parameters(self, text: str) -> Dict[str, Any]:
@@ -280,7 +298,7 @@ class VoiceCommandProcessor:
             "feedback_type": self._extract_feedback_type(text),
             "target": self._extract_target(text),
             "comment": text,
-            "sentiment": self._extract_sentiment(text)
+            "sentiment": self._extract_sentiment(text),
         }
 
     # ==================== Text Analysis Helpers ====================
@@ -289,6 +307,7 @@ class VoiceCommandProcessor:
     def _extract_quoted_string(text: str) -> Optional[str]:
         """Extract strings within quotes."""
         import re
+
         matches = re.findall(r'"([^"]+)"', text)
         return matches[0] if matches else None
 
@@ -300,7 +319,7 @@ class VoiceCommandProcessor:
         cleaned = text
         for prefix in prefixes:
             if cleaned.lower().startswith(prefix):
-                cleaned = cleaned[len(prefix):].strip()
+                cleaned = cleaned[len(prefix) :].strip()
         return cleaned[:100]  # Limit to 100 chars
 
     @staticmethod
@@ -327,7 +346,7 @@ class VoiceCommandProcessor:
             "next week": "next_week",
             "next month": "next_month",
             "end of day": "end_of_day",
-            "eod": "end_of_day"
+            "eod": "end_of_day",
         }
 
         for keyword, value in date_keywords.items():
@@ -339,7 +358,14 @@ class VoiceCommandProcessor:
     @staticmethod
     def _extract_category(text: str) -> Optional[str]:
         """Extract task category."""
-        categories = ["development", "testing", "documentation", "review", "deployment", "bug"]
+        categories = [
+            "development",
+            "testing",
+            "documentation",
+            "review",
+            "deployment",
+            "bug",
+        ]
         text_lower = text.lower()
 
         for cat in categories:
@@ -351,7 +377,15 @@ class VoiceCommandProcessor:
     @staticmethod
     def _extract_metric(text: str) -> Optional[str]:
         """Extract metric name from query."""
-        metrics = ["cpu", "memory", "disk", "network", "latency", "error rate", "uptime"]
+        metrics = [
+            "cpu",
+            "memory",
+            "disk",
+            "network",
+            "latency",
+            "error rate",
+            "uptime",
+        ]
         text_lower = text.lower()
 
         for metric in metrics:
@@ -396,8 +430,9 @@ class VoiceCommandProcessor:
     def _extract_time(text: str) -> Optional[str]:
         """Extract time of day."""
         import re
+
         # Find time patterns like "9:00 AM" or "9 AM"
-        time_pattern = r'(\d{1,2}):?(\d{2})?\s*(AM|PM|am|pm)?'
+        time_pattern = r"(\d{1,2}):?(\d{2})?\s*(AM|PM|am|pm)?"
         matches = re.findall(time_pattern, text)
 
         if matches:
@@ -501,10 +536,21 @@ class VoiceCommandProcessor:
         """Initialize command pattern keywords."""
         return {
             CommandType.ADD_TASK.value: ["add", "create", "new", "remind", "task"],
-            CommandType.QUERY_STATUS.value: ["whats", "status", "check", "how", "report"],
+            CommandType.QUERY_STATUS.value: [
+                "whats",
+                "status",
+                "check",
+                "how",
+                "report",
+            ],
             CommandType.EXECUTE_ACTION.value: ["execute", "run", "perform", "do"],
-            CommandType.GET_REPORT.value: ["report", "summary", "overview", "analytics"],
-            CommandType.SCHEDULE_TASK.value: ["schedule", "every", "daily", "weekly"]
+            CommandType.GET_REPORT.value: [
+                "report",
+                "summary",
+                "overview",
+                "analytics",
+            ],
+            CommandType.SCHEDULE_TASK.value: ["schedule", "every", "daily", "weekly"],
         }
 
     def _create_unknown_command(self, text: str, language: str) -> VoiceCommand:
@@ -517,7 +563,7 @@ class VoiceCommandProcessor:
             confidence=20.0,
             confidence_level=CommandConfidence.LOW,
             parameters={"raw_input": text},
-            language=language
+            language=language,
         )
 
     # ==================== Command Execution ====================
@@ -528,7 +574,7 @@ class VoiceCommandProcessor:
             "success": True,
             "action": "task_created",
             "message": f"Task created: {command.parameters.get('title', 'Untitled')}",
-            "task_details": command.parameters
+            "task_details": command.parameters,
         }
 
     def _execute_query_status(self, command: VoiceCommand) -> Dict[str, Any]:
@@ -537,7 +583,7 @@ class VoiceCommandProcessor:
             "success": True,
             "action": "status_fetched",
             "message": f"Fetching {command.parameters.get('metric', 'system')} status...",
-            "query_details": command.parameters
+            "query_details": command.parameters,
         }
 
     def _execute_action(self, command: VoiceCommand) -> Dict[str, Any]:
@@ -546,7 +592,7 @@ class VoiceCommandProcessor:
             "success": True,
             "action": "action_executed",
             "message": "Action executed successfully",
-            "action_details": command.parameters
+            "action_details": command.parameters,
         }
 
     def _execute_provide_feedback(self, command: VoiceCommand) -> Dict[str, Any]:
@@ -555,7 +601,7 @@ class VoiceCommandProcessor:
             "success": True,
             "action": "feedback_recorded",
             "message": "Your feedback has been recorded",
-            "feedback_details": command.parameters
+            "feedback_details": command.parameters,
         }
 
     def _execute_get_report(self, command: VoiceCommand) -> Dict[str, Any]:
@@ -564,7 +610,7 @@ class VoiceCommandProcessor:
             "success": True,
             "action": "report_generated",
             "message": f"{command.parameters.get('report_type', 'Report')} generated",
-            "report_details": command.parameters
+            "report_details": command.parameters,
         }
 
     def _execute_schedule_task(self, command: VoiceCommand) -> Dict[str, Any]:
@@ -573,17 +619,14 @@ class VoiceCommandProcessor:
             "success": True,
             "action": "task_scheduled",
             "message": f"Task scheduled {command.parameters.get('frequency', 'once')}",
-            "schedule_details": command.parameters
+            "schedule_details": command.parameters,
         }
 
     # ==================== History & Diagnostics ====================
 
     def get_command_history(self, limit: int = 20) -> List[Dict[str, Any]]:
         """Get recent command history."""
-        return [
-            cmd.to_dict()
-            for cmd in self.command_history[-limit:]
-        ]
+        return [cmd.to_dict() for cmd in self.command_history[-limit:]]
 
     def get_command_statistics(self) -> Dict[str, Any]:
         """Get statistics about processed commands."""
@@ -592,7 +635,7 @@ class VoiceCommandProcessor:
                 "total_commands": 0,
                 "commands_by_type": {},
                 "average_confidence": 0.0,
-                "high_confidence_percent": 0.0
+                "high_confidence_percent": 0.0,
             }
 
         total = len(self.command_history)
@@ -604,7 +647,8 @@ class VoiceCommandProcessor:
 
         avg_confidence = sum(cmd.confidence for cmd in self.command_history) / total
         high_confidence = sum(
-            1 for cmd in self.command_history
+            1
+            for cmd in self.command_history
             if cmd.confidence_level == CommandConfidence.HIGH
         )
 
@@ -612,7 +656,7 @@ class VoiceCommandProcessor:
             "total_commands": total,
             "commands_by_type": by_type,
             "average_confidence": avg_confidence,
-            "high_confidence_percent": (high_confidence / total * 100)
+            "high_confidence_percent": (high_confidence / total * 100),
         }
 
 

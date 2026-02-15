@@ -3,9 +3,10 @@ Unit Tests for ArtifactRenderer (Frontend Logic)
 Tests artifact registration, rendering, and refactoring capabilities
 """
 
-import pytest
 import json
 from unittest.mock import Mock
+
+import pytest
 
 
 class ArtifactRendererMock:
@@ -15,15 +16,15 @@ class ArtifactRendererMock:
         self.artifacts = {}
         self.currentArtifactId = None
 
-    def registerArtifact(self, id, content, type='markdown', metadata=None):
+    def registerArtifact(self, id, content, type="markdown", metadata=None):
         """Register an artifact"""
         self.artifacts[id] = {
-            'id': id,
-            'content': content,
-            'type': type,
-            'metadata': metadata or {},
-            'created': 'now',
-            'refactorHistory': []
+            "id": id,
+            "content": content,
+            "type": type,
+            "metadata": metadata or {},
+            "created": "now",
+            "refactorHistory": [],
         }
         return self.artifacts[id]
 
@@ -41,13 +42,15 @@ class ArtifactRendererMock:
         html += f"<p>Type: {artifact['type']}</p>"
 
         # Content rendering based on type
-        if artifact['type'] == 'markdown':
+        if artifact["type"] == "markdown":
             html += f"<div class='markdown-content'>{artifact['content']}</div>"
-        elif artifact['type'] == 'code':
+        elif artifact["type"] == "code":
             html += f"<pre><code>{artifact['content']}</code></pre>"
-        elif artifact['type'] == 'json':
-            html += f"<pre>{json.dumps(json.loads(artifact['content']), indent=2)}</pre>"
-        elif artifact['type'] == 'plan':
+        elif artifact["type"] == "json":
+            html += (
+                f"<pre>{json.dumps(json.loads(artifact['content']), indent=2)}</pre>"
+            )
+        elif artifact["type"] == "plan":
             html += f"<div class='plan-tasks'>{artifact['content']}</div>"
 
         html += "</div>"
@@ -66,23 +69,14 @@ class ArtifactRendererMock:
         if id not in self.artifacts:
             return None
         artifact = self.artifacts[id]
-        extensions = {
-            'markdown': 'md',
-            'code': 'txt',
-            'json': 'json',
-            'plan': 'txt'
-        }
+        extensions = {"markdown": "md", "code": "txt", "json": "json", "plan": "txt"}
         return f"{artifact['id']}.{extensions.get(artifact['type'], 'txt')}"
 
     def refactorArtifact(self, id, refactor_type):
         """Simulate refactoring request"""
         if id not in self.artifacts:
             return None
-        return {
-            'artifact_id': id,
-            'refactor_type': refactor_type,
-            'status': 'pending'
-        }
+        return {"artifact_id": id, "refactor_type": refactor_type, "status": "pending"}
 
 
 class TestArtifactRenderer:
@@ -99,7 +93,7 @@ class TestArtifactRenderer:
             id="md-001",
             content="# Title\n## Subtitle\nContent",
             type="markdown",
-            metadata={"title": "My Document"}
+            metadata={"title": "My Document"},
         )
 
         assert artifact["id"] == "md-001"
@@ -112,7 +106,7 @@ class TestArtifactRenderer:
             id="code-001",
             content="print('Hello')",
             type="code",
-            metadata={"language": "python"}
+            metadata={"language": "python"},
         )
 
         assert artifact["type"] == "code"
@@ -122,9 +116,7 @@ class TestArtifactRenderer:
         """Test registering a JSON artifact"""
         json_content = json.dumps({"key": "value", "count": 42})
         artifact = renderer.registerArtifact(
-            id="json-001",
-            content=json_content,
-            type="json"
+            id="json-001", content=json_content, type="json"
         )
 
         assert artifact["type"] == "json"
@@ -132,18 +124,20 @@ class TestArtifactRenderer:
 
     def test_register_plan_artifact(self, renderer):
         """Test registering a plan (task list) artifact"""
-        plan_content = json.dumps({
-            "tasks": [
-                {"id": "t1", "name": "Task 1", "priority": "high"},
-                {"id": "t2", "name": "Task 2", "priority": "medium"}
-            ]
-        })
+        plan_content = json.dumps(
+            {
+                "tasks": [
+                    {"id": "t1", "name": "Task 1", "priority": "high"},
+                    {"id": "t2", "name": "Task 2", "priority": "medium"},
+                ]
+            }
+        )
 
         artifact = renderer.registerArtifact(
             id="plan-001",
             content=plan_content,
             type="plan",
-            metadata={"title": "Project Plan"}
+            metadata={"title": "Project Plan"},
         )
 
         assert artifact["type"] == "plan"
@@ -151,11 +145,7 @@ class TestArtifactRenderer:
 
     def test_render_markdown_artifact(self, renderer):
         """Test rendering markdown artifact"""
-        renderer.registerArtifact(
-            id="md-001",
-            content="# Heading",
-            type="markdown"
-        )
+        renderer.registerArtifact(id="md-001", content="# Heading", type="markdown")
 
         container = Mock()
         html = renderer.renderArtifact("md-001", container)
@@ -166,9 +156,7 @@ class TestArtifactRenderer:
     def test_render_code_artifact(self, renderer):
         """Test rendering code artifact"""
         renderer.registerArtifact(
-            id="code-001",
-            content="function test() {}",
-            type="code"
+            id="code-001", content="function test() {}", type="code"
         )
 
         container = Mock()
@@ -186,10 +174,7 @@ class TestArtifactRenderer:
 
     def test_copy_to_clipboard(self, renderer):
         """Test copy to clipboard functionality"""
-        renderer.registerArtifact(
-            id="copy-001",
-            content="Content to copy"
-        )
+        renderer.registerArtifact(id="copy-001", content="Content to copy")
 
         result = renderer.copyToClipboard("copy-001")
         assert result is True
@@ -202,9 +187,7 @@ class TestArtifactRenderer:
     def test_download_artifact(self, renderer):
         """Test downloading artifact"""
         renderer.registerArtifact(
-            id="download-001",
-            content="Content to download",
-            type="markdown"
+            id="download-001", content="Content to download", type="markdown"
         )
 
         filename = renderer.downloadArtifact("download-001")
@@ -218,7 +201,7 @@ class TestArtifactRenderer:
             id="code-download",
             content="code content",
             type="code",
-            metadata={"language": "python"}
+            metadata={"language": "python"},
         )
 
         filename = renderer.downloadArtifact("code-download")
@@ -227,10 +210,7 @@ class TestArtifactRenderer:
 
     def test_refactor_artifact(self, renderer):
         """Test refactoring request"""
-        renderer.registerArtifact(
-            id="refactor-001",
-            content="Original content"
-        )
+        renderer.registerArtifact(id="refactor-001", content="Original content")
 
         request = renderer.refactorArtifact("refactor-001", "shorten")
 
@@ -240,12 +220,16 @@ class TestArtifactRenderer:
 
     def test_multiple_refactoring_types(self, renderer):
         """Test different refactoring types"""
-        renderer.registerArtifact(
-            id="multi-refactor",
-            content="Some content"
-        )
+        renderer.registerArtifact(id="multi-refactor", content="Some content")
 
-        refactor_types = ["shorten", "expand", "formal", "casual", "executive", "technical"]
+        refactor_types = [
+            "shorten",
+            "expand",
+            "formal",
+            "casual",
+            "executive",
+            "technical",
+        ]
 
         for refactor_type in refactor_types:
             request = renderer.refactorArtifact("multi-refactor", refactor_type)
@@ -258,13 +242,11 @@ class TestArtifactRenderer:
             "wordCount": 2500,
             "compression": "15:1",
             "source": "requirements.pdf",
-            "timestamp": "2026-02-11T10:30:00Z"
+            "timestamp": "2026-02-11T10:30:00Z",
         }
 
         artifact = renderer.registerArtifact(
-            id="meta-001",
-            content="Specification content",
-            metadata=metadata
+            id="meta-001", content="Specification content", metadata=metadata
         )
 
         assert artifact["metadata"]["wordCount"] == 2500
@@ -276,10 +258,7 @@ class TestArtifactRenderer:
             id="with-meta",
             content="Content",
             type="markdown",
-            metadata={
-                "title": "My Title",
-                "wordCount": 100
-            }
+            metadata={"title": "My Title", "wordCount": 100},
         )
 
         container = Mock()
@@ -290,10 +269,7 @@ class TestArtifactRenderer:
 
     def test_artifact_refactor_history(self, renderer):
         """Test refactoring history tracking"""
-        artifact = renderer.registerArtifact(
-            id="history-001",
-            content="Original"
-        )
+        artifact = renderer.registerArtifact(id="history-001", content="Original")
 
         # Simulate refactoring
         renderer.refactorArtifact("history-001", "shorten")
@@ -306,10 +282,7 @@ class TestArtifactRenderer:
         """Test that current artifact ID is tracked"""
         assert renderer.currentArtifactId is None
 
-        renderer.registerArtifact(
-            id="track-001",
-            content="Content"
-        )
+        renderer.registerArtifact(id="track-001", content="Content")
 
         container = Mock()
         renderer.renderArtifact("track-001", container)
@@ -322,9 +295,7 @@ class TestArtifactRenderer:
 
         for i, artifact_type in enumerate(types):
             artifact = renderer.registerArtifact(
-                id=f"type-{i}",
-                content="Content",
-                type=artifact_type
+                id=f"type-{i}", content="Content", type=artifact_type
             )
             assert artifact["type"] == artifact_type
 
@@ -334,13 +305,10 @@ class TestArtifactRenderer:
         json_str = json.dumps(json_data)
 
         artifact = renderer.registerArtifact(
-            id="json-valid",
-            content=json_str,
-            type="json"
+            id="json-valid", content=json_str, type="json"
         )
 
         # Should be able to parse back
         parsed = json.loads(artifact["content"])
         assert parsed["key"] == "value"
         assert len(parsed["items"]) == 3
-

@@ -7,6 +7,7 @@ class OllashError(Exception):
 
 # --------------- Agent Errors ---------------
 
+
 class AgentError(OllashError):
     """Base exception for agent-related errors."""
 
@@ -25,6 +26,7 @@ class AgentSwitchError(AgentError):
 
 # --------------- Ollama / LLM Errors ---------------
 
+
 class OllamaError(OllashError):
     """Base exception for Ollama communication errors."""
 
@@ -42,6 +44,7 @@ class OllamaRateLimitError(OllamaError):
 
 
 # --------------- Tool Errors ---------------
+
 
 class ToolError(OllashError):
     """Base exception for tool execution errors."""
@@ -66,6 +69,7 @@ class ToolPermissionError(ToolError):
 
 # --------------- Pipeline Errors ---------------
 
+
 class PipelineError(OllashError):
     """Base exception for auto-generation pipeline errors."""
 
@@ -87,6 +91,7 @@ class StructureGenerationError(PipelineError):
 
 
 # --------------- Configuration Errors ---------------
+
 
 class ConfigurationError(OllashError):
     """Raised for configuration-related issues."""

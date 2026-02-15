@@ -2,14 +2,12 @@
 Unit tests for MultiLanguageTestGenerator system.
 """
 
-import pytest
 from unittest.mock import Mock
 
+import pytest
+
 from backend.utils.domains.auto_generation.multi_language_test_generator import (
-    MultiLanguageTestGenerator,
-    LanguageFrameworkMap,
-    TestFramework
-)
+    LanguageFrameworkMap, MultiLanguageTestGenerator, TestFramework)
 
 
 @pytest.fixture
@@ -37,13 +35,12 @@ def mock_command_executor():
 
 
 @pytest.fixture
-def test_generator(mock_llm_client, mock_logger, mock_response_parser, mock_command_executor):
+def test_generator(
+    mock_llm_client, mock_logger, mock_response_parser, mock_command_executor
+):
     """Create a test generator instance."""
     return MultiLanguageTestGenerator(
-        mock_llm_client,
-        mock_logger,
-        mock_response_parser,
-        mock_command_executor
+        mock_llm_client, mock_logger, mock_response_parser, mock_command_executor
     )
 
 
@@ -130,19 +127,19 @@ class TestFrameworkSelection:
 class TestGenerateTests:
     """Test test generation."""
 
-    def test_generate_python_tests(self, test_generator, mock_llm_client, mock_response_parser):
+    def test_generate_python_tests(
+        self, test_generator, mock_llm_client, mock_response_parser
+    ):
         """Test Python test generation."""
         # Setup mock
         mock_llm_client.chat.return_value = (
             {"message": {"content": "```python\ndef test_func(): pass\n```"}},
-            {}
+            {},
         )
         mock_response_parser.extract_raw_content.return_value = "def test_func(): pass"
 
         result = test_generator.generate_tests(
-            "module.py",
-            "def my_func(): return 42",
-            "A simple module"
+            "module.py", "def my_func(): return 42", "A simple module"
         )
 
         assert result is not None
@@ -152,15 +149,12 @@ class TestGenerateTests:
         """Test automatic framework detection."""
         mock_llm_client.chat.return_value = (
             {"message": {"content": "test content"}},
-            {}
+            {},
         )
 
         # Generate for Python file without specifying framework
         test_generator.generate_tests(
-            "test.py",
-            "code",
-            "readme",
-            framework=None  # Auto-detect
+            "test.py", "code", "readme", framework=None  # Auto-detect
         )
 
         # Should detect python and select pytest
@@ -174,18 +168,13 @@ class TestIntegrationTests:
         """Test integration test generation."""
         mock_llm_client.chat.return_value = (
             {"message": {"content": "integration test code"}},
-            {}
+            {},
         )
 
-        services = [
-            {"name": "api", "port": 8000},
-            {"name": "db", "port": 5432}
-        ]
+        services = [{"name": "api", "port": 8000}, {"name": "db", "port": 5432}]
 
         test_content, docker_compose = test_generator.generate_integration_tests(
-            "/project",
-            "A multi-service app",
-            services
+            "/project", "A multi-service app", services
         )
 
         # Should return both test file and docker-compose
@@ -200,7 +189,7 @@ class TestDockerComposeGeneration:
         services = [
             {"name": "web", "port": 8000},
             {"name": "db", "port": 5432},
-            {"name": "cache", "port": 6379}
+            {"name": "cache", "port": 6379},
         ]
 
         compose = test_generator._generate_test_docker_compose(services)
@@ -218,7 +207,7 @@ class TestLanguageSpecificPrompts:
         system, user = test_generator._pytest_prompt(
             "test_user.py",
             "def get_user(id): return {'id': id}",
-            "User management system"
+            "User management system",
         )
 
         assert "pytest" in system.lower()
@@ -227,9 +216,7 @@ class TestLanguageSpecificPrompts:
     def test_jest_prompt(self, test_generator):
         """Test Jest-specific prompt."""
         system, user = test_generator._jest_prompt(
-            "user.js",
-            "function getUser(id) { return {id} }",
-            "User management system"
+            "user.js", "function getUser(id) { return {id} }", "User management system"
         )
 
         assert "jest" in system.lower()
@@ -238,9 +225,7 @@ class TestLanguageSpecificPrompts:
     def test_go_test_prompt(self, test_generator):
         """Test Go test-specific prompt."""
         system, user = test_generator._go_test_prompt(
-            "user.go",
-            "func GetUser(id int) User { }",
-            "User management system"
+            "user.go", "func GetUser(id int) User { }", "User management system"
         )
 
         assert "go" in system.lower()
@@ -249,9 +234,7 @@ class TestLanguageSpecificPrompts:
     def test_mocha_prompt(self, test_generator):
         """Test Mocha-specific prompt."""
         system, user = test_generator._mocha_prompt(
-            "user.js",
-            "function getUser() { }",
-            "System"
+            "user.js", "function getUser() { }", "System"
         )
 
         assert "mocha" in system.lower()
@@ -259,9 +242,7 @@ class TestLanguageSpecificPrompts:
     def test_cargo_prompt(self, test_generator):
         """Test Cargo/Rust-specific prompt."""
         system, user = test_generator._cargo_test_prompt(
-            "lib.rs",
-            "pub fn get_user() { }",
-            "System"
+            "lib.rs", "pub fn get_user() { }", "System"
         )
 
         assert "rust" in system.lower() or "cargo" in system.lower()
@@ -269,9 +250,7 @@ class TestLanguageSpecificPrompts:
     def test_unittest_prompt(self, test_generator):
         """Test unittest-specific prompt."""
         system, user = test_generator._unittest_prompt(
-            "test_user.py",
-            "def get_user(): pass",
-            "System"
+            "test_user.py", "def get_user(): pass", "System"
         )
 
         assert "unittest" in system.lower()
@@ -289,16 +268,18 @@ class TestTestExecution:
         assert result["success"] == True
         assert "no test files" in result["output"].lower()
 
-    def test_execute_tests_returns_structure(self, test_generator, mock_command_executor):
+    def test_execute_tests_returns_structure(
+        self, test_generator, mock_command_executor
+    ):
         """Test that execute_tests returns expected structure."""
         from pathlib import Path
 
-        mock_command_executor.execute.return_value = Mock(success=True, stdout="", stderr="")
+        mock_command_executor.execute.return_value = Mock(
+            success=True, stdout="", stderr=""
+        )
 
         result = test_generator.execute_tests(
-            Path("/tmp"),
-            [Path("/tmp/test_file.py")],
-            language="python"
+            Path("/tmp"), [Path("/tmp/test_file.py")], language="python"
         )
 
         assert "success" in result
@@ -311,8 +292,8 @@ class TestServiceDetection:
 
     def test_detect_services(self, test_generator):
         """Test automatic service detection."""
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
 
         with tempfile.TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

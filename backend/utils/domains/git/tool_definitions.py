@@ -6,8 +6,8 @@ GIT_TOOL_DEFINITIONS: List[Dict] = [
         "function": {
             "name": "git_status",
             "description": "Shows the status of the git repository (e.g., modified, staged, untracked files).",
-            "parameters": {"type": "object", "properties": {}}
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -18,12 +18,18 @@ GIT_TOOL_DEFINITIONS: List[Dict] = [
                 "type": "object",
                 "properties": {
                     "message": {"type": "string", "description": "The commit message."},
-                    "all": {"type": "boolean", "description": "Optional: Whether to commit all changes. Defaults to false (only staged)."},
-                    "reason": {"type": "string", "description": "The reason for this commit, for user confirmation."}
+                    "all": {
+                        "type": "boolean",
+                        "description": "Optional: Whether to commit all changes. Defaults to false (only staged).",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "The reason for this commit, for user confirmation.",
+                    },
                 },
-                "required": ["message", "reason"]
-            }
-        }
+                "required": ["message", "reason"],
+            },
+        },
     },
     {
         "type": "function",
@@ -33,11 +39,17 @@ GIT_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "remote": {"type": "string", "description": "Optional: The name of the remote to push to. Defaults to 'origin'."},
-                    "branch": {"type": "string", "description": "Optional: The name of the branch to push. Defaults to current branch."}
+                    "remote": {
+                        "type": "string",
+                        "description": "Optional: The name of the remote to push to. Defaults to 'origin'.",
+                    },
+                    "branch": {
+                        "type": "string",
+                        "description": "Optional: The name of the branch to push. Defaults to current branch.",
+                    },
                 },
-                "required": ["remote", "branch"]
-            }
-        }
+                "required": ["remote", "branch"],
+            },
+        },
     },
 ]

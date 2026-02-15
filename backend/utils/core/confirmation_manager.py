@@ -1,21 +1,37 @@
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 from colorama import Fore, Style
+
 from backend.core.config_schemas import ToolSettingsConfig
+
 
 class ConfirmationManager:
     """Manages confirmation gates for state-modifying tools."""
+
     MODIFY_ACTIONS = {"write_file", "delete_file", "git_commit", "git_push"}
 
-    def __init__(self, logger: Any, config: ToolSettingsConfig, auto_confirm: bool = False, tool_registry: Any = None):
+    def __init__(
+        self,
+        logger: Any,
+        config: ToolSettingsConfig,
+        auto_confirm: bool = False,
+        tool_registry: Any = None,
+    ):
         self.logger = logger
         self.config = config
         self.auto_confirm = auto_confirm
         self.tool_registry = tool_registry
 
-        self.git_auto_confirm_lines_threshold: int = self.config.git_auto_confirm_lines_threshold
-        self.auto_confirm_minor_git_commits: bool = self.config.auto_confirm_minor_git_commits
+        self.git_auto_confirm_lines_threshold: int = (
+            self.config.git_auto_confirm_lines_threshold
+        )
+        self.auto_confirm_minor_git_commits: bool = (
+            self.config.auto_confirm_minor_git_commits
+        )
 
-        self.write_auto_confirm_lines_threshold: int = self.config.write_auto_confirm_lines_threshold
+        self.write_auto_confirm_lines_threshold: int = (
+            self.config.write_auto_confirm_lines_threshold
+        )
         self.auto_confirm_minor_writes: bool = self.config.auto_confirm_minor_writes
 
         self.critical_paths_patterns: List[str] = self.config.critical_paths_patterns
@@ -47,14 +63,16 @@ class ConfirmationManager:
             self.logger.info(f"📋 Reason: {details.get('reason', 'N/A')}")
             self.logger.info(f"📏 Size: {len(details['content'])} characters")
 
-            lines = details['content'].split('\n')
+            lines = details["content"].split("\n")
             preview_lines = min(10, len(lines))
             self.logger.info(f"\n📄 Preview (first {preview_lines} lines):")
             self.logger.info("-" * 60)
             for i, line in enumerate(lines[:preview_lines], 1):
                 self.logger.info(f"{Fore.WHITE}{i:3}: {line}{Style.RESET_ALL}")
             if len(lines) > preview_lines:
-                self.logger.info(f"{Fore.YELLOW}... ({len(lines) - preview_lines} more lines){Style.RESET_ALL}")
+                self.logger.info(
+                    f"{Fore.YELLOW}... ({len(lines) - preview_lines} more lines){Style.RESET_ALL}"
+                )
             self.logger.info("-" * 60)
 
         elif action == "delete_file":
@@ -62,24 +80,34 @@ class ConfirmationManager:
             self.logger.info(f"📋 Reason: {details.get('reason', 'N/A')}")
 
         elif action == "git_commit":
-            self.logger.info(f"💾 Message: {Fore.CYAN}{details['message']}{Style.RESET_ALL}")
+            self.logger.info(
+                f"💾 Message: {Fore.CYAN}{details['message']}{Style.RESET_ALL}"
+            )
 
         elif action == "git_push":
-            self.logger.info(f"🚀 Remote: {Fore.CYAN}{details.get('remote', 'origin')}{Style.RESET_ALL}")
+            self.logger.info(
+                f"🚀 Remote: {Fore.CYAN}{details.get('remote', 'origin')}{Style.RESET_ALL}"
+            )
 
         self.logger.info(f"{Fore.YELLOW}{'='*60}{Style.RESET_ALL}")
 
         while True:
-            response = input(f"{Fore.GREEN}Proceed? (yes/no/view): {Style.RESET_ALL}").strip().lower()
-            if response in ['yes', 'y', 'si', 's']:
+            response = (
+                input(f"{Fore.GREEN}Proceed? (yes/no/view): {Style.RESET_ALL}")
+                .strip()
+                .lower()
+            )
+            if response in ["yes", "y", "si", "s"]:
                 return True
-            elif response in ['no', 'n']:
+            elif response in ["no", "n"]:
                 return False
-            elif response in ['view', 'v'] and action == "write_file":
+            elif response in ["view", "v"] and action == "write_file":
                 self.logger.info(f"\n{Fore.CYAN}{'='*60}")
                 self.logger.info("FULL CONTENT:")
                 self.logger.info(f"{'='*60}{Style.RESET_ALL}")
-                print(details['content'])
+                print(details["content"])
                 self.logger.info(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
             else:
-                self.logger.info(f"{Fore.RED}Please answer 'yes', 'no', or 'view'{Style.RESET_ALL}")
+                self.logger.info(
+                    f"{Fore.RED}Please answer 'yes', 'no', or 'view'{Style.RESET_ALL}"
+                )

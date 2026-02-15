@@ -1,23 +1,21 @@
 import importlib
 import os
 import pkgutil
-from typing import Dict, List, Optional, Any, Callable
 from pathlib import Path
-
-# Import the discovery functions from the decorator module
-from .tool_decorator import (
-    get_async_eligible_tools,
-    get_discovered_agent_tools,
-    get_discovered_tool_mapping,
-    get_discovered_definitions,
-)
+from typing import Any, Callable, Dict, List, Optional
 
 # Import manager classes
 from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.file_manager import FileManager
-from backend.utils.core.command_executor import CommandExecutor
-from backend.utils.core.git_manager import GitManager
 from backend.utils.core.code_analyzer import CodeAnalyzer
+from backend.utils.core.command_executor import CommandExecutor
+from backend.utils.core.file_manager import FileManager
+from backend.utils.core.git_manager import GitManager
+
+# Import the discovery functions from the decorator module
+from .tool_decorator import (get_async_eligible_tools,
+                             get_discovered_agent_tools,
+                             get_discovered_definitions,
+                             get_discovered_tool_mapping)
 
 
 def discover_tools(base_path: str = "backend/utils/domains"):
@@ -74,7 +72,7 @@ class ToolRegistry:
         command_executor: CommandExecutor,
         git_manager: GitManager,
         code_analyzer: CodeAnalyzer,
-        tool_executor: Any, # The actual ToolExecutor instance will be passed here.
+        tool_executor: Any,  # The actual ToolExecutor instance will be passed here.
         confirmation_manager: Any,
     ):
         self.logger = logger
@@ -83,76 +81,126 @@ class ToolRegistry:
         self.command_executor = command_executor
         self.git_manager = git_manager
         self.code_analyzer = code_analyzer
-        self.tool_executor = tool_executor # The ToolExecutor that will use this registry
+        self.tool_executor = (
+            tool_executor  # The ToolExecutor that will use this registry
+        )
         self.confirmation_manager = confirmation_manager
 
-        self._loaded_toolsets: Dict[str, Any] = {} # To store instances of toolsets
+        self._loaded_toolsets: Dict[str, Any] = {}  # To store instances of toolsets
 
-        self._initialize_if_needed() # Ensure class-level caches are populated
+        self._initialize_if_needed()  # Ensure class-level caches are populated
 
         # This mapping is used to get the class and init_args for each toolset.
         # This is now owned by ToolRegistry.
         self._toolset_configs = {
             "file_system_tools": {
                 "class_path": "backend.utils.domains.code.file_system_tools.FileSystemTools",
-                "init_args": {"project_root": self.project_root, "file_manager": self.file_manager, "logger": self.logger, "tool_executor": self.confirmation_manager}
+                "init_args": {
+                    "project_root": self.project_root,
+                    "file_manager": self.file_manager,
+                    "logger": self.logger,
+                    "tool_executor": self.confirmation_manager,
+                },
             },
             "code_analysis_tools": {
                 "class_path": "backend.utils.domains.code.code_analysis_tools.CodeAnalysisTools",
-                "init_args": {"project_root": self.project_root, "code_analyzer": self.code_analyzer, "command_executor": self.command_executor, "logger": self.logger}
+                "init_args": {
+                    "project_root": self.project_root,
+                    "code_analyzer": self.code_analyzer,
+                    "command_executor": self.command_executor,
+                    "logger": self.logger,
+                },
             },
             "command_line_tools": {
                 "class_path": "backend.utils.domains.command_line.command_line_tools.CommandLineTools",
-                "init_args": {"command_executor": self.command_executor, "logger": self.logger}
+                "init_args": {
+                    "command_executor": self.command_executor,
+                    "logger": self.logger,
+                },
             },
             "git_operations_tools": {
                 "class_path": "backend.utils.domains.git.git_operations_tools.GitOperationsTools",
-                "init_args": {"git_manager": self.git_manager, "logger": self.logger, "tool_executor": self.confirmation_manager}
+                "init_args": {
+                    "git_manager": self.git_manager,
+                    "logger": self.logger,
+                    "tool_executor": self.confirmation_manager,
+                },
             },
             "planning_tools": {
                 "class_path": "backend.utils.domains.planning.planning_tools.PlanningTools",
-                "init_args": {"logger": self.logger, "project_root": self.project_root, "agent_instance": None} # agent_instance set dynamically
+                "init_args": {
+                    "logger": self.logger,
+                    "project_root": self.project_root,
+                    "agent_instance": None,
+                },  # agent_instance set dynamically
             },
             "network_tools": {
                 "class_path": "backend.utils.domains.network.network_tools.NetworkTools",
-                "init_args": {"command_executor": self.command_executor, "logger": self.logger}
+                "init_args": {
+                    "command_executor": self.command_executor,
+                    "logger": self.logger,
+                },
             },
             "system_tools": {
                 "class_path": "backend.utils.domains.system.system_tools.SystemTools",
-                "init_args": {"command_executor": self.command_executor, "file_manager": self.file_manager, "logger": self.logger, "agent_instance": None} # agent_instance set dynamically
+                "init_args": {
+                    "command_executor": self.command_executor,
+                    "file_manager": self.file_manager,
+                    "logger": self.logger,
+                    "agent_instance": None,
+                },  # agent_instance set dynamically
             },
             "cybersecurity_tools": {
                 "class_path": "backend.utils.domains.cybersecurity.cybersecurity_tools.CybersecurityTools",
-                "init_args": {"command_executor": self.command_executor, "file_manager": self.file_manager, "logger": self.logger}
+                "init_args": {
+                    "command_executor": self.command_executor,
+                    "file_manager": self.file_manager,
+                    "logger": self.logger,
+                },
             },
             "orchestration_tools": {
                 "class_path": "backend.utils.domains.orchestration.orchestration_tools.OrchestrationTools",
-                "init_args": {"logger": self.logger}
+                "init_args": {"logger": self.logger},
             },
             "image_generator_tools": {
                 "class_path": "backend.utils.domains.multimedia.image_generation_tools.ImageGeneratorTools",
-                "init_args": {"logger": self.logger, "config": None}
+                "init_args": {"logger": self.logger, "config": None},
             },
             "advanced_code_tools": {
                 "class_path": "backend.utils.domains.code.advanced_code_tools.AdvancedCodeTools",
-                "init_args": {"project_root": self.project_root, "code_analyzer": self.code_analyzer, "command_executor": self.command_executor, "logger": self.logger}
+                "init_args": {
+                    "project_root": self.project_root,
+                    "code_analyzer": self.code_analyzer,
+                    "command_executor": self.command_executor,
+                    "logger": self.logger,
+                },
             },
             "advanced_system_tools": {
                 "class_path": "backend.utils.domains.system.advanced_system_tools.AdvancedSystemTools",
-                "init_args": {"command_executor": self.command_executor, "logger": self.logger}
+                "init_args": {
+                    "command_executor": self.command_executor,
+                    "logger": self.logger,
+                },
             },
             "advanced_network_tools": {
                 "class_path": "backend.utils.domains.network.advanced_network_tools.AdvancedNetworkTools",
-                "init_args": {"command_executor": self.command_executor, "logger": self.logger}
+                "init_args": {
+                    "command_executor": self.command_executor,
+                    "logger": self.logger,
+                },
             },
             "advanced_cybersecurity_tools": {
                 "class_path": "backend.utils.domains.cybersecurity.advanced_cybersecurity_tools.AdvancedCybersecurityTools",
-                "init_args": {"command_executor": self.command_executor, "file_manager": self.file_manager, "logger": self.logger}
+                "init_args": {
+                    "command_executor": self.command_executor,
+                    "file_manager": self.file_manager,
+                    "logger": self.logger,
+                },
             },
             "bonus_tools": {
                 "class_path": "backend.utils.domains.bonus.bonus_tools.BonusTools",
-                "init_args": {"logger": self.logger}
-            }
+                "init_args": {"logger": self.logger},
+            },
         }
 
     @classmethod
@@ -208,7 +256,7 @@ class ToolRegistry:
 
     def get_tool_definitions(self, active_tool_names: List[str]) -> List[Dict]:
         """Returns the OpenAPI-like definitions for the given active tool names."""
-        self._initialize_if_needed() # Ensure tools are discovered
+        self._initialize_if_needed()  # Ensure tools are discovered
 
         all_definitions = get_discovered_definitions()
         definitions = []
@@ -218,16 +266,22 @@ class ToolRegistry:
                 definitions.append(tool_def)
         return definitions
 
-    def get_callable_tool_function(self, tool_name: str, agent_instance: Any) -> Callable:
+    def get_callable_tool_function(
+        self, tool_name: str, agent_instance: Any
+    ) -> Callable:
         """
         Retrieves the callable function for a given tool, lazily instantiating its toolset if necessary.
         """
-        toolset_identifier, method_name_in_toolset = self.get_tool_mapping().get(tool_name)
+        toolset_identifier, method_name_in_toolset = self.get_tool_mapping().get(
+            tool_name
+        )
 
         if toolset_identifier not in self._loaded_toolsets:
             toolset_config = self._toolset_configs.get(toolset_identifier)
             if not toolset_config:
-                raise ValueError(f"Toolset configuration for '{toolset_identifier}' not found in registry.")
+                raise ValueError(
+                    f"Toolset configuration for '{toolset_identifier}' not found in registry."
+                )
 
             class_path = toolset_config["class_path"]
             module_name, class_name = class_path.rsplit(".", 1)
@@ -237,22 +291,33 @@ class ToolRegistry:
                 module = importlib.import_module(module_name)
                 toolset_class = getattr(module, class_name)
             except (ImportError, AttributeError) as e:
-                raise RuntimeError(f"Failed to dynamically load toolset class {class_path}: {e}")
+                raise RuntimeError(
+                    f"Failed to dynamically load toolset class {class_path}: {e}"
+                )
 
-            init_args = toolset_config["init_args"].copy() # Use a copy to avoid modifying original
+            init_args = toolset_config[
+                "init_args"
+            ].copy()  # Use a copy to avoid modifying original
 
             # Dynamically set agent_instance for toolsets that require it
-            if toolset_identifier == "planning_tools" or toolset_identifier == "system_tools":
+            if (
+                toolset_identifier == "planning_tools"
+                or toolset_identifier == "system_tools"
+            ):
                 init_args["agent_instance"] = agent_instance
 
-            self.logger.debug(f"Lazily instantiating toolset: {toolset_identifier} from {class_path} with args: {init_args}")
+            self.logger.debug(
+                f"Lazily instantiating toolset: {toolset_identifier} from {class_path} with args: {init_args}"
+            )
             self._loaded_toolsets[toolset_identifier] = toolset_class(**init_args)
 
         toolset_instance = self._loaded_toolsets[toolset_identifier]
         tool_func = getattr(toolset_instance, method_name_in_toolset, None)
 
         if not tool_func:
-            raise AttributeError(f"Method '{method_name_in_toolset}' not found in toolset '{toolset_identifier}'.")
+            raise AttributeError(
+                f"Method '{method_name_in_toolset}' not found in toolset '{toolset_identifier}'."
+            )
 
         return tool_func
 

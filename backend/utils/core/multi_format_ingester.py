@@ -30,6 +30,7 @@ class MultiFormatIngester:
 
         try:
             import PyPDF2
+
             self.pypdf = PyPDF2
             self.logger.debug("PyPDF2 available for PDF processing")
         except ImportError:
@@ -40,6 +41,7 @@ class MultiFormatIngester:
 
         try:
             import docx
+
             self.python_docx = docx
             self.logger.debug("python-docx available for DOCX processing")
         except ImportError:
@@ -50,6 +52,7 @@ class MultiFormatIngester:
 
         try:
             import pptx
+
             self.python_pptx = pptx
             self.logger.debug("python-pptx available for PPTX processing")
         except ImportError:
@@ -115,9 +118,7 @@ class MultiFormatIngester:
             # Also extract from tables
             for table in doc.tables:
                 for row in table.rows:
-                    row_text = " | ".join(
-                        cell.text.strip() for cell in row.cells
-                    )
+                    row_text = " | ".join(cell.text.strip() for cell in row.cells)
                     if row_text.strip():
                         text_parts.append(row_text)
 
@@ -167,7 +168,10 @@ class MultiFormatIngester:
         """
         results = {}
         for file_path in directory.rglob("*"):
-            if file_path.is_file() and file_path.suffix.lower() in self.SUPPORTED_FORMATS:
+            if (
+                file_path.is_file()
+                and file_path.suffix.lower() in self.SUPPORTED_FORMATS
+            ):
                 text = self.ingest_file(file_path)
                 if text:
                     results[file_path.name] = text
@@ -192,4 +196,3 @@ class MultiFormatIngester:
             "line_count": lines,
             "extraction_success": True,
         }
-

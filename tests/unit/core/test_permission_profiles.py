@@ -1,15 +1,14 @@
 """Unit tests for PermissionProfiles module."""
 
-import pytest
 from unittest.mock import MagicMock
 
-from backend.utils.core.permission_profiles import (
-    Permission,
-    PermissionRule,
-    PermissionProfile,
-    PermissionProfileManager,
-    PolicyEnforcer,
-)
+import pytest
+
+from backend.utils.core.permission_profiles import (Permission,
+                                                    PermissionProfile,
+                                                    PermissionProfileManager,
+                                                    PermissionRule,
+                                                    PolicyEnforcer)
 
 
 @pytest.fixture
@@ -130,10 +129,13 @@ class TestPermissionProfile:
         profile.add_rule(rule)
 
         # Should grant
-        assert profile.check_permission(
-            Permission.READ,
-            "src/main.py",
-        ) is True
+        assert (
+            profile.check_permission(
+                Permission.READ,
+                "src/main.py",
+            )
+            is True
+        )
 
     def test_check_permission_deny(self, mock_logger):
         """Test checking denied permission."""
@@ -150,10 +152,13 @@ class TestPermissionProfile:
         profile.add_rule(rule)
 
         # Should deny
-        assert profile.check_permission(
-            Permission.DELETE,
-            "any_file.py",
-        ) is False
+        assert (
+            profile.check_permission(
+                Permission.DELETE,
+                "any_file.py",
+            )
+            is False
+        )
 
     def test_permission_default_deny(self, mock_logger):
         """Test that unmapped permissions default to deny."""
@@ -163,10 +168,13 @@ class TestPermissionProfile:
 
         # No rules added
         # Should default to deny
-        assert profile.check_permission(
-            Permission.WRITE,
-            "test.py",
-        ) is False
+        assert (
+            profile.check_permission(
+                Permission.WRITE,
+                "test.py",
+            )
+            is False
+        )
 
 
 class TestPermissionProfileManager:
@@ -187,10 +195,13 @@ class TestPermissionProfileManager:
         profile = manager.get_profile("sandbox")
 
         # Sandbox should deny most operations outside sandbox
-        assert profile.check_permission(
-            Permission.WRITE,
-            "any_file.py",
-        ) is False
+        assert (
+            profile.check_permission(
+                Permission.WRITE,
+                "any_file.py",
+            )
+            is False
+        )
 
     def test_developer_profile_permissive(self, mock_logger, tmp_path):
         """Test developer profile is more permissive."""
@@ -207,16 +218,22 @@ class TestPermissionProfileManager:
         profile = manager.get_profile("readonly")
 
         # Should allow reads
-        assert profile.check_permission(
-            Permission.READ,
-            "any_file.py",
-        ) is True
+        assert (
+            profile.check_permission(
+                Permission.READ,
+                "any_file.py",
+            )
+            is True
+        )
 
         # Should deny writes
-        assert profile.check_permission(
-            Permission.WRITE,
-            "any_file.py",
-        ) is False
+        assert (
+            profile.check_permission(
+                Permission.WRITE,
+                "any_file.py",
+            )
+            is False
+        )
 
     def test_register_custom_profile(self, mock_logger, tmp_path):
         """Test registering a custom profile."""
@@ -248,7 +265,9 @@ class TestPermissionProfileManager:
 class TestPolicyEnforcer:
     """Test PolicyEnforcer."""
 
-    def test_enforcer_initialization(self, mock_logger, mock_tool_settings_config, tmp_path):
+    def test_enforcer_initialization(
+        self, mock_logger, mock_tool_settings_config, tmp_path
+    ):
         """Test enforcer initialization."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
 
@@ -260,7 +279,9 @@ class TestPolicyEnforcer:
 
         assert enforcer.active_profile is not None
 
-    def test_authorize_file_write(self, mock_logger, mock_tool_settings_config, tmp_path):
+    def test_authorize_file_write(
+        self, mock_logger, mock_tool_settings_config, tmp_path
+    ):
         """Test file write authorization."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
 
@@ -276,7 +297,9 @@ class TestPolicyEnforcer:
         result, reason = enforcer.authorize_file_write("test_file.py", 1000)
         assert result is False
 
-    def test_authorize_shell_command_safe(self, mock_logger, mock_tool_settings_config, tmp_path):
+    def test_authorize_shell_command_safe(
+        self, mock_logger, mock_tool_settings_config, tmp_path
+    ):
         """Test safe shell command authorization."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
 
@@ -292,7 +315,9 @@ class TestPolicyEnforcer:
         result, reason = enforcer.authorize_shell_command("python script.py")
         assert isinstance(result, bool)
 
-    def test_authorize_shell_command_dangerous(self, mock_logger, mock_tool_settings_config, tmp_path):
+    def test_authorize_shell_command_dangerous(
+        self, mock_logger, mock_tool_settings_config, tmp_path
+    ):
         """Test dangerous command detection."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
 

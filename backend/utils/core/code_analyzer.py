@@ -1,8 +1,8 @@
 import ast
-from pathlib import Path
-from typing import Dict, List, Any
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List
 
 
 class Language(Enum):
@@ -21,6 +21,7 @@ class Language(Enum):
 @dataclass
 class CodeInfo:
     """Información extraída del código."""
+
     language: Language
     functions: List[str]
     classes: List[str]
@@ -57,7 +58,7 @@ class CodeAnalyzer:
 
     def analyze_python(self, file_path: str) -> CodeInfo:
         """Analiza código Python."""
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         tree = ast.parse(content)
@@ -90,7 +91,7 @@ class CodeAnalyzer:
             line_count=len(content.splitlines()),
             has_tests=has_tests,
             has_docs=has_docs,
-            file_path=file_path
+            file_path=file_path,
         )
 
     def _extract_python_deps(self, content: str) -> List[str]:
@@ -124,7 +125,7 @@ class CodeAnalyzer:
             line_count=path.stat().st_size,
             has_tests=False,
             has_docs=False,
-            file_path=str(path)
+            file_path=str(path),
         )
 
     def scan_project(self) -> Dict[str, CodeInfo]:
@@ -147,8 +148,14 @@ class CodeAnalyzer:
         return {
             "total_files": total_files,
             "total_lines": total_lines,
-            "total_functions": len(set(f for info in files.values() for f in info.functions)),
-            "total_classes": len(set(f for info in files.values() for f in info.classes)),
+            "total_functions": len(
+                set(f for info in files.values() for f in info.functions)
+            ),
+            "total_classes": len(
+                set(f for info in files.values() for f in info.classes)
+            ),
             "languages": list(set(info.language.value for info in files.values())),
-            "test_coverage": sum(1 for f in files.values() if f.has_tests) / max(total_files, 1) * 100
+            "test_coverage": sum(1 for f in files.values() if f.has_tests)
+            / max(total_files, 1)
+            * 100,
         }

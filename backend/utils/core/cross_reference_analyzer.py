@@ -9,11 +9,11 @@ Permite análisis transversal entre múltiples documentos, identificando:
 """
 
 import json
-from pathlib import Path
-from typing import Dict, List, Set, Optional, Any
-from dataclasses import dataclass, asdict
-from difflib import SequenceMatcher
 from collections import defaultdict
+from dataclasses import asdict, dataclass
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.ollama_client import OllamaClient
@@ -22,6 +22,7 @@ from backend.utils.core.ollama_client import OllamaClient
 @dataclass
 class Difference:
     """Representa una diferencia encontrada entre documentos."""
+
     term: str
     in_doc1: bool
     in_doc2: bool
@@ -36,6 +37,7 @@ class Difference:
 @dataclass
 class CrossReference:
     """Representa una referencia cruzada entre documentos."""
+
     term: str
     source_doc: str
     target_doc: str
@@ -49,8 +51,9 @@ class CrossReference:
 @dataclass
 class Inconsistency:
     """Representa una inconsistencia en terminología o conceptos."""
+
     issue_type: str  # 'terminology', 'definition', 'structure', 'metadata'
-    severity: str    # 'critical', 'warning', 'info'
+    severity: str  # 'critical', 'warning', 'info'
     term: str
     locations: List[str]  # Dónde aparece
     description: str
@@ -71,11 +74,17 @@ class CrossReferenceAnalyzer:
     - Detectar gaps entre teoría y práctica
     """
 
-    def __init__(self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None, llm_recorder: Any = None):
+    def __init__(
+        self,
+        project_root: Path,
+        logger: AgentLogger,
+        config: Optional[Dict] = None,
+        llm_recorder: Any = None,
+    ):
         self.project_root = project_root
         self.logger = logger
         self.config = config or {}
-        self.llm_recorder = llm_recorder # Store llm_recorder
+        self.llm_recorder = llm_recorder  # Store llm_recorder
 
         # Output directory
         self.analysis_dir = project_root / "knowledge_workspace" / "cross_references"
@@ -86,41 +95,42 @@ class CrossReferenceAnalyzer:
         ollama_client_config_dict = {
             "ollama_max_retries": self.config.get("ollama_max_retries", 5),
             "ollama_backoff_factor": self.config.get("ollama_backoff_factor", 1.0),
-            "ollama_retry_status_forcelist": self.config.get("ollama_retry_status_forcelist", [429, 500, 502, 503, 504]),
+            "ollama_retry_status_forcelist": self.config.get(
+                "ollama_retry_status_forcelist", [429, 500, 502, 503, 504]
+            ),
             "embedding_cache": self.config.get("embedding_cache", {}),
             "project_root": str(self.project_root),
-            "ollama_embedding_model": self.config.get("ollama_embedding_model", "all-minilm"),
+            "ollama_embedding_model": self.config.get(
+                "ollama_embedding_model", "all-minilm"
+            ),
         }
         ollama_url = self.config.get("ollama_url", "http://localhost:11434")
-        ollama_timeout = self.config.get("timeout", 300) # Extract timeout here
+        ollama_timeout = self.config.get("timeout", 300)  # Extract timeout here
         self.embedding_client = OllamaClient(
             url=ollama_url,
             model=self.config.get("embedding", "all-minilm"),
-            timeout=ollama_timeout, # Pass as positional argument
+            timeout=ollama_timeout,  # Pass as positional argument
             logger=self.logger,
             config=ollama_client_config_dict,
-            llm_recorder=self.llm_recorder
+            llm_recorder=self.llm_recorder,
         )
 
         # LLM para análisis semántico
         llm_url = self.config.get("ollama_url", "http://localhost:11434")
-        llm_timeout = self.config.get("timeout", 300) # Extract timeout here
+        llm_timeout = self.config.get("timeout", 300)  # Extract timeout here
         self.llm_client = OllamaClient(
             url=llm_url,
             model=self.config.get("reasoning", "gpt-oss:20b"),
-            timeout=llm_timeout, # Pass as positional argument
+            timeout=llm_timeout,  # Pass as positional argument
             logger=self.logger,
-            config=ollama_client_config_dict, # Use the same consolidated config dict
-            llm_recorder=self.llm_recorder # Pass llm_recorder
+            config=ollama_client_config_dict,  # Use the same consolidated config dict
+            llm_recorder=self.llm_recorder,  # Pass llm_recorder
         )
 
         self.logger.info("✓ CrossReferenceAnalyzer initialized")
 
     def compare_documents(
-        self,
-        doc1_path: Path,
-        doc2_path: Path,
-        chunk_size: int = 500
+        self, doc1_path: Path, doc2_path: Path, chunk_size: int = 500
     ) -> Dict[str, Any]:
         """
         Compara dos documentos y extrae similitudes y diferencias.
@@ -148,7 +158,9 @@ class CrossReferenceAnalyzer:
             chunks1 = self._chunk_text(doc1_content, chunk_size)
             chunks2 = self._chunk_text(doc2_content, chunk_size)
 
-            self.logger.debug(f"Doc1: {len(chunks1)} chunks, Doc2: {len(chunks2)} chunks")
+            self.logger.debug(
+                f"Doc1: {len(chunks1)} chunks, Doc2: {len(chunks2)} chunks"
+            )
 
             # Extraer términos/conceptos clave
             concepts1 = self._extract_concepts(doc1_content)
@@ -165,22 +177,27 @@ class CrossReferenceAnalyzer:
             similarity_score = self._calculate_similarity_score(chunks1, chunks2)
 
             result = {
-                'doc1': str(doc1_path.name),
-                'doc2': str(doc2_path.name),
-                'similarities': similarities,
-                'differences': [d.to_dict() for d in differences],
-                'shared_concepts': shared_concepts,
-                'doc1_unique': unique_to_doc1,
-                'doc2_unique': unique_to_doc2,
-                'similarity_score': similarity_score,
-                'timestamp': self._get_timestamp()
+                "doc1": str(doc1_path.name),
+                "doc2": str(doc2_path.name),
+                "similarities": similarities,
+                "differences": [d.to_dict() for d in differences],
+                "shared_concepts": shared_concepts,
+                "doc1_unique": unique_to_doc1,
+                "doc2_unique": unique_to_doc2,
+                "similarity_score": similarity_score,
+                "timestamp": self._get_timestamp(),
             }
 
             # Guardar resultado
-            output_file = self.analysis_dir / f"comparison_{Path(doc1_path).stem}_vs_{Path(doc2_path).stem}.json"
+            output_file = (
+                self.analysis_dir
+                / f"comparison_{Path(doc1_path).stem}_vs_{Path(doc2_path).stem}.json"
+            )
             self._save_json(output_file, result)
 
-            self.logger.info(f"✓ Comparison complete: {similarity_score:.2%} similarity")
+            self.logger.info(
+                f"✓ Comparison complete: {similarity_score:.2%} similarity"
+            )
             return result
 
         except Exception as e:
@@ -188,10 +205,7 @@ class CrossReferenceAnalyzer:
             return {}
 
     def find_cross_references(
-        self,
-        term: str,
-        source_dirs: List[Path],
-        context_window: int = 100
+        self, term: str, source_dirs: List[Path], context_window: int = 100
     ) -> List[CrossReference]:
         """
         Busca referencias cruzadas de un término en múltiples directorios.
@@ -242,7 +256,7 @@ class CrossReferenceAnalyzer:
                                 source_doc=str(doc_path.relative_to(self.project_root)),
                                 target_doc=str(source_dir.name),
                                 context=context,
-                                relevance_score=relevance
+                                relevance_score=relevance,
                             )
                             references.append(ref)
 
@@ -262,10 +276,7 @@ class CrossReferenceAnalyzer:
             self.logger.error(f"Error finding cross-references: {e}")
             return []
 
-    def extract_inconsistencies(
-        self,
-        doc_paths: List[Path]
-    ) -> List[Inconsistency]:
+    def extract_inconsistencies(self, doc_paths: List[Path]) -> List[Inconsistency]:
         """
         Analiza documentos y extrae inconsistencias de terminología, estructura, etc.
         """
@@ -281,7 +292,9 @@ class CrossReferenceAnalyzer:
 
                 concepts = self._extract_concepts(content)
                 for concept in concepts:
-                    term_map[concept].append(str(doc_path.relative_to(self.project_root)))
+                    term_map[concept].append(
+                        str(doc_path.relative_to(self.project_root))
+                    )
 
             # Buscar inconsistencias de terminología
             for term, locations in term_map.items():
@@ -290,14 +303,16 @@ class CrossReferenceAnalyzer:
                     # Verificar variaciones (ejemplo: "API REST" vs "REST API")
                     variations = self._find_term_variations(term, doc_paths)
                     if variations:
-                        inconsistencies.append(Inconsistency(
-                            issue_type='terminology',
-                            severity='warning',
-                            term=term,
-                            locations=locations,
-                            description=f"Possible variations: {', '.join(variations)}",
-                            suggestion=f"Standardize to: {variations[0]}"
-                        ))
+                        inconsistencies.append(
+                            Inconsistency(
+                                issue_type="terminology",
+                                severity="warning",
+                                term=term,
+                                locations=locations,
+                                description=f"Possible variations: {', '.join(variations)}",
+                                suggestion=f"Standardize to: {variations[0]}",
+                            )
+                        )
 
             # Otros tipos de inconsistencias
             structural_issues = self._check_structural_consistency(doc_paths)
@@ -311,9 +326,7 @@ class CrossReferenceAnalyzer:
             return []
 
     def find_gaps_theory_vs_practice(
-        self,
-        theory_doc: Path,
-        config_file: Path
+        self, theory_doc: Path, config_file: Path
     ) -> Dict[str, Any]:
         """
         Encuentra gaps entre documentación teórica y configuración real.
@@ -329,8 +342,8 @@ class CrossReferenceAnalyzer:
             theory_content = self._read_document(theory_doc)
 
             # Leer configuración
-            with open(config_file, 'r', encoding='utf-8') as f:
-                config = json.load(f) if config_file.suffix == '.json' else {}
+            with open(config_file, "r", encoding="utf-8") as f:
+                config = json.load(f) if config_file.suffix == ".json" else {}
 
             # Extraer parámetros de configuración
             config_keys = self._extract_config_keys(config)
@@ -340,32 +353,32 @@ class CrossReferenceAnalyzer:
 
             # Análisis de gaps
             gaps = {
-                'implemented_vs_documented': [],
-                'documented_but_not_implemented': [],
-                'configured_but_not_documented': [],
-                'values_differ': [],
-                'timestamp': self._get_timestamp()
+                "implemented_vs_documented": [],
+                "documented_but_not_implemented": [],
+                "configured_but_not_documented": [],
+                "values_differ": [],
+                "timestamp": self._get_timestamp(),
             }
 
             # Items en config pero no documentados
             for key in config_keys:
                 if key not in theory_keys:
-                    gaps['configured_but_not_documented'].append({
-                        'key': key,
-                        'value': config.get(key),
-                        'severity': 'info'
-                    })
+                    gaps["configured_but_not_documented"].append(
+                        {"key": key, "value": config.get(key), "severity": "info"}
+                    )
 
             # Items documentados pero no configurados
             for key in theory_keys:
                 if key not in config_keys:
-                    gaps['documented_but_not_implemented'].append({
-                        'key': key,
-                        'severity': 'warning'
-                    })
+                    gaps["documented_but_not_implemented"].append(
+                        {"key": key, "severity": "warning"}
+                    )
 
             # Guardar análisis
-            output_file = self.analysis_dir / f"gaps_{Path(theory_doc).stem}_vs_{Path(config_file).stem}.json"
+            output_file = (
+                self.analysis_dir
+                / f"gaps_{Path(theory_doc).stem}_vs_{Path(config_file).stem}.json"
+            )
             self._save_json(output_file, gaps)
 
             self.logger.info("✓ Gap analysis complete")
@@ -384,7 +397,7 @@ class CrossReferenceAnalyzer:
                 return ""
 
             # Intentar leer como UTF-8
-            return doc_path.read_text(encoding='utf-8', errors='ignore')
+            return doc_path.read_text(encoding="utf-8", errors="ignore")
         except Exception as e:
             self.logger.debug(f"Error reading {doc_path}: {e}")
             return ""
@@ -393,7 +406,7 @@ class CrossReferenceAnalyzer:
         """Divide texto en chunks."""
         chunks = []
         for i in range(0, len(text), chunk_size):
-            chunks.append(text[i:i + chunk_size])
+            chunks.append(text[i : i + chunk_size])
         return chunks
 
     def _extract_concepts(self, text: str) -> List[str]:
@@ -405,11 +418,12 @@ class CrossReferenceAnalyzer:
         words = text.split()
         for word in words:
             if word and word[0].isupper() and len(word) > 3:
-                concepts.add(word.strip('.,!?;:'))
+                concepts.add(word.strip(".,!?;:"))
 
         # Términos entre backticks
         import re
-        backtick_terms = re.findall(r'`([^`]+)`', text)
+
+        backtick_terms = re.findall(r"`([^`]+)`", text)
         concepts.update(backtick_terms)
 
         return list(concepts)
@@ -427,9 +441,7 @@ class CrossReferenceAnalyzer:
         return similarities
 
     def _find_differences(
-        self,
-        concepts1: List[str],
-        concepts2: List[str]
+        self, concepts1: List[str], concepts2: List[str]
     ) -> List[Difference]:
         """Encuentra diferencias entre conceptos."""
         differences = []
@@ -440,16 +452,17 @@ class CrossReferenceAnalyzer:
             in2 = concept in concepts2
 
             if in1 != in2:
-                differences.append(Difference(
-                    term=concept,
-                    in_doc1=in1,
-                    in_doc2=in2,
-                    similarity_score=0.0
-                ))
+                differences.append(
+                    Difference(
+                        term=concept, in_doc1=in1, in_doc2=in2, similarity_score=0.0
+                    )
+                )
 
         return differences
 
-    def _calculate_similarity_score(self, chunks1: List[str], chunks2: List[str]) -> float:
+    def _calculate_similarity_score(
+        self, chunks1: List[str], chunks2: List[str]
+    ) -> float:
         """Calcula score de similitud general."""
         if not chunks1 or not chunks2:
             return 0.0
@@ -492,13 +505,15 @@ class CrossReferenceAnalyzer:
             parts = term.split()
             if len(parts) > 1:
                 # Invertir orden
-                reversed_term = ' '.join(reversed(parts))
+                reversed_term = " ".join(reversed(parts))
                 if reversed_term.lower() in content.lower():
                     variations.add(reversed_term)
 
         return list(variations)
 
-    def _check_structural_consistency(self, doc_paths: List[Path]) -> List[Inconsistency]:
+    def _check_structural_consistency(
+        self, doc_paths: List[Path]
+    ) -> List[Inconsistency]:
         """Verifica consistencia estructural (headers, formato, etc.)."""
         inconsistencies = []
         # Implementación básica
@@ -508,7 +523,7 @@ class CrossReferenceAnalyzer:
         """Extrae claves de un diccionario de configuración recursivamente."""
         keys = set()
 
-        def extract(obj, prefix=''):
+        def extract(obj, prefix=""):
             if isinstance(obj, dict):
                 for k, v in obj.items():
                     full_key = f"{prefix}.{k}" if prefix else k
@@ -526,9 +541,9 @@ class CrossReferenceAnalyzer:
 
         # Buscar patrones como "parameter: " o "config key: "
         patterns = [
-            r'(?:parameter|key|setting|config):\s*([a-zA-Z_][a-zA-Z0-9_]*)',
-            r'\[([A-Z_]+)\]',
-            r'`([a-z_][a-z0-9_]*)`'
+            r"(?:parameter|key|setting|config):\s*([a-zA-Z_][a-zA-Z0-9_]*)",
+            r"\[([A-Z_]+)\]",
+            r"`([a-z_][a-z0-9_]*)`",
         ]
 
         for pattern in patterns:
@@ -540,7 +555,7 @@ class CrossReferenceAnalyzer:
     def _save_json(self, path: Path, data: Dict):
         """Guarda datos como JSON."""
         try:
-            with open(path, 'w', encoding='utf-8') as f:
+            with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
             self.logger.debug(f"Saved analysis to {path.name}")
         except Exception as e:
@@ -550,4 +565,5 @@ class CrossReferenceAnalyzer:
     def _get_timestamp() -> str:
         """Retorna timestamp actual."""
         from datetime import datetime
+
         return datetime.now().isoformat()

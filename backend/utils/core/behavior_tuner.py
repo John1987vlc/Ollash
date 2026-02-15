@@ -14,18 +14,18 @@ Key Features:
 
 import json
 import logging
-from dataclasses import dataclass, field, asdict
-from pathlib import Path
-from typing import Dict, Any, List
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
-
+from pathlib import Path
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
 
 class TuningParameter(Enum):
     """Parameters that can be tuned."""
+
     RESPONSE_LENGTH = "response_length"
     DETAIL_LEVEL = "detail_level"
     CODE_EXAMPLE_FREQUENCY = "code_example_frequency"
@@ -38,6 +38,7 @@ class TuningParameter(Enum):
 @dataclass
 class TuningConfig:
     """Configuration for behavior tuning."""
+
     # Response generation parameters
     max_response_length: int = 2000  # characters
     detail_level: float = 0.7  # 0-1 scale
@@ -70,6 +71,7 @@ class TuningConfig:
 @dataclass
 class TuningChange:
     """Record of a tuning adjustment."""
+
     parameter: str
     old_value: Any
     new_value: Any
@@ -113,7 +115,7 @@ class BehaviorTuner:
         """Load tuning configuration from disk."""
         if self.config_file.exists():
             try:
-                with open(self.config_file, 'r', encoding='utf-8') as f:
+                with open(self.config_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self.config = TuningConfig(**data)
                 logger.info("Loaded tuning configuration")
@@ -122,7 +124,7 @@ class BehaviorTuner:
 
         if self.changes_file.exists():
             try:
-                with open(self.changes_file, 'r', encoding='utf-8') as f:
+                with open(self.changes_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self.change_history = [
                         TuningChange(**change) for change in data.get("changes", [])
@@ -133,7 +135,7 @@ class BehaviorTuner:
     def _save_config(self):
         """Save tuning configuration to disk."""
         try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
+            with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(asdict(self.config), f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.error(f"Error saving config: {e}")
@@ -141,10 +143,12 @@ class BehaviorTuner:
     def _save_history(self):
         """Save change history to disk."""
         try:
-            with open(self.changes_file, 'w', encoding='utf-8') as f:
+            with open(self.changes_file, "w", encoding="utf-8") as f:
                 json.dump(
                     {"changes": [asdict(c) for c in self.change_history[-100:]]},
-                    f, indent=2, ensure_ascii=False
+                    f,
+                    indent=2,
+                    ensure_ascii=False,
                 )
         except Exception as e:
             logger.error(f"Error saving change history: {e}")
@@ -154,7 +158,7 @@ class BehaviorTuner:
         parameter: TuningParameter,
         new_value: Any,
         reason: str = "",
-        confidence: float = 0.7
+        confidence: float = 0.7,
     ) -> bool:
         """
         Update a tuning parameter.
@@ -176,7 +180,9 @@ class BehaviorTuner:
 
             # Apply change using learning rate
             if isinstance(old_value, (int, float)):
-                adjusted_value = old_value + (new_value - old_value) * self.config.learning_rate
+                adjusted_value = (
+                    old_value + (new_value - old_value) * self.config.learning_rate
+                )
                 setattr(self.config, param_name, adjusted_value)
             else:
                 setattr(self.config, param_name, new_value)
@@ -187,7 +193,7 @@ class BehaviorTuner:
                 old_value=old_value,
                 new_value=new_value,
                 reason=reason,
-                confidence=confidence
+                confidence=confidence,
             )
             self.change_history.append(change)
 
@@ -202,10 +208,7 @@ class BehaviorTuner:
         return False
 
     def adapt_to_feedback(
-        self,
-        feedback_score: float,
-        feedback_type: str,
-        keywords: List[str] = None
+        self, feedback_score: float, feedback_type: str, keywords: List[str] = None
     ):
         """
         Adapt behavior based on user feedback.
@@ -241,7 +244,7 @@ class BehaviorTuner:
                 TuningParameter.RESPONSE_LENGTH,
                 self.config.max_response_length * 0.8,
                 reason="User feedback: response too long",
-                confidence=0.8
+                confidence=0.8,
             )
 
         if "too_detailed" in keywords or feedback_type == "detail_level":
@@ -249,7 +252,7 @@ class BehaviorTuner:
                 TuningParameter.DETAIL_LEVEL,
                 self.config.detail_level * 0.9,
                 reason="User feedback: too detailed",
-                confidence=0.8
+                confidence=0.8,
             )
 
         if "not_clear" in keywords or "unclear" in keywords:
@@ -258,7 +261,7 @@ class BehaviorTuner:
                 TuningParameter.CODE_EXAMPLE_FREQUENCY,
                 min(1.0, self.config.code_example_frequency + 0.2),
                 reason="User feedback: unclear, adding examples",
-                confidence=0.7
+                confidence=0.7,
             )
 
         if "slow" in keywords or feedback_type == "performance":
@@ -267,7 +270,7 @@ class BehaviorTuner:
                 TuningParameter.DIAGRAM_FREQUENCY,
                 self.config.diagram_frequency * 0.8,
                 reason="User feedback: slow response",
-                confidence=0.7
+                confidence=0.7,
             )
 
     def _handle_neutral_feedback(self, feedback_type: str, keywords: List[str]):
@@ -278,19 +281,19 @@ class BehaviorTuner:
                 TuningParameter.DETAIL_LEVEL,
                 min(1.0, self.config.detail_level + 0.1),
                 reason="User feedback: too brief",
-                confidence=0.5
+                confidence=0.5,
             ),
             "examples_helpful": lambda: self.update_parameter(
                 TuningParameter.CODE_EXAMPLE_FREQUENCY,
                 min(1.0, self.config.code_example_frequency + 0.15),
                 reason="User feedback: examples helpful",
-                confidence=0.6
+                confidence=0.6,
             ),
             "diagrams_useful": lambda: self.update_parameter(
                 TuningParameter.DIAGRAM_FREQUENCY,
                 min(1.0, self.config.diagram_frequency + 0.15),
                 reason="User feedback: diagrams useful",
-                confidence=0.6
+                confidence=0.6,
             ),
         }
 
@@ -299,10 +302,7 @@ class BehaviorTuner:
                 adjustment()
 
     def toggle_feature(
-        self,
-        feature_name: str,
-        enabled: bool,
-        reason: str = ""
+        self, feature_name: str, enabled: bool, reason: str = ""
     ) -> bool:
         """
         Toggle a feature on/off.
@@ -319,7 +319,7 @@ class BehaviorTuner:
             "cross_reference": "use_cross_reference",
             "knowledge_graph": "use_knowledge_graph",
             "decision_memory": "use_decision_memory",
-            "artifacts": "use_artifacts"
+            "artifacts": "use_artifacts",
         }
 
         attr_name = feature_mapping.get(feature_name)
@@ -332,7 +332,7 @@ class BehaviorTuner:
                 old_value=old_value,
                 new_value=enabled,
                 reason=f"Feature toggle: {reason}",
-                confidence=0.9
+                confidence=0.9,
             )
             self.change_history.append(change)
 
@@ -370,15 +370,20 @@ class BehaviorTuner:
         for param, changes in param_changes.items():
             if len(changes) >= 3:
                 # Multiple recent changes to same parameter - may be instability
-                directions = [1 if c.new_value > c.old_value else -1
-                            for c in changes if isinstance(c.old_value, (int, float))]
+                directions = [
+                    1 if c.new_value > c.old_value else -1
+                    for c in changes
+                    if isinstance(c.old_value, (int, float))
+                ]
                 if directions and directions != [directions[0]] * len(directions):
-                    recommendations.append({
-                        "type": "stability_warning",
-                        "parameter": param,
-                        "message": f"Parameter {param} is oscillating - may need manual adjustment",
-                        "confidence": 0.7
-                    })
+                    recommendations.append(
+                        {
+                            "type": "stability_warning",
+                            "parameter": param,
+                            "message": f"Parameter {param} is oscillating - may need manual adjustment",
+                            "confidence": 0.7,
+                        }
+                    )
 
         # Check for underutilized features
         feature_usage = {}
@@ -391,12 +396,14 @@ class BehaviorTuner:
 
         for feature, usage in feature_usage.items():
             if usage["enabled"] and usage["changes"] > 2:
-                recommendations.append({
-                    "type": "feature_toggle",
-                    "feature": feature,
-                    "message": f"Feature {feature} was toggled frequently - may be problematic",
-                    "confidence": 0.6
-                })
+                recommendations.append(
+                    {
+                        "type": "feature_toggle",
+                        "feature": feature,
+                        "message": f"Feature {feature} was toggled frequently - may be problematic",
+                        "confidence": 0.6,
+                    }
+                )
 
         return recommendations
 
@@ -421,11 +428,15 @@ class BehaviorTuner:
             Formatted report
         """
         if format == "json":
-            return json.dumps({
-                "current_config": asdict(self.config),
-                "change_history": [asdict(c) for c in self.change_history[-20:]],
-                "recommendations": self.get_recommendations()
-            }, indent=2, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "current_config": asdict(self.config),
+                    "change_history": [asdict(c) for c in self.change_history[-20:]],
+                    "recommendations": self.get_recommendations(),
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
 
         elif format == "markdown":
             md = "# Behavior Tuning Report\n\n"
@@ -441,8 +452,12 @@ class BehaviorTuner:
             md += f"- Diagrams: {config['diagram_frequency']*100:.0f}%\n\n"
 
             md += "### Feature Toggles\n"
-            for feature in ["use_cross_reference", "use_knowledge_graph",
-                           "use_decision_memory", "use_artifacts"]:
+            for feature in [
+                "use_cross_reference",
+                "use_knowledge_graph",
+                "use_decision_memory",
+                "use_artifacts",
+            ]:
                 status = "✅" if config[feature] else "❌"
                 md += f"- {feature}: {status}\n"
 

@@ -81,9 +81,7 @@ class TestRolePromptTemplates:
     def test_get_task_template_analyst_executive_summary(self):
         """Test getting analyst executive_summary template"""
         template = RolePromptTemplates.get_task_template(
-            "analyst",
-            "executive_summary",
-            content="Test content"
+            "analyst", "executive_summary", content="Test content"
         )
 
         assert template is not None
@@ -96,7 +94,7 @@ class TestRolePromptTemplates:
             "tone_adjustment",
             tone="professional",
             audience="executives",
-            content="Original text"
+            content="Original text",
         )
 
         assert template is not None
@@ -104,20 +102,14 @@ class TestRolePromptTemplates:
 
     def test_get_task_template_unknown_role(self):
         """Test getting task template for unknown role"""
-        template = RolePromptTemplates.get_task_template(
-            "unknown_role",
-            "some_task"
-        )
+        template = RolePromptTemplates.get_task_template("unknown_role", "some_task")
 
         # Should return None for unknown role
         assert template is None
 
     def test_get_task_template_unknown_task(self):
         """Test getting unknown task template"""
-        template = RolePromptTemplates.get_task_template(
-            "analyst",
-            "unknown_task_type"
-        )
+        template = RolePromptTemplates.get_task_template("analyst", "unknown_task_type")
 
         # Should return None for unknown task
         assert template is None
@@ -141,7 +133,7 @@ class TestRolePromptTemplates:
             "analyst",
             "comparative_analysis",
             item_a="First option with features",
-            item_b="Second option with benefits"
+            item_b="Second option with benefits",
         )
 
         if template:
@@ -183,7 +175,11 @@ class TestRolePromptTemplates:
     def test_templates_are_strings(self):
         """Test that all templates are valid strings"""
         for role in ["analyst", "writer"]:
-            role_dict = RolePromptTemplates.ANALYST_TASK_TEMPLATES if role == "analyst" else RolePromptTemplates.WRITER_TASK_TEMPLATES
+            role_dict = (
+                RolePromptTemplates.ANALYST_TASK_TEMPLATES
+                if role == "analyst"
+                else RolePromptTemplates.WRITER_TASK_TEMPLATES
+            )
 
             for task_type, template in role_dict.items():
                 assert isinstance(template, str)
@@ -194,10 +190,9 @@ class TestRolePromptTemplates:
         prompts = [
             RolePromptTemplates.ANALYST_SYSTEM_PROMPT,
             RolePromptTemplates.WRITER_SYSTEM_PROMPT,
-            RolePromptTemplates.ORCHESTRATOR_SYSTEM_PROMPT
+            RolePromptTemplates.ORCHESTRATOR_SYSTEM_PROMPT,
         ]
 
         for prompt in prompts:
             assert len(prompt) > 300  # Substantial content
             assert "\n" in prompt  # Multi-line structure
-

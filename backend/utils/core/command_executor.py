@@ -1,25 +1,28 @@
-import subprocess
 import os
-import shlex
 import py_compile
-from pathlib import Path
-from typing import Optional, List, Any
+import shlex
+import subprocess
 from dataclasses import dataclass
 from enum import Enum
-import docker # ADDED
-from docker.errors import ImageNotFound, ContainerError, APIError # ADDED
+from pathlib import Path
+from typing import Any, List, Optional
+
+import docker  # ADDED
+from docker.errors import APIError, ContainerError, ImageNotFound  # ADDED
 
 
 class SandboxLevel(Enum):
     """Nivel de restricción para ejecución."""
-    NONE = "none"           # Sin restricciones
-    LIMITED = "limited"     # Solo directorio del proyecto
-    STRICT = "strict"       # Solo comandos whitelist
+
+    NONE = "none"  # Sin restricciones
+    LIMITED = "limited"  # Solo directorio del proyecto
+    STRICT = "strict"  # Solo comandos whitelist
 
 
 @dataclass
 class ExecutionResult:
     """Resultado de ejecución de comando."""
+
     success: bool
     stdout: str
     stderr: str
@@ -30,11 +33,18 @@ class ExecutionResult:
 class CommandExecutor:
     """Ejecuta comandos de forma controlada."""
 
-    def __init__(self, working_dir: str = None, sandbox: SandboxLevel = SandboxLevel.NONE, logger: Any = None, policy_manager: Any = None, use_docker_sandbox: bool = False):
+    def __init__(
+        self,
+        working_dir: str = None,
+        sandbox: SandboxLevel = SandboxLevel.NONE,
+        logger: Any = None,
+        policy_manager: Any = None,
+        use_docker_sandbox: bool = False,
+    ):
         self.working_dir = working_dir or os.getcwd()
         self.sandbox = sandbox
-        self.logger = logger # Store logger instance
-        self.policy_manager = policy_manager # Store policy_manager instance
+        self.logger = logger  # Store logger instance
+        self.policy_manager = policy_manager  # Store policy_manager instance
         self.use_docker_sandbox = use_docker_sandbox
         self.docker_client = None
         if self.use_docker_sandbox:
@@ -42,9 +52,10 @@ class CommandExecutor:
                 self.docker_client = docker.from_env()
                 self.logger.info("Docker client initialized successfully.")
             except Exception as e:
-                self.logger.error(f"Failed to initialize Docker client: {e}. Docker sandboxing will be disabled.")
+                self.logger.error(
+                    f"Failed to initialize Docker client: {e}. Docker sandboxing will be disabled."
+                )
                 self.use_docker_sandbox = False
-
 
     def _is_allowed(self, command: str | List[str]) -> bool:
         """Verifica si el comando está permitido y sanitiza argumentos usando PolicyManager."""
@@ -53,18 +64,22 @@ class CommandExecutor:
 
         if not self.policy_manager:
             if self.logger:
-                self.logger.error("CommandExecutor is in sandboxed mode but no PolicyManager is configured. Denying all commands for safety.")
-            return False # Always deny if in sandbox and no policy manager
+                self.logger.error(
+                    "CommandExecutor is in sandboxed mode but no PolicyManager is configured. Denying all commands for safety."
+                )
+            return False  # Always deny if in sandbox and no policy manager
 
         # Extract base command and args for PolicyManager
         base_cmd: str
         args: List[str]
 
         if isinstance(command, str):
-            if os.name == 'nt' and command.strip().lower().startswith("powershell"):
+            if os.name == "nt" and command.strip().lower().startswith("powershell"):
                 # For PowerShell, the entire command string is the 'command', subsequent parts are args to it
                 base_cmd = command.split(" ")[0].lower()
-                args = shlex.split(command)[1:] # For argument checks, shlex.split is safer
+                args = shlex.split(command)[
+                    1:
+                ]  # For argument checks, shlex.split is safer
             else:
                 try:
                     parts = shlex.split(command)
@@ -72,15 +87,19 @@ class CommandExecutor:
                     args = parts[1:]
                 except ValueError as e:
                     if self.logger:
-                        self.logger.warning(f"Error parsing command with shlex: {e}. Command: '{command}'")
+                        self.logger.warning(
+                            f"Error parsing command with shlex: {e}. Command: '{command}'"
+                        )
                     return False
-        else: # command is already a list
+        else:  # command is already a list
             base_cmd = command[0].lower()
             args = command[1:]
 
         return self.policy_manager.is_command_allowed(base_cmd, args)
 
-    def _pre_validate_command(self, command: str | List[str]) -> tuple[bool, Optional[str], Optional[str]]:
+    def _pre_validate_command(
+        self, command: str | List[str]
+    ) -> tuple[bool, Optional[str], Optional[str]]:
         """
         Performs a pre-validation (dry run) of the command.
         Returns (is_valid, suggested_correction, error_message).
@@ -101,11 +120,20 @@ class CommandExecutor:
                     try:
                         py_compile.compile(str(script_path), doraise=True)
                     except py_compile.PyCompileError as e:
-                        return False, None, f"Python syntax error in '{script_path}': {e}"
+                        return (
+                            False,
+                            None,
+                            f"Python syntax error in '{script_path}': {e}",
+                        )
 
         return True, None, None
 
-    def execute(self, command: str | List[str], timeout: int = 60, dir_path: Optional[str] = None) -> ExecutionResult:
+    def execute(
+        self,
+        command: str | List[str],
+        timeout: int = 60,
+        dir_path: Optional[str] = None,
+    ) -> ExecutionResult:
         """
         Ejecuta un comando y retorna el resultado.
         Prefiere shell=False para seguridad, pero puede usar shell=True si command es un string
@@ -118,17 +146,19 @@ class CommandExecutor:
 
         if isinstance(command, str):
             # Special handling for Windows PowerShell calls
-            if os.name == 'nt' and command.strip().lower().startswith("powershell"):
-                use_shell = True # PowerShell requires shell=True for some complex cmdlets via string
-                command_list = command # Pass as string
+            if os.name == "nt" and command.strip().lower().startswith("powershell"):
+                use_shell = True  # PowerShell requires shell=True for some complex cmdlets via string
+                command_list = command  # Pass as string
             else:
                 try:
                     command_list = shlex.split(command)
                 except ValueError as e:
                     if self.logger:
-                        self.logger.error(f"Error splitting command with shlex: {e}. Command: '{command}'")
+                        self.logger.error(
+                            f"Error splitting command with shlex: {e}. Command: '{command}'"
+                        )
                     return ExecutionResult(False, "", str(e), 1, command)
-        else: # command is already a list
+        else:  # command is already a list
             command_list = command
 
         # Pre-validation
@@ -137,38 +167,49 @@ class CommandExecutor:
             if suggestion:
                 # For now, we will just return the error. A more advanced implementation
                 # could ask for confirmation to run the suggestion.
-                return ExecutionResult(False, "", f"Pre-validation failed: {error_msg}\nSuggested fix: '{suggestion}'", -1, original_command)
-            return ExecutionResult(False, "", f"Pre-validation failed: {error_msg}", -1, original_command)
+                return ExecutionResult(
+                    False,
+                    "",
+                    f"Pre-validation failed: {error_msg}\nSuggested fix: '{suggestion}'",
+                    -1,
+                    original_command,
+                )
+            return ExecutionResult(
+                False, "", f"Pre-validation failed: {error_msg}", -1, original_command
+            )
 
-
-        if not self._is_allowed(command_list): # _is_allowed now handles both string and list, internally converting string.
+        if not self._is_allowed(
+            command_list
+        ):  # _is_allowed now handles both string and list, internally converting string.
             return ExecutionResult(
                 success=False,
                 stdout="",
                 stderr=f"Comando no permitido: {' '.join(command_list) if isinstance(command_list, list) else command}",
                 return_code=1,
-                command=command
+                command=command,
             )
 
         if self.use_docker_sandbox:
             self.logger.info(f"Executing command in Docker sandbox: '{command}'")
-            return self.execute_in_docker(original_command, timeout, execution_dir) # Pass original_command and execution_dir
+            return self.execute_in_docker(
+                original_command, timeout, execution_dir
+            )  # Pass original_command and execution_dir
 
         try:
             result = subprocess.run(
-                command_list, # Pass as list to subprocess.run
+                command_list,  # Pass as list to subprocess.run
                 shell=use_shell,
                 cwd=execution_dir,
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=timeout,
             )
             return ExecutionResult(
                 success=result.returncode == 0,
                 stdout=result.stdout,
                 stderr=result.stderr,
                 return_code=result.returncode,
-                command=command
+                command=command,
             )
         except subprocess.TimeoutExpired:
             stderr_msg = "Timeout: comando excedió el límite de tiempo"
@@ -179,10 +220,14 @@ class CommandExecutor:
                 stdout="",
                 stderr=stderr_msg,
                 return_code=-1,
-                command=command
+                command=command,
             )
         except FileNotFoundError:
-            stderr_msg = f"Comando no encontrado: '{command_list[0]}'" if isinstance(command_list, list) else f"Comando no encontrado: '{command}'"
+            stderr_msg = (
+                f"Comando no encontrado: '{command_list[0]}'"
+                if isinstance(command_list, list)
+                else f"Comando no encontrado: '{command}'"
+            )
             if self.logger:
                 self.logger.error(stderr_msg)
             return ExecutionResult(
@@ -190,18 +235,21 @@ class CommandExecutor:
                 stdout="",
                 stderr=stderr_msg,
                 return_code=1,
-                command=command
+                command=command,
             )
         except Exception as e:
             stderr_msg = str(e)
             if self.logger:
-                self.logger.error(f"Error al ejecutar comando '{command}': {stderr_msg}", exc_info=True)
+                self.logger.error(
+                    f"Error al ejecutar comando '{command}': {stderr_msg}",
+                    exc_info=True,
+                )
             return ExecutionResult(
                 success=False,
                 stdout="",
                 stderr=stderr_msg,
                 return_code=-1,
-                command=command
+                command=command,
             )
 
     def execute_python(self, code: str, timeout: int = 30) -> ExecutionResult:
@@ -223,17 +271,26 @@ except Exception as e:
         try:
             self.docker_client.images.get(image_name)
         except ImageNotFound:
-            self.logger.info(f"Docker image '{image_name}' not found locally. Pulling...")
+            self.logger.info(
+                f"Docker image '{image_name}' not found locally. Pulling..."
+            )
             self.docker_client.images.pull(image_name)
             self.logger.info(f"Docker image '{image_name}' pulled successfully.")
 
-    def execute_in_docker(self, command: str | List[str], timeout: int = 60, dir_path: Optional[str] = None) -> ExecutionResult:
+    def execute_in_docker(
+        self,
+        command: str | List[str],
+        timeout: int = 60,
+        dir_path: Optional[str] = None,
+    ) -> ExecutionResult:
         """
         Executes a command inside a Docker container.
         The project's working directory is mounted into the container.
         """
         if not self.docker_client:
-            return ExecutionResult(False, "", "Docker client not initialized.", 1, command)
+            return ExecutionResult(
+                False, "", "Docker client not initialized.", 1, command
+            )
 
         target_dir = Path(dir_path) if dir_path else Path(self.working_dir)
         # Ensure target_dir is absolute and within the project root for mounting
@@ -261,28 +318,36 @@ except Exception as e:
             # This is simpler than run() for single commands and easier cleanup
             container = self.docker_client.containers.run(
                 image_name,
-                command=["tail", "-f", "/dev/null"], # Keep container running briefly for exec_run
+                command=[
+                    "tail",
+                    "-f",
+                    "/dev/null",
+                ],  # Keep container running briefly for exec_run
                 detach=True,
-                remove=True, # Automatically remove on exit
+                remove=True,  # Automatically remove on exit
                 volumes=[bind_mount],
                 working_dir=mount_path,
-                name=f"ollash_sandbox_{os.urandom(4).hex()}" # Unique name
+                name=f"ollash_sandbox_{os.urandom(4).hex()}",  # Unique name
             )
-            self.logger.info(f"  Docker container '{container.name}' started for command: '{command}'")
+            self.logger.info(
+                f"  Docker container '{container.name}' started for command: '{command}'"
+            )
 
             # Calculate the relative path for workdir inside the container
-            container_workdir = Path(mount_path) / target_dir.relative_to(self.working_dir)
+            container_workdir = Path(mount_path) / target_dir.relative_to(
+                self.working_dir
+            )
 
             exit_code, output = container.exec_run(
                 cmd=command_list,
                 stream=False,
-                demux=True, # Separate stdout and stderr
-                user="root", # Run as root to avoid permission issues with mounted volumes
-                workdir=str(container_workdir) # Set working dir inside container
+                demux=True,  # Separate stdout and stderr
+                user="root",  # Run as root to avoid permission issues with mounted volumes
+                workdir=str(container_workdir),  # Set working dir inside container
             )
 
-            stdout_output = output[0].decode('utf-8') if output[0] else ""
-            stderr_output = output[1].decode('utf-8') if output[1] else ""
+            stdout_output = output[0].decode("utf-8") if output[0] else ""
+            stderr_output = output[1].decode("utf-8") if output[1] else ""
 
             # Ensure container is stopped and removed
             container.stop()
@@ -292,10 +357,12 @@ except Exception as e:
                 stdout=stdout_output,
                 stderr=stderr_output,
                 return_code=exit_code,
-                command=command
+                command=command,
             )
         except ImageNotFound:
-            stderr_msg = f"Docker image '{image_name}' not found. Please ensure it's available."
+            stderr_msg = (
+                f"Docker image '{image_name}' not found. Please ensure it's available."
+            )
             self.logger.error(stderr_msg)
             return ExecutionResult(False, "", stderr_msg, 1, command)
         except ContainerError as e:

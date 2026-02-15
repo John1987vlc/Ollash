@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 from typing import List, Tuple
 
-
 # Required top-level keys and their expected types
 _REQUIRED_FIELDS = {
     "name": str,

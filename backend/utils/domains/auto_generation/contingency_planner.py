@@ -5,16 +5,19 @@ This module provides a class to generate contingency plans when the
 senior review phase of the AutoAgent fails.
 """
 
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
-from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.ollama_client import OllamaClient
+
 
 class ContingencyPlanner:
     """Generates contingency plans for AutoAgent."""
 
-    def __init__(self, client: OllamaClient, logger: AgentLogger, parser: LLMResponseParser):
+    def __init__(
+        self, client: OllamaClient, logger: AgentLogger, parser: LLMResponseParser
+    ):
         """
         Initializes the ContingencyPlanner.
 
@@ -27,7 +30,9 @@ class ContingencyPlanner:
         self.logger = logger
         self.parser = parser
 
-    def generate_contingency_plan(self, issues: List[Dict[str, Any]], project_description: str, readme: str) -> Dict[str, Any]:
+    def generate_contingency_plan(
+        self, issues: List[Dict[str, Any]], project_description: str, readme: str
+    ) -> Dict[str, Any]:
         """
         Generates a contingency plan to address senior reviewer issues.
 
@@ -53,10 +58,14 @@ class ContingencyPlanner:
             self.logger.error(f"Failed to generate contingency plan: {e}")
             return {}
 
-    def _construct_prompt(self, issues: List[Dict[str, Any]], project_description: str, readme: str) -> List[Dict[str, str]]:
+    def _construct_prompt(
+        self, issues: List[Dict[str, Any]], project_description: str, readme: str
+    ) -> List[Dict[str, str]]:
         """Constructs the prompt for the contingency planner."""
 
-        issue_str = "\n".join([f"- {issue.get('description', 'N/A')}" for issue in issues])
+        issue_str = "\n".join(
+            [f"- {issue.get('description', 'N/A')}" for issue in issues]
+        )
 
         prompt = f"""
         The senior review for the project has failed. Here are the issues that were found:
@@ -73,6 +82,9 @@ class ContingencyPlanner:
         """
 
         return [
-            {"role": "system", "content": "You are a contingency planner for an AI agent."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are a contingency planner for an AI agent.",
+            },
+            {"role": "user", "content": prompt},
         ]

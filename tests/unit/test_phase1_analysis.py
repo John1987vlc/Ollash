@@ -2,15 +2,16 @@
 Tests para CrossReferenceAnalyzer, KnowledgeGraphBuilder y DecisionContextManager.
 """
 
-import pytest
-from pathlib import Path
 import tempfile
-from unittest.mock import MagicMock # NEW
-from backend.utils.core.agent_logger import AgentLogger # NEW
+from pathlib import Path
+from unittest.mock import MagicMock  # NEW
 
+import pytest
+
+from backend.utils.core.agent_logger import AgentLogger  # NEW
 from backend.utils.core.cross_reference_analyzer import CrossReferenceAnalyzer
-from backend.utils.core.knowledge_graph_builder import KnowledgeGraphBuilder
 from backend.utils.core.decision_context_manager import DecisionContextManager
+from backend.utils.core.knowledge_graph_builder import KnowledgeGraphBuilder
 
 
 @pytest.fixture
@@ -25,7 +26,8 @@ def temp_project():
 
         # Crear documentos de prueba
         doc1 = docs_dir / "network_manual.md"
-        doc1.write_text("""
+        doc1.write_text(
+            """
 # Network Manual
 
 ## IP Protocol
@@ -37,10 +39,12 @@ Configure your network with proper IP addressing and DNS setup.
 ### Prerequisites
 - IP addressing scheme
 - DNS configuration
-        """)
+        """
+        )
 
         doc2 = docs_dir / "architecture.md"
-        doc2.write_text("""
+        doc2.write_text(
+            """
 # System Architecture
 
 ## Networking Layer
@@ -51,7 +55,8 @@ The Networking Layer handles all IP communication and protocols.
 - Protocol handlers for various protocols
 
 API endpoints are served over the network layer.
-        """)
+        """
+        )
 
         # Config
         knowledge_dir = project_root / "knowledge_workspace"
@@ -60,7 +65,7 @@ API endpoints are served over the network layer.
         logger = MagicMock(spec=AgentLogger)
         config = {
             "ollama_url": "http://localhost:11434",
-            "models": {"embedding": "all-minilm", "reasoning": "gpt-oss:20b"}
+            "models": {"embedding": "all-minilm", "reasoning": "gpt-oss:20b"},
         }
 
         yield project_root, logger, config
@@ -88,22 +93,19 @@ class TestCrossReferenceAnalyzer:
         result = analyzer.compare_documents(doc1, doc2)
 
         assert result is not None
-        assert 'doc1' in result
-        assert 'doc2' in result
-        assert 'shared_concepts' in result
-        assert 'doc1_unique' in result
-        assert 'doc2_unique' in result
-        assert 'similarity_score' in result
+        assert "doc1" in result
+        assert "doc2" in result
+        assert "shared_concepts" in result
+        assert "doc1_unique" in result
+        assert "doc2_unique" in result
+        assert "similarity_score" in result
 
     def test_find_cross_references(self, temp_project):
         """Prueba búsqueda de referencias cruzadas."""
         project_root, logger, config = temp_project
 
         analyzer = CrossReferenceAnalyzer(project_root, logger, config)
-        references = analyzer.find_cross_references(
-            "IP",
-            [project_root / "docs"]
-        )
+        references = analyzer.find_cross_references("IP", [project_root / "docs"])
 
         # Debe encontrar referencias a "IP"
         assert len(references) > 0
@@ -115,7 +117,7 @@ class TestCrossReferenceAnalyzer:
 
         doc_paths = [
             project_root / "docs" / "network_manual.md",
-            project_root / "docs" / "architecture.md"
+            project_root / "docs" / "architecture.md",
         ]
 
         analyzer = CrossReferenceAnalyzer(project_root, logger, config)
@@ -157,7 +159,9 @@ class TestKnowledgeGraphBuilder:
         connections = builder.get_concept_connections("API", max_depth=2)
 
         # Verify connections returns a dict-like result
-        assert isinstance(connections, (dict, type(None))) or hasattr(connections, '__contains__')
+        assert isinstance(connections, (dict, type(None))) or hasattr(
+            connections, "__contains__"
+        )
 
     def test_generate_thematic_index(self, temp_project):
         """Prueba generación de índice temático."""
@@ -192,7 +196,7 @@ class TestDecisionContextManager:
             reasoning="Global distribution and low latency",
             category="architecture",
             context={"problem": "Need scalable storage"},
-            project="test_project"
+            project="test_project",
         )
 
         assert decision_id != ""
@@ -209,13 +213,12 @@ class TestDecisionContextManager:
             decision="Use Cosmos DB for chat history",
             reasoning="Provides scalability",
             category="architecture",
-            context={"problem": "Need storage"}
+            context={"problem": "Need storage"},
         )
 
         # Buscar similar
         similar = manager.find_similar_decisions(
-            "Need scalable database storage",
-            category="architecture"
+            "Need scalable database storage", category="architecture"
         )
 
         # Verify similar_decisions returns a list or callable result
@@ -231,13 +234,13 @@ class TestDecisionContextManager:
             decision="Use Cosmos DB",
             reasoning="Scalability",
             category="architecture",
-            context={}
+            context={},
         )
 
         stats = manager.get_statistics()
 
-        assert 'total_decisions' in stats
-        assert stats['total_decisions'] == 1
+        assert "total_decisions" in stats
+        assert stats["total_decisions"] == 1
 
     def test_update_outcome(self, temp_project):
         """Prueba actualizar outcome de una decisión."""
@@ -249,22 +252,18 @@ class TestDecisionContextManager:
             decision="Use Cosmos DB",
             reasoning="Scalability",
             category="architecture",
-            context={}
+            context={},
         )
 
         # Actualizar outcome
         success = manager.update_outcome(
-            decision_id,
-            {
-                "success": True,
-                "lesson": "Cosmos DB worked well"
-            }
+            decision_id, {"success": True, "lesson": "Cosmos DB worked well"}
         )
 
         assert success is True
         decision = manager.get_decision(decision_id)
         assert decision.outcome is not None
-        assert decision.outcome['success'] is True
+        assert decision.outcome["success"] is True
 
 
 class TestIntegration:
@@ -283,13 +282,8 @@ class TestIntegration:
         # Construir grafo basado en conceptos encontrados
         builder = KnowledgeGraphBuilder(project_root, logger, config)
 
-        for concept in result.get('shared_concepts', []):
-            builder.add_relationship(
-                "Document",
-                concept,
-                "mentions",
-                0.7
-            )
+        for concept in result.get("shared_concepts", []):
+            builder.add_relationship("Document", concept, "mentions", 0.7)
 
         assert len(builder.nodes) > 0
 
@@ -304,7 +298,7 @@ class TestIntegration:
             decision="Use Cosmos DB for user data",
             reasoning="Need geo-distribution",
             category="architecture",
-            context={"problem": "Multi-region users"}
+            context={"problem": "Multi-region users"},
         )
 
         # Registrar decisión 2 relacionada
@@ -312,13 +306,12 @@ class TestIntegration:
             decision="Use Cosmos DB for chat history",
             reasoning="Need low latency",
             category="architecture",
-            context={"problem": "Chat messages storage"}
+            context={"problem": "Chat messages storage"},
         )
 
         # Obtener suggestions para problema similar
         suggestions = manager.suggest_based_on_history(
-            "Where should we store distributed data?",
-            category="architecture"
+            "Where should we store distributed data?", category="architecture"
         )
 
         # Verify suggestions are generated/returned (don't check specific content)

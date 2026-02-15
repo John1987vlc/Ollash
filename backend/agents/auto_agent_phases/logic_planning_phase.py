@@ -1,11 +1,11 @@
 """Logic Planning Phase - Creates detailed implementation plans for each file."""
 
-from typing import Dict, Any, List, Tuple
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
-from backend.interfaces.iagent_phase import IAgentPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
+from backend.interfaces.iagent_phase import IAgentPhase
 
 
 class LogicPlanningPhase(IAgentPhase):
@@ -19,21 +19,27 @@ class LogicPlanningPhase(IAgentPhase):
 
     This plan is then used by FileContentGenerationPhase to generate accurate content.
     """
+
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(self,
-                      project_description: str,
-                      project_name: str,
-                      project_root: Path,
-                      readme_content: str,
-                      initial_structure: Dict[str, Any],
-                      generated_files: Dict[str, str],
-                      **kwargs: Any) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-
+    async def execute(
+        self,
+        project_description: str,
+        project_name: str,
+        project_root: Path,
+        readme_content: str,
+        initial_structure: Dict[str, Any],
+        generated_files: Dict[str, str],
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         file_paths = kwargs.get("file_paths", [])
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5: Creating detailed logic plans for {len(file_paths)} files...")
-        self.context.event_publisher.publish("phase_start", phase="2.5", message="Creating logic implementation plans")
+        self.context.logger.info(
+            f"[PROJECT_NAME:{project_name}] PHASE 2.5: Creating detailed logic plans for {len(file_paths)} files..."
+        )
+        self.context.event_publisher.publish(
+            "phase_start", phase="2.5", message="Creating logic implementation plans"
+        )
 
         logic_plan = {}
 
@@ -53,17 +59,22 @@ class LogicPlanningPhase(IAgentPhase):
 
         # Save plan to disk
         plan_file = project_root / "IMPLEMENTATION_PLAN.json"
-        self.context.file_manager.write_file(plan_file, json.dumps(logic_plan, indent=2))
+        self.context.file_manager.write_file(
+            plan_file, json.dumps(logic_plan, indent=2)
+        )
         generated_files["IMPLEMENTATION_PLAN.json"] = json.dumps(logic_plan, indent=2)
 
         # Store in context for FileContentGenerationPhase to use
         self.context.logic_plan = logic_plan
 
         self.context.event_publisher.publish(
-            "phase_complete", phase="2.5",
-            message=f"Logic plan created for {len(logic_plan)} files"
+            "phase_complete",
+            phase="2.5",
+            message=f"Logic plan created for {len(logic_plan)} files",
         )
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5 complete: Plans created for {len(logic_plan)} files")
+        self.context.logger.info(
+            f"[PROJECT_NAME:{project_name}] PHASE 2.5 complete: Plans created for {len(logic_plan)} files"
+        )
 
         return generated_files, initial_structure, file_paths
 
@@ -90,7 +101,9 @@ class LogicPlanningPhase(IAgentPhase):
                 categories["web"].append(file_path)
             elif any(x in file_path for x in [".md", "README", "LICENSE"]):
                 categories["docs"].append(file_path)
-            elif any(x in file_path for x in ["main", "app", "server", "index", "__main__"]):
+            elif any(
+                x in file_path for x in ["main", "app", "server", "index", "__main__"]
+            ):
                 categories["main"].append(file_path)
             else:
                 categories["other"].append(file_path)
@@ -98,9 +111,14 @@ class LogicPlanningPhase(IAgentPhase):
         # Remove empty categories
         return {k: v for k, v in categories.items() if v}
 
-    async def _plan_category(self, category: str, files: List[str],
-                            project_description: str, readme_content: str,
-                            initial_structure: Dict[str, Any]) -> Dict[str, Dict]:
+    async def _plan_category(
+        self,
+        category: str,
+        files: List[str],
+        project_description: str,
+        readme_content: str,
+        initial_structure: Dict[str, Any],
+    ) -> Dict[str, Dict]:
         """Create detailed plans for files in a category."""
 
         category_context = f"""
@@ -144,7 +162,7 @@ Format the response as JSON with file paths as keys.
             import re
 
             # Look for JSON block
-            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            json_match = re.search(r"\{[\s\S]*\}", response_text)
             if json_match:
                 plans = json.loads(json_match.group())
             else:

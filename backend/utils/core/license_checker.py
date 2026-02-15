@@ -5,10 +5,11 @@ This module provides a class to check for license compliance in the
 generated code.
 """
 
-from typing import Dict, Any
 from pathlib import Path
+from typing import Any, Dict
 
 from backend.utils.core.agent_logger import AgentLogger
+
 
 class LicenseChecker:
     """Checks for license compliance."""
@@ -23,7 +24,9 @@ class LicenseChecker:
         """
         self.logger = logger
         self.config = config.get("license_checker", {})
-        self.allowed_licenses = self.config.get("allowed_licenses", ["MIT", "Apache-2.0", "GPL-3.0"])
+        self.allowed_licenses = self.config.get(
+            "allowed_licenses", ["MIT", "Apache-2.0", "GPL-3.0"]
+        )
 
     def check_file_license(self, file_path: Path) -> bool:
         """
@@ -37,11 +40,11 @@ class LicenseChecker:
         """
         if not file_path.exists():
             self.logger.warning(f"File not found for license check: {file_path}")
-            return True # Assume compliant if file doesn't exist
+            return True  # Assume compliant if file doesn't exist
 
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read(1024) # Read first 1KB to find license
+                content = f.read(1024)  # Read first 1KB to find license
 
             for license_name in self.allowed_licenses:
                 if license_name.lower() in content.lower():
@@ -53,7 +56,7 @@ class LicenseChecker:
                 self.logger.warning(f"Potentially non-compliant license in {file_path}")
                 return False
 
-            return True # No license found, assume compliant for now
+            return True  # No license found, assume compliant for now
         except Exception as e:
             self.logger.error(f"Failed to check license for file {file_path}: {e}")
             return False

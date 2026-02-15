@@ -3,8 +3,8 @@ Cascade Summarizer - Map-Reduce pattern for processing long documents.
 Splits text into chunks, summarizes each individually, then creates a master summary.
 """
 
-from typing import List, Dict, Optional
 from pathlib import Path
+from typing import Dict, List, Optional
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.ollama_client import OllamaClient
@@ -31,7 +31,9 @@ class CascadeSummarizer:
         self.chunk_size = self.config.get("cascade_chunk_size", 2000)  # words
         self.overlap = self.config.get("cascade_overlap", 300)  # words
 
-    def chunk_text(self, text: str, chunk_size: int = None, overlap: int = None) -> List[str]:
+    def chunk_text(
+        self, text: str, chunk_size: int = None, overlap: int = None
+    ) -> List[str]:
         """Splits text into overlapping chunks by word count."""
         chunk_size = chunk_size or self.chunk_size
         overlap = overlap or self.overlap
@@ -99,7 +101,9 @@ Provide a clear, concise summary (50-150 words):"""
         self.logger.info(f"✓ Map phase complete: {len(summaries)} chunk summaries")
         return summaries
 
-    def reduce_phase(self, chunk_summaries: Dict[int, str], title: str = "") -> Optional[str]:
+    def reduce_phase(
+        self, chunk_summaries: Dict[int, str], title: str = ""
+    ) -> Optional[str]:
         """
         Reduce phase: Combines chunk summaries into a final master summary.
         """
@@ -176,7 +180,9 @@ Executive Summary:"""
         compression_ratio = original_words / summary_words if summary_words > 0 else 0
 
         self.logger.info("✅ Cascade summarization complete")
-        self.logger.info(f"   Final summary: {summary_words} words (ratio: {compression_ratio:.1f}:1)")
+        self.logger.info(
+            f"   Final summary: {summary_words} words (ratio: {compression_ratio:.1f}:1)"
+        )
 
         return {
             "status": "success",
@@ -199,6 +205,7 @@ Executive Summary:"""
         # Save as JSON
         json_path = output_dir / f"{summary_result['title']}_summary.json"
         import json
+
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(summary_result, f, indent=2, ensure_ascii=False)
 
@@ -210,8 +217,9 @@ Executive Summary:"""
             f.write(summary_result["executive_summary"])
             f.write("\n\n" + "=" * 80 + "\n")
             f.write(f"Original: {summary_result['original_word_count']} words\n")
-            f.write(f"Summary: {len(summary_result['executive_summary'].split())} words\n")
+            f.write(
+                f"Summary: {len(summary_result['executive_summary'].split())} words\n"
+            )
             f.write(f"Compression: {summary_result['compression_ratio']:.1f}:1\n")
 
         self.logger.info(f"💾 Summary saved to {output_dir}")
-

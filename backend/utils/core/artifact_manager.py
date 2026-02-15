@@ -10,17 +10,18 @@ Sistema de renderizado dinámico de diferentes tipos de artefactos:
 """
 
 import json
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
-from enum import Enum
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from backend.utils.core.agent_logger import AgentLogger
 
 
 class ArtifactType(Enum):
     """Tipos de artefactos soportados."""
+
     REPORT = "report"
     DIAGRAM = "diagram"
     CHECKLIST = "checklist"
@@ -33,6 +34,7 @@ class ArtifactType(Enum):
 @dataclass
 class ChecklistItem:
     """Item de un checklist."""
+
     id: str
     label: str
     completed: bool = False
@@ -45,6 +47,7 @@ class ChecklistItem:
 @dataclass
 class Artifact:
     """Representa un artefacto renderizable."""
+
     id: str
     type: str  # ArtifactType como string
     title: str
@@ -66,7 +69,9 @@ class ArtifactManager:
     que se mostrarán en el panel derecho de la UI.
     """
 
-    def __init__(self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None):
+    def __init__(
+        self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None
+    ):
         self.project_root = project_root
         self.logger = logger
         self.config = config or {}
@@ -86,7 +91,7 @@ class ArtifactManager:
         self,
         title: str,
         sections: List[Dict[str, Any]],
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
     ) -> str:
         """
         Crea un informe ejecutivo.
@@ -111,15 +116,9 @@ class ArtifactManager:
                 id=artifact_id,
                 type=ArtifactType.REPORT.value,
                 title=title,
-                content={
-                    'sections': sections,
-                    'sections_count': len(sections)
-                },
-                metadata=metadata or {
-                    'theme': 'light',
-                    'readable': True
-                },
-                created_at=self._get_timestamp()
+                content={"sections": sections, "sections_count": len(sections)},
+                metadata=metadata or {"theme": "light", "readable": True},
+                created_at=self._get_timestamp(),
             )
 
             self.artifacts[artifact_id] = artifact
@@ -137,7 +136,7 @@ class ArtifactManager:
         title: str,
         mermaid_code: str,
         diagram_type: str = "graph",
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
     ) -> str:
         """
         Crea un diagrama usando Mermaid.
@@ -158,16 +157,10 @@ class ArtifactManager:
                 id=artifact_id,
                 type=ArtifactType.DIAGRAM.value,
                 title=title,
-                content={
-                    'mermaid_code': mermaid_code,
-                    'diagram_type': diagram_type
-                },
-                metadata=metadata or {
-                    'max_width': '1000px',
-                    'max_height': '800px',
-                    'responsive': True
-                },
-                created_at=self._get_timestamp()
+                content={"mermaid_code": mermaid_code, "diagram_type": diagram_type},
+                metadata=metadata
+                or {"max_width": "1000px", "max_height": "800px", "responsive": True},
+                created_at=self._get_timestamp(),
             )
 
             self.artifacts[artifact_id] = artifact
@@ -181,10 +174,7 @@ class ArtifactManager:
             return ""
 
     def create_checklist(
-        self,
-        title: str,
-        items: List[Dict[str, Any]],
-        metadata: Optional[Dict] = None
+        self, title: str, items: List[Dict[str, Any]], metadata: Optional[Dict] = None
     ) -> str:
         """
         Crea una lista de verificación interactiva.
@@ -207,27 +197,28 @@ class ArtifactManager:
             # Normalizar items
             checklist_items = []
             for item in items:
-                checklist_items.append(ChecklistItem(
-                    id=item.get('id', f"item_{len(checklist_items)}"),
-                    label=item['label'],
-                    completed=item.get('completed', False),
-                    category=item.get('category')
-                ))
+                checklist_items.append(
+                    ChecklistItem(
+                        id=item.get("id", f"item_{len(checklist_items)}"),
+                        label=item["label"],
+                        completed=item.get("completed", False),
+                        category=item.get("category"),
+                    )
+                )
 
             artifact = Artifact(
                 id=artifact_id,
                 type=ArtifactType.CHECKLIST.value,
                 title=title,
                 content={
-                    'items': [item.to_dict() for item in checklist_items],
-                    'total_items': len(checklist_items),
-                    'completed_items': sum(1 for item in checklist_items if item.completed)
+                    "items": [item.to_dict() for item in checklist_items],
+                    "total_items": len(checklist_items),
+                    "completed_items": sum(
+                        1 for item in checklist_items if item.completed
+                    ),
                 },
-                metadata=metadata or {
-                    'interactive': True,
-                    'show_progress': True
-                },
-                created_at=self._get_timestamp()
+                metadata=metadata or {"interactive": True, "show_progress": True},
+                created_at=self._get_timestamp(),
             )
 
             self.artifacts[artifact_id] = artifact
@@ -245,7 +236,7 @@ class ArtifactManager:
         title: str,
         code: str,
         language: str = "python",
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
     ) -> str:
         """
         Crea un artefacto con código.
@@ -267,16 +258,17 @@ class ArtifactManager:
                 type=ArtifactType.CODE.value,
                 title=title,
                 content={
-                    'code': code,
-                    'language': language,
-                    'lines': len(code.split('\n'))
+                    "code": code,
+                    "language": language,
+                    "lines": len(code.split("\n")),
                 },
-                metadata=metadata or {
-                    'syntax_highlight': True,
-                    'line_numbers': True,
-                    'copy_button': True
+                metadata=metadata
+                or {
+                    "syntax_highlight": True,
+                    "line_numbers": True,
+                    "copy_button": True,
                 },
-                created_at=self._get_timestamp()
+                created_at=self._get_timestamp(),
             )
 
             self.artifacts[artifact_id] = artifact
@@ -294,7 +286,7 @@ class ArtifactManager:
         title: str,
         items: List[Dict[str, Any]],
         characteristics: List[str],
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
     ) -> str:
         """
         Crea una tabla de comparación.
@@ -320,15 +312,12 @@ class ArtifactManager:
                 type=ArtifactType.COMPARISON.value,
                 title=title,
                 content={
-                    'items': items,
-                    'characteristics': characteristics,
-                    'item_count': len(items)
+                    "items": items,
+                    "characteristics": characteristics,
+                    "item_count": len(items),
                 },
-                metadata=metadata or {
-                    'sortable': True,
-                    'filterable': True
-                },
-                created_at=self._get_timestamp()
+                metadata=metadata or {"sortable": True, "filterable": True},
+                created_at=self._get_timestamp(),
             )
 
             self.artifacts[artifact_id] = artifact
@@ -381,9 +370,9 @@ class ArtifactManager:
             <div class="artifact-content">
         """
 
-        for section in artifact.content.get('sections', []):
-            heading = section.get('heading', 'Section')
-            content = section.get('content', '')
+        for section in artifact.content.get("sections", []):
+            heading = section.get("heading", "Section")
+            content = section.get("content", "")
 
             html += f"""
                 <div class="report-section">
@@ -401,7 +390,7 @@ class ArtifactManager:
 
     def _render_diagram_html(self, artifact: Artifact) -> str:
         """Renderiza un diagrama Mermaid a HTML."""
-        mermaid_code = artifact.content.get('mermaid_code', '')
+        mermaid_code = artifact.content.get("mermaid_code", "")
 
         html = f"""
         <div class="artifact artifact-diagram">
@@ -420,9 +409,9 @@ class ArtifactManager:
 
     def _render_checklist_html(self, artifact: Artifact) -> str:
         """Renderiza un checklist a HTML."""
-        items = artifact.content.get('items', [])
-        completed = artifact.content.get('completed_items', 0)
-        total = artifact.content.get('total_items', 1)
+        items = artifact.content.get("items", [])
+        completed = artifact.content.get("completed_items", 0)
+        total = artifact.content.get("total_items", 1)
 
         progress_percent = int((completed / total) * 100) if total > 0 else 0
 
@@ -437,8 +426,12 @@ class ArtifactManager:
         """
 
         for item in items:
-            checked = 'checked' if item['completed'] else ''
-            category = f"<span class='category'>{item['category']}</span>" if item.get('category') else ""
+            checked = "checked" if item["completed"] else ""
+            category = (
+                f"<span class='category'>{item['category']}</span>"
+                if item.get("category")
+                else ""
+            )
 
             html += f"""
                 <li class="checklist-item">
@@ -457,8 +450,8 @@ class ArtifactManager:
 
     def _render_code_html(self, artifact: Artifact) -> str:
         """Renderiza código a HTML."""
-        code = artifact.content.get('code', '')
-        language = artifact.content.get('language', 'python')
+        code = artifact.content.get("code", "")
+        language = artifact.content.get("language", "python")
 
         html = f"""
         <div class="artifact artifact-code">
@@ -474,8 +467,8 @@ class ArtifactManager:
 
     def _render_comparison_html(self, artifact: Artifact) -> str:
         """Renderiza una tabla de comparación a HTML."""
-        items = artifact.content.get('items', [])
-        characteristics = artifact.content.get('characteristics', [])
+        items = artifact.content.get("items", [])
+        characteristics = artifact.content.get("characteristics", [])
 
         html = f"""
         <div class="artifact artifact-comparison">
@@ -501,7 +494,7 @@ class ArtifactManager:
             html += f"<tr><td class='char-name'>{char}</td>"
 
             for item in items:
-                value = item.get('values', {}).get(char, '-')
+                value = item.get("values", {}).get(char, "-")
                 html += f"<td>{value}</td>"
 
             html += "</tr>"
@@ -535,20 +528,22 @@ class ArtifactManager:
             return True
         return False
 
-    def update_checklist_item(self, artifact_id: str, item_id: str, completed: bool) -> bool:
+    def update_checklist_item(
+        self, artifact_id: str, item_id: str, completed: bool
+    ) -> bool:
         """Actualiza el estado de un item de checklist."""
         try:
             artifact = self.artifacts.get(artifact_id)
             if not artifact or artifact.type != ArtifactType.CHECKLIST.value:
                 return False
 
-            for item in artifact.content.get('items', []):
-                if item['id'] == item_id:
-                    item['completed'] = completed
+            for item in artifact.content.get("items", []):
+                if item["id"] == item_id:
+                    item["completed"] = completed
 
                     # Actualizar contadores
-                    artifact.content['completed_items'] = sum(
-                        1 for i in artifact.content['items'] if i['completed']
+                    artifact.content["completed_items"] = sum(
+                        1 for i in artifact.content["items"] if i["completed"]
                     )
                     artifact.updated_at = self._get_timestamp()
 
@@ -566,21 +561,21 @@ class ArtifactManager:
     def _generate_id(self) -> str:
         """Genera un ID único para un artefacto."""
         import uuid
+
         return f"art_{uuid.uuid4().hex[:8]}"
 
     def _save_artifacts(self):
         """Guarda los artefactos a archivo."""
         try:
             data = {
-                'artifacts': {
-                    aid: artifact.to_dict()
-                    for aid, artifact in self.artifacts.items()
+                "artifacts": {
+                    aid: artifact.to_dict() for aid, artifact in self.artifacts.items()
                 },
-                'last_updated': self._get_timestamp()
+                "last_updated": self._get_timestamp(),
             }
 
             artifacts_file = self.artifacts_dir / "artifacts.json"
-            with open(artifacts_file, 'w', encoding='utf-8') as f:
+            with open(artifacts_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
 
             self.logger.debug("Saved artifacts")
@@ -594,10 +589,10 @@ class ArtifactManager:
             if not artifacts_file.exists():
                 return
 
-            with open(artifacts_file, 'r', encoding='utf-8') as f:
+            with open(artifacts_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            for aid, artifact_data in data.get('artifacts', {}).items():
+            for aid, artifact_data in data.get("artifacts", {}).items():
                 artifact = Artifact(**artifact_data)
                 self.artifacts[aid] = artifact
 

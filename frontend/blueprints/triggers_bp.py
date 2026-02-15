@@ -1,10 +1,11 @@
 """Blueprint for managing conditional triggers (advanced automation rules)."""
 
-from flask import Blueprint, jsonify, request
 import logging
 
-from frontend.middleware import require_api_key
+from flask import Blueprint, jsonify, request
+
 from backend.utils.core.trigger_manager import get_trigger_manager
+from frontend.middleware import require_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,7 @@ def get_all_triggers():
     try:
         triggers = _trigger_manager.to_dict()
 
-        return jsonify({
-            "count": len(triggers),
-            "triggers": triggers
-        })
+        return jsonify({"count": len(triggers), "triggers": triggers})
 
     except Exception as e:
         logger.error(f"Error retrieving triggers: {e}")
@@ -62,19 +60,22 @@ def create_trigger():
 
         # Add trigger
         success = _trigger_manager.add_trigger(
-            trigger_id=trigger_id,
-            rule=data["rule"],
-            actions=data["actions"]
+            trigger_id=trigger_id, rule=data["rule"], actions=data["actions"]
         )
 
         if not success:
             return jsonify({"error": "Failed to create trigger"}), 500
 
-        return jsonify({
-            "status": "created",
-            "trigger_id": trigger_id,
-            "trigger": _trigger_manager.triggers[trigger_id].to_dict()
-        }), 201
+        return (
+            jsonify(
+                {
+                    "status": "created",
+                    "trigger_id": trigger_id,
+                    "trigger": _trigger_manager.triggers[trigger_id].to_dict(),
+                }
+            ),
+            201,
+        )
 
     except Exception as e:
         logger.error(f"Error creating trigger: {e}")
@@ -94,10 +95,7 @@ def get_trigger(trigger_id: str):
 
         trigger = _trigger_manager.triggers[trigger_id]
 
-        return jsonify({
-            "trigger_id": trigger_id,
-            "trigger": trigger.to_dict()
-        })
+        return jsonify({"trigger_id": trigger_id, "trigger": trigger.to_dict()})
 
     except Exception as e:
         logger.error(f"Error retrieving trigger: {e}")
@@ -126,11 +124,13 @@ def update_trigger(trigger_id: str):
         if "actions" in data:
             trigger.actions = data["actions"]
 
-        return jsonify({
-            "status": "updated",
-            "trigger_id": trigger_id,
-            "trigger": trigger.to_dict()
-        })
+        return jsonify(
+            {
+                "status": "updated",
+                "trigger_id": trigger_id,
+                "trigger": trigger.to_dict(),
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error updating trigger: {e}")
@@ -150,10 +150,7 @@ def delete_trigger(trigger_id: str):
         if not success:
             return jsonify({"error": "Trigger not found"}), 404
 
-        return jsonify({
-            "status": "deleted",
-            "trigger_id": trigger_id
-        })
+        return jsonify({"status": "deleted", "trigger_id": trigger_id})
 
     except Exception as e:
         logger.error(f"Error deleting trigger: {e}")
@@ -173,10 +170,7 @@ def enable_trigger(trigger_id: str):
         if not success:
             return jsonify({"error": "Trigger not found"}), 404
 
-        return jsonify({
-            "status": "enabled",
-            "trigger_id": trigger_id
-        })
+        return jsonify({"status": "enabled", "trigger_id": trigger_id})
 
     except Exception as e:
         logger.error(f"Error enabling trigger: {e}")
@@ -196,10 +190,7 @@ def disable_trigger(trigger_id: str):
         if not success:
             return jsonify({"error": "Trigger not found"}), 404
 
-        return jsonify({
-            "status": "disabled",
-            "trigger_id": trigger_id
-        })
+        return jsonify({"status": "disabled", "trigger_id": trigger_id})
 
     except Exception as e:
         logger.error(f"Error disabling trigger: {e}")
@@ -217,10 +208,7 @@ def get_trigger_history():
         limit = request.args.get("limit", 100, type=int)
         history = _trigger_manager.get_trigger_history(limit=limit)
 
-        return jsonify({
-            "count": len(history),
-            "history": history
-        })
+        return jsonify({"count": len(history), "history": history})
 
     except Exception as e:
         logger.error(f"Error retrieving trigger history: {e}")
@@ -244,12 +232,14 @@ def test_trigger(trigger_id: str):
         trigger = _trigger_manager.triggers[trigger_id]
         should_trigger = trigger.should_trigger(context, cooldown_minutes=0)
 
-        return jsonify({
-            "trigger_id": trigger_id,
-            "test_context": context,
-            "would_trigger": should_trigger,
-            "rule": trigger.rule
-        })
+        return jsonify(
+            {
+                "trigger_id": trigger_id,
+                "test_context": context,
+                "would_trigger": should_trigger,
+                "rule": trigger.rule,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error testing trigger: {e}")
@@ -266,50 +256,42 @@ def get_trigger_templates():
             "description": "Alert when CPU usage exceeds 80%",
             "rule": {
                 "conditions": [
-                    {
-                        "metric": "system.cpu_usage",
-                        "operator": ">",
-                        "value": 80
-                    }
+                    {"metric": "system.cpu_usage", "operator": ">", "value": 80}
                 ],
-                "logic": "AND"
+                "logic": "AND",
             },
             "actions": [
                 {
                     "type": "send_notification",
                     "title": "High CPU Alert",
                     "message": "CPU usage has exceeded 80%",
-                    "severity": "warning"
+                    "severity": "warning",
                 },
                 {
                     "type": "execute_prompt",
                     "name": "Analyze High CPU",
                     "agent": "system",
-                    "prompt": "Identify top processes consuming CPU"
-                }
-            ]
+                    "prompt": "Identify top processes consuming CPU",
+                },
+            ],
         },
         "low_disk_space": {
             "name": "Low Disk Space Alert",
             "description": "Alert when free disk space falls below 10%",
             "rule": {
                 "conditions": [
-                    {
-                        "metric": "system.disk_free_percent",
-                        "operator": "<",
-                        "value": 10
-                    }
+                    {"metric": "system.disk_free_percent", "operator": "<", "value": 10}
                 ],
-                "logic": "AND"
+                "logic": "AND",
             },
             "actions": [
                 {
                     "type": "send_notification",
                     "title": "Low Disk Space",
                     "message": "Available disk space is below 10%",
-                    "severity": "critical"
+                    "severity": "critical",
                 }
-            ]
+            ],
         },
         "service_down": {
             "name": "Critical Service Down",
@@ -319,23 +301,20 @@ def get_trigger_templates():
                     {
                         "metric": "network.service_status",
                         "operator": "==",
-                        "value": "DOWN"
+                        "value": "DOWN",
                     }
                 ],
-                "logic": "AND"
+                "logic": "AND",
             },
             "actions": [
                 {
                     "type": "send_notification",
                     "title": "Service Alert",
                     "message": "Critical service is down",
-                    "severity": "critical"
+                    "severity": "critical",
                 }
-            ]
-        }
+            ],
+        },
     }
 
-    return jsonify({
-        "count": len(templates),
-        "templates": templates
-    })
+    return jsonify({"count": len(templates), "templates": templates})

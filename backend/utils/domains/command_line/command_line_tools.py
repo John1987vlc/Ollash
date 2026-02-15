@@ -1,6 +1,8 @@
 from typing import Any, Optional
+
 from backend.utils.core.command_executor import CommandExecutor
 from backend.utils.core.tool_decorator import ollash_tool
+
 
 class CommandLineTools:
     def __init__(self, command_executor: CommandExecutor, logger: Any):
@@ -11,12 +13,18 @@ class CommandLineTools:
         name="run_command",
         description="Executes a shell command. Use for running scripts, build tools, or any command-line utility.",
         parameters={
-            "command": {"type": "string", "description": "The shell command to execute."},
-            "timeout": {"type": "integer", "description": "Optional: Maximum time in seconds to wait for the command to complete. Defaults to 300 seconds."}
+            "command": {
+                "type": "string",
+                "description": "The shell command to execute.",
+            },
+            "timeout": {
+                "type": "integer",
+                "description": "Optional: Maximum time in seconds to wait for the command to complete. Defaults to 300 seconds.",
+            },
         },
         toolset_id="command_line_tools",
         agent_types=["code", "system", "cybersecurity"],
-        required=["command"]
+        required=["command"],
     )
     def run_command(self, command: str, timeout: int = 60):
         """Run shell command"""
@@ -38,12 +46,15 @@ class CommandLineTools:
         name="run_tests",
         description="Runs a specified set of tests or all tests in the project. Useful for verifying changes.",
         parameters={
-            "test_path": {"type": "string", "description": "Optional: Path to a specific test file or directory. If not provided, runs all tests."},
+            "test_path": {
+                "type": "string",
+                "description": "Optional: Path to a specific test file or directory. If not provided, runs all tests.",
+            },
             "args": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Optional: Additional arguments to pass to the test runner (e.g., ['-k', 'test_my_feature'])."
-            }
+                "description": "Optional: Additional arguments to pass to the test runner (e.g., ['-k', 'test_my_feature']).",
+            },
         },
         toolset_id="command_line_tools",
         agent_types=["code"],
@@ -69,7 +80,7 @@ class CommandLineTools:
             "target_files": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Optional: List of files to validate. If not provided, validates all changed files or the entire project."
+                "description": "Optional: List of files to validate. If not provided, validates all changed files or the entire project.",
             }
         },
         toolset_id="command_line_tools",
@@ -80,7 +91,9 @@ class CommandLineTools:
         self.logger.info("🔍 Validating changes...")
         try:
             tests = self.exec.execute("pytest -q", timeout=120)
-            lint = self.exec.execute("ruff .", timeout=60) # Assuming 'ruff' is available for linting
+            lint = self.exec.execute(
+                "ruff .", timeout=60
+            )  # Assuming 'ruff' is available for linting
 
             test_icon = "✅" if tests.success else "❌"
             lint_icon = "✅" if lint.success else "❌"

@@ -15,8 +15,9 @@ Run this with: pytest tests/test_main.py -v
 Or run specific modules: pytest tests/agents/ -v
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 
 def pytest_collection_modifyitems(config, items):
@@ -49,11 +50,22 @@ class TestMainSuite:
         tests_dir = Path(__file__).parent
 
         # Check that all module test directories exist
-        expected_dirs = ["agents", "core", "services", "utils", "web", "automations", "integration", "e2e"]
+        expected_dirs = [
+            "agents",
+            "core",
+            "services",
+            "utils",
+            "web",
+            "automations",
+            "integration",
+            "e2e",
+        ]
         for dir_name in expected_dirs:
             module_dir = tests_dir / dir_name
             assert module_dir.exists(), f"Test module {dir_name}/ should exist"
-            assert (module_dir / "__init__.py").exists(), f"Test module {dir_name}/ should have __init__.py"
+            assert (
+                module_dir / "__init__.py"
+            ).exists(), f"Test module {dir_name}/ should have __init__.py"
 
     def test_modules_have_tests(self):
         """Verify that each module has tests."""
@@ -62,7 +74,11 @@ class TestMainSuite:
         # These modules should have test files
         module_requirements = {
             "agents": ["test_auto_agent.py"],
-            "core": ["test_llm_response_parser.py", "test_file_validator.py", "test_heartbeat.py"],
+            "core": [
+                "test_llm_response_parser.py",
+                "test_file_validator.py",
+                "test_heartbeat.py",
+            ],
             "web": ["test_blueprints.py"],
             "automations": ["test_automations.py"],
         }

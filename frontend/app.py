@@ -1,26 +1,27 @@
 """Flask application factory for the Ollash Web UI."""
-import os
 import logging
+import os
 from pathlib import Path
+
 from flask import Flask
 
 # Import the new centralized config
 from backend.core.config import config as central_config
-
-from backend.utils.core.event_publisher import EventPublisher
-from frontend.services.chat_event_bridge import ChatEventBridge
-from backend.utils.core.automation_manager import get_automation_manager
 from backend.utils.core.alert_manager import get_alert_manager
+from backend.utils.core.automation_manager import get_automation_manager
+from backend.utils.core.event_publisher import EventPublisher
 from backend.utils.core.notification_manager import get_notification_manager
-
 from frontend.blueprints import register_blueprints
 from frontend.middleware import add_cors_headers
+from frontend.services.chat_event_bridge import ChatEventBridge
 
 logger = logging.getLogger(__name__)
 
 # Global instances for event handling
 event_publisher = EventPublisher()
-chat_event_bridge = ChatEventBridge(event_publisher) # ChatEventBridge subscribes to the publisher
+chat_event_bridge = ChatEventBridge(
+    event_publisher
+)  # ChatEventBridge subscribes to the publisher
 
 
 def create_app(ollash_root_dir: Path = None) -> Flask:
@@ -39,11 +40,11 @@ def create_app(ollash_root_dir: Path = None) -> Flask:
         **(central_config.LLM_MODELS or {}),
         **(central_config.AGENT_FEATURES or {}),
         **(central_config.ALERTS or {}),
-        **(central_config.AUTOMATION_TEMPLATES or {})
+        **(central_config.AUTOMATION_TEMPLATES or {}),
     }
-    app.config['config'] = combined_config
-    app.config['ollash_root_dir'] = ollash_root_dir
-    app.config['logger'] = logger
+    app.config["config"] = combined_config
+    app.config["ollash_root_dir"] = ollash_root_dir
+    app.config["logger"] = logger
     # --- End Configuration Injection ---
 
     # Secret key for session management
@@ -60,17 +61,19 @@ def create_app(ollash_root_dir: Path = None) -> Flask:
         alert_manager = get_alert_manager(notification_manager, event_publisher)
 
         # Store in app config for blueprints to access
-        app.config['automation_manager'] = automation_manager
-        app.config['notification_manager'] = notification_manager
-        app.config['alert_manager'] = alert_manager
-        app.config['event_publisher'] = event_publisher
+        app.config["automation_manager"] = automation_manager
+        app.config["notification_manager"] = notification_manager
+        app.config["alert_manager"] = alert_manager
+        app.config["event_publisher"] = event_publisher
 
         # Start the automation manager
         automation_manager.start()
         logger.info("✅ Automation Manager and core services started")
 
     except Exception as e:
-        logger.error(f"Failed to initialize core automation/alert system: {e}", exc_info=True)
+        logger.error(
+            f"Failed to initialize core automation/alert system: {e}", exc_info=True
+        )
         # If core systems fail, it might be better to exit, but for now we'll log and continue
 
     # Register all blueprints and their initializers
@@ -79,8 +82,7 @@ def create_app(ollash_root_dir: Path = None) -> Flask:
         ollash_root_dir=ollash_root_dir,
         event_publisher=event_publisher,
         chat_event_bridge=chat_event_bridge,
-        alert_manager=alert_manager  # Pass the initialized manager
+        alert_manager=alert_manager,  # Pass the initialized manager
     )
 
     return app
-

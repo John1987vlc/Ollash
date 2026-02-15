@@ -14,19 +14,19 @@ Key Features:
 
 import json
 import logging
-from dataclasses import dataclass, field, asdict
-from pathlib import Path
-from typing import Dict, Any, List
-from datetime import datetime
-from collections import Counter, defaultdict
 import statistics
-
+from collections import Counter, defaultdict
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
 
 class SentimentType:
     """Sentiment classification."""
+
     POSITIVE = "positive"
     NEUTRAL = "neutral"
     NEGATIVE = "negative"
@@ -35,6 +35,7 @@ class SentimentType:
 @dataclass
 class FeedbackEntry:
     """Single feedback entry."""
+
     timestamp: str
     user_id: str
     task_type: str  # "analysis", "artifact_creation", "decision_recording"
@@ -49,6 +50,7 @@ class FeedbackEntry:
 @dataclass
 class Pattern:
     """Identified pattern."""
+
     pattern_id: str
     pattern_type: str  # "success", "failure", "inefficiency"
     frequency: int
@@ -97,21 +99,21 @@ class PatternAnalyzer:
         """Load stored data from disk."""
         try:
             if self.feedback_file.exists():
-                with open(self.feedback_file, 'r', encoding='utf-8') as f:
+                with open(self.feedback_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self._feedback_entries = [
                         FeedbackEntry(**entry) for entry in data.get("entries", [])
                     ]
 
             if self.patterns_file.exists():
-                with open(self.patterns_file, 'r', encoding='utf-8') as f:
+                with open(self.patterns_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self._patterns = {
                         pid: Pattern(**p) for pid, p in data.get("patterns", {}).items()
                     }
 
             if self.metrics_file.exists():
-                with open(self.metrics_file, 'r', encoding='utf-8') as f:
+                with open(self.metrics_file, "r", encoding="utf-8") as f:
                     self._metrics = json.load(f)
         except Exception as e:
             logger.error(f"Error loading pattern data: {e}")
@@ -120,21 +122,25 @@ class PatternAnalyzer:
         """Save data to disk."""
         try:
             # Save feedback
-            with open(self.feedback_file, 'w', encoding='utf-8') as f:
+            with open(self.feedback_file, "w", encoding="utf-8") as f:
                 json.dump(
                     {"entries": [asdict(e) for e in self._feedback_entries]},
-                    f, indent=2, ensure_ascii=False
+                    f,
+                    indent=2,
+                    ensure_ascii=False,
                 )
 
             # Save patterns
-            with open(self.patterns_file, 'w', encoding='utf-8') as f:
+            with open(self.patterns_file, "w", encoding="utf-8") as f:
                 json.dump(
                     {"patterns": {pid: asdict(p) for pid, p in self._patterns.items()}},
-                    f, indent=2, ensure_ascii=False
+                    f,
+                    indent=2,
+                    ensure_ascii=False,
                 )
 
             # Save metrics
-            with open(self.metrics_file, 'w', encoding='utf-8') as f:
+            with open(self.metrics_file, "w", encoding="utf-8") as f:
                 json.dump(dict(self._metrics), f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.error(f"Error saving pattern data: {e}")
@@ -148,7 +154,7 @@ class PatternAnalyzer:
         comment: str = "",
         keywords: List[str] = None,
         affected_component: str = "",
-        resolution_time: float = 0.0
+        resolution_time: float = 0.0,
     ) -> FeedbackEntry:
         """
         Record user feedback.
@@ -175,7 +181,7 @@ class PatternAnalyzer:
             comment=comment,
             keywords=keywords or [],
             affected_component=affected_component,
-            resolution_time=resolution_time
+            resolution_time=resolution_time,
         )
 
         self._feedback_entries.append(entry)
@@ -234,7 +240,7 @@ class PatternAnalyzer:
                     confidence=min(1.0, len(entries) / 10),
                     description=f"{component} component: {severity} - Avg score: {avg_score:.2f}",
                     affected_components=[component],
-                    recommendations=self._suggest_improvements(component, entries)
+                    recommendations=self._suggest_improvements(component, entries),
                 )
 
                 self._patterns[pattern_id] = pattern
@@ -251,7 +257,9 @@ class PatternAnalyzer:
                 scores = [e.score for e in entries]
                 statistics.mean(scores)
 
-                positive_count = sum(1 for e in entries if e.sentiment == SentimentType.POSITIVE)
+                positive_count = sum(
+                    1 for e in entries if e.sentiment == SentimentType.POSITIVE
+                )
                 success_rate = positive_count / len(entries)
 
                 pattern_id = f"task_{task_type}_{datetime.now().timestamp()}"
@@ -261,7 +269,7 @@ class PatternAnalyzer:
                     frequency=len(entries),
                     confidence=success_rate,
                     description=f"Task type '{task_type}': {success_rate*100:.0f}% success rate",
-                    recommendations=self._suggest_task_improvements(task_type, entries)
+                    recommendations=self._suggest_task_improvements(task_type, entries),
                 )
 
                 self._patterns[pattern_id] = pattern
@@ -277,7 +285,9 @@ class PatternAnalyzer:
         Counter(sentiments)
 
         # Check if there's a negative trend
-        recent_negative = sum(1 for e in recent[-5:] if e.sentiment == SentimentType.NEGATIVE)
+        recent_negative = sum(
+            1 for e in recent[-5:] if e.sentiment == SentimentType.NEGATIVE
+        )
 
         if recent_negative >= 3:  # 3 or more negative in last 5
             pattern = Pattern(
@@ -286,15 +296,18 @@ class PatternAnalyzer:
                 frequency=recent_negative,
                 confidence=0.8,
                 description="Recent negative feedback trend detected",
-                recommendations=["Review recent changes", "Increase testing", "Gather more feedback"]
+                recommendations=[
+                    "Review recent changes",
+                    "Increase testing",
+                    "Gather more feedback",
+                ],
             )
             self._patterns[pattern.pattern_id] = pattern
 
     def _analyze_performance_patterns(self):
         """Analyze performance metric patterns."""
         resolution_times = [
-            e.resolution_time for e in self._feedback_entries
-            if e.resolution_time > 0
+            e.resolution_time for e in self._feedback_entries if e.resolution_time > 0
         ]
 
         if len(resolution_times) >= 3:
@@ -308,11 +321,17 @@ class PatternAnalyzer:
                     frequency=len(resolution_times),
                     confidence=0.7,
                     description=f"Slow resolution times: avg {avg_time:.2f}s, max {max_time:.2f}s",
-                    recommendations=["Optimize queries", "Add caching", "Profile bottlenecks"]
+                    recommendations=[
+                        "Optimize queries",
+                        "Add caching",
+                        "Profile bottlenecks",
+                    ],
                 )
                 self._patterns[pattern.pattern_id] = pattern
 
-    def _suggest_improvements(self, component: str, entries: List[FeedbackEntry]) -> List[str]:
+    def _suggest_improvements(
+        self, component: str, entries: List[FeedbackEntry]
+    ) -> List[str]:
         """Suggest improvements for component."""
         suggestions = []
 
@@ -335,7 +354,7 @@ class PatternAnalyzer:
             "accuracy": "Increase accuracy of results",
             "speed": "Reduce processing time",
             "usability": "Improve user experience",
-            "error": "Better error handling and messages"
+            "error": "Better error handling and messages",
         }
 
         for keyword, count in issue_keywords.items():
@@ -347,7 +366,9 @@ class PatternAnalyzer:
 
         return suggestions[:3]  # Top 3 suggestions
 
-    def _suggest_task_improvements(self, task_type: str, entries: List[FeedbackEntry]) -> List[str]:
+    def _suggest_task_improvements(
+        self, task_type: str, entries: List[FeedbackEntry]
+    ) -> List[str]:
         """Suggest improvements for task type."""
         suggestions = []
 
@@ -364,10 +385,7 @@ class PatternAnalyzer:
         return suggestions[:3]
 
     def get_patterns(
-        self,
-        pattern_type: str = None,
-        min_confidence: float = 0.5,
-        limit: int = 10
+        self, pattern_type: str = None, min_confidence: float = 0.5, limit: int = 10
     ) -> List[Pattern]:
         """
         Get detected patterns.
@@ -435,9 +453,7 @@ class PatternAnalyzer:
             "top_keywords": [kw for kw, count in top_keywords],
             "detected_patterns": len(self._patterns),
             "critical_patterns": len(self.get_patterns("failure", min_confidence=0.7)),
-            "recommendations": [
-                p.description for p in self.get_patterns(limit=3)
-            ]
+            "recommendations": [p.description for p in self.get_patterns(limit=3)],
         }
 
     def get_component_health(self, component: str) -> Dict[str, Any]:
@@ -451,8 +467,7 @@ class PatternAnalyzer:
             Health metrics
         """
         entries = [
-            e for e in self._feedback_entries
-            if e.affected_component == component
+            e for e in self._feedback_entries if e.affected_component == component
         ]
 
         if not entries:
@@ -474,8 +489,12 @@ class PatternAnalyzer:
             "status": status,
             "average_score": round(avg_score, 2),
             "entries": len(entries),
-            "positive_feedback": sum(1 for e in entries if e.sentiment == SentimentType.POSITIVE),
-            "negative_feedback": sum(1 for e in entries if e.sentiment == SentimentType.NEGATIVE)
+            "positive_feedback": sum(
+                1 for e in entries if e.sentiment == SentimentType.POSITIVE
+            ),
+            "negative_feedback": sum(
+                1 for e in entries if e.sentiment == SentimentType.NEGATIVE
+            ),
         }
 
     def export_report(self, format: str = "json") -> str:
@@ -492,10 +511,11 @@ class PatternAnalyzer:
         patterns = self.get_patterns(limit=10)
 
         if format == "json":
-            return json.dumps({
-                "insights": insights,
-                "patterns": [asdict(p) for p in patterns]
-            }, indent=2, ensure_ascii=False)
+            return json.dumps(
+                {"insights": insights, "patterns": [asdict(p) for p in patterns]},
+                indent=2,
+                ensure_ascii=False,
+            )
 
         elif format == "markdown":
             md = "# Pattern Analysis Report\n\n"

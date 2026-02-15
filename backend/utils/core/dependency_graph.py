@@ -5,9 +5,10 @@ Analyzes project structure JSON to build a dependency graph,
 enabling intelligent file generation ordering and context selection.
 """
 
+from collections import defaultdict, deque
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
-from collections import defaultdict, deque
+
 from backend.utils.core.agent_logger import AgentLogger
 
 
@@ -27,7 +28,9 @@ class DependencyGraph:
         self.logger = logger
         self.graph: Dict[str, Set[str]] = defaultdict(set)  # file -> dependencies
         self.reverse_graph: Dict[str, Set[str]] = defaultdict(set)  # file -> dependents
-        self.file_types: Dict[str, str] = {}  # file -> type (test, util, model, view, etc.)
+        self.file_types: Dict[
+            str, str
+        ] = {}  # file -> type (test, util, model, view, etc.)
         self.file_info: Dict[str, Dict] = {}  # file -> metadata
         self.circular_deps: List[Tuple[str, str]] = []  # circular dependencies found
 
@@ -110,7 +113,9 @@ class DependencyGraph:
         else:
             return "other"
 
-    def _infer_dependencies_from_patterns(self, files: Dict[str, Dict], readme: str) -> None:
+    def _infer_dependencies_from_patterns(
+        self, files: Dict[str, Dict], readme: str
+    ) -> None:
         """
         Infer dependencies based on file patterns and structure.
 
@@ -123,19 +128,23 @@ class DependencyGraph:
         priority_chains = [
             # Base utilities have no dependencies
             (lambda p: self._is_base_utility(p), set()),
-
             # Models depend on base utilities
             (lambda p: self.file_types.get(p) == "model", {"utility", "config"}),
-
             # Services depend on models and utilities
-            (lambda p: self.file_types.get(p) == "service", {"model", "utility", "config"}),
-
+            (
+                lambda p: self.file_types.get(p) == "service",
+                {"model", "utility", "config"},
+            ),
             # Controllers depend on services
-            (lambda p: self.file_types.get(p) == "controller", {"service", "model", "utility"}),
-
+            (
+                lambda p: self.file_types.get(p) == "controller",
+                {"service", "model", "utility"},
+            ),
             # Views depend on controllers/services
-            (lambda p: self.file_types.get(p) == "view", {"controller", "service", "utility"}),
-
+            (
+                lambda p: self.file_types.get(p) == "view",
+                {"controller", "service", "utility"},
+            ),
             # Tests depend on what they test
             (lambda p: self.file_types.get(p) == "test", self._get_all_types()),
         ]
@@ -148,17 +157,20 @@ class DependencyGraph:
                 if pattern_fn(file_path):
                     # Find files in possible_deps categories that could be dependencies
                     for other_file, other_meta in files.items():
-                        if other_file != file_path and other_meta["type"] in possible_deps:
+                        if (
+                            other_file != file_path
+                            and other_meta["type"] in possible_deps
+                        ):
                             # Check if it's likely a dependency (matching name patterns)
                             if self._files_likely_related(file_path, other_file):
                                 self.add_dependency(file_path, other_file)
 
     def _is_base_utility(self, file_path: str) -> bool:
         """Check if file is a base utility with no dependencies."""
-        return (
-            self.file_types.get(file_path) in ("utility", "config")
-            and not file_path.startswith("tests")
-        )
+        return self.file_types.get(file_path) in (
+            "utility",
+            "config",
+        ) and not file_path.startswith("tests")
 
     def _get_all_types(self) -> Set[str]:
         """Get all possible file types."""
@@ -282,7 +294,9 @@ class DependencyGraph:
                         cycle_start = path.index(neighbor)
                         cycle = path[cycle_start:] + [neighbor]
                         self.circular_deps.append((file, neighbor))
-                        self.logger.warning(f"Circular dependency detected: {' -> '.join(cycle)}")
+                        self.logger.warning(
+                            f"Circular dependency detected: {' -> '.join(cycle)}"
+                        )
                     elif neighbor not in visited:
                         stack.append(neighbor)
                         path.append(neighbor)

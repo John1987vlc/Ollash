@@ -2,11 +2,13 @@
 Unit tests for ErrorKnowledgeBase system.
 """
 
-import pytest
 import json
 from unittest.mock import Mock
 
-from backend.utils.core.error_knowledge_base import ErrorKnowledgeBase, ErrorPattern
+import pytest
+
+from backend.utils.core.error_knowledge_base import (ErrorKnowledgeBase,
+                                                     ErrorPattern)
 
 
 @pytest.fixture
@@ -40,7 +42,7 @@ class TestErrorPatternClass:
             example_error="def my_func()  # Missing colon",
             prevention_tip="Always use colon after function definition",
             solution_template="Add ':' after function signature",
-            language="python"
+            language="python",
         )
 
         assert pattern.pattern_id == "abc123"
@@ -58,7 +60,7 @@ class TestErrorPatternClass:
             example_error="Error",
             prevention_tip="Tip",
             solution_template="Solution",
-            language="python"
+            language="python",
         )
 
         result = pattern.to_dict()
@@ -77,7 +79,7 @@ class TestKnowledgeBaseRecording:
             error_type="syntax",
             error_message="SyntaxError: invalid syntax",
             file_content="def my_func()  # missing colon",
-            context="Python function definition"
+            context="Python function definition",
         )
 
         assert isinstance(pattern_id, str)
@@ -90,14 +92,14 @@ class TestKnowledgeBaseRecording:
             file_path="test.py",
             error_type="import",
             error_message="ImportError: no module named 'foo'",
-            file_content="import foo"
+            file_content="import foo",
         )
 
         pattern_id2 = error_kb.record_error(
             file_path="test2.py",
             error_type="import",
             error_message="ImportError: no module named 'foo'",
-            file_content="import foo"
+            file_content="import foo",
         )
 
         # Should be same pattern due to similar error
@@ -115,17 +117,19 @@ class TestKnowledgeBaseQuerying:
             "model.py",
             "type",
             "TypeError: unsupported operand type",
-            "x = 'string' + 5"
+            "x = 'string' + 5",
         )
         error_kb.record_error(
             "service.py",
             "type",
             "TypeError: unsupported operand type",
-            "result = obj1 + obj2"
+            "result = obj1 + obj2",
         )
 
         # Query similar errors
-        similar = error_kb.query_similar_errors("new_file.py", "python", "type", max_results=5)
+        similar = error_kb.query_similar_errors(
+            "new_file.py", "python", "type", max_results=5
+        )
 
         assert len(similar) > 0
         assert all(p.error_type == "type" for p in similar)
@@ -154,7 +158,7 @@ class TestPreventionWarnings:
                 f"file{i}.py",
                 "import",
                 f"ImportError: No module named 'pkg{i}'",
-                "import nonexistent"
+                "import nonexistent",
             )
 
         warnings = error_kb.get_prevention_warnings(

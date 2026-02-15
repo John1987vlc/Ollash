@@ -8,9 +8,10 @@ personalize the agent's behavior.
 
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 from backend.utils.core.agent_logger import AgentLogger
+
 
 class PreferenceManager:
     """Manages user preferences and semantic memory."""
@@ -34,7 +35,9 @@ class PreferenceManager:
                 with open(self.preferences_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError) as e:
-                self.logger.error(f"Failed to load preferences from {self.preferences_file}: {e}")
+                self.logger.error(
+                    f"Failed to load preferences from {self.preferences_file}: {e}"
+                )
                 return {}
         return {}
 
@@ -44,7 +47,9 @@ class PreferenceManager:
             with open(self.preferences_file, "w", encoding="utf-8") as f:
                 json.dump(self.preferences, f, indent=4)
         except IOError as e:
-            self.logger.error(f"Failed to save preferences to {self.preferences_file}: {e}")
+            self.logger.error(
+                f"Failed to save preferences to {self.preferences_file}: {e}"
+            )
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -73,4 +78,3 @@ class PreferenceManager:
     def get_all(self) -> Dict[str, Any]:
         """Returns all preferences."""
         return self.preferences
-

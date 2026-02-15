@@ -14,28 +14,29 @@ Key Features:
 
 import json
 import logging
-from dataclasses import dataclass, field, asdict
-from pathlib import Path
-from typing import Dict, Any, List
-from enum import Enum
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
 
 class CommunicationStyle(Enum):
     """User's preferred communication style."""
-    CONCISE = "concise"          # Short, to-the-point responses
-    DETAILED = "detailed"        # Comprehensive, thorough explanations
-    FORMAL = "formal"            # Professional, structured language
-    CASUAL = "casual"            # Friendly, conversational tone
-    TECHNICAL = "technical"      # Highly specific, technical terminology
+
+    CONCISE = "concise"  # Short, to-the-point responses
+    DETAILED = "detailed"  # Comprehensive, thorough explanations
+    FORMAL = "formal"  # Professional, structured language
+    CASUAL = "casual"  # Friendly, conversational tone
+    TECHNICAL = "technical"  # Highly specific, technical terminology
     CONVERSATIONAL = "conversational"  # Natural, dialogue-like
 
 
 class ComplexityLevel(Enum):
     """User's experience level."""
+
     BEGINNER = "beginner"
     INTERMEDIATE = "intermediate"
     EXPERT = "expert"
@@ -43,6 +44,7 @@ class ComplexityLevel(Enum):
 
 class InteractionPreference(Enum):
     """Type of content user prefers."""
+
     CODE_EXAMPLES = "code_examples"
     DIAGRAMS = "diagrams"
     STRUCTURED_TEXT = "structured_text"
@@ -52,8 +54,11 @@ class InteractionPreference(Enum):
 
 class EnumEncoder(json.JSONEncoder):
     """Custom JSON encoder for Enum values."""
+
     def default(self, obj):
-        if isinstance(obj, (CommunicationStyle, ComplexityLevel, InteractionPreference)):
+        if isinstance(
+            obj, (CommunicationStyle, ComplexityLevel, InteractionPreference)
+        ):
             return obj.value
         if isinstance(obj, Enum):
             return obj.value
@@ -63,12 +68,13 @@ class EnumEncoder(json.JSONEncoder):
 @dataclass
 class CommunicationProfile:
     """User's communication preferences."""
+
     style: CommunicationStyle = field(default=CommunicationStyle.DETAILED)
     complexity: ComplexityLevel = field(default=ComplexityLevel.INTERMEDIATE)
     interaction_prefs: List[InteractionPreference] = field(
         default_factory=lambda: [
             InteractionPreference.CODE_EXAMPLES,
-            InteractionPreference.DIAGRAMS
+            InteractionPreference.DIAGRAMS,
         ]
     )
     max_response_length: int = field(default=2000)
@@ -83,6 +89,7 @@ class CommunicationProfile:
 @dataclass
 class PreferenceProfile:
     """Complete user preference profile."""
+
     user_id: str
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     last_modified: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -91,13 +98,15 @@ class PreferenceProfile:
     communication: CommunicationProfile = field(default_factory=CommunicationProfile)
 
     # Feature preferences
-    features_enabled: Dict[str, bool] = field(default_factory=lambda: {
-        "cross_reference": True,
-        "knowledge_graph": True,
-        "decision_memory": True,
-        "artifacts": True,
-        "feedback_refinement": True
-    })
+    features_enabled: Dict[str, bool] = field(
+        default_factory=lambda: {
+            "cross_reference": True,
+            "knowledge_graph": True,
+            "decision_memory": True,
+            "artifacts": True,
+            "feedback_refinement": True,
+        }
+    )
 
     # Customized settings
     custom_settings: Dict[str, Any] = field(default_factory=dict)
@@ -177,7 +186,7 @@ class PreferenceManagerExtended:
         profile_path = self.prefs_dir / f"{user_id}.json"
         if profile_path.exists():
             try:
-                with open(profile_path, 'r', encoding='utf-8') as f:
+                with open(profile_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     profile = self._deserialize_profile(data)
                     self._profiles[user_id] = profile
@@ -202,8 +211,10 @@ class PreferenceManagerExtended:
             profile.last_modified = datetime.now().isoformat()
             profile_path = self.prefs_dir / f"{profile.user_id}.json"
 
-            with open(profile_path, 'w', encoding='utf-8') as f:
-                json.dump(asdict(profile), f, indent=2, ensure_ascii=False, cls=EnumEncoder)
+            with open(profile_path, "w", encoding="utf-8") as f:
+                json.dump(
+                    asdict(profile), f, indent=2, ensure_ascii=False, cls=EnumEncoder
+                )
 
             self._profiles[profile.user_id] = profile
             logger.info(f"Saved profile for user {profile.user_id}")
@@ -217,7 +228,7 @@ class PreferenceManagerExtended:
         user_id: str,
         style: CommunicationStyle = None,
         complexity: ComplexityLevel = None,
-        **kwargs
+        **kwargs,
     ) -> PreferenceProfile:
         """
         Update communication preferences.
@@ -254,7 +265,7 @@ class PreferenceManagerExtended:
         user_id: str,
         feedback_type: str = None,
         keywords: List[str] = None,
-        command: str = None
+        command: str = None,
     ) -> PreferenceProfile:
         """
         Record user interaction and feedback.
@@ -320,14 +331,16 @@ class PreferenceManagerExtended:
             "style_recommendation": None,
             "complexity_recommendation": None,
             "feature_recommendations": [],
-            "confidence": 0.0
+            "confidence": 0.0,
         }
 
         if profile.total_interactions < 5:
             return recommendations  # Not enough data
 
         # Analyze feedback ratio
-        total_feedback = profile.positive_feedback_count + profile.negative_feedback_count
+        total_feedback = (
+            profile.positive_feedback_count + profile.negative_feedback_count
+        )
         if total_feedback > 0:
             positive_ratio = profile.positive_feedback_count / total_feedback
 
@@ -335,12 +348,21 @@ class PreferenceManagerExtended:
             if positive_ratio > 0.75:
                 recommendations["confidence"] = positive_ratio
             # If mixed, suggest slight adjustments
-            elif positive_ratio < 0.4 and profile.communication.style == CommunicationStyle.DETAILED:
+            elif (
+                positive_ratio < 0.4
+                and profile.communication.style == CommunicationStyle.DETAILED
+            ):
                 recommendations["style_recommendation"] = CommunicationStyle.CONCISE
                 recommendations["confidence"] = 0.6
 
         # Recommend complexity based on commands used
-        expert_keywords = {"architecture", "optimization", "algorithm", "performance", "scale"}
+        expert_keywords = {
+            "architecture",
+            "optimization",
+            "algorithm",
+            "performance",
+            "scale",
+        }
         if profile.learned_keywords:
             overlap = len(expert_keywords & set(profile.learned_keywords))
             if overlap > 3:
@@ -350,10 +372,7 @@ class PreferenceManagerExtended:
         return recommendations
 
     def apply_preferences_to_response(
-        self,
-        user_id: str,
-        response: str,
-        content_type: str = "text"
+        self, user_id: str, response: str, content_type: str = "text"
     ) -> str:
         """
         Transform response to match user preferences.
@@ -394,18 +413,22 @@ class PreferenceManagerExtended:
 
     def _make_concise(self, text: str) -> str:
         """Remove verbose parts from text."""
-        lines = text.split('\n')
+        lines = text.split("\n")
         # Remove intro/outro lines about to explain
         filtered = [
-            line for line in lines
-            if not any(x in line.lower() for x in [
-                "let me explain",
-                "to clarify",
-                "in other words",
-                "essentially"
-            ])
+            line
+            for line in lines
+            if not any(
+                x in line.lower()
+                for x in [
+                    "let me explain",
+                    "to clarify",
+                    "in other words",
+                    "essentially",
+                ]
+            )
         ]
-        return '\n'.join(filtered)
+        return "\n".join(filtered)
 
     def _make_formal(self, text: str) -> str:
         """Make text more formal."""
@@ -461,7 +484,7 @@ class PreferenceManagerExtended:
         profiles = {}
         for profile_file in self.prefs_dir.glob("*.json"):
             try:
-                with open(profile_file, 'r', encoding='utf-8') as f:
+                with open(profile_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     profile = self._deserialize_profile(data)
                     profiles[profile.user_id] = profile
@@ -484,7 +507,9 @@ class PreferenceManagerExtended:
         profile = self.get_profile(user_id)
 
         if format == "json":
-            return json.dumps(asdict(profile), indent=2, ensure_ascii=False, cls=EnumEncoder)
+            return json.dumps(
+                asdict(profile), indent=2, ensure_ascii=False, cls=EnumEncoder
+            )
 
         elif format == "markdown":
             md = f"# Preference Profile: {user_id}\n\n"

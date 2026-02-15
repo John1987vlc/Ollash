@@ -5,11 +5,12 @@ Caches reusable code fragments (headers, boilerplate, standard structures)
 to avoid redundant LLM calls and improve generation speed.
 """
 
-import json
 import hashlib
-from pathlib import Path
-from typing import Dict, Optional, List
+import json
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
+
 from backend.utils.core.agent_logger import AgentLogger
 
 
@@ -34,7 +35,9 @@ class FragmentCache:
         "config_template": "Configuration file templates",
     }
 
-    def __init__(self, cache_dir: Path, logger: AgentLogger, enable_persistence: bool = True):
+    def __init__(
+        self, cache_dir: Path, logger: AgentLogger, enable_persistence: bool = True
+    ):
         """
         Initialize the fragment cache.
 
@@ -57,7 +60,9 @@ class FragmentCache:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             self._load_from_disk()
 
-    def _generate_cache_key(self, fragment_type: str, language: str, context_hash: str = "") -> str:
+    def _generate_cache_key(
+        self, fragment_type: str, language: str, context_hash: str = ""
+    ) -> str:
         """Generate a unique cache key for a fragment."""
         context_part = f":{context_hash}" if context_hash else ""
         return f"{fragment_type}:{language}{context_part}".lower()
@@ -67,11 +72,7 @@ class FragmentCache:
         return hashlib.md5(context.encode()).hexdigest()[:8]
 
     def get(
-        self,
-        fragment_type: str,
-        language: str,
-        context: str = "",
-        validate_fn=None
+        self, fragment_type: str, language: str, context: str = "", validate_fn=None
     ) -> Optional[str]:
         """
         Retrieve a cached fragment.
@@ -111,7 +112,7 @@ class FragmentCache:
         language: str,
         content: str,
         context: str = "",
-        metadata: Dict = None
+        metadata: Dict = None,
     ) -> None:
         """
         Store a fragment in the cache.
@@ -135,7 +136,7 @@ class FragmentCache:
             "hits": 0,
             "fragment_type": fragment_type,
             "language": language,
-            "metadata": metadata or {}
+            "metadata": metadata or {},
         }
 
         self.logger.debug(f"Fragment cached: {cache_key}")
@@ -143,11 +144,7 @@ class FragmentCache:
         if self.enable_persistence:
             self._save_to_disk()
 
-    def get_by_pattern(
-        self,
-        fragment_type: str,
-        language: str
-    ) -> List[str]:
+    def get_by_pattern(self, fragment_type: str, language: str) -> List[str]:
         """
         Get all cached fragments matching a pattern (ignoring context).
         Useful for finding variants of a fragment type.
@@ -175,7 +172,9 @@ class FragmentCache:
 
         total_fragments = len(self._memory_cache)
         total_hits = sum(f.get("hits", 0) for f in self._memory_cache.values())
-        fragment_types = set(f.get("fragment_type") for f in self._memory_cache.values())
+        fragment_types = set(
+            f.get("fragment_type") for f in self._memory_cache.values()
+        )
         languages = set(f.get("language") for f in self._memory_cache.values())
 
         return {
@@ -183,7 +182,9 @@ class FragmentCache:
             "total_hits": total_hits,
             "fragment_types": len(fragment_types),
             "languages": len(languages),
-            "avg_hits_per_fragment": total_hits / total_fragments if total_fragments > 0 else 0
+            "avg_hits_per_fragment": total_hits / total_fragments
+            if total_fragments > 0
+            else 0,
         }
 
     def _save_to_disk(self) -> None:
@@ -192,7 +193,7 @@ class FragmentCache:
             return
 
         try:
-            with open(self.cache_file, 'w', encoding='utf-8') as f:
+            with open(self.cache_file, "w", encoding="utf-8") as f:
                 json.dump(self._memory_cache, f, indent=2, default=str)
         except Exception as e:
             self.logger.warning(f"Failed to persist fragment cache: {e}")
@@ -203,9 +204,11 @@ class FragmentCache:
             return
 
         try:
-            with open(self.cache_file, 'r', encoding='utf-8') as f:
+            with open(self.cache_file, "r", encoding="utf-8") as f:
                 self._memory_cache = json.load(f)
-            self.logger.info(f"Loaded {len(self._memory_cache)} fragments from disk cache")
+            self.logger.info(
+                f"Loaded {len(self._memory_cache)} fragments from disk cache"
+            )
         except Exception as e:
             self.logger.warning(f"Failed to load fragment cache from disk: {e}")
             self._memory_cache = {}
@@ -232,31 +235,31 @@ class FragmentCache:
                 (
                     "license_header",
                     '"""\\nMIT License\\n\\nCopyright (c) 2026\\n\\nPermission is hereby granted...\\n"""\\n',
-                    {"license": "MIT", "language": "python"}
+                    {"license": "MIT", "language": "python"},
                 ),
                 (
                     "test_boilerplate",
                     '''import pytest\\nfrom unittest.mock import Mock, patch\\n\\n\\nclass Test{{ClassName}}:\\n    """Test suite for {{module_name}}."""\\n\\n    def setup_method(self):\\n        """Set up test fixtures."""\\n        pass\\n\\n    def teardown_method(self):\\n        """Clean up after tests."""\\n        pass\\n''',
-                    {"test_framework": "pytest"}
+                    {"test_framework": "pytest"},
                 ),
             ],
             "javascript": [
                 (
                     "license_header",
-                    '/**\\n * MIT License\\n * Copyright (c) 2026\\n */\\n',
-                    {"license": "MIT", "language": "javascript"}
+                    "/**\\n * MIT License\\n * Copyright (c) 2026\\n */\\n",
+                    {"license": "MIT", "language": "javascript"},
                 ),
                 (
                     "test_boilerplate",
-                    '''const assert = require('assert');\\n\\ndescribe('{{ClassName}}', () => {\\n  before(() => {\\n    // Setup\\n  });\\n\\n  it('should...', () => {\\n    assert.ok(true);\\n  });\\n});''',
-                    {"test_framework": "mocha"}
+                    """const assert = require('assert');\\n\\ndescribe('{{ClassName}}', () => {\\n  before(() => {\\n    // Setup\\n  });\\n\\n  it('should...', () => {\\n    assert.ok(true);\\n  });\\n});""",
+                    {"test_framework": "mocha"},
                 ),
             ],
             "go": [
                 (
                     "test_boilerplate",
-                    '''package {{package}}\\n\\nimport "testing"\\n\\nfunc Test{{FunctionName}}(t *testing.T) {\\n  // Test logic\\n}\\n''',
-                    {"test_framework": "testing"}
+                    """package {{package}}\\n\\nimport "testing"\\n\\nfunc Test{{FunctionName}}(t *testing.T) {\\n  // Test logic\\n}\\n""",
+                    {"test_framework": "testing"},
                 ),
             ],
         }

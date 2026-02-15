@@ -3,21 +3,16 @@ Phase 4: Comprehensive Test Suite
 Tests for FeedbackRefinementManager, SourceValidator, and RefinementOrchestrator
 """
 
-import pytest
 import tempfile
 
+import pytest
+
 from backend.utils.core.feedback_refinement_manager import (
-    FeedbackRefinementManager,
-    ParagraphContext,
-)
-from backend.utils.core.source_validator import (
-    SourceValidator,
-    ValidationResult,
-    ValidationIssue,
-)
-from backend.utils.core.refinement_orchestrator import (
-    RefinementOrchestrator,
-)
+    FeedbackRefinementManager, ParagraphContext)
+from backend.utils.core.refinement_orchestrator import RefinementOrchestrator
+from backend.utils.core.source_validator import (SourceValidator,
+                                                 ValidationIssue,
+                                                 ValidationResult)
 
 
 @pytest.fixture
@@ -77,8 +72,7 @@ class TestFeedbackRefinementManager:
 
         # Low readability threshold selects hard text
         selected = refinement_mgr.select_paragraphs_for_refinement(
-            paragraphs,
-            {"min_readability": 30}
+            paragraphs, {"min_readability": 30}
         )
 
         assert len(selected) >= 0
@@ -88,10 +82,7 @@ class TestFeedbackRefinementManager:
         text = "This is a very long sentence that goes on and on without proper punctuation and structure which makes it hard to read and understand what the author is trying to communicate to the reader."
 
         para = ParagraphContext(
-            index=0,
-            text=text,
-            original_text=text,
-            source_id="test"
+            index=0, text=text, original_text=text, source_id="test"
         )
 
         critique = refinement_mgr.generate_critique(para, "clarity")
@@ -178,7 +169,9 @@ class TestSourceValidator:
         original = "Use Azure Storage"
         refined = "Use AWS S3 instead"
 
-        result = source_validator.validate_refinement(original, refined, "src", "semantic")
+        result = source_validator.validate_refinement(
+            original, refined, "src", "semantic"
+        )
 
         # Should detect significant difference
         assert isinstance(result, ValidationResult)
@@ -201,9 +194,13 @@ class TestSourceValidator:
             is_valid=False,
             validation_score=40.0,
             issues=[
-                ValidationIssue("critical", "contradiction", "old", "new", "Critical issue 1"),
-                ValidationIssue("critical", "semantic_change", "old", "new", "Critical issue 2"),
-            ]
+                ValidationIssue(
+                    "critical", "contradiction", "old", "new", "Critical issue 1"
+                ),
+                ValidationIssue(
+                    "critical", "semantic_change", "old", "new", "Critical issue 2"
+                ),
+            ],
         )
 
         should_rollback = source_validator.suggest_rollback(result)
@@ -233,7 +230,7 @@ class TestRefinementOrchestrator:
             workflow_id="wf1",
             source_id="src1",
             document_text=text,
-            strategy="comprehensive"
+            strategy="comprehensive",
         )
 
         assert workflow.workflow_id == "wf1"
@@ -266,8 +263,7 @@ class TestRefinementOrchestrator:
         workflow = orchestrator.create_workflow("wf_refine", "src", text)
 
         results = orchestrator.refine_workflow(
-            workflow_id="wf_refine",
-            strategy_name="quick_polish"
+            workflow_id="wf_refine", strategy_name="quick_polish"
         )
 
         assert results["workflow_id"] == "wf_refine"
@@ -300,7 +296,7 @@ class TestRefinementOrchestrator:
         wf = orchestrator.create_workflow("wf_export", "src", text)
         wf.refinements_applied = [
             {"refinement": "Refined para 1"},
-            {"refinement": "Refined para 2"}
+            {"refinement": "Refined para 2"},
         ]
 
         exported = orchestrator.export_workflow_document("wf_export", "text")
@@ -337,14 +333,16 @@ class TestRefinementIntegration:
 
     def test_full_refinement_workflow(self, orchestrator):
         """Test a complete refinement workflow from start to finish"""
-        source_text = "The implementation uses complex technologies with many considerations."
+        source_text = (
+            "The implementation uses complex technologies with many considerations."
+        )
 
         # Create workflow
         wf = orchestrator.create_workflow(
             workflow_id="integration_test",
             source_id="src_integration",
             document_text=source_text,
-            strategy="comprehensive"
+            strategy="comprehensive",
         )
 
         assert wf.status == "created"
@@ -366,9 +364,7 @@ class TestRefinementIntegration:
         source_validator.register_source("validation_src", "Source content here")
 
         wf = orchestrator.create_workflow(
-            "validation_test",
-            "validation_src",
-            "Source content here with more"
+            "validation_test", "validation_src", "Source content here with more"
         )
 
         results = orchestrator.refine_workflow("validation_test")

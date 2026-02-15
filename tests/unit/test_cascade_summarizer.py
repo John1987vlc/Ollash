@@ -3,12 +3,13 @@ Unit Tests for CascadeSummarizer
 Tests Map-Reduce summarization pipeline
 """
 
-import pytest
 from unittest.mock import Mock
 
+import pytest
+
+from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.cascade_summarizer import CascadeSummarizer
 from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.core.agent_logger import AgentLogger
 
 
 @pytest.fixture
@@ -36,7 +37,7 @@ def summarizer(ollama_client, logger):
     return CascadeSummarizer(
         ollama_client=ollama_client,
         logger=logger,
-        config={"cascade_chunk_size": 100, "cascade_overlap": 20}
+        config={"cascade_chunk_size": 100, "cascade_overlap": 20},
     )
 
 
@@ -124,7 +125,7 @@ class TestCascadeSummarizer:
         chunk_summaries = {
             0: "First section summary",
             1: "Second section summary",
-            2: "Third section summary"
+            2: "Third section summary",
         }
 
         result = summarizer.reduce_phase(chunk_summaries, title="Test Document")
@@ -173,7 +174,7 @@ class TestCascadeSummarizer:
 
     def test_cascade_summarize_compression_ratio(self, summarizer, ollama_client):
         """Test compression ratio calculation"""
-        ollama_client.call_ollama_api.return_value = "M"*50  # Short fixed response
+        ollama_client.call_ollama_api.return_value = "M" * 50  # Short fixed response
         text = " ".join([f"w{i}" for i in range(300)])
 
         result = summarizer.cascade_summarize(text)
@@ -197,4 +198,3 @@ class TestCascadeSummarizer:
 
         # Should return result (logging verification removed)
         assert result is not None or isinstance(result, (str, type(None)))
-

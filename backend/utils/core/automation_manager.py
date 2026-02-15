@@ -4,18 +4,19 @@ Manages task scheduling and execution with notification integration
 """
 
 import json
-import threading
 import logging
-from pathlib import Path
-from typing import Optional, Dict, Any, Callable, List
+import threading
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from backend.core.kernel import AgentKernel  # Import AgentKernel
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.event_publisher import EventPublisher
-from backend.core.kernel import AgentKernel # Import AgentKernel
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,12 @@ logger = logging.getLogger(__name__)
 class AutomationManager:
     """Manages scheduled automation tasks and their execution."""
 
-    def __init__(self, ollash_root_dir: Path, event_publisher: EventPublisher, agent_logger: AgentLogger):
+    def __init__(
+        self,
+        ollash_root_dir: Path,
+        event_publisher: EventPublisher,
+        agent_logger: AgentLogger,
+    ):
         """
         Initialize the automation manager.
 
@@ -53,7 +59,9 @@ class AutomationManager:
 
         try:
             config_data = json.loads(self.config_path.read_text())
-            self.tasks = {task["task_id"]: task for task in config_data.get("tasks", [])}
+            self.tasks = {
+                task["task_id"]: task for task in config_data.get("tasks", [])
+            }
             self.logger.info(f"✅ Loaded {len(self.tasks)} automation tasks")
             return self.tasks
         except Exception as e:
@@ -89,10 +97,13 @@ class AutomationManager:
             self.logger.info("✅ Automation manager started successfully")
 
             # Publish startup event
-            self.event_publisher.publish("automation_started", {
-                "timestamp": datetime.now().isoformat(),
-                "tasks_count": len(self.tasks)
-            })
+            self.event_publisher.publish(
+                "automation_started",
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "tasks_count": len(self.tasks),
+                },
+            )
         except Exception as e:
             self.logger.error(f"❌ Failed to start automation manager: {e}")
             self.running = False
@@ -147,11 +158,13 @@ class AutomationManager:
                     name=task.get("name", task_id),
                     replace_existing=True,
                     coalesce=True,
-                    max_instances=1
+                    max_instances=1,
                 )
 
                 human_readable = schedule_config.get("human_readable", "")
-                self.logger.info(f"📅 Scheduled task '{task.get('name')}' - {human_readable}")
+                self.logger.info(
+                    f"📅 Scheduled task '{task.get('name')}' - {human_readable}"
+                )
 
         except Exception as e:
             self.logger.error(f"❌ Failed to schedule task {task_id}: {e}")
@@ -171,7 +184,9 @@ class AutomationManager:
             if "check_tool" in task:
                 result = self._check_threshold(task)
                 if not result.get("should_proceed", True):
-                    self.logger.info(f"Task {task_id} threshold check: no action needed")
+                    self.logger.info(
+                        f"Task {task_id} threshold check: no action needed"
+                    )
                     return
 
             # Execute the registered callback if it exists
@@ -198,17 +213,25 @@ class AutomationManager:
 
         # This would be called by the executing agent to check thresholds
         # For now, return allow-to-proceed
-        return {"should_proceed": True, "check_tool": check_tool, "params": check_params}
+        return {
+            "should_proceed": True,
+            "check_tool": check_tool,
+            "params": check_params,
+        }
 
-    def _publish_task_event(self, task_id: str, task: Dict[str, Any],
-                           event_type: str, details: Any = None):
+    def _publish_task_event(
+        self, task_id: str, task: Dict[str, Any], event_type: str, details: Any = None
+    ):
         """Publish a task execution event."""
-        self.event_publisher.publish(f"task_{event_type}", {
-            "task_id": task_id,
-            "task_name": task.get("name"),
-            "timestamp": datetime.now().isoformat(),
-            "details": details
-        })
+        self.event_publisher.publish(
+            f"task_{event_type}",
+            {
+                "task_id": task_id,
+                "task_name": task.get("name"),
+                "timestamp": datetime.now().isoformat(),
+                "details": details,
+            },
+        )
 
     def reload_tasks(self):
         """Reload tasks from configuration file."""
@@ -261,7 +284,7 @@ class AutomationManager:
         try:
             config_data = {
                 "tasks": list(self.tasks.values()),
-                "last_updated": datetime.now().isoformat()
+                "last_updated": datetime.now().isoformat(),
             }
             self.config_path.write_text(json.dumps(config_data, indent=2))
         except Exception as e:
@@ -272,8 +295,9 @@ class AutomationManager:
 _automation_manager: Optional[AutomationManager] = None
 
 
-def get_automation_manager(ollash_root_dir: Path = None,
-                          event_publisher: EventPublisher = None) -> AutomationManager:
+def get_automation_manager(
+    ollash_root_dir: Path = None, event_publisher: EventPublisher = None
+) -> AutomationManager:
     """Get or create the automation manager singleton."""
     global _automation_manager
 
@@ -287,7 +311,8 @@ def get_automation_manager(ollash_root_dir: Path = None,
         # AgentKernel needs ollash_root_dir to initialize if it hasn't already been.
         kernel_logger = AgentKernel(ollash_root_dir=ollash_root_dir).get_logger()
 
-        _automation_manager = AutomationManager(ollash_root_dir, event_publisher, kernel_logger)
+        _automation_manager = AutomationManager(
+            ollash_root_dir, event_publisher, kernel_logger
+        )
 
     return _automation_manager
-
