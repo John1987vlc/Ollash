@@ -47,15 +47,15 @@ class CybersecurityTools:
                  return {"ok": False, "result": {"host": host, "error": "Full port scan not supported on Windows without external tools like Nmap."}}
         else: # Linux or macOS (nmap)
             if common_ports_only:
-                command = f"nmap -p {ports_to_scan} {host}" 
+                command = f"nmap -p {ports_to_scan} {host}"
             else:
                 command = f"nmap {host}" # Full scan using nmap
-        
+
         if not command:
             return {"ok": False, "result": {"host": host, "error": "Port scanning not implemented for this OS or common_ports_only setting without Nmap."}}
 
         result = self.exec.execute(command, timeout=180) # Longer timeout for scans
-        
+
         parsed_output = {"host": host, "ports": [], "raw_output": result.stdout}
 
         if result.success:
@@ -70,7 +70,7 @@ class CybersecurityTools:
                         port_num = res.get("Port")
                         if not port_num and res.get("remotePort"): # If Detailed, Port might be remotePort
                             port_num = res.get("remotePort")
-                        
+
                         parsed_output["ports"].append({
                             "port": port_num,
                             "status": port_status,
@@ -87,7 +87,7 @@ class CybersecurityTools:
                         continue
                     if not port_section_started or not line.strip():
                         continue
-                    
+
                     # Example Nmap line: 22/tcp   open  ssh
                     match = re.match(r"(\d+)/([a-z]+)\s+(\S+)\s+(.*)", line)
                     if match:
@@ -135,7 +135,7 @@ class CybersecurityTools:
             with open(full_path, 'rb') as f:
                 while chunk := f.read(8192): # Read in 8KB chunks
                     hasher.update(chunk)
-            
+
             file_hash = hasher.hexdigest()
             self.logger.info(f"✅ Hash for {path} ({algorithm}): {file_hash}")
             return {"ok": True, "result": {"path": path, "algorithm": algorithm, "hash": file_hash}}
@@ -174,7 +174,7 @@ class CybersecurityTools:
             full_path = self.files.root / path
             if not full_path.exists():
                 return {"ok": False, "result": {"path": path, "error": "Log file not found."}}
-            
+
             log_content = full_path.read_text(encoding="utf-8", errors="ignore")
             found_entries = []
             status = "no_anomalies_found"
@@ -191,18 +191,18 @@ class CybersecurityTools:
                         })
                         status = "anomalies_found"
                         # Only report first match of a keyword per line
-                        break 
-            
+                        break
+
             if found_entries:
                 self.logger.warning(f"⚠️ Potential security events found in {path}. Matches: {len(found_entries)}")
             else:
                 self.logger.info(f"✅ No immediate security concerns found in {path}.")
-            
+
             return {
-                "ok": True, 
+                "ok": True,
                 "result": {
-                    "path": path, 
-                    "status": status, 
+                    "path": path,
+                    "status": status,
                     "matched_keywords": keywords,
                     "analysis_summary": f"Found {len(found_entries)} potential security events.",
                     "events": found_entries

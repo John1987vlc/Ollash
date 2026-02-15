@@ -58,17 +58,17 @@ def create_app(ollash_root_dir: Path = None) -> Flask:
         automation_manager = get_automation_manager(ollash_root_dir, event_publisher)
         notification_manager = get_notification_manager()
         alert_manager = get_alert_manager(notification_manager, event_publisher)
-        
+
         # Store in app config for blueprints to access
         app.config['automation_manager'] = automation_manager
         app.config['notification_manager'] = notification_manager
         app.config['alert_manager'] = alert_manager
         app.config['event_publisher'] = event_publisher
-        
+
         # Start the automation manager
         automation_manager.start()
         logger.info("✅ Automation Manager and core services started")
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize core automation/alert system: {e}", exc_info=True)
         # If core systems fail, it might be better to exit, but for now we'll log and continue

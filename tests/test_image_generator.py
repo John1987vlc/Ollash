@@ -7,21 +7,21 @@ from dotenv import load_dotenv # Import load_dotenv
 
 async def main():
     load_dotenv() # Load environment variables from .env
-    
+
     log_file = Path("test_image_generator.log")
     structured_logger = StructuredLogger(log_file)
     logger = AgentLogger(structured_logger)
-    
+
     generator = ImageGeneratorTools(logger=logger)
-    
+
     print("Generating a test image...")
     result = await generator.generate_image(prompt="a photo of a cat sitting on a table")
-    
+
     if result['ok']:
         print(f"Image generated successfully: {result['path']}")
     else:
         print(f"Image generation failed: {result['error']}")
-        
+
     await generator.close_session()
 
 if __name__ == "__main__":

@@ -55,11 +55,11 @@ class CommandExecutor:
             if self.logger:
                 self.logger.error("CommandExecutor is in sandboxed mode but no PolicyManager is configured. Denying all commands for safety.")
             return False # Always deny if in sandbox and no policy manager
-        
+
         # Extract base command and args for PolicyManager
         base_cmd: str
         args: List[str]
-        
+
         if isinstance(command, str):
             if os.name == 'nt' and command.strip().lower().startswith("powershell"):
                 # For PowerShell, the entire command string is the 'command', subsequent parts are args to it
@@ -86,12 +86,12 @@ class CommandExecutor:
         Returns (is_valid, suggested_correction, error_message).
         """
         command_str = shlex.join(command) if isinstance(command, list) else command
-        
+
         # Basic typo correction
         if command_str.strip().startswith("pyton "):
             suggested = command_str.replace("pyton", "python", 1)
             return False, suggested, "Typo detected: 'pyton' should be 'python'."
-        
+
         # Python syntax check using py_compile
         if command_str.strip().startswith("python "):
             parts = shlex.split(command_str)
@@ -102,7 +102,7 @@ class CommandExecutor:
                         py_compile.compile(str(script_path), doraise=True)
                     except py_compile.PyCompileError as e:
                         return False, None, f"Python syntax error in '{script_path}': {e}"
-        
+
         return True, None, None
 
     def execute(self, command: str | List[str], timeout: int = 60, dir_path: Optional[str] = None) -> ExecutionResult:
@@ -239,9 +239,9 @@ except Exception as e:
         # Ensure target_dir is absolute and within the project root for mounting
         if not target_dir.is_absolute():
             target_dir = Path(self.working_dir) / target_dir
-        
+
         # Use a generic Python image for now; could be made dynamic
-        image_name = "python:3.9-slim-buster" 
+        image_name = "python:3.9-slim-buster"
         try:
             self._pull_image_if_not_exists(image_name)
 
@@ -251,12 +251,12 @@ except Exception as e:
                 command_list = shlex.split(command)
             else:
                 command_list = command
-            
+
             # Mount the project root into the container
             # Make sure the container's working directory matches the mounted host directory
             mount_path = "/app"
             bind_mount = f"{self.working_dir}:{mount_path}"
-            
+
             # Use exec_run on a temporary container to mimic subprocess.run
             # This is simpler than run() for single commands and easier cleanup
             container = self.docker_client.containers.run(
@@ -280,7 +280,7 @@ except Exception as e:
                 user="root", # Run as root to avoid permission issues with mounted volumes
                 workdir=str(container_workdir) # Set working dir inside container
             )
-            
+
             stdout_output = output[0].decode('utf-8') if output[0] else ""
             stderr_output = output[1].decode('utf-8') if output[1] else ""
 
@@ -310,7 +310,7 @@ except Exception as e:
             stderr_msg = f"Unexpected Docker execution error: {e}"
             self.logger.error(stderr_msg)
             return ExecutionResult(False, "", stderr_msg, 1, command)
-    
+
     def get_python_packages(self) -> List[str]:
         """Lista paquetes Python instalados."""
         result = self.execute("pip list --format=freeze")

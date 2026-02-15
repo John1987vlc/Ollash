@@ -20,7 +20,7 @@ class ReadmeGenerationPhase(IAgentPhase):
                       initial_structure: Dict[str, Any],
                       generated_files: Dict[str, str],
                       **kwargs: Any) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        
+
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1: Generating README.md...")
         self.context.event_publisher.publish("phase_start", phase="1", message="Generating README.md")
 
@@ -33,11 +33,11 @@ class ReadmeGenerationPhase(IAgentPhase):
         readme = self.context.project_planner.generate_readme(
             project_description, template_name, python_version, license_type, include_docker
         )
-        
+
         readme_file_path = "README.md"
         generated_files[readme_file_path] = readme
         self.context.file_manager.write_file(project_root / readme_file_path, readme) # Use file_manager
-        
+
         self.context.event_publisher.publish("phase_complete", phase="1", message="README generated")
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1 complete.")
 

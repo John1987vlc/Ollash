@@ -28,7 +28,7 @@ class CommandLineTools:
                 self.logger.info(f"📤 Output: {preview}")
                 if len(r.stdout) > 200:
                     self.logger.info("... (truncated)")
-            
+
             return {"ok": r.success, "stdout": r.stdout[:500], "stderr": r.stderr[:500]}
         except Exception as e:
             self.logger.error(f"Command execution error: {e}", e)
@@ -81,13 +81,13 @@ class CommandLineTools:
         try:
             tests = self.exec.execute("pytest -q", timeout=120)
             lint = self.exec.execute("ruff .", timeout=60) # Assuming 'ruff' is available for linting
-            
+
             test_icon = "✅" if tests.success else "❌"
             lint_icon = "✅" if lint.success else "❌"
-            
+
             self.logger.info(f"  Tests: {test_icon}")
             self.logger.info(f"  Lint: {lint_icon}")
-            
+
             return {"tests_ok": tests.success, "lint_ok": lint.success}
         except Exception as e:
             self.logger.error(f"Validation error: {e}", e)

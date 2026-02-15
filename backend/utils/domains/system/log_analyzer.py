@@ -51,7 +51,7 @@ class LogAnalyzer:
                     elif "WARNING" in line:
                         results["warning_count"] += 1
                         results["warnings"].append(line.strip())
-            
+
             self.logger.info(f"Analyzed log file {file_path}: {results['error_count']} errors, {results['warning_count']} warnings.")
             return {"status": "ok", "results": results}
         except Exception as e:

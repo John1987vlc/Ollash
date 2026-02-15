@@ -16,7 +16,7 @@ class LogicPlanningPhase(IAgentPhase):
     - Key functions/classes to implement
     - Dependencies and interactions
     - Validation criteria
-    
+
     This plan is then used by FileContentGenerationPhase to generate accurate content.
     """
     def __init__(self, context: PhaseContext):
@@ -30,24 +30,24 @@ class LogicPlanningPhase(IAgentPhase):
                       initial_structure: Dict[str, Any],
                       generated_files: Dict[str, str],
                       **kwargs: Any) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        
+
         file_paths = kwargs.get("file_paths", [])
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5: Creating detailed logic plans for {len(file_paths)} files...")
         self.context.event_publisher.publish("phase_start", phase="2.5", message="Creating logic implementation plans")
 
         logic_plan = {}
-        
+
         # Group files by type/purpose
         files_by_category = self._categorize_files(file_paths)
-        
+
         for category, files in files_by_category.items():
             self.context.logger.info(f"  Planning {category}: {len(files)} files")
-            
+
             # Generate a plan for this category
             category_plan = await self._plan_category(
                 category, files, project_description, readme_content, initial_structure
             )
-            
+
             for file_path, plan in category_plan.items():
                 logic_plan[file_path] = plan
 
@@ -55,12 +55,12 @@ class LogicPlanningPhase(IAgentPhase):
         plan_file = project_root / "IMPLEMENTATION_PLAN.json"
         self.context.file_manager.write_file(plan_file, json.dumps(logic_plan, indent=2))
         generated_files["IMPLEMENTATION_PLAN.json"] = json.dumps(logic_plan, indent=2)
-        
+
         # Store in context for FileContentGenerationPhase to use
         self.context.logic_plan = logic_plan
-        
+
         self.context.event_publisher.publish(
-            "phase_complete", phase="2.5", 
+            "phase_complete", phase="2.5",
             message=f"Logic plan created for {len(logic_plan)} files"
         )
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5 complete: Plans created for {len(logic_plan)} files")
@@ -78,7 +78,7 @@ class LogicPlanningPhase(IAgentPhase):
             "web": [],
             "other": [],
         }
-        
+
         for file_path in file_paths:
             if any(x in file_path for x in ["config", "settings", "env"]):
                 categories["config"].append(file_path)
@@ -94,15 +94,15 @@ class LogicPlanningPhase(IAgentPhase):
                 categories["main"].append(file_path)
             else:
                 categories["other"].append(file_path)
-        
+
         # Remove empty categories
         return {k: v for k, v in categories.items() if v}
 
-    async def _plan_category(self, category: str, files: List[str], 
+    async def _plan_category(self, category: str, files: List[str],
                             project_description: str, readme_content: str,
                             initial_structure: Dict[str, Any]) -> Dict[str, Dict]:
         """Create detailed plans for files in a category."""
-        
+
         category_context = f"""
 ## Project Context
 Description: {project_description}
@@ -135,14 +135,14 @@ Format the response as JSON with file paths as keys.
                 ],
                 options_override={"temperature": 0.5},  # Correctly pass temperature
             )
-            
+
             # Parse the response
             response_text = response_data.get("content", "")
-            
+
             # Try to extract JSON from response
             import json
             import re
-            
+
             # Look for JSON block
             json_match = re.search(r'\{[\s\S]*\}', response_text)
             if json_match:
@@ -150,9 +150,9 @@ Format the response as JSON with file paths as keys.
             else:
                 # Fallback: create basic plans for each file
                 plans = self._create_basic_plans(files, category)
-            
+
             return plans
-            
+
         except Exception as e:
             self.context.logger.error(f"Error planning category {category}: {e}")
             # Return basic plans as fallback
@@ -161,11 +161,10 @@ Format the response as JSON with file paths as keys.
     def _create_basic_plans(self, files: List[str], category: str) -> Dict[str, Dict]:
         """Create basic fallback plans when LLM planning fails."""
         plans = {}
-        
+
         for file_path in files:
-            basename = Path(file_path).name
             ext = Path(file_path).suffix
-            
+
             # Basic plan based on file type
             if category == "config":
                 purpose = "Configuration and settings"
@@ -192,7 +191,7 @@ Format the response as JSON with file paths as keys.
             else:
                 purpose = "Core functionality"
                 exports = ["Main functions/classes"]
-            
+
             plans[file_path] = {
                 "purpose": purpose,
                 "exports": exports,
@@ -201,5 +200,5 @@ Format the response as JSON with file paths as keys.
                 "validation": ["Code should execute without errors"],
                 "dependencies": [],
             }
-        
+
         return plans

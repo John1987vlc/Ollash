@@ -53,7 +53,7 @@ class TypescriptValidator(BaseValidator):
 
         eslint_cmd = ["eslint", "--no-eslintrc", "--parser-options=ecmaVersion:2021,sourceType:module,project:./tsconfig.json", "--ext=.ts,.tsx", "--format=compact"]
         eslint_error_pattern = re.compile(r'^(.*?): line (\d+), col (\d+), (Error|Warning) - (.*)$')
-        
+
         eslint_result = self._run_linter_command(
             file_path, content, eslint_cmd, "eslint (TypeScript) OK", lines, chars,
             error_pattern=eslint_error_pattern, line_col_group_indices=(2, 3)

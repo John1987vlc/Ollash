@@ -21,12 +21,12 @@ class ContentCompletenessPhase(IAgentPhase):
                       initial_structure: Dict[str, Any],
                       generated_files: Dict[str, str], # Files to be checked and completed
                       **kwargs: Any) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        
+
         file_paths = kwargs.get("file_paths", []) # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 7.5: Checking content completeness (placeholder detection)...")
         self.context.event_publisher.publish("phase_start", phase="7.5", message="Checking content completeness")
-        
+
         incomplete_files = []
         for rel_path, content in generated_files.items():
             if not content:

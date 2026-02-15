@@ -34,14 +34,14 @@ class GlobalGPUResourceTracker:
 
         self._initialized = True
         self._state_lock = threading.RLock()
-        
+
         # GPU state
         self._estimated_gpu_memory_mb = 8000  # Default for typical GPUs
         self._used_gpu_memory_mb = 0
         self._max_concurrent_requests = 3  # Max parallel inferences
         self._active_requests = 0
         self._request_queue = deque()
-        
+
         # Token tracking across all agents
         self._tokens_per_minute_global = 0
         self._tokens_check_timestamp = time.time()
@@ -53,16 +53,16 @@ class GlobalGPUResourceTracker:
         timeout_seconds: float = 30.0,
     ) -> bool:
         """Attempt to acquire a GPU inference slot.
-        
+
         Args:
             estimated_memory_mb: Estimated memory for this inference
             timeout_seconds: Max time to wait for availability
-            
+
         Returns:
             True if slot acquired, False if timeout
         """
         start_time = time.time()
-        
+
         while time.time() - start_time < timeout_seconds:
             with self._state_lock:
                 if (
@@ -73,10 +73,10 @@ class GlobalGPUResourceTracker:
                     self._active_requests += 1
                     self._used_gpu_memory_mb += estimated_memory_mb
                     return True
-            
+
             # Wait before retrying
             time.sleep(0.5)
-        
+
         return False  # Timeout
 
     def release_gpu_slot(self, memory_mb: int):
@@ -131,11 +131,11 @@ class ConcurrentGPUAwareRateLimiter:
         self.rpm = requests_per_minute
         self.tpm = tokens_per_minute
         self.gpu_aware = gpu_aware
-        
+
         self._lock = threading.RLock()
         self._request_timestamps = deque()
         self._token_usage = deque()
-        
+
         # Global GPU tracker (shared across all rate limiters)
         self._gpu_tracker = GlobalGPUResourceTracker() if gpu_aware else None
 
@@ -145,11 +145,11 @@ class ConcurrentGPUAwareRateLimiter:
         estimated_gpu_memory_mb: int = 500,
     ) -> bool:
         """Block until request is allowed under rate limits.
-        
+
         Args:
             estimated_tokens: Estimated tokens for this request
             estimated_gpu_memory_mb: Estimated GPU memory needed
-            
+
         Returns:
             True if wait succeeded, False if resource not available
         """
@@ -187,13 +187,13 @@ class ConcurrentGPUAwareRateLimiter:
                         f"GPU resources unavailable: {estimated_gpu_memory_mb}MB requested"
                     )
                     return False
-                
+
                 # Record for later release
                 self._last_gpu_memory = estimated_gpu_memory_mb
 
             self._request_timestamps.append(now)
             self._token_usage.append((now, estimated_tokens))
-            
+
             if self.gpu_aware and self._gpu_tracker:
                 status = self._gpu_tracker.get_gpu_status()
                 self.logger.debug(f"GPU status after request: {status}")
@@ -211,7 +211,7 @@ class ConcurrentGPUAwareRateLimiter:
             now = time.time()
             active_requests = sum(1 for ts in self._request_timestamps if now - ts < 60)
             active_tokens = sum(tokens for ts, tokens in self._token_usage if now - ts < 60)
-            
+
             status = {
                 "requests_per_minute": active_requests,
                 "max_rpm": self.rpm,
@@ -220,10 +220,10 @@ class ConcurrentGPUAwareRateLimiter:
                 "rpm_utilization_percent": 100 * active_requests / self.rpm,
                 "tpm_utilization_percent": 100 * active_tokens / self.tpm,
             }
-            
+
             if self.gpu_aware and self._gpu_tracker:
                 status["gpu"] = self._gpu_tracker.get_gpu_status()
-            
+
             return status
 
 

@@ -21,7 +21,7 @@ def mock_chromadb_client(mocker):
     # Mock the Client and PersistentClient to prevent them from doing anything real
     mocker.patch("chromadb.Client")
     mocker.patch("chromadb.PersistentClient")
-    
+
     # Crucially, ensure ChromaDB's internal singleton tracking is always reset.
     # This prevents the "An instance of Chroma already exists" error.
     try:
@@ -37,7 +37,7 @@ def temp_project_root(tmp_path: Path) -> Path:
     project_root = tmp_path / "ollash_test_project"
     project_root.mkdir()
     (project_root / ".ollash" / "logs").mkdir(parents=True)
-    
+
     # Create dummy prompts so the agent can initialize
     prompts_dir = project_root / "prompts"
     for agent_type in ["orchestrator", "code", "network", "system", "cybersecurity"]:
@@ -46,10 +46,10 @@ def temp_project_root(tmp_path: Path) -> Path:
         fname = f"default_{agent_type}.json"
         if agent_type == "code":
             fname = "default_agent.json"
-        
+
         with open(agent_prompts_dir / fname, "w") as f:
             json.dump({"system_prompt": f"Test prompt for {agent_type}."}, f)
-            
+
     return project_root
 
 @pytest.fixture(scope="function")
@@ -87,12 +87,11 @@ def default_agent(monkeypatch, temp_project_root: Path) -> DefaultAgent:
     reload_config()
 
     # Reset AgentKernel singleton to force it to reload its config
-    from backend.core.kernel import AgentKernel
     AgentKernel._instance = None
     AgentKernel._config = None
 
     # Create fresh instances for the test
     kernel = AgentKernel(ollash_root_dir=temp_project_root)
     agent = DefaultAgent(kernel=kernel, project_root=str(temp_project_root))
-    
+
     return agent

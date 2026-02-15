@@ -17,7 +17,7 @@ def get_automations():
         automation_manager = current_app.config.get('automation_manager')
         if not automation_manager:
             return jsonify({"ok": False, "error": "Automation manager not initialized"}), 500
-        
+
         tasks = automation_manager.get_tasks()
         return jsonify({
             "ok": True,
@@ -36,11 +36,11 @@ def get_automation(task_id):
         automation_manager = current_app.config.get('automation_manager')
         if not automation_manager:
             return jsonify({"ok": False, "error": "Automation manager not initialized"}), 500
-        
+
         task = automation_manager.get_task(task_id)
         if not task:
             return jsonify({"ok": False, "error": f"Task {task_id} not found"}), 404
-        
+
         return jsonify({
             "ok": True,
             "task": task
@@ -57,10 +57,10 @@ def update_automation(task_id):
         automation_manager = current_app.config.get('automation_manager')
         if not automation_manager:
             return jsonify({"ok": False, "error": "Automation manager not initialized"}), 500
-        
+
         data = request.get_json()
         success = automation_manager.update_task(task_id, data)
-        
+
         if success:
             return jsonify({
                 "ok": True,
@@ -81,15 +81,15 @@ def toggle_automation(task_id):
         automation_manager = current_app.config.get('automation_manager')
         if not automation_manager:
             return jsonify({"ok": False, "error": "Automation manager not initialized"}), 500
-        
+
         task = automation_manager.get_task(task_id)
         if not task:
             return jsonify({"ok": False, "error": f"Task {task_id} not found"}), 404
-        
+
         # Toggle enabled state
         new_enabled = not task.get("enabled", True)
         success = automation_manager.update_task(task_id, {"enabled": new_enabled})
-        
+
         if success:
             return jsonify({
                 "ok": True,
@@ -110,14 +110,14 @@ def run_automation_now(task_id):
         automation_manager = current_app.config.get('automation_manager')
         if not automation_manager:
             return jsonify({"ok": False, "error": "Automation manager not initialized"}), 500
-        
+
         task = automation_manager.get_task(task_id)
         if not task:
             return jsonify({"ok": False, "error": f"Task {task_id} not found"}), 404
-        
+
         # Execute task immediately through the wrapper
         automation_manager._execute_task_wrapper(task_id, task)
-        
+
         return jsonify({
             "ok": True,
             "message": f"Task {task_id} execution started"
@@ -134,23 +134,23 @@ def delete_automation(task_id):
         automation_manager = current_app.config.get('automation_manager')
         if not automation_manager:
             return jsonify({"ok": False, "error": "Automation manager not initialized"}), 500
-        
+
         task = automation_manager.get_task(task_id)
         if not task:
             return jsonify({"ok": False, "error": f"Task {task_id} not found"}), 404
-        
+
         # Remove from tasks dict
         automation_manager.tasks.pop(task_id, None)
-        
+
         # Remove from scheduler if running
         if automation_manager.scheduler and automation_manager.scheduler.running:
             job = automation_manager.scheduler.get_job(task_id)
             if job:
                 job.remove()
-        
+
         # Save updated tasks
         automation_manager._save_tasks()
-        
+
         return jsonify({
             "ok": True,
             "message": f"Task {task_id} deleted"
@@ -167,9 +167,9 @@ def reload_automations():
         automation_manager = current_app.config.get('automation_manager')
         if not automation_manager:
             return jsonify({"ok": False, "error": "Automation manager not initialized"}), 500
-        
+
         automation_manager.reload_tasks()
-        
+
         return jsonify({
             "ok": True,
             "message": "Automations reloaded",
@@ -183,7 +183,7 @@ def reload_automations():
 def init_app(ollash_root_dir: Path, event_publisher=None):
     """Initialize automations blueprint with required dependencies."""
     logger.info("Initializing automations blueprint")
-    
+
     # This will be completed when registering the blueprint
 
 

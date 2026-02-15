@@ -21,7 +21,7 @@ class IntentRoutingMixin(ABC):
         # This is a placeholder for actual intent classification logic.
         # In a real scenario, this would involve an LLM call specifically
         # tasked with classifying intent, or a rule-based system.
-        
+
         # For demonstration, we'll use a very simple heuristic or default.
         # The actual implementation might use the 'orchestration' model or 'generalist'
         # model provided by the llm_manager to classify intent.
@@ -39,14 +39,14 @@ class IntentRoutingMixin(ABC):
 
 Classify the intent:"""}
                 ]
-                
-                response, _ = await orchestration_client.achat(messages, tools=[]) 
-                
+
+                response, _ = await orchestration_client.achat(messages, tools=[])
+
                 # Extract intent from the response. The LLM is instructed to return only the intent string.
                 # Use .strip() to remove leading/trailing whitespace, and .lower() for case-insensitivity.
                 if response and response.get("message") and response["message"].get("content"):
                     classified_intent = response["message"]["content"].strip().lower()
-                    
+
                     # Validate if the classified intent is one of the expected intents
                     valid_intents = ['code', 'network', 'system', 'cybersecurity', 'planning', 'general', 'prototyping', 'testing', 'reviewing', 'analysing', 'writing']
                     if classified_intent in valid_intents:
@@ -85,14 +85,14 @@ Classify the intent:"""}
             "writing": "writer",
             "default": "default"
         })
-        
+
         model_role = model_role_map.get(intent, "default")
         client = self.llm_manager.get_client(model_role)
-        
+
         if not client:
             self.logger.warning(f"LLM client for role '{model_role}' (intent: '{intent}') not found. Falling back to 'default'.")
             client = self.llm_manager.get_client("default")
-            
+
         if not client:
             self.logger.error("Default LLM client also not available. Agent cannot function without an LLM.")
             raise RuntimeError("No LLM client available for processing request.")

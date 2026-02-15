@@ -47,24 +47,24 @@ class BonusTools:
         Performs a basic keyword-based sentiment analysis.
         """
         self.logger.info(f"Analyzing sentiment for text: '{text[:50]}...'")
-        
+
         positive_keywords = ["good", "great", "excellent", "happy", "love", "positive", "awesome", "fantastic", "amazing"]
         negative_keywords = ["bad", "poor", "terrible", "unhappy", "hate", "negative", "awful", "horrible", "frustrating"]
-        
+
         text_lower = text.lower()
         positive_score = sum(text_lower.count(keyword) for keyword in positive_keywords)
         negative_score = sum(text_lower.count(keyword) for keyword in negative_keywords)
-        
+
         sentiment = "neutral"
         confidence = 0.5
-        
+
         if positive_score > negative_score:
             sentiment = "positive"
             confidence = (positive_score - negative_score) / len(text_lower.split())
         elif negative_score > positive_score:
             sentiment = "negative"
             confidence = (negative_score - positive_score) / len(text_lower.split())
-        
+
         return {
             "ok": True,
             "result": {
@@ -82,9 +82,9 @@ class BonusTools:
         Provides a generic response based on the prompt and specified style.
         """
         self.logger.info(f"Generating creative content for prompt: '{prompt[:50]}...' in style: {style}")
-        
+
         generated_content = ""
-        
+
         if style.lower() == "neutral":
             generated_content = f"Here is some content based on your prompt: '{prompt}'. It's presented in a straightforward, informative manner."
         elif style.lower() == "formal":
@@ -95,7 +95,7 @@ class BonusTools:
             generated_content = f"From whispers of your prompt, '{prompt}', emerges a tapestry of words, woven with poetic grace, a symphony for the soul."
         else:
             generated_content = f"Based on your prompt: '{prompt}', here is some content generated in a {style} style. (Note: specific style nuances are limited in this basic implementation)."
-            
+
         return {
             "ok": True,
             "result": {
@@ -112,9 +112,9 @@ class BonusTools:
         Provides a generic translated response, with simulated translations for common languages.
         """
         self.logger.info(f"Translating text to {target_language}: '{text[:50]}...'")
-        
+
         translated_text = f"[Translated to {target_language}]: {text}" # Default generic translation
-        
+
         # Simulate translations for common languages
         if target_language.lower() == "es":
             if text.lower() == "hello":
@@ -137,7 +137,7 @@ class BonusTools:
                 translated_text = "Auf Wiedersehen"
             else:
                 translated_text = f"[Ins Deutsche übersetzt]: {text}"
-        
+
         return {
             "ok": True,
             "result": {

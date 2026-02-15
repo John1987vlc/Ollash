@@ -22,10 +22,10 @@ class NotificationManager:
         self.smtp_password = os.environ.get('SMTP_PASSWORD')
         self.from_email = os.environ.get('NOTIFICATION_FROM_EMAIL')
         self.from_name = os.environ.get('NOTIFICATION_FROM_NAME', 'Ollash Agent')
-        
+
         # Email channels to be stored (for future persistence)
         self.subscribed_emails = set()
-        
+
         self._validate_smtp_config()
 
     def _validate_smtp_config(self):
@@ -36,7 +36,7 @@ class NotificationManager:
             self.smtp_password,
             self.from_email
         ])
-        
+
         if not self.smtp_enabled:
             logger.warning(
                 "SMTP not fully configured. Email notifications will be disabled. "
@@ -48,10 +48,10 @@ class NotificationManager:
     def subscribe_email(self, email: str) -> bool:
         """
         Subscribe an email address to notifications.
-        
+
         Args:
             email: Email address to subscribe
-        
+
         Returns:
             bool: True if valid email, False otherwise
         """
@@ -79,14 +79,14 @@ class NotificationManager:
     ) -> bool:
         """
         Send notification about a completed task.
-        
+
         Args:
             task_name: Name of the completed task
             agent_type: Type of agent that ran the task
             result: Result/output from the task
             recipient_emails: List of email addresses (uses subscribed if None)
             success: Whether task completed successfully
-        
+
         Returns:
             bool: True if sent successfully
         """
@@ -98,7 +98,7 @@ class NotificationManager:
             return False
 
         subject = f"{'✓' if success else '✗'} Task Completed: {task_name}"
-        
+
         html_body = self._build_html_email(
             title=f"Task {'Completed' if success else 'Failed'}: {task_name}",
             content=f"""
@@ -130,7 +130,7 @@ class NotificationManager:
     ) -> bool:
         """
         Send alert when a metric crosses a threshold.
-        
+
         Args:
             task_name: Name of the monitoring task
             metric_name: Name of the metric (e.g., 'Disk Usage')
@@ -138,7 +138,7 @@ class NotificationManager:
             threshold: Threshold value that was crossed
             unit: Unit of measurement
             recipient_emails: Optional list of recipients
-        
+
         Returns:
             bool: True if sent successfully
         """
@@ -149,7 +149,7 @@ class NotificationManager:
             return False
 
         subject = f"⚠️ Alert: {metric_name} threshold exceeded - {metric_value}{unit}"
-        
+
         html_body = self._build_html_email(
             title=f"Threshold Alert: {metric_name}",
             content=f"""
@@ -177,13 +177,13 @@ class NotificationManager:
     ) -> bool:
         """
         Send error notification.
-        
+
         Args:
             task_name: Task that failed
             error_message: Error message/details
             error_type: Type of error
             recipient_emails: Optional list of recipients
-        
+
         Returns:
             bool: True if sent successfully
         """
@@ -194,7 +194,7 @@ class NotificationManager:
             return False
 
         subject = f"❌ Error in Task: {task_name}"
-        
+
         html_body = self._build_html_email(
             title=f"Task Error: {task_name}",
             content=f"""
@@ -222,12 +222,12 @@ class NotificationManager:
     ) -> bool:
         """
         Send a custom notification.
-        
+
         Args:
             subject: Email subject
             html_body: HTML body content
             recipient_emails: Optional list of recipients
-        
+
         Returns:
             bool: True if sent successfully
         """
@@ -245,12 +245,12 @@ class NotificationManager:
     def _send_email(self, subject: str, html_body: str, recipient_emails: List[str]) -> bool:
         """
         Send email via SMTP.
-        
+
         Args:
             subject: Email subject
             html_body: HTML body
             recipient_emails: List of recipient emails
-        
+
         Returns:
             bool: True if sent successfully
         """
@@ -294,12 +294,12 @@ class NotificationManager:
     ) -> str:
         """
         Build a formatted HTML email.
-        
+
         Args:
             title: Email title
             content: HTML content
             status: Status type ('info', 'success', 'warning', 'error')
-        
+
         Returns:
             str: Complete HTML email
         """
@@ -309,9 +309,9 @@ class NotificationManager:
             'warning': '#f59e0b',
             'error': '#ef4444'
         }
-        
+
         status_color = status_colors.get(status, status_colors['info'])
-        
+
         return f"""
 <!DOCTYPE html>
 <html>
@@ -388,39 +388,39 @@ class NotificationManager:
         """Simple email validation."""
         return '@' in email and '.' in email.split('@')[1]
 
-    def send_ui_notification(self, message: str, notification_type: str = "info", 
+    def send_ui_notification(self, message: str, notification_type: str = "info",
                             title: str = None, data: dict = None) -> bool:
         """
         Send a real-time notification to the UI via EventPublisher.
-        
+
         Args:
             message: Notification message
             notification_type: Type of notification (info, warning, critical, success)
             title: Optional notification title
             data: Optional additional data to include
-        
+
         Returns:
             True if notification was queued for sending
         """
         try:
             from backend.utils.core.event_publisher import EventPublisher
             publisher = EventPublisher()
-            
+
             notification_data = {
                 "message": message,
                 "type": notification_type,
                 "title": title or notification_type.upper(),
                 "timestamp": datetime.now().isoformat()
             }
-            
+
             if data:
                 notification_data.update(data)
-            
+
             # Publish to UI alert channel
             publisher.publish("ui_alert", notification_data)
             logger.info(f"📢 UI notification sent: {title or message}")
             return True
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to send UI notification: {e}")
             return False

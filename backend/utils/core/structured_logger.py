@@ -28,7 +28,7 @@ class JsonFormatter(logging.Formatter):
             "file": f"{record.filename}:{record.lineno}",
             "func": record.funcName,
         }
-        
+
         # Add correlation ID if present
         correlation_id = get_correlation_id()
         if correlation_id:
@@ -66,7 +66,7 @@ class StructuredLogger:
         self._logger = logging.getLogger(logger_name)
         self._logger.setLevel(log_level.upper())
         self._logger.propagate = False # Prevent logs from going to root logger
-        
+
         # Ensure log directory exists
         log_file_path.parent.mkdir(parents=True, exist_ok=True)
 

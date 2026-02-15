@@ -27,10 +27,10 @@ class ToolExecutor(IToolExecutor):
         Delegates to the ToolRegistry to get and execute the callable function.
         """
         tool_func = self.tool_registry.get_callable_tool_function(tool_name, self.agent_instance)
-        
+
         if asyncio.iscoroutinefunction(tool_func):
             result = await tool_func(**kwargs)
         else:
             result = tool_func(**kwargs)
-            
+
         return result

@@ -106,17 +106,17 @@ class GitManager:
             cmd_args.append("--cached")
         if path:
             cmd_args.append(path)
-        
+
         result = self._run_git(*cmd_args)
-        
+
         if not result["success"]:
             return {"success": False, "output": result["error"]}
-        
+
         output_lines = result["output"].splitlines()
         total_added = 0
         total_deleted = 0
         affected_files = []
-        
+
         for line in output_lines:
             parts = line.split('\t')
             if len(parts) == 3:
@@ -130,7 +130,7 @@ class GitManager:
                 except ValueError:
                     # Handle lines that might not be numstat (e.g., binary files)
                     pass
-        
+
         return {
             "success": True,
             "added": total_added,

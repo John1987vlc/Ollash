@@ -66,7 +66,7 @@ class FileRefiner:
             for issue in issues[:2]: # Take top 2 issues for query
                 query_parts.append(issue.get("description", ""))
         query_parts.append(readme_excerpt[:100]) # Add a snippet of readme
-        
+
         documentation_query = " ".join(query_parts)
 
         retrieved_docs = self.documentation_manager.query_documentation(documentation_query, n_results=2) # Get top 2 results

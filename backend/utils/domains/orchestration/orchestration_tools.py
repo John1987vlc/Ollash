@@ -14,10 +14,10 @@ class OrchestrationTools:
         Analyzes plan steps for keywords that suggest high risk operations.
         """
         self.logger.info(f"Evaluating plan risk for goal: {plan.get('goal', 'N/A')}")
-        
+
         risks = []
         risk_level = "low"
-        
+
         high_risk_keywords = {
             "security": ["delete_file", "rm ", "format ", "git push --force", "revoke", "disable security", "open port", "firewall off"],
             "technical": ["install package", "update system", "reboot", "shutdown", "modify critical config", "overwrite"],
@@ -39,7 +39,7 @@ class OrchestrationTools:
             details = "No explicit high-risk keywords detected in the plan."
         else:
             details = f"Detected potential risks ({risk_level} level). Review detailed findings."
-            
+
         return {
             "ok": True,
             "result": {
@@ -56,7 +56,7 @@ class OrchestrationTools:
         Analyzes the user request for keywords to determine intent.
         """
         self.logger.info(f"Detecting user intent for: '{user_request[:50]}...'")
-        
+
         intent_keywords = {
             "debugging": ["debug", "error", "fail", "issue", "fix", "problem"],
             "production change": ["deploy", "production", "release", "update service"],
@@ -65,15 +65,15 @@ class OrchestrationTools:
             "learning": ["learn", "how to", "explain", "tutorial", "example"],
             "exploration": ["explore", "look at", "show", "what is", "analyze", "find"]
         }
-        
+
         detected_intents = {}
         user_request_lower = user_request.lower()
-        
+
         for intent, keywords in intent_keywords.items():
             for keyword in keywords:
                 if keyword in user_request_lower:
                     detected_intents[intent] = detected_intents.get(intent, 0) + 1
-        
+
         if detected_intents:
             # Select the intent with the most matching keywords
             best_intent = max(detected_intents, key=detected_intents.get)
@@ -101,7 +101,7 @@ class OrchestrationTools:
         """
         message = f"🛑 HUMAN GATE REQUIRED: Action '{action_description}' blocked. Reason: '{reason}'. Awaiting explicit human approval."
         self.logger.warning(message)
-        
+
         return {
             "ok": False, # Indicate that the action itself was not completed due to gate
             "result": {
@@ -119,19 +119,19 @@ class OrchestrationTools:
         require access to the full CodeAgent state (conversation, history, etc.).
         """
         self.logger.info("Summarizing session state...")
-        
+
         # Default/generic values
         active_agent = agent_state.get("active_agent", "unknown") if agent_state else "orchestrator"
         conversation_length = agent_state.get("conversation_length", 0) if agent_state else 0
         last_user_request = agent_state.get("last_user_request", "N/A") if agent_state else "N/A"
         current_plan_goal = agent_state.get("current_plan_goal", "No active plan") if agent_state else "No active plan"
-        
+
         summary_details = f"Currently operating in '{active_agent}' context. "
         summary_details += f"Conversation has {conversation_length} turns. "
         summary_details += f"Last user request: '{last_user_request}'. "
         summary_details += f"Active plan goal: '{current_plan_goal}'. "
         summary_details += "Further details on changes, decisions, and risks require full agent state access."
-        
+
         return {
             "ok": True,
             "result": {
@@ -150,7 +150,7 @@ class OrchestrationTools:
         require access to the full CodeAgent state including its reasoning process.
         """
         self.logger.info(f"Explaining decision (ID: {decision_id or 'last'})...")
-        
+
         # Generic explanation based on common agent behaviors
         if current_context and "last_tool_call" in current_context:
             decision = f"The agent decided to call '{current_context['last_tool_call']['name']}' with arguments {current_context['last_tool_call']['arguments']}."
@@ -194,7 +194,7 @@ class OrchestrationTools:
             else:
                 validation_results.append({"check": "os_type", "expected": expected_os, "actual": current_os, "status": "mismatch"})
                 overall_status = "mismatch"
-        
+
         # Validate OS Version (basic check, more complex would need SystemTools)
         if "os_version_prefix" in expectations:
             expected_version_prefix = str(expectations["os_version_prefix"])
@@ -228,7 +228,7 @@ class OrchestrationTools:
         Reads and compares the content of two files line by line.
         """
         self.logger.info(f"Detecting configuration drift between {baseline_file} and {current_file}...")
-        
+
         try:
             baseline_path = Path(baseline_file)
             current_path = Path(current_file)
@@ -257,7 +257,7 @@ class OrchestrationTools:
                         "current_content": line_in_current,
                         "type": "modified" if line_in_baseline and line_in_current else "added" if line_in_current else "removed"
                     })
-            
+
             if drift_detected:
                 details = f"Configuration drift detected between {baseline_file} and {current_file}. Found {len(differences)} differences."
                 self.logger.warning(details)
@@ -280,14 +280,14 @@ class OrchestrationTools:
         except Exception as e:
             self.logger.error(f"Error detecting configuration drift: {e}", e)
             return {"ok": False, "result": {"error": str(e), "baseline": baseline_file, "current": current_file}}
-    
+
     def evaluate_compliance(self, compliance_standard: str, audit_scope: List[str]) -> Dict:
         """
         Evaluates system configurations and practices against a specified compliance standard (e.g., ISO 27001, GDPR).
         Provides a generic evaluation framework, emphasizing the need for detailed, tool-specific checks.
         """
         self.logger.info(f"Evaluating compliance against {compliance_standard} for scope: {audit_scope}")
-        
+
         findings = []
         overall_status = "needs_assessment"
         summary = f"Compliance evaluation initiated for '{compliance_standard}'. Detailed assessment requires tool integration."
@@ -332,7 +332,7 @@ class OrchestrationTools:
                 "details": "Review the organization's risk assessment methodology and treatment plans.",
                 "recommendation": "Manual review of risk management documentation."
             })
-        
+
         return {
             "ok": True,
             "result": {
@@ -344,14 +344,14 @@ class OrchestrationTools:
                 "note": "A true compliance audit is a complex process involving multiple tools, human expertise, and documentation review. This tool provides a high-level overview and areas for further investigation."
             }
         }
-    
+
     def generate_audit_report(self, report_format: str = "json") -> Dict:
         """
         Generates a structured report from previous tool outputs (e.g., security scan, compliance evaluation).
         Provides a generic report, emphasizing the need for integration with actual tool outputs.
         """
         self.logger.info(f"Generating audit report in {report_format} format...")
-        
+
         report_content = {
             "report_title": "Automated System Audit Report",
             "generation_timestamp": "Current timestamp (placeholder)",
@@ -388,7 +388,7 @@ class OrchestrationTools:
                 }
             ]
         }
-        
+
         if report_format == "json":
             formatted_report = json.dumps(report_content, indent=4)
         elif report_format == "text":
@@ -406,14 +406,14 @@ class OrchestrationTools:
                 "summary": "Generic audit report generated. Integrate with live tool outputs for meaningful data."
             }
         }
-    
+
     def propose_governance_policy(self, policy_type: str, scope: List[str]) -> Dict:
         """
         Proposes new governance policies or updates existing ones based on compliance gaps or best practices.
         Generates a generic policy outline based on the specified type and scope.
         """
         self.logger.info(f"Proposing governance policy of type '{policy_type}' for scope: {scope}")
-        
+
         policy_template = {
             "title": f"Draft Governance Policy: {policy_type.replace('_', ' ').title()}",
             "version": "1.0",

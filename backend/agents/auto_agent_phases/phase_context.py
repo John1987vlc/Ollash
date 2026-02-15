@@ -134,12 +134,12 @@ class PhaseContext:
 
         First attempts semantic selection via RAGContextSelector (ChromaDB embeddings),
         then falls back to heuristic scoring if semantic selection unavailable.
-        
+
         Args:
             target_path: Path to file needing context
             generated_files: All available generated files
             max_files: Maximum context files to select
-            
+
         Returns:
             Dictionary of selected contextual files
         """
@@ -154,7 +154,7 @@ class PhaseContext:
                 available_files=generated_files,
                 max_files=max_files,
             )
-            
+
             if context_files:
                 self.logger.info(
                     f"🔍 Selected {len(context_files)} contextual files using RAG semantic search"
@@ -204,7 +204,7 @@ class PhaseContext:
         return selected
 
     # ========== NEW HELPER METHODS MOVED FROM AutoAgent ==========
-    
+
     def infer_language(self, file_path: str) -> str:
         """Infer programming language from file path."""
         ext = Path(file_path).suffix.lower()
@@ -226,22 +226,22 @@ class PhaseContext:
             ".kt": "kotlin",
         }
         return language_map.get(ext, "unknown")
-    
+
     def group_files_by_language(self, files: Dict[str, str]) -> Dict[str, List[Tuple[str, str]]]:
         """Group files by programming language."""
         grouped = defaultdict(list)
-        
+
         for rel_path, content in files.items():
             language = self.infer_language(rel_path)
             if language != "unknown":
                 grouped[language].append((rel_path, content))
-        
+
         return dict(grouped)
-    
+
     def get_test_file_path(self, source_file: str, language: str) -> str:
         """Get test file path based on language conventions."""
         source_path = Path(source_file)
-        
+
         # Language-specific test path patterns
         patterns = {
             "python": lambda p: str(Path("tests") / f"test_{p}.py"),
@@ -251,11 +251,11 @@ class PhaseContext:
             "rust": lambda p: str(Path("tests") / f"{p}.rs"),
             "java": lambda p: str(Path("src/test/java") / f"{p}Test.java"),
         }
-        
+
         stem = source_path.stem
         pattern_fn = patterns.get(language, lambda p: str(Path("tests") / f"test_{p}"))
         return pattern_fn(stem)
-    
+
     def implement_plan(
         self,
         plan: Dict,
@@ -268,10 +268,10 @@ class PhaseContext:
         """Implement contingency plan from planner."""
         actions = plan.get("actions", [])
         self.logger.info(f"Implementing {len(actions)} contingency actions...")
-        
+
         for action in actions[:10]:  # Limit to 10 actions
             action_type = action.get("type")
-            
+
             if action_type == "create_file":
                 target_path = action.get("path")
                 content = action.get("content", "")
@@ -280,7 +280,7 @@ class PhaseContext:
                     self.file_manager.write_file(project_root / target_path, content)
                     if target_path not in file_paths:
                         file_paths.append(target_path)
-            
+
             elif action_type == "modify_file":
                 target_path = action.get("path")
                 changes = action.get("changes", {})
@@ -291,7 +291,7 @@ class PhaseContext:
                         content = content.replace(old_text, new_text)
                     files[target_path] = content
                     self.file_manager.write_file(project_root / target_path, content)
-            
+
             elif action_type == "refine_file":
                 target_path = action.get("path")
                 issues = action.get("issues", [])
@@ -303,64 +303,62 @@ class PhaseContext:
                             self.file_manager.write_file(project_root / target_path, refined)
                     except Exception as e:
                         self.logger.error(f"Error refining {target_path}: {e}")
-        
+
         return files, structure, file_paths
 
     def ingest_existing_project(self, project_path: Path) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         """
         Loads an existing project into the agent's state.
-        
+
         This method:
         1. Reads all source files from the project
         2. Reconstructs the project structure
         3. Extracts README if exists
         4. Updates internal state with loaded data
-        
+
         Args:
             project_path: Root path of the existing project
-            
+
         Returns:
             Tuple of (generated_files, initial_structure, file_paths)
         """
         self.logger.info(f"🔍 Ingesting existing project from {project_path}")
-        
+
         loaded_files: Dict[str, str] = {}
         file_paths: List[str] = []
         readme_content: str = ""
         structure: Dict[str, Any] = {}
-        
+
         # Define extensions and directories to load (exclude build, cache, etc)
         source_extensions = {
-            ".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java", 
+            ".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java",
             ".cpp", ".c", ".cs", ".rb", ".php", ".swift", ".kt", ".json",
             ".yaml", ".yml", ".xml", ".md", ".txt", ".html", ".css", ".scss", ".less"
         }
-        
-        exclude_dirs = {"__pycache__", ".git", ".venv", "venv", "node_modules", ".cache", 
-                       "dist", "build", ".pytest_cache", ".mypy_cache", ".egg-info", 
+
+        exclude_dirs = {"__pycache__", ".git", ".venv", "venv", "node_modules", ".cache",
+                       "dist", "build", ".pytest_cache", ".mypy_cache", ".egg-info",
                        ".idea", ".vscode", "target"}
-        
+
         try:
             project_path = Path(project_path)
             if not project_path.exists():
                 self.logger.error(f"Project path does not exist: {project_path}")
                 return {}, {}, []
-            
+
             # Walk through project directory
             for root, dirs, files_in_dir in __import__('os').walk(project_path):
                 # Filter out excluded directories
                 dirs[:] = [d for d in dirs if d not in exclude_dirs]
-                
-                rel_root = Path(root).relative_to(project_path)
-                
+
                 for file in files_in_dir:
                     file_path = Path(root) / file
                     rel_path = file_path.relative_to(project_path)
-                    
+
                     # Check if file should be loaded
                     if file_path.suffix.lower() not in source_extensions:
                         continue
-                    
+
                     # Handle special files
                     if file.lower() == "readme.md":
                         try:
@@ -368,48 +366,48 @@ class PhaseContext:
                         except Exception as e:
                             self.logger.warning(f"Could not read README: {e}")
                         continue
-                    
+
                     # Load file content
                     try:
                         content = self.file_manager.read_file(str(file_path))
                         rel_path_str = str(rel_path).replace("\\", "/")
                         loaded_files[rel_path_str] = content
                         file_paths.append(rel_path_str)
-                        
+
                         self.logger.debug(f"  Loaded: {rel_path_str} ({len(content)} bytes)")
                     except Exception as e:
                         self.logger.warning(f"Could not load {rel_path}: {e}")
-            
+
             # Build structure from loaded files
             structure = self._build_structure_from_files(loaded_files)
-            
+
             # Update context state
             self.update_generated_data(loaded_files, structure, file_paths, readme_content)
             self.logger.info(f"✅ Ingested {len(loaded_files)} files from existing project")
-            
+
             return loaded_files, structure, file_paths
-            
+
         except Exception as e:
             self.logger.error(f"Error ingesting project: {e}")
             return {}, {}, []
-    
+
     def _build_structure_from_files(self, files: Dict[str, str]) -> Dict[str, Any]:
         """
         Reconstructs project structure from loaded files.
         Groups files by directory and type.
         """
         structure: Dict[str, Any] = {}
-        
+
         for file_path in files.keys():
             parts = Path(file_path).parts
             current = structure
-            
+
             # Navigate/create directory structure
             for part in parts[:-1]:
                 if part not in current:
                     current[part] = {}
                 current = current[part]
-            
+
             # Mark file in structure
             filename = parts[-1] if parts else file_path
             current[filename] = {
@@ -417,5 +415,5 @@ class PhaseContext:
                 "extension": Path(filename).suffix,
                 "language": self.infer_language(filename)
             }
-        
+
         return structure

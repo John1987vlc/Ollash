@@ -41,12 +41,12 @@ class ConfirmationManager:
         self.logger.info(f"\n{Fore.YELLOW}{'='*60}")
         self.logger.info(f"⚠️  CONFIRMATION REQUIRED: {action}")
         self.logger.info(f"{'='*60}{Style.RESET_ALL}")
-        
+
         if action == "write_file":
             self.logger.info(f"📝 File: {Fore.CYAN}{details['path']}{Style.RESET_ALL}")
             self.logger.info(f"📋 Reason: {details.get('reason', 'N/A')}")
             self.logger.info(f"📏 Size: {len(details['content'])} characters")
-            
+
             lines = details['content'].split('\n')
             preview_lines = min(10, len(lines))
             self.logger.info(f"\n📄 Preview (first {preview_lines} lines):")
@@ -56,19 +56,19 @@ class ConfirmationManager:
             if len(lines) > preview_lines:
                 self.logger.info(f"{Fore.YELLOW}... ({len(lines) - preview_lines} more lines){Style.RESET_ALL}")
             self.logger.info("-" * 60)
-            
+
         elif action == "delete_file":
             self.logger.info(f"🗑️  File: {Fore.RED}{details['path']}{Style.RESET_ALL}")
             self.logger.info(f"📋 Reason: {details.get('reason', 'N/A')}")
-            
+
         elif action == "git_commit":
             self.logger.info(f"💾 Message: {Fore.CYAN}{details['message']}{Style.RESET_ALL}")
-            
+
         elif action == "git_push":
             self.logger.info(f"🚀 Remote: {Fore.CYAN}{details.get('remote', 'origin')}{Style.RESET_ALL}")
-        
+
         self.logger.info(f"{Fore.YELLOW}{'='*60}{Style.RESET_ALL}")
-        
+
         while True:
             response = input(f"{Fore.GREEN}Proceed? (yes/no/view): {Style.RESET_ALL}").strip().lower()
             if response in ['yes', 'y', 'si', 's']:

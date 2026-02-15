@@ -14,7 +14,7 @@ class ChromaClientManager:
     def get_client(cls, settings_manager: dict, project_root: Path):
         if cls._client_instance is None:
             is_persistent = settings_manager.get('chroma_db', {}).get('is_persistent', False)
-            
+
             if is_persistent:
                 db_path = str(project_root / ".ollash" / "chroma_db")
                 logger.info(f"ChromaDB client is persistent, path: {db_path}")

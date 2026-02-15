@@ -47,7 +47,7 @@ class InteractiveArtifact:
     dismissible: bool = True
     auto_dismiss_after: Optional[int] = None  # Seconds, None = no auto-dismiss
     data: Optional[Dict[str, Any]] = None  # Additional metadata
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -66,19 +66,19 @@ class InteractiveArtifact:
 class AdaptiveNotificationUI:
     """
     Generates and manages interactive notifications with artifacts.
-    
+
     Key features:
     - Create Mermaid diagrams for network/system errors
     - Generate status timelines
     - Build decision trees for troubleshooting
     - Inject directly into web UI via EventPublisher
     """
-    
+
     def __init__(self):
         """Initialize the adaptive UI manager."""
         self.active_artifacts: Dict[str, InteractiveArtifact] = {}
         logger.info("AdaptiveNotificationUI initialized")
-    
+
     def notify_network_error(
         self,
         service_name: str,
@@ -88,25 +88,25 @@ class AdaptiveNotificationUI:
     ) -> Optional[InteractiveArtifact]:
         """
         Create an interactive network error visualization.
-        
+
         Args:
             service_name: Name of the affected service
             error_message: Error description
             failed_nodes: List of dicts with 'name' and 'status' for network nodes
             recovery_actions: Suggested recovery steps
-        
+
         Returns:
             InteractiveArtifact: The created artifact
         """
         try:
             artifact_id = f"network_error_{datetime.now().timestamp()}"
-            
+
             # Generate Mermaid diagram showing the failed network topology
             diagram = self._generate_network_diagram(
                 service_name,
                 failed_nodes or []
             )
-            
+
             artifact = InteractiveArtifact(
                 id=artifact_id,
                 type=ArtifactType.MERMAID_DIAGRAM,
@@ -122,16 +122,16 @@ class AdaptiveNotificationUI:
                 dismissible=True,
                 auto_dismiss_after=None  # Keep until user dismisses
             )
-            
+
             self.active_artifacts[artifact_id] = artifact
             self._publish_artifact(artifact)
             logger.info(f"Network error artifact created: {artifact_id}")
             return artifact
-            
+
         except Exception as e:
             logger.error(f"Failed to create network error artifact: {e}")
             return None
-    
+
     def notify_system_status(
         self,
         status_type: str,
@@ -140,24 +140,24 @@ class AdaptiveNotificationUI:
     ) -> Optional[InteractiveArtifact]:
         """
         Create a status card/metric visualization.
-        
+
         Args:
             status_type: Type of status (cpu, memory, disk, etc.)
             metrics: Dictionary of metric names and values
             threshold_breaches: Metrics that have exceeded thresholds
-        
+
         Returns:
             InteractiveArtifact: The created artifact
         """
         try:
             artifact_id = f"status_{status_type}_{datetime.now().timestamp()}"
-            
+
             # Determine severity based on threshold breaches
             severity = (
                 NotificationSeverity.CRITICAL if threshold_breaches
                 else NotificationSeverity.INFO
             )
-            
+
             artifact = InteractiveArtifact(
                 id=artifact_id,
                 type=ArtifactType.METRIC_CARD,
@@ -176,16 +176,16 @@ class AdaptiveNotificationUI:
                 dismissible=True,
                 auto_dismiss_after=60 if severity == NotificationSeverity.INFO else None
             )
-            
+
             self.active_artifacts[artifact_id] = artifact
             self._publish_artifact(artifact)
             logger.info(f"Status artifact created: {artifact_id}")
             return artifact
-            
+
         except Exception as e:
             logger.error(f"Failed to create status artifact: {e}")
             return None
-    
+
     def notify_decision_point(
         self,
         scenario: str,
@@ -195,22 +195,22 @@ class AdaptiveNotificationUI:
     ) -> Optional[InteractiveArtifact]:
         """
         Create an interactive decision tree for troubleshooting.
-        
+
         Args:
             scenario: Description of the scenario
             decision_context: Context information for the decision
             options: List of dicts with 'label' and 'description'
             recommended_action: The recommended option
-        
+
         Returns:
             InteractiveArtifact: The created artifact
         """
         try:
             artifact_id = f"decision_{datetime.now().timestamp()}"
-            
+
             # Generate decision tree visualization
             tree = self._generate_decision_tree(options, recommended_action)
-            
+
             artifact = InteractiveArtifact(
                 id=artifact_id,
                 type=ArtifactType.DECISION_TREE,
@@ -227,16 +227,16 @@ class AdaptiveNotificationUI:
                 dismissible=True,
                 auto_dismiss_after=None  # Requires user decision
             )
-            
+
             self.active_artifacts[artifact_id] = artifact
             self._publish_artifact(artifact)
             logger.info(f"Decision tree artifact created: {artifact_id}")
             return artifact
-            
+
         except Exception as e:
             logger.error(f"Failed to create decision tree artifact: {e}")
             return None
-    
+
     def notify_diagnostic(
         self,
         problem: str,
@@ -245,18 +245,18 @@ class AdaptiveNotificationUI:
     ) -> Optional[InteractiveArtifact]:
         """
         Create a diagnostic report with visual findings.
-        
+
         Args:
             problem: Problem statement
             findings: List of diagnostic findings
             diagnostic_diagram: Optional Mermaid diagram of the problem
-        
+
         Returns:
             InteractiveArtifact: The created artifact
         """
         try:
             artifact_id = f"diagnostic_{datetime.now().timestamp()}"
-            
+
             artifact = InteractiveArtifact(
                 id=artifact_id,
                 type=ArtifactType.MERMAID_DIAGRAM,
@@ -272,16 +272,16 @@ class AdaptiveNotificationUI:
                 dismissible=True,
                 auto_dismiss_after=None
             )
-            
+
             self.active_artifacts[artifact_id] = artifact
             self._publish_artifact(artifact)
             logger.info(f"Diagnostic artifact created: {artifact_id}")
             return artifact
-            
+
         except Exception as e:
             logger.error(f"Failed to create diagnostic artifact: {e}")
             return None
-    
+
     def notify_recovery_plan(
         self,
         issue: str,
@@ -290,18 +290,18 @@ class AdaptiveNotificationUI:
     ) -> Optional[InteractiveArtifact]:
         """
         Create an interactive recovery plan.
-        
+
         Args:
             issue: The issue being recovered from
             recovery_steps: List of dicts with 'step', 'description', 'command'
             estimated_time: Estimated recovery time in seconds
-        
+
         Returns:
             InteractiveArtifact: The created artifact
         """
         try:
             artifact_id = f"recovery_{datetime.now().timestamp()}"
-            
+
             artifact = InteractiveArtifact(
                 id=artifact_id,
                 type=ArtifactType.ACTION_LIST,
@@ -317,18 +317,18 @@ class AdaptiveNotificationUI:
                 dismissible=True,
                 auto_dismiss_after=None
             )
-            
+
             self.active_artifacts[artifact_id] = artifact
             self._publish_artifact(artifact)
             logger.info(f"Recovery plan artifact created: {artifact_id}")
             return artifact
-            
+
         except Exception as e:
             logger.error(f"Failed to create recovery plan artifact: {e}")
             return None
-    
+
     # ==================== Artifact Generation Methods ====================
-    
+
     def _generate_network_diagram(
         self,
         service_name: str,
@@ -343,9 +343,9 @@ class AdaptiveNotificationUI:
             "Cache Layer",
             "Database"
         ]
-        
+
         diagram_lines = ["graph TD"]
-        
+
         # Add nodes with status colors
         for i, node in enumerate(nodes):
             is_failed = any(fn["name"] in node for fn in failed_nodes)
@@ -353,7 +353,7 @@ class AdaptiveNotificationUI:
                 diagram_lines.append(f"    N{i}[{node}]:::failed")
             else:
                 diagram_lines.append(f"    N{i}[{node}]:::healthy")
-        
+
         # Add connections
         diagram_lines.extend([
             "    N0 --> N1",
@@ -365,9 +365,9 @@ class AdaptiveNotificationUI:
             "    classDef healthy fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff",
             "    classDef failed fill:#ef4444,stroke:#dc2626,stroke-width:3px,color:#fff"
         ])
-        
+
         return "\n".join(diagram_lines)
-    
+
     def _generate_decision_tree(
         self,
         options: List[Dict[str, str]],
@@ -378,22 +378,22 @@ class AdaptiveNotificationUI:
             "graph TD",
             "    Decision{Troubleshooting}:::decision"
         ]
-        
+
         for i, option in enumerate(options):
             label = option.get("label", f"Option {i+1}")
             is_recommended = label == recommended
             style = ":::recommended" if is_recommended else ":::option"
             diagram_lines.append(f"    Option{i}[{label}]{style}")
             diagram_lines.append(f"    Decision -->|Option {i+1}| Option{i}")
-        
+
         diagram_lines.extend([
             "    classDef decision fill:#6366f1,stroke:#4f46e5,stroke-width:2px,color:#fff",
             "    classDef option fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff",
             "    classDef recommended fill:#10b981,stroke:#059669,stroke-width:3px,color:#fff"
         ])
-        
+
         return "\n".join(diagram_lines)
-    
+
     def _generate_default_diagnostic(self) -> str:
         """Generate a basic diagnostic diagram."""
         return """graph TD
@@ -407,7 +407,7 @@ class AdaptiveNotificationUI:
     classDef decision fill:#6366f1,stroke:#4f46e5,stroke-width:2px,color:#fff
     classDef info fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff
 """
-    
+
     def _generate_timeline(
         self,
         steps: List[Dict[str, str]],
@@ -424,7 +424,7 @@ class AdaptiveNotificationUI:
                 "estimated_duration_seconds": estimated_total_time // len(steps) if estimated_total_time else None
             })
         return timeline
-    
+
     def _generate_recommendations(
         self,
         status_type: str,
@@ -433,24 +433,24 @@ class AdaptiveNotificationUI:
     ) -> List[str]:
         """Generate recommendations based on system status."""
         recommendations = []
-        
+
         if "cpu" in status_type.lower():
             if any("cpu" in b.lower() for b in breaches):
                 recommendations.append("Consider stopping non-essential processes")
                 recommendations.append("Check for runaway processes consuming CPU")
-        
+
         if "memory" in status_type.lower():
             if any("memory" in b.lower() for b in breaches):
                 recommendations.append("Clear cache and temporary files")
                 recommendations.append("Increase allocated memory if possible")
-        
+
         if "disk" in status_type.lower():
             if any("disk" in b.lower() for b in breaches):
                 recommendations.append("Delete old logs and temporary files")
                 recommendations.append("Archive or remove unused data")
-        
+
         return recommendations or ["System operating normally"]
-    
+
     def _classify_findings(self, findings: List[str]) -> Dict[str, int]:
         """Classify findings by severity."""
         severity_keywords = {
@@ -458,7 +458,7 @@ class AdaptiveNotificationUI:
             "warning": ["warning", "slow", "unusual"],
             "info": ["info", "note", "observation"]
         }
-        
+
         counts = {"critical": 0, "warning": 0, "info": 0}
         for finding in findings:
             lower_finding = finding.lower()
@@ -466,24 +466,24 @@ class AdaptiveNotificationUI:
                 if any(kw in lower_finding for kw in keywords):
                     counts[severity] += 1
                     break
-        
+
         return counts
-    
+
     def _publish_artifact(self, artifact: InteractiveArtifact) -> bool:
         """Publish artifact to the web UI via EventPublisher."""
         try:
             from backend.utils.core.event_publisher import EventPublisher
             publisher = EventPublisher()
-            
+
             # Publish to UI artifacts channel
             publisher.publish("ui_artifact", artifact.to_dict())
             logger.debug(f"Artifact published: {artifact.id}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to publish artifact: {e}")
             return False
-    
+
     def dismiss_artifact(self, artifact_id: str) -> bool:
         """Dismiss/remove an artifact from the UI."""
         if artifact_id in self.active_artifacts:
@@ -491,14 +491,14 @@ class AdaptiveNotificationUI:
             logger.info(f"Artifact dismissed: {artifact_id}")
             return True
         return False
-    
+
     def get_active_artifacts(self) -> List[Dict[str, Any]]:
         """Get all currently active artifacts."""
         return [
             artifact.to_dict()
             for artifact in self.active_artifacts.values()
         ]
-    
+
     def clear_artifacts_by_severity(self, severity: NotificationSeverity) -> int:
         """Clear artifacts matching a specific severity level."""
         to_remove = [

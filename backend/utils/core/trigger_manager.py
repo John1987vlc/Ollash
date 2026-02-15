@@ -44,11 +44,11 @@ class TriggerEvaluator:
     def evaluate_condition(self, condition: Dict[str, Any], context: Dict[str, Any]) -> bool:
         """
         Evaluate a single condition.
-        
+
         Args:
             condition: Dict with 'metric', 'operator', 'value', optional 'range'
             context: Dict with available variable values
-        
+
         Returns:
             True if condition is met, False otherwise
         """
@@ -56,23 +56,23 @@ class TriggerEvaluator:
             metric_path = condition.get("metric", "")
             operator = OperatorType(condition.get("operator", "=="))
             threshold = condition.get("value")
-            
+
             # Extract metric value from context
             metric_value = self._extract_value(metric_path, context)
-            
+
             if metric_value is None:
                 logger.warning(f"Metric not found: {metric_path}")
                 return False
-            
+
             # Special handling for range operator
             if operator == OperatorType.IN_RANGE:
                 min_val = condition.get("min")
                 max_val = condition.get("max")
                 return self.operators[operator](metric_value, (min_val, max_val))
-            
+
             # Evaluate using operator
             return self.operators[operator](metric_value, threshold)
-        
+
         except Exception as e:
             logger.error(f"Error evaluating condition {condition}: {e}")
             return False
@@ -80,28 +80,28 @@ class TriggerEvaluator:
     def evaluate_rule(self, rule: Dict[str, Any], context: Dict[str, Any]) -> bool:
         """
         Evaluate a complete rule with multiple conditions.
-        
+
         Args:
             rule: Dict with 'conditions' list and optional 'logic' ('AND' or 'OR')
             context: Dict with available variable values
-        
+
         Returns:
             True if rule is satisfied, False otherwise
         """
         try:
             conditions = rule.get("conditions", [])
             logic = rule.get("logic", "AND").upper()
-            
+
             if not conditions:
                 return False
-            
+
             results = [self.evaluate_condition(cond, context) for cond in conditions]
-            
+
             if logic == "OR":
                 return any(results)
             else:  # Default to AND
                 return all(results)
-        
+
         except Exception as e:
             logger.error(f"Error evaluating rule {rule}: {e}")
             return False
@@ -109,7 +109,7 @@ class TriggerEvaluator:
     def _extract_value(self, path: str, context: Dict[str, Any]) -> Any:
         """
         Extract a nested value from context using dot notation.
-        
+
         Examples:
             "cpu_usage" -> context["cpu_usage"]
             "memory.free" -> context["memory"]["free"]
@@ -150,7 +150,7 @@ class ConditionalTrigger:
     def __init__(self, trigger_id: str, rule: Dict[str, Any], actions: List[Dict[str, Any]]):
         """
         Initialize a conditional trigger.
-        
+
         Args:
             trigger_id: Unique identifier
             rule: Evaluation rule (conditions with logic)
@@ -167,24 +167,24 @@ class ConditionalTrigger:
     def should_trigger(self, context: Dict[str, Any], cooldown_minutes: int = 0) -> bool:
         """
         Determine if this trigger should execute.
-        
+
         Args:
             context: Current system/application state
             cooldown_minutes: Minimum minutes between triggers (0 = no cooldown)
-        
+
         Returns:
             True if should trigger, False otherwise
         """
         if not self.enabled:
             return False
-        
+
         # Check cooldown
         if self.last_triggered and cooldown_minutes > 0:
             from datetime import timedelta
             cooldown_end = self.last_triggered + timedelta(minutes=cooldown_minutes)
             if datetime.now() < cooldown_end:
                 return False
-        
+
         # Evaluate rule
         return self.evaluator.evaluate_rule(self.rule, context)
 
@@ -223,7 +223,7 @@ class TriggerManager:
             if trigger_id in self.triggers:
                 logger.warning(f"Trigger {trigger_id} already exists")
                 return False
-            
+
             self.triggers[trigger_id] = ConditionalTrigger(trigger_id, rule, actions)
             logger.info(f"Added trigger {trigger_id}")
             return True
@@ -256,16 +256,16 @@ class TriggerManager:
     def evaluate_all(self, context: Dict[str, Any], cooldown_minutes: int = 0) -> List[Dict[str, Any]]:
         """
         Evaluate all active triggers against current context.
-        
+
         Args:
             context: Current system state
             cooldown_minutes: Cooldown between triggers
-        
+
         Returns:
             List of triggered rules with their actions
         """
         triggered = []
-        
+
         for trigger_id, trigger in self.triggers.items():
             if trigger.should_trigger(context, cooldown_minutes):
                 trigger.mark_triggered()
@@ -277,7 +277,7 @@ class TriggerManager:
                 triggered.append(triggered_info)
                 self.history.append(triggered_info)
                 logger.info(f"Trigger {trigger_id} activated")
-        
+
         return triggered
 
     def get_trigger_history(self, limit: int = 100) -> List[Dict[str, Any]]:

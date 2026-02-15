@@ -37,7 +37,7 @@ class PlanningTools:
         self.logger.info(f"Agent planning actions for goal: {goal}")
         for i, step in enumerate(steps):
             self.logger.info(f"Step {i+1}: {step}")
-        
+
         return {
             "ok": True,
             "result": {
@@ -91,7 +91,7 @@ class PlanningTools:
         if kwargs is None:
             kwargs = {}
         self.logger.info(f"Submitting tool '{tool_name}' for async execution with args: {kwargs}")
-        
+
         # Delegate to the agent's async_tool_executor
         if hasattr(self.agent_instance, 'async_tool_executor') and self.agent_instance.async_tool_executor:
             # The async_tool_executor expects a tool_call dict, not individual name/kwargs
@@ -128,7 +128,7 @@ class PlanningTools:
         Checks the status of a previously submitted asynchronous task.
         """
         self.logger.info(f"Checking status for async task ID: {task_id}")
-        
+
         if hasattr(self.agent_instance, 'async_tool_executor') and self.agent_instance.async_tool_executor:
             status = await self.agent_instance.async_tool_executor.get_task_status(task_id)
             return {

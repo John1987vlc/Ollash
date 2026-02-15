@@ -69,7 +69,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
         # Initialize AgentKernel if not provided (should ideally be provided)
         # The kernel now loads configuration from environment variables.
         self.kernel = kernel if kernel else AgentKernel(ollash_root_dir=Path(project_root) if project_root else None)
-        
+
         # Initialize LLMRecorder and ToolSpanManager if not injected
         self.llm_recorder = llm_recorder if llm_recorder else LLMRecorder(logger=self.kernel.get_logger())
         self.tool_span_manager = tool_span_manager if tool_span_manager else ToolSpanManager(logger=self.kernel.get_logger())
@@ -87,7 +87,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
         self.project_root = Path(project_root or self._base_path)
         self.auto_confirm = auto_confirm
         self._event_bridge = event_bridge
-        
+
         self.max_iterations = self.tool_settings_config.max_iterations # Get from tool_settings_config
 
         self.logger.info(f"\n{Fore.GREEN}{'='*60}")
@@ -100,7 +100,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
         self.command_executor = CommandExecutor(str(self.project_root), SandboxLevel.LIMITED, logger=self.logger, use_docker_sandbox=self.tool_settings_config.use_docker_sandbox) # Use tool_settings_config
         self.git_manager = GitManager(str(self.project_root))
         self.code_analyzer = CodeAnalyzer(str(self.project_root))
-        
+
         # --- Dependencies for Mixins & CoreAgent (injected or initialized) ---
         # self.llm_manager is from CoreAgent, now injected or created in super()
         # MemoryManager (still directly instantiated for now, could be its own service)
@@ -181,7 +181,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
 
 
     def _get_fallback_system_prompt(self) -> str:
-        return """You are a disciplined coding agent. 
+        return """You are a disciplined coding agent.
 RULES:
 1. ALWAYS start with plan_actions to show what you'll do
 2. ASK for confirmation before: write_file, delete_file, git_commit, git_push
@@ -204,26 +204,26 @@ RULES:
             self.checkpoint_counter += 1
         except Exception as e:
             self.logger.error(f"Failed to create checkpoint: {e}")
-            
+
     async def _preprocess_instruction(self, instruction: str) -> tuple[str, str]:
         """
         Detects the language, translates to English, and refines the instruction.
         Returns (refined_english_instruction, original_language).
         """
         self.logger.info("Refining user instruction...")
-        
+
         refine_prompt = [
             {"role": "system", "content": "You are a prompt engineer. Translate the user's request to English if it's in another language. Then, expand and clarify the request to be more effective for a coding agent. Return ONLY the refined English text."},
             {"role": "user", "content": f"Refine this: {instruction}"}
         ]
-        
+
         try:
             preprocess_client = self.llm_manager.get_client("orchestration") # Use llm_manager
             response, _ = await preprocess_client.achat(refine_prompt, tools=[])
             refined_text = response.get("message", {}).get("content", instruction)
-            
+
             original_lang = "es" if any(ord(c) > 127 for c in instruction) else "en" # Very basic
-            
+
             return refined_text, original_lang
         except Exception as e:
             self.logger.error(f"Error in pre-processing: {e}")
@@ -233,12 +233,12 @@ RULES:
         """Translates the final response to the user's original language."""
         if target_lang == "en":
             return text
-            
+
         translation_prompt = [
             {"role": "system", "content": f"Translate the following technical response to {target_lang}. Maintain code blocks and technical terms as they are."},
             {"role": "user", "content": text}
         ]
-        
+
         try:
             translate_client = self.llm_manager.get_client("orchestration") # Use llm_manager
             response, _ = await translate_client.achat(translation_prompt, tools=[])
@@ -291,11 +291,11 @@ RULES:
 
             if not self.conversation or self.conversation[-1]["role"] != "user":
                 self.conversation.append({"role": "user", "content": english_instruction})
-            
+
             # --- Intent Routing Mixin Usage ---
             intent_for_this_turn = await self._classify_intent(english_instruction) # Use mixin method
             selected_model_client = self._select_model_for_intent(intent_for_this_turn) # Use mixin method
-            
+
             # Override default client for this turn, or use it for routing later
             # For now, let's assume the mixin returns the client directly, which DefaultAgent then uses.
             self.logger.info(f"🧠 Current turn model selected based on intent '{intent_for_this_turn}': {selected_model_client.model}")
@@ -322,28 +322,28 @@ RULES:
 
                 try:
                     # self.logger.api_request(len(messages), len(self.tool_functions)) # REMOVED, LLMRecorder handles
-                    
+
                     # Directly use the selected_model_client (IModelProvider client)
                     response, _ = await selected_model_client.achat(
                         messages=messages,
                         tools=self.tool_executor.get_tool_definitions(self.active_tool_names),
                     )
-                    
+
                     # Track tokens from the chosen response
                     chosen_usage = response.get("usage", {})
                     self.token_tracker.add_usage(
                         chosen_usage.get("prompt_tokens", 0),
                         chosen_usage.get("completion_tokens", 0)
                     )
-                    
+
                     self.token_tracker.display_current()
-                    
+
                     msg = response["message"]
 
                     if "tool_calls" not in msg:
                         # self.logger.api_response(False) # REMOVED, LLMRecorder handles
-                        final_response_en = msg.get("content", "") 
-                        
+                        final_response_en = msg.get("content", "")
+
                         if last_error_context:
                             # Assuming memory_manager now exists on self (from CoreAgent or injected)
                             self.memory_manager.add_to_reasoning_cache(last_error_context["error"], final_response_en)
@@ -352,31 +352,31 @@ RULES:
                         final_response_translated = await self._translate_to_user_language(final_response_en, original_lang)
                         self.conversation.append({"role": "assistant", "content": final_response_en})
                         self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
-                        return final_response_translated 
+                        return final_response_translated
 
                     tool_calls = msg["tool_calls"]
                     # self.logger.api_response(True, len(tool_calls)) # REMOVED, LLMRecorder handles
                     self.conversation.append(msg)
-                    
+
                     # --- Tool Loop Mixin Usage ---
                     tool_outputs = await self._execute_tool_loop(tool_calls, english_instruction) # Use mixin method
-                    
+
                     for result in tool_outputs:
                         self.conversation.append({
                             "role": "tool",
                             "content": json.dumps(result)
                         })
-                        
+
                         if isinstance(result, dict) and not result.get("ok"):
                             error_msg = result.get("error", "Unknown tool error")
                             tool_name = result.get("tool_name", "unknown") # ToolLoopMixin now includes tool_name in output
-                            
+
                             if self._event_bridge:
                                 self._event_bridge.push_event("error", {"message": error_msg, "tool": tool_name})
-                            
+
                             original_tool_call = next((tc for tc in tool_calls if tc.get("id") == result.get("tool_call_id")), {})
                             last_error_context = {"error": error_msg, "tool_call": original_tool_call}
-                            
+
                             # --- Error Handling (still in DefaultAgent, could be a mixin) ---
                             # This part of error handling (retrying with smaller model, etc.)
                             # could also be abstracted into a mixin if it becomes more complex.
@@ -436,7 +436,7 @@ RULES:
                 except requests.exceptions.HTTPError as e:
                     self.logger.error("HTTP Error from Ollama API", e)
                     error_str = str(e)
-                    
+
                     if "tool" in error_str.lower() and "not found" in error_str.lower():
                         return (f"❌ API Error: The model tried to use a tool that doesn't exist.\n\n"
                                f"This usually means:\n"
@@ -446,7 +446,7 @@ RULES:
                                f"Check agent.log for details.")
                     else:
                         return f"❌ API Error: {error_str}\n\nCheck agent.log for details."
-                
+
                 except requests.exceptions.ConnectionError:
                     self.logger.error("Cannot connect to Ollama")
                     # This line uses self.ollama, which is not defined.
@@ -455,7 +455,7 @@ RULES:
                     return ("❌ Connection Error: Cannot connect to Ollama.\n\n"
                            "Make sure Ollama is running: 'ollama serve'\n"
                            f"Configured URL: {ollama_url}")
-                
+
                 except Exception as e:
                     self.logger.error(f"Unexpected error in iteration {iterations}", e)
                     return f"❌ Unexpected error: {str(e)}\n\nCheck agent.log for details."
@@ -479,7 +479,7 @@ RULES:
         while True:
             try:
                 q = input(f"\n{Fore.GREEN}👤 You: {Style.RESET_ALL}").strip()
-                
+
                 if q.lower() in {"exit", "quit", "salir"}:
                     self.memory_manager.update_conversation_history(self.conversation)
                     self.memory_manager.update_domain_context_memory(self.domain_context_memory)
@@ -487,7 +487,7 @@ RULES:
                     self.logger.info("Session ended by user")
                     print(f"\n{Fore.GREEN}👋 Goodbye!{Style.RESET_ALL}\n")
                     break
-                
+
                 if q.lower() == "help":
                     print(f"\n{Fore.CYAN}Available commands:{Style.RESET_ALL}")
                     print("  • Type your request naturally")
@@ -497,14 +497,14 @@ RULES:
                     for tool in sorted(self.tool_functions.keys()):
                         print(f"  • {tool}")
                     continue
-                
+
                 if not q:
                     continue
-                    
+
                 print(f"\n{Fore.MAGENTA}🤖 Agent:{Style.RESET_ALL}")
                 response = asyncio.run(self.chat(q, auto_confirm=self.auto_confirm)) # Pass auto_confirm to chat
                 print(f"\n{response}\n")
-                
+
             except KeyboardInterrupt:
                 self.memory_manager.update_conversation_history(self.conversation)
                 self.memory_manager.update_domain_context_memory(self.domain_context_memory)

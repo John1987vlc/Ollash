@@ -40,21 +40,21 @@ def init_app(app):
 def get_learning_managers() -> Tuple[PreferenceManagerExtended, PatternAnalyzer, BehaviorTuner]:
     """
     Get or create learning managers (cached in app context).
-    
+
     Returns:
         Tuple of (preference_manager, pattern_analyzer, behavior_tuner)
     """
     from flask import current_app
-    
+
     workspace_root = Path.cwd()
-    
+
     if not hasattr(current_app, '_learning_managers'):
         current_app._learning_managers = {
             'preferences': PreferenceManagerExtended(workspace_root),
             'patterns': PatternAnalyzer(workspace_root),
             'tuning': BehaviorTuner(workspace_root)
         }
-    
+
     return (
         current_app._learning_managers['preferences'],
         current_app._learning_managers['patterns'],
@@ -70,17 +70,17 @@ def get_learning_managers() -> Tuple[PreferenceManagerExtended, PatternAnalyzer,
 def get_preference_profile(user_id: str):
     """
     Get user preference profile.
-    
+
     Args:
         user_id: User identifier
-        
+
     Returns:
         User preference profile with all settings
     """
     try:
         pref_mgr, _, _ = get_learning_managers()
         profile = pref_mgr.get_profile(user_id)
-        
+
         return jsonify({
             "status": "success",
             "profile": {
@@ -110,7 +110,7 @@ def get_preference_profile(user_id: str):
 def update_preference_profile(user_id: str):
     """
     Update user preference profile.
-    
+
     Request body:
     {
         "style": "concise|detailed|formal|casual|technical|conversational",
@@ -123,26 +123,26 @@ def update_preference_profile(user_id: str):
     try:
         data = request.get_json()
         pref_mgr, _, _ = get_learning_managers()
-        
+
         style = None
         if "style" in data:
             style = CommunicationStyle(data["style"])
-        
+
         complexity = None
         if "complexity" in data:
             complexity = ComplexityLevel(data["complexity"])
-        
+
         # Extract other kwargs
-        kwargs = {k: v for k, v in data.items() 
+        kwargs = {k: v for k, v in data.items()
                  if k not in ["style", "complexity"]}
-        
+
         profile = pref_mgr.update_communication_style(
             user_id,
             style=style,
             complexity=complexity,
             **kwargs
         )
-        
+
         return jsonify({
             "status": "success",
             "message": f"Updated preferences for {user_id}",
@@ -160,17 +160,17 @@ def update_preference_profile(user_id: str):
 def get_preference_recommendations(user_id: str):
     """
     Get recommendations for preference adjustments.
-    
+
     Args:
         user_id: User identifier
-        
+
     Returns:
         Recommendations for style/complexity adjustments
     """
     try:
         pref_mgr, _, _ = get_learning_managers()
         recommendations = pref_mgr.get_recommendations(user_id)
-        
+
         return jsonify({
             "status": "success",
             "recommendations": recommendations,
@@ -185,16 +185,16 @@ def get_preference_recommendations(user_id: str):
 def export_preference_profile(user_id: str):
     """
     Export user preference profile.
-    
+
     Query args:
         format: json or markdown
     """
     try:
         format_type = request.args.get('format', 'json')
         pref_mgr, _, _ = get_learning_managers()
-        
+
         exported = pref_mgr.export_profile(user_id, format_type)
-        
+
         return jsonify({
             "status": "success",
             "format": format_type,
@@ -213,7 +213,7 @@ def export_preference_profile(user_id: str):
 def record_feedback():
     """
     Record user feedback for pattern analysis.
-    
+
     Request body:
     {
         "user_id": "user123",
@@ -229,7 +229,7 @@ def record_feedback():
     try:
         data = request.get_json()
         _, pattern_analyzer, behavior_tuner = get_learning_managers()
-        
+
         entry = pattern_analyzer.record_feedback(
             user_id=data.get("user_id", "unknown"),
             task_type=data.get("task_type", "general"),
@@ -240,14 +240,14 @@ def record_feedback():
             affected_component=data.get("affected_component", ""),
             resolution_time=data.get("resolution_time", 0.0)
         )
-        
+
         # Auto-adapt behavior based on feedback
         behavior_tuner.adapt_to_feedback(
             entry.score,
             data.get("task_type"),
             keywords=data.get("keywords", [])
         )
-        
+
         return jsonify({
             "status": "success",
             "message": "Feedback recorded",
@@ -262,14 +262,14 @@ def record_feedback():
 def get_pattern_insights():
     """
     Get overall pattern insights from feedback.
-    
+
     Returns:
         Aggregated insights and metrics
     """
     try:
         _, pattern_analyzer, _ = get_learning_managers()
         insights = pattern_analyzer.get_insights()
-        
+
         return jsonify({
             "status": "success",
             "insights": insights
@@ -283,7 +283,7 @@ def get_pattern_insights():
 def get_detected_patterns():
     """
     Get detected patterns.
-    
+
     Query args:
         type: success|failure|inefficiency
         confidence: 0.0-1.0 (default 0.5)
@@ -293,14 +293,14 @@ def get_detected_patterns():
         pattern_type = request.args.get('type', None)
         min_confidence = float(request.args.get('confidence', 0.5))
         limit = int(request.args.get('limit', 10))
-        
+
         _, pattern_analyzer, _ = get_learning_managers()
         patterns = pattern_analyzer.get_patterns(
             pattern_type=pattern_type,
             min_confidence=min_confidence,
             limit=limit
         )
-        
+
         return jsonify({
             "status": "success",
             "patterns": [
@@ -324,17 +324,17 @@ def get_detected_patterns():
 def get_component_health(component: str):
     """
     Get health status of specific component.
-    
+
     Args:
         component: Component name
-        
+
     Returns:
         Health metrics and feedback summary
     """
     try:
         _, pattern_analyzer, _ = get_learning_managers()
         health = pattern_analyzer.get_component_health(component)
-        
+
         return jsonify({
             "status": "success",
             "component": component,
@@ -349,16 +349,16 @@ def get_component_health(component: str):
 def export_pattern_report():
     """
     Export pattern analysis report.
-    
+
     Query args:
         format: json or markdown
     """
     try:
         format_type = request.args.get('format', 'json')
         _, pattern_analyzer, _ = get_learning_managers()
-        
+
         report = pattern_analyzer.export_report(format_type)
-        
+
         return jsonify({
             "status": "success",
             "format": format_type,
@@ -377,14 +377,14 @@ def export_pattern_report():
 def get_tuning_config():
     """
     Get current behavior tuning configuration.
-    
+
     Returns:
         Current tuning parameters
     """
     try:
         _, _, behavior_tuner = get_learning_managers()
         config = behavior_tuner.get_current_config()
-        
+
         return jsonify({
             "status": "success",
             "config": config
@@ -398,7 +398,7 @@ def get_tuning_config():
 def update_tuning_parameter():
     """
     Update a tuning parameter.
-    
+
     Request body:
     {
         "parameter": "response_length|detail_level|code_example_frequency|...",
@@ -410,7 +410,7 @@ def update_tuning_parameter():
     try:
         data = request.get_json()
         _, _, behavior_tuner = get_learning_managers()
-        
+
         param = TuningParameter(data["parameter"])
         success = behavior_tuner.update_parameter(
             parameter=param,
@@ -418,7 +418,7 @@ def update_tuning_parameter():
             reason=data.get("reason", ""),
             confidence=data.get("confidence", 0.5)
         )
-        
+
         return jsonify({
             "status": "success" if success else "error",
             "parameter": data["parameter"],
@@ -435,7 +435,7 @@ def update_tuning_parameter():
 def toggle_feature():
     """
     Toggle a feature on/off.
-    
+
     Request body:
     {
         "feature": "cross_reference|knowledge_graph|decision_memory|artifacts",
@@ -446,13 +446,13 @@ def toggle_feature():
     try:
         data = request.get_json()
         _, _, behavior_tuner = get_learning_managers()
-        
+
         success = behavior_tuner.toggle_feature(
             feature_name=data["feature"],
             enabled=data["enabled"],
             reason=data.get("reason", "")
         )
-        
+
         return jsonify({
             "status": "success" if success else "error",
             "feature": data["feature"],
@@ -468,14 +468,14 @@ def toggle_feature():
 def get_tuning_recommendations():
     """
     Get recommendations for behavior adjustments.
-    
+
     Returns:
         List of tuning recommendations
     """
     try:
         _, _, behavior_tuner = get_learning_managers()
         recommendations = behavior_tuner.get_recommendations()
-        
+
         return jsonify({
             "status": "success",
             "recommendations": recommendations
@@ -489,14 +489,14 @@ def get_tuning_recommendations():
 def reset_tuning_config():
     """
     Reset tuning configuration to defaults.
-    
+
     Returns:
         Confirmation of reset
     """
     try:
         _, _, behavior_tuner = get_learning_managers()
         behavior_tuner.reset_to_defaults()
-        
+
         return jsonify({
             "status": "success",
             "message": "Tuning configuration reset to defaults"
@@ -510,16 +510,16 @@ def reset_tuning_config():
 def export_tuning_report():
     """
     Export tuning report.
-    
+
     Query args:
         format: json or markdown
     """
     try:
         format_type = request.args.get('format', 'json')
         _, _, behavior_tuner = get_learning_managers()
-        
+
         report = behavior_tuner.export_tuning_report(format_type)
-        
+
         return jsonify({
             "status": "success",
             "format": format_type,
@@ -538,17 +538,17 @@ def export_tuning_report():
 def learning_health_check():
     """
     Health check for learning system.
-    
+
     Returns:
         Status of all learning components
     """
     try:
         pref_mgr, pattern_analyzer, behavior_tuner = get_learning_managers()
-        
+
         prefs_ok = pref_mgr.prefs_dir.exists()
         patterns_ok = pattern_analyzer.data_dir.exists()
         tuning_ok = behavior_tuner.tuning_dir.exists()
-        
+
         return jsonify({
             "status": "healthy" if all([prefs_ok, patterns_ok, tuning_ok]) else "degraded",
             "components": {
@@ -570,19 +570,19 @@ def learning_health_check():
 def get_learning_summary(user_id: str):
     """
     Get complete learning summary for a user.
-    
+
     Combines preferences, patterns, and tuning info.
-    
+
     Args:
         user_id: User identifier
     """
     try:
         pref_mgr, pattern_analyzer, behavior_tuner = get_learning_managers()
-        
+
         profile = pref_mgr.get_profile(user_id)
         insights = pattern_analyzer.get_insights()
         config = behavior_tuner.get_current_config()
-        
+
         return jsonify({
             "status": "success",
             "user_id": user_id,

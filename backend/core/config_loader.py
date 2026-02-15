@@ -24,7 +24,7 @@ class ConfigLoader:
         self._logger = logger
         self._loaded_configs: Dict[str, BaseModel] = {}
         self._raw_config_data: Dict[str, Any] = {}
-        
+
         self._config_map: Dict[str, Type[BaseModel]] = {
             "llm_models": LLMModelsConfig,
             "agent_features": AgentFeaturesConfig,
@@ -57,11 +57,11 @@ class ConfigLoader:
     def get_config(self, config_type: str) -> Optional[BaseModel]:
         """Returns a validated Pydantic config model by type."""
         return self._loaded_configs.get(config_type)
-    
+
     def get_raw_config_data(self) -> Dict[str, Any]:
         """Returns the raw, merged config data."""
         return self._raw_config_data
-    
+
     @property
     def logger(self) -> AgentLogger:
         return self._logger

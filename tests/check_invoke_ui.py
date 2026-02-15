@@ -16,25 +16,25 @@ def check_invoke_ui():
     """Verificar conexion a Invoke UI"""
     from backend.utils.domains.multimedia.image_generation_tools import ImageGeneratorTools
     import logging
-    
+
     # Configurar logging - SILENCIAR
     logging.disable(logging.CRITICAL)
     logger = logging.getLogger('invoke_ui_check')
-    
+
     print("\n" + "="*70)
     print("  Verificacion de Invoke UI")
     print("="*70 + "\n")
-    
+
     # Crear instancia del generador
     generator = ImageGeneratorTools(logger=logger)
-    
+
     print("URL configurada: " + generator.api_base_url)
     print("Directorio de salida: " + str(generator.output_dir) + "\n")
-    
+
     # Verificar estado
     print("Verificando conexion a Invoke UI...\n")
     status = generator.check_invoke_ui_status()
-    
+
     if status['ok']:
         print("[OK] Invoke UI esta en linea")
         print("   Estado: " + status['status'].upper())
@@ -45,7 +45,7 @@ def check_invoke_ui():
                 print("     - " + str(model))
             if len(status.get('models', [])) > 5:
                 print("     ... y " + str(len(status['models']) - 5) + " mas")
-        
+
         print("\n[SUCCESS] Invoke UI esta listo para usar!")
         print("\n   Puedes usar la herramienta de generacion de imagenes:")
         print("   - En auto_agent para generar imagenes automaticamente")

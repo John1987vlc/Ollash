@@ -125,7 +125,7 @@ class MemoryManager:
     # ----------------------------------------------------------------
     # Preference Management
     # ----------------------------------------------------------------
-    
+
     def get_preference_manager(self) -> PreferenceManager:
         """Returns the PreferenceManager instance."""
         return self.preference_manager

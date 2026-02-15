@@ -21,7 +21,7 @@ class StructureIssue:
     description: str
     affected_paths: List[str]
     suggestion: str
-    
+
     def to_dict(self) -> Dict:
         return {
             "category": self.category,
@@ -41,7 +41,7 @@ class StructureReview:
     issues: List[StructureIssue]
     recommendations: List[str]
     metric_breakdown: Dict[str, float]  # Component scores
-    
+
     def to_dict(self) -> Dict:
         return {
             "quality_score": self.quality_score,
@@ -56,7 +56,7 @@ class StructureReview:
 class StructurePreReviewer:
     """
     Validates project structure before Phase 4 (code generation).
-    
+
     Checks:
     - Logical organization and hierarchy
     - Naming conventions consistency
@@ -93,17 +93,17 @@ class StructurePreReviewer:
     ) -> StructureReview:
         """
         Perform comprehensive structure pre-review.
-        
+
         Args:
             readme_content: Project README/description
             structure: Project structure JSON
             project_name: Name of the project
-        
+
         Returns:
             StructureReview with quality metrics and issues
         """
         self.logger.info(f"Performing Structure Pre-Review for {project_name}...")
-        
+
         # Run checks in parallel
         checks = {
             "hierarchy": self._check_hierarchy(structure),
@@ -112,31 +112,31 @@ class StructurePreReviewer:
             "completeness": self._check_completeness(structure, readme_content),
             "organization": self._check_organization(structure),
         }
-        
+
         # Get LLM review for subjective aspects
         llm_issues = self._get_llm_structure_review(
             readme_content, structure, project_name
         )
-        
+
         # Synthesize all issues
         all_issues = []
         for check_name, (issues, score) in checks.items():
             all_issues.extend(issues)
-        
+
         all_issues.extend(llm_issues)
-        
+
         # Calculate overall quality score
         metric_scores = {k: v[1] for k, v in checks.items()}
         quality_score = self._calculate_quality_score(metric_scores, llm_issues)
-        
+
         # Determine status
         status = "passed" if quality_score >= 80 else (
             "needs_improvement" if quality_score >= 60 else "critical"
         )
-        
+
         # Generate recommendations
         recommendations = self._generate_recommendations(all_issues, status)
-        
+
         review = StructureReview(
             quality_score=quality_score,
             confidence=0.85,  # Based on hardcoded checks + LLM
@@ -145,21 +145,21 @@ class StructurePreReviewer:
             recommendations=recommendations,
             metric_breakdown=metric_scores,
         )
-        
+
         self.logger.info(
             f"Structure Pre-Review complete: Score={quality_score:.1f}, "
             f"Status={status}, Issues={len(all_issues)}"
         )
-        
+
         return review
 
     def _check_hierarchy(self, structure: Dict) -> Tuple[List[StructureIssue], float]:
         """Check if folder hierarchy is logical."""
         issues = []
         score = 100.0
-        
+
         files = self._extract_file_paths(structure)
-        
+
         # Check for files in root (usually not ideal)
         root_files = [f for f in files if "/" not in f]
         if len(root_files) > 5:
@@ -171,7 +171,7 @@ class StructurePreReviewer:
                 suggestion="Organize root files into subdirectories (src/, config/, docs/, etc.)"
             ))
             score -= 10
-        
+
         # Check for deep nesting
         max_depth = max((p.count("/") for p in files), default=0)
         if max_depth > 6:
@@ -183,16 +183,16 @@ class StructurePreReviewer:
                 suggestion="Flatten some folder levels for better accessibility"
             ))
             score -= 5
-        
+
         return issues, score
 
     def _check_naming_conventions(self, structure: Dict) -> Tuple[List[StructureIssue], float]:
         """Check naming consistency."""
         issues = []
         score = 100.0
-        
+
         files = self._extract_file_paths(structure)
-        
+
         # Detect naming patterns
         patterns = {}
         for f in files:
@@ -200,12 +200,12 @@ class StructurePreReviewer:
             if ext not in patterns:
                 patterns[ext] = []
             patterns[ext].append(f)
-        
+
         # Check for mixed naming conventions (snake_case vs camelCase)
         for ext, file_list in patterns.items():
             Snake_case_count = sum(1 for f in file_list if "_" in f and "-" not in f)
             Kebab_case_count = sum(1 for f in file_list if "-" in f)
-            
+
             if Snake_case_count > 0 and Kebab_case_count > 0:
                 issues.append(StructureIssue(
                     category="naming",
@@ -215,23 +215,23 @@ class StructurePreReviewer:
                     suggestion="Use consistent naming (e.g., all snake_case or all kebab-case)"
                 ))
                 score -= 5
-        
+
         return issues, score
 
     def _check_naming_conflicts(self, structure: Dict) -> Tuple[List[StructureIssue], float]:
         """Check for naming conflicts (file with folder name)."""
         issues = []
         score = 100.0
-        
+
         files = self._extract_file_paths(structure)
         folders = self._extract_folder_paths(structure)
-        
+
         # Normalize paths
         file_bases = set(f.split(".")[0].lower() for f in files)
         folder_bases = set(f.rstrip("/").lower() for f in folders)
-        
+
         conflicts = file_bases & folder_bases
-        
+
         if conflicts:
             issues.append(StructureIssue(
                 category="naming",
@@ -241,7 +241,7 @@ class StructurePreReviewer:
                 suggestion="Rename files or folders to remove conflicts"
             ))
             score -= 20
-        
+
         return issues, score
 
     def _check_completeness(
@@ -252,9 +252,9 @@ class StructurePreReviewer:
         """Check for required files based on project type."""
         issues = []
         score = 100.0
-        
+
         files = [f.lower() for f in self._extract_file_paths(structure)]
-        
+
         # Required files based on project type
         required_sets = {
             "readme": ["readme.md", "readme", "readme.markdown"],
@@ -263,7 +263,7 @@ class StructurePreReviewer:
             "tests": ["test", "tests", "spec", "specs"],
             "docs": ["docs", "documentation"],
         }
-        
+
         missing = []
         for req_name, req_patterns in required_sets.items():
             has = any(
@@ -273,7 +273,7 @@ class StructurePreReviewer:
             if not has and req_name != "license":  # License is optional
                 missing.append(req_name)
                 score -= 5
-        
+
         if missing:
             issues.append(StructureIssue(
                 category="completeness",
@@ -282,16 +282,16 @@ class StructurePreReviewer:
                 affected_paths=[],
                 suggestion=f"Add {', '.join(missing)} files"
             ))
-        
+
         return issues, score
 
     def _check_organization(self, structure: Dict) -> Tuple[List[StructureIssue], float]:
         """Check logical organization (src/, tests/, etc.)."""
         issues = []
         score = 100.0
-        
+
         folders = [f.rstrip("/").lower() for f in self._extract_folder_paths(structure)]
-        
+
         # Check for separate test folder
         has_tests = any("test" in f for f in folders)
         if not has_tests:
@@ -303,7 +303,7 @@ class StructurePreReviewer:
                 suggestion="Create tests/ or test/ folder for test files"
             ))
             score -= 3
-        
+
         # Check for config folder
         has_config = any("config" in f or "conf" in f for f in folders)
         if not has_config:
@@ -315,7 +315,7 @@ class StructurePreReviewer:
                 suggestion="Create config/ folder for configuration files"
             ))
             score -= 3
-        
+
         return issues, score
 
     def _get_llm_structure_review(
@@ -326,11 +326,11 @@ class StructurePreReviewer:
     ) -> List[StructureIssue]:
         """Get LLM's subjective review of structure."""
         issues = []
-        
+
         system_prompt = """You are an expert software architect reviewing project structures.
 Identify structural issues: organization, naming, hierarchy, separation of concerns.
 Return ONLY valid JSON with no extra text."""
-        
+
         user_prompt = f"""Review this project structure:
 
 Project: {project_name}
@@ -346,7 +346,7 @@ Respond ONLY with valid JSON (no markdown):
     ],
     "overall_assessment": "..."
 }}"""
-        
+
         try:
             response_data, _ = self.llm_client.chat(
                 messages=[
@@ -356,9 +356,9 @@ Respond ONLY with valid JSON (no markdown):
                 tools=[],
                 options_override=self.options,
             )
-            
+
             raw = response_data["message"]["content"]
-            
+
             # Try to extract JSON
             try:
                 # Remove markdown if present
@@ -366,9 +366,9 @@ Respond ONLY with valid JSON (no markdown):
                     raw = raw.split("```")[1]
                     if raw.startswith("json"):
                         raw = raw[4:]
-                
+
                 result = json.loads(raw)
-                
+
                 for issue_data in result.get("issues", []):
                     issues.append(StructureIssue(
                         category=issue_data.get("category", "organization"),
@@ -379,10 +379,10 @@ Respond ONLY with valid JSON (no markdown):
                     ))
             except json.JSONDecodeError:
                 self.logger.debug("LLM structure review did not return valid JSON")
-        
+
         except Exception as e:
             self.logger.debug(f"Error getting LLM structure review: {e}")
-        
+
         return issues
 
     def _calculate_quality_score(
@@ -393,14 +393,14 @@ Respond ONLY with valid JSON (no markdown):
         """Calculate overall quality score 0-100."""
         # Start with average of metrics
         base_score = sum(metrics.values()) / len(metrics) if metrics else 100.0
-        
+
         # Deduct for critical issues
         critical_count = sum(1 for i in issues if i.severity == "critical")
         high_count = sum(1 for i in issues if i.severity == "high")
-        
+
         base_score -= critical_count * 15
         base_score -= high_count * 5
-        
+
         return max(0, min(100, base_score))
 
     def _generate_recommendations(
@@ -410,14 +410,14 @@ Respond ONLY with valid JSON (no markdown):
     ) -> List[str]:
         """Generate actionable recommendations from issues."""
         recommendations = []
-        
+
         # Group by category
         by_category = {}
         for issue in issues:
             if issue.category not in by_category:
                 by_category[issue.category] = []
             by_category[issue.category].append(issue)
-        
+
         # Generate recommendations per category
         for category, cat_issues in by_category.items():
             high_priority = [i for i in cat_issues if i.severity in ("high", "critical")]
@@ -426,34 +426,34 @@ Respond ONLY with valid JSON (no markdown):
                     f"Fix {len(high_priority)} critical {category} issues: "
                     f"{high_priority[0].suggestion}"
                 )
-        
+
         return recommendations
 
     def _extract_file_paths(self, structure: Dict, prefix: str = "") -> List[str]:
         """Extract all file paths from structure."""
         files = []
-        
+
         if "files" in structure:
             for f in structure["files"]:
                 files.append(f"{prefix}{f}")
-        
+
         if "folders" in structure:
             for folder in structure["folders"]:
                 folder_name = folder.get("name", "")
                 new_prefix = f"{prefix}{folder_name}/"
                 files.extend(self._extract_file_paths(folder, new_prefix))
-        
+
         return files
 
     def _extract_folder_paths(self, structure: Dict, prefix: str = "") -> List[str]:
         """Extract all folder paths from structure."""
         folders = []
-        
+
         if "folders" in structure:
             for folder in structure["folders"]:
                 folder_name = folder.get("name", "")
                 folder_path = f"{prefix}{folder_name}/"
                 folders.append(folder_path)
                 folders.extend(self._extract_folder_paths(folder, folder_path))
-        
+
         return folders

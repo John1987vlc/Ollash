@@ -20,7 +20,7 @@ class ToolSpanManager:
         """
         if tool_call_id is None:
             tool_call_id = f"{tool_name}-{time.monotonic()}" # Simple unique ID for now
-        
+
         start_time = time.monotonic()
         span_data = {
             "tool_name": tool_name,
@@ -30,7 +30,7 @@ class ToolSpanManager:
             "status": "in_progress",
         }
         self._active_spans[tool_call_id] = span_data
-        
+
         self._logger.info(
             f"Tool Execution Started: {tool_name}",
             extra={
@@ -53,7 +53,7 @@ class ToolSpanManager:
 
         end_time = time.monotonic()
         latency = end_time - span_data["start_time"]
-        
+
         span_data.update({
             "end_time": end_time,
             "latency_ms": latency * 1000,
@@ -61,7 +61,7 @@ class ToolSpanManager:
             "result_preview": str(result)[:500], # Preview of result
             "error_message": error,
         })
-        
+
         self._logger.info(
             f"Tool Execution Ended: {span_data['tool_name']} - {span_data['status'].upper()}",
             extra={

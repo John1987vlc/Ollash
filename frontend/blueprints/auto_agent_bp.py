@@ -33,7 +33,7 @@ def init_app(ollash_root_dir: Path, event_publisher: EventPublisher, chat_event_
     _ollash_root_dir = ollash_root_dir
     _event_publisher = event_publisher
     _chat_event_bridge = chat_event_bridge
-    
+
     # Wire the container to the modules that will use injected dependencies
     main_container.wire(modules=[__name__, "backend.agents.auto_agent"])
 
@@ -45,14 +45,14 @@ def generate_project_structure():
     # ... (form data parsing remains the same)
     project_description = request.form.get("project_description")
     project_name = request.form.get("project_name")
-    
+
     if not project_description or not project_name:
         return jsonify({"status": "error", "message": "Project description and name are required."}), 400
 
     try:
         # Instantiate the agent via the DI container
         local_auto_agent: AutoAgent = main_container.auto_agent_module.auto_agent()
-        
+
         # Collect kwargs for the agent method
         kwargs = {
             "template_name": request.form.get("template_name", "default"),
@@ -95,10 +95,10 @@ def create_project():
         try:
             # Instantiate the agent inside the thread via the DI container
             agent: AutoAgent = main_container.auto_agent_module.auto_agent()
-            
+
             # Hook up the global event publisher for this long-running task
             agent.event_publisher = _event_publisher
-            
+
             agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' generation starting in background.")
 
             run_kwargs = {
@@ -112,7 +112,7 @@ def create_project():
             }
 
             project_root = agent.run(**run_kwargs)
-            
+
             agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' created at {project_root}")
             _chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' completed."})
         except Exception as e:

@@ -25,7 +25,7 @@ class AutomationTaskExecutor:
     def __init__(self, ollash_root_dir: Path, event_publisher: EventPublisher):
         """
         Initialize the executor.
-        
+
         Args:
             ollash_root_dir: Root directory of Ollash
             event_publisher: Event publisher instance for notifications
@@ -40,22 +40,22 @@ class AutomationTaskExecutor:
     def evaluate_conditional_triggers(self, context: Dict[str, Any] = None) -> list:
         """
         Evaluate all conditional triggers and return triggered rules.
-        
+
         Args:
             context: Optional system context. If None, will gather from metrics.
-        
+
         Returns:
             List of triggered rules with their actions
         """
         if context is None:
             context = self._gather_system_context()
-        
+
         return self.trigger_manager.evaluate_all(context, cooldown_minutes=5)
 
     def _gather_system_context(self) -> Dict[str, Any]:
         """
         Gather current system context from metrics database.
-        
+
         Returns:
             Dictionary with system state information
         """
@@ -66,30 +66,30 @@ class AutomationTaskExecutor:
                 "network": {},
                 "security": {}
             }
-            
+
             # Gather system metrics
             for metric_file in self.metrics_db.db_path.glob("system_*.json"):
                 metric_name = metric_file.stem.replace("system_", "")
                 latest = self.metrics_db.get_latest_metric("system", metric_name)
                 if latest:
                     context["system"][metric_name] = latest.get("value")
-            
+
             # Gather network metrics
             for metric_file in self.metrics_db.db_path.glob("network_*.json"):
                 metric_name = metric_file.stem.replace("network_", "")
                 latest = self.metrics_db.get_latest_metric("network", metric_name)
                 if latest:
                     context["network"][metric_name] = latest.get("value")
-            
+
             # Gather security metrics
             for metric_file in self.metrics_db.db_path.glob("security_*.json"):
                 metric_name = metric_file.stem.replace("security_", "")
                 latest = self.metrics_db.get_latest_metric("security", metric_name)
                 if latest:
                     context["security"][metric_name] = latest.get("value")
-            
+
             return context
-        
+
         except Exception as e:
             logger.error(f"Error gathering system context: {e}")
             return {"timestamp": datetime.now().isoformat()}
@@ -97,22 +97,22 @@ class AutomationTaskExecutor:
     async def execute_triggered_actions(self, triggered_rules: list) -> list:
         """
         Execute actions from triggered rules.
-        
+
         Args:
             triggered_rules: List of triggered rules with actions
-        
+
         Returns:
             List of execution results
         """
         results = []
-        
+
         for rule in triggered_rules:
             actions = rule.get("actions", [])
-            
+
             for action in actions:
                 try:
                     action_type = action.get("type")
-                    
+
                     if action_type == "execute_prompt":
                         # Execute an agent prompt
                         result = await self.execute_task(
@@ -125,7 +125,7 @@ class AutomationTaskExecutor:
                             }
                         )
                         results.append(result)
-                    
+
                     elif action_type == "send_notification":
                         # Send notification
                         self.notification_manager.send_alert(
@@ -137,7 +137,7 @@ class AutomationTaskExecutor:
                             "action": "notification_sent",
                             "status": "success"
                         })
-                    
+
                     elif action_type == "publish_event":
                         # Publish event
                         self.event_publisher.publish(
@@ -148,7 +148,7 @@ class AutomationTaskExecutor:
                             "action": "event_published",
                             "status": "success"
                         })
-                
+
                 except Exception as e:
                     logger.error(f"Error executing triggered action: {e}")
                     results.append({
@@ -156,7 +156,7 @@ class AutomationTaskExecutor:
                         "status": "error",
                         "error": str(e)
                     })
-        
+
         return results
 
     async def execute_task(
@@ -167,7 +167,7 @@ class AutomationTaskExecutor:
     ) -> Dict[str, Any]:
         """
         Execute an automation task.
-        
+
         Args:
             task_id: Unique task identifier
             task_data: Task configuration with keys:
@@ -176,11 +176,11 @@ class AutomationTaskExecutor:
                 - prompt: Prompt to execute
                 - notifyEmail: Whether to send email notification
             recipient_emails: List of email addresses for notifications
-        
+
         Returns:
             dict with execution result: {
                 'status': 'success' | 'error',
-                'output': str, 
+                'output': str,
                 'error': str (if error),
                 'executed_at': ISO timestamp
             }
@@ -275,19 +275,19 @@ class AutomationTaskExecutor:
         """
         Execute task synchronously (blocking).
         Used by APScheduler which doesn't support async callbacks.
-        
+
         Args:
             task_id: Unique task identifier
             task_data: Task configuration
             recipient_emails: List of email addresses
-        
+
         Returns:
             dict with execution result
         """
         # Create new event loop for this thread
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
+
         try:
             result = loop.run_until_complete(
                 self.execute_task(task_id, task_data, recipient_emails)
@@ -307,21 +307,21 @@ def get_task_executor(
 ) -> AutomationTaskExecutor:
     """
     Get or create the global task executor instance.
-    
+
     Args:
         ollash_root_dir: Root directory (required for first initialization)
         event_publisher: Event publisher (required for first initialization)
-    
+
     Returns:
         AutomationTaskExecutor instance
     """
     global _executor_instance
-    
+
     if _executor_instance is None:
         if ollash_root_dir is None or event_publisher is None:
             raise ValueError(
                 "ollash_root_dir and event_publisher required for first initialization"
             )
         _executor_instance = AutomationTaskExecutor(ollash_root_dir, event_publisher)
-    
+
     return _executor_instance

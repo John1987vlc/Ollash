@@ -91,8 +91,8 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def file_content_generation(file_path: str, parent_context: str) -> Tuple[str, str]:
-        """Returns (system_prompt, user_prompt) for file content generation."""
+    def file_content_generation_basic(file_path: str, parent_context: str) -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for basic file content generation."""
         system = (
             "You are an expert software developer. Generate clean, complete, and well-structured code "
             "that follows best practices and the provided context."
@@ -210,9 +210,9 @@ class AutoGenPrompts:
             "Every function must be fully implemented. Include all necessary imports. "
             "Make code immediately usable."
         )
-        
+
         file_ext = Path(file_path).suffix.lower() if 'Path' in locals() else ''
-        
+
         # Specialized prompts by file type
         type_guidance = ""
         if file_ext in ['.py', '.pyi']:
@@ -250,7 +250,7 @@ class AutoGenPrompts:
                 "- Organized selectors\n"
                 "- Comments for complex rules"
             )
-        
+
         user = (
             f"Generate the COMPLETE content for: {file_path}\n\n"
             f"Project README:\n{readme[:800]}\n\n"

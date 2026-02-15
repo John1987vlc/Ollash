@@ -16,7 +16,7 @@ from backend.utils.core.agent_logger import AgentLogger
 class FragmentCache:
     """
     Caches common code fragments to reduce LLM calls.
-    
+
     Fragments are indexed by:
     - Fragment type (license_header, class_boilerplate, function_template, etc.)
     - Language (python, javascript, go, rust, etc.)
@@ -37,7 +37,7 @@ class FragmentCache:
     def __init__(self, cache_dir: Path, logger: AgentLogger, enable_persistence: bool = True):
         """
         Initialize the fragment cache.
-        
+
         Args:
             cache_dir: Directory to store cache files
             logger: Logger instance
@@ -46,13 +46,13 @@ class FragmentCache:
         self.cache_dir = Path(cache_dir)
         self.logger = logger
         self.enable_persistence = enable_persistence
-        
+
         # In-memory cache
         self._memory_cache: Dict[str, Dict] = {}
-        
+
         # Cache metadata
         self.cache_file = self.cache_dir / ".fragment_cache.json"
-        
+
         if self.enable_persistence:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             self._load_from_disk()
@@ -75,33 +75,33 @@ class FragmentCache:
     ) -> Optional[str]:
         """
         Retrieve a cached fragment.
-        
+
         Args:
             fragment_type: Type of fragment (e.g., 'license_header')
             language: Programming language
             context: Optional context string for more specific matches
             validate_fn: Optional validation function to check if fragment is still valid
-        
+
         Returns:
             Cached fragment string, or None if not found or invalid
         """
         context_hash = self._compute_context_hash(context) if context else ""
         cache_key = self._generate_cache_key(fragment_type, language, context_hash)
-        
+
         # Check memory cache first
         if cache_key in self._memory_cache:
             fragment_data = self._memory_cache[cache_key]
-            
+
             # Validate fragment if validator provided
             if validate_fn:
                 if not validate_fn(fragment_data.get("content", "")):
                     self.logger.debug(f"Fragment validation failed for {cache_key}")
                     return None
-            
+
             self.logger.debug(f"Fragment cache HIT for {cache_key}")
             fragment_data["hits"] = fragment_data.get("hits", 0) + 1
             return fragment_data.get("content")
-        
+
         self.logger.debug(f"Fragment cache MISS for {cache_key}")
         return None
 
@@ -115,7 +115,7 @@ class FragmentCache:
     ) -> None:
         """
         Store a fragment in the cache.
-        
+
         Args:
             fragment_type: Type of fragment
             language: Programming language
@@ -125,10 +125,10 @@ class FragmentCache:
         """
         if not content:
             return
-        
+
         context_hash = self._compute_context_hash(context) if context else ""
         cache_key = self._generate_cache_key(fragment_type, language, context_hash)
-        
+
         self._memory_cache[cache_key] = {
             "content": content,
             "created_at": datetime.now().isoformat(),
@@ -137,9 +137,9 @@ class FragmentCache:
             "language": language,
             "metadata": metadata or {}
         }
-        
+
         self.logger.debug(f"Fragment cached: {cache_key}")
-        
+
         if self.enable_persistence:
             self._save_to_disk()
 
@@ -154,11 +154,11 @@ class FragmentCache:
         """
         prefix = self._generate_cache_key(fragment_type, language, "").rstrip(":")
         matches = []
-        
+
         for key, data in self._memory_cache.items():
             if key.startswith(prefix):
                 matches.append(data.get("content", ""))
-        
+
         return matches
 
     def clear(self) -> None:
@@ -172,12 +172,12 @@ class FragmentCache:
         """Return cache statistics."""
         if not self._memory_cache:
             return {"status": "empty", "fragments": 0}
-        
+
         total_fragments = len(self._memory_cache)
         total_hits = sum(f.get("hits", 0) for f in self._memory_cache.values())
         fragment_types = set(f.get("fragment_type") for f in self._memory_cache.values())
         languages = set(f.get("language") for f in self._memory_cache.values())
-        
+
         return {
             "total_fragments": total_fragments,
             "total_hits": total_hits,
@@ -190,7 +190,7 @@ class FragmentCache:
         """Persist cache to disk."""
         if not self.enable_persistence:
             return
-        
+
         try:
             with open(self.cache_file, 'w', encoding='utf-8') as f:
                 json.dump(self._memory_cache, f, indent=2, default=str)
@@ -201,7 +201,7 @@ class FragmentCache:
         """Load cache from disk."""
         if not self.cache_file.exists():
             return
-        
+
         try:
             with open(self.cache_file, 'r', encoding='utf-8') as f:
                 self._memory_cache = json.load(f)
@@ -216,17 +216,17 @@ class FragmentCache:
         Should be called during initialization for frequently used languages.
         """
         common_fragments = self._get_common_fragments_for_language(language)
-        
+
         for fragment_type, content, metadata in common_fragments:
             if self.get(fragment_type, language) is None:
                 self.set(fragment_type, language, content, metadata=metadata)
-        
+
         self.logger.info(f"Preloaded common fragments for {language}")
 
     @staticmethod
     def _get_common_fragments_for_language(language: str) -> List[tuple]:
         """Return a list of (fragment_type, content, metadata) for common language patterns."""
-        
+
         fragments = {
             "python": [
                 (
@@ -260,5 +260,5 @@ class FragmentCache:
                 ),
             ],
         }
-        
+
         return fragments.get(language, [])

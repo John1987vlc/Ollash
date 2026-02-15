@@ -32,7 +32,7 @@ class CoworkTools:
         self.logger = logger
         self.workspace = knowledge_workspace
         self.tasks_file = knowledge_workspace.parent / "config" / "tasks.json"
-        
+
         self.summarizer = CascadeSummarizer(ollama_client, logger)
         self.ingester = MultiFormatIngester(logger)
 
@@ -48,7 +48,7 @@ class CoworkTools:
         and generates automation task definitions.
         """
         doc_path = self.doc_manager.references_dir / document_name
-        
+
         if not doc_path.exists():
             return {
                 "status": "error",
@@ -65,7 +65,7 @@ class CoworkTools:
                 }
 
             # Analyze requirements using analyst role
-            prompt = f"""You are a task planning expert. Analyze the following requirements document 
+            prompt = f"""You are a task planning expert. Analyze the following requirements document
 and generate a clear list of automation tasks.
 
 Document: {document_name}
@@ -154,7 +154,7 @@ Return ONLY valid JSON array of tasks, no other text."""
         Returns executive summary of top risks identified.
         """
         log_paths = self._get_log_paths(log_type)
-        
+
         if not log_paths:
             return {
                 "status": "warning",
@@ -182,7 +182,7 @@ Return ONLY valid JSON array of tasks, no other text."""
                 }
 
             # Analyze logs using analyst role
-            prompt = f"""You are a security and systems analyst. Review the following logs 
+            prompt = f"""You are a security and systems analyst. Review the following logs
 and identify critical risks, anomalies, and security concerns.
 
 Time period analyzed: {time_period}
@@ -250,7 +250,7 @@ Format as JSON array. Only include {risk_threshold} and above severity."""
         Uses cascade summarization for long documents.
         """
         doc_path = self.doc_manager.references_dir / document_name
-        
+
         if not doc_path.exists():
             return {
                 "status": "error",
@@ -272,7 +272,7 @@ Format as JSON array. Only include {risk_threshold} and above severity."""
                 result = self.summarizer.cascade_summarize(content, title=document_name)
                 if result["status"] != "success":
                     return result
-                
+
                 summary = result["executive_summary"]
             else:
                 # For shorter docs, single-pass summarization
@@ -298,7 +298,7 @@ Content:
             summary_dir = self.doc_manager.summaries_dir
             summary_dir.mkdir(parents=True, exist_ok=True)
             summary_file = summary_dir / f"{Path(document_name).stem}_{summary_type}.md"
-            
+
             with open(summary_file, "w", encoding="utf-8") as f:
                 f.write(f"# Executive Summary: {document_name}\n\n")
                 f.write(f"**Type:** {summary_type}\n")
@@ -336,7 +336,7 @@ Content:
                         existing_tasks = [existing_tasks]
 
             combined_tasks = existing_tasks + new_tasks
-            
+
             self.tasks_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.tasks_file, "w", encoding="utf-8") as f:
                 json.dump(combined_tasks, f, indent=2, ensure_ascii=False)
@@ -348,7 +348,7 @@ Content:
     def _get_log_paths(self, log_type: str) -> List[Path]:
         """Returns list of log file paths based on type."""
         log_base = Path("/var/log") if Path("/var/log").exists() else Path("logs")
-        
+
         log_maps = {
             "system": ["syslog", "kern.log", "messages"],
             "application": ["app.log", "application.log"],

@@ -46,7 +46,7 @@ class TestCodeFragment:
             start_line=1,
             end_line=2,
         )
-        
+
         assert fragment.file_path == "src/main.py"
         assert fragment.language == "python"
         assert fragment.start_line == 1
@@ -61,7 +61,7 @@ class TestCodeFragment:
             start_line=1,
             end_line=1,
         )
-        
+
         assert len(fragment.content) > 0
 
 
@@ -79,7 +79,7 @@ class TestRAGContextSelector:
             "main.py": "def hello():\n    print('Hello')",
             "utils.py": "def add(a, b):\n    return a + b",
         }
-        
+
         # Should not raise error
         try:
             selector.index_code_fragments(files)
@@ -94,14 +94,14 @@ class TestRAGContextSelector:
             "src/utils.py": "def add(a, b): return a + b",
             "tests/test_utils.py": "def test_add(): assert add(1, 2) == 3",
         }
-        
+
         try:
             selected = selector.select_relevant_files(
                 query="utility functions",
                 available_files=available_files,
                 max_files=2,
             )
-            
+
             # Should return a dictionary
             assert isinstance(selected, dict)
             # Should not exceed max_files
@@ -122,7 +122,7 @@ class TestRAGContextSelector:
                     CodeFragment(file_path="medium_file.py", language="python", content="y" * 300, start_line=1),
                     CodeFragment(file_path="small_file.py", language="python", content="z" * 100, start_line=1),
                 ]
-                
+
                 # Set a specific token limit for the test
                 selector.max_context_tokens = 200
 
@@ -130,7 +130,7 @@ class TestRAGContextSelector:
                     task_description="analyze code structure",
                     required_files=["large_file.py"],
                 )
-                
+
                 # Assertions
                 assert isinstance(context, str)
                 assert tokens is not None  # Verify tokens is returned
@@ -146,7 +146,7 @@ class TestSemanticContextManager:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         assert manager.logger is not None
         assert manager.selector is not None
 
@@ -156,19 +156,19 @@ class TestSemanticContextManager:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         files = {
             "main.py": "def main(): pass",
             "utils.py": "def helper(): pass",
         }
-        
+
         try:
             context = manager.prepare_context_for_phase(
                 phase="analysis",
                 files=files,
                 task="analyze code structure",
             )
-            
+
             # Should return context
             assert isinstance(context, (str, dict))
         except Exception:
@@ -181,11 +181,11 @@ class TestSemanticContextManager:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         files = {"test.py": "x = 1"}
-        
+
         phases = ["analysis", "generation", "review", "cleanup"]
-        
+
         for phase in phases:
             try:
                 context = manager.prepare_context_for_phase(

@@ -47,7 +47,7 @@ class TestMainSuite:
     def test_suite_organization(self):
         """Verify that test suite is properly organized."""
         tests_dir = Path(__file__).parent
-        
+
         # Check that all module test directories exist
         expected_dirs = ["agents", "core", "services", "utils", "web", "automations", "integration", "e2e"]
         for dir_name in expected_dirs:
@@ -58,7 +58,7 @@ class TestMainSuite:
     def test_modules_have_tests(self):
         """Verify that each module has tests."""
         tests_dir = Path(__file__).parent
-        
+
         # These modules should have test files
         module_requirements = {
             "agents": ["test_auto_agent.py"],
@@ -66,7 +66,7 @@ class TestMainSuite:
             "web": ["test_blueprints.py"],
             "automations": ["test_automations.py"],
         }
-        
+
         for module, test_files in module_requirements.items():
             module_dir = tests_dir / module
             for test_file in test_files:
@@ -77,7 +77,7 @@ class TestMainSuite:
 def test_main():
     """
     Main test entry point.
-    
+
     Usage:
         pytest tests/test_main.py -v                      # Run this file
         pytest tests/ -v                                  # Run all tests

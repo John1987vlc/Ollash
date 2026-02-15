@@ -23,7 +23,7 @@ class GitOperationsTools:
         """Commit with user confirmation, with dynamic approval based on changes."""
         # Get diff stats for staged changes
         diff_stats = self.git.diff_numstat(staged=True)
-        
+
         if not diff_stats["success"]:
             self.logger.warning("Could not get git diff stats, falling back to manual confirmation.")
             if not self.tool_executor._ask_confirmation("git_commit", {"message": message}):
@@ -47,7 +47,7 @@ class GitOperationsTools:
                 # Changes too large for auto-confirm, ask user for manual confirmation
                 if not self.tool_executor._ask_confirmation("git_commit", {"message": message, "lines_changed": total_lines_changed}):
                     return {"ok": False, "error": "user_cancelled", "message": "User cancelled the commit"}
-        
+
         # Original commit logic
         try:
             result = self.git.create_commit_with_all(message)
@@ -70,7 +70,7 @@ class GitOperationsTools:
                 "error": "user_cancelled",
                 "message": "User cancelled the push"
             }
-        
+
         try:
             result = self.git.push(remote)
             if result.get("success"): # GitManager.push returns 'success' not 'ok'

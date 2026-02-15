@@ -209,7 +209,7 @@ class ToolRegistry:
     def get_tool_definitions(self, active_tool_names: List[str]) -> List[Dict]:
         """Returns the OpenAPI-like definitions for the given active tool names."""
         self._initialize_if_needed() # Ensure tools are discovered
-        
+
         all_definitions = get_discovered_definitions()
         definitions = []
         for tool_def in all_definitions:
@@ -228,10 +228,10 @@ class ToolRegistry:
             toolset_config = self._toolset_configs.get(toolset_identifier)
             if not toolset_config:
                 raise ValueError(f"Toolset configuration for '{toolset_identifier}' not found in registry.")
-            
+
             class_path = toolset_config["class_path"]
             module_name, class_name = class_path.rsplit(".", 1)
-            
+
             # Dynamically import the module and get the class
             try:
                 module = importlib.import_module(module_name)
@@ -244,16 +244,16 @@ class ToolRegistry:
             # Dynamically set agent_instance for toolsets that require it
             if toolset_identifier == "planning_tools" or toolset_identifier == "system_tools":
                 init_args["agent_instance"] = agent_instance
-            
+
             self.logger.debug(f"Lazily instantiating toolset: {toolset_identifier} from {class_path} with args: {init_args}")
             self._loaded_toolsets[toolset_identifier] = toolset_class(**init_args)
-        
+
         toolset_instance = self._loaded_toolsets[toolset_identifier]
         tool_func = getattr(toolset_instance, method_name_in_toolset, None)
 
         if not tool_func:
             raise AttributeError(f"Method '{method_name_in_toolset}' not found in toolset '{toolset_identifier}'.")
-            
+
         return tool_func
 
 

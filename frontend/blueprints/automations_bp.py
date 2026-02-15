@@ -25,19 +25,19 @@ def init_app(ollash_root_dir: Path, event_publisher=None):
     global _tasks_storage_file, _scheduler, _executor
     _tasks_storage_file = ollash_root_dir / "config" / "scheduled_tasks.json"
     _tasks_storage_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Initialize scheduler
     _scheduler = get_scheduler()
-    
+
     # Initialize executor (only if event_publisher provided)
     if event_publisher:
         _executor = get_task_executor(ollash_root_dir, event_publisher)
         # Set the task execution callback in scheduler
         _scheduler.set_callback(_execute_scheduled_task)
-    
+
     # Load existing tasks from storage
     load_tasks_from_storage()
-    
+
     # Re-schedule all active tasks
     _reschedule_all_tasks()
 
@@ -93,14 +93,14 @@ def get_automations():
 def create_automation():
     """Create a new scheduled task."""
     data = request.get_json()
-    
+
     # Validate required fields
     required_fields = ["name", "agent", "prompt", "schedule"]
     if not all(field in data for field in required_fields):
         return jsonify({"error": "Missing required fields"}), 400
-    
+
     task_id = f"task_{int(datetime.now().timestamp() * 1000)}"
-    
+
     _scheduled_tasks[task_id] = {
         "name": data["name"],
         "agent": data["agent"],
@@ -113,15 +113,15 @@ def create_automation():
         "lastRun": None,
         "nextRun": None
     }
-    
+
     save_tasks_to_storage()
-    
+
     # Schedule with APScheduler if active
     if _scheduler and _scheduled_tasks[task_id]["status"] == "active":
         success = _scheduler.schedule_task(task_id, _scheduled_tasks[task_id])
         if not success:
             logger.warning(f"Failed to schedule task {task_id} with APScheduler")
-    
+
     return jsonify({
         "status": "created",
         "id": task_id,
@@ -136,11 +136,11 @@ def delete_automation(task_id):
     if task_id in _scheduled_tasks:
         del _scheduled_tasks[task_id]
         save_tasks_to_storage()
-        
+
         # Unschedule from APScheduler
         if _scheduler:
             _scheduler.unschedule_task(task_id)
-        
+
         return jsonify({"status": "deleted"})
     return jsonify({"error": "Task not found"}), 404
 
@@ -153,14 +153,14 @@ def toggle_automation(task_id):
         task = _scheduled_tasks[task_id]
         task["status"] = "inactive" if task["status"] == "active" else "active"
         save_tasks_to_storage()
-        
+
         # Update scheduler
         if _scheduler:
             if task["status"] == "active":
                 _scheduler.schedule_task(task_id, task)
             else:
                 _scheduler.pause_task(task_id)
-        
+
         return jsonify({
             "id": task_id,
             "status": task["status"],
@@ -175,11 +175,11 @@ def run_automation_now(task_id):
     """Run a scheduled task immediately."""
     if task_id not in _scheduled_tasks:
         return jsonify({"error": "Task not found"}), 404
-    
+
     task = _scheduled_tasks[task_id]
     task["lastRun"] = datetime.now().isoformat()
     save_tasks_to_storage()
-    
+
     # Execute task immediately in background
     if _executor:
         try:
@@ -187,13 +187,13 @@ def run_automation_now(task_id):
             import threading
             def _run():
                 _executor.execute_task_sync(task_id, task)
-            
+
             thread = threading.Thread(target=_run, daemon=True)
             thread.start()
         except Exception as e:
             logger.error(f"Error executing task {task_id}: {e}")
             return jsonify({"error": f"Failed to execute task: {str(e)}"}), 500
-    
+
     return jsonify({
         "id": task_id,
         "status": "executing",
@@ -207,7 +207,7 @@ def _reschedule_all_tasks():
     """Re-schedule all active tasks from storage on startup."""
     if not _scheduler:
         return
-    
+
     for task_id, task in _scheduled_tasks.items():
         if task.get("status") == "active":
             try:
@@ -225,9 +225,9 @@ async def _execute_scheduled_task(task_id: str, task_data: dict):
     if not _executor:
         logger.warning(f"Task executor not initialized for task {task_id}")
         return
-    
+
     logger.info(f"APScheduler executing task {task_id}")
-    
+
     # Get recipient emails from task config
     recipient_emails = None
     if task_data.get('notifyEmail'):
@@ -236,10 +236,10 @@ async def _execute_scheduled_task(task_id: str, task_data: dict):
         from backend.utils.core.notification_manager import get_notification_manager
         nm = get_notification_manager()
         recipient_emails = list(nm.subscribed_emails) if nm.subscribed_emails else None
-    
+
     # Execute the task
-    result = await _executor.execute_task(task_id, task_data, recipient_emails)
-    
+    await _executor.execute_task(task_id, task_data, recipient_emails)
+
     # Update last run time in storage
     if task_id in _scheduled_tasks:
         _scheduled_tasks[task_id]["lastRun"] = datetime.now().isoformat()

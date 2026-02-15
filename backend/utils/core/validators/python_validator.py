@@ -41,7 +41,7 @@ class PythonValidator(BaseValidator):
         elif pylint_result.status == ValidationStatus.SYNTAX_ERROR:
             # If pylint found errors, return them directly
             return pylint_result
-        
+
         # If pylint failed for other reasons (e.g., not installed), try flake8
         if "command not found" in pylint_result.message.lower() or "not recognized as an internal or external command" in pylint_result.message.lower():
             if self.logger: self.logger.info(f"  pylint not found for {file_path}. Trying flake8...")
@@ -60,7 +60,7 @@ class PythonValidator(BaseValidator):
                 return self._validate_python_syntax_only(file_path, content, lines, chars)
             else:
                 return flake8_result # Some other error from flake8
-        
+
         return self._validate_python_syntax_only(file_path, content, lines, chars) # Fallback if no linter can be run
 
     def _validate_python_syntax_only(self, file_path, content, lines, chars) -> ValidationResult:

@@ -111,11 +111,11 @@ class BaseValidator:
 
         lint_temp_dir = Path(self.command_executor.working_dir) / ".lint_temp"
         lint_temp_dir.mkdir(parents=True, exist_ok=True)
-        
+
         with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8", dir=lint_temp_dir, suffix=Path(file_path).suffix) as tmp_f:
             tmp_f.write(content)
             temp_file_path = Path(tmp_f.name)
-        
+
         rel_temp_file_path = temp_file_path.relative_to(self.command_executor.working_dir)
 
         linter_command = command + [str(rel_temp_file_path)]
@@ -133,7 +133,7 @@ class BaseValidator:
             return ValidationResult(file_path, ValidationStatus.VALID, success_message, lines, chars)
         else:
             error_message = result.stderr.strip() or result.stdout.strip()
-            
+
             # Check if command not found
             if "not found" in error_message.lower() or "is not recognized" in error_message.lower() or \
                "no such file or directory" in error_message.lower():
@@ -141,7 +141,7 @@ class BaseValidator:
                     file_path, ValidationStatus.SYNTAX_ERROR,
                     f"Linter command not found: {command[0]}. " + error_message, lines, chars
                 )
-            
+
             if error_message:
                 parsed_errors = []
                 clean_error_message = []
@@ -169,7 +169,7 @@ class BaseValidator:
                 full_error_message = "Linter errors:\n" + "\n".join(parsed_errors[:10])
                 if len(parsed_errors) > 10:
                     full_error_message += f"\n... ({len(parsed_errors) - 10} more errors)"
-                
+
                 return ValidationResult(
                     file_path, ValidationStatus.SYNTAX_ERROR,
                     full_error_message, lines, chars

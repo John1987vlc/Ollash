@@ -21,12 +21,12 @@ class SeniorReviewPhase(IAgentPhase):
                       initial_structure: Dict[str, Any],
                       generated_files: Dict[str, str], # Files to be reviewed and potentially fixed
                       **kwargs: Any) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        
+
         file_paths = kwargs.get("file_paths", []) # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 8: Starting Senior Review...")
         self.context.event_publisher.publish("phase_start", phase="8", message="Starting Senior Review")
-        
+
         review_passed = False
         review_attempt = 0
         max_review_attempts = self.context.config.get("senior_review_max_attempts", 3)
@@ -151,12 +151,12 @@ class SeniorReviewPhase(IAgentPhase):
 
         if not review_passed:
             self.context.logger.error("PHASE 8: Senior Review failed after multiple attempts. Manual intervention may be required.")
-            
+
             # NEW: On second failure, attempt aggressive simplification
             if review_attempt >= 2:
                 self.context.logger.warning("  PHASE 8: Attempting aggressive simplification to resolve issues...")
                 self.context.event_publisher.publish("tool_start", tool_name="aggressive_simplification")
-                
+
                 simplified_count = 0
                 for rel_path, content in list(generated_files.items()):
                     if content and len(content) > 100 and not rel_path.endswith((".md", ".json", ".yml", ".yaml")):
@@ -172,23 +172,23 @@ class SeniorReviewPhase(IAgentPhase):
                                 self.context.logger.info(f"    ✓ Simplified {rel_path}")
                         except Exception as e:
                             self.context.logger.debug(f"    Simplification skipped for {rel_path}: {e}")
-                
+
                 self.context.logger.info(f"  Simplified {simplified_count} files to improve stability")
                 self.context.event_publisher.publish("tool_end", tool_name="aggressive_simplification", files_simplified=simplified_count)
-            
+
             self.context.file_manager.write_file(project_root / "SENIOR_REVIEW_FAILED.md", "Senior review failed after multiple attempts.")
             self.context.event_publisher.publish("phase_complete", phase="8", message="Senior Review failed", status="error")
         else:
             self.context.event_publisher.publish("phase_complete", phase="8", message="Senior Review complete", status="success")
-        
+
         self.context.logger.info(f"Project '{project_name}' completed at {project_root}")
         self.context.event_publisher.publish("project_complete", project_name=project_name, project_root=str(project_root), files_generated=len(file_paths))
-        
+
         # Log knowledge base statistics
         kb_stats = self.context.error_knowledge_base.get_error_statistics()
         self.context.logger.info(f"Knowledge Base Stats: {kb_stats}")
-        
-        # Log fragment cache statistics  
+
+        # Log fragment cache statistics
         cache_stats = self.context.fragment_cache.stats()
         self.context.logger.info(f"Fragment Cache Stats: {cache_stats}")
 

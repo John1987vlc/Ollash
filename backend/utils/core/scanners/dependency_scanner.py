@@ -78,7 +78,7 @@ class PythonDependencyScanner(LanguageDependencyScanner):
             "warnings", "dataclasses", "typing", "pydoc",
             "doctest", "test", "lib2to3", "warnings",
         }
-        
+
         for filename, content in files.items():
             if filename.endswith(".py"):
                 # Find import statements
@@ -88,7 +88,7 @@ class PythonDependencyScanner(LanguageDependencyScanner):
                     module = match.group(1).split(".")[0]
                     if module not in stdlib_modules and not module.startswith("_"):
                         packages.add(module)
-        
+
         return packages
 
     def reconcile(
@@ -224,11 +224,6 @@ class GoDependencyScanner(LanguageDependencyScanner):
     def scan_imports(self, files: Dict[str, str]) -> Set[str]:
         """Extract third-party modules from Go source files."""
         modules = set()
-        stdlib_packages = {
-            "fmt", "strings", "strconv", "time", "math", "sort",
-            "encoding", "errors", "flag", "io", "log", "os",
-            "path", "regexp", "runtime", "sync", "unsafe",
-        }
 
         for filename, content in files.items():
             if filename.endswith(".go"):
@@ -351,7 +346,7 @@ class RustDependencyScanner(LanguageDependencyScanner):
 
 class DependencyScanner:
     """Unified dependency scanner orchestrator.
-    
+
     Coordinates language-specific scanners to provide an extensible,
     single-responsibility approach to dependency management.
     """
@@ -384,13 +379,13 @@ class DependencyScanner:
     ) -> Dict[str, str]:
         """Reconcile all dependency files with actual imports across all languages."""
         self.logger.info("🔧 Reconciling dependencies...")
-        
+
         for language, scanner in self.scanners.items():
             try:
                 files = scanner.reconcile(files, project_root, self.logger)
             except Exception as e:
                 self.logger.warning(f"Error reconciling {language} dependencies: {e}")
-        
+
         return files
 
     def scan_all_imports(self, files: Dict[str, str]) -> Dict[str, Set[str]]:

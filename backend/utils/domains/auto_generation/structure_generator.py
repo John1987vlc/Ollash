@@ -37,7 +37,7 @@ class StructureGenerator:
         Includes retry logic and falls back to a basic structure on failure.
         """
         self.logger.info("  Starting hierarchical structure generation...")
-        
+
         # Phase 1: Generate high-level structure (root files and top-level folders)
         high_level_structure = self._generate_high_level_structure(
             readme_content, max_retries, template_name
@@ -52,7 +52,7 @@ class StructureGenerator:
         final_structure = self._recursively_generate_sub_structure(
             high_level_structure, readme_content, max_retries, template_name=template_name
         )
-        
+
         file_count = len(self.extract_file_paths(final_structure))
         self.logger.info(f"  Successfully generated hierarchical structure with {file_count} files")
         return final_structure
@@ -83,7 +83,7 @@ class StructureGenerator:
                 structure.setdefault("path", "./")
                 structure.setdefault("folders", [])
                 structure.setdefault("files", [])
-                
+
                 if not structure["folders"] and not structure["files"]:
                     raise ValueError("High-level structure is empty. Rellamando a la funcion para regenerar el JSON de la estructura del proyecto")
 
@@ -101,7 +101,7 @@ class StructureGenerator:
                     self.logger.error("  All high-level attempts failed.")
                     return {}
         return {}
-    
+
     def _recursively_generate_sub_structure(
         self,
         current_structure: dict,
@@ -111,7 +111,7 @@ class StructureGenerator:
         template_name: str = "default"
     ) -> dict:
         """Recursively generates detailed structure for folders within the project."""
-        
+
         detailed_structure = json.loads(json.dumps(current_structure))
 
         for i, folder_data in enumerate(detailed_structure.get("folders", [])):
@@ -123,7 +123,7 @@ class StructureGenerator:
                 sub_structure_content = self._generate_folder_sub_structure(
                     full_folder_path, readme_content, max_retries, detailed_structure, template_name
                 )
-                
+
                 if sub_structure_content:
                     folder_data["folders"] = sub_structure_content.get("folders", [])
                     folder_data["files"] = sub_structure_content.get("files", [])
@@ -166,7 +166,7 @@ class StructureGenerator:
                 if sub_structure is None:
                     self.logger.error(f"      Raw LLM response that failed JSON extraction:\n{raw}")
                     raise ValueError("Could not extract valid JSON from sub-structure response")
-                
+
                 sub_structure.pop("path", None)
                 sub_structure.setdefault("folders", [])
                 sub_structure.setdefault("files", [])
@@ -205,7 +205,7 @@ class StructureGenerator:
         for file_name in json_structure.get("files", []):
             file_path = project_root / current_path / file_name
             file_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             if file_path.is_dir():
                 print(f"WARNING: Attempted to create file '{file_path}' but a directory with that name already exists. Skipping file creation.")
                 continue
@@ -221,7 +221,7 @@ class StructureGenerator:
             folder_name = folder_data.get("name")
             if folder_name:
                 new_path_full = project_root / current_path / folder_name
-                
+
                 if new_path_full.is_file():
                     print(f"WARNING: Attempted to create directory '{new_path_full}' but a file with that name already exists. Skipping directory creation.")
                     continue
@@ -231,7 +231,7 @@ class StructureGenerator:
                 except Exception as e:
                     print(f"ERROR creating directory '{new_path_full}': {e}")
                     continue
-                
+
                 StructureGenerator.create_empty_files(project_root, folder_data, str(new_path_full.relative_to(project_root)))
 
     @staticmethod

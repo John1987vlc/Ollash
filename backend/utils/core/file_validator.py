@@ -72,7 +72,7 @@ class FileValidator:
 
         if char_count == 0:
             return ValidationResult(file_path, ValidationStatus.EMPTY, "File is empty", 0, 0)
-        
+
         # Perform basic validation first
         basic_result = self._default_validator.basic_validation(file_path, stripped, ext, line_count, char_count)
         if basic_result.status != ValidationStatus.VALID:
@@ -85,7 +85,7 @@ class FileValidator:
             if Path(file_path).name in self._default_validator.DEPENDENCY_FILES:
                 return self._default_validator.validate(file_path, stripped, line_count, char_count, ext)
             return validator.validate(file_path, stripped, line_count, char_count, ext)
-        
+
         # Fallback to default validator if no specific extension match
         return self._default_validator.validate(file_path, stripped, line_count, char_count, ext)
 

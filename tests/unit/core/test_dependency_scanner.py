@@ -132,7 +132,7 @@ class TestDependencyScanner:
             "main.rs": "use tokio;"
         }
         all_imports = scanner.scan_all_imports(files)
-        
+
         assert "flask" in all_imports["python"]
         assert "express" in all_imports["node"]
         assert "github.com/gin-gonic/gin" in all_imports["go"]
@@ -141,17 +141,17 @@ class TestDependencyScanner:
     def test_reconcile_dependencies(self, mock_logger, tmp_path):
         """Test dependency reconciliation."""
         scanner = DependencyScanner(logger=mock_logger)
-        
+
         # Create a requirements.txt with excessive packages
         req_content = "\n".join([f"package{i}" for i in range(35)])
-        
+
         files = {
             "main.py": "import requests\nimport flask",
             "requirements.txt": req_content
         }
-        
+
         result = scanner.reconcile_dependencies(files, tmp_path)
-        
+
         # Should be regenerated
         assert "requests" in result["requirements.txt"]
         assert "flask" in result["requirements.txt"]

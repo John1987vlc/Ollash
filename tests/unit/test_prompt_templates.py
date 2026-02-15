@@ -13,7 +13,7 @@ class TestRolePromptTemplates:
     def test_analyst_system_prompt(self):
         """Test Analyst role system prompt"""
         prompt = RolePromptTemplates.ANALYST_SYSTEM_PROMPT
-        
+
         assert isinstance(prompt, str)
         assert len(prompt) > 0
         assert "analyst" in prompt.lower()
@@ -22,7 +22,7 @@ class TestRolePromptTemplates:
     def test_writer_system_prompt(self):
         """Test Writer role system prompt"""
         prompt = RolePromptTemplates.WRITER_SYSTEM_PROMPT
-        
+
         assert isinstance(prompt, str)
         assert len(prompt) > 0
         assert "writer" in prompt.lower()
@@ -31,7 +31,7 @@ class TestRolePromptTemplates:
     def test_orchestrator_system_prompt(self):
         """Test Orchestrator system prompt"""
         prompt = RolePromptTemplates.ORCHESTRATOR_SYSTEM_PROMPT
-        
+
         assert isinstance(prompt, str)
         assert len(prompt) > 0
         assert "orchestrat" in prompt.lower()
@@ -39,21 +39,21 @@ class TestRolePromptTemplates:
     def test_get_system_prompt_analyst(self):
         """Test getting system prompt for analyst role"""
         prompt = RolePromptTemplates.get_system_prompt("analyst")
-        
+
         assert prompt == RolePromptTemplates.ANALYST_SYSTEM_PROMPT
         assert "synthesis" in prompt.lower() or "synthesize" in prompt.lower()
 
     def test_get_system_prompt_writer(self):
         """Test getting system prompt for writer role"""
         prompt = RolePromptTemplates.get_system_prompt("writer")
-        
+
         assert prompt == RolePromptTemplates.WRITER_SYSTEM_PROMPT
         assert "writer" in prompt.lower()
 
     def test_get_system_prompt_unknown_role(self):
         """Test getting system prompt for unknown role returns default"""
         prompt = RolePromptTemplates.get_system_prompt("unknown_role")
-        
+
         # Should return default helpful assistant prompt
         assert isinstance(prompt, str)
         assert "assistant" in prompt.lower()
@@ -61,7 +61,7 @@ class TestRolePromptTemplates:
     def test_analyst_task_templates(self):
         """Test that Analyst task templates are defined"""
         templates = RolePromptTemplates.ANALYST_TASK_TEMPLATES
-        
+
         assert isinstance(templates, dict)
         assert len(templates) > 0
         assert "executive_summary" in templates
@@ -71,7 +71,7 @@ class TestRolePromptTemplates:
     def test_writer_task_templates(self):
         """Test that Writer task templates are defined"""
         templates = RolePromptTemplates.WRITER_TASK_TEMPLATES
-        
+
         assert isinstance(templates, dict)
         assert len(templates) > 0
         assert "tone_adjustment" in templates
@@ -85,7 +85,7 @@ class TestRolePromptTemplates:
             "executive_summary",
             content="Test content"
         )
-        
+
         assert template is not None
         assert "Test content" in template
 
@@ -98,7 +98,7 @@ class TestRolePromptTemplates:
             audience="executives",
             content="Original text"
         )
-        
+
         assert template is not None
         assert "professional" in template.lower() or "Original text" in template
 
@@ -108,7 +108,7 @@ class TestRolePromptTemplates:
             "unknown_role",
             "some_task"
         )
-        
+
         # Should return None for unknown role
         assert template is None
 
@@ -118,7 +118,7 @@ class TestRolePromptTemplates:
             "analyst",
             "unknown_task_type"
         )
-        
+
         # Should return None for unknown task
         assert template is None
 
@@ -143,7 +143,7 @@ class TestRolePromptTemplates:
             item_a="First option with features",
             item_b="Second option with benefits"
         )
-        
+
         if template:
             assert "First option" in template
             assert "Second option" in template
@@ -151,7 +151,7 @@ class TestRolePromptTemplates:
     def test_analyst_risk_analysis_template(self):
         """Test analyst risk analysis template structure"""
         template = RolePromptTemplates.ANALYST_TASK_TEMPLATES["risk_analysis"]
-        
+
         assert isinstance(template, str)
         assert "{content}" in template
         # Should ask for risk details
@@ -160,7 +160,7 @@ class TestRolePromptTemplates:
     def test_writer_executive_brief_template(self):
         """Test writer executive brief template structure"""
         template = RolePromptTemplates.WRITER_TASK_TEMPLATES["executive_brief"]
-        
+
         assert isinstance(template, str)
         assert "brief" in template.lower() or "Brief" in template
         # Should expect content parameter
@@ -169,14 +169,14 @@ class TestRolePromptTemplates:
     def test_analyst_gap_analysis_template(self):
         """Test analyst gap analysis template"""
         template = RolePromptTemplates.ANALYST_TASK_TEMPLATES["gap_analysis"]
-        
+
         assert "gap" in template.lower()
         assert "missing" in template.lower()
 
     def test_writer_audience_adaptation_template(self):
         """Test writer audience adaptation template"""
         template = RolePromptTemplates.WRITER_TASK_TEMPLATES["audience_adaptation"]
-        
+
         assert "audience" in template.lower() or "Audience" in template
         assert "version" in template.lower() or "executive" in template.lower()
 
@@ -184,7 +184,7 @@ class TestRolePromptTemplates:
         """Test that all templates are valid strings"""
         for role in ["analyst", "writer"]:
             role_dict = RolePromptTemplates.ANALYST_TASK_TEMPLATES if role == "analyst" else RolePromptTemplates.WRITER_TASK_TEMPLATES
-            
+
             for task_type, template in role_dict.items():
                 assert isinstance(template, str)
                 assert len(template) > 50  # Non-trivial length
@@ -196,7 +196,7 @@ class TestRolePromptTemplates:
             RolePromptTemplates.WRITER_SYSTEM_PROMPT,
             RolePromptTemplates.ORCHESTRATOR_SYSTEM_PROMPT
         ]
-        
+
         for prompt in prompts:
             assert len(prompt) > 300  # Substantial content
             assert "\n" in prompt  # Multi-line structure

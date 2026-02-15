@@ -21,7 +21,7 @@ class IterativeImprovementPhase(IAgentPhase):
                       initial_structure: Dict[str, Any],
                       generated_files: Dict[str, str], # Files to be improved
                       **kwargs: Any) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        
+
         file_paths = kwargs.get("file_paths", []) # Get from kwargs or assume context has it
         num_refine_loops = kwargs.get("num_refine_loops", 0)
 
@@ -72,7 +72,7 @@ class IterativeImprovementPhase(IAgentPhase):
                 # Re-run refinement and verification after each loop to ensure quality
                 self.context.logger.info(f"  Re-running Phase 5: Refinement after improvement loop {loop_num + 1}...")
                 self.context.event_publisher.publish("phase_start", phase="5_rerun", iteration=loop_num + 1, message="Re-running Refinement")
-                
+
                 # Re-execute FileRefinementPhase logic
                 for idx, (rel_path, content) in enumerate(list(generated_files.items()), 1):
                     if not content or len(content) < 10:
@@ -95,7 +95,7 @@ class IterativeImprovementPhase(IAgentPhase):
 
                 self.context.logger.info(f"  Re-running Phase 5.5: Verification after improvement loop {loop_num + 1}...")
                 self.context.event_publisher.publish("phase_start", phase="5.5_rerun", iteration=loop_num + 1, message="Re-running Verification")
-                
+
                 # Re-execute VerificationPhase logic
                 generated_files = self.context.file_completeness_checker.verify_and_fix(generated_files, readme_content[:1000])
                 for rel_path, content in generated_files.items():
@@ -106,5 +106,5 @@ class IterativeImprovementPhase(IAgentPhase):
 
             self.context.event_publisher.publish("phase_complete", phase="7", message="Iterative Improvement complete")
             self.context.logger.info("PHASE 7: Iterative Improvement complete.")
-        
+
         return generated_files, initial_structure, file_paths

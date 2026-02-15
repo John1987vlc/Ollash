@@ -20,7 +20,7 @@ class SystemMonitorAgent:
     def __init__(self, ollash_root_dir: Path, event_publisher: EventPublisher):
         """
         Initialize system monitor agent.
-        
+
         Args:
             ollash_root_dir: Root directory
             event_publisher: Event publisher for notifications
@@ -32,7 +32,7 @@ class SystemMonitorAgent:
     async def perform_health_check(self) -> Dict[str, Any]:
         """
         Perform comprehensive system health check and record metrics.
-        
+
         Returns:
             Dictionary with health status and issues found
         """
@@ -45,7 +45,7 @@ class SystemMonitorAgent:
                 event_bridge=bridge
             )
             agent.active_agent_type = "system"
-            
+
             # Get system info
             logger.info("Starting system health check...")
             result = await asyncio.to_thread(
@@ -59,20 +59,20 @@ class SystemMonitorAgent:
 
 Format as structured data and highlight any critical issues."""
             )
-            
+
             # Parse and record metrics
             self._record_system_metrics(result)
-            
+
             # Analyze for issues
             issues = self._analyze_health_issues(result)
-            
+
             return {
                 "status": "healthy" if not issues else "issues_found",
                 "timestamp": datetime.now().isoformat(),
                 "report": result,
                 "issues": issues
             }
-        
+
         except Exception as e:
             logger.error(f"System health check failed: {e}")
             return {"status": "error", "error": str(e)}
@@ -80,7 +80,7 @@ Format as structured data and highlight any critical issues."""
     async def cleanup_system(self) -> Dict[str, Any]:
         """
         Perform automatic system cleanup (cache, temp files, etc).
-        
+
         Returns:
             Dictionary with cleanup results
         """
@@ -93,7 +93,7 @@ Format as structured data and highlight any critical issues."""
                 event_bridge=bridge
             )
             agent.active_agent_type = "system"
-            
+
             logger.info("Starting system cleanup...")
             result = await asyncio.to_thread(
                 agent.chat,
@@ -105,13 +105,13 @@ Format as structured data and highlight any critical issues."""
 
 Don't delete anything yet, just report findings."""
             )
-            
+
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
                 "cleanup_report": result
             }
-        
+
         except Exception as e:
             logger.error(f"System cleanup failed: {e}")
             return {"status": "error", "error": str(e)}
@@ -119,10 +119,10 @@ Don't delete anything yet, just report findings."""
     async def analyze_logs(self, log_patterns: Optional[list] = None) -> Dict[str, Any]:
         """
         Analyze system logs for error patterns.
-        
+
         Args:
             log_patterns: Optional list of patterns to search for
-        
+
         Returns:
             Analysis results
         """
@@ -135,7 +135,7 @@ Don't delete anything yet, just report findings."""
                 event_bridge=bridge
             )
             agent.active_agent_type = "system"
-            
+
             logger.info("Analyzing system logs...")
             result = await asyncio.to_thread(
                 agent.chat,
@@ -147,13 +147,13 @@ Don't delete anything yet, just report findings."""
 
 Summarize findings by severity."""
             )
-            
+
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
                 "analysis": result
             }
-        
+
         except Exception as e:
             logger.error(f"Log analysis failed: {e}")
             return {"status": "error", "error": str(e)}
@@ -174,13 +174,13 @@ Summarize findings by severity."""
     def _analyze_health_issues(self, report: str) -> list:
         """Identify health issues from the report."""
         issues = []
-        
+
         keywords = {
             "critical": ["CRITICAL", "ERROR", "FAIL", "Down", "offline"],
             "warning": ["WARNING", "WARN", "High", "Low disk", "Memory pressure"],
             "info": ["INFO", "OK", "Healthy"]
         }
-        
+
         for issue_type, keywords_list in keywords.items():
             for keyword in keywords_list:
                 if keyword in report:
@@ -188,7 +188,7 @@ Summarize findings by severity."""
                         "severity": issue_type,
                         "keyword": keyword
                     })
-        
+
         return issues
 
 
@@ -204,10 +204,10 @@ class NetworkMonitorAgent:
     async def check_services_uptime(self, services: Optional[list] = None) -> Dict[str, Any]:
         """
         Check uptime of critical services using heartbeat pings.
-        
+
         Args:
             services: List of IP addresses or hostnames to check
-        
+
         Returns:
             Uptime status for each service
         """
@@ -220,13 +220,13 @@ class NetworkMonitorAgent:
                 event_bridge=bridge
             )
             agent.active_agent_type = "network"
-            
+
             if not services:
                 services = ["8.8.8.8", "1.1.1.1", "localhost"]
-            
+
             services_str = ", ".join(services)
             logger.info(f"Checking uptime for services: {services_str}")
-            
+
             result = await asyncio.to_thread(
                 agent.chat,
                 f"""Check connectivity/heartbeat for these services: {services_str}
@@ -236,17 +236,16 @@ For each service, report:
 3. Status (UP/DOWN)
 4. Last successful connection time"""
             )
-            
+
             # Record metrics
-            status_data = {"checked_at": datetime.now().isoformat(), "report": result}
             self.metrics_db.record_metric("network", "uptime_check", 1, {"result": "completed"})
-            
+
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
                 "services_report": result
             }
-        
+
         except Exception as e:
             logger.error(f"Service uptime check failed: {e}")
             return {"status": "error", "error": str(e)}
@@ -254,10 +253,10 @@ For each service, report:
     async def detect_port_issues(self, ports: Optional[list] = None) -> Dict[str, Any]:
         """
         Detect issues with critical ports.
-        
+
         Args:
             ports: List of port numbers to check
-        
+
         Returns:
             Port status report
         """
@@ -270,13 +269,13 @@ For each service, report:
                 event_bridge=bridge
             )
             agent.active_agent_type = "network"
-            
+
             if not ports:
                 ports = [80, 443, 22, 3306, 5432, 8080, 5000]
-            
+
             ports_str = ", ".join(map(str, ports))
             logger.info(f"Checking ports: {ports_str}")
-            
+
             result = await asyncio.to_thread(
                 agent.chat,
                 f"""Check status of these ports: {ports_str}
@@ -286,15 +285,15 @@ For each port, report:
 3. Service listening (if identifiable)
 4. Last seen change"""
             )
-            
+
             self.metrics_db.record_metric("network", "port_check", 1, {"result": "completed"})
-            
+
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
                 "ports_report": result
             }
-        
+
         except Exception as e:
             logger.error(f"Port check failed: {e}")
             return {"status": "error", "error": str(e)}
@@ -312,10 +311,10 @@ class SecurityMonitorAgent:
     async def integrity_scan(self, file_paths: Optional[list] = None) -> Dict[str, Any]:
         """
         Perform file integrity scanning on critical files.
-        
+
         Args:
             file_paths: List of file paths to scan
-        
+
         Returns:
             Integrity check results
         """
@@ -328,17 +327,17 @@ class SecurityMonitorAgent:
                 event_bridge=bridge
             )
             agent.active_agent_type = "cybersecurity"
-            
+
             if not file_paths:
                 file_paths = [
                     "config/settings.json",
                     "requirements.txt",
                     "docker-compose.yml"
                 ]
-            
+
             files_str = ", ".join(file_paths)
             logger.info(f"Scanning file integrity for: {files_str}")
-            
+
             result = await asyncio.to_thread(
                 agent.chat,
                 f"""Perform integrity check on these files: {files_str}
@@ -348,15 +347,15 @@ For each file:
 3. Verify permissions
 4. Report any unauthorized changes detected"""
             )
-            
+
             self.metrics_db.record_metric("security", "integrity_scan", 1, {"result": "completed"})
-            
+
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
                 "integrity_report": result
             }
-        
+
         except Exception as e:
             logger.error(f"Integrity scan failed: {e}")
             return {"status": "error", "error": str(e)}
@@ -364,7 +363,7 @@ For each file:
     async def security_log_analysis(self) -> Dict[str, Any]:
         """
         Analyze security logs for suspicious activity.
-        
+
         Returns:
             Security analysis results
         """
@@ -377,9 +376,9 @@ For each file:
                 event_bridge=bridge
             )
             agent.active_agent_type = "cybersecurity"
-            
+
             logger.info("Analyzing security logs...")
-            
+
             result = await asyncio.to_thread(
                 agent.chat,
                 """Analyze security logs for:
@@ -391,15 +390,15 @@ For each file:
 
 Summarize threats by severity (Critical/High/Medium/Low)"""
             )
-            
+
             self.metrics_db.record_metric("security", "log_analysis", 1, {"result": "completed"})
-            
+
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
                 "security_analysis": result
             }
-        
+
         except Exception as e:
             logger.error(f"Security analysis failed: {e}")
             return {"status": "error", "error": str(e)}
@@ -407,7 +406,7 @@ Summarize threats by severity (Critical/High/Medium/Low)"""
     async def vulnerability_scan(self) -> Dict[str, Any]:
         """
         Scan for known vulnerabilities in dependencies.
-        
+
         Returns:
             Vulnerability report
         """
@@ -420,9 +419,9 @@ Summarize threats by severity (Critical/High/Medium/Low)"""
                 event_bridge=bridge
             )
             agent.active_agent_type = "cybersecurity"
-            
+
             logger.info("Scanning for vulnerabilities...")
-            
+
             result = await asyncio.to_thread(
                 agent.chat,
                 """Scan dependencies for known vulnerabilities:
@@ -432,15 +431,15 @@ Summarize threats by severity (Critical/High/Medium/Low)"""
 4. List outdated packages
 5. Report CVEs and severity levels"""
             )
-            
+
             self.metrics_db.record_metric("security", "vulnerability_scan", 1, {"result": "completed"})
-            
+
             return {
                 "status": "completed",
                 "timestamp": datetime.now().isoformat(),
                 "vulnerability_report": result
             }
-        
+
         except Exception as e:
             logger.error(f"Vulnerability scan failed: {e}")
             return {"status": "error", "error": str(e)}

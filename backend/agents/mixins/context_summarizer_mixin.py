@@ -35,9 +35,9 @@ class ContextSummarizerMixin(ABC):
         """
         max_tokens = self.config.get("max_context_tokens", 8000)
         summarize_threshold = self.config.get("summarize_threshold_ratio", 0.7)
-        
+
         current_tokens = self._count_tokens(str(messages)) # Crude token count for all messages
-        
+
         if current_tokens < max_tokens * summarize_threshold:
             return messages # No summarization needed yet
 
@@ -52,7 +52,7 @@ class ContextSummarizerMixin(ABC):
         summarized_messages = []
         # A simple summarization strategy: summarize oldest messages until below threshold
         # More advanced strategies would use a 'cascade summarizer' or similar.
-        
+
         # Find a good point to split messages for summarization.
         # This example is basic; a real one would be more sophisticated.
         num_messages_to_summarize = len(messages) // 2 # Summarize half of the messages
@@ -70,10 +70,10 @@ class ContextSummarizerMixin(ABC):
         try:
             summary_response, _ = await summarizer_client.achat(summary_prompt, tools=[])
             summary_content = summary_response["message"]["content"]
-            
+
             summarized_messages.append({"role": "system", "content": f"Summarized conversation history: {summary_content}"})
             summarized_messages.extend(remaining_messages)
-            
+
             tokens_after = self._count_tokens(str(summarized_messages))
             self.logger.info(f"Context summarized. Tokens after: {tokens_after}/{max_tokens}.")
             self.event_publisher.publish("context_management", {"status": "summarized", "tokens_after": tokens_after})

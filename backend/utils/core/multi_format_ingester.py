@@ -93,7 +93,7 @@ class MultiFormatIngester:
                     text = page.extract_text()
                     if text.strip():
                         text_parts.append(f"[Page {page_num + 1}]\n{text}")
-            
+
             return "\n\n".join(text_parts) if text_parts else None
         except Exception as e:
             self.logger.error(f"PDF extraction error ({file_path.name}): {e}")
@@ -172,7 +172,7 @@ class MultiFormatIngester:
                 if text:
                     results[file_path.name] = text
                     self.logger.info(f"✓ Ingested: {file_path.name}")
-        
+
         return results
 
     def get_file_metadata(self, file_path: Path) -> Dict:

@@ -22,7 +22,7 @@ def test_config_loads_from_env(monkeypatch):
 
     # 3. Force a reload of the config module to pick up the patched environment
     importlib.reload(agent_config)
-    
+
     # 4. The imported `config` object should now have the new values
     assert agent_config.config.OLLAMA_URL == test_url
     assert agent_config.config.DEFAULT_MODEL == test_model
@@ -37,7 +37,7 @@ def test_legacy_ollama_url_override(monkeypatch):
     """
     base_url = "http://base-url:11434"
     legacy_url = "http://legacy-url-from-json:11434"
-    
+
     models_config = {
         "ollama_url": legacy_url,
         "default_model": "some-model",

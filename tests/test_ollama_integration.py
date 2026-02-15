@@ -24,7 +24,7 @@ async def test_code_agent_pings_localhost(default_agent):
     # Verify the system prompt is initialized
     system_prompt = default_agent.system_prompt
     assert len(system_prompt) > 0
-    
+
     # Verify network agent exists and has ping_host tool
     network_tools = default_agent._tool_registry.get_tools_for_agent("network")
     assert "ping_host" in network_tools

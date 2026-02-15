@@ -33,7 +33,7 @@ class ModelRouter:
         if self.senior_reviewer_model_name not in self.llm_clients:
             raise ValueError(f"Senior reviewer model '{self.senior_reviewer_model_name}' not found in llm_clients.")
         self.senior_reviewer_client = self.llm_clients[self.senior_reviewer_model_name]
-        
+
     async def aroute_and_aggregate(
         self,
         messages: List[Dict],
@@ -50,14 +50,14 @@ class ModelRouter:
         Returns the chosen response and a list of all raw candidate responses.
         """
         candidate_responses: List[Tuple[str, Dict]] = [] # (model_role, raw_response_data)
-        
+
         tasks = []
         roles_in_task_order = []
         for role in candidate_model_roles:
             if role not in self.llm_clients:
                 self.logger.warning(f"Model client for role '{role}' not found. Skipping.")
                 continue
-            
+
             roles_in_task_order.append(role)
             client = self.llm_clients[role]
             self.logger.info(f"  Routing prompt to specialist model: {role} ({client.model})")
@@ -91,13 +91,13 @@ class ModelRouter:
 
         self.logger.info("  Multiple candidate responses. Invoking Senior Reviewer to select the best.")
         self.event_publisher.publish("tool_start", tool_name="senior_reviewer_selection", reviewer_model=self.senior_reviewer_client.model)
-        
+
         # Prepare messages for the Senior Reviewer
         reviewer_messages = [
             {"role": "system", "content": self._get_senior_reviewer_system_prompt()},
             {"role": "user", "content": user_prompt_for_reviewer}, # This will be the original query for the task
         ]
-        
+
         # Add candidate responses for evaluation
         for role, response_data in candidate_responses:
             message = response_data["message"]
@@ -187,13 +187,13 @@ class ModelRouter:
 
         self.logger.info("  Multiple candidate responses. Invoking Senior Reviewer to select the best.")
         self.event_publisher.publish("tool_start", tool_name="senior_reviewer_selection", reviewer_model=self.senior_reviewer_client.model)
-        
+
         # Prepare messages for the Senior Reviewer
         reviewer_messages = [
             {"role": "system", "content": self._get_senior_reviewer_system_prompt()},
             {"role": "user", "content": user_prompt_for_reviewer}, # This will be the original query for the task
         ]
-        
+
         # Add candidate responses for evaluation
         for role, response_data in candidate_responses:
             message = response_data["message"]
@@ -273,6 +273,6 @@ class ModelRouter:
             if role in choice_content.lower(): # Simple keyword match
                 self.logger.info(f"  Senior Reviewer's choice content referenced {role}. Selecting it.")
                 return response_data
-        
+
         self.logger.warning("  Could not definitively parse Senior Reviewer's choice. Falling back to the first candidate.")
         return candidate_responses[0][1]

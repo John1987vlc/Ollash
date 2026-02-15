@@ -1,6 +1,5 @@
 import pytest
 import json
-from pathlib import Path
 from backend.agents.default_agent import DefaultAgent
 
 @pytest.fixture
@@ -15,7 +14,7 @@ def default_agent(tmp_path, monkeypatch):
     monkeypatch.setenv("LLM_MODELS_JSON", json.dumps(models_config))
     from backend.core.config import reload_config
     reload_config()
-    
+
     project_root = tmp_path / "ollash_test_project"
     project_root.mkdir()
     (project_root / ".ollash").mkdir()

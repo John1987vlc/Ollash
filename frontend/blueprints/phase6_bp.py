@@ -29,7 +29,7 @@ def get_artifacts():
     """Get all active notification artifacts"""
     ui = get_adaptive_notification_ui()
     artifacts = ui.get_active_artifacts()
-    
+
     return jsonify({
         "success": True,
         "artifacts": [
@@ -49,9 +49,9 @@ def create_artifact():
     """Create a custom notification artifact"""
     data = request.get_json()
     ui = get_adaptive_notification_ui()
-    
+
     artifact_type = data.get('type', 'custom')
-    
+
     if artifact_type == 'network_error':
         result = ui.notify_network_error(
             service_name=data.get('service', 'unknown'),
@@ -80,7 +80,7 @@ def create_artifact():
             "success": False,
             "error": f"Unknown artifact type: {artifact_type}"
         }), 400
-    
+
     return jsonify({
         "success": True,
         "artifact": {
@@ -96,9 +96,9 @@ def clear_artifacts():
     """Clear old/inactive artifacts"""
     ui = get_adaptive_notification_ui()
     older_than = request.json.get('older_than_seconds', 3600)
-    
+
     ui.clear_artifacts(older_than_seconds=older_than)
-    
+
     return jsonify({"success": True})
 
 
@@ -110,7 +110,7 @@ def get_webhooks():
     webhook_mgr = get_webhook_manager()
     status = webhook_mgr.get_webhook_status()
     failures = webhook_mgr.get_failed_deliveries()
-    
+
     return jsonify({
         "success": True,
         "webhooks": status if status else [],
@@ -124,7 +124,7 @@ def register_webhook():
     """Register a new webhook"""
     data = request.get_json()
     webhook_mgr = get_webhook_manager()
-    
+
     try:
         webhook_type = WebhookType(data.get('type', 'SLACK'))
     except ValueError:
@@ -132,13 +132,13 @@ def register_webhook():
             "success": False,
             "error": "Invalid webhook type"
         }), 400
-    
+
     success = webhook_mgr.register_webhook(
         name=data.get('name'),
         webhook_type=webhook_type,
         webhook_url=data.get('url')
     )
-    
+
     return jsonify({
         "success": success,
         "message": "Webhook registered" if success else "Failed to register"
@@ -150,12 +150,12 @@ def send_webhook_message(webhook_name):
     """Send a message via webhook"""
     data = request.get_json()
     webhook_mgr = get_webhook_manager()
-    
+
     try:
         priority = MessagePriority(data.get('priority', 'MEDIUM'))
     except ValueError:
         priority = MessagePriority.MEDIUM
-    
+
     success = webhook_mgr.send_to_webhook_sync(
         webhook_name=webhook_name,
         message=data.get('message', ''),
@@ -163,7 +163,7 @@ def send_webhook_message(webhook_name):
         priority=priority,
         fields=data.get('fields', {})
     )
-    
+
     return jsonify({
         "success": success,
         "message": "Sent" if success else "Failed to send"
@@ -174,9 +174,9 @@ def send_webhook_message(webhook_name):
 def check_webhook_health(webhook_name):
     """Check health of a specific webhook"""
     webhook_mgr = get_webhook_manager()
-    
+
     healthy = webhook_mgr.health_check(webhook_name)
-    
+
     return jsonify({
         "webhook": webhook_name,
         "healthy": healthy,
@@ -191,9 +191,9 @@ def get_daily_report():
     """Get today's activity report"""
     report_gen = get_activity_report_generator()
     report = report_gen.generate_daily_summary()
-    
+
     format_type = request.args.get('format', 'json')
-    
+
     if format_type == 'markdown':
         md = report_gen.format_report_as_markdown(report)
         return md, 200, {'Content-Type': 'text/markdown'}
@@ -217,11 +217,11 @@ def get_trend_report():
     """Get performance trend report"""
     days = request.args.get('days', 7, type=int)
     report_gen = get_activity_report_generator()
-    
+
     report = report_gen.generate_performance_trend_report()
-    
+
     format_type = request.args.get('format', 'json')
-    
+
     if format_type == 'markdown':
         md = report_gen.format_report_as_markdown(report)
         return md, 200, {'Content-Type': 'text/markdown'}
@@ -238,7 +238,7 @@ def get_anomaly_report():
     """Get anomaly detection report"""
     report_gen = get_activity_report_generator()
     report = report_gen.generate_anomaly_report()
-    
+
     return jsonify({
         "success": True,
         "anomalies": report.anomalies if hasattr(report, 'anomalies') else [],
@@ -253,13 +253,13 @@ def process_voice_command():
     """Process voice transcription and execute command"""
     data = request.get_json()
     processor = get_voice_command_processor()
-    
+
     command = processor.process_voice_input(
         transcribed_text=data.get('text', ''),
         confidence=data.get('confidence', 0.0),
         language=data.get('language', 'en')
     )
-    
+
     # Execute if high confidence
     if command.confidence >= 70:
         result = processor.execute_voice_command(command)
@@ -285,9 +285,9 @@ def get_voice_history():
     """Get voice command history"""
     processor = get_voice_command_processor()
     limit = request.args.get('limit', 50, type=int)
-    
+
     history = processor.command_history[-limit:] if processor.command_history else []
-    
+
     return jsonify({
         "success": True,
         "count": len(history),
@@ -306,7 +306,7 @@ def get_voice_stats():
     """Get voice command statistics"""
     processor = get_voice_command_processor()
     stats = processor.get_command_statistics()
-    
+
     return jsonify({
         "success": True,
         "stats": stats if stats else {}
@@ -320,7 +320,7 @@ def get_decisions():
     """Get decision analytics and summary"""
     memory = MemoryOfDecisions(Path.cwd())
     analytics = memory.get_decision_analytics()
-    
+
     return jsonify({
         "success": True,
         "analytics": analytics
@@ -332,12 +332,12 @@ def record_decision():
     """Record a new decision"""
     data = request.get_json()
     memory = MemoryOfDecisions(Path.cwd())
-    
+
     try:
         domain = DecisionDomain(data.get('domain', 'ARCHITECTURE'))
     except ValueError:
         domain = DecisionDomain.ARCHITECTURE
-    
+
     success = memory.record_decision(
         decision_id=data.get('id', f"dec_{datetime.now().timestamp()}"),
         domain=domain,
@@ -347,7 +347,7 @@ def record_decision():
         chosen_option=data.get('option', ''),
         alternatives=data.get('alternatives', [])
     )
-    
+
     return jsonify({
         "success": success,
         "decision_id": data.get('id')
@@ -359,14 +359,14 @@ def record_decision_outcome(decision_id):
     """Record outcome of a decision"""
     data = request.get_json()
     memory = MemoryOfDecisions(Path.cwd())
-    
+
     success = memory.record_decision_outcome(
         decision_id=decision_id,
         satisfaction_score=data.get('satisfaction_score', 0),
         actual_outcome=data.get('outcome', ''),
         lessons_learned=data.get('lessons', '')
     )
-    
+
     return jsonify({
         "success": success,
         "decision_id": decision_id
@@ -378,12 +378,12 @@ def get_decision_suggestions():
     """Get decision suggestions for current context"""
     data = request.get_json()
     memory = MemoryOfDecisions(Path.cwd())
-    
+
     suggestions = memory.get_decision_suggestions(
         current_context=data.get('context', {}),
         limit=data.get('limit', 5)
     )
-    
+
     return jsonify({
         "success": True,
         "suggestions": [
@@ -404,12 +404,12 @@ def submit_feedback():
     """Submit feedback on content"""
     data = request.get_json()
     feedback_mgr = get_feedback_cycle_manager(Path.cwd())
-    
+
     try:
         feedback_type = FeedbackType(data.get('type', 'TOO_VERBOSE'))
     except ValueError:
         feedback_type = FeedbackType.TOO_VERBOSE
-    
+
     feedback = feedback_mgr.submit_feedback(
         content_id=data.get('content_id', f"content_{datetime.now().timestamp()}"),
         content_excerpt=data.get('excerpt', ''),
@@ -418,7 +418,7 @@ def submit_feedback():
         severity=data.get('severity', 'moderate'),
         suggested_correction=data.get('correction')
     )
-    
+
     return jsonify({
         "success": True,
         "feedback_id": getattr(feedback, 'id', 'recorded'),
@@ -431,7 +431,7 @@ def get_style_profile():
     """Get learned style preferences"""
     feedback_mgr = get_feedback_cycle_manager(Path.cwd())
     profile = feedback_mgr.get_style_profile()
-    
+
     return jsonify({
         "success": True,
         "style_profile": profile if profile else {},
@@ -444,10 +444,10 @@ def get_feedback_trends():
     """Get feedback trends"""
     days = request.args.get('days', 7, type=int)
     feedback_mgr = get_feedback_cycle_manager(Path.cwd())
-    
+
     trends = feedback_mgr.get_feedback_trends(days=days)
     summary = feedback_mgr.get_feedback_summary()
-    
+
     return jsonify({
         "success": True,
         "days": days,
@@ -462,9 +462,9 @@ def get_feedback_trends():
 def get_triggers():
     """Get all registered triggers"""
     trigger_mgr = get_advanced_trigger_manager()
-    
+
     triggers = list(trigger_mgr.triggers.keys()) if hasattr(trigger_mgr, 'triggers') else []
-    
+
     return jsonify({
         "success": True,
         "triggers": triggers,
@@ -477,20 +477,20 @@ def register_trigger():
     """Register a composite trigger"""
     data = request.get_json()
     trigger_mgr = get_advanced_trigger_manager()
-    
+
     try:
         operator = LogicOperator(data.get('operator', 'AND'))
     except ValueError:
         operator = LogicOperator.AND
-    
+
     from backend.utils.core.advanced_trigger_manager import CompositeTriggerCondition
-    
+
     condition = CompositeTriggerCondition(
         id=f"cond_{data.get('id', 'default')}",
         operator=operator,
         sub_conditions=data.get('conditions', [])
     )
-    
+
     success = trigger_mgr.register_composite_trigger(
         trigger_id=data.get('id'),
         name=data.get('name', ''),
@@ -498,7 +498,7 @@ def register_trigger():
         action_callback=lambda ctx: {"executed": True},
         cooldown_seconds=data.get('cooldown', 60)
     )
-    
+
     return jsonify({
         "success": success,
         "trigger_id": data.get('id')
@@ -510,9 +510,9 @@ def evaluate_trigger(trigger_id):
     """Evaluate a trigger with given context"""
     data = request.get_json()
     trigger_mgr = get_advanced_trigger_manager()
-    
+
     result = trigger_mgr.evaluate_trigger(trigger_id, data.get('context', {}))
-    
+
     return jsonify({
         "success": True,
         "trigger_id": trigger_id,
@@ -526,9 +526,9 @@ def fire_trigger(trigger_id):
     """Fire a trigger manually"""
     data = request.get_json()
     trigger_mgr = get_advanced_trigger_manager()
-    
+
     trigger_mgr.fire_trigger(trigger_id, data.get('context', {}))
-    
+
     return jsonify({
         "success": True,
         "trigger_id": trigger_id,
@@ -540,9 +540,9 @@ def fire_trigger(trigger_id):
 def detect_conflicts():
     """Detect conflicting triggers"""
     trigger_mgr = get_advanced_trigger_manager()
-    
+
     conflicts = trigger_mgr.detect_conflicts()
-    
+
     return jsonify({
         "success": True,
         "conflicts": conflicts if conflicts else [],
@@ -578,12 +578,12 @@ def batch_operation():
     """Execute multiple operations in batch"""
     data = request.get_json()
     operations = data.get('operations', [])
-    
+
     results = []
     for op in operations:
         op_type = op.get('type')
         op_data = op.get('data', {})
-        
+
         if op_type == 'send_notification':
             webhook_mgr = get_webhook_manager()
             success = webhook_mgr.send_to_webhook_sync(
@@ -591,7 +591,7 @@ def batch_operation():
                 message=op_data.get('message')
             )
             results.append({"type": op_type, "success": success})
-        
+
         elif op_type == 'record_feedback':
             feedback_mgr = get_feedback_cycle_manager(Path.cwd())
             feedback_mgr.submit_feedback(
@@ -601,7 +601,7 @@ def batch_operation():
                 feedback_text=op_data.get('text')
             )
             results.append({"type": op_type, "success": True})
-    
+
     return jsonify({
         "success": True,
         "operations_processed": len(results),
@@ -620,7 +620,7 @@ def export_decisions():
         "total_decisions": len(memory.decisions),
         "decisions": memory.decisions
     }
-    
+
     json_str = json.dumps(data, indent=2, default=str)
     return send_file(
         io.BytesIO(json_str.encode()),
@@ -639,7 +639,7 @@ def export_feedback():
         "total_feedback": len(feedback_mgr.feedback_history),
         "feedback": feedback_mgr.feedback_history
     }
-    
+
     json_str = json.dumps(data, indent=2, default=str)
     return send_file(
         io.BytesIO(json_str.encode()),

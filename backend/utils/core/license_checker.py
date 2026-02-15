@@ -42,11 +42,11 @@ class LicenseChecker:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read(1024) # Read first 1KB to find license
-            
+
             for license_name in self.allowed_licenses:
                 if license_name.lower() in content.lower():
                     return True
-            
+
             # A more sophisticated check would use a proper license scanning tool
             # For now, we'll just check for the presence of the license name.
             if "license" in content.lower():

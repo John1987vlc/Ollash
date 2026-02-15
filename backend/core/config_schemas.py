@@ -18,17 +18,17 @@ class LLMModelsConfig(BaseModel):
     ollama_url: HttpUrl = Field(default="http://localhost:11434", description="Base URL for the Ollama server.")
     default_model: str = Field(default="mistral:latest", description="Default LLM model to use for general tasks.")
     default_temperature: float = Field(default=0.5, ge=0.0, le=1.0, description="Default temperature for LLM generation.")
-    
+
     # NEW: Flexible role-to-model mapping
     agent_roles: Dict[str, str] = Field(default_factory=dict, description="Mapping of agent roles (e.g., 'planner', 'coder') to specific model names.")
 
     # Deprecated fields for specific tasks are removed in favor of agent_roles
-    
+
     embedding: Optional[str] = Field(None, description="Model for embedding generation.")
     embedding_cache_settings: EmbeddingCacheConfig = Field(default_factory=EmbeddingCacheConfig, alias="embedding_cache")
-    
+
     default_timeout: PositiveInt = Field(300, description="Default timeout for LLM API calls in seconds.")
-    
+
     class Config:
         extra = "allow"
 

@@ -22,7 +22,7 @@ class StructureGenerationPhase(IAgentPhase):
                       initial_structure: Dict[str, Any], # Will be updated here
                       generated_files: Dict[str, str],
                       **kwargs: Any) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        
+
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2: Generating project structure...")
         self.context.event_publisher.publish("phase_start", phase="2", message="Generating project structure")
 
@@ -41,13 +41,13 @@ class StructureGenerationPhase(IAgentPhase):
                 readme_content, template_name=template_name,
                 python_version=python_version, license_type=license_type, include_docker=include_docker
             )
-        
+
         structure_file_path = "project_structure.json"
         generated_files[structure_file_path] = json.dumps(structure, indent=2)
         self.context.file_manager.write_file(project_root / structure_file_path, generated_files[structure_file_path])
-        
+
         file_paths = StructureGenerator.extract_file_paths(structure)
-        
+
         self.context.event_publisher.publish("phase_complete", phase="2", message="Project structure generated", data={"files_planned": len(file_paths)})
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2 complete: {len(file_paths)} files planned.")
 

@@ -32,7 +32,7 @@ class ToolLoopMixin(ABC):
         for tool_call in tool_calls:
             tool_name = tool_call["function"]["name"]
             tool_args = tool_call["function"]["arguments"]
-            
+
             tool_call_id = self.tool_span_manager.start_span(tool_name, tool_args, tool_call.get("id")) # NEW: Start span
 
             self.logger.info(f"Agent attempting to use tool: {tool_name} with args: {tool_args}")

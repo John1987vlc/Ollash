@@ -1,9 +1,11 @@
 """Unit tests for BenchmarkModelSelector module."""
 
-import pytest
+import datetime
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
 
 from backend.utils.core.benchmark_model_selector import (
     ModelBenchmarkResult,
@@ -17,15 +19,12 @@ def mock_logger():
     """Create a mock logger."""
     return MagicMock()
 
-
-import datetime # Added for timestamp
-
 @pytest.fixture
 def tmp_benchmarks(tmp_path):
     """Create temporary benchmark directory with test data."""
     bench_dir = tmp_path / "benchmarks"
     bench_dir.mkdir()
-    
+
     # Create sample benchmark results as individual JSON files
     sample_results = [
         {
@@ -69,7 +68,7 @@ def tmp_benchmarks(tmp_path):
     for i, result_data in enumerate(sample_results):
         with open(bench_dir / f"result_{i}.json", "w") as f:
             json.dump(result_data, f, indent=2)
-    
+
     return bench_dir
 
 
@@ -86,7 +85,7 @@ class TestModelBenchmarkResult:
             avg_tokens=450,
             avg_time_ms=5200,
         )
-        
+
         assert result.model_name == "qwen3-coder"
         assert result.success_rate == 0.92
         assert result.quality_score == 0.88
@@ -101,7 +100,7 @@ class TestModelBenchmarkResult:
             "avg_tokens": 580,
             "avg_time_ms": 5500,
         }
-        
+
         result = ModelBenchmarkResult(**data)
         assert result.model_name == "ministral-3"
         assert result.task_type == "planner"
@@ -116,7 +115,7 @@ class TestBenchmarkDatabase:
             logger=mock_logger,
             benchmark_dir=tmp_benchmarks,
         )
-        
+
         # Should have loaded results
         assert len(db.results) > 0
 
@@ -126,12 +125,12 @@ class TestBenchmarkDatabase:
             logger=mock_logger,
             benchmark_dir=tmp_benchmarks,
         )
-        
+
         best = db.get_best_model(
             task_type="refinement",
             metric="success_rate",
         )
-        
+
         # qwen3-coder has 0.92, ministral has 0.85
         assert best is not None
         assert best.model_name == "qwen3-coder"
@@ -142,12 +141,12 @@ class TestBenchmarkDatabase:
             logger=mock_logger,
             benchmark_dir=tmp_benchmarks,
         )
-        
+
         best = db.get_best_model(
             task_type="refinement",
             metric="avg_time_ms", # Changed from "speed"
         )
-        
+
         # ministral has 4200ms, qwen has 5200ms
         assert best is not None
         assert best.model_name == "ministral-3"
@@ -158,9 +157,9 @@ class TestBenchmarkDatabase:
             logger=mock_logger,
             benchmark_dir=tmp_benchmarks,
         )
-        
+
         ranked = db.get_model_rank(task_type="planner")
-        
+
         # Should return list of results
         assert isinstance(ranked, list)
         assert len(ranked) > 0
@@ -169,12 +168,12 @@ class TestBenchmarkDatabase:
         """Test handling of empty benchmark directory."""
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
-        
+
         db = BenchmarkDatabase(
             logger=mock_logger,
             benchmark_dir=empty_dir,
         )
-        
+
         # Should handle gracefully
         assert db.results == [] # Changed from {} to []
 
@@ -188,7 +187,7 @@ class TestAutoModelSelector:
             logger=mock_logger,
             benchmark_dir=tmp_benchmarks,
         )
-        
+
         assert selector.benchmark_db is not None # Changed from .db to .benchmark_db
 
     def test_generate_optimized_config(self, mock_logger, tmp_benchmarks):
@@ -198,7 +197,7 @@ class TestAutoModelSelector:
             benchmark_dir=tmp_benchmarks,
             confidence_threshold=0.7,
         )
-        
+
         base_config = { # Added base_config
             "models": {
                 "coder": "old-coder-model",
@@ -206,7 +205,7 @@ class TestAutoModelSelector:
             }
         }
         config = selector.generate_optimized_config(base_config=base_config) # Passed base_config
-        
+
         # Should return dictionary with models updated
         assert config is not None and isinstance(config, dict) # Modified assertion
         assert "models" in config and "coder" in config["models"] # Check structure
@@ -218,9 +217,9 @@ class TestAutoModelSelector:
             logger=mock_logger,
             benchmark_dir=tmp_benchmarks,
         )
-        
+
         suggestions = selector.suggest_model_improvements()
-        
+
         # Should return list
         assert isinstance(suggestions, list)
 
@@ -231,7 +230,7 @@ class TestAutoModelSelector:
             benchmark_dir=tmp_benchmarks,
             confidence_threshold=0.95,  # Very high threshold
         )
-        
+
         base_config = { # Added base_config
             "models": {
                 "coder": "old-coder-model",
@@ -239,7 +238,7 @@ class TestAutoModelSelector:
             }
         }
         config = selector.generate_optimized_config(base_config=base_config) # Passed base_config
-        
+
         # With high threshold, it should likely not find a model with 0.95 success rate
         assert config["models"]["coder"] == "old-coder-model" # Assert old model is kept
         assert config["models"]["planner"] == "old-planner-model" # Assert old model is kept
@@ -254,17 +253,17 @@ class TestAutoModelSelector:
                 "some_other_model": "old-model"
             }
         }
-        
+
         with open(settings_file, "w") as f:
             json.dump(settings, f)
-        
+
         selector = AutoModelSelector(
             logger=mock_logger,
             benchmark_dir=tmp_benchmarks,
         )
-        
+
         optimized = selector.generate_optimized_config(base_config=settings) # Passed base_config
-        
+
         # Should be able to generate config with updated models
         assert optimized is not None and isinstance(optimized, dict) # Modified assertion
         assert "models" in optimized and "coder" in optimized["models"] # Check structure exists
@@ -278,9 +277,9 @@ class TestAutoModelSelector:
 class TestStructurePreReviewPhaseStressTest:
     """
     Stress tests for StructurePreReviewPhase.
-    
+
     These tests simulate critical failures in folder structure design and
-    measure which LLM is capable of detecting and resolving circular 
+    measure which LLM is capable of detecting and resolving circular
     dependencies detected by DependencyGraph.
     """
 
@@ -325,7 +324,7 @@ class TestStructurePreReviewPhaseStressTest:
     def test_detect_circular_dependencies(self, mock_logger, circular_dependency_scenario):
         """Test that benchmark can detect circular dependencies in structure."""
         scenario = circular_dependency_scenario
-        
+
         # Simulate DependencyGraph detection
         detected_cycles = []
         for path in scenario["circular_paths"]:
@@ -334,7 +333,7 @@ class TestStructurePreReviewPhaseStressTest:
                 "nodes": path,
                 "severity": "critical"
             })
-        
+
         # Assertions
         assert len(detected_cycles) >= 2, "Should detect multiple cycles"
         assert all(c["severity"] == "critical" for c in detected_cycles)
@@ -342,7 +341,7 @@ class TestStructurePreReviewPhaseStressTest:
     def test_model_capability_on_circular_resolution(self, mock_logger, circular_dependency_scenario):
         """
         NEW STRESS TEST: Evaluate which models can resolve circular dependencies.
-        
+
         This benchmark inyects the circular dependency scenario and measures:
         1. Detection rate: Can the model identify the circular paths?
         2. Resolution validity: Is the proposed restructuring valid?
@@ -350,7 +349,7 @@ class TestStructurePreReviewPhaseStressTest:
         4. Modularity score: Is the solution better or equal to original?
         """
         scenario = circular_dependency_scenario
-        
+
         # Simulate multiple models' responses to the circular dependency problem
         model_responses = {
             "gpt-oss:20b": {
@@ -413,11 +412,11 @@ class TestStructurePreReviewPhaseStressTest:
                 }
             }
         }
-        
+
         # Evaluate models
         for model_name, response in model_responses.items():
             metrics = response["metrics"]
-            
+
             # Calculate overall repair score
             repair_score = (
                 metrics["detection_rate"] * 0.3 +
@@ -425,7 +424,7 @@ class TestStructurePreReviewPhaseStressTest:
                 metrics["functionality_preserved"] * 0.2 +
                 max(metrics["modularity_improvement"], 0) * 0.1
             )
-            
+
             # Benchmark result
             result = {
                 "model": model_name,
@@ -433,9 +432,9 @@ class TestStructurePreReviewPhaseStressTest:
                 "repair_score": repair_score,
                 "metrics": metrics
             }
-            
+
             mock_logger.info(f"Model {model_name}: repair_score={repair_score:.2f}")
-        
+
         # Verify that at least one model achieves >0.8 repair score
         scores = [
             (
@@ -447,7 +446,7 @@ class TestStructurePreReviewPhaseStressTest:
             )
             for model_name, response in model_responses.items()
         ]
-        
+
         best_model, best_score = max(scores, key=lambda x: x[1])
         assert best_score >= 0.7, f"Best model {best_model} should achieve >=0.7 repair score"
         assert best_model == "gpt-oss:20b", "gpt-oss:20b should be the best performer"
@@ -458,10 +457,10 @@ class TestStructurePreReviewPhaseStressTest:
             logger=mock_logger,
             benchmark_dir=Path("/tmp/nonexistent"),  # No benchmarks, use defaults
         )
-        
+
         # Test rescue model selection
         rescue = selector.get_rescue_model("planner", "ministral-3:8b")
-        
+
         assert rescue is not None, "Should suggest a rescue model"
         assert rescue != "ministral-3:8b", "Rescue should be different from original"
         assert rescue in ["gpt-oss:70b", "api:claude-3"], "Should be a high-capacity model"
@@ -472,7 +471,7 @@ class TestStructurePreReviewPhaseStressTest:
             logger=mock_logger,
             benchmark_dir=Path("/tmp/nonexistent"),
         )
-        
+
         # Test criticality levels
         critical_phases = [
             ("SeniorReviewPhase", 1.0),
@@ -481,7 +480,7 @@ class TestStructurePreReviewPhaseStressTest:
             ("FileContentGenerationPhase", 0.7),
             ("StructurePreReviewPhase", 0.8),
         ]
-        
+
         for phase_name, expected_criticality in critical_phases:
             criticality = selector.evaluate_phase_criticality(phase_name)
             assert criticality == expected_criticality, \
@@ -497,7 +496,7 @@ def advanced_metrics_benchmarks(tmp_path):
     """Create benchmark data with new advanced metrics."""
     bench_dir = tmp_path / "advanced_benchmarks"
     bench_dir.mkdir()
-    
+
     results = [
         {
             "model_name": "gpt-oss:20b",
@@ -532,11 +531,11 @@ def advanced_metrics_benchmarks(tmp_path):
             "timestamp": datetime.datetime.now().isoformat()
         },
     ]
-    
+
     for i, result_data in enumerate(results):
         with open(bench_dir / f"advanced_{i}.json", "w") as f:
             json.dump(result_data, f, indent=2)
-    
+
     return bench_dir
 
 
@@ -549,7 +548,7 @@ class TestAdvancedMetrics:
             logger=mock_logger,
             benchmark_dir=advanced_metrics_benchmarks,
         )
-        
+
         # Evaluate gpt-oss:20b on LogicPlanningPhase
         score = db.evaluate_model_performance(
             model_name="gpt-oss:20b",
@@ -564,7 +563,7 @@ class TestAdvancedMetrics:
                 "code_smell_detection": 0.10,
             }
         )
-        
+
         # Score should be in range and reflect high performance
         assert 0.0 <= score <= 10.0, "Score should be normalized to 0-10"
         assert score == pytest.approx(6.36), f"gpt-oss:20b should score high, got {score:.2f}"
@@ -575,11 +574,11 @@ class TestAdvancedMetrics:
             logger=mock_logger,
             benchmark_dir=advanced_metrics_benchmarks,
         )
-        
+
         results = [r for r in db.results if r.phase_name == "LogicPlanningPhase"]
-        
+
         assert len(results) > 0, "Should have LogicPlanningPhase results"
-        
+
         for result in results:
             assert 0.0 <= result.hallucination_ratio <= 1.0
             assert result.hallucination_ratio == 0.05, "Should preserve hallucination ratio"
@@ -590,11 +589,11 @@ class TestAdvancedMetrics:
             logger=mock_logger,
             benchmark_dir=advanced_metrics_benchmarks,
         )
-        
+
         results = [r for r in db.results if r.phase_name == "ExhaustiveReviewRepairPhase"]
-        
+
         assert len(results) > 0, "Should have repair phase results"
-        
+
         for result in results:
             assert 0.0 <= result.repair_efficiency <= 1.0
             # qwen3-coder should have 0.78 repair efficiency
@@ -607,13 +606,13 @@ class TestAdvancedMetrics:
             logger=mock_logger,
             benchmark_dir=advanced_metrics_benchmarks,
         )
-        
+
         # Get results
         results = db.results
-        
+
         assert all(0.0 <= r.rag_context_effectiveness <= 1.0 for r in results), \
             "RAG effectiveness should be between 0-1"
-        
+
         # Verify values are being loaded correctly
         gpt_results = [r for r in results if r.model_name == "gpt-oss:20b"]
         if gpt_results:

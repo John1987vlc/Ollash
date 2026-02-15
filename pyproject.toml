@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "ollash"
+version = "0.1.0"
+description = "Modular AI agent framework powered by Ollama for local IT tasks"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["backend", "frontend"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = [
+    "E501",   # Line too long (handled by formatter)
+    "E701",   # Multiple statements on one line (used in validators)
+    "E722",   # Bare except (some places need it for resilience)
+    "E712",   # Comparison to True/False (common in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]  # Re-exports in __init__ files are intentional
+"tests/**" = ["F841", "F811"]  # Unused vars and redefinitions common in test fixtures
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+timeout = 120

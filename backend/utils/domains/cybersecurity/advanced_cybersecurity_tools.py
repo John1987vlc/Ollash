@@ -16,10 +16,10 @@ class AdvancedCybersecurityTools:
         Provides a basic assessment based on OS type and potential common vulnerabilities.
         """
         self.logger.info("Assessing attack surface...")
-        
+
         risk_score = 0
         details = []
-        
+
         # OS-based initial risk
         if self.os_type == "Windows":
             risk_score += 3 # Windows often has larger attack surface by default
@@ -35,7 +35,7 @@ class AdvancedCybersecurityTools:
         details.append({"type": "integration_needed", "finding": "Open Ports & Services", "risk_impact": "unknown", "note": "Integrate with 'scan_ports' and 'detect_unexpected_services' for a real assessment."})
         details.append({"type": "integration_needed", "finding": "User Permissions", "risk_impact": "unknown", "note": "Integrate with 'analyze_permissions' for a real assessment."})
         details.append({"type": "integration_needed", "finding": "System Configuration", "risk_impact": "unknown", "note": "Integrate with 'get_system_info' and 'analyze_startup_services' for a real assessment."})
-        
+
         if risk_score > 5:
             summary = "High potential attack surface. Review recommended integrations."
             overall_risk = "high"
@@ -63,14 +63,14 @@ class AdvancedCybersecurityTools:
         Performs basic checks for suspicious patterns/hashes.
         """
         self.logger.info("Detecting Indicators of Compromise (IOCs)...")
-        
+
         iocs_found = []
-        
+
         # Generic IOCs (expand this with real threat intel)
         suspicious_keywords = ["malware", "ransom", "exploit", "backdoor", "trojan", "phish", "c2server"]
         suspicious_process_names = ["nc.exe", "ncat", "mimikatz", "psexec"] # Example
         suspicious_file_extensions = [".exe.exe", ".dll.dll", ".vbs", ".ps1"] # Double extensions, scripts
-        
+
         # --- Check Process List (basic) ---
         process_result = self.exec.execute("tasklist" if self.os_type == "Windows" else "ps aux")
         if process_result.success:
@@ -85,18 +85,18 @@ class AdvancedCybersecurityTools:
             "/tmp", "/var/tmp", "/dev/shm", # Linux
             "C:\\Windows\\Temp", "C:\\Users\\Public" # Windows
         ]
-        
+
         for spath in scan_paths:
             try:
                 target_dir = Path(spath)
                 if not target_dir.exists():
                     continue
-                
+
                 for f_path in target_dir.rglob("*"):
                     if f_path.is_file():
                         if f_path.suffix in suspicious_file_extensions:
                             iocs_found.append({"type": "suspicious_file_extension", "finding": str(f_path), "severity": "medium"})
-                        
+
                         # Basic content scan for keywords (very inefficient for large files)
                         try:
                             content = f_path.read_text(encoding="utf-8", errors="ignore").lower()
@@ -105,7 +105,7 @@ class AdvancedCybersecurityTools:
                                     iocs_found.append({"type": "suspicious_keyword_in_file", "finding": str(f_path), "keyword": keyword, "severity": "medium"})
                         except Exception:
                             pass # Cannot read file
-                            
+
             except Exception as e:
                 self.logger.warning(f"Error scanning path {spath} for IOCs: {e}")
 
@@ -137,13 +137,13 @@ class AdvancedCybersecurityTools:
         Uses OS-specific commands (ls -ld, icacls) to retrieve and analyze permissions.
         """
         self.logger.info(f"Analyzing permissions for: {path}")
-        
+
         target_path = Path(path)
         if not target_path.exists():
             return {"ok": False, "result": {"error": f"Path not found: {path}"}}
-            
+
         findings = []
-        
+
         try:
             if self.os_type == "Windows":
                 command = f"icacls \"{path}\""
@@ -155,7 +155,7 @@ class AdvancedCybersecurityTools:
                          findings.append({"type": "excessive_permissions", "finding": f"Full control permissions detected for 'Everyone' or 'Users' on '{path}'.", "severity": "high"})
                     elif "Everyone:(W)" in result.stdout:
                          findings.append({"type": "excessive_permissions", "finding": f"Write permissions detected for 'Everyone' on '{path}'.", "severity": "medium"})
-                    
+
                     details = result.stdout
                 else:
                     details = result.stderr
@@ -177,7 +177,7 @@ class AdvancedCybersecurityTools:
                 else:
                     details = result.stderr
                     findings.append({"type": "command_error", "finding": f"Failed to retrieve permissions for '{path}'.", "details": details, "severity": "error"})
-            
+
         except Exception as e:
             self.logger.error(f"Error analyzing permissions for {path}: {e}", e)
             return {"ok": False, "result": {"error": str(e), "path": path}}
@@ -206,10 +206,10 @@ class AdvancedCybersecurityTools:
         Provides a basic score based on OS type and generic security assessments.
         """
         self.logger.info("Calculating security posture score...")
-        
+
         base_score = 70 # Start with a 'C' equivalent
         explanation = []
-        
+
         # Adjust score based on OS type (simplified)
         if self.os_type == "Windows":
             base_score -= 5 # Higher historical vulnerability, more configuration needed
@@ -217,7 +217,7 @@ class AdvancedCybersecurityTools:
         elif self.os_type == "Linux":
             base_score += 5 # Generally lower baseline attack surface
             explanation.append({"area": "os_base_security", "status": "adjusted", "details": "Linux can achieve high security with proper configuration.", "impact": +5})
-        
+
         # Generic checks (would integrate with other tools in a real scenario)
         explanation.append({"area": "patch_management", "status": "unknown", "details": "Assumed good. Integrate with SystemTools.get_system_info for actual patch status.", "impact": 0})
         explanation.append({"area": "firewall_status", "status": "unknown", "details": "Assumed active. Integrate with NetworkTools.check_port_status / detect_unexpected_services for actual status.", "impact": 0})
@@ -236,7 +236,7 @@ class AdvancedCybersecurityTools:
             rating = "Poor"
 
         summary = f"Overall security posture: {rating} (Score: {score})."
-        
+
         return {
             "ok": True,
             "result": {

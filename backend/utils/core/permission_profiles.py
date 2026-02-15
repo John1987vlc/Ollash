@@ -46,19 +46,19 @@ class PermissionProfile:
         context: Optional[Dict] = None,
     ) -> bool:
         """Check if an operation is allowed.
-        
+
         Args:
             permission: Operation type (READ, WRITE, etc.)
             resource_path: File or directory path
             context: Additional context (e.g., file type, size)
-            
+
         Returns:
             True if allowed, False otherwise
         """
         for rule in self.rules:
             if rule.matches(permission, resource_path, context):
                 return rule.grant
-        
+
         # Default deny
         return False
 
@@ -262,13 +262,13 @@ class PermissionProfileManager:
         context: Optional[Dict] = None,
     ) -> Tuple[bool, str]:
         """Check if an operation is permitted under a profile.
-        
+
         Args:
             profile_name: Name of the permission profile
             permission: Operation type
             resource_path: Target path
             context: Additional context
-            
+
         Returns:
             Tuple of (allowed: bool, reason: str)
         """
@@ -277,7 +277,7 @@ class PermissionProfileManager:
             return False, f"Profile '{profile_name}' not found"
 
         allowed = profile.check_permission(permission, resource_path, context)
-        
+
         if allowed:
             return True, f"Operation {permission.value} allowed under {profile_name}"
         else:
@@ -313,7 +313,7 @@ class PolicyEnforcer:
             "create_dir": Permission.WRITE,
         }
 
-    def set_active_profile(self, profile_name: str) -> bool:
+    def set_active_profile(self, profile_name: str) -> bool:  # noqa: F811
         """Switch to a different permission profile."""
         if profile_name not in self.profile_manager.list_profiles():
             self.logger.error(f"Profile '{profile_name}' not found")
@@ -353,19 +353,9 @@ class PolicyEnforcer:
             return self.profile_manager.check_operation(self.active_profile, permission, resource_path or "git_repo", context)
         elif tool_name in ["move_file", "move_dir", "copy_file", "copy_dir", "create_dir"]:
             return self.profile_manager.check_operation(self.active_profile, permission, resource_path, context)
-        
+
         # Fallback for other state-modifying tools without specific authorize_ methods
         return self.profile_manager.check_operation(self.active_profile, permission, resource_path, context)
-
-    def set_active_profile(self, profile_name: str) -> bool:
-        """Switch to a different permission profile."""
-        if profile_name not in self.profile_manager.list_profiles():
-            self.logger.error(f"Profile '{profile_name}' not found")
-            return False
-
-        self.active_profile = profile_name
-        self.logger.info(f"🔐 Switched to permission profile: {profile_name}")
-        return True
 
     def authorize_file_write(
         self,
@@ -380,10 +370,10 @@ class PolicyEnforcer:
             file_path,
             context,
         )
-        
+
         if not allowed:
             self.logger.warning(f"⛔ Write denied: {file_path} ({reason})")
-        
+
         return allowed, reason
 
     def authorize_shell_command(self, command: str) -> Tuple[bool, str]:
@@ -424,6 +414,3 @@ class PolicyEnforcer:
             self.logger.warning(f"⛔ Delete denied: {file_path} ({reason})")
 
         return allowed, reason
-
-
-from typing import Tuple

@@ -47,7 +47,7 @@ class RateLimiter: # This class might become redundant as GPUAwareRateLimiter is
 
 
 class OllamaClient:
-    def __init__(self, url: str, model: str, timeout: int, logger: AgentLogger, config: Dict, 
+    def __init__(self, url: str, model: str, timeout: int, logger: AgentLogger, config: Dict,
                  llm_recorder: LLMRecorder, # NEW
                  model_health_monitor: Optional[ModelHealthMonitor] = None):
         self.base_url = str(url).rstrip('/')
@@ -200,21 +200,21 @@ class OllamaClient:
             "stream": False,
             "options": default_options
         }
-        
+
         start_time = time.monotonic()
         success = False
         error_message: Optional[str] = None
         usage: Dict = {}
 
         self._llm_recorder.record_request(self.model, messages, tools, default_options) # NEW
-        
+
         try:
             await self._rate_limiter.a_wait_if_needed()
 
             # self.logger.debug(f"Sending async request to {self.chat_url}") # Removed, recorder handles
             # tool_names = [t["function"]["name"] for t in tools]
             # self.logger.debug(f"Available tools: {', '.join(tool_names)}") # Removed, recorder handles
-            
+
             _request_start = time.monotonic()
             session = await self._get_aiohttp_session() # Lazy create/get session
             async with session.post(self.chat_url, json=payload, timeout=self.timeout) as response:
@@ -275,7 +275,7 @@ class OllamaClient:
             "stream": False,
             "options": default_options
         }
-        
+
         start_time = time.monotonic()
         success = False
         error_message: Optional[str] = None
@@ -292,11 +292,11 @@ class OllamaClient:
             # self.logger.debug(f"Model: {self.model}") # Removed, recorder handles
             # self.logger.debug(f"Messages count: {len(messages)}") # Removed, recorder handles
             # self.logger.debug(f"Tools count: {len(tools)}") # Removed, recorder handles
-            
+
             # Log tool names for debugging (can be moved to recorder or removed)
             # tool_names = [t["function"]["name"] for t in tools]
             # self.logger.debug(f"Available tools: {', '.join(tool_names)}") # Removed, recorder handles
-            
+
             # Make request using session with retry logic (timed for GPU-aware rate limiter)
             _request_start = time.monotonic()
             r = self.http_session.post(self.chat_url, json=payload, timeout=self.timeout)
@@ -309,11 +309,11 @@ class OllamaClient:
             r.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
 
             data = r.json()
-            
+
             # Estimate tokens (rough approximation: 1 token ≈ 4 chars)
             prompt_chars = sum(len(json.dumps(m)) for m in messages)
             completion_chars = len(json.dumps(data.get("message", {})))
-            
+
             usage = {
                 "prompt_tokens": prompt_chars // 4,
                 "completion_tokens": completion_chars // 4,
@@ -321,7 +321,7 @@ class OllamaClient:
             }
             success = True
             return data, usage
-            
+
         except requests.exceptions.Timeout:
             error_message = f"Request timeout after {self.timeout}s"
             self.logger.error(error_message)
@@ -334,7 +334,7 @@ class OllamaClient:
         except requests.exceptions.HTTPError as e:
             error_message = f"Ollama API Error (Status {r.status_code}): {e.response.text[:500]}"
             self.logger.error(error_message, exception=e)
-            
+
             # Check for "model not found" (HTTP 404) and attempt to pull
             if r.status_code == 404 and "model not found" in e.response.text.lower():
                 self.logger.warning(f"Model '{self.model}' not found. Attempting to pull...")
@@ -362,7 +362,7 @@ class OllamaClient:
                     error_message = f"Failed to pull model '{self.model}'. Cannot complete request."
                     self.logger.error(error_message)
                     raise # Re-raise original error if pull fails
-            
+
             # Original tool not found check (only if model pull logic didn't handle it)
             if "tool" in e.response.text.lower() and "not found" in e.response.text.lower():
                 self.logger.warning("The model tried to use a tool that doesn't exist.")
@@ -458,7 +458,7 @@ class OllamaClient:
 
             data = r.json()
             embeddings = data.get("embedding")
-            
+
             if not embeddings:
                 self.logger.error(f"Ollama embedding response structure: {data}")
                 raise ValueError(f"No embedding found in Ollama API response. Full response: {data}")
@@ -467,7 +467,7 @@ class OllamaClient:
             self._embedding_cache.put(text, embeddings)
             success = True
             return embeddings
-            
+
         except requests.exceptions.Timeout:
             error_message = f"Embedding request timeout after {self.timeout}s"
             self.logger.error(error_message)

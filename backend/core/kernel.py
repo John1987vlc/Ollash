@@ -22,7 +22,7 @@ class AgentKernel:
     """
     def __init__(self, ollash_root_dir: Optional[Path] = None, structured_logger: Optional[StructuredLogger] = None):
         self.ollash_root_dir = ollash_root_dir if ollash_root_dir else Path(os.getcwd())
-        
+
         # If a structured logger isn't provided, create a default one.
         if structured_logger:
             self._structured_logger = structured_logger
@@ -37,7 +37,7 @@ class AgentKernel:
 
         # Instantiate ConfigLoader
         self._config_loader = ConfigLoader(config_loader_logger)
-        
+
         self._agent_logger.info("AgentKernel initialized.")
 
     def get_logger(self) -> AgentLogger:
@@ -64,7 +64,7 @@ class AgentKernel:
         if not isinstance(config, ToolSettingsConfig):
             raise RuntimeError("Tool settings configuration not loaded or is of incorrect type.")
         return config
-    
+
     def get_full_config(self) -> Dict[str, Any]:
         """Returns the full raw, merged configuration as a dictionary."""
         return self._config_loader.get_raw_config_data()

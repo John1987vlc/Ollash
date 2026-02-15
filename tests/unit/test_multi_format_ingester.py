@@ -43,7 +43,7 @@ class TestMultiFormatIngester:
             f.write("Test content\nLine 2")
             f.flush()
             file_path = Path(f.name)
-        
+
         try:
             result = ingester.ingest_file(file_path)
             assert result is not None
@@ -58,7 +58,7 @@ class TestMultiFormatIngester:
             f.write("# Title\n## Subtitle\nContent here")
             f.flush()
             file_path = Path(f.name)
-        
+
         try:
             result = ingester.ingest_file(file_path)
             assert result is not None
@@ -71,7 +71,7 @@ class TestMultiFormatIngester:
         """Test that unsupported formats return None"""
         with tempfile.NamedTemporaryFile(suffix='.xyz', delete=False) as f:
             file_path = Path(f.name)
-        
+
         try:
             result = ingester.ingest_file(file_path)
             assert result is None
@@ -90,7 +90,7 @@ class TestMultiFormatIngester:
             f.write("One Two Three Four Five")
             f.flush()
             file_path = Path(f.name)
-        
+
         try:
             metadata = ingester.get_file_metadata(file_path)
             assert metadata["extraction_success"] is True
@@ -105,14 +105,14 @@ class TestMultiFormatIngester:
         """Test ingesting all files in a directory"""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
-            
+
             # Create multiple test files
             (tmpdir_path / "file1.txt").write_text("Content 1")
             (tmpdir_path / "file2.md").write_text("# Content 2")
             (tmpdir_path / "file3.xyz").write_text("Unsupported")
-            
+
             results = ingester.ingest_directory(tmpdir_path)
-            
+
             assert len(results) >= 2  # At least txt and md
             assert "file1.txt" in results
             assert "file2.md" in results
@@ -125,7 +125,7 @@ class TestMultiFormatIngester:
             f.write("Café".encode('latin-1'))
             f.flush()
             file_path = Path(f.name)
-        
+
         try:
             result = ingester.ingest_file(file_path)
             # Should succeed with fallback encoding
@@ -137,10 +137,10 @@ class TestMultiFormatIngester:
     def test_pdf_extraction_called(self, mock_pdf, ingester):
         """Test that PDF extraction is called for PDF files"""
         mock_pdf.return_value = "PDF Content"
-        
+
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
             file_path = Path(f.name)
-        
+
         try:
             result = ingester.ingest_file(file_path)
             mock_pdf.assert_called_once_with(file_path)

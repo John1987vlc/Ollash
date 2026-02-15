@@ -20,7 +20,7 @@ class DocumentationManager:
         self.references_dir = self.knowledge_workspace / "references"
         self.summaries_dir = self.knowledge_workspace / "summaries"
         self.indexed_cache = self.knowledge_workspace / "indexed_cache"
-        
+
         # Ensure directories exist
         self.references_dir.mkdir(parents=True, exist_ok=True)
         self.summaries_dir.mkdir(parents=True, exist_ok=True)
@@ -72,9 +72,9 @@ class DocumentationManager:
             else:
                 # Fallback to plain text read for unsupported formats
                 content = file_path.read_text(encoding="utf-8", errors="ignore")
-            
+
             chunks = self._chunk_text(content, chunk_size, overlap)
-            
+
             embeddings = []
             metadatas = []
             ids = []
@@ -86,14 +86,14 @@ class DocumentationManager:
                     source_rel = str(file_path.relative_to(self.project_root))
                 except ValueError:
                     source_rel = str(file_path)
-                
+
                 metadatas.append({
                     "source": source_rel,
                     "chunk_index": i,
                     "file_format": file_path.suffix.lower()
                 })
                 ids.append(f"{file_path.stem}-{i}")
-            
+
             if embeddings:
                 self.documentation_collection.add(
                     embeddings=embeddings,
@@ -119,7 +119,7 @@ class DocumentationManager:
             i += (chunk_size - overlap)
             if i < 0: # Handle cases where chunk_size < overlap
                 i = 0
-            
+
         return chunks
 
     def query_documentation(self, query: str, n_results: int = 3, min_distance: float = 0.5) -> List[Dict]:
@@ -159,11 +159,11 @@ class DocumentationManager:
         source_filter: Filter results by file source (e.g., 'requirements.md')
         """
         all_results = self.query_documentation(query, n_results * 2)  # Get more to filter
-        
+
         if source_filter:
             filtered = [r for r in all_results if source_filter in r.get("source", "")]
             return filtered[:n_results]
-        
+
         return all_results[:n_results]
 
     def get_knowledge_workspace_status(self) -> Dict[str, Any]:

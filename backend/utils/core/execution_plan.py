@@ -53,7 +53,7 @@ class Milestone:
 class ExecutionPlan:
     """
     Tracks and manages the execution of AutoAgent pipeline phases as milestones.
-    
+
     Features:
     - Publishes initial milestone list
     - Tracks progress of each milestone
@@ -68,27 +68,26 @@ class ExecutionPlan:
         self.milestones: Dict[str, Milestone] = {}
         self.creation_time = datetime.now().isoformat()
         self.completion_time: Optional[str] = None
-        
+
     def define_milestones(self, phases: List[Any]) -> None:
         """
         Defines milestones based on the list of phases to execute.
-        
+
         Args:
             phases: List of IAgentPhase instances to execute
         """
         # Create milestone for each phase
         for idx, phase in enumerate(phases):
-            phase_name = phase.__class__.__name__
-            
+
             # Generate milestone ID and name
             if isinstance(phase, type):
                 phase_class_name = phase.__name__
             else:
                 phase_class_name = phase.__class__.__name__
-            
+
             # Map phase names to milestone info
             milestone_info = self._get_milestone_info(phase_class_name, idx)
-            
+
             milestone = Milestone(
                 id=milestone_info["id"],
                 name=milestone_info["name"],
@@ -98,7 +97,7 @@ class ExecutionPlan:
                 estimated_duration_seconds=milestone_info["estimated_duration"],
                 dependencies=milestone_info["dependencies"],
             )
-            
+
             self.milestones[milestone.id] = milestone
 
     def start_milestone(self, milestone_id: str) -> None:
@@ -114,7 +113,7 @@ class ExecutionPlan:
             milestone.status = MilestoneStatus.COMPLETED
             milestone.end_time = datetime.now().isoformat()
             milestone.output_summary = output_summary
-            
+
             # Calculate actual duration
             if milestone.start_time:
                 start = datetime.fromisoformat(milestone.start_time)
@@ -128,7 +127,7 @@ class ExecutionPlan:
             milestone.status = MilestoneStatus.FAILED
             milestone.error_message = error_message
             milestone.end_time = datetime.now().isoformat()
-            
+
             # Calculate actual duration
             if milestone.start_time:
                 start = datetime.fromisoformat(milestone.start_time)
@@ -143,7 +142,7 @@ class ExecutionPlan:
     def get_progress(self) -> Dict[str, Any]:
         """
         Get overall progress statistics.
-        
+
         Returns:
             Dictionary with progress metrics
         """
@@ -153,7 +152,7 @@ class ExecutionPlan:
         in_progress = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.IN_PROGRESS)
         skipped = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.SKIPPED)
         pending = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.PENDING)
-        
+
         return {
             "project_name": self.project_name,
             "is_existing_project": self.is_existing_project,
@@ -203,7 +202,7 @@ class ExecutionPlan:
     def _get_milestone_info(self, phase_class_name: str, phase_index: int) -> Dict[str, Any]:
         """
         Get milestone information for a specific phase.
-        
+
         Maps phase classes to milestone definitions.
         """
         # Map of phase classes to their milestone information
@@ -335,7 +334,7 @@ class ExecutionPlan:
                 "dependencies": ["7.3"],
             },
         }
-        
+
         return phase_milestone_map.get(
             phase_class_name,
             {

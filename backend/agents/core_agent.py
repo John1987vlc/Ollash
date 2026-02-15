@@ -22,8 +22,7 @@ from backend.utils.core.benchmark_model_selector import (
 )
 from backend.utils.core.permission_profiles import PermissionProfileManager, PolicyEnforcer
 from backend.utils.core.automatic_learning import AutomaticLearningSystem
-from backend.utils.core.model_health_monitor import ModelHealthMonitor
-from backend.utils.core.cross_reference_analyzer import CrossReferenceAnalyzer # NEW
+from backend.utils.core.cross_reference_analyzer import CrossReferenceAnalyzer  # NEW
 from backend.services.llm_client_manager import LLMClientManager
 from backend.core.kernel import AgentKernel
 
@@ -135,13 +134,13 @@ class CoreAgent(ABC):
 
         self.token_tracker = TokenTracker()
         self.response_parser = LLMResponseParser()
-        
+
         self.command_executor = CommandExecutor(
             working_dir=str(self.ollash_root_dir),
             logger=self.logger,
             use_docker_sandbox=self.config.get("use_docker_sandbox", False)
         )
-        
+
         self.file_validator = FileValidator(logger=self.logger, command_executor=self.command_executor)
         self.documentation_manager = DocumentationManager(
             project_root=self.ollash_root_dir,
@@ -240,28 +239,28 @@ class CoreAgent(ABC):
 
     def _scan_python_imports(self, files: Dict[str, str]) -> List[str]:
         """Scan Python files for import statements and return a list of pip-installable packages.
-        
+
         Delegates to DependencyScanner for multi-language consistency.
         """
         return self.dependency_scanner.scan_all_imports(files).get("python", [])
 
     def _scan_node_imports(self, files: Dict[str, str]) -> List[str]:
         """Scan JS/TS files for require/import statements and return npm package names.
-        
+
         Delegates to DependencyScanner for multi-language consistency.
         """
         return self.dependency_scanner.scan_all_imports(files).get("javascript", [])
 
     def _scan_go_imports(self, files: Dict[str, str]) -> List[str]:
         """Scan Go files for import statements and return third-party module paths.
-        
+
         Delegates to DependencyScanner for multi-language consistency.
         """
         return self.dependency_scanner.scan_all_imports(files).get("go", [])
 
     def _scan_rust_imports(self, files: Dict[str, str]) -> List[str]:
         """Scan Rust files for extern crate statements and return crate names.
-        
+
         Delegates to DependencyScanner for multi-language consistency.
         """
         return self.dependency_scanner.scan_all_imports(files).get("rust", [])
@@ -276,7 +275,7 @@ class CoreAgent(ABC):
         - Node.js: package.json dependencies from require/import in .js/.ts files
         - Go: go.mod require block from import statements in .go files
         - Rust: Cargo.toml [dependencies] from extern crate/use in .rs files
-        
+
         Uses DependencyScanner for consistent, extensible multi-language support.
         """
         try:
@@ -446,8 +445,8 @@ class CoreAgent(ABC):
             r'\[dependencies\](.*?)(?=\n\[|\Z)', cargo_content, re.DOTALL
         )
         if dep_section:
-            dep_lines = [l.strip() for l in dep_section.group(1).splitlines()
-                         if l.strip() and "=" in l]
+            dep_lines = [line.strip() for line in dep_section.group(1).splitlines()
+                         if line.strip() and "=" in line]
         else:
             dep_lines = []
 
@@ -481,12 +480,12 @@ class CoreAgent(ABC):
 
         First attempts semantic selection via RAGContextSelector (ChromaDB embeddings),
         then falls back to heuristic scoring if semantic selection unavailable.
-        
+
         Args:
             target_path: Path to file needing context
             generated_files: All available generated files
             max_files: Maximum context files to select
-            
+
         Returns:
             Dictionary of selected contextual files
         """
@@ -501,7 +500,7 @@ class CoreAgent(ABC):
                 available_files=generated_files,
                 max_files=max_files,
             )
-            
+
             if context_files:
                 self.logger.info(
                     f"🔍 Selected {len(context_files)} contextual files using RAG semantic search"

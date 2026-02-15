@@ -52,7 +52,7 @@ class DefaultValidator(BaseValidator):
             return self._validate_batch(file_path, content, lines, chars)
         elif ext == ".sql":
             return self._validate_sql(file_path, content, lines, chars)
-        
+
         # If no specific validation, and it's a brace language, do basic brace check
         if ext in self.BRACE_LANGUAGES:
             return self._validate_brace_language(file_path, content, lines, chars)

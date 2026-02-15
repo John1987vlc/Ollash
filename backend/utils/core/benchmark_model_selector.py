@@ -26,7 +26,7 @@ class ModelBenchmarkResult:
     avg_tokens: float
     avg_time_ms: float
     quality_score: float  # 1-10
-    
+
     # NEW: Metrics for advanced phase evaluation
     hallucination_ratio: float = 0.0  # LogicPlanningPhase: plan_vs_implementation mismatch
     repair_efficiency: float = 0.0  # ExhaustiveReviewRepairPhase: errors_fixed_in_one_pass / total_errors
@@ -34,7 +34,7 @@ class ModelBenchmarkResult:
     logic_plan_coverage: float = 0.0  # Percentage of logic plan items implemented
     circular_dep_resolution_rate: float = 0.0  # StructurePreReviewPhase: successfully resolved circular deps
     code_smell_detection_rate: float = 0.0  # SeniorReviewPhase: subtle errors detected / total injected
-    
+
     timestamp: Optional[str] = None
     phase_name: Optional[str] = None  # Phase that was benchmarked
 
@@ -84,11 +84,11 @@ class BenchmarkDatabase:
         metric: str = "success_rate",
     ) -> Optional[ModelBenchmarkResult]: # Changed return type hint
         """Get the best-performing model for a task.
-        
+
         Args:
             task_type: Task category (refinement, coder, planner, etc.)
             metric: Ranking metric (success_rate, quality_score, avg_time_ms) # Updated metric comment
-            
+
         Returns:
             Best model name or None if no data available
         """
@@ -120,7 +120,7 @@ class BenchmarkDatabase:
         model_scores = {
             model: mean(scores) for model, scores in grouped.items()
         }
-        
+
         return sorted(model_scores.items(), key=lambda x: x[1], reverse=True)
 
     def get_stats_for_model(self, model_name: str, task_type: str) -> Optional[Dict]:
@@ -129,7 +129,7 @@ class BenchmarkDatabase:
             r for r in self.results
             if r.model_name == model_name and r.task_type == task_type
         ]
-        
+
         if not relevant:
             return None
 
@@ -151,13 +151,13 @@ class BenchmarkDatabase:
     ) -> float:
         """
         Evaluate model performance on a specific phase with weighted metrics.
-        
+
         NEW METRICS INTEGRATION:
         - Hallucination Ratio: LogicPlanningPhase metric (lower is better)
         - Repair Efficiency: ExhaustiveReviewRepairPhase (higher is better)
         - RAG Context Effectiveness: DependencyReconciliationPhase (higher is better)
         - Code Smell Detection: SeniorReviewPhase (higher is better)
-        
+
         Args:
             model_name: Model to evaluate
             phase_name: Phase being evaluated
@@ -171,7 +171,7 @@ class BenchmarkDatabase:
                     "rag_context_effectiveness": 0.15,
                     "code_smell_detection": 0.10,
                 }
-        
+
         Returns:
             Weighted performance score (0-10)
         """
@@ -201,7 +201,7 @@ class BenchmarkDatabase:
         avg_time = mean(r.avg_time_ms for r in relevant)
         max_time = max((r.avg_time_ms for r in relevant), default=1000)
         time_efficiency = 1.0 - min(avg_time / max_time, 1.0)  # Normalize: faster = higher
-        
+
         avg_hallucination = mean(r.hallucination_ratio for r in relevant)
         avg_repair_efficiency = mean(r.repair_efficiency for r in relevant)
         avg_rag_effectiveness = mean(r.rag_context_effectiveness for r in relevant)
@@ -260,44 +260,44 @@ class AutoModelSelector:
     def get_rescue_model(self, role: str, failed_model: str) -> Optional[str]:
         """
         NEW: Get a rescue model for a failed role.
-        
+
         If a model fails in a critical phase (senior_reviewer, coder, planner),
         activate a higher-capacity rescue model.
-        
+
         Args:
             role: The role that failed (e.g., "senior_reviewer")
             failed_model: The model that failed
-            
+
         Returns:
             Rescue model name or None if no rescue available
         """
         rescue_candidates = self.RESCUE_MODELS.get(role, [])
-        
+
         if not rescue_candidates:
             return None
-        
+
         # Filter out the failed model itself
         available = [m for m in rescue_candidates if m != failed_model]
-        
+
         if available:
             self.logger.warning(
                 f"🚨 RESCUE ACTIVATION: {failed_model} failed for {role}. "
                 f"Activating rescue model: {available[0]}"
             )
             return available[0]
-        
+
         return None
 
     def evaluate_phase_criticality(self, phase_name: str) -> float:
         """
         NEW: Evaluate the criticality level of a phase (0.0-1.0).
-        
+
         Critical phases (senior_reviewer, logic planning) warrant rescue models
         if the primary model fails.
-        
+
         Args:
             phase_name: Name of the phase
-            
+
         Returns:
             Criticality score (0.0 = low, 1.0 = critical)
         """
@@ -308,7 +308,7 @@ class AutoModelSelector:
             "FileContentGenerationPhase": 0.7,
             "StructurePreReviewPhase": 0.8,
         }
-        
+
         return critical_phases.get(phase_name, 0.5)
 
     def generate_optimized_config(
@@ -316,12 +316,12 @@ class AutoModelSelector:
         base_config: Dict,
     ) -> Dict:
         """Generate optimized model configuration based on benchmarks.
-        
+
         NEW: Integrates weighted metrics and includes rescue model assignments.
-        
+
         Args:
             base_config: Base configuration from settings.json
-            
+
         Returns:
             Updated config with optimized model assignments and rescue models
         """
@@ -343,13 +343,13 @@ class AutoModelSelector:
                 if stats and stats["avg_success_rate"] >= self.confidence_threshold:
                     old_model = models_section.get(role, "unknown")
                     models_section[role] = best_model.model_name
-                    
+
                     success_pct = stats["avg_success_rate"] * 100
                     self.logger.info(
                         f"  📊 {role}: {old_model} → {best_model.model_name} "
                         f"({success_pct:.1f}% success rate)"
                     )
-                    
+
                     # Assign rescue model if this is a critical role
                     rescue = self.get_rescue_model(role, best_model.model_name)
                     if rescue:
@@ -368,7 +368,7 @@ class AutoModelSelector:
 
     def suggest_model_improvements(self) -> List[Dict]:
         """Suggest model improvements based on benchmark data.
-        
+
         Returns:
             List of improvement suggestions
         """
@@ -376,13 +376,13 @@ class AutoModelSelector:
 
         for task_type, role in self.TASK_TO_ROLE.items():
             ranking = self.benchmark_db.get_model_rank(task_type)
-            
+
             if len(ranking) >= 2:
                 best, best_score = ranking[0]
                 second, second_score = ranking[1] if len(ranking) > 1 else (None, 0)
-                
+
                 improvement_margin = (best_score - second_score) * 100 if second else 0
-                
+
                 if improvement_margin > 10:  # >10% improvement
                     suggestions.append({
                         "role": role,
@@ -413,13 +413,13 @@ def integrate_benchmark_results(
     dry_run: bool = True,
 ) -> Dict:
     """High-level function to integrate benchmark results into configuration.
-    
+
     Args:
         settings_path: Path to settings.json
         benchmark_dir: Directory containing benchmark results
         logger: Logger instance
         dry_run: If True, don't save; just return optimized config
-        
+
     Returns:
         Optimized configuration
     """

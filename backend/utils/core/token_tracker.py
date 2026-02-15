@@ -2,14 +2,14 @@ from colorama import Fore, Style
 
 class TokenTracker:
     """Track token usage across the session"""
-    
+
     def __init__(self):
         self.session_prompt_tokens = 0
         self.session_completion_tokens = 0
         self.session_total_tokens = 0
         self.request_count = 0
         self.last_request_tokens = 0
-        
+
     def add_usage(self, prompt_tokens: int, completion_tokens: int):
         """Add token usage from a request"""
         self.session_prompt_tokens += prompt_tokens
@@ -18,7 +18,7 @@ class TokenTracker:
         self.session_total_tokens += total
         self.last_request_tokens = total
         self.request_count += 1
-        
+
     def get_session_summary(self) -> str:
         """Get formatted session summary"""
         avg = self.session_total_tokens // max(1, self.request_count)
@@ -34,7 +34,7 @@ class TokenTracker:
   • Avg per request: {avg:,}
 {Fore.CYAN}{'='*60}{Style.RESET_ALL}"""
         )
-    
+
     def display_current(self):
         """Display current usage"""
         print(f"{Fore.MAGENTA}💭 Tokens: {self.last_request_tokens:,} | "

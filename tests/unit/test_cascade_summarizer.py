@@ -52,7 +52,7 @@ class TestCascadeSummarizer:
         """Test basic text chunking"""
         text = " ".join([f"word{i}" for i in range(150)])
         chunks = summarizer.chunk_text(text, chunk_size=50, overlap=10)
-        
+
         assert len(chunks) > 1
         assert all(isinstance(chunk, str) for chunk in chunks)
         # Each chunk should be roughly 50 words
@@ -68,7 +68,7 @@ class TestCascadeSummarizer:
         """Test chunking text smaller than chunk size"""
         text = "This is a small text"
         chunks = summarizer.chunk_text(text, chunk_size=100)
-        
+
         assert len(chunks) == 1
         assert "small text" in chunks[0]
 
@@ -76,7 +76,7 @@ class TestCascadeSummarizer:
         """Test that chunks are created"""
         text = " ".join([f"w{i}" for i in range(500)])
         chunks = summarizer.chunk_text(text, chunk_size=100, overlap=50)
-        
+
         # Just verify chunks are generated
         assert isinstance(chunks, list)
         assert len(chunks) > 0
@@ -84,9 +84,9 @@ class TestCascadeSummarizer:
     def test_summarize_chunk(self, summarizer, ollama_client):
         """Test summarizing a single chunk"""
         chunk = "This is a test chunk with important information"
-        
+
         summary = summarizer.summarize_chunk(chunk)
-        
+
         ollama_client.call_ollama_api.assert_called_once()
         assert summary == "Mocked summary"
 
@@ -94,9 +94,9 @@ class TestCascadeSummarizer:
         """Test summarizing with context"""
         chunk = "Technical implementation details"
         context = "System architecture document"
-        
+
         summary = summarizer.summarize_chunk(chunk, context=context)
-        
+
         assert summary == "Mocked summary"
         # Verify context was included in the call
         call_args = ollama_client.call_ollama_api.call_args
@@ -105,9 +105,9 @@ class TestCascadeSummarizer:
     def test_map_phase(self, summarizer, ollama_client):
         """Test Map phase of summarization"""
         text = " ".join([f"word{i}" for i in range(300)])
-        
+
         result = summarizer.map_phase(text)
-        
+
         assert isinstance(result, dict)
         assert len(result) > 0
         assert all(isinstance(k, int) for k in result.keys())
@@ -116,7 +116,7 @@ class TestCascadeSummarizer:
     def test_map_phase_empty(self, summarizer):
         """Test Map phase with empty text"""
         result = summarizer.map_phase("")
-        
+
         assert result == {}
 
     def test_reduce_phase(self, summarizer, ollama_client):
@@ -126,24 +126,24 @@ class TestCascadeSummarizer:
             1: "Second section summary",
             2: "Third section summary"
         }
-        
+
         result = summarizer.reduce_phase(chunk_summaries, title="Test Document")
-        
+
         assert result == "Mocked summary"
         ollama_client.call_ollama_api.assert_called()
 
     def test_reduce_phase_empty(self, summarizer):
         """Test Reduce phase with empty summaries"""
         result = summarizer.reduce_phase({})
-        
+
         assert result is None
 
     def test_cascade_summarize_short_text(self, summarizer, ollama_client):
         """Test cascade summarization of short text"""
         text = "This is a short document that doesn't need cascading"
-        
+
         result = summarizer.cascade_summarize(text, title="Short Doc")
-        
+
         assert result["status"] == "success"
         assert "original_word_count" in result
         assert "executive_summary" in result
@@ -153,9 +153,9 @@ class TestCascadeSummarizer:
         """Test cascade summarization of long text"""
         # Create text longer than chunk size
         text = " ".join([f"word{i}" for i in range(500)])
-        
+
         result = summarizer.cascade_summarize(text, title="Long Doc")
-        
+
         assert isinstance(result, dict)
         # Will have either success or error status
         assert "status" in result
@@ -164,9 +164,9 @@ class TestCascadeSummarizer:
     def test_cascade_summarize_with_metadata(self, summarizer, ollama_client):
         """Test cascade summarize handles metadata"""
         text = " ".join([f"token{i}" for i in range(250)])
-        
+
         result = summarizer.cascade_summarize(text, title="Report")
-        
+
         if result["status"] == "success":
             assert result["original_word_count"] > 0
             assert result["chunk_count"] >= 1
@@ -175,9 +175,9 @@ class TestCascadeSummarizer:
         """Test compression ratio calculation"""
         ollama_client.call_ollama_api.return_value = "M"*50  # Short fixed response
         text = " ".join([f"w{i}" for i in range(300)])
-        
+
         result = summarizer.cascade_summarize(text)
-        
+
         if result["status"] == "success":
             assert "compression_ratio" in result
             assert result["compression_ratio"] > 0
@@ -186,7 +186,7 @@ class TestCascadeSummarizer:
         """Test that Map phase logs appropriately"""
         text = " ".join([f"word{i}" for i in range(200)])
         summarizer.map_phase(text)
-        
+
         # Should log completion
         assert logger.info.called or logger.debug.called
 
@@ -194,7 +194,7 @@ class TestCascadeSummarizer:
         """Test that Reduce phase logs appropriately"""
         summaries = {0: "Summary 1", 1: "Summary 2"}
         result = summarizer.reduce_phase(summaries)
-        
+
         # Should return result (logging verification removed)
         assert result is not None or isinstance(result, (str, type(None)))
 

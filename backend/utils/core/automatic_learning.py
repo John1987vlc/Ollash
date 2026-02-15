@@ -64,7 +64,7 @@ class PostMortemAnalyzer:
         project_name: str,
     ) -> CorrectionPattern:
         """Create a correction pattern from a successful fix.
-        
+
         Args:
             error_message: Original error message
             error_type: Type of error (SyntaxError, etc.)
@@ -76,7 +76,7 @@ class PostMortemAnalyzer:
             success_metrics: Validation results
             phase: Which auto_agent phase
             project_name: Project this occurred in
-            
+
         Returns:
             CorrectionPattern object
         """
@@ -143,7 +143,7 @@ class LearningIndexer:
     def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict = None):
         self.logger = logger
         self.project_root = project_root
-        
+
         if chromadb is None:
             self.logger.warning("ChromaDB not available for learning indexing")
             self.client = None
@@ -265,7 +265,7 @@ class AutomaticLearningSystem:
         project_name: str,
     ) -> bool:
         """Process a successful correction and learn from it.
-        
+
         Returns:
             True if successfully indexed, False otherwise
         """
@@ -305,7 +305,7 @@ class AutomaticLearningSystem:
         language: str = "",
     ) -> List[Dict]:
         """Get past correction suggestions for a current error.
-        
+
         Returns:
             List of similar patterns with suggestions
         """

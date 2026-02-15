@@ -24,7 +24,7 @@ class ModelHealthMonitor:
         self.logger = logger
         self.config = config.get("model_health_monitor", {})
         self.window_size = self.config.get("window_size", 100)
-        
+
         self.latencies: Dict[str, deque] = {}
         self.error_rates: Dict[str, deque] = {}
         self.last_checked: Dict[str, float] = {}
@@ -92,5 +92,5 @@ class ModelHealthMonitor:
         if stats["error_rate"] > max_error_rate:
             self.logger.warning(f"Model {model_name} is unhealthy: error rate {stats['error_rate']:.2%} exceeds threshold of {max_error_rate:.2%}.")
             return False
-        
+
         return True

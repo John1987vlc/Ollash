@@ -40,11 +40,11 @@ class AsyncToolExecutor:
             A list of tool outputs, in the same order as the input tool calls.
         """
         async_eligible_tools = self.tool_registry.get_async_eligible_tools()
-        
+
         # Separate calls into async and sequential
         async_tasks = []
         sequential_calls = []
-        
+
         for i, tool_call in enumerate(tool_calls):
             tool_name = tool_call.get("function", {}).get("name")
             if tool_name in async_eligible_tools:
@@ -65,7 +65,7 @@ class AsyncToolExecutor:
             # Assuming execute_single_tool can be awaited even if it's a sync function
             result = await self.execute_single_tool(tool_call)
             sequential_results.append(result)
-            
+
         # Here we need a way to correctly order the results.
         # For now, we'll just combine them. A more robust solution is needed.
         # This is a placeholder for the logic to correctly order the results.

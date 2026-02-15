@@ -17,7 +17,7 @@ class Config:
         # Load environment variables from .env file located at the project root
         project_root = Path(__file__).parent.parent.parent
         dotenv_path = project_root / '.env'
-        
+
         # Fallback for when .env is not found, useful for some execution contexts
         if not dotenv_path.exists():
             dotenv_path = project_root / '.env.example'
@@ -45,7 +45,7 @@ class Config:
         self.LLM_MODELS = self._load_json_from_env("LLM_MODELS_JSON")
         self.TASKS = self._load_json_from_env("TASKS_JSON")
         self.TOOL_SETTINGS = self._load_json_from_env("TOOL_SETTINGS_JSON")
-        
+
         # Legacy support: if individual settings from llm_models.json are in the old settings format, merge them
         if self.LLM_MODELS:
             self.OLLAMA_URL = self.LLM_MODELS.get("ollama_url", self.OLLAMA_URL)

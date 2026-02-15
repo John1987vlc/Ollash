@@ -40,9 +40,9 @@ class AutoAgent(CoreAgent):
                  llm_manager: Optional[IModelProvider] = Provide['auto_agent_module.llm_manager'],
                  llm_recorder: Optional[LLMRecorder] = Provide['core.llm_recorder'],
                  **kwargs):
-        
+
         super().__init__(kernel=kernel, logger_name="AutoAgent", llm_manager=llm_manager, llm_recorder=llm_recorder)
-        
+
         self.config = self.kernel.get_full_config()
         self.logger.info("AutoAgent initializing with injected dependencies.")
 
@@ -53,10 +53,10 @@ class AutoAgent(CoreAgent):
         self.phase_context = phase_context
         self.phases = phases
         self.project_analysis_phase_factory = project_analysis_phase_factory
-        
+
         # Ensure the context has a reference back to this agent instance
         self.phase_context.auto_agent = self
-        
+
         # Set up the generated projects directory from the context
         self.generated_projects_dir = self.phase_context.generated_projects_dir
         self.generated_projects_dir.mkdir(parents=True, exist_ok=True)
@@ -69,7 +69,7 @@ class AutoAgent(CoreAgent):
 
         project_root = self.generated_projects_dir / project_name
         project_exists = project_root.exists() and any(project_root.iterdir())
-        
+
         if project_exists:
             self.logger.info(f"📁 Existing project detected at {project_root}")
             generated_files, initial_structure, file_paths = self.phase_context.ingest_existing_project(project_root)
@@ -79,7 +79,7 @@ class AutoAgent(CoreAgent):
             generated_files, initial_structure, readme_content, file_paths = {}, {}, "", []
 
         self.phase_context.initial_exec_params = kwargs
-        
+
         active_phases = self.phases
         if project_exists:
             analysis_phase = self.project_analysis_phase_factory()
@@ -99,18 +99,18 @@ class AutoAgent(CoreAgent):
         """Sets up and runs the execution plan for the given phases."""
         execution_plan = ExecutionPlan(project_name, is_existing_project=project_exists)
         execution_plan.define_milestones(phases)
-        
+
         self.event_publisher.publish("execution_plan_initialized", plan=execution_plan.to_dict(), milestones=execution_plan.get_milestones_list())
-        
+
         for phase in phases:
             phase_name = phase.__class__.__name__
             milestone_id = execution_plan.get_milestone_id_by_phase_class_name(phase_name)
-            
+
             self.logger.info(f"Executing phase: {phase_name}")
             if milestone_id:
                 execution_plan.start_milestone(milestone_id)
                 self.event_publisher.publish("milestone_started", milestone_id=milestone_id, phase=phase_name)
-            
+
             try:
                 # Run the phase execution asynchronously
                 loop = asyncio.get_event_loop()
@@ -121,12 +121,12 @@ class AutoAgent(CoreAgent):
                 ))
                 readme_content = generated_files.get("README.md", readme_content)
                 self.phase_context.update_generated_data(generated_files, initial_structure, file_paths, readme_content)
-                
+
                 if milestone_id:
                     summary = f"Phase completed. Files: {len(generated_files)}."
                     execution_plan.complete_milestone(milestone_id, summary)
                     self.event_publisher.publish("milestone_completed", milestone_id=milestone_id, phase=phase_name, progress=execution_plan.get_progress())
-            
+
             except Exception as e:
                 self.logger.error(f"Error in phase {phase_name}: {e}", exc_info=True)
                 if milestone_id:
@@ -134,7 +134,7 @@ class AutoAgent(CoreAgent):
                     self.event_publisher.publish("milestone_failed", milestone_id=milestone_id, phase=phase_name, error=str(e))
                 self.event_publisher.publish("phase_error", phase=phase_name, error=str(e))
                 raise
-        
+
         return execution_plan
 
     def _finalize_project(self, project_name: str, project_root: Path, file_count: int, execution_plan: ExecutionPlan):
@@ -142,20 +142,20 @@ class AutoAgent(CoreAgent):
         execution_plan.mark_complete()
         self.event_publisher.publish("execution_plan_completed", plan=execution_plan.to_dict(), progress=execution_plan.get_progress())
         self.event_publisher.publish("project_complete", project_name=project_name, project_root=str(project_root), files_generated=file_count)
-        
+
         self.logger.info(f"Project '{project_name}' completed at {project_root}")
         self.logger.info(f"Knowledge Base Stats: {self.phase_context.error_knowledge_base.get_error_statistics()}")
         self.logger.info(f"Fragment Cache Stats: {self.phase_context.fragment_cache.stats()}")
-        
+
         plan_file = project_root / "EXECUTION_PLAN.json"
         self.phase_context.file_manager.write_file(plan_file, execution_plan.to_json())
 
     def generate_structure_only(self, project_description: str, project_name: str, **kwargs) -> Tuple[str, Dict]:
         """Executes only the initial project setup phases."""
         self.logger.info(f"[PROJECT_NAME:{project_name}] Starting structure generation for '{project_name}'.")
-        
+
         self.phase_context.initial_exec_params = kwargs
-        
+
         structure_phases = [p for p in self.phases if isinstance(p, (
             ReadmeGenerationPhase, StructureGenerationPhase, LogicPlanningPhase, StructurePreReviewPhase
         ))]
@@ -163,7 +163,7 @@ class AutoAgent(CoreAgent):
         # This method is often called from a sync context, so it needs to manage its own event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
+
         try:
             readme, structure = loop.run_until_complete(self._run_structure_phases_async(structure_phases, project_description, project_name))
             return readme, structure
@@ -185,5 +185,5 @@ class AutoAgent(CoreAgent):
             )
             readme_content = generated_files.get("README.md", readme_content)
             self.phase_context.update_generated_data(generated_files, initial_structure, file_paths, readme_content)
-        
+
         return readme_content, initial_structure

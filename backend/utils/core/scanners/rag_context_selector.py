@@ -35,7 +35,7 @@ class RAGContextSelector:
         self.project_root = project_root
         self.docs_retriever = docs_retriever
         self.max_context_tokens = 4000
-        
+
         try:
             self.client = ChromaClientManager.get_client(settings_manager or {}, project_root or Path.cwd())
         except Exception as e:
@@ -46,10 +46,10 @@ class RAGContextSelector:
         self.error_collection_name = self.settings.get('error_knowledge_base', {}).get('collection_name', 'error_knowledge_base')
 
         self.embedding_function = embedding_functions.DefaultEmbeddingFunction()
-        
+
         self.knowledge_collection = None
         self.error_collection = None
-        
+
         if self.client:
             try:
                 self.knowledge_collection = self.client.get_or_create_collection(
@@ -66,13 +66,13 @@ class RAGContextSelector:
                 self.logger.error(f"Error connecting to ChromaDB collections: {e}")
                 self.knowledge_collection = None
                 self.error_collection = None
-    
+
     def index_code_fragments(self, files: Dict[str, str]) -> None:
         """Index code fragments for semantic search."""
         if not self.knowledge_collection:
             self.logger.warning("Knowledge collection not available for indexing.")
             return
-        
+
         try:
             for file_path, content in files.items():
                 self.knowledge_collection.add(
@@ -88,14 +88,14 @@ class RAGContextSelector:
         """Select relevant code fragments based on query."""
         if not self.knowledge_collection:
             return []
-        
+
         try:
             results = self.knowledge_collection.query(
                 query_texts=[query],
                 n_results=max_fragments,
                 include=["documents", "metadatas"]
             )
-            
+
             fragments = []
             if results and results.get("documents"):
                 for docs, metadatas in zip(results["documents"], results["metadatas"]):
@@ -108,30 +108,30 @@ class RAGContextSelector:
                             end_line=len(doc.split('\n'))
                         )
                         fragments.append(fragment)
-            
+
             return fragments
         except Exception as e:
             self.logger.error(f"Error selecting fragments: {e}")
             return []
-    
+
     def build_context(self, task_description: str, required_files: List[str] = None) -> Tuple[str, int]:
         """Build context for a task respecting token limits."""
         context_parts = []
         token_count = 0
-        
+
         # Select relevant fragments
         fragments = self.select_relevant_fragments(task_description)
-        
+
         for fragment in fragments:
             # Rough token estimation (1 token ≈ 4 chars)
             fragment_tokens = len(fragment.content) // 4
-            
+
             if token_count + fragment_tokens <= self.max_context_tokens:
                 context_parts.append(f"# {fragment.file_path}\n{fragment.content}")
                 token_count += fragment_tokens
             else:
                 break
-        
+
         context = "\n---\n".join(context_parts)
         return context, token_count
 
@@ -174,7 +174,7 @@ class RAGContextSelector:
         Retrieves relevant context from the knowledge base and error database.
         """
         context = []
-        
+
         if self.docs_retriever:
             retrieved_docs = self.docs_retriever.get_relevant_documents(prompt)
             if retrieved_docs:
@@ -191,7 +191,7 @@ class RAGContextSelector:
             if error_solutions:
                 context.extend(error_solutions[0])
                 logger.debug(f"Retrieved {len(error_solutions[0])} solutions from Error KB.")
-        
+
         return "\n---\n".join(context)
 
     def select_relevant_files(self, query: str, available_files: Dict[str, str], max_files: int = 5) -> Dict[str, str]:
@@ -201,7 +201,7 @@ class RAGContextSelector:
             return {}
 
         query_texts = [query] + list(available_files.keys())
-        
+
         try:
             results = self.knowledge_collection.query(
                 query_texts=query_texts,
@@ -217,14 +217,14 @@ class RAGContextSelector:
                 for metadata in metadata_list:
                     if "source" in metadata:
                         relevant_paths.add(metadata["source"])
-            
+
             # Return the content of the relevant files
             context_files = {
                 path: available_files[path]
                 for path in relevant_paths
                 if path in available_files
             }
-            
+
             return dict(list(context_files.items())[:max_files])
 
         except Exception as e:
@@ -234,7 +234,7 @@ class RAGContextSelector:
 
 class SemanticContextManager:
     """High-level API for managing semantic context across phases."""
-    
+
     def __init__(self, logger=None, project_root: Path = None, settings_manager: dict = None):
         """Initialize the semantic context manager."""
         self.logger = logger or logging.getLogger(__name__)
@@ -245,16 +245,16 @@ class SemanticContextManager:
             project_root=self.project_root,
             logger=self.logger
         )
-    
+
     def prepare_context_for_phase(self, phase: str, files: Dict[str, str], task: str) -> str:
         """Prepare context for a specific phase."""
         try:
             # Index the files
             self.selector.index_code_fragments(files)
-            
+
             # Build context based on the task
             context, _ = self.selector.build_context(task_description=task)
-            
+
             self.logger.info(f"Prepared context for phase '{phase}'")
             return context
         except Exception as e:

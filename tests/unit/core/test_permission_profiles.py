@@ -61,7 +61,7 @@ class TestPermissionRule:
             path_pattern=r"\.py$",
             grant=True,
         )
-        
+
         assert rule.permission == Permission.READ
         assert rule.grant is True
 
@@ -72,7 +72,7 @@ class TestPermissionRule:
             path_pattern=r"src/.*\.py$",
             grant=True,
         )
-        
+
         assert rule.matches(Permission.WRITE, "src/main.py") is True
         assert rule.matches(Permission.WRITE, "src/utils.py") is True
         assert rule.matches(Permission.WRITE, "tests/test.py") is False
@@ -85,7 +85,7 @@ class TestPermissionRule:
             grant=True,
             conditions={"max_file_size": 1000000},  # 1MB
         )
-        
+
         assert rule.conditions["max_file_size"] == 1000000
 
 
@@ -97,7 +97,7 @@ class TestPermissionProfile:
         profile = PermissionProfile(
             name="test_profile",
         )
-        
+
         assert profile.name == "test_profile"
 
     def test_add_rule_to_profile(self, mock_logger):
@@ -105,13 +105,13 @@ class TestPermissionProfile:
         profile = PermissionProfile(
             name="test_profile",
         )
-        
+
         rule = PermissionRule(
             permission=Permission.READ,
             path_pattern=r".*",
             grant=True,
         )
-        
+
         profile.add_rule(rule)
         assert len(profile.rules) == 1
 
@@ -120,15 +120,15 @@ class TestPermissionProfile:
         profile = PermissionProfile(
             name="test_profile",
         )
-        
+
         rule = PermissionRule(
             permission=Permission.READ,
             path_pattern=r"src/.*\.py$",
             grant=True,
         )
-        
+
         profile.add_rule(rule)
-        
+
         # Should grant
         assert profile.check_permission(
             Permission.READ,
@@ -140,15 +140,15 @@ class TestPermissionProfile:
         profile = PermissionProfile(
             name="test_profile",
         )
-        
+
         rule = PermissionRule(
             permission=Permission.DELETE,
             path_pattern=r".*",
             grant=False,
         )
-        
+
         profile.add_rule(rule)
-        
+
         # Should deny
         assert profile.check_permission(
             Permission.DELETE,
@@ -160,7 +160,7 @@ class TestPermissionProfile:
         profile = PermissionProfile(
             name="test_profile",
         )
-        
+
         # No rules added
         # Should default to deny
         assert profile.check_permission(
@@ -175,7 +175,7 @@ class TestPermissionProfileManager:
     def test_manager_initialization(self, mock_logger, tmp_path):
         """Test manager initializes with default profiles."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
-        
+
         # Should have default profiles
         assert manager.get_profile("sandbox") is not None
         assert manager.get_profile("developer") is not None
@@ -185,7 +185,7 @@ class TestPermissionProfileManager:
         """Test sandbox profile is highly restricted."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
         profile = manager.get_profile("sandbox")
-        
+
         # Sandbox should deny most operations outside sandbox
         assert profile.check_permission(
             Permission.WRITE,
@@ -196,7 +196,7 @@ class TestPermissionProfileManager:
         """Test developer profile is more permissive."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
         profile = manager.get_profile("developer")
-        
+
         # Developer should allow reading
         result = profile.check_permission(Permission.READ, "src/app.py")
         assert isinstance(result, bool)  # Should evaluate without error
@@ -205,13 +205,13 @@ class TestPermissionProfileManager:
         """Test readonly profile blocks all writes."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
         profile = manager.get_profile("readonly")
-        
+
         # Should allow reads
         assert profile.check_permission(
             Permission.READ,
             "any_file.py",
         ) is True
-        
+
         # Should deny writes
         assert profile.check_permission(
             Permission.WRITE,
@@ -221,25 +221,25 @@ class TestPermissionProfileManager:
     def test_register_custom_profile(self, mock_logger, tmp_path):
         """Test registering a custom profile."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
-        
+
         custom_profile = PermissionProfile(
             name="custom",
         )
-        
+
         manager.register_profile(custom_profile)
-        
+
         # Should be findable
         assert manager.get_profile("custom") is not None
 
     def test_set_active_profile(self, mock_logger, tmp_path):
         """Test that profiles can be accessed by name."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
-        
+
         # Verify profiles can be obtained by name
         sandbox = manager.get_profile("sandbox")
         assert sandbox is not None
         assert sandbox.name == "sandbox"
-        
+
         developer = manager.get_profile("developer")
         assert developer is not None
         assert developer.name == "developer"
@@ -251,27 +251,27 @@ class TestPolicyEnforcer:
     def test_enforcer_initialization(self, mock_logger, mock_tool_settings_config, tmp_path):
         """Test enforcer initialization."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
-        
+
         enforcer = PolicyEnforcer(
             profile_manager=manager,
             logger=mock_logger,
             tool_settings_config=mock_tool_settings_config,
         )
-        
+
         assert enforcer.active_profile is not None
 
     def test_authorize_file_write(self, mock_logger, mock_tool_settings_config, tmp_path):
         """Test file write authorization."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
-        
+
         enforcer = PolicyEnforcer(
             profile_manager=manager,
             logger=mock_logger,
             tool_settings_config=mock_tool_settings_config,
         )
-        
+
         enforcer.set_active_profile("readonly")
-        
+
         # Readonly should deny writes
         result, reason = enforcer.authorize_file_write("test_file.py", 1000)
         assert result is False
@@ -279,15 +279,15 @@ class TestPolicyEnforcer:
     def test_authorize_shell_command_safe(self, mock_logger, mock_tool_settings_config, tmp_path):
         """Test safe shell command authorization."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
-        
+
         enforcer = PolicyEnforcer(
             profile_manager=manager,
             logger=mock_logger,
             tool_settings_config=mock_tool_settings_config,
         )
-        
+
         enforcer.set_active_profile("developer")
-        
+
         # Safe command
         result, reason = enforcer.authorize_shell_command("python script.py")
         assert isinstance(result, bool)
@@ -295,22 +295,22 @@ class TestPolicyEnforcer:
     def test_authorize_shell_command_dangerous(self, mock_logger, mock_tool_settings_config, tmp_path):
         """Test dangerous command detection."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
-        
+
         enforcer = PolicyEnforcer(
             profile_manager=manager,
             logger=mock_logger,
             tool_settings_config=mock_tool_settings_config,
         )
-        
+
         enforcer.set_active_profile("developer")
-        
+
         # Dangerous commands should be denied
         dangerous = [
             "rm -rf /",
             "mkfs.ext4 /dev/sda",
             "dd if=/dev/zero of=/dev/sda",
         ]
-        
+
         for cmd in dangerous:
             result, reason = enforcer.authorize_shell_command(cmd)
             assert result is False
@@ -318,15 +318,15 @@ class TestPolicyEnforcer:
     def test_authorize_delete(self, mock_logger, mock_tool_settings_config, tmp_path):
         """Test delete authorization."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
-        
+
         enforcer = PolicyEnforcer(
             profile_manager=manager,
             logger=mock_logger,
             tool_settings_config=mock_tool_settings_config,
         )
-        
+
         enforcer.set_active_profile("readonly")
-        
+
         # Readonly should deny deletes
         result, reason = enforcer.authorize_delete("test_file.py")
         assert result is False
@@ -334,16 +334,16 @@ class TestPolicyEnforcer:
     def test_switch_profile(self, mock_logger, mock_tool_settings_config, tmp_path):
         """Test switching active profile."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
-        
+
         enforcer = PolicyEnforcer(
             profile_manager=manager,
             logger=mock_logger,
             tool_settings_config=mock_tool_settings_config,
         )
-        
+
         # Start with sandbox profile (default)
         assert enforcer.active_profile == "sandbox"
-        
+
         # Switch to developer profile
         enforcer.set_active_profile("developer")
         assert enforcer.active_profile == "developer"

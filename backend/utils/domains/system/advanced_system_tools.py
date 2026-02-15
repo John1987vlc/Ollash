@@ -15,10 +15,10 @@ class AdvancedSystemTools:
         Uses OS-specific commands (wmic/df) to gather disk usage and inode information.
         """
         self.logger.info("Checking disk health...")
-        
+
         partitions_info = []
         overall_status = "healthy"
-        
+
         try:
             if self.os_type == "Windows":
                 # Get disk usage
@@ -50,10 +50,10 @@ class AdvancedSystemTools:
                                     partitions_info[-1]["anomalies"].append("High disk usage (>90%)")
                             except ValueError:
                                 pass # Skip unparseable lines
-                
+
                 # Inode info is not directly available via wmic easily, might require PowerShell Get-Volume
                 # For simplicity, skipping inode check on Windows for now.
-                
+
             else: # Linux or macOS
                 # Get disk usage
                 command_disk = "df -h"
@@ -109,7 +109,7 @@ class AdvancedSystemTools:
                                         break
                             except ValueError:
                                 pass
-        
+
         except Exception as e:
             self.logger.error(f"Error checking disk health: {e}", e)
             return {"ok": False, "result": {"error": str(e)}}
@@ -135,7 +135,7 @@ class AdvancedSystemTools:
         Provides current resource usage and notes that spike detection requires historical data.
         """
         self.logger.info(f"Monitoring for {resource_type} spikes (current usage)...")
-        
+
         command = ""
         parsed_output = {"resource_type": resource_type}
 
@@ -150,7 +150,7 @@ class AdvancedSystemTools:
                     command = "powershell -command \"Get-Counter '\\Memory\\Available MBytes' | Select-Object -ExpandProperty CounterSamples | Select-Object -ExpandProperty CookedValue | ConvertTo-Json\""
                 elif resource_type == "io":
                     command = "powershell -command \"Get-Counter '\\PhysicalDisk(_Total)\\% Disk Time' | Select-Object -ExpandProperty CounterSamples | Select-Object -ExpandProperty CookedValue | ConvertTo-Json\""
-                
+
                 result = self.exec.execute(command)
                 if result.success:
                     value = json.loads(result.stdout)
@@ -200,11 +200,11 @@ class AdvancedSystemTools:
                             parsed_output["kb_write_s_current"] = kb_write
                             parsed_output["unit"] = "KB/s"
                         parsed_output["raw_output"] = result.stdout
-                
+
                 if not result.success:
                     parsed_output["error"] = result.stderr
                     return {"ok": False, "result": parsed_output}
-        
+
         except Exception as e:
             self.logger.error(f"Error monitoring {resource_type} spikes: {e}", e)
             return {"ok": False, "result": {"error": str(e), "resource_type": resource_type}}
@@ -225,9 +225,9 @@ class AdvancedSystemTools:
         Uses OS-specific commands to retrieve and parse startup service information.
         """
         self.logger.info("Analyzing startup services...")
-        
+
         services = []
-        
+
         try:
             if self.os_type == "Windows":
                 command = "powershell -command \"Get-WmiObject Win32_Service | Where-Object {$_.StartMode -eq 'Auto'} | Select-Object Name,DisplayName,StartMode,State | ConvertTo-Json\""
@@ -285,7 +285,7 @@ class AdvancedSystemTools:
                     return {"ok": False, "result": {"error": result.stderr}}
             else:
                 return {"ok": False, "result": {"error": f"Unsupported OS for analyze_startup_services: {self.os_type}"}}
-        
+
         except Exception as e:
             self.logger.error(f"Error analyzing startup services: {e}", e)
             return {"ok": False, "result": {"error": str(e)}}
@@ -318,7 +318,7 @@ class AdvancedSystemTools:
                     "details": f"Invalid change type '{change_type}'. Must be one of: {', '.join(valid_change_types)}."
                 }
             }
-        
+
         # In a real system, this would trigger a human-in-the-loop workflow.
         # For now, we simulate by explicitly stating human approval is needed.
         return {
@@ -342,13 +342,13 @@ class AdvancedSystemTools:
             result_pre_reset = self.exec.execute("git rev-parse HEAD")
             if not result_pre_reset.success:
                 return {"ok": False, "result": {"error": "Failed to get current git HEAD.", "details": result_pre_reset.stderr}}
-            
+
             head_before_reset = result_pre_reset.stdout.strip()
-            
+
             # Perform the hard reset
             # This moves HEAD back by one commit.
             result = self.exec.execute("git reset --hard HEAD~1")
-            
+
             if not result.success:
                 return {"ok": False, "result": {"error": "git reset --hard HEAD~1 failed.", "details": result.stderr}}
 
@@ -356,7 +356,7 @@ class AdvancedSystemTools:
             result_post_reset = self.exec.execute("git rev-parse HEAD")
             if not result_post_reset.success:
                 return {"ok": True, "result": {"status": "rollback_likely_successful_but_unverified", "details": "git reset command succeeded, but failed to verify the new HEAD."}}
-            
+
             head_after_reset = result_post_reset.stdout.strip()
 
             if head_before_reset == head_after_reset:

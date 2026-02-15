@@ -42,11 +42,11 @@ class TestGenerator:
         Returns the generated test file content or None if generation fails.
         """
         self.logger.info(f"  Generating tests for {file_path}...")
-        
+
         system_prompt, user_prompt = AutoGenPrompts.generate_unit_tests(
             file_path, content, readme_context
         )
-        
+
         try:
             response_data, usage = self.llm_client.chat(
                 messages=[

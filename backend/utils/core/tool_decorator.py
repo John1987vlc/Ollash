@@ -74,7 +74,7 @@ def ollash_tool(
             "agent_types": agent_types or [],
         }
         _DISCOVERED_DEFINITIONS.append(tool_def)
-        
+
         if is_async_safe:
             _ASYNC_ELIGIBLE_TOOLS.append(name)
 

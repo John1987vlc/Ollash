@@ -15,7 +15,7 @@ class CascadeSummarizer:
     Implements a hierarchical summarization strategy:
     1. Map phase: Split document into chunks and summarize each
     2. Reduce phase: Summarize the collection of summaries
-    
+
     This allows processing of very long documents without hitting token limits.
     """
 
@@ -42,7 +42,7 @@ class CascadeSummarizer:
 
         chunks = []
         step = max(1, chunk_size - overlap)  # Avoid infinite loop
-        
+
         i = 0
         while i < len(words):
             chunk_words = words[i : i + chunk_size]
@@ -53,7 +53,7 @@ class CascadeSummarizer:
 
     def summarize_chunk(self, chunk_text: str, context: str = "") -> Optional[str]:
         """Summarizes a single chunk of text using the summarizer model."""
-        prompt = f"""You are an expert technical summarizer. 
+        prompt = f"""You are an expert technical summarizer.
 Distill the following text into its key points and main ideas concisely.
 Focus on facts, not verbosity.
 
@@ -109,8 +109,8 @@ Provide a clear, concise summary (50-150 words):"""
         # Combine all summaries
         combined = "\n\n".join(chunk_summaries.values())
 
-        prompt = f"""You are an expert technical writer. 
-Review the following individual section summaries and create a unified, 
+        prompt = f"""You are an expert technical writer.
+Review the following individual section summaries and create a unified,
 comprehensive executive summary that captures the key themes, insights, and findings.
 
 Document: {title}

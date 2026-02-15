@@ -72,7 +72,7 @@ class DocumentationWatcher:
                 self._scan_and_index()
             except Exception as e:
                 self.logger.error(f"Error in DocumentationWatcher: {e}")
-            
+
             time.sleep(self.check_interval)
 
     def _scan_and_index(self):
@@ -105,7 +105,7 @@ class DocumentationWatcher:
         try:
             # Extract text from file
             extracted_text = self.ingester.ingest_file(file_path)
-            
+
             if not extracted_text:
                 self.logger.warning(f"Could not extract text from {file_path.name}")
                 return
@@ -115,7 +115,7 @@ class DocumentationWatcher:
 
             # Get metadata
             metadata = self.ingester.get_file_metadata(file_path)
-            
+
             self.logger.info(
                 f"✅ Auto-indexed: {file_path.name} "
                 f"({metadata.get('word_count', 0)} words)"
@@ -137,10 +137,10 @@ class DocumentationWatcher:
         for file_path in self.references_dir.rglob("*"):
             if not file_path.is_file():
                 continue
-            
+
             if file_path.suffix.lower() not in self.ingester.SUPPORTED_FORMATS:
                 continue
-            
+
             metadata = self.ingester.get_file_metadata(file_path)
             if metadata:
                 result[file_path.name] = {
@@ -148,7 +148,7 @@ class DocumentationWatcher:
                     "tracked": file_path.name in self._tracked_files,
                     "last_scanned": datetime.now().isoformat(),
                 }
-        
+
         return result
 
     def manual_index(self, file_path: Path) -> bool:

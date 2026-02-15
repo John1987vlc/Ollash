@@ -42,7 +42,7 @@ class ContingencyPlanner:
         self.logger.info("Generating contingency plan...")
 
         prompt = self._construct_prompt(issues, project_description, readme)
-        
+
         try:
             response, _ = self.client.chat(prompt, tools=[])
             content = response.get("message", {}).get("content", "")
@@ -55,7 +55,7 @@ class ContingencyPlanner:
 
     def _construct_prompt(self, issues: List[Dict[str, Any]], project_description: str, readme: str) -> List[Dict[str, str]]:
         """Constructs the prompt for the contingency planner."""
-        
+
         issue_str = "\n".join([f"- {issue.get('description', 'N/A')}" for issue in issues])
 
         prompt = f"""

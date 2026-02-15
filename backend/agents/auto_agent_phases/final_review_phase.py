@@ -20,12 +20,12 @@ class FinalReviewPhase(IAgentPhase):
                       initial_structure: Dict[str, Any],
                       generated_files: Dict[str, str], # Files to be reviewed
                       **kwargs: Any) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        
+
         file_paths = kwargs.get("file_paths", []) # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 6: Final review...")
         self.context.event_publisher.publish("phase_start", phase="6", message="Starting final review")
-        
+
         validation_summary = self.context.file_completeness_checker.get_validation_summary(generated_files)
         try:
             review = self.context.project_reviewer.review(project_name, readme_content[:500], file_paths, validation_summary)

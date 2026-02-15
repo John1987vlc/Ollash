@@ -19,7 +19,7 @@ orchestrator = None
 def init_refinement(app=None):
     """Initialize refinement managers"""
     global refinement_manager, validator, orchestrator
-    
+
     workspace = Path(app.config.get('KNOWLEDGE_WORKSPACE', 'knowledge_workspace'))
     refinement_manager = FeedbackRefinementManager(str(workspace))
     validator = SourceValidator(str(workspace))
@@ -38,7 +38,7 @@ refinement_bp = Blueprint('refinement', __name__, url_prefix='/api/refinement')
 def create_workflow():
     """
     Create a new refinement workflow
-    
+
     Request Body:
     {
         "workflow_id": "string",
@@ -53,17 +53,17 @@ def create_workflow():
         source_id = data.get("source_id")
         document_text = data.get("document_text")
         strategy = data.get("strategy", "comprehensive")
-        
+
         if not all([workflow_id, source_id, document_text]):
             return jsonify({"error": "Missing required fields"}), 400
-        
+
         workflow = orchestrator.create_workflow(
             workflow_id=workflow_id,
             source_id=source_id,
             document_text=document_text,
             strategy=strategy
         )
-        
+
         return jsonify({
             "status": "success",
             "workflow": workflow.to_dict()
@@ -93,7 +93,7 @@ def analyze_workflow(workflow_id):
 def refine_workflow(workflow_id):
     """
     Execute refinement workflow
-    
+
     Request Body:
     {
         "strategy": "comprehensive",
@@ -104,13 +104,13 @@ def refine_workflow(workflow_id):
         data = request.get_json() or {}
         strategy = data.get("strategy", "comprehensive")
         indices = data.get("paragraph_indices")
-        
+
         results = orchestrator.refine_workflow(
             workflow_id=workflow_id,
             strategy_name=strategy,
             paragraph_indices=indices
         )
-        
+
         return jsonify({
             "status": "success",
             "results": results
@@ -154,21 +154,21 @@ def list_workflows():
 def export_workflow(workflow_id):
     """
     Export refined document
-    
+
     Query Parameters:
     - format: "text" | "markdown" | "html" (default: "text")
     """
     try:
         format_type = request.args.get("format", "text")
         content = orchestrator.export_workflow_document(workflow_id, format_type)
-        
+
         # Set appropriate content type
         content_types = {
             "text": "text/plain",
             "markdown": "text/markdown",
             "html": "text/html"
         }
-        
+
         return content, 200, {"Content-Type": content_types.get(format_type, "text/plain")}
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
@@ -184,7 +184,7 @@ def export_workflow(workflow_id):
 def critique_paragraph():
     """
     Generate critique for a paragraph
-    
+
     Request Body:
     {
         "text": "string",
@@ -197,21 +197,21 @@ def critique_paragraph():
         text = data.get("text")
         source_id = data.get("source_id", "default")
         critique_type = data.get("critique_type", "clarity")
-        
+
         if not text:
             return jsonify({"error": "Missing text"}), 400
-        
+
         from .utils.core.feedback_refinement_manager import ParagraphContext
-        
+
         para = ParagraphContext(
             index=0,
             text=text,
             original_text=text,
             source_id=source_id
         )
-        
+
         critique = refinement_manager.generate_critique(para, critique_type)
-        
+
         return jsonify({
             "status": "success",
             "critique_type": critique_type,
@@ -226,7 +226,7 @@ def critique_paragraph():
 def compare_paragraphs():
     """
     Compare original and refined versions
-    
+
     Request Body:
     {
         "original": "string",
@@ -237,12 +237,12 @@ def compare_paragraphs():
         data = request.get_json()
         original = data.get("original")
         refined = data.get("refined")
-        
+
         if not original or not refined:
             return jsonify({"error": "Missing original or refined text"}), 400
-        
+
         comparison = validator.compare_versions(original, refined)
-        
+
         return jsonify({
             "status": "success",
             "comparison": comparison
@@ -259,7 +259,7 @@ def compare_paragraphs():
 def validate_refinement():
     """
     Validate a refinement against source
-    
+
     Request Body:
     {
         "original_text": "string",
@@ -274,17 +274,17 @@ def validate_refinement():
         refined = data.get("refined_text")
         source_id = data.get("source_id")
         val_type = data.get("validation_type", "full")
-        
+
         if not all([original, refined, source_id]):
             return jsonify({"error": "Missing required fields"}), 400
-        
+
         result = validator.validate_refinement(
             original_text=original,
             refined_text=refined,
             source_id=source_id,
             validation_type=val_type
         )
-        
+
         return jsonify({
             "status": "success",
             "is_valid": result.is_valid,
@@ -318,7 +318,7 @@ def get_validation_report():
 def register_source():
     """
     Register a source document
-    
+
     Request Body:
     {
         "source_id": "string",
@@ -329,12 +329,12 @@ def register_source():
         data = request.get_json()
         source_id = data.get("source_id")
         source_text = data.get("source_text")
-        
+
         if not source_id or not source_text:
             return jsonify({"error": "Missing required fields"}), 400
-        
+
         success = validator.register_source(source_id, source_text)
-        
+
         return jsonify({
             "status": "success" if success else "failed",
             "source_id": source_id
@@ -350,7 +350,7 @@ def get_source(source_id):
         source = validator.get_source(source_id)
         if not source:
             return jsonify({"error": f"Source '{source_id}' not found"}), 404
-        
+
         return jsonify({
             "status": "success",
             "source_id": source_id,
@@ -390,7 +390,7 @@ def list_strategies():
             }
             for strategy in orchestrator.STRATEGIES.values()
         ]
-        
+
         return jsonify({
             "status": "success",
             "count": len(strategies),

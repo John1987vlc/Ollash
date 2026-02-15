@@ -14,7 +14,7 @@ from backend.utils.core.agent_logger import AgentLogger
 class DependencyGraph:
     """
     Represents file dependencies in a project structure.
-    
+
     Used for:
     - Bottom-up generation (utilities first, entry points last)
     - Context selection (which files to pass as context)
@@ -34,23 +34,23 @@ class DependencyGraph:
     def build_from_structure(self, structure: dict, readme_content: str = "") -> None:
         """
         Build dependency graph from project structure JSON.
-        
+
         Infers dependencies from:
         - File naming patterns (test_*.py depends on main files)
         - File location/folder (controllers depend on models)
         - Explicit annotations in structure metadata
         """
         self.logger.info("Building dependency graph from project structure...")
-        
+
         # Extract all files from structure
         files = self._extract_files_with_metadata(structure)
-        
+
         # Infer dependencies based on patterns
         self._infer_dependencies_from_patterns(files, readme_content)
-        
+
         # Detect circular dependencies
         self._detect_circular_dependencies()
-        
+
         self.logger.info(
             f"Dependency graph built: {len(self.graph)} files, "
             f"{sum(len(deps) for deps in self.graph.values())} total dependencies"
@@ -59,7 +59,7 @@ class DependencyGraph:
     def _extract_files_with_metadata(self, structure: dict) -> Dict[str, Dict]:
         """Extract files and their metadata from structure."""
         files = {}
-        
+
         def traverse(node: dict, path: str = ""):
             if isinstance(node, dict):
                 # Handle files list
@@ -72,7 +72,7 @@ class DependencyGraph:
                                 "path": rel_path,
                                 "type": self._infer_file_type(rel_path),
                             }
-                
+
                 # Handle folders recursively
                 if "folders" in node:
                     for folder_def in node["folders"]:
@@ -80,9 +80,9 @@ class DependencyGraph:
                             folder_name = folder_def.get("name", "")
                             new_path = f"{path}{folder_name}/"
                             traverse(folder_def, new_path)
-        
+
         traverse(structure)
-        
+
         self.file_info = files
         self.logger.debug(f"Extracted {len(files)} files from structure")
         return files
@@ -90,7 +90,7 @@ class DependencyGraph:
     def _infer_file_type(self, file_path: str) -> str:
         """Infer file type from path and name."""
         lower_path = file_path.lower()
-        
+
         if "test" in lower_path:
             return "test"
         elif any(x in lower_path for x in ["model", "entity", "schema"]):
@@ -113,7 +113,7 @@ class DependencyGraph:
     def _infer_dependencies_from_patterns(self, files: Dict[str, Dict], readme: str) -> None:
         """
         Infer dependencies based on file patterns and structure.
-        
+
         Patterns:
         - test files depend on the files they test
         - controllers depend on services
@@ -123,26 +123,26 @@ class DependencyGraph:
         priority_chains = [
             # Base utilities have no dependencies
             (lambda p: self._is_base_utility(p), set()),
-            
+
             # Models depend on base utilities
             (lambda p: self.file_types.get(p) == "model", {"utility", "config"}),
-            
+
             # Services depend on models and utilities
             (lambda p: self.file_types.get(p) == "service", {"model", "utility", "config"}),
-            
+
             # Controllers depend on services
             (lambda p: self.file_types.get(p) == "controller", {"service", "model", "utility"}),
-            
+
             # Views depend on controllers/services
             (lambda p: self.file_types.get(p) == "view", {"controller", "service", "utility"}),
-            
+
             # Tests depend on what they test
             (lambda p: self.file_types.get(p) == "test", self._get_all_types()),
         ]
-        
+
         for file_path, file_meta in files.items():
             self.file_types[file_path] = file_meta["type"]
-            
+
             # Match file to pattern and add dependencies
             for pattern_fn, possible_deps in priority_chains:
                 if pattern_fn(file_path):
@@ -168,23 +168,23 @@ class DependencyGraph:
         """Check if two files are likely related (similar names, same module)."""
         name1 = Path(file1).stem.lower()
         name2 = Path(file2).stem.lower()
-        
+
         # Check for obvious relationships
         if f"test_{name2}" == name1 or f"{name1}_test" == name2:
             return True
-        
+
         # Check if they share the same base module/folder
         dir1 = Path(file1).parent
         dir2 = Path(file2).parent
-        
+
         if dir1 == dir2:
             return True
-        
+
         # Check for loose name matching (first 3+ chars)
         if len(name1) > 3 and len(name2) > 3:
             if name1[:3] == name2[:3]:
                 return True
-        
+
         return False
 
     def add_dependency(self, file_path: str, depends_on: str) -> None:
@@ -193,7 +193,7 @@ class DependencyGraph:
         """
         if file_path == depends_on:
             return  # Skip self-dependencies
-        
+
         self.graph[file_path].add(depends_on)
         self.reverse_graph[depends_on].add(file_path)
 
@@ -201,36 +201,36 @@ class DependencyGraph:
         """
         Get files in bottom-up generation order (utilities first, entry points last).
         Uses topological sort with cycle handling.
-        
+
         Returns:
             List of file paths in generation order
         """
         # Remove cycles first
         graph = self._break_cycles()
-        
+
         # Topological sort using Kahn's algorithm
         in_degree = {file: 0 for file in self.file_info.keys()}
         for file in graph:
             for dep in graph[file]:
                 in_degree[dep] = in_degree.get(dep, 0) + 1
-        
+
         queue = deque([f for f in in_degree if in_degree[f] == 0])
         result = []
-        
+
         while queue:
             file = queue.popleft()
             result.append(file)
-            
+
             if file in graph:
                 for dep in graph[file]:
                     in_degree[dep] -= 1
                     if in_degree[dep] == 0:
                         queue.append(dep)
-        
+
         # Add any remaining files (from cycles)
         remaining = set(self.file_info.keys()) - set(result)
         result.extend(sorted(remaining))
-        
+
         self.logger.debug(f"Generation order: {len(result)} files")
         return result
 
@@ -241,18 +241,18 @@ class DependencyGraph:
         """
         context = set()
         to_process = [(file_path, 0)]
-        
+
         while to_process:
             current, depth = to_process.pop(0)
-            
+
             if depth > max_depth:
                 continue
-            
+
             for dep in self.graph.get(current, set()):
                 if dep not in context:
                     context.add(dep)
                     to_process.append((dep, depth + 1))
-        
+
         return sorted(context)
 
     def get_dependents(self, file_path: str) -> List[str]:
@@ -263,18 +263,18 @@ class DependencyGraph:
         """Detect and log circular dependencies."""
         visited = set()
         self.circular_deps = []
-        
+
         for start_file in self.graph:
             if start_file in visited:
                 continue
-            
+
             stack = [start_file]
             path = [start_file]
-            
+
             while stack:
                 file = stack[-1]
                 neighbors = list(self.graph.get(file, set()))
-                
+
                 found_next = False
                 for neighbor in neighbors:
                     if neighbor in path:
@@ -288,7 +288,7 @@ class DependencyGraph:
                         path.append(neighbor)
                         found_next = True
                         break
-                
+
                 if not found_next:
                     visited.add(file)
                     stack.pop()
@@ -297,14 +297,14 @@ class DependencyGraph:
     def _break_cycles(self) -> Dict[str, Set[str]]:
         """Return a copy of graph with cycles broken (remove least important edges)."""
         graph_copy = {k: v.copy() for k, v in self.graph.items()}
-        
+
         for file1, file2 in self.circular_deps:
             # Remove edge from test files first, as they can be generated last
             if "test" in file1.lower():
                 graph_copy.get(file1, set()).discard(file2)
             else:
                 graph_copy.get(file2, set()).discard(file1)
-        
+
         return graph_copy
 
     def to_dict(self) -> Dict:

@@ -23,7 +23,7 @@ class AlertManager:
     def __init__(self, notification_manager=None, event_publisher=None):
         """
         Initialize alert manager.
-        
+
         Args:
             notification_manager: NotificationManager instance for sending alerts
             event_publisher: EventPublisher instance for publishing events
@@ -39,7 +39,7 @@ class AlertManager:
     def register_alert(self, alert_id: str, alert_config: Dict[str, Any]) -> bool:
         """
         Register a new alert with thresholds.
-        
+
         Args:
             alert_id: Unique alert identifier
             alert_config: Alert configuration dict with:
@@ -50,7 +50,7 @@ class AlertManager:
                 - threshold: Threshold value
                 - operator: Comparison operator (>, <, >=, <=, ==)
                 - cooldown_seconds: Minimum time between alerts of same type
-        
+
         Returns:
             True if alert was registered successfully
         """
@@ -72,7 +72,7 @@ class AlertManager:
         """
         Register a custom callback for an alert.
         Callback receives (alert_id, metric_value, alert_config).
-        
+
         Args:
             alert_id: Alert identifier
             callback: Function to call when alert triggers
@@ -84,11 +84,11 @@ class AlertManager:
     def check_alert(self, alert_id: str, current_value: float) -> Optional[Dict[str, Any]]:
         """
         Check if an alert should trigger based on current metric value.
-        
+
         Args:
             alert_id: Alert identifier
             current_value: Current metric value to check
-        
+
         Returns:
             Alert info if triggered, None otherwise
         """
@@ -96,35 +96,35 @@ class AlertManager:
             if alert_id not in self.alerts:
                 logger.warning(f"Alert not found: {alert_id}")
                 return None
-            
+
             alert = self.alerts[alert_id]
-            
+
             if not alert.get("enabled", True):
                 return None
-            
+
             # Check if alert should trigger
             threshold = alert.get("threshold")
             operator = alert.get("operator", ">")
             severity = alert.get("severity", self.SEVERITY_WARNING)
-            
+
             should_trigger = self._evaluate_threshold(current_value, threshold, operator)
-            
+
             if not should_trigger:
                 return None
-            
+
             # Check cooldown period
             cooldown = alert.get("cooldown_seconds", 300)
             last_triggered = alert.get("last_triggered")
-            
+
             if last_triggered:
                 time_since = (datetime.now() - last_triggered).total_seconds()
                 if time_since < cooldown:
                     return None  # Too soon, cooldown not elapsed
-            
+
             # Alert should trigger
             alert["last_triggered"] = datetime.now()
             alert["trigger_count"] = alert.get("trigger_count", 0) + 1
-            
+
             alert_info = {
                 "alert_id": alert_id,
                 "name": alert.get("name", alert_id),
@@ -137,43 +137,43 @@ class AlertManager:
                 "timestamp": datetime.now().isoformat(),
                 "trigger_count": alert["trigger_count"]
             }
-            
+
             # Add to history
             self.alert_history.append(alert_info)
             if len(self.alert_history) > self.max_history:
                 self.alert_history.pop(0)
-            
+
             return alert_info
 
-    def trigger_alert(self, alert_id: str, alert_info: Dict[str, Any], 
+    def trigger_alert(self, alert_id: str, alert_info: Dict[str, Any],
                      channels: List[str] = None) -> bool:
         """
         Trigger an alert with notifications.
-        
+
         Args:
             alert_id: Alert identifier
             alert_info: Alert information dict
             channels: Notification channels (ui, email, log)
-        
+
         Returns:
             True if alert was triggered successfully
         """
         try:
             if channels is None:
                 channels = ["ui", "log"]
-            
+
             severity = alert_info.get("severity", self.SEVERITY_WARNING)
             title = alert_info.get("name", alert_id)
             message = alert_info.get("description", "")
-            
+
             # Add metric context to message
             current = alert_info.get("current_value")
             threshold = alert_info.get("threshold")
             operator = alert_info.get("operator", ">")
-            
+
             if current is not None and threshold is not None:
                 message += f"\n\nCurrent Value: {current}\nThreshold: {threshold} ({operator})"
-            
+
             # Log the alert
             if "log" in channels:
                 log_level = {
@@ -181,9 +181,9 @@ class AlertManager:
                     self.SEVERITY_WARNING: logging.WARNING,
                     self.SEVERITY_CRITICAL: logging.CRITICAL
                 }.get(severity, logging.INFO)
-                
+
                 logger.log(log_level, f"🚨 ALERT [{severity.upper()}]: {title} - {message}")
-            
+
             # UI notification
             if "ui" in channels and self.notification_manager:
                 self.notification_manager.send_ui_notification(
@@ -192,7 +192,7 @@ class AlertManager:
                     title=f"🚨 {title}",
                     data={"alert_id": alert_id, **alert_info}
                 )
-            
+
             # Email notification
             if "email" in channels and self.notification_manager:
                 self.notification_manager.send_email(
@@ -200,25 +200,25 @@ class AlertManager:
                     to_email=None,  # Use subscribed emails
                     content=self._format_alert_email(alert_info)
                 )
-            
+
             # Execute custom callback if registered
             if alert_id in self.alert_callbacks:
                 try:
                     self.alert_callbacks[alert_id](alert_id, alert_info)
                 except Exception as e:
                     logger.error(f"Error executing callback for {alert_id}: {e}")
-            
+
             # Publish event
             if self.event_publisher:
                 self.event_publisher.publish("alert_triggered", alert_info)
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to trigger alert {alert_id}: {e}")
             return False
 
-    def _evaluate_threshold(self, current_value: float, threshold: float, 
+    def _evaluate_threshold(self, current_value: float, threshold: float,
                            operator: str) -> bool:
         """Evaluate if threshold is exceeded."""
         try:
@@ -298,8 +298,8 @@ _alert_manager: Optional[AlertManager] = None
 def get_alert_manager(notification_manager=None, event_publisher=None) -> AlertManager:
     """Get or create the alert manager singleton."""
     global _alert_manager
-    
+
     if _alert_manager is None:
         _alert_manager = AlertManager(notification_manager, event_publisher)
-    
+
     return _alert_manager

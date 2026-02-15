@@ -61,10 +61,10 @@ class FileContentGenerator:
         # json_structure might not always have "description" at the top level
         # if project description is available, use it
         if json_structure and "description" in json_structure:
-            query_terms.append(json_structure["description"]) 
+            query_terms.append(json_structure["description"])
         elif "title" in json_structure: # Fallback to title
             query_terms.append(json_structure["title"])
-        
+
         # Add terms from the readme that might be relevant
         readme_summary_len = min(500, len(readme_content))
         query_terms.append(readme_content[:readme_summary_len])

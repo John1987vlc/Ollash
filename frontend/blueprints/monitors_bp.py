@@ -69,7 +69,7 @@ def run_system_health_check():
     """Run system health check."""
     if not _monitor_agents:
         return jsonify({"error": "Monitor agents not initialized"}), 503
-    
+
     try:
         def _run_check():
             loop = asyncio.new_event_loop()
@@ -81,16 +81,16 @@ def run_system_health_check():
                 return result
             finally:
                 loop.close()
-        
+
         # Execute in background thread
         result = _run_check()
-        
+
         return jsonify({
             "status": "completed",
             "check_type": "system_health",
             "result": result
         })
-    
+
     except Exception as e:
         logger.error(f"Error running system health check: {e}")
         return jsonify({"error": str(e)}), 500
@@ -102,7 +102,7 @@ def run_system_cleanup():
     """Run system cleanup scan."""
     if not _monitor_agents:
         return jsonify({"error": "Monitor agents not initialized"}), 503
-    
+
     try:
         def _run_cleanup():
             loop = asyncio.new_event_loop()
@@ -114,15 +114,15 @@ def run_system_cleanup():
                 return result
             finally:
                 loop.close()
-        
+
         result = _run_cleanup()
-        
+
         return jsonify({
             "status": "completed",
             "check_type": "system_cleanup",
             "result": result
         })
-    
+
     except Exception as e:
         logger.error(f"Error running system cleanup: {e}")
         return jsonify({"error": str(e)}), 500
@@ -134,11 +134,11 @@ def analyze_system_logs():
     """Analyze system logs."""
     if not _monitor_agents:
         return jsonify({"error": "Monitor agents not initialized"}), 503
-    
+
     try:
         data = request.get_json() if request.is_json else {}
         patterns = data.get("patterns")
-        
+
         def _run_analysis():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -149,15 +149,15 @@ def analyze_system_logs():
                 return result
             finally:
                 loop.close()
-        
+
         result = _run_analysis()
-        
+
         return jsonify({
             "status": "completed",
             "check_type": "log_analysis",
             "result": result
         })
-    
+
     except Exception as e:
         logger.error(f"Error analyzing logs: {e}")
         return jsonify({"error": str(e)}), 500
@@ -169,11 +169,11 @@ def check_network_uptime():
     """Check network services uptime."""
     if not _monitor_agents:
         return jsonify({"error": "Monitor agents not initialized"}), 503
-    
+
     try:
         data = request.get_json() if request.is_json else {}
         services = data.get("services")
-        
+
         def _run_check():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -184,15 +184,15 @@ def check_network_uptime():
                 return result
             finally:
                 loop.close()
-        
+
         result = _run_check()
-        
+
         return jsonify({
             "status": "completed",
             "check_type": "network_uptime",
             "result": result
         })
-    
+
     except Exception as e:
         logger.error(f"Error checking network uptime: {e}")
         return jsonify({"error": str(e)}), 500
@@ -204,11 +204,11 @@ def detect_port_issues():
     """Detect port issues."""
     if not _monitor_agents:
         return jsonify({"error": "Monitor agents not initialized"}), 503
-    
+
     try:
         data = request.get_json() if request.is_json else {}
         ports = data.get("ports")
-        
+
         def _run_check():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -219,15 +219,15 @@ def detect_port_issues():
                 return result
             finally:
                 loop.close()
-        
+
         result = _run_check()
-        
+
         return jsonify({
             "status": "completed",
             "check_type": "port_detection",
             "result": result
         })
-    
+
     except Exception as e:
         logger.error(f"Error detecting port issues: {e}")
         return jsonify({"error": str(e)}), 500
@@ -239,11 +239,11 @@ def run_integrity_scan():
     """Run file integrity scan."""
     if not _monitor_agents:
         return jsonify({"error": "Monitor agents not initialized"}), 503
-    
+
     try:
         data = request.get_json() if request.is_json else {}
         file_paths = data.get("files")
-        
+
         def _run_scan():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -254,15 +254,15 @@ def run_integrity_scan():
                 return result
             finally:
                 loop.close()
-        
+
         result = _run_scan()
-        
+
         return jsonify({
             "status": "completed",
             "check_type": "integrity_scan",
             "result": result
         })
-    
+
     except Exception as e:
         logger.error(f"Error running integrity scan: {e}")
         return jsonify({"error": str(e)}), 500
@@ -274,7 +274,7 @@ def analyze_security_logs():
     """Analyze security logs."""
     if not _monitor_agents:
         return jsonify({"error": "Monitor agents not initialized"}), 503
-    
+
     try:
         def _run_analysis():
             loop = asyncio.new_event_loop()
@@ -286,15 +286,15 @@ def analyze_security_logs():
                 return result
             finally:
                 loop.close()
-        
+
         result = _run_analysis()
-        
+
         return jsonify({
             "status": "completed",
             "check_type": "security_log_analysis",
             "result": result
         })
-    
+
     except Exception as e:
         logger.error(f"Error analyzing security logs: {e}")
         return jsonify({"error": str(e)}), 500
@@ -306,7 +306,7 @@ def scan_vulnerabilities():
     """Scan for vulnerabilities."""
     if not _monitor_agents:
         return jsonify({"error": "Monitor agents not initialized"}), 503
-    
+
     try:
         def _run_scan():
             loop = asyncio.new_event_loop()
@@ -318,15 +318,15 @@ def scan_vulnerabilities():
                 return result
             finally:
                 loop.close()
-        
+
         result = _run_scan()
-        
+
         return jsonify({
             "status": "completed",
             "check_type": "vulnerability_scan",
             "result": result
         })
-    
+
     except Exception as e:
         logger.error(f"Error scanning vulnerabilities: {e}")
         return jsonify({"error": str(e)}), 500

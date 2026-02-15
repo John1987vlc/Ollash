@@ -81,7 +81,7 @@ class TestCommonBlueprint:
         resp = client.get("/")
         assert resp.status_code == 200
         assert "text/html" in resp.content_type
-        
+
     def test_index_has_agent_cards(self, client):
         resp = client.get("/")
         assert b'class="agent-card"' in resp.data
@@ -123,7 +123,7 @@ class TestChatBlueprint:
         mock_mgr = app.mock_session_manager_instance # Use the mock set by the fixture
         # Simulate session limit reached by raising RuntimeError from create_session
         mock_mgr.create_session.side_effect = RuntimeError("Session limit reached")
-        
+
         resp = client.post("/api/chat", json={"message": "test"})
         assert resp.status_code == 429 # Too Many Requests
         assert "Session limit reached" in resp.get_json()["message"]
@@ -151,7 +151,7 @@ class TestBenchmarkBlueprint:
             assert resp.status_code == 503
             # Response structure uses "message" key
             assert "message" in resp.get_json()
-    
+
     def test_start_requires_models(self, client):
         resp = client.post("/api/benchmark/start", json={})
         assert resp.status_code == 400

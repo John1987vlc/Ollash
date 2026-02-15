@@ -164,20 +164,20 @@ class CodeAnalysisTools:
                 f"grep -r -n '{query}' {self.project_root}", # This command needs adjustment for Windows.
                 timeout=30
             )
-            
+
             if not r.success:
                 self.logger.warning(f"Search command failed: {r.stderr}")
                 return {"ok": False, "error": r.stderr, "query": query}
 
             matches = r.stdout.splitlines()[:max_results]
-            
+
             if matches:
                 self.logger.info(f"🔍 Found {len(matches)} matches for '{query}':")
                 for match in matches[:5]:
                     self.logger.debug(f"  • {match}")
                 if len(matches) > 5:
                     self.logger.debug(f"  ... and {len(matches) - 5} more")
-            
+
             return {"ok": True, "matches": matches, "query": query}
         except Exception as e:
             self.logger.error(f"Search error: {e}", e)

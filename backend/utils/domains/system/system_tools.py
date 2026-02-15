@@ -80,9 +80,9 @@ class SystemTools:
             command = "sw_vers && sysctl -n machdep.cpu.brand_string && sysctl -n hw.memsize && sysctl -n hw.physicalcpu && sysctl -n hw.logicalcpu"
         else:
             return {"ok": False, "error": "Unsupported OS for get_system_info", "details": self.os_type}
-            
+
         result = self.exec.execute(command)
-        
+
         parsed_output = {"os_type": self.os_type, "raw_output": result.stdout}
 
         if result.success:
@@ -105,7 +105,7 @@ class SystemTools:
                             if open_braces == 0 and buffer.strip():
                                 json_parts.append(json.loads(buffer))
                                 buffer = ""
-                        
+
                         # Merge multiple JSON objects into one, prioritizing certain fields
                         final_json = {}
                         for part in json_parts:
@@ -167,7 +167,7 @@ class SystemTools:
             return {"ok": False, "error": "Unsupported OS for list_processes", "details": self.os_type}
 
         result = self.exec.execute(command)
-        
+
         parsed_output = {"os_type": self.os_type, "processes": [], "raw_output": result.stdout}
 
         if result.success:
@@ -248,10 +248,10 @@ class SystemTools:
         if result.success:
             self.logger.info(f"✅ Package {package_name} installed successfully using {package_manager}.")
             return {
-                "ok": True, 
+                "ok": True,
                 "result": {
-                    "package": package_name, 
-                    "manager": package_manager, 
+                    "package": package_name,
+                    "manager": package_manager,
                     "status": "installed",
                     "raw_output": result.stdout
                 }
@@ -259,12 +259,12 @@ class SystemTools:
         else:
             self.logger.error(f"❌ Failed to install package {package_name}: {result.stderr}")
             return {
-                "ok": False, 
+                "ok": False,
                 "result": {
-                    "package": package_name, 
-                    "manager": package_manager, 
+                    "package": package_name,
+                    "manager": package_manager,
                     "status": "failed",
-                    "error": result.stderr, 
+                    "error": result.stderr,
                     "raw_output": result.stdout
                 }
             }
@@ -292,18 +292,18 @@ class SystemTools:
             if not full_path.exists():
                 self.logger.warning(f"Log file not found: {path}")
                 return {"ok": False, "result": {"path": path, "error": "Log file not found"}}
-            
+
             with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
                 log_lines = f.readlines()
-            
+
             last_lines_content = "".join(log_lines[-lines:])
             self.logger.info(f"✅ Successfully read last {lines} lines from {path}.")
             return {
-                "ok": True, 
+                "ok": True,
                 "result": {
-                    "path": path, 
-                    "total_lines_in_file": len(log_lines), 
-                    "lines_read": lines, 
+                    "path": path,
+                    "total_lines_in_file": len(log_lines),
+                    "lines_read": lines,
                     "content": last_lines_content
                 }
             }
@@ -328,22 +328,22 @@ class SystemTools:
         Returns alert status and current free percentage.
         """
         self.logger.info(f"🔍 Checking {resource} resource threshold (alert if < {threshold_percent}%)...")
-        
+
         if resource not in ["disk", "ram"]:
             return {"ok": False, "error": f"Invalid resource: {resource}. Must be 'disk' or 'ram'"}
-        
+
         try:
             # Get system info first
             info_result = self.get_system_info()
             if not info_result.get("ok"):
                 return {"ok": False, "error": "Failed to retrieve system information"}
-            
+
             system_info = info_result.get("result", {})
             current_free_percent = None
             total = None
             used = None
             free = None
-            
+
             # Parse resource info based on OS
             if self.os_type == "Windows":
                 info = system_info.get("info", {})
@@ -355,7 +355,7 @@ class SystemTools:
                         total = total_mem
                         used = total_mem - free_mem
                         free = free_mem
-                        
+
             elif self.os_type in ["Linux", "Darwin"]:
                 # Use `df` for disk, `free` for memory
                 if resource == "disk":
@@ -379,7 +379,7 @@ class SystemTools:
                                     free = avail
                                 except (ValueError, IndexError):
                                     pass
-                                    
+
                 elif resource == "ram":
                     free_cmd = "free -b" if self.os_type == "Linux" else "vm_stat"
                     result = self.exec.execute(free_cmd)
@@ -395,7 +395,7 @@ class SystemTools:
                                     current_free_percent = (free / total) * 100 if total > 0 else 0
                                 except (ValueError, IndexError):
                                     pass
-            
+
             if current_free_percent is None:
                 return {
                     "ok": True,
@@ -403,9 +403,9 @@ class SystemTools:
                     "message": f"Could not determine {resource} usage for this OS",
                     "resource": resource
                 }
-            
+
             alert_triggered = current_free_percent < threshold_percent
-            
+
             return {
                 "ok": True,
                 "alert": alert_triggered,
@@ -418,7 +418,7 @@ class SystemTools:
                 "message": f"⚠️ {resource.upper()} CRITICAL" if alert_triggered else f"✅ {resource.upper()} OK",
                 "severity": "critical" if alert_triggered else "info"
             }
-            
+
         except Exception as e:
             self.logger.error(f"❌ Error checking {resource} threshold: {e}")
             return {"ok": False, "error": str(e)}

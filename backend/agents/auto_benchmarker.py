@@ -46,7 +46,7 @@ class ModelBenchmarker:
         self.file_validator = FileValidator(logger=self.logger)
         self.results: List[dict] = []
         self._model_sizes: Dict[str, int] = {}
-        
+
         embedding_model_name = (central_config.LLM_MODELS.get("models", {})
                                 .get("embedding", "all-minilm:latest"))
         self.embedding_models = [embedding_model_name]

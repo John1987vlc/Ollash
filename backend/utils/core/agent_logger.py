@@ -1,13 +1,13 @@
 import logging
 import traceback
 from typing import Dict, Optional, Any
-from colorama import init, Fore, Style # Still used for console output in chat_mode, not for file logs
+
+from colorama import init, Fore, Style  # Still used for console output in chat_mode, not for file logs
+
+from backend.utils.core.structured_logger import StructuredLogger
 
 # Initialize colorama for Windows support
 init(autoreset=True)
-
-# Import the new StructuredLogger and correlation ID functions
-from backend.utils.core.structured_logger import StructuredLogger
 
 
 class AgentLogger:
@@ -31,7 +31,7 @@ class AgentLogger:
         """Log tool call with details"""
         console_msg = f"🔧 TOOL CALL: {tool_name}"
         self.info(f"{Fore.CYAN}{console_msg}{Style.RESET_ALL}", extra={"type": "tool_call", "tool_name": tool_name, "args": args})
-    
+
     def tool_result(self, tool_name: str, result: Dict, success: bool = True, latency_ms: Optional[float] = None):
         """Log tool result"""
         status = "✅ SUCCESS" if success else "❌ FAILED"
@@ -41,12 +41,12 @@ class AgentLogger:
         if latency_ms is not None:
             extra_data["latency_ms"] = latency_ms
         self.info(f"{color}{console_msg}{Style.RESET_ALL}", extra=extra_data)
-    
+
     def api_request(self, messages_count: int, tools_count: int):
         """Log API request"""
         console_msg = f"📡 API REQUEST: {messages_count} messages, {tools_count} tools available"
         self.info(f"{Fore.YELLOW}{console_msg}{Style.RESET_ALL}", extra={"type": "api_request", "messages_count": messages_count, "tools_count": tools_count})
-    
+
     def api_response(self, has_tool_calls: bool, tool_count: int = 0, latency_ms: Optional[float] = None):
         """Log API response"""
         if has_tool_calls:
@@ -57,7 +57,7 @@ class AgentLogger:
         if latency_ms is not None:
             extra_data["latency_ms"] = latency_ms
         self.info(f"{Fore.YELLOW}{console_msg}{Style.RESET_ALL}", extra=extra_data)
-    
+
     def error(self, error_msg: str, exception: Optional[Exception] = None, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log error with full traceback"""
         console_msg = f"{Fore.RED}❌ ERROR: {error_msg}{Style.RESET_ALL}"
@@ -65,15 +65,15 @@ class AgentLogger:
         self._log_to_structured(logging.ERROR, console_msg, exc_info=exception, extra=extra, **kwargs)
         if exception:
             self._log_to_structured(logging.DEBUG, traceback.format_exc(), extra={"type": "traceback_detail"}, **kwargs)
-    
+
     def info(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log info message"""
         self._log_to_structured(logging.INFO, msg, extra=extra, **kwargs)
-    
+
     def debug(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log debug message"""
         self._log_to_structured(logging.DEBUG, msg, extra=extra, **kwargs)
-    
+
     def warning(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log warning message"""
         console_msg = f"{Fore.YELLOW}⚠️  {msg}{Style.RESET_ALL}"

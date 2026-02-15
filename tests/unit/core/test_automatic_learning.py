@@ -45,7 +45,7 @@ class TestCorrectionPattern:
             project_name="test_project",
             phase="senior_review",
         )
-        
+
         assert pattern.error_type == "SyntaxError"
         assert pattern.language == "python"
         assert len(pattern.correction_steps) == 2
@@ -66,7 +66,7 @@ class TestCorrectionPattern:
             project_name="proj",
             phase="phase1",
         )
-        
+
         assert pattern.error_signature == "sig"
         assert pattern.success_metrics["metric"] == 0.9
 
@@ -80,7 +80,7 @@ class TestPostMortemAnalyzer:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         assert analyzer.project_root == tmp_project
         assert analyzer.postmortem_dir.exists()
 
@@ -90,7 +90,7 @@ class TestPostMortemAnalyzer:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         pattern = analyzer.analyze_correction(
             error_message="SyntaxError: invalid syntax",
             error_type="SyntaxError",
@@ -103,7 +103,7 @@ class TestPostMortemAnalyzer:
             phase="senior_review",
             project_name="test_proj",
         )
-        
+
         assert pattern.error_type == "SyntaxError"
         assert len(pattern.error_signature) > 0
 
@@ -113,7 +113,7 @@ class TestPostMortemAnalyzer:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         pattern = analyzer.analyze_correction(
             error_message="IndentationError",
             error_type="IndentationError",
@@ -126,15 +126,15 @@ class TestPostMortemAnalyzer:
             phase="generation",
             project_name="test",
         )
-        
+
         file_path = analyzer.save_pattern(pattern)
-        
+
         assert file_path.exists()
-        
+
         # Verify saved content
         with open(file_path) as f:
             saved = json.load(f)
-        
+
         assert saved["error_type"] == "IndentationError"
         assert saved["language"] == "python"
 
@@ -144,7 +144,7 @@ class TestPostMortemAnalyzer:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         assert analyzer.postmortem_dir.exists()
         assert analyzer.postmortem_dir.is_dir()
 
@@ -158,7 +158,7 @@ class TestLearningIndexer:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         assert indexer.project_root == tmp_project
 
     def test_index_pattern(self, mock_logger, tmp_project):
@@ -167,7 +167,7 @@ class TestLearningIndexer:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         pattern = CorrectionPattern(
             error_signature="test_sig",
             error_message="Test error",
@@ -182,7 +182,7 @@ class TestLearningIndexer:
             project_name="test",
             phase="test",
         )
-        
+
         # Should not raise error
         indexer.index_pattern(pattern)
 
@@ -192,14 +192,14 @@ class TestLearningIndexer:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         # Should return empty list if no patterns indexed
         similar = indexer.find_similar_patterns(
             error_message="Some error",
             language="python",
             limit=3,
         )
-        
+
         assert isinstance(similar, list)
 
     def test_chromadb_unavailable(self, mock_logger, tmp_project):
@@ -209,7 +209,7 @@ class TestLearningIndexer:
                 logger=mock_logger,
                 project_root=tmp_project,
             )
-            
+
             # Should handle None chromadb gracefully
             assert indexer.client is None
             assert indexer.collection is None
@@ -224,7 +224,7 @@ class TestAutomaticLearningSystem:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         assert system.analyzer is not None
         assert system.indexer is not None
 
@@ -234,7 +234,7 @@ class TestAutomaticLearningSystem:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         success = system.process_correction(
             error_message="NameError: name 'x' is not defined",
             error_type="NameError",
@@ -247,7 +247,7 @@ class TestAutomaticLearningSystem:
             phase="generation",
             project_name="test_proj",
         )
-        
+
         assert isinstance(success, bool)
 
     def test_get_suggestions_for_error(self, mock_logger, tmp_project):
@@ -256,7 +256,7 @@ class TestAutomaticLearningSystem:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         # Process one correction first
         system.process_correction(
             error_message="NameError: name 'x' is not defined",
@@ -270,13 +270,13 @@ class TestAutomaticLearningSystem:
             phase="generation",
             project_name="proj1",
         )
-        
+
         # Get suggestions for similar error
         suggestions = system.get_suggestions_for_error(
             error_message="NameError: name 'y' is not defined",
             language="python",
         )
-        
+
         assert isinstance(suggestions, list)
 
     def test_generate_learning_report(self, mock_logger, tmp_project):
@@ -285,7 +285,7 @@ class TestAutomaticLearningSystem:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         # Process some corrections
         for i in range(3):
             system.process_correction(
@@ -300,9 +300,9 @@ class TestAutomaticLearningSystem:
                 phase="test",
                 project_name=f"proj{i}",
             )
-        
+
         report = system.generate_learning_report()
-        
+
         assert "total_patterns" in report
         assert isinstance(report["total_patterns"], int)
         assert "error_type_distribution" in report
@@ -313,9 +313,9 @@ class TestAutomaticLearningSystem:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         report = system.generate_learning_report()
-        
+
         # Should handle empty state
         assert report["total_patterns"] == 0
         assert report["error_type_distribution"] == {}
@@ -326,11 +326,11 @@ class TestAutomaticLearningSystem:
             logger=mock_logger,
             project_root=tmp_project,
         )
-        
+
         import threading
-        
+
         results = []
-        
+
         def process():
             success = system.process_correction(
                 error_message="ConcurrentError",
@@ -345,13 +345,13 @@ class TestAutomaticLearningSystem:
                 project_name="concurrent_test",
             )
             results.append(success)
-        
+
         threads = [threading.Thread(target=process) for _ in range(3)]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
-        
+
         # All should complete successfully
         assert len(results) == 3
         assert all(isinstance(r, bool) for r in results)

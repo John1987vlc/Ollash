@@ -29,12 +29,12 @@ class NetworkTools:
         self.logger.info(f"🌐 Pinging host: {host} ({count} times)")
         command = ""
         if self.os_type == "Windows":
-             command = f"ping -n {count} {host}" 
+             command = f"ping -n {count} {host}"
         else: # Linux or macOS
              command = f"ping -c {count} {host}"
 
         result = self.exec.execute(command)
-        
+
         parsed_output = {
             "host": host,
             "packets_sent": 0,
@@ -84,7 +84,7 @@ class NetworkTools:
                     parsed_output["min_rtt_ms"] = float(rtt_match.group(1))
                     parsed_output["avg_rtt_ms"] = float(rtt_match.group(2))
                     parsed_output["max_rtt_ms"] = float(rtt_match.group(3))
-            
+
             return {"ok": True, "result": parsed_output}
         else:
             self.logger.error(f"❌ Ping failed to {host}: {result.stderr}")
@@ -110,12 +110,12 @@ class NetworkTools:
         self.logger.info(f"🗺️ Tracing route to host: {host}")
         command = ""
         if self.os_type == "Windows":
-            command = f"tracert -h {max_hops} {host}" 
+            command = f"tracert -h {max_hops} {host}"
         else: # Linux or macOS
             command = f"traceroute -m {max_hops} {host}"
-            
+
         result = self.exec.execute(command)
-        
+
         parsed_output = {
             "host": host,
             "hops": [],
@@ -125,7 +125,7 @@ class NetworkTools:
         if result.success:
             self.logger.info(f"✅ Traceroute successful to {host}")
             lines = result.stdout.splitlines()
-            
+
             if self.os_type == "Windows":
                 # Example: "  1     1 ms     1 ms     1 ms  router.local [192.168.1.1]"
                 # Example: "  2    10 ms    12 ms    11 ms  some.isp.com [1.2.3.4]"
@@ -135,9 +135,9 @@ class NetworkTools:
                         hop_num = int(match.group(1))
                         times_str = match.group(2).strip()
                         ip_hostname = match.group(3).strip()
-                        
+
                         times = re.findall(r"(\d+)\s*ms", times_str)
-                        
+
                         parsed_output["hops"].append({
                             "hop": hop_num,
                             "ip_address": re.search(r"\[(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\]", ip_hostname).group(1) if '[' in ip_hostname else ip_hostname,
@@ -154,9 +154,9 @@ class NetworkTools:
                         hostname = match.group(2)
                         ip_address = match.group(3)
                         times_str = match.group(4).strip()
-                        
+
                         times = re.findall(r"(\d+\.?\d*)\s*ms", times_str)
-                        
+
                         parsed_output["hops"].append({
                             "hop": hop_num,
                             "hostname": hostname,
@@ -186,7 +186,7 @@ class NetworkTools:
         self.logger.info("🔗 Listing active network connections...")
         command = "netstat -an" # Common for Windows/Linux/macOS
         result = self.exec.execute(command)
-        
+
         parsed_output = {
             "connections": [],
             "raw_output": result.stdout
@@ -195,7 +195,7 @@ class NetworkTools:
         if result.success:
             self.logger.info("✅ Successfully listed active connections.")
             lines = result.stdout.splitlines()
-            
+
             # Skip header lines
             data_started = False
             for line in lines:
@@ -211,14 +211,14 @@ class NetworkTools:
                     local_address = parts[1]
                     foreign_address = parts[2]
                     state = parts[3] if len(parts) > 3 else "N/A"
-                    
+
                     parsed_output["connections"].append({
                         "protocol": proto,
                         "local_address": local_address,
                         "foreign_address": foreign_address,
                         "state": state
                     })
-            
+
             return {"ok": True, "result": parsed_output}
         else:
             self.logger.error(f"❌ Failed to list active connections: {result.stderr}")
@@ -247,35 +247,35 @@ class NetworkTools:
              command = f"powershell -command \"Test-NetConnection -ComputerName {host} -Port {port}\""
         else: # Linux or macOS
              command = f"nc -vz {host} {port}" # nc for Linux/macOS
-        
+
         result = self.exec.execute(command, timeout=5) # Short timeout for port check
-        
+
         status = "closed/unreachable"
         if result.success and (
-            ("succeeded" in result.stdout) or 
+            ("succeeded" in result.stdout) or
             ("TcpTestSucceeded : True" in result.stdout) or
             ("Connection to" in result.stderr and "succeeded!" in result.stderr) # nc output to stderr on success
         ):
             status = "open"
             self.logger.info(f"✅ Port {port} on {host} is {status}.")
             return {
-                "ok": True, 
+                "ok": True,
                 "result": {
-                    "host": host, 
-                    "port": port, 
-                    "status": status, 
+                    "host": host,
+                    "port": port,
+                    "status": status,
                     "raw_output": result.stdout + result.stderr
                 }
             }
         else:
             self.logger.info(f"❌ Port {port} on {host} is {status}. Error: {result.stderr}")
             return {
-                "ok": False, 
+                "ok": False,
                 "result": {
-                    "host": host, 
-                    "port": port, 
-                    "status": status, 
-                    "error": result.stderr, 
+                    "host": host,
+                    "port": port,
+                    "status": status,
+                    "error": result.stderr,
                     "raw_output": result.stdout + result.stderr
                 }
             }

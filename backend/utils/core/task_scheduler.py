@@ -29,7 +29,7 @@ class TaskScheduler:
     def set_callback(self, callback):
         """
         Set the callback function to execute tasks.
-        
+
         Args:
             callback: Async function that takes (task_id, task_data) and executes the task
         """
@@ -38,7 +38,7 @@ class TaskScheduler:
     def schedule_task(self, task_id: str, task_data: dict) -> bool:
         """
         Schedule a new task.
-        
+
         Args:
             task_id: Unique task identifier
             task_data: Task configuration dict with keys:
@@ -46,7 +46,7 @@ class TaskScheduler:
                 - cron: cron expression (if schedule is 'custom')
                 - agent: agent type to use
                 - prompt: prompt to execute
-        
+
         Returns:
             bool: True if scheduled successfully, False otherwise
         """
@@ -55,7 +55,7 @@ class TaskScheduler:
 
         try:
             trigger = self._get_trigger(task_data)
-            
+
             if trigger is None:
                 logger.error(f"Invalid schedule configuration: {task_data}")
                 return False
@@ -84,10 +84,10 @@ class TaskScheduler:
     def unschedule_task(self, task_id: str) -> bool:
         """
         Remove a scheduled task.
-        
+
         Args:
             task_id: Task identifier to remove
-        
+
         Returns:
             bool: True if removed successfully, False otherwise
         """
@@ -137,7 +137,7 @@ class TaskScheduler:
     def get_task_info(self, task_id: str) -> dict:
         """
         Get information about a scheduled task.
-        
+
         Returns:
             dict with task details or None if not found
         """
@@ -194,10 +194,10 @@ class TaskScheduler:
     def _get_trigger(self, task_data: dict):
         """
         Get the appropriate trigger based on schedule configuration.
-        
+
         Args:
             task_data: Task configuration dict
-        
+
         Returns:
             APScheduler trigger object or None
         """
@@ -226,14 +226,14 @@ class TaskScheduler:
     async def _execute_task(self, task_id: str, task_data: dict):
         """
         Execute a scheduled task.
-        
+
         Args:
             task_id: Task identifier
             task_data: Task configuration
         """
         try:
             logger.info(f"Executing task {task_id}")
-            
+
             # Call the registered callback if available
             if self._callback:
                 await self._callback(task_id, task_data)

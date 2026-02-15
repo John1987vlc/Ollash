@@ -14,13 +14,13 @@ class AdvancedNetworkTools:
         Uses ping and traceroute (tracert) commands to gather network data.
         """
         self.logger.info(f"Analyzing network latency to {target_host}...")
-        
+
         latency_data = {"target_host": target_host}
-        
+
         # 1. Ping for basic latency and packet loss
         ping_command = f"ping -n 4 {target_host}" if self.os_type == "Windows" else f"ping -c 4 {target_host}"
         ping_result = self.exec.execute(ping_command)
-        
+
         if ping_result.success:
             if self.os_type == "Windows":
                 match_loss = re.search(r"\((\d+)% loss\)", ping_result.stdout)
@@ -42,7 +42,7 @@ class AdvancedNetworkTools:
         # 2. Traceroute for route and hops
         traceroute_command = f"tracert {target_host}" if self.os_type == "Windows" else f"traceroute {target_host}"
         traceroute_result = self.exec.execute(traceroute_command)
-        
+
         latency_data["route_hops"] = []
         if traceroute_result.success:
             latency_data["traceroute_status"] = "success"
@@ -72,9 +72,9 @@ class AdvancedNetworkTools:
             summary += f"Avg Latency: {latency_data.get('avg_latency_ms', 'N/A')}ms, Packet Loss: {latency_data.get('packet_loss_percent', 'N/A')}%. "
         else:
             summary += "Ping failed. "
-        
+
         summary += f"Route Hops: {len(latency_data['route_hops'])}."
-        
+
         return {
             "ok": True,
             "result": {
@@ -90,10 +90,10 @@ class AdvancedNetworkTools:
         Uses Nmap (Linux/macOS) or Test-NetConnection (Windows) to scan.
         """
         self.logger.info(f"Detecting unexpected services on {host}...")
-        
+
         unexpected_services = []
         scan_ports_list = ",".join(map(str, range(1, 1025))) # Scan common ports for unexpected ones
-        
+
         try:
             if self.os_type == "Windows":
                 # PowerShell: Test-NetConnection for each port
@@ -101,10 +101,10 @@ class AdvancedNetworkTools:
                 for port in range(1, 1025): # Loop through common ports
                     if port in expected_ports: # Skip expected ports
                         continue
-                    
+
                     command = f"powershell -command \"Test-NetConnection -ComputerName {host} -Port {port} -InformationLevel Quiet\""
                     result = self.exec.execute(command, timeout=5)
-                    
+
                     if result.success and ("TcpTestSucceeded : True" in result.stdout):
                         unexpected_services.append({
                             "port": port,
@@ -168,10 +168,10 @@ class AdvancedNetworkTools:
         Uses OS-specific commands (arp, ip) for local network device discovery.
         """
         self.logger.info(f"Mapping internal network (subnet: {subnet or 'auto-detected'})...")
-        
+
         hosts_found = []
         discovered_subnet = subnet
-        
+
         try:
             # Auto-detect subnet if not provided
             if not discovered_subnet:
@@ -189,14 +189,14 @@ class AdvancedNetworkTools:
                         match = re.search(r"inet (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2})", ip_addr_result.stdout)
                         if match:
                             discovered_subnet = match.group(1) # e.g., 192.168.1.10/24
-            
+
             if not discovered_subnet:
                 return {"ok": False, "result": {"error": "Could not determine local subnet. Please provide a subnet manually.", "note": "If using this tool, ensure network commands like ipconfig/ip addr are whitelisted."}}
-            
+
             # Use arp -a for directly connected devices
             arp_command = "arp -a"
             arp_result = self.exec.execute(arp_command)
-            
+
             if arp_result.success:
                 lines = arp_result.stdout.splitlines()
                 for line in lines:
@@ -207,7 +207,7 @@ class AdvancedNetworkTools:
                         probable_role = "unknown"
                         if ip_address.endswith(".1"):
                             probable_role = "gateway/router"
-                        
+
                         hosts_found.append({
                             "ip": ip_address,
                             "probable_role": probable_role,

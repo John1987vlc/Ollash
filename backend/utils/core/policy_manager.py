@@ -80,7 +80,7 @@ class PolicyManager:
         path_traversal_regex = self.policies.get("path_traversal_regex", r"(\.\./|\.\.\)")
 
         cmd_parts = command.split(' ')[0] # Get the base command
-        
+
         # 1. Check against disallowed patterns in command itself
         for pattern in disallowed_patterns:
             if pattern in command:
@@ -95,7 +95,7 @@ class PolicyManager:
                 try:
                     # Construct an absolute path relative to the project_root (sandbox)
                     abs_path = self.project_root / arg
-                    
+
                     # Resolve symlinks and normalize the path
                     resolved_path = Path(os.path.realpath(str(abs_path)))
 
@@ -120,7 +120,7 @@ class PolicyManager:
         if cmd_parts not in allowed_commands:
             self.logger.warning(f"Command '{cmd_parts}' blocked: not in allowed_commands list for agent type '{current_agent_type}'")
             return False
-            
+
         self.logger.debug(f"Command '{command}' is allowed.")
         return True
 
@@ -131,12 +131,12 @@ class PolicyManager:
         try:
             abs_file_path = self.project_root / file_path
             resolved_file_path = Path(os.path.realpath(str(abs_file_path)))
-            
+
             # Ensure the resolved path is within the project root before checking critical status
             if not resolved_file_path.is_relative_to(self.project_root):
                 self.logger.warning(f"Critical path check: Resolved path '{resolved_file_path}' is outside sandbox '{self.project_root}'. Treating as critical.")
                 return True # Out-of-sandbox paths are inherently critical
-                
+
             # Then compare the resolved path to critical path patterns
             for pattern in critical_paths:
                 # Need to use glob.fnmatch or similar for proper pattern matching if patterns contain wildcards

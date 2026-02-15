@@ -78,7 +78,7 @@ class TestCoworkTools:
             document_name="nonexistent.pdf",
             task_category="automation"
         )
-        
+
         assert result["status"] == "error"
         assert "not found" in result["message"].lower()
 
@@ -88,12 +88,12 @@ class TestCoworkTools:
         doc_manager.references_dir.mkdir(exist_ok=True)
         unsupported_file = doc_manager.references_dir / "test.xyz"
         unsupported_file.write_text("content")
-        
+
         result = cowork.document_to_task(
             document_name="test.xyz",
             task_category="automation"
         )
-        
+
         assert result["status"] == "error"
 
     def test_document_to_task_success(self, cowork, doc_manager, ollama):
@@ -102,23 +102,23 @@ class TestCoworkTools:
         doc_manager.references_dir.mkdir(exist_ok=True)
         test_doc = doc_manager.references_dir / "requirements.txt"
         test_doc.write_text("Implement authentication\nAdd logging\nSetup monitoring")
-        
+
         # Mock ingester
         with patch('backend.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "Implement auth\nAdd logging\nSetup monitoring"
             mock_ingester_class.return_value = mock_ingester
-            
+
             cowork.ingester = mock_ingester
-            
+
             ollama.call_ollama_api.return_value = '[{"task_id": "t1", "name": "Auth", "description": "Implement"}]'
-            
+
             result = cowork.document_to_task(
                 document_name="requirements.txt",
                 task_category="automation",
                 priority="high"
             )
-            
+
             assert result["status"] == "success"
             assert "tasks_generated" in result
             assert result["tasks_generated"] >= 1
@@ -128,13 +128,13 @@ class TestCoworkTools:
         doc_manager.references_dir.mkdir(exist_ok=True)
         test_doc = doc_manager.references_dir / "test.txt"
         test_doc.write_text("Some requirement")
-        
+
         with patch('backend.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "Requirement text"
             cowork.ingester = mock_ingester
             cowork.ollama.call_ollama_api.return_value = '[]'
-            
+
             for priority in ["low", "medium", "high", "critical"]:
                 result = cowork.document_to_task(
                     document_name="test.txt",
@@ -150,7 +150,7 @@ class TestCoworkTools:
             time_period="24hours",
             risk_threshold="high"
         )
-        
+
         # Result should indicate warning or success with no issues
         assert result["status"] in ["warning", "success", "error"]
 
@@ -160,24 +160,24 @@ class TestCoworkTools:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.log') as log_file:
                 log_file.write("ERROR: Failed login attempt\nINFO: Backup completed\n")
                 log_file.flush()
-                
+
                 mock_get_paths.return_value = [Path(log_file.name)]
-                
+
                 cowork.ollama.call_ollama_api.return_value = '[{"issue": "Failed login", "severity": "High"}]'
-                
+
                 result = cowork.analyze_recent_logs(
                     log_type="security",
                     time_period="24hours",
                     top_n=5
                 )
-                
+
                 assert "status" in result
 
     def test_analyze_recent_logs_risk_levels(self, cowork):
         """Test different risk threshold levels"""
         with patch.object(cowork, '_get_log_paths') as mock_get_paths:
             mock_get_paths.return_value = []
-            
+
             for threshold in ["critical", "high", "medium", "low", "all"]:
                 result = cowork.analyze_recent_logs(
                     risk_threshold=threshold
@@ -190,7 +190,7 @@ class TestCoworkTools:
         result = cowork.generate_executive_summary(
             document_name="nonexistent.pdf"
         )
-        
+
         assert result["status"] == "error"
 
     def test_generate_executive_summary_success(self, cowork, doc_manager):
@@ -198,20 +198,20 @@ class TestCoworkTools:
         doc_manager.references_dir.mkdir(exist_ok=True)
         test_doc = doc_manager.references_dir / "spec.txt"
         test_doc.write_text("System specification with " + "many words " * 100)
-        
+
         with patch('backend.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "System spec content"
             cowork.ingester = mock_ingester
-            
+
             cowork.ollama.call_ollama_api.return_value = "Executive summary text"
-            
+
             result = cowork.generate_executive_summary(
                 document_name="spec.txt",
                 summary_type="executive",
                 max_length=250
             )
-            
+
             if result["status"] == "success":
                 assert "summary" in result
                 assert "document" in result
@@ -222,13 +222,13 @@ class TestCoworkTools:
         doc_manager.references_dir.mkdir(exist_ok=True)
         test_doc = doc_manager.references_dir / "doc.txt"
         test_doc.write_text("Content")
-        
+
         with patch('backend.utils.domains.bonus.cowork_impl.MultiFormatIngester') as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "Document content"
             cowork.ingester = mock_ingester
             cowork.ollama.call_ollama_api.return_value = "Summary"
-            
+
             for summary_type in ["executive", "technical", "general", "key_insights"]:
                 result = cowork.generate_executive_summary(
                     document_name="doc.txt",
@@ -240,20 +240,20 @@ class TestCoworkTools:
     def test_append_tasks_to_file(self, cowork):
         """Test appending tasks to tasks.json"""
         cowork.tasks_file = Path(tempfile.gettempdir()) / "test_tasks.json"
-        
+
         try:
             tasks = [
                 {"task_id": "1", "name": "Task 1"},
                 {"task_id": "2", "name": "Task 2"}
             ]
-            
+
             cowork._append_tasks_to_file(tasks)
-            
+
             assert cowork.tasks_file.exists()
-            
+
             with open(cowork.tasks_file) as f:
                 saved_tasks = json.load(f)
-            
+
             assert len(saved_tasks) >= 2
         finally:
             if cowork.tasks_file.exists():
