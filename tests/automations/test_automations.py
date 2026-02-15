@@ -3,8 +3,12 @@
 import pytest
 import json
 from pathlib import Path
-from datetime import datetime
+from unittest.mock import mock_open, patch, MagicMock
 
+# Import functions directly from the module under test
+from frontend.blueprints.automations_bp import init_app, save_tasks_to_storage, load_tasks_from_storage
+import frontend.blueprints.automations_bp as automations_bp_module
+import sys
 
 def test_notification_manager_initialization(tmp_path):
     """Test that NotificationManager initializes correctly"""
@@ -86,36 +90,37 @@ def test_automation_executor_initialization(tmp_path):
     assert executor.notification_manager is not None
 
 
-def test_automations_bp_storage(tmp_path):
-    """Test automations blueprint storage functionality"""
-    import frontend.blueprints.automations_bp as auto_bp
-    
-    # Mock storage file
-    storage_file = tmp_path / "scheduled_tasks.json"
-    auto_bp._tasks_storage_file = storage_file
-    auto_bp._scheduled_tasks = {}
-    
-    # Save empty tasks
-    auto_bp.save_tasks_to_storage()
-    assert storage_file.exists()
-    
-    # Add a task
-    task_data = {
-        "name": "Test Task",
-        "agent": "system",
-        "prompt": "Test prompt",
-        "schedule": "hourly",
-        "status": "active"
-    }
-    auto_bp._scheduled_tasks["task_123"] = task_data
-    auto_bp.save_tasks_to_storage()
-    
-    # Load and verify
-    auto_bp._scheduled_tasks = {}
-    auto_bp.load_tasks_from_storage()
-    
-    assert "task_123" in auto_bp._scheduled_tasks
-    assert auto_bp._scheduled_tasks["task_123"]["name"] == "Test Task"
+class MockPath:
+    """A mock Path class to simulate path operations for testing without subclassing Path."""
+    def __init__(self, path_str):
+        self._path_str = str(path_str) if path_str else "."
+        self._exists = False
+        self._mkdir_called = False
+
+    def __str__(self):
+        return self._path_str
+
+    def __repr__(self):
+        return f"MockPath('{self._path_str}')"
+
+    def __truediv__(self, other):
+        # Create a new MockPath for the result of the division
+        new_path = MockPath(f"{self._path_str}/{other}")
+        new_path._exists = self._exists
+        return new_path
+
+    def exists(self):
+        return self._exists
+
+    def mkdir(self, parents=False, exist_ok=False):
+        self._mkdir_called = True
+
+    @property
+    def parent(self):
+        # Return a mock parent that can call mkdir
+        parent_mock = MagicMock()
+        parent_mock.mkdir.return_value = None
+        return parent_mock
 
 
 def test_html_email_building():

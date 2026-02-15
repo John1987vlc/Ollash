@@ -6,7 +6,7 @@ import asyncio
 import threading
 import logging
 from pathlib import Path
-from typing import Optional, Callable, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime
 
 from backend.agents.default_agent import DefaultAgent

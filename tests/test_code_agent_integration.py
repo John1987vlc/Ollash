@@ -1,72 +1,67 @@
 import pytest
-import pytest_asyncio
-from unittest.mock import patch
-from colorama import Fore, Style
+import json
+from pathlib import Path
+from backend.agents.default_agent import DefaultAgent
 
-# Removed imports: DefaultAgent, ExecutionResult, SandboxLevel
-from backend.utils.core.agent_logger import AgentLogger
-
-
-# Rely on conftest.py for mock_ollama_client and temp_project_root fixtures
-
-
-
-# ==============================================================================
-# TESTS
-# ==============================================================================
-
-@pytest.mark.asyncio
-async def test_code_agent_initialization(default_agent, temp_project_root):
-    assert default_agent.project_root == temp_project_root
-    assert isinstance(default_agent.logger, AgentLogger)
-    assert default_agent.llm_manager.llm_clients['default'] is not None
-    assert default_agent.tool_executor is not None
-    # Dynamically get the expected orchestrator tools from the agent's tool registry
-    expected_orchestrator_tools = set(default_agent._tool_registry.get_tools_for_agent("orchestrator"))
-    assert set(default_agent.active_tool_names) == expected_orchestrator_tools
-    assert default_agent.active_agent_type == "orchestrator"
-
-@pytest.mark.asyncio
-async def test_list_directory_tool(default_agent, temp_project_root):
-    # Create some dummy files/dirs
-    (temp_project_root / "test_dir").mkdir()
-    (temp_project_root / "test_file.txt").write_text("content")
-
-    # Simply verify that code agent tools are available in tool registry
-    code_tools = default_agent._tool_registry.get_tools_for_agent("code")
-    assert "list_directory" in code_tools
-    assert default_agent.project_root == temp_project_root
-
-
-@pytest.mark.asyncio
-async def test_read_file_tool(default_agent, temp_project_root):
-    test_file = temp_project_root / "my_file.txt"
-    test_file.write_text("Hello, world!")
-
-    # Verify that code agent can read files
-    code_tools = default_agent._tool_registry.get_tools_for_agent("code")
-    assert "read_file" in code_tools
+@pytest.fixture
+def default_agent(tmp_path, monkeypatch):
+    """Fixture to create a DefaultAgent in a temporary directory."""
+    models_config = {
+        "agent_roles": {
+            "coder": "test-coder",
+            "default": "test-default",
+        }
+    }
+    monkeypatch.setenv("LLM_MODELS_JSON", json.dumps(models_config))
+    from backend.core.config import reload_config
+    reload_config()
     
-    # Verify file exists and content is correct
-    assert test_file.exists()
-    assert test_file.read_text() == "Hello, world!"
-
-
-@pytest.mark.asyncio
-async def test_write_file_tool_confirmation_yes(default_agent, temp_project_root):
-    target_file = temp_project_root / "new_file.txt"
-
-    # Verify that code agent has write_file tool
-    code_tools = default_agent._tool_registry.get_tools_for_agent("code")
-    assert "write_file" in code_tools
-
+    project_root = tmp_path / "ollash_test_project"
+    project_root.mkdir()
+    (project_root / ".ollash").mkdir()
+    agent = DefaultAgent(project_root=str(project_root))
+    return agent
 
 @pytest.mark.asyncio
-async def test_write_file_tool_confirmation_no(default_agent, temp_project_root):
-    target_file = temp_project_root / "another_file.txt"
+async def test_code_agent_initialization(default_agent):
+    """Test that the Code Agent initializes correctly."""
+    assert default_agent is not None
+    assert default_agent.project_root is not None
+    assert default_agent.llm_manager is not None
+    assert default_agent.llm_manager.get_client('coder') is not None
 
-    # Verify that code agent has write_file tool
-    code_tools = default_agent._tool_registry.get_tools_for_agent("code")
-    assert "write_file" in code_tools
-    assert not target_file.exists()
+@pytest.mark.asyncio
+async def test_list_directory_tool(default_agent, tmp_path):
+    """Test the list_directory tool."""
+    (tmp_path / "ollash_test_project" / "test_file.txt").touch()
+    result = await default_agent.tool_executor.execute_tool("list_directory", path=".")
+    assert "test_file.txt" in result["items"]
 
+@pytest.mark.asyncio
+async def test_read_file_tool(default_agent, tmp_path):
+    """Test the read_file tool."""
+    test_file = tmp_path / "ollash_test_project" / "test_file.txt"
+    test_file.write_text("hello world")
+    result = await default_agent.tool_executor.execute_tool("read_file", path="test_file.txt")
+    assert result["content"] == "hello world"
+
+@pytest.mark.asyncio
+async def test_write_file_tool_confirmation_yes(default_agent, tmp_path, monkeypatch):
+    """Test the write_file tool with user confirmation."""
+    monkeypatch.setattr('builtins.input', lambda _: 'y')
+    file_path = "new_file.txt"
+    content = "new content"
+    result = await default_agent.tool_executor.execute_tool("write_file", path=file_path, content=content, reason="test")
+    assert result["ok"]
+    assert (tmp_path / "ollash_test_project" / file_path).read_text() == content
+
+@pytest.mark.asyncio
+async def test_write_file_tool_confirmation_no(default_agent, tmp_path, monkeypatch):
+    """Test the write_file tool with user rejection."""
+    monkeypatch.setattr('builtins.input', lambda _: 'n')
+    file_path = "new_file.txt"
+    content = "new content"
+    result = await default_agent.tool_executor.execute_tool("write_file", path=file_path, content=content, reason="test")
+    assert not result["ok"]
+    assert "user_cancelled" in result["error"]
+    assert not (tmp_path / "ollash_test_project" / file_path).exists()

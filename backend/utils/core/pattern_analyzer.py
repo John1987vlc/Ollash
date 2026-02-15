@@ -16,8 +16,8 @@ import json
 import logging
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Optional
-from datetime import datetime, timedelta
+from typing import Dict, Any, List
+from datetime import datetime
 from collections import Counter, defaultdict
 import statistics
 
@@ -513,7 +513,7 @@ class PatternAnalyzer:
                 md += f"- Type: {pattern.pattern_type}\n"
                 md += f"- Confidence: {pattern.confidence*100:.0f}%\n"
                 if pattern.recommendations:
-                    md += f"- Recommendations:\n"
+                    md += "- Recommendations:\n"
                     for rec in pattern.recommendations:
                         md += f"  - {rec}\n"
             

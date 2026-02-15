@@ -3,7 +3,6 @@
 from flask import Blueprint, jsonify, request
 from pathlib import Path
 import logging
-import threading
 import asyncio
 
 from frontend.middleware import require_api_key

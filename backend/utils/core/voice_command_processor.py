@@ -9,11 +9,10 @@ Features:
 """
 
 import logging
-import json
 from datetime import datetime
 from typing import Optional, Dict, List, Any
 from enum import Enum
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 

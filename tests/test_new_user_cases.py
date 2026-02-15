@@ -1,6 +1,4 @@
 import pytest
-import json
-from conftest import TEST_OLLAMA_URL, TEST_TIMEOUT
 
 # NOTE: These tests have been simplified to focus on agent initialization
 # and basic functionality rather than complex integration scenarios.

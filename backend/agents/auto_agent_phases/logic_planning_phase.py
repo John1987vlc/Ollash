@@ -174,10 +174,10 @@ Format the response as JSON with file paths as keys.
                 purpose = "Main application entry point"
                 exports = ["main()", "Application class"]
             elif category == "utils":
-                purpose = f"Utility functions and helpers"
+                purpose = "Utility functions and helpers"
                 exports = ["Helper functions for common tasks"]
             elif category == "tests":
-                purpose = f"Unit tests for corresponding module"
+                purpose = "Unit tests for corresponding module"
                 exports = ["Test functions"]
             elif category == "web":
                 if ext == ".js":

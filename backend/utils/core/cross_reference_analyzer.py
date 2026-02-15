@@ -10,14 +10,13 @@ Permite análisis transversal entre múltiples documentos, identificando:
 
 import json
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Optional, Any
+from typing import Dict, List, Set, Optional, Any
 from dataclasses import dataclass, asdict
 from difflib import SequenceMatcher
 from collections import defaultdict
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.core.llm_response_parser import LLMResponseParser
 
 
 @dataclass
@@ -142,7 +141,7 @@ class CrossReferenceAnalyzer:
             doc2_content = self._read_document(doc2_path)
             
             if not doc1_content or not doc2_content:
-                self.logger.error(f"Cannot read one or both documents")
+                self.logger.error("Cannot read one or both documents")
                 return {}
             
             # Chunkarizar
@@ -371,7 +370,7 @@ class CrossReferenceAnalyzer:
             output_file = self.analysis_dir / f"gaps_{Path(theory_doc).stem}_vs_{Path(config_file).stem}.json"
             self._save_json(output_file, gaps)
             
-            self.logger.info(f"✓ Gap analysis complete")
+            self.logger.info("✓ Gap analysis complete")
             return gaps
             
         except Exception as e:

@@ -2,7 +2,7 @@
 
 import logging
 import re
-from typing import Dict, List, Any, Callable, Optional
+from typing import Dict, List, Any, Callable
 from datetime import datetime
 from enum import Enum
 

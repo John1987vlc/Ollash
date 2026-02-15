@@ -175,7 +175,7 @@ Executive Summary:"""
         summary_words = len(executive_summary.split())
         compression_ratio = original_words / summary_words if summary_words > 0 else 0
 
-        self.logger.info(f"✅ Cascade summarization complete")
+        self.logger.info("✅ Cascade summarization complete")
         self.logger.info(f"   Final summary: {summary_words} words (ratio: {compression_ratio:.1f}:1)")
 
         return {

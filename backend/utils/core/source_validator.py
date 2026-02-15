@@ -6,7 +6,7 @@ Validates refined content against original sources for accuracy
 import json
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from pathlib import Path
 from difflib import SequenceMatcher
 import re

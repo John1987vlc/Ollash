@@ -5,7 +5,7 @@ This module provides a class to check for license compliance in the
 generated code.
 """
 
-from typing import List, Dict, Any
+from typing import Dict, Any
 from pathlib import Path
 
 from backend.utils.core.agent_logger import AgentLogger

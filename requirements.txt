@@ -3,6 +3,7 @@ aiohttp==3.9.5
 APScheduler==3.10.4
 chromadb==1.4.1
 colorama==0.4.6
+dependency-injector==4.41.0
 docker==7.1.0
 Flask==3.0.1
 Jinja2==3.1.2

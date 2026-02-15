@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List
 import json
 
 from backend.utils.core.ollama_client import OllamaClient

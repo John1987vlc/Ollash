@@ -6,10 +6,9 @@ Handles parsing and normalization of various document formats
 import json
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional
 from pathlib import Path
 from enum import Enum
-import mimetypes
 
 
 class DocumentType(Enum):

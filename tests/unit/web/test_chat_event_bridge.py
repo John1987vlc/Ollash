@@ -1,6 +1,4 @@
 """Unit tests for src/web/services/chat_event_bridge.py."""
-import pytest
-from unittest.mock import MagicMock
 
 class TestChatEventBridge:
     def test_push_and_iter(self):

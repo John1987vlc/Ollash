@@ -1,4 +1,3 @@
-from typing import Optional
 import re
 from backend.utils.core.validators.base_validator import BaseValidator, ValidationResult, ValidationStatus
 

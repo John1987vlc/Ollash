@@ -13,8 +13,8 @@ import io
 from backend.utils.core.adaptive_notification_ui import get_adaptive_notification_ui
 from backend.utils.core.webhook_manager import get_webhook_manager, WebhookType, MessagePriority
 from backend.utils.core.activity_report_generator import get_activity_report_generator
-from backend.utils.core.voice_command_processor import get_voice_command_processor, CommandType
-from backend.utils.core.memory_of_decisions import MemoryOfDecisions, DecisionDomain, DecisionOutcome
+from backend.utils.core.voice_command_processor import get_voice_command_processor
+from backend.utils.core.memory_of_decisions import MemoryOfDecisions, DecisionDomain
 from backend.utils.core.feedback_cycle_manager import get_feedback_cycle_manager, FeedbackType
 from backend.utils.core.advanced_trigger_manager import get_advanced_trigger_manager, LogicOperator
 

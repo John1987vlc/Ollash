@@ -16,7 +16,7 @@ import json
 import re
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Set, List, Optional
+from typing import Dict, Set, Optional
 from backend.utils.core.agent_logger import AgentLogger
 
 

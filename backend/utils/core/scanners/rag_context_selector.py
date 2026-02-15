@@ -1,10 +1,9 @@
 # src/utils/core/scanners/rag_context_selector.py
 
-import chromadb
 from chromadb.utils import embedding_functions
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Tuple
 from dataclasses import dataclass
 
 from backend.utils.core.chroma_manager import ChromaClientManager

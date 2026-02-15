@@ -10,26 +10,18 @@ Tests for:
 
 import pytest
 import json
-from pathlib import Path
-from datetime import datetime
-from unittest.mock import Mock, patch
 
 from backend.utils.core.preference_manager_extended import (
     PreferenceManagerExtended,
-    PreferenceProfile,
-    CommunicationProfile,
     CommunicationStyle,
-    ComplexityLevel,
-    InteractionPreference
+    ComplexityLevel
 )
 from backend.utils.core.pattern_analyzer import (
     PatternAnalyzer,
-    FeedbackEntry,
     SentimentType
 )
 from backend.utils.core.behavior_tuner import (
     BehaviorTuner,
-    TuningConfig,
     TuningParameter
 )
 

@@ -4,12 +4,10 @@ Comprehensive test suite for OCR, multimedia ingestion, and speech transcription
 """
 
 import pytest
-import json
 import tempfile
 from pathlib import Path
-from typing import List
 
-from backend.utils.core.ocr_processor import OCRProcessor, PDFOCRProcessor, OCRConfig, OCRResult
+from backend.utils.core.ocr_processor import OCRProcessor, OCRConfig
 
 
 # ========================

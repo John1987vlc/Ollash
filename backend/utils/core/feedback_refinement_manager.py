@@ -4,10 +4,9 @@ Handles paragraph-level critique, refinement, and validation cycles
 """
 
 import json
-import hashlib
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from pathlib import Path
 import re
 

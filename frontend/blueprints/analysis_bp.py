@@ -9,7 +9,6 @@ Expone funcionalidades de:
 
 from pathlib import Path
 from flask import Blueprint, request, jsonify, current_app
-from typing import List
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.cross_reference_analyzer import CrossReferenceAnalyzer

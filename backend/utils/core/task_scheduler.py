@@ -3,7 +3,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -239,7 +238,7 @@ class TaskScheduler:
             if self._callback:
                 await self._callback(task_id, task_data)
             else:
-                logger.warning(f"No callback registered for task execution")
+                logger.warning("No callback registered for task execution")
 
         except Exception as e:
             logger.error(f"Error executing task {task_id}: {e}")

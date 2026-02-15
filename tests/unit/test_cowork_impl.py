@@ -7,7 +7,7 @@ import pytest
 import tempfile
 import json
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 
 from backend.utils.domains.bonus.cowork_impl import CoworkTools
 from backend.utils.core.agent_logger import AgentLogger

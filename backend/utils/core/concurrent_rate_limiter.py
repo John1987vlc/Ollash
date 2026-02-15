@@ -10,8 +10,6 @@ Benefit: Prevents OOM errors and resource contention across agents.
 import time
 import threading
 from collections import deque
-from typing import Optional
-from pathlib import Path
 
 from backend.utils.core.agent_logger import AgentLogger
 

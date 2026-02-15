@@ -7,7 +7,6 @@ que se mostrarán en el panel derecho de la UI.
 
 from pathlib import Path
 from flask import Blueprint, request, jsonify, current_app
-from typing import Optional
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.artifact_manager import ArtifactManager

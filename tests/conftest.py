@@ -64,8 +64,32 @@ def default_agent(monkeypatch, temp_project_root: Path) -> DefaultAgent:
     monkeypatch.setenv("AGENT_FEATURES_JSON", json.dumps({"enable_auto_learning": False}))
     monkeypatch.setenv("OLLAMA_URL", TEST_OLLAMA_URL)
 
+    # Set LLM_MODELS_JSON explicitly for tests in conftest
+    models_config = {
+        "ollama_url": TEST_OLLAMA_URL,
+        "default_model": "mistral:latest",
+        "default_timeout": TEST_TIMEOUT, # Include default_timeout
+        "agent_roles": {
+            "prototyper": "test-proto",
+            "coder": "test-coder",
+            "planner": "test-planner",
+            "generalist": "test-generalist",
+            "suggester": "test-suggester",
+            "improvement_planner": "test-improvement-planner",
+            "senior_reviewer": "test-senior-reviewer",
+            "test_generator": "test-test-generator",
+            "default": "test-default" # Ensure a default is present for get_client("default")
+        }
+    }
+    monkeypatch.setenv("LLM_MODELS_JSON", json.dumps(models_config))
+
     # Force a reload of the config to pick up monkeypatched vars
     reload_config()
+
+    # Reset AgentKernel singleton to force it to reload its config
+    from backend.core.kernel import AgentKernel
+    AgentKernel._instance = None
+    AgentKernel._config = None
 
     # Create fresh instances for the test
     kernel = AgentKernel(ollash_root_dir=temp_project_root)

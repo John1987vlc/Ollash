@@ -5,9 +5,8 @@ This module provides a class to analyze log files for errors and
 anomalies.
 """
 
-import re
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Dict, Any
 
 from backend.utils.core.agent_logger import AgentLogger
 

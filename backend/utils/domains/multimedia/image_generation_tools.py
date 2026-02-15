@@ -1,15 +1,10 @@
 import requests
-import base64
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-import asyncio
-import aiohttp
 import uuid
 import time
-from io import BytesIO
-from PIL import Image
 
 from backend.utils.core.tool_decorator import ollash_tool
 
@@ -569,11 +564,11 @@ class ImageGeneratorTools:
                                         return image_name
                         
                         # If we get here, item completed but image not found
-                        self.logger.warning(f"Item completed but image_output not found in results")
+                        self.logger.warning("Item completed but image_output not found in results")
                         return None
                     
                     elif status == "failed":
-                        self.logger.error(f"❌ Item failed")
+                        self.logger.error("❌ Item failed")
                         error = item_data.get("error")
                         if error:
                             self.logger.error(f"Error details: {error}")
@@ -967,7 +962,7 @@ class ImageGeneratorTools:
                     "error": f"Input image not found: {image_path}"
                 }
             
-            self.logger.info(f"⬆️ Uploading input image...")
+            self.logger.info("⬆️ Uploading input image...")
             
             # Upload the image
             with open(input_image_path, "rb") as f:
@@ -1350,7 +1345,7 @@ class ImageGeneratorTools:
                         for model in models:
                             main_models.append(f"{model['name']} ({base})")
                 
-                self.logger.info(f"✅ Invoke UI is running and accessible")
+                self.logger.info("✅ Invoke UI is running and accessible")
                 return {
                     "ok": True,
                     "status": "online",

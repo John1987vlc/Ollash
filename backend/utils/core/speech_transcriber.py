@@ -7,7 +7,7 @@ import json
 import base64
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from pathlib import Path
 from enum import Enum
 import requests

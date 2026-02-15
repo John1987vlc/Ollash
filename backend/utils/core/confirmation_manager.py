@@ -1,31 +1,24 @@
 from typing import Dict, List, Any
 from colorama import Fore, Style
-import re
+from backend.core.config_schemas import ToolSettingsConfig
 
 class ConfirmationManager:
     """Manages confirmation gates for state-modifying tools."""
     MODIFY_ACTIONS = {"write_file", "delete_file", "git_commit", "git_push"}
 
-    def __init__(self, logger: Any, config: Dict = None, auto_confirm: bool = False, tool_registry: Any = None):
+    def __init__(self, logger: Any, config: ToolSettingsConfig, auto_confirm: bool = False, tool_registry: Any = None):
         self.logger = logger
-        self.config = config if config is not None else {}
+        self.config = config
         self.auto_confirm = auto_confirm
         self.tool_registry = tool_registry
 
-        self.git_auto_confirm_lines_threshold: int = self.config.get("git_auto_confirm_lines_threshold", 5)
-        self.auto_confirm_minor_git_commits: bool = self.config.get("auto_confirm_minor_git_commits", False)
+        self.git_auto_confirm_lines_threshold: int = self.config.git_auto_confirm_lines_threshold
+        self.auto_confirm_minor_git_commits: bool = self.config.auto_confirm_minor_git_commits
 
-        self.write_auto_confirm_lines_threshold: int = self.config.get("write_auto_confirm_lines_threshold", 10)
-        self.auto_confirm_minor_writes: bool = self.config.get("auto_confirm_minor_writes", False)
+        self.write_auto_confirm_lines_threshold: int = self.config.write_auto_confirm_lines_threshold
+        self.auto_confirm_minor_writes: bool = self.config.auto_confirm_minor_writes
 
-        self.critical_paths_patterns: List[str] = self.config.get("critical_paths_patterns", [
-            r".*\.env$",
-            r".*settings\.json$",
-            r".*\.yaml$", r".*\.yml$",
-            r".*dockerfile.*",
-            r".*\.sh$", r".*\.ps1$",
-            r"^\.github/workflows/.*$"
-        ])
+        self.critical_paths_patterns: List[str] = self.config.critical_paths_patterns
 
     def get_tool_definitions(self, active_tool_names: List[str]) -> List[Dict]:
         """
@@ -33,7 +26,6 @@ class ConfirmationManager:
         """
         if self.tool_registry is None:
             raise ValueError("ToolRegistry not set in ToolConfirmationManager.")
-        from backend.utils.core.tool_registry import ToolRegistry # Import here to avoid circular dependency
         return self.tool_registry.get_tool_definitions(active_tool_names)
 
     def _requires_confirmation(self, tool_name: str) -> bool:

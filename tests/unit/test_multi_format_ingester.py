@@ -6,7 +6,7 @@ Tests PDF, DOCX, PPTX, TXT, and Markdown extraction
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 
 from backend.utils.core.multi_format_ingester import MultiFormatIngester
 from backend.utils.core.agent_logger import AgentLogger

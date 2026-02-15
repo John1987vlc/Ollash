@@ -5,7 +5,6 @@ Flask blueprint exposing refinement workflow capabilities via REST API
 
 from flask import Blueprint, request, jsonify
 from pathlib import Path
-from typing import Dict, Any
 from backend.utils.core.feedback_refinement_manager import FeedbackRefinementManager
 from backend.utils.core.source_validator import SourceValidator
 from backend.utils.core.refinement_orchestrator import RefinementOrchestrator

@@ -3,7 +3,7 @@ Unit tests for StructurePreReviewer system.
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 from backend.utils.domains.auto_generation.structure_pre_reviewer import (
     StructurePreReviewer, StructureIssue, StructureReview

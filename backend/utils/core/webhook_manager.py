@@ -9,7 +9,6 @@ Extends NotificationManager with webhook-based communication for:
 """
 
 import os
-import json
 import logging
 import asyncio
 import aiohttp

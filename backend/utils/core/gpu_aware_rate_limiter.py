@@ -7,7 +7,6 @@ when GPU is overloaded (slow responses), recovering when performance improves.
 import threading
 import time
 from collections import deque
-from typing import Optional
 
 
 class GPUAwareRateLimiter:

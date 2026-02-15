@@ -1,5 +1,4 @@
 """Tests for the centralized configuration system."""
-import pytest
 import importlib
 import json
 from backend.core import config as agent_config
@@ -18,6 +17,8 @@ def test_config_loads_from_env(monkeypatch):
     monkeypatch.setenv("OLLAMA_URL", test_url)
     monkeypatch.setenv("DEFAULT_MODEL", test_model)
     monkeypatch.setenv("TOOL_SETTINGS_JSON", json.dumps(tool_settings))
+    # Set LLM_MODELS_JSON without 'ollama_url' so the legacy override doesn't overwrite OLLAMA_URL
+    monkeypatch.setenv("LLM_MODELS_JSON", json.dumps({"default_model": test_model}))
 
     # 3. Force a reload of the config module to pick up the patched environment
     importlib.reload(agent_config)

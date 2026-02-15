@@ -1,14 +1,6 @@
 from abc import ABC
 from typing import Dict, Any, Optional, List
-import asyncio
 
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.loop_detector import LoopDetector
-from backend.utils.core.event_publisher import EventPublisher
-from backend.utils.core.confirmation_manager import ConfirmationManager # Assuming this handles confirmation gates
-from backend.utils.core.permission_profiles import PolicyEnforcer # For tool confirmation policies
-from backend.interfaces.itool_executor import IToolExecutor
-from backend.utils.core.tool_span_manager import ToolSpanManager # NEW
 
 
 class ToolLoopMixin(ABC):

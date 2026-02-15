@@ -1,7 +1,6 @@
 """Blueprint for managing conditional triggers (advanced automation rules)."""
 
 from flask import Blueprint, jsonify, request
-from datetime import datetime
 import logging
 
 from frontend.middleware import require_api_key

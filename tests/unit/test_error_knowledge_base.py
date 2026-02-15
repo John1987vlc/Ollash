@@ -4,7 +4,6 @@ Unit tests for ErrorKnowledgeBase system.
 
 import pytest
 import json
-from pathlib import Path
 from unittest.mock import Mock
 
 from backend.utils.core.error_knowledge_base import ErrorKnowledgeBase, ErrorPattern

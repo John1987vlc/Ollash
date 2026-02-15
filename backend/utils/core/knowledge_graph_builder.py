@@ -116,7 +116,7 @@ class KnowledgeGraphBuilder:
                         self._add_edge(
                             doc_node_id, section_node_id,
                             'contains', 0.95,
-                            context=f"Section in document"
+                            context="Section in document"
                         )
                         stats['nodes_created'] += 1
                         stats['edges_created'] += 1

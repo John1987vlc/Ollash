@@ -1,10 +1,8 @@
 from typing import Dict, Any, List, Tuple
 from pathlib import Path
-from collections import defaultdict
 
 from backend.interfaces.iagent_phase import IAgentPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
-from backend.utils.domains.auto_generation.structure_generator import StructureGenerator # For extract_file_paths
 
 
 class TestGenerationExecutionPhase(IAgentPhase):

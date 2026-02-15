@@ -3,7 +3,7 @@ Specialized prompt templates for analyst and writer roles.
 These roles focus on synthesis, narrative composition, and document formatting.
 """
 
-from typing import Dict, Optional
+from typing import Optional
 
 
 class RolePromptTemplates:

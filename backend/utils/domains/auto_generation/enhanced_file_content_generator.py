@@ -1,8 +1,7 @@
 """Enhanced File Content Generator that uses logic plans for better implementation."""
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from pathlib import Path
-import json
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.services.llm_manager import OllamaClient
@@ -59,7 +58,7 @@ class EnhancedFileContentGenerator:
         
         # Build context for generation
         context = self._build_detailed_context(
-            file_path, purpose, exports, imports, main_logic, 
+            file_path, purpose, exports, imports, main_logic, validation,
             dependencies, related_files, readme, structure
         )
         
@@ -83,7 +82,7 @@ class EnhancedFileContentGenerator:
         return self._generate_fallback_skeleton(file_path, purpose, exports, imports)
     
     def _build_detailed_context(self, file_path: str, purpose: str, exports: List[str],
-                               imports: List[str], main_logic: List[str], 
+                               imports: List[str], main_logic: List[str], validation: List[str],
                                dependencies: List[str], related_files: Dict[str, str],
                                readme: str, structure: Dict[str, Any]) -> str:
         """Build detailed context for file generation."""
@@ -265,7 +264,7 @@ Generate ONLY the file content, no explanations."""
         file_ext = Path(file_path).suffix
         
         if file_ext == '.py':
-            imports_str = '\n'.join(f'from ... import ...' for _ in imports) if imports else ''
+            imports_str = '\n'.join('from ... import ...' for _ in imports) if imports else ''
             exports_parts = []
             for e in exports:
                 if '()' in e:
@@ -282,7 +281,7 @@ Generate ONLY the file content, no explanations."""
 {exports_str}
 '''
         elif file_ext == '.js' or file_ext == '.ts':
-            imports_str = '\n'.join(f'import {{ ... }} from "...";' for _ in imports) if imports else ''
+            imports_str = '\n'.join('import { ... } from "...";' for _ in imports) if imports else ''
             exports_parts = []
             for e in exports:
                 if '()' in e:
@@ -394,7 +393,7 @@ TODO: Implement {file_path}
         Preserves custom modifications while applying improvements.
         """
         
-        self.logger.info(f"  🔀 Merging improvements with existing content...")
+        self.logger.info("  🔀 Merging improvements with existing content...")
         
         # Generate improved version
         improved_prompt = f"""Improve this {file_path} while keeping all existing logic:

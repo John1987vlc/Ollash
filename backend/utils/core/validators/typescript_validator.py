@@ -1,6 +1,5 @@
 import re
 import shutil
-import tempfile
 from pathlib import Path
 from backend.utils.core.validators.base_validator import BaseValidator, ValidationResult, ValidationStatus
 

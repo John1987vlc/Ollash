@@ -3,7 +3,6 @@ Unit Tests for Role Prompt Templates
 Tests prompt templates for Analyst, Writer, and Orchestrator roles
 """
 
-import pytest
 
 from backend.agents.prompt_templates import RolePromptTemplates
 

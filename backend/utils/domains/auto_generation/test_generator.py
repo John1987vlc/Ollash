@@ -1,7 +1,6 @@
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 import json
-import re
 
 from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.agent_logger import AgentLogger

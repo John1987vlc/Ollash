@@ -1,7 +1,6 @@
 """Unit tests for PermissionProfiles module."""
 
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from backend.utils.core.permission_profiles import (

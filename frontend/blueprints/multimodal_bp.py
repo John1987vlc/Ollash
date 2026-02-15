@@ -3,22 +3,17 @@ Phase 5: Multimodal Input & OCR Blueprint
 REST API for OCR, document ingestion, and audio transcription
 """
 
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify
 from pathlib import Path
-import json
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 
-from backend.utils.core.ocr_processor import OCRProcessor, PDFOCRProcessor, OCRConfig
-from backend.utils.core.multimedia_ingester import MultimediaIngester, DocumentType
-from backend.utils.core.speech_transcriber import SpeechTranscriber, TranscriptionConfig
+from backend.utils.core.ocr_processor import OCRProcessor, PDFOCRProcessor
+from backend.utils.core.multimedia_ingester import MultimediaIngester
+from backend.utils.core.speech_transcriber import SpeechTranscriber
 from backend.core.kernel import AgentKernel # Import AgentKernel
 from backend.utils.core.agent_logger import AgentLogger # For type hinting
 
-from backend.utils.core.ocr_processor import OCRProcessor, PDFOCRProcessor, OCRConfig
-from backend.utils.core.multimedia_ingester import MultimediaIngester, DocumentType
-from backend.utils.core.speech_transcriber import SpeechTranscriber, TranscriptionConfig
-from backend.utils.core.structured_logger import StructuredLogger
 
 # Create blueprint
 multimodal_bp = Blueprint('multimodal', __name__, url_prefix='/api/multimodal')

@@ -9,11 +9,10 @@ Instead of simple toast notifications, this system generates:
 """
 
 import logging
-import json
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from enum import Enum
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 

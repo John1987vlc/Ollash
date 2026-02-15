@@ -6,10 +6,10 @@ Orchestrates multi-step refinement workflows and coordinates managers
 import json
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from pathlib import Path
-from .feedback_refinement_manager import FeedbackRefinementManager, ParagraphContext, RefinementRecord
-from .source_validator import SourceValidator, ValidationResult
+from .feedback_refinement_manager import FeedbackRefinementManager, ParagraphContext
+from .source_validator import SourceValidator
 
 
 @dataclass

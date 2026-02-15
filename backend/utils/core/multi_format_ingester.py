@@ -3,10 +3,8 @@ Multi-format document ingester for Knowledge Workspace.
 Converts PDF, DOCX, TXT, and Markdown files to indexed text.
 """
 
-import os
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-import json
+from typing import Dict, Optional
 
 from backend.utils.core.agent_logger import AgentLogger
 

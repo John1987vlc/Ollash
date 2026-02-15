@@ -1,7 +1,7 @@
 """Execution Plan tracking system for AutoAgent pipeline milestones."""
 
 from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 import json
@@ -190,6 +190,15 @@ class ExecutionPlan:
     def mark_complete(self) -> None:
         """Mark the entire execution plan as complete."""
         self.completion_time = datetime.now().isoformat()
+
+    def get_milestone_id_by_phase_class_name(self, phase_class_name: str) -> Optional[str]:
+        """
+        Retrieves the milestone ID for a given phase class name.
+        """
+        for milestone_id, milestone in self.milestones.items():
+            if milestone.phase_class == phase_class_name:
+                return milestone_id
+        return None
 
     def _get_milestone_info(self, phase_class_name: str, phase_index: int) -> Dict[str, Any]:
         """

@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List
+from typing import Dict
 from pathlib import Path # Added for Path.suffix
 from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.agent_logger import AgentLogger

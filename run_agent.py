@@ -13,16 +13,28 @@ Uso:
 
 from backend.agents.default_agent import DefaultAgent
 from colorama import Fore, Style, init
-from pathlib import Path # Added
+from pathlib import Path
+import sys
+
+# Ensure the backend is in the Python path
+project_root = Path(__file__).resolve().parent
+sys.path.insert(0, str(project_root))
+
+from backend.core.containers import main_container
+from backend.agents.auto_agent import AutoAgent
+
 
 def main():
     import argparse
-    import sys
 
-    # Inicializa colorama (clave para Windows)
+    # Initialize colorama
     init(autoreset=True)
 
+    # Wire the container for dependency injection
+    main_container.wire(modules=[__name__, "backend.agents.auto_agent"])
+
     parser = argparse.ArgumentParser(description="Code Agent (Ollama Tool Calling)")
+    # ... (parser arguments remain the same)
     parser.add_argument("--url", help="URL base de Ollama (ej: http://localhost:11434)")
     parser.add_argument("--model", help="Modelo a usar (ej: codellama:7b, mistral, llama3)")
     parser.add_argument("--timeout", type=int, help="Timeout en segundos")
@@ -35,11 +47,27 @@ def main():
     parser.add_argument("instruction", nargs="?", help="Instrucción directa")
     args = parser.parse_args()
 
-    base_path = Path(__file__).parent # The directory where run_agent.py is located
-    # Pass auto_confirm and project_root to the DefaultAgent constructor
-    agent = DefaultAgent(project_root=args.path, auto_confirm=args.auto, base_path=base_path)
+    if args.auto_create:
+        description = args.project_description
+        if not description:
+            description = input("Enter project description: ").strip()
+            if not description:
+                print("No description provided. Exiting.")
+                return
+        
+        try:
+            # Instantiate AutoAgent via the DI container
+            auto_agent: AutoAgent = main_container.auto_agent_module.auto_agent()
+            path = auto_agent.run(project_description=description, project_name=args.project_name)
+            print(f"\n{Fore.GREEN}Project created at: {path}{Style.RESET_ALL}")
+        except Exception as e:
+            print(f"\n{Fore.RED}An error occurred during project creation: {e}{Style.RESET_ALL}")
+        return
 
-    # Overrides por CLI
+    # DefaultAgent logic
+    agent = DefaultAgent(project_root=args.path, auto_confirm=args.auto, base_path=project_root)
+
+    # Overrides from CLI
     if args.url:
         agent.ollama.url = f"{args.url.rstrip('/')}/api/chat"
     if args.model:
@@ -55,35 +83,18 @@ def main():
     print(f"{Fore.CYAN}{'=' * 60}")
     sys.stdout.flush()
 
-            if args.auto_create:
-                from backend.agents.auto_agent import AutoAgent
-                auto_agent = AutoAgent()
-                description = args.project_description
-                if not description:
-                    description = input("Enter project description: ").strip()
-                    if not description:
-                        print("No description provided. Exiting.")
-                        return
-                path = auto_agent.run(description, project_name=args.project_name)
-                print(f"\n{Fore.GREEN}Project created at: {path}{Style.RESET_ALL}")
-                return
     if args.chat:
         agent.chat_mode()
-
     elif args.instruction:
         print(f"\n{Fore.YELLOW}Tú:{Style.RESET_ALL} {args.instruction}\n")
         sys.stdout.flush()
-
-        response = agent.chat(
-            args.instruction,
-            auto_confirm=args.auto
-        )
-
+        response = agent.chat(args.instruction, auto_confirm=args.auto)
         print(f"\n{Fore.GREEN}Agente:{Style.RESET_ALL}")
         print(response)
-
     else:
-        parser.print_help()
+        # If no other mode is specified, print help
+        if not args.auto_create:
+             parser.print_help()
 
 
 if __name__ == "__main__":

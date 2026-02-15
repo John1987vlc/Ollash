@@ -1,11 +1,7 @@
 from abc import ABC
-from typing import Dict, Any, List
+from typing import Dict, List
 import tiktoken # For token counting (example)
 
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.token_tracker import TokenTracker
-from backend.utils.core.event_publisher import EventPublisher
-from backend.interfaces.imodel_provider import IModelProvider
 
 
 class ContextSummarizerMixin(ABC):

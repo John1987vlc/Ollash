@@ -1,4 +1,4 @@
-from typing import Dict, List, Any, Callable # Added Callable
+from typing import Dict, List, Any # Added Callable
 import asyncio
 
 from backend.interfaces.itool_executor import IToolExecutor

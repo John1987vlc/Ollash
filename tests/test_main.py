@@ -16,7 +16,6 @@ Or run specific modules: pytest tests/agents/ -v
 """
 
 import pytest
-import sys
 from pathlib import Path
 
 

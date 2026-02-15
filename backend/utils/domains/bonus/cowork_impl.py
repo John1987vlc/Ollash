@@ -5,7 +5,7 @@ Handles document-to-task conversion, log analysis, and executive summarization.
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.documentation_manager import DocumentationManager
@@ -283,7 +283,7 @@ Content:
 {content}
 
 {f"Max length: {max_length} words" if max_length else ""}
-{f"Include an 'Recommended Actions' section" if include_recommendations else ""}
+{"Include an 'Recommended Actions' section" if include_recommendations else ""}
 
 {summary_type.upper()} SUMMARY:"""
 

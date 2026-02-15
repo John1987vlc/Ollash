@@ -1,12 +1,8 @@
 import json
-import logging
-import os
 import requests
-import traceback
 import asyncio
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-import uuid
 
 # Core Agent and Kernel
 from backend.agents.core_agent import CoreAgent
@@ -14,7 +10,6 @@ from backend.core.kernel import AgentKernel # Import AgentKernel
 from backend.core.config_schemas import LLMModelsConfig, ToolSettingsConfig # For type hinting
 
 # Utils from Core
-from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.file_manager import FileManager
 from backend.utils.core.command_executor import CommandExecutor, SandboxLevel
 from backend.utils.core.git_manager import GitManager
@@ -39,7 +34,6 @@ from backend.interfaces.imodel_provider import IModelProvider
 from backend.interfaces.itool_executor import IToolExecutor
 
 # Tool implementations (still needed for ToolRegistry)
-import backend.utils.domains # This import triggers the tool registration decorators
 from backend.utils.core.tool_interface import ToolExecutor # Concrete ToolExecutor
 
 from colorama import init, Fore, Style
@@ -115,7 +109,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
         self.event_publisher = self.event_publisher # From CoreAgent, used by mixins
 
         # Confirmation & Policy for ToolLoopMixin
-        self.confirmation_manager = confirmation_manager if confirmation_manager else ConfirmationManager(logger=self.logger, auto_confirm=self.auto_confirm)
+        self.confirmation_manager = confirmation_manager if confirmation_manager else ConfirmationManager(logger=self.logger, auto_confirm=self.auto_confirm, config=self.tool_settings_config)
         self.policy_enforcer = policy_enforcer if policy_enforcer else PolicyEnforcer(
             profile_manager=self.permission_manager,
             logger=self.logger,
@@ -135,6 +129,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
             git_manager=self.git_manager,
             code_analyzer=self.code_analyzer,
             tool_executor=None, # Temporarily set to None to avoid circular dependency
+            confirmation_manager=self.confirmation_manager # Pass confirmation_manager
         )
         self._all_tool_instances_mapping = self._tool_registry.get_tool_mapping()
         self._agent_tool_name_mappings = self._tool_registry.get_agent_tools()
@@ -402,7 +397,7 @@ RULES:
                                 except json.JSONDecodeError as e:
                                     self.logger.error(f"Failed to decode cached solution: {e}. Solution: {cached_solution}")
 
-                            self.logger.info(f"Escalating to small model for error analysis.")
+                            self.logger.info("Escalating to small model for error analysis.")
                             correction_client = self.llm_manager.get_client("self_correction")
                             if correction_client:
                                 correction_prompt = [
@@ -429,7 +424,7 @@ RULES:
                             else:
                                 self.logger.warning("Self-correction LLM client not available.")
 
-                            self.logger.info(f"Escalating to large model for deeper error analysis.")
+                            self.logger.info("Escalating to large model for deeper error analysis.")
                             # If self-correction fails, then we allow the original message
                             # to be re-processed or indicate human intervention.
                             if auto_confirm:
@@ -529,4 +524,3 @@ RULES:
         DefaultAgent uses chat_mode for interaction.
         """
         raise NotImplementedError("DefaultAgent is interactive via chat_mode, not meant to be called with run directly.")
-

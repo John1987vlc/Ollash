@@ -6,12 +6,11 @@ with dynamic quality metrics to guide improvement iterations.
 """
 
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from dataclasses import dataclass
 from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.llm_response_parser import LLMResponseParser
-from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 
 
 @dataclass

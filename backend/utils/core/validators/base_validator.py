@@ -166,7 +166,7 @@ class BaseValidator:
                 else:
                     parsed_errors = error_message.splitlines()
 
-                full_error_message = f"Linter errors:\n" + "\n".join(parsed_errors[:10])
+                full_error_message = "Linter errors:\n" + "\n".join(parsed_errors[:10])
                 if len(parsed_errors) > 10:
                     full_error_message += f"\n... ({len(parsed_errors) - 10} more errors)"
                 

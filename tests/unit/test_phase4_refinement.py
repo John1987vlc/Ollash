@@ -4,15 +4,11 @@ Tests for FeedbackRefinementManager, SourceValidator, and RefinementOrchestrator
 """
 
 import pytest
-import json
 import tempfile
-from pathlib import Path
-from datetime import datetime
 
 from backend.utils.core.feedback_refinement_manager import (
     FeedbackRefinementManager,
     ParagraphContext,
-    RefinementRecord,
 )
 from backend.utils.core.source_validator import (
     SourceValidator,
@@ -21,8 +17,6 @@ from backend.utils.core.source_validator import (
 )
 from backend.utils.core.refinement_orchestrator import (
     RefinementOrchestrator,
-    RefinementWorkflow,
-    RefinementStrategy,
 )
 
 

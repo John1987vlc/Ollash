@@ -1,8 +1,6 @@
 from abc import ABC
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 
-from backend.utils.core.agent_logger import AgentLogger
-from backend.interfaces.imodel_provider import IModelProvider # Assuming LLMClientManager implements IModelProvider
 
 
 class IntentRoutingMixin(ABC):
@@ -58,7 +56,7 @@ Classify the intent:"""}
                         self.logger.warning(f"LLM classified intent '{classified_intent}' is not a valid intent. Falling back to 'default'.")
                         return "default"
                 else:
-                    self.logger.warning(f"Orchestration model response for intent classification was empty or malformed. Falling back to 'default'.")
+                    self.logger.warning("Orchestration model response for intent classification was empty or malformed. Falling back to 'default'.")
                     return "default"
             except Exception as e:
                 self.logger.warning(f"Failed to classify intent using orchestration model: {e}. Falling back to default.")

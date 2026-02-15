@@ -1,6 +1,5 @@
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, List, Tuple
 from pathlib import Path
-import re
 from collections import defaultdict # NEW
 
 from backend.utils.core.agent_logger import AgentLogger
@@ -12,7 +11,7 @@ from backend.utils.core.event_publisher import EventPublisher
 from backend.utils.core.code_quarantine import CodeQuarantine
 from backend.utils.core.fragment_cache import FragmentCache
 from backend.utils.core.dependency_graph import DependencyGraph
-from backend.utils.core.parallel_generator import ParallelFileGenerator, GenerationTask # NEW
+from backend.utils.core.parallel_generator import ParallelFileGenerator # NEW
 from backend.utils.core.error_knowledge_base import ErrorKnowledgeBase
 from backend.utils.core.permission_profiles import PolicyEnforcer
 from backend.utils.core.scanners.rag_context_selector import RAGContextSelector # NEW
@@ -27,7 +26,6 @@ from backend.utils.domains.auto_generation.project_reviewer import ProjectReview
 from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
 from backend.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
 from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
-from backend.utils.domains.auto_generation.test_generator import TestGenerator
 from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
 from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
 from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
@@ -78,7 +76,7 @@ class PhaseContext:
                  contingency_planner: ContingencyPlanner,
                  structure_pre_reviewer: StructurePreReviewer,
                  generated_projects_dir: Path,
-                 auto_agent: Any, # Temporary for now, to allow calling _reconcile_requirements from AutoAgent
+                 auto_agent: Any = None, # Temporary for now, to allow calling _reconcile_requirements from AutoAgent
                  ):
         self.config = config
         self.logger = logger

@@ -6,7 +6,6 @@ Verifica que Invoke UI este accesible y funcionando correctamente
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Agregar raiz del proyecto al path

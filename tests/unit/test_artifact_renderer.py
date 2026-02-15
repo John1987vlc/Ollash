@@ -5,7 +5,7 @@ Tests artifact registration, rendering, and refactoring capabilities
 
 import pytest
 import json
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 
 class ArtifactRendererMock:
@@ -36,7 +36,7 @@ class ArtifactRendererMock:
         artifact = self.artifacts[id]
         
         # Return HTML representation
-        html = f"<div class='artifact'>"
+        html = "<div class='artifact'>"
         html += f"<h3>{artifact['metadata'].get('title', id)}</h3>"
         html += f"<p>Type: {artifact['type']}</p>"
         

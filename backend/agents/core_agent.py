@@ -1,12 +1,9 @@
 from abc import ABC, abstractmethod
 import json
-import os
 import re
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List
 
-from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.token_tracker import TokenTracker
 from backend.utils.core.llm_recorder import LLMRecorder
 from backend.utils.core.llm_response_parser import LLMResponseParser
@@ -21,14 +18,13 @@ from backend.utils.core.concurrent_rate_limiter import (
     SessionResourceManager,
 )
 from backend.utils.core.benchmark_model_selector import (
-    BenchmarkDatabase,
     AutoModelSelector,
 )
 from backend.utils.core.permission_profiles import PermissionProfileManager, PolicyEnforcer
 from backend.utils.core.automatic_learning import AutomaticLearningSystem
 from backend.utils.core.model_health_monitor import ModelHealthMonitor
 from backend.utils.core.cross_reference_analyzer import CrossReferenceAnalyzer # NEW
-from backend.services.llm_manager import LLMClientManager
+from backend.services.llm_client_manager import LLMClientManager
 from backend.core.kernel import AgentKernel
 
 
@@ -202,37 +198,30 @@ class CoreAgent(ABC):
             self.llm_manager = llm_manager
         else:
             self.llm_manager = LLMClientManager(
-                self.kernel.get_llm_models_config(),
-                self.kernel.get_tool_settings_config(), # NEW
-                self.logger,
-                self.ollash_root_dir,
-                session_resource_manager=self.session_resource_manager,
-                benchmark_selector=self.benchmark_selector,
-                llm_recorder=self.llm_recorder,
-                model_health_monitor=ModelHealthMonitor(
-                    logger=self.logger,
-                    config=self.config,
-                )
+                config=self.kernel.get_llm_models_config(),
+                tool_settings=self.kernel.get_tool_settings_config(),
+                logger=self.logger,
+                recorder=self.llm_recorder
             )
 
         self.logger.info(f"{logger_name} initialized with 6 architectural improvements and external LLM management.")
         self.logger.info(
-            f"  ✓ DependencyScanner (multi-language desoupling)"
+            "  ✓ DependencyScanner (multi-language desoupling)"
         )
         self.logger.info(
-            f"  ✓ RAGContextSelector (semantic context via ChromaDB)"
+            "  ✓ RAGContextSelector (semantic context via ChromaDB)"
         )
         self.logger.info(
-            f"  ✓ ConcurrentGPUAwareRateLimiter (GPU resource management)"
+            "  ✓ ConcurrentGPUAwareRateLimiter (GPU resource management)"
         )
         self.logger.info(
-            f"  ✓ BenchmarkModelSelector (auto model optimization)"
+            "  ✓ BenchmarkModelSelector (auto model optimization)"
         )
         self.logger.info(
-            f"  ✓ PermissionProfiles (fine-grained access control)"
+            "  ✓ PermissionProfiles (fine-grained access control)"
         )
         self.logger.info(
-            f"  ✓ AutomaticLearningSystem (post-mortem pattern capture)"
+            "  ✓ AutomaticLearningSystem (post-mortem pattern capture)"
         )
 
 

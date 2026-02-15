@@ -1,7 +1,6 @@
 """Unit tests for RAGContextSelector module."""
 
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from backend.utils.core.scanners.rag_context_selector import (
@@ -9,7 +8,6 @@ from backend.utils.core.scanners.rag_context_selector import (
     CodeFragment,
     SemanticContextManager,
 )
-from backend.utils.core.token_tracker import TokenTracker # Import TokenTracker
 
 
 @pytest.fixture
@@ -85,7 +83,7 @@ class TestRAGContextSelector:
         # Should not raise error
         try:
             selector.index_code_fragments(files)
-        except Exception as e:
+        except Exception:
             # ChromaDB might not be available, but indexing should be handled gracefully
             pass
 
@@ -108,7 +106,7 @@ class TestRAGContextSelector:
             assert isinstance(selected, dict)
             # Should not exceed max_files
             assert len(selected) <= 2
-        except Exception as e:
+        except Exception:
             # ChromaDB might not be available, which is acceptable in tests
             pass
 
@@ -173,7 +171,7 @@ class TestSemanticContextManager:
             
             # Should return context
             assert isinstance(context, (str, dict))
-        except Exception as e:
+        except Exception:
             # ChromaDB might not be available
             pass
 
@@ -197,6 +195,6 @@ class TestSemanticContextManager:
                 )
                 # Each phase should return valid context
                 assert context is not None
-            except Exception as e:
+            except Exception:
                 # ChromaDB setup might fail, but API should be available
                 pass

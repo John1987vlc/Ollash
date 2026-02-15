@@ -5,9 +5,8 @@ Tests automatic document indexing and monitoring
 
 import pytest
 import tempfile
-import time
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock
 
 from backend.utils.core.documentation_watcher import DocumentationWatcher
 from backend.utils.core.agent_logger import AgentLogger

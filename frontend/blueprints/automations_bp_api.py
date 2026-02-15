@@ -4,9 +4,7 @@ Automations API Blueprint - Exposes automation task management endpoints
 
 from flask import Blueprint, jsonify, request, current_app
 from pathlib import Path
-import json
 import logging
-import asyncio
 
 automations_api_bp = Blueprint('automations_api', __name__, url_prefix='/api/automations')
 logger = logging.getLogger(__name__)

@@ -75,6 +75,7 @@ class ToolRegistry:
         git_manager: GitManager,
         code_analyzer: CodeAnalyzer,
         tool_executor: Any, # The actual ToolExecutor instance will be passed here.
+        confirmation_manager: Any,
     ):
         self.logger = logger
         self.project_root = project_root
@@ -83,6 +84,7 @@ class ToolRegistry:
         self.git_manager = git_manager
         self.code_analyzer = code_analyzer
         self.tool_executor = tool_executor # The ToolExecutor that will use this registry
+        self.confirmation_manager = confirmation_manager
 
         self._loaded_toolsets: Dict[str, Any] = {} # To store instances of toolsets
 
@@ -93,7 +95,7 @@ class ToolRegistry:
         self._toolset_configs = {
             "file_system_tools": {
                 "class_path": "backend.utils.domains.code.file_system_tools.FileSystemTools",
-                "init_args": {"project_root": self.project_root, "file_manager": self.file_manager, "logger": self.logger, "tool_executor": self.tool_executor}
+                "init_args": {"project_root": self.project_root, "file_manager": self.file_manager, "logger": self.logger, "tool_executor": self.confirmation_manager}
             },
             "code_analysis_tools": {
                 "class_path": "backend.utils.domains.code.code_analysis_tools.CodeAnalysisTools",
@@ -105,7 +107,7 @@ class ToolRegistry:
             },
             "git_operations_tools": {
                 "class_path": "backend.utils.domains.git.git_operations_tools.GitOperationsTools",
-                "init_args": {"git_manager": self.git_manager, "logger": self.logger, "tool_executor": self.tool_executor}
+                "init_args": {"git_manager": self.git_manager, "logger": self.logger, "tool_executor": self.confirmation_manager}
             },
             "planning_tools": {
                 "class_path": "backend.utils.domains.planning.planning_tools.PlanningTools",

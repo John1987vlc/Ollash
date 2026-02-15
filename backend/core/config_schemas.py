@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, HttpUrl, PositiveInt, NonNegativeInt
 
 
@@ -16,38 +16,19 @@ class LLMModelDefinition(BaseModel):
 
 class LLMModelsConfig(BaseModel):
     ollama_url: HttpUrl = Field(default="http://localhost:11434", description="Base URL for the Ollama server.")
-    default_model: str = Field(default="ministral-3:8b", description="Default LLM model to use for general tasks.")
-    default_timeout: PositiveInt = Field(default=300, description="Default timeout for LLM requests in seconds.")
+    default_model: str = Field(default="mistral:latest", description="Default LLM model to use for general tasks.")
     default_temperature: float = Field(default=0.5, ge=0.0, le=1.0, description="Default temperature for LLM generation.")
     
-    # Specific model assignments
-    coding: Optional[str] = Field(None, description="Model for coding tasks.")
-    reasoning: Optional[str] = Field(None, description="Model for reasoning tasks.")
-    orchestration: Optional[str] = Field(None, description="Model for orchestration tasks.")
-    summarization: Optional[str] = Field(None, description="Model for summarization tasks.")
-    self_correction: Optional[str] = Field(None, description="Model for self-correction tasks.")
+    # NEW: Flexible role-to-model mapping
+    agent_roles: Dict[str, str] = Field(default_factory=dict, description="Mapping of agent roles (e.g., 'planner', 'coder') to specific model names.")
+
+    # Deprecated fields for specific tasks are removed in favor of agent_roles
+    
     embedding: Optional[str] = Field(None, description="Model for embedding generation.")
-
-    # Auto Agent specific model assignments and timeouts
-    prototyper_model: Optional[str] = None
-    coder_model_auto: Optional[str] = Field(None, alias="coder_model") # Using alias for existing config
-    planner_model: Optional[str] = None
-    generalist_model: Optional[str] = None
-    suggester_model: Optional[str] = None
-    improvement_planner_model: Optional[str] = None
-    senior_reviewer_model: Optional[str] = None
-
-    prototyper_timeout: Optional[PositiveInt] = Field(None, alias="prototyper")
-    coder_timeout: Optional[PositiveInt] = Field(None, alias="coder")
-    planner_timeout: Optional[PositiveInt] = Field(None, alias="planner")
-    generalist_timeout: Optional[PositiveInt] = Field(None, alias="generalist")
-    suggester_timeout: Optional[PositiveInt] = Field(None, alias="suggester")
-    improvement_planner_timeout: Optional[PositiveInt] = Field(None, alias="improvement_planner")
-    senior_reviewer_timeout: Optional[PositiveInt] = Field(None, alias="senior_reviewer")
+    embedding_cache_settings: EmbeddingCacheConfig = Field(default_factory=EmbeddingCacheConfig, alias="embedding_cache")
     
-    embedding_cache_settings: EmbeddingCacheConfig = Field(default_factory=EmbeddingCacheConfig, alias="embedding_cache") # NEW
+    default_timeout: PositiveInt = Field(300, description="Default timeout for LLM API calls in seconds.")
     
-    # Allow extra fields for flexibility, but warn
     class Config:
         extra = "allow"
 
@@ -138,6 +119,12 @@ class ToolSettingsConfig(BaseModel):
     ollama_backoff_factor: float = Field(1.0, description="Backoff factor for Ollama API call retries.")
     ollama_retry_status_forcelist: List[int] = Field([429, 500, 502, 503, 504], description="HTTP status codes that trigger retries for Ollama API calls.")
 
+    # Missing attributes from tests
+    git_auto_confirm_lines_threshold: PositiveInt = Field(5, description="Lines threshold for auto-confirming git operations.")
+    auto_confirm_minor_git_commits: bool = Field(False, description="Automatically confirm minor git commits.")
+    write_auto_confirm_lines_threshold: PositiveInt = Field(10, description="Lines threshold for auto-confirming write operations.")
+    auto_confirm_minor_writes: bool = Field(False, description="Automatically confirm minor file writes.")
+    critical_paths_patterns: List[str] = Field(default_factory=list, description="List of glob patterns for critical paths requiring explicit confirmation.")
 
     class Config:
         extra = "allow"

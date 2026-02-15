@@ -9,7 +9,7 @@ Benefit: Agent learns from its own corrections in real-time.
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 from datetime import datetime
 import hashlib
 from dataclasses import dataclass
@@ -291,7 +291,7 @@ class AutomaticLearningSystem:
             self.indexer.index_pattern(pattern)
 
             self.logger.info(
-                f"✅ Successfully processed and indexed correction pattern"
+                "✅ Successfully processed and indexed correction pattern"
             )
             return True
 

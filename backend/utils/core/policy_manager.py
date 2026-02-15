@@ -1,7 +1,7 @@
 import json
 import os # Added for os.path.realpath
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import re
 from backend.utils.core.license_checker import LicenseChecker
 

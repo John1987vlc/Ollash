@@ -14,15 +14,14 @@ Endpoints:
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Tuple
 
 from flask import Blueprint, request, jsonify
 
 from backend.utils.core.preference_manager_extended import (
     PreferenceManagerExtended,
     CommunicationStyle,
-    ComplexityLevel,
-    InteractionPreference
+    ComplexityLevel
 )
 from backend.utils.core.pattern_analyzer import PatternAnalyzer, SentimentType
 from backend.utils.core.behavior_tuner import BehaviorTuner, TuningParameter

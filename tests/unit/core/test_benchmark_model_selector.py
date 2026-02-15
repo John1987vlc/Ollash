@@ -3,7 +3,7 @@
 import pytest
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from backend.utils.core.benchmark_model_selector import (
     ModelBenchmarkResult,
@@ -18,7 +18,6 @@ def mock_logger():
     return MagicMock()
 
 
-import os
 import datetime # Added for timestamp
 
 @pytest.fixture

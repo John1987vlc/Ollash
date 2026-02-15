@@ -9,7 +9,6 @@ Generates intelligent reports at scheduled times (e.g., 9:00 AM) with:
 """
 
 import logging
-import json
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass, asdict
@@ -421,7 +420,7 @@ class ActivityReportGenerator:
             f"  <h1>{report.title}</h1>",
             f"  <p><em>Generated: {report.timestamp}</em></p>",
             f"  <div style='margin: 20px 0;'>Performance Score: <span class='score'>{report.performance_score:.0f}/100</span></div>",
-            f"  <h2>Summary</h2>",
+            "  <h2>Summary</h2>",
             f"  <p>{report.summary}</p>"
         ]
         

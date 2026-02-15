@@ -5,9 +5,8 @@ Analyzes project structure JSON to build a dependency graph,
 enabling intelligent file generation ordering and context selection.
 """
 
-import json
 from pathlib import Path
-from typing import Dict, List, Set, Optional, Tuple
+from typing import Dict, List, Set, Tuple
 from collections import defaultdict, deque
 from backend.utils.core.agent_logger import AgentLogger
 

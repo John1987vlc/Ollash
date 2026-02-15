@@ -60,7 +60,7 @@ def stream_alerts():
                     
                 except queue.Empty: # Use the imported queue.Empty
                     # Send heartbeat to keep connection alive
-                    yield f": heartbeat\n\n"
+                    yield ": heartbeat\n\n"
                     
         except GeneratorExit:
             logger.info("🔌 Client disconnected from alert stream")

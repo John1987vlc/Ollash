@@ -10,7 +10,7 @@ Extends the basic TriggerManager (src/utils/core/trigger_manager.py) with:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Any, Optional, Callable
 from enum import Enum
 from dataclasses import dataclass, asdict

@@ -5,11 +5,9 @@ Tests para CrossReferenceAnalyzer, KnowledgeGraphBuilder y DecisionContextManage
 import pytest
 from pathlib import Path
 import tempfile
-import json
 from unittest.mock import MagicMock # NEW
 from backend.utils.core.agent_logger import AgentLogger # NEW
 
-from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.cross_reference_analyzer import CrossReferenceAnalyzer
 from backend.utils.core.knowledge_graph_builder import KnowledgeGraphBuilder
 from backend.utils.core.decision_context_manager import DecisionContextManager

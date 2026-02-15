@@ -1,7 +1,6 @@
 """Unit tests for Dependency Scanner module."""
 
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from backend.utils.core.scanners.dependency_scanner import (

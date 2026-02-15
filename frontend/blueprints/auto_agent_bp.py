@@ -2,16 +2,18 @@
 import io
 import os
 import re
-import subprocess # Added for executing shell commands
+import subprocess
 import threading
-import time
 import zipfile
-from typing import List, Dict # NEW
+from typing import List, Dict
 
 from flask import Blueprint, jsonify, request, Response, stream_with_context, send_file
 from pathlib import Path
 
+# DI Container and Agent
+from backend.core.containers import main_container
 from backend.agents.auto_agent import AutoAgent
+
 from frontend.middleware import rate_limit_api, require_api_key
 from backend.utils.core.event_publisher import EventPublisher
 from frontend.services.chat_event_bridge import ChatEventBridge
@@ -19,53 +21,50 @@ from frontend.services.chat_event_bridge import ChatEventBridge
 
 auto_agent_bp = Blueprint("auto_agent", __name__)
 
-# Initialized lazily via init_app()
-_auto_agent: AutoAgent = None
+# Globals for shared services
 _ollash_root_dir: Path = None
 _event_publisher: EventPublisher = None
 _chat_event_bridge: ChatEventBridge = None
 
 
 def init_app(ollash_root_dir: Path, event_publisher: EventPublisher, chat_event_bridge: ChatEventBridge):
-    """Initialize the AutoAgent instance for this blueprint."""
-    global _auto_agent, _ollash_root_dir, _event_publisher, _chat_event_bridge
+    """Initialize shared services for the blueprint and wire the DI container."""
+    global _ollash_root_dir, _event_publisher, _chat_event_bridge
     _ollash_root_dir = ollash_root_dir
     _event_publisher = event_publisher
     _chat_event_bridge = chat_event_bridge
-    config_path = ollash_root_dir / "config" / "settings.json"
-    _auto_agent = AutoAgent(config_path=str(config_path), ollash_root_dir=ollash_root_dir)
+    
+    # Wire the container to the modules that will use injected dependencies
+    main_container.wire(modules=[__name__, "backend.agents.auto_agent"])
 
 
 @auto_agent_bp.route("/api/projects/generate_structure", methods=["POST"])
 @require_api_key
 @rate_limit_api
 def generate_project_structure():
+    # ... (form data parsing remains the same)
     project_description = request.form.get("project_description")
     project_name = request.form.get("project_name")
-    template_name = request.form.get("template_name", "default")
-    python_version = request.form.get("python_version")
-    license_type = request.form.get("license_type")
-    include_docker = request.form.get("include_docker") == "true"
-
+    
     if not project_description or not project_name:
         return jsonify({"status": "error", "message": "Project description and name are required."}), 400
 
     try:
-        local_auto_agent = AutoAgent(
-            config_path=str(_ollash_root_dir / "config" / "settings.json"),
-            ollash_root_dir=_ollash_root_dir
-        )
-        # Use a temporary event publisher for this synchronous call
-        temp_event_publisher = EventPublisher()
-        local_auto_agent.event_publisher = temp_event_publisher
+        # Instantiate the agent via the DI container
+        local_auto_agent: AutoAgent = main_container.auto_agent_module.auto_agent()
+        
+        # Collect kwargs for the agent method
+        kwargs = {
+            "template_name": request.form.get("template_name", "default"),
+            "python_version": request.form.get("python_version"),
+            "license_type": request.form.get("license_type"),
+            "include_docker": request.form.get("include_docker") == "true"
+        }
 
         readme, structure_json = local_auto_agent.generate_structure_only(
             project_description,
             project_name,
-            template_name=template_name,
-            python_version=python_version,
-            license_type=license_type,
-            include_docker=include_docker
+            **kwargs
         )
         return jsonify({
             "status": "structure_generated",
@@ -74,7 +73,9 @@ def generate_project_structure():
             "structure": structure_json
         })
     except Exception as e:
-        _auto_agent.logger.error(f"[PROJECT_STATUS] Error generating structure for '{project_name}': {e}")
+        # Log the exception using the agent's logger if possible, otherwise a default logger
+        logger = main_container.core.logger()
+        logger.error(f"[PROJECT_STATUS] Error generating structure for '{project_name}': {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -82,55 +83,50 @@ def generate_project_structure():
 @require_api_key
 @rate_limit_api
 def create_project():
+    # ... (form data parsing remains the same)
     project_description = request.form.get("project_description")
     project_name = request.form.get("project_name")
-    template_name = request.form.get("template_name", "default")
-    python_version = request.form.get("python_version")
-    license_type = request.form.get("license_type")
-    include_docker = request.form.get("include_docker") == "true"
-    generated_structure_str = request.form.get("generated_structure")
-    generated_readme = request.form.get("generated_readme")
 
-    if not project_description or not project_name or not generated_structure_str or not generated_readme:
-        return jsonify({"status": "error", "message": "Missing required project details or generated structure/readme."}), 400
+    if not project_description or not project_name:
+        return jsonify({"status": "error", "message": "Missing required project details."}), 400
 
-    try:
-        generated_structure = json.loads(generated_structure_str)
-    except json.JSONDecodeError:
-        return jsonify({"status": "error", "message": "Invalid generated_structure JSON."}), 400
-
-    def run_agent():
-        local_auto_agent = AutoAgent(
-            config_path=str(_ollash_root_dir / "config" / "settings.json"),
-            ollash_root_dir=_ollash_root_dir
-        )
-        local_auto_agent.event_publisher = _event_publisher
-
+    def run_agent_in_thread():
+        """Target function for the background thread."""
         try:
-            local_auto_agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' generation continuing with provided structure. "
-                                        f"Advanced config: Python={python_version}, License={license_type}, Docker={include_docker}")
-            project_root = local_auto_agent.continue_generation(
-                project_description,
-                project_name,
-                generated_readme,
-                generated_structure,
-                template_name=template_name,
-                python_version=python_version,
-                license_type=license_type,
-                include_docker=include_docker
-            )
-            local_auto_agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' created at {project_root}")
+            # Instantiate the agent inside the thread via the DI container
+            agent: AutoAgent = main_container.auto_agent_module.auto_agent()
+            
+            # Hook up the global event publisher for this long-running task
+            agent.event_publisher = _event_publisher
+            
+            agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' generation starting in background.")
+
+            run_kwargs = {
+                "project_description": project_description,
+                "project_name": project_name,
+                "template_name": request.form.get("template_name", "default"),
+                "python_version": request.form.get("python_version"),
+                "license_type": request.form.get("license_type"),
+                "include_docker": request.form.get("include_docker") == "true",
+                "num_refine_loops": int(request.form.get("num_refine_loops", 0))
+            }
+
+            project_root = agent.run(**run_kwargs)
+            
+            agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' created at {project_root}")
             _chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' completed."})
         except Exception as e:
-            local_auto_agent.logger.error(f"[PROJECT_STATUS] Error creating project '{project_name}': {e}")
+            logger = main_container.core.logger()
+            logger.error(f"[PROJECT_STATUS] Error creating project '{project_name}': {e}", exc_info=True)
             _chat_event_bridge.push_event("error", {"message": f"Error creating project: {e}"})
 
-    thread = threading.Thread(target=run_agent, daemon=True)
+    # Run the agent in a background thread
+    thread = threading.Thread(target=run_agent_in_thread, daemon=True)
     thread.start()
 
     return jsonify({"status": "started", "message": "Project creation started in background.", "project_name": project_name})
 
-
+# ... (the rest of the file remains the same)
 @auto_agent_bp.route("/api/projects/stream/<project_name>")
 def stream_project_logs(project_name):
     # This route will now stream events directly from ChatEventBridge
@@ -334,7 +330,9 @@ def get_project_issues(project_name):
                 parsed_issues = _parse_issue_markdown(content)
                 all_issues.extend(parsed_issues)
             except Exception as e:
-                _auto_agent.logger.error(f"Error parsing issue file {issue_file_path}: {e}")
+                # Use a reliable logger
+                logger = main_container.core.logger()
+                logger.error(f"Error parsing issue file {issue_file_path}: {e}")
                 # Continue to next file even if one fails to parse
 
     return jsonify({"status": "success", "issues": all_issues})

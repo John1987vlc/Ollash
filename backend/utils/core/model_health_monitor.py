@@ -5,7 +5,6 @@ This module provides a class to monitor the health of the Ollama models,
 including latency, error rates, and availability.
 """
 
-import time
 from collections import deque
 from typing import Dict, Any
 

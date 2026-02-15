@@ -560,7 +560,6 @@ class FeedbackCycleManager:
         """Apply a specific feedback correction."""
         if feedback.suggested_correction:
             # Simple approach: look for similar text and replace
-            import difflib
             
             excerpt = feedback.content_excerpt
             if excerpt in content:

@@ -4,7 +4,6 @@ Unit tests for FragmentCache system.
 
 import pytest
 import json
-from pathlib import Path
 from unittest.mock import Mock
 
 from backend.utils.core.fragment_cache import FragmentCache

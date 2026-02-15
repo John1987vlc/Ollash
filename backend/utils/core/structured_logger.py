@@ -1,7 +1,6 @@
 import logging
 import logging.handlers
 import json
-import os
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 import threading # For thread-local correlation ID

@@ -1,5 +1,4 @@
 import logging
-import json
 import traceback
 from typing import Dict, Optional, Any
 from colorama import init, Fore, Style # Still used for console output in chat_mode, not for file logs
@@ -8,7 +7,7 @@ from colorama import init, Fore, Style # Still used for console output in chat_m
 init(autoreset=True)
 
 # Import the new StructuredLogger and correlation ID functions
-from backend.utils.core.structured_logger import StructuredLogger, get_correlation_id
+from backend.utils.core.structured_logger import StructuredLogger
 
 
 class AgentLogger:
