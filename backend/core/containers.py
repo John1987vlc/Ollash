@@ -5,14 +5,17 @@ from pathlib import Path
 from dependency_injector import containers, providers
 
 from backend.agents.auto_agent import AutoAgent
+from backend.agents.auto_agent_phases.cicd_healing_phase import CICDHealingPhase
 from backend.agents.auto_agent_phases.code_quarantine_phase import CodeQuarantinePhase
 from backend.agents.auto_agent_phases.content_completeness_phase import ContentCompletenessPhase
 from backend.agents.auto_agent_phases.dependency_reconciliation_phase import DependencyReconciliationPhase
+from backend.agents.auto_agent_phases.documentation_deploy_phase import DocumentationDeployPhase
 from backend.agents.auto_agent_phases.empty_file_scaffolding_phase import EmptyFileScaffoldingPhase
 from backend.agents.auto_agent_phases.exhaustive_review_repair_phase import ExhaustiveReviewRepairPhase
 from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
 from backend.agents.auto_agent_phases.file_refinement_phase import FileRefinementPhase
 from backend.agents.auto_agent_phases.final_review_phase import FinalReviewPhase
+from backend.agents.auto_agent_phases.infrastructure_generation_phase import InfrastructureGenerationPhase
 from backend.agents.auto_agent_phases.iterative_improvement_phase import IterativeImprovementPhase
 from backend.agents.auto_agent_phases.license_compliance_phase import LicenseCompliancePhase
 from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
@@ -21,6 +24,7 @@ from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningP
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.agents.auto_agent_phases.project_analysis_phase import ProjectAnalysisPhase
 from backend.agents.auto_agent_phases.readme_generation_phase import ReadmeGenerationPhase
+from backend.agents.auto_agent_phases.security_scan_phase import SecurityScanPhase
 from backend.agents.auto_agent_phases.senior_review_phase import SeniorReviewPhase
 from backend.agents.auto_agent_phases.structure_generation_phase import StructureGenerationPhase
 from backend.agents.auto_agent_phases.structure_pre_review_phase import StructurePreReviewPhase
@@ -32,12 +36,14 @@ from backend.core.config import config
 from backend.core.kernel import AgentKernel
 from backend.services.llm_client_manager import LLMClientManager
 from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.cicd_healer import CICDHealer
 from backend.utils.core.code_quarantine import CodeQuarantine
 from backend.utils.core.command_executor import CommandExecutor
 from backend.utils.core.dependency_graph import DependencyGraph
 from backend.utils.core.documentation_manager import DocumentationManager
 from backend.utils.core.error_knowledge_base import ErrorKnowledgeBase
 from backend.utils.core.event_publisher import EventPublisher
+from backend.utils.core.export_manager import ExportManager
 from backend.utils.core.file_manager import FileManager
 from backend.utils.core.file_validator import FileValidator
 from backend.utils.core.fragment_cache import FragmentCache
@@ -46,6 +52,7 @@ from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.parallel_generator import ParallelFileGenerator
 from backend.utils.core.permission_profiles import PermissionProfileManager, PolicyEnforcer
 from backend.utils.core.scanners.rag_context_selector import RAGContextSelector
+from backend.utils.core.vulnerability_scanner import VulnerabilityScanner
 
 # Core Utilities
 from backend.utils.core.structured_logger import StructuredLogger
@@ -55,6 +62,7 @@ from backend.utils.domains.auto_generation.file_content_generator import FileCon
 from backend.utils.domains.auto_generation.file_refiner import FileRefiner
 from backend.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
 from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
+from backend.utils.domains.auto_generation.infra_generator import InfraGenerator
 from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
 
 # Specialized AutoAgent services
@@ -153,6 +161,17 @@ class CoreContainer(containers.DeclarativeContainer):
         logger=logger,
     )
 
+    vulnerability_scanner = providers.Singleton(
+        VulnerabilityScanner,
+        logger=logger,
+    )
+
+    export_manager = providers.Singleton(
+        ExportManager,
+        command_executor=command_executor,
+        logger=logger,
+    )
+
 
 class AutoAgentContainer(containers.DeclarativeContainer):
     """Container for AutoAgent and its specific dependencies."""
@@ -247,6 +266,20 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         parser=core.response_parser,
     )
 
+    cicd_healer = providers.Factory(
+        CICDHealer,
+        logger=core.logger,
+        command_executor=core.command_executor,
+        llm_client=llm_client_manager.provided.get_client.call("coder"),
+    )
+
+    infra_generator = providers.Factory(
+        InfraGenerator,
+        llm_client=llm_client_manager.provided.get_client.call("prototyper"),
+        logger=core.logger,
+        response_parser=core.response_parser,
+    )
+
     # --- PhaseContext Provider ---
     phase_context = providers.Factory(
         PhaseContext,
@@ -279,6 +312,11 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         contingency_planner=contingency_planner,
         structure_pre_reviewer=structure_pre_reviewer,
         generated_projects_dir=core.generated_projects_dir,
+        cicd_healer=cicd_healer,
+        vulnerability_scanner=core.vulnerability_scanner,
+        export_manager=core.export_manager,
+        infra_generator=infra_generator,
+        command_executor=core.command_executor,
     )
 
     project_analysis_phase_factory = providers.Factory(ProjectAnalysisPhase, context=phase_context)
@@ -294,11 +332,15 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         providers.Factory(FileRefinementPhase, context=phase_context),
         providers.Factory(VerificationPhase, context=phase_context),
         providers.Factory(CodeQuarantinePhase, context=phase_context),
+        providers.Factory(SecurityScanPhase, context=phase_context),
         providers.Factory(LicenseCompliancePhase, context=phase_context),
         providers.Factory(DependencyReconciliationPhase, context=phase_context),
         providers.Factory(TestGenerationExecutionPhase, context=phase_context),
+        providers.Factory(InfrastructureGenerationPhase, context=phase_context),
         providers.Factory(ExhaustiveReviewRepairPhase, context=phase_context),
         providers.Factory(FinalReviewPhase, context=phase_context),
+        providers.Factory(CICDHealingPhase, context=phase_context),
+        providers.Factory(DocumentationDeployPhase, context=phase_context),
         providers.Factory(IterativeImprovementPhase, context=phase_context),
         providers.Factory(ContentCompletenessPhase, context=phase_context),
         providers.Factory(SeniorReviewPhase, context=phase_context),

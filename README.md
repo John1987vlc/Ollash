@@ -13,8 +13,8 @@
 ## Key Features
 
 - **Interactive CLI** &mdash; Chat-based interface with intent classification, automatic agent-type selection, and semantic loop detection.
-- **Autonomous Project Generation (AutoAgent)** &mdash; Generate complete software projects from natural language descriptions using a multi-phase pipeline with 18+ specialized phases.
-- **Web UI** &mdash; Flask-based dashboard for chatting with agents, generating projects, monitoring the system, managing automations, and viewing artifacts.
+- **Autonomous Project Generation (AutoAgent)** &mdash; Generate complete software projects from natural language descriptions using a multi-phase pipeline with 22+ specialized phases.
+- **Web UI** &mdash; Flask-based dashboard for chatting with agents, generating projects, cloning Git repositories, monitoring the system, managing automations, and viewing artifacts.
 - **Specialized Agents** &mdash; Domain agents for code, network, system, cybersecurity, and orchestration, each with curated prompts and tool sets.
 - **Knowledge Workspace** &mdash; ChromaDB-backed RAG context selection, knowledge graph building, cross-reference analysis, and decision memory.
 - **Proactive Automation** &mdash; Trigger-based automation with scheduling (APScheduler), real-time alerts, webhook notifications (Slack, Discord, Teams), and system monitoring.
@@ -80,6 +80,81 @@
 |---|---------|-------------|-----------|
 | F10 | **Load Simulation & Benchmarking** | HTTP benchmarking, script profiling. Generates performance reports. Optional phase in pipeline. | `backend/utils/core/load_simulator.py`, `backend/agents/auto_agent_phases/performance_testing_phase.py` |
 | F19 | **WebAssembly Sandbox** | Isolated test execution via wasmtime/wasmer. Fallback to subprocess. Memory limits. Auto-cleanup. | `backend/utils/core/wasm_sandbox.py` |
+
+---
+
+## 6 Integrated Pipeline Features
+
+These features integrate existing standalone utilities into the AutoAgent phase pipeline, adding 4 new phases and enhancing existing ones.
+
+### Feature 1: CI/CD Auto-Healing Phase
+
+Automatic post-push CI/CD monitoring and self-healing. After `git push`, the pipeline monitors GitHub Actions, analyzes failures, generates fix patches via `CICDHealer`, and auto-commits repairs (max 3 attempts).
+
+```bash
+# Enabled automatically when git_push=True
+python auto_agent.py --description "My API" --name myapi \
+    --git-push --repo-name myapi --git-token ghp_xxx
+```
+
+**Key file:** `backend/agents/auto_agent_phases/cicd_healing_phase.py`
+
+### Feature 2: Infrastructure Generation Phase
+
+Generates Docker, Kubernetes, Terraform, GitHub Actions deploy workflows, and Dependabot configuration based on detected project stack. Optionally sets up GitHub Secrets via `gh secret set`.
+
+```bash
+python auto_agent.py --description "Flask API with PostgreSQL" --name myapi --include-infra
+```
+
+Generated artifacts: `Dockerfile`, `docker-compose.yml`, `k8s/deployment.yml`, `terraform/main.tf`, `.github/workflows/deploy.yml`, `.github/dependabot.yml`
+
+**Key file:** `backend/agents/auto_agent_phases/infrastructure_generation_phase.py`
+
+### Feature 3: Senior Review as Pull Request
+
+Enhanced Senior Review phase that can open a GitHub PR with review findings, post file-specific issues as PR comments, and publish coherence scores with ruff metrics.
+
+```bash
+python auto_agent.py --description "My project" --name myproj \
+    --git-push --git-token ghp_xxx --senior-review-as-pr
+```
+
+**Key file:** `backend/agents/auto_agent_phases/senior_review_phase.py`
+
+### Feature 4: Security Scan Phase
+
+Runs `VulnerabilityScanner` on all generated files, produces `SECURITY_SCAN_REPORT.md` with severity breakdown, generates `.github/dependabot.yml`, and optionally blocks the pipeline on critical findings.
+
+```bash
+# Block on critical vulnerabilities
+python auto_agent.py --description "Banking API" --name bank \
+    --block-security-critical
+```
+
+**Key file:** `backend/agents/auto_agent_phases/security_scan_phase.py`
+
+### Feature 5: Documentation Deploy Phase
+
+Automated GitHub Wiki initialization, GitHub Pages deployment workflow, and CI/Security/License badge insertion into README.md. Runs post-push when `git_push=True`.
+
+```bash
+python auto_agent.py --description "My project" --name myproj \
+    --git-push --git-token ghp_xxx \
+    --enable-github-wiki --enable-github-pages
+```
+
+**Key file:** `backend/agents/auto_agent_phases/documentation_deploy_phase.py`
+
+### Feature 6: Clone from Git (Web UI)
+
+Clone existing Git repositories directly from the Web UI. Validates URLs (HTTPS/git:// only), infers project names, and integrates cloned projects into the dashboard.
+
+**Web UI:** Click "Clone from Git" button, enter repository URL, optionally specify a project name.
+
+**API:** `POST /api/projects/clone` with `git_url` and optional `project_name`.
+
+**Key files:** `backend/utils/core/input_validators.py`, `frontend/blueprints/auto_agent_bp.py`
 
 ---
 
@@ -165,7 +240,7 @@ The maintenance cycle records its outcomes in the `ErrorKnowledgeBase`, allowing
                       │           │
           ┌───────────┴──┐  ┌────┴───────────┐
           │ DefaultAgent │  │   AutoAgent     │
-          │ (CLI chat)   │  │ (18-phase       │
+          │ (CLI chat)   │  │ (22-phase       │
           │              │  │  pipeline)      │
           └──────┬───────┘  └────┬───────────┘
                  │               │
@@ -191,33 +266,32 @@ The maintenance cycle records its outcomes in the `ErrorKnowledgeBase`, allowing
 
 ### AutoAgent Pipeline
 
-The AutoAgent runs projects through 18+ specialized phases:
+The AutoAgent runs projects through 22+ specialized phases:
 
-| Phase | Description |
-|---|---|
-| Project Analysis | Analyze requirements and existing code |
-| README Generation | Create project documentation |
-| Structure Generation | Design directory and file layout |
-| Structure Pre-Review | Validate proposed structure |
-| Logic Planning | Plan implementation strategy per file |
-| File Content Generation | Generate source code (parallel, dependency-aware) |
-| Content Completeness | Verify all files have meaningful content |
-| Empty File Scaffolding | Fill any remaining stubs |
-| File Refinement | Refine code quality |
-| Dependency Reconciliation | Resolve cross-file dependencies |
-| License Compliance | Check and add license headers |
-| Code Quarantine | Isolate problematic code |
-| Iterative Improvement | Loop: suggest improvements, plan, implement |
-| Test Generation & Execution | Generate and run tests with retry on failure |
-| Exhaustive Review & Repair | Deep review, coherence scoring, targeted fixes |
-| Senior Review | Multi-attempt review with fallback refinement |
-| Verification | Final verification pass |
-| Final Review | Generate project review + Git decision gate |
-| Refactoring Phase *(F3)* | SOLID analysis and automatic refactoring |
-| Infrastructure Generation *(F6)* | Terraform/K8s/Docker IaC |
-| Documentation Translation *(F18)* | Multilingual README generation |
-| Performance Testing *(F10)* | Load simulation and benchmarking |
-| UI Review *(F4)* | Multimodal UI/UX analysis |
+| # | Phase | Description |
+|---|---|---|
+| 1 | README Generation | Create project documentation |
+| 2 | Structure Generation | Design directory and file layout |
+| 3 | Logic Planning | Plan implementation strategy per file |
+| 4 | Structure Pre-Review | Validate proposed structure |
+| 5 | Empty File Scaffolding | Fill any remaining stubs |
+| 6 | File Content Generation | Generate source code (parallel, dependency-aware) |
+| 7 | File Refinement | Refine code quality |
+| 8 | Verification | Final verification pass |
+| 9 | Code Quarantine | Isolate problematic code |
+| 10 | **Security Scan** | Vulnerability scanning, dependabot config, security report |
+| 11 | License Compliance | Check and add license headers |
+| 12 | Dependency Reconciliation | Resolve cross-file dependencies |
+| 13 | Test Generation & Execution | Generate and run tests with retry on failure |
+| 14 | **Infrastructure Generation** | Docker, K8s, Terraform, deploy workflows, dependabot |
+| 15 | Exhaustive Review & Repair | Deep review, coherence scoring, targeted fixes |
+| 16 | Final Review | Generate project review + Git decision gate |
+| 17 | **CI/CD Healing** | Monitor CI, analyze failures, auto-fix and re-push |
+| 18 | **Documentation Deploy** | Wiki, GitHub Pages, badges |
+| 19 | Iterative Improvement | Loop: suggest improvements, plan, implement |
+| 20 | Content Completeness | Verify all files have meaningful content |
+| 21 | Senior Review | Multi-attempt review with PR mode |
+| 22 | Refactoring Phase | SOLID analysis and automatic refactoring |
 
 ### Tool Domains
 
@@ -242,7 +316,7 @@ Tools are auto-discovered via the `@ollash_tool` decorator and lazy-loaded on fi
 Ollash/
 ├── backend/
 │   ├── agents/              # Agent implementations
-│   │   ├── auto_agent_phases/   # 18+ AutoAgent phases
+│   │   ├── auto_agent_phases/   # 22+ AutoAgent phases
 │   │   ├── mixins/              # Context summarizer, intent routing, tool loop
 │   │   ├── core_agent.py        # Abstract base agent
 │   │   ├── default_agent.py     # Interactive CLI agent
@@ -256,8 +330,9 @@ Ollash/
 │       │   ├── checkpoint_manager.py       # Phase checkpoint system
 │       │   ├── cost_analyzer.py            # Model cost tracking
 │       │   ├── episodic_memory.py          # Long-term agent memory
-│       │   ├── export_manager.py           # Multi-target export
+│       │   ├── export_manager.py           # Multi-target export + wiki/pages/badges
 │       │   ├── git_pr_tool.py              # Automated PR workflows
+│       │   ├── input_validators.py         # Git URL & project name validation
 │       │   ├── load_simulator.py           # Performance benchmarking
 │       │   ├── multi_agent_orchestrator.py # Parallel generation
 │       │   ├── pair_programming_session.py # Live coding sessions
@@ -368,6 +443,14 @@ python auto_agent.py --description "Microservice API" --name api --include-infra
 
 # Generate with multilingual docs
 python auto_agent.py --description "Dashboard app" --name dash --languages en,es,zh
+
+# Generate with security blocking on critical findings
+python auto_agent.py --description "Banking API" --name bank --block-security-critical
+
+# Generate with Senior Review as PR + wiki + pages
+python auto_agent.py --description "My project" --name myproj \
+    --git-push --git-token ghp_xxx \
+    --senior-review-as-pr --enable-github-wiki --enable-github-pages
 
 # Web UI at http://localhost:5000
 python run_web.py

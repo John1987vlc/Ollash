@@ -1478,6 +1478,49 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ==================== Clone Project ====================
+    const cloneBtn = document.getElementById('clone-project-btn');
+    if (cloneBtn) {
+        cloneBtn.addEventListener('click', function () {
+            const gitUrl = prompt('Enter the Git repository URL to clone:');
+            if (!gitUrl) return;
+
+            const projectName = prompt('Project name (leave empty to infer from URL):', '');
+
+            const formData = new FormData();
+            formData.append('git_url', gitUrl);
+            if (projectName) formData.append('project_name', projectName);
+
+            cloneBtn.disabled = true;
+            cloneBtn.textContent = 'Cloning...';
+
+            fetch('/api/projects/clone', { method: 'POST', body: formData })
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data.status === 'success') {
+                        alert('Project "' + data.project_name + '" cloned successfully!');
+                        // Refresh project list
+                        if (typeof loadProjectList === 'function') loadProjectList();
+                        var sel = document.getElementById('existing-projects');
+                        if (sel) {
+                            // Trigger change after list refresh
+                            setTimeout(function () {
+                                sel.value = data.project_name;
+                                sel.dispatchEvent(new Event('change'));
+                            }, 1000);
+                        }
+                    } else {
+                        alert('Clone failed: ' + data.message);
+                    }
+                })
+                .catch(function (err) { alert('Clone error: ' + err.message); })
+                .finally(function () {
+                    cloneBtn.disabled = false;
+                    cloneBtn.textContent = 'Clone from Git';
+                });
+        });
+    }
+
     // ==================== Chat Persistence (localStorage) ====================
     function saveChatHistory() {
         const messages = document.getElementById('chat-messages');

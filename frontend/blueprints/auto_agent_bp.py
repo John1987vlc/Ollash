@@ -125,6 +125,16 @@ def create_project():
                 "license_type": request.form.get("license_type"),
                 "include_docker": request.form.get("include_docker") == "true",
                 "num_refine_loops": int(request.form.get("num_refine_loops", 0)),
+                # Git & CI/CD options
+                "git_push": request.form.get("git_push") == "true",
+                "git_token": request.form.get("git_token", ""),
+                "repo_name": request.form.get("repo_name", project_name),
+                "git_organization": request.form.get("git_organization", ""),
+                # Feature flags
+                "senior_review_as_pr": request.form.get("senior_review_as_pr") == "true",
+                "enable_github_wiki": request.form.get("enable_github_wiki") == "true",
+                "enable_github_pages": request.form.get("enable_github_pages") == "true",
+                "block_security_critical": request.form.get("block_security_critical") == "true",
             }
 
             project_root = agent.run(**run_kwargs)
@@ -349,6 +359,90 @@ def export_project_zip(project_name):
         as_attachment=True,
         download_name=f"{project_name}.zip",
     )
+
+
+@auto_agent_bp.route("/api/projects/clone", methods=["POST"])
+@require_api_key
+@rate_limit_api
+def clone_project():
+    """Clone an existing git repository into the generated_projects directory."""
+    from backend.utils.core.input_validators import validate_git_url, validate_project_name
+
+    git_url = request.form.get("git_url", "").strip()
+
+    if not git_url:
+        return jsonify({"status": "error", "message": "Git URL is required."}), 400
+
+    if not validate_git_url(git_url):
+        return jsonify({"status": "error", "message": "Invalid or unsupported git URL."}), 400
+
+    # Derive project name from URL if not provided
+    project_name = request.form.get("project_name", "").strip()
+    if not project_name:
+        project_name = git_url.rstrip("/").split("/")[-1].replace(".git", "")
+
+    if not validate_project_name(project_name):
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Invalid project name. Use alphanumeric, hyphens, or underscores.",
+                }
+            ),
+            400,
+        )
+
+    projects_dir = _ollash_root_dir / "generated_projects" / "auto_agent_projects"
+    target_path = projects_dir / project_name
+
+    if target_path.exists():
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": f"Project '{project_name}' already exists.",
+                }
+            ),
+            409,
+        )
+
+    try:
+        logger = main_container.core.logger()
+        logger.info(f"Cloning {git_url} to {target_path}")
+
+        projects_dir.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(
+            ["git", "clone", git_url, str(target_path)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+
+        if result.returncode != 0:
+            error = result.stderr.strip() or "Unknown error"
+            logger.error(f"Clone failed: {error}")
+            return (
+                jsonify({"status": "error", "message": f"Git clone failed: {error}"}),
+                500,
+            )
+
+        logger.info(f"Successfully cloned {git_url} as {project_name}")
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Project '{project_name}' cloned successfully.",
+                "project_name": project_name,
+            }
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            jsonify({"status": "error", "message": "Git clone timed out (5 min limit)."}),
+            504,
+        )
+    except Exception as e:
+        logger = main_container.core.logger()
+        logger.error(f"Error cloning project: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @auto_agent_bp.route("/api/projects/<project_name>/issues")

@@ -1,15 +1,18 @@
 from collections import defaultdict  # NEW
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Interfaces
 from backend.interfaces.imodel_provider import IModelProvider
 from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.cicd_healer import CICDHealer
 from backend.utils.core.code_quarantine import CodeQuarantine
+from backend.utils.core.command_executor import CommandExecutor
 from backend.utils.core.dependency_graph import DependencyGraph
 from backend.utils.core.documentation_manager import DocumentationManager
 from backend.utils.core.error_knowledge_base import ErrorKnowledgeBase
 from backend.utils.core.event_publisher import EventPublisher
+from backend.utils.core.export_manager import ExportManager
 from backend.utils.core.file_manager import FileManager
 from backend.utils.core.file_validator import FileValidator
 from backend.utils.core.fragment_cache import FragmentCache
@@ -17,12 +20,14 @@ from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.parallel_generator import ParallelFileGenerator  # NEW
 from backend.utils.core.permission_profiles import PolicyEnforcer
 from backend.utils.core.scanners.rag_context_selector import RAGContextSelector  # NEW
+from backend.utils.core.vulnerability_scanner import VulnerabilityScanner
 from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
 from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
 from backend.utils.domains.auto_generation.file_content_generator import FileContentGenerator
 from backend.utils.domains.auto_generation.file_refiner import FileRefiner
 from backend.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
 from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
+from backend.utils.domains.auto_generation.infra_generator import InfraGenerator
 from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
 
 # Specialized AutoAgent services
@@ -98,6 +103,12 @@ class PhaseContext:
         structure_pre_reviewer: StructurePreReviewer,
         generated_projects_dir: Path,
         auto_agent: Any = None,  # Temporary for now, to allow calling _reconcile_requirements from AutoAgent
+        # New services for CI/CD healing, security scanning, infrastructure, and documentation
+        cicd_healer: Optional[CICDHealer] = None,
+        vulnerability_scanner: Optional[VulnerabilityScanner] = None,
+        export_manager: Optional[ExportManager] = None,
+        infra_generator: Optional[InfraGenerator] = None,
+        command_executor: Optional[CommandExecutor] = None,
     ):
         self.config = config
         self.logger = logger
@@ -130,6 +141,13 @@ class PhaseContext:
         self.contingency_planner = contingency_planner
         self.structure_pre_reviewer = structure_pre_reviewer
         self.generated_projects_dir = generated_projects_dir
+
+        # New services
+        self.cicd_healer = cicd_healer
+        self.vulnerability_scanner = vulnerability_scanner
+        self.export_manager = export_manager
+        self.infra_generator = infra_generator
+        self.command_executor = command_executor
 
         self.current_generated_files: Dict[str, str] = {}
         self.current_project_structure: Dict[str, Any] = {}

@@ -7,7 +7,7 @@ zip archives, GitHub/GitLab repositories, cloud deployments.
 
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.command_executor import CommandExecutor
@@ -153,6 +153,125 @@ class ExportManager:
             self.logger.error(f"Cloud deployment failed: {error}")
             return f"Deployment failed: {error}"
 
+    async def initialize_wiki(
+        self,
+        project_root: Path,
+        doc_files: Dict[str, str],
+        repo_owner: str,
+        repo_name: str,
+        token: str,
+    ) -> bool:
+        """Initialize GitHub Wiki and create pages from documentation files."""
+        if not repo_owner or not repo_name:
+            self.logger.warning("Wiki init skipped: missing repo owner/name")
+            return False
+
+        self.logger.info(f"Initializing wiki with {len(doc_files)} pages...")
+
+        wiki_url = f"https://{token}@github.com/{repo_owner}/{repo_name}.wiki.git"
+        wiki_dir = project_root / ".wiki_temp"
+
+        try:
+            self.command_executor.execute(
+                f"git clone {wiki_url} {wiki_dir}", cwd=str(project_root), timeout=30
+            )
+
+            for doc_path, content in doc_files.items():
+                page_name = Path(doc_path).stem.replace("_", "-")
+                wiki_file = wiki_dir / f"{page_name}.md"
+                wiki_file.parent.mkdir(parents=True, exist_ok=True)
+                wiki_file.write_text(content, encoding="utf-8")
+
+            self.command_executor.execute("git add -A", cwd=str(wiki_dir))
+            self.command_executor.execute(
+                'git commit -m "docs: Initialize wiki from generated documentation"',
+                cwd=str(wiki_dir),
+            )
+            result = self.command_executor.execute(
+                "git push -u origin master", cwd=str(wiki_dir), timeout=30
+            )
+
+            shutil.rmtree(wiki_dir, ignore_errors=True)
+
+            success = result.get("returncode") == 0
+            if success:
+                self.logger.info("Wiki initialized successfully")
+            return success
+
+        except Exception as e:
+            self.logger.warning(f"Wiki initialization failed: {e}")
+            shutil.rmtree(wiki_dir, ignore_errors=True)
+            return False
+
+    def setup_github_pages(self, docs_dir: str = ".") -> str:
+        """Return a GitHub Pages deployment workflow YAML."""
+        return f"""name: Deploy Documentation to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{{{ steps.deployment.outputs.page_url }}}}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '{docs_dir}'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+"""
+
+    def generate_badges(
+        self,
+        project_name: str,
+        repo_owner: str,
+        workflows: Optional[List[str]] = None,
+    ) -> str:
+        """Generate markdown badges for CI, security, license."""
+        if not repo_owner:
+            return ""
+
+        badges = []
+
+        badges.append(
+            f"![CI](https://github.com/{repo_owner}/{project_name}"
+            f"/actions/workflows/ci.yml/badge.svg)"
+        )
+        badges.append(
+            f"![Deploy](https://github.com/{repo_owner}/{project_name}"
+            f"/actions/workflows/deploy.yml/badge.svg)"
+        )
+        badges.append("![Security](https://img.shields.io/badge/security-scanned-green)")
+        badges.append(
+            f"![License](https://img.shields.io/github/license"
+            f"/{repo_owner}/{project_name})"
+        )
+
+        return " ".join(badges)
+
     def get_supported_targets(self) -> Dict[str, str]:
         """Return supported export targets and descriptions."""
         return {
@@ -162,4 +281,6 @@ class ExportManager:
             "vercel": "Deploy to Vercel",
             "railway": "Deploy to Railway",
             "fly": "Deploy to Fly.io",
+            "wiki": "Initialize GitHub Wiki",
+            "pages": "Setup GitHub Pages",
         }
