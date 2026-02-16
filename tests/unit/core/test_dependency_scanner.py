@@ -5,8 +5,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from backend.utils.core.scanners.dependency_scanner import (
-    DependencyScanner, GoDependencyScanner, NodeDependencyScanner,
-    PythonDependencyScanner, RustDependencyScanner)
+    DependencyScanner,
+    GoDependencyScanner,
+    NodeDependencyScanner,
+    PythonDependencyScanner,
+    RustDependencyScanner,
+)
 
 
 @pytest.fixture

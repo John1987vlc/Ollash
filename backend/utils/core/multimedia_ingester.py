@@ -172,11 +172,7 @@ class MarkdownParser(DocumentParser):
                 )
             # Detect code blocks
             elif line.startswith("```"):
-                blocks.append(
-                    ContentBlock(
-                        block_id=f"code_{idx}", content=line, content_type="code_fence"
-                    )
-                )
+                blocks.append(ContentBlock(block_id=f"code_{idx}", content=line, content_type="code_fence"))
             else:
                 blocks.append(
                     ContentBlock(
@@ -195,9 +191,7 @@ class MarkdownParser(DocumentParser):
             raw_text=content,
             metadata={
                 "line_count": len(lines),
-                "heading_count": len(
-                    [b for b in blocks if b.content_type == "heading"]
-                ),
+                "heading_count": len([b for b in blocks if b.content_type == "heading"]),
                 "file_size_bytes": path.stat().st_size,
             },
         )
@@ -330,17 +324,11 @@ class MultimediaIngester:
         serializable_docs = {}
         for doc_id, doc_data in self.parsed_documents.items():
             doc_copy = doc_data.copy()
-            if "document_type" in doc_copy and isinstance(
-                doc_copy["document_type"], DocumentType
-            ):
+            if "document_type" in doc_copy and isinstance(doc_copy["document_type"], DocumentType):
                 doc_copy["document_type"] = doc_copy["document_type"].value
-            elif "document_type" in doc_copy and isinstance(
-                doc_copy["document_type"], str
-            ):
+            elif "document_type" in doc_copy and isinstance(doc_copy["document_type"], str):
                 pass  # Already converted
-            if "content_format" in doc_copy and hasattr(
-                doc_copy["content_format"], "value"
-            ):
+            if "content_format" in doc_copy and hasattr(doc_copy["content_format"], "value"):
                 doc_copy["content_format"] = doc_copy["content_format"].value
             serializable_docs[doc_id] = doc_copy
 
@@ -371,9 +359,7 @@ class MultimediaIngester:
 
         return format_map.get(suffix, DocumentType.UNKNOWN)
 
-    def ingest_file(
-        self, file_path: str, ingest_id: Optional[str] = None
-    ) -> ParsedDocument:
+    def ingest_file(self, file_path: str, ingest_id: Optional[str] = None) -> ParsedDocument:
         """
         Ingest a single file
 
@@ -412,9 +398,7 @@ class MultimediaIngester:
             document = parser.parse(file_path)
         elif doc_type in (DocumentType.PDF, DocumentType.IMAGE):
             if not self.ocr_processor:
-                raise ValueError(
-                    "OCR processor not configured for PDF/image processing"
-                )
+                raise ValueError("OCR processor not configured for PDF/image processing")
             document = self._process_with_ocr(file_path, ingest_id, doc_type)
         else:
             raise ValueError(f"Unsupported document type: {doc_type}")
@@ -425,9 +409,7 @@ class MultimediaIngester:
 
         return document
 
-    def _process_with_ocr(
-        self, file_path: str, doc_id: str, doc_type: DocumentType
-    ) -> ParsedDocument:
+    def _process_with_ocr(self, file_path: str, doc_id: str, doc_type: DocumentType) -> ParsedDocument:
         """Process file using OCR processor"""
         from backend.utils.core.ocr_processor import PDFOCRProcessor
 
@@ -481,9 +463,7 @@ class MultimediaIngester:
                 metadata={"ocr_confidence": result.confidence},
             )
 
-    def ingest_batch(
-        self, file_paths: List[str], ingest_ids: Optional[List[str]] = None
-    ) -> List[ParsedDocument]:
+    def ingest_batch(self, file_paths: List[str], ingest_ids: Optional[List[str]] = None) -> List[ParsedDocument]:
         """Ingest multiple files"""
         results = []
         ingest_ids = ingest_ids or [None] * len(file_paths)
@@ -533,9 +513,7 @@ class MultimediaIngester:
                 }
                 structure.append(current_section)
             elif current_section:
-                current_section["subsections"].append(
-                    {"type": block.content_type, "content": block.content}
-                )
+                current_section["subsections"].append({"type": block.content_type, "content": block.content})
 
         # Calculate quality score (how well normalization succeeded)
         quality_score = min(1.0, len(plain_text) / 1000 * 0.5 + 0.5)

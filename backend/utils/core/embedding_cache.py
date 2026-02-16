@@ -81,9 +81,7 @@ class EmbeddingCache:
         now = time.time()
         evicted = 0
         with self._lock:
-            expired_keys = [
-                k for k, (_, ts) in self._cache.items() if now - ts > self._ttl
-            ]
+            expired_keys = [k for k, (_, ts) in self._cache.items() if now - ts > self._ttl]
             for k in expired_keys:
                 del self._cache[k]
                 evicted += 1
@@ -106,10 +104,7 @@ class EmbeddingCache:
             return
         try:
             with self._lock:
-                data = {
-                    k: {"embedding": emb, "timestamp": ts}
-                    for k, (emb, ts) in self._cache.items()
-                }
+                data = {k: {"embedding": emb, "timestamp": ts} for k, (emb, ts) in self._cache.items()}
             self._persist_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self._persist_path, "w", encoding="utf-8") as f:
                 json.dump(data, f)

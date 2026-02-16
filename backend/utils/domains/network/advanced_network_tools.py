@@ -19,35 +19,23 @@ class AdvancedNetworkTools:
         latency_data = {"target_host": target_host}
 
         # 1. Ping for basic latency and packet loss
-        ping_command = (
-            f"ping -n 4 {target_host}"
-            if self.os_type == "Windows"
-            else f"ping -c 4 {target_host}"
-        )
+        ping_command = f"ping -n 4 {target_host}" if self.os_type == "Windows" else f"ping -c 4 {target_host}"
         ping_result = self.exec.execute(ping_command)
 
         if ping_result.success:
             if self.os_type == "Windows":
                 match_loss = re.search(r"\((\d+)% loss\)", ping_result.stdout)
                 match_avg_rtt = re.search(r"Average = (\d+)ms", ping_result.stdout)
-                latency_data["packet_loss_percent"] = (
-                    int(match_loss.group(1)) if match_loss else 100
-                )
-                latency_data["avg_latency_ms"] = (
-                    int(match_avg_rtt.group(1)) if match_avg_rtt else None
-                )
+                latency_data["packet_loss_percent"] = int(match_loss.group(1)) if match_loss else 100
+                latency_data["avg_latency_ms"] = int(match_avg_rtt.group(1)) if match_avg_rtt else None
             else:  # Linux/macOS
                 match_loss = re.search(r"(\d+\.?\d*)% packet loss", ping_result.stdout)
                 match_avg_rtt = re.search(
                     r"min/avg/max/mdev = (\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*) ms",
                     ping_result.stdout,
                 )
-                latency_data["packet_loss_percent"] = (
-                    float(match_loss.group(1)) if match_loss else 100
-                )
-                latency_data["avg_latency_ms"] = (
-                    float(match_avg_rtt.group(2)) if match_avg_rtt else None
-                )
+                latency_data["packet_loss_percent"] = float(match_loss.group(1)) if match_loss else 100
+                latency_data["avg_latency_ms"] = float(match_avg_rtt.group(2)) if match_avg_rtt else None
             latency_data["ping_status"] = "success"
         else:
             latency_data["ping_status"] = "failure"
@@ -56,11 +44,7 @@ class AdvancedNetworkTools:
             latency_data["avg_latency_ms"] = None
 
         # 2. Traceroute for route and hops
-        traceroute_command = (
-            f"tracert {target_host}"
-            if self.os_type == "Windows"
-            else f"traceroute {target_host}"
-        )
+        traceroute_command = f"tracert {target_host}" if self.os_type == "Windows" else f"traceroute {target_host}"
         traceroute_result = self.exec.execute(traceroute_command)
 
         latency_data["route_hops"] = []
@@ -76,9 +60,7 @@ class AdvancedNetworkTools:
                     if match:
                         hop_num = int(match.group(1))
                         ip_hostname = match.group(3).strip()
-                        latency_data["route_hops"].append(
-                            {"hop": hop_num, "ip_hostname": ip_hostname}
-                        )
+                        latency_data["route_hops"].append({"hop": hop_num, "ip_hostname": ip_hostname})
             else:  # Linux/macOS
                 for line in lines:
                     match = re.search(
@@ -126,9 +108,7 @@ class AdvancedNetworkTools:
         self.logger.info(f"Detecting unexpected services on {host}...")
 
         unexpected_services = []
-        scan_ports_list = ",".join(
-            map(str, range(1, 1025))
-        )  # Scan common ports for unexpected ones
+        scan_ports_list = ",".join(map(str, range(1, 1025)))  # Scan common ports for unexpected ones
 
         try:
             if self.os_type == "Windows":
@@ -152,11 +132,7 @@ class AdvancedNetworkTools:
                             }
                         )
                         if len(unexpected_services) > 5:  # Limit output
-                            unexpected_services.append(
-                                {
-                                    "note": "Limiting unexpected services to first 5 findings."
-                                }
-                            )
+                            unexpected_services.append({"note": "Limiting unexpected services to first 5 findings."})
                             break
             else:  # Linux or macOS (Nmap)
                 command = f"nmap -p {scan_ports_list} {host} --open -oG -"  # -oG - for grepable output
@@ -170,9 +146,7 @@ class AdvancedNetworkTools:
                             ports_str = line.split("Ports:")[1].strip()
                             port_entries = ports_str.split(",")
                             for entry in port_entries:
-                                match = re.match(
-                                    r"(\d+)/open/tcp//([^/]+)", entry.strip()
-                                )
+                                match = re.match(r"(\d+)/open/tcp//([^/]+)", entry.strip())
                                 if match:
                                     port = int(match.group(1))
                                     service = match.group(2)
@@ -185,9 +159,7 @@ class AdvancedNetworkTools:
                                             }
                                         )
                 else:
-                    self.logger.error(
-                        f"Nmap scan failed: {result.stderr}. Is Nmap installed?"
-                    )
+                    self.logger.error(f"Nmap scan failed: {result.stderr}. Is Nmap installed?")
                     return {
                         "ok": False,
                         "result": {
@@ -202,9 +174,7 @@ class AdvancedNetworkTools:
             return {"ok": False, "result": {"error": str(e), "host": host}}
 
         if unexpected_services:
-            summary = (
-                f"Found {len(unexpected_services)} unexpected open services on {host}."
-            )
+            summary = f"Found {len(unexpected_services)} unexpected open services on {host}."
             status = "unexpected_services_detected"
         else:
             summary = f"No unexpected open services detected on {host} (compared against expected_ports: {', '.join(map(str, expected_ports))})."
@@ -226,9 +196,7 @@ class AdvancedNetworkTools:
         Discovers hosts, probable roles, and relationships within the local network.
         Uses OS-specific commands (arp, ip) for local network device discovery.
         """
-        self.logger.info(
-            f"Mapping internal network (subnet: {subnet or 'auto-detected'})..."
-        )
+        self.logger.info(f"Mapping internal network (subnet: {subnet or 'auto-detected'})...")
 
         hosts_found = []
         discovered_subnet = subnet
@@ -246,9 +214,7 @@ class AdvancedNetworkTools:
                         if match:
                             local_ip = match.group(1)
                             # Simple /24 assumption for subnet
-                            discovered_subnet = (
-                                ".".join(local_ip.split(".")[:3]) + ".0/24"
-                            )
+                            discovered_subnet = ".".join(local_ip.split(".")[:3]) + ".0/24"
                 else:  # Linux/macOS
                     ip_addr_result = self.exec.execute("ip addr")
                     if ip_addr_result.success:
@@ -291,9 +257,7 @@ class AdvancedNetworkTools:
                             }
                         )
             else:
-                self.logger.warning(
-                    f"ARP command failed: {arp_result.stderr}. Limited host discovery."
-                )
+                self.logger.warning(f"ARP command failed: {arp_result.stderr}. Limited host discovery.")
 
             # Note: For full subnet scan (e.g., all 254 IPs), nmap would be ideal:
             # command = f"nmap -sn {discovered_subnet}"

@@ -48,9 +48,7 @@ async def test_read_file_tool(default_agent, tmp_path):
     """Test the read_file tool."""
     test_file = tmp_path / "ollash_test_project" / "test_file.txt"
     test_file.write_text("hello world")
-    result = await default_agent.tool_executor.execute_tool(
-        "read_file", path="test_file.txt"
-    )
+    result = await default_agent.tool_executor.execute_tool("read_file", path="test_file.txt")
     assert result["content"] == "hello world"
 
 

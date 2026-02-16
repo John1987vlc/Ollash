@@ -81,25 +81,20 @@ class LoopDetector:
 
         is_similar_streak = True
         for i in range(len(recent_embeddings) - 1):
-            similarity = self._cosine_similarity(
-                recent_embeddings[i], recent_embeddings[i + 1]
-            )
+            similarity = self._cosine_similarity(recent_embeddings[i], recent_embeddings[i + 1])
             if similarity < self.similarity_threshold:
                 is_similar_streak = False
                 break
 
         if is_similar_streak:
             self.logger.warning(
-                f"Semantic loop detected! Agent performed {self.threshold} "
-                f"semantically similar actions consecutively."
+                f"Semantic loop detected! Agent performed {self.threshold} semantically similar actions consecutively."
             )
             return True
 
         # Stagnation detection
         if datetime.now() - self.last_meaningful_action_time > self.stagnation_timeout:
-            self.logger.warning(
-                f"Stagnation detected! No meaningful action for {self.stagnation_timeout}."
-            )
+            self.logger.warning(f"Stagnation detected! No meaningful action for {self.stagnation_timeout}.")
             return True
 
         return False

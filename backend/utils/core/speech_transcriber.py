@@ -174,9 +174,7 @@ class SpeechTranscriber:
             size = Path(audio_path).stat().st_size
             return size / (16000 * 2)
 
-    def transcribe_audio(
-        self, audio_path: str, audio_id: Optional[str] = None
-    ) -> TranscriptionResult:
+    def transcribe_audio(self, audio_path: str, audio_id: Optional[str] = None) -> TranscriptionResult:
         """
         Transcribe audio file using Ollama Whisper model
 
@@ -209,8 +207,7 @@ class SpeechTranscriber:
             result = self._call_ollama_transcribe(audio_path, audio_id, duration)
         except requests.exceptions.ConnectionError:
             raise ConnectionError(
-                f"Cannot connect to Ollama at {self.config.ollama_host}. "
-                f"Make sure Ollama is running: ollama serve"
+                f"Cannot connect to Ollama at {self.config.ollama_host}. Make sure Ollama is running: ollama serve"
             )
 
         # Cache result
@@ -219,9 +216,7 @@ class SpeechTranscriber:
 
         return result
 
-    def _call_ollama_transcribe(
-        self, audio_path: str, audio_id: str, duration_seconds: float
-    ) -> TranscriptionResult:
+    def _call_ollama_transcribe(self, audio_path: str, audio_id: str, duration_seconds: float) -> TranscriptionResult:
         """Call Whisper model via Ollama for transcription"""
         import time
 
@@ -244,9 +239,7 @@ class SpeechTranscriber:
         }
 
         try:
-            response = requests.post(
-                url, json=payload, timeout=self.config.timeout_seconds
-            )
+            response = requests.post(url, json=payload, timeout=self.config.timeout_seconds)
             response.raise_for_status()
 
             data = response.json()
@@ -330,9 +323,7 @@ class SpeechTranscriber:
         avg_confidence = sum(s.confidence for s in segments) / len(segments)
         return avg_confidence
 
-    def stream_transcription(
-        self, audio_path: str, chunk_duration_ms: int = 1000
-    ) -> List[TranscriptionResult]:
+    def stream_transcription(self, audio_path: str, chunk_duration_ms: int = 1000) -> List[TranscriptionResult]:
         """
         Stream transcription by processing audio in chunks
 
@@ -407,9 +398,7 @@ class SpeechTranscriber:
 
         return result
 
-    def match_confidence_thresholds(
-        self, result: TranscriptionResult, threshold: float = 0.7
-    ) -> Dict:
+    def match_confidence_thresholds(self, result: TranscriptionResult, threshold: float = 0.7) -> Dict:
         """
         Analyze which segments meet confidence threshold
 
@@ -429,9 +418,7 @@ class SpeechTranscriber:
             "below_threshold_count": len(below_threshold),
             "above_threshold_text": " ".join([s.text for s in above_threshold]),
             "below_threshold_text": " ".join([s.text for s in below_threshold]),
-            "confidence_ratio": len(above_threshold) / len(result.segments)
-            if result.segments
-            else 0,
+            "confidence_ratio": len(above_threshold) / len(result.segments) if result.segments else 0,
         }
 
     def get_transcript_summary(self, result: TranscriptionResult) -> Dict:
@@ -455,9 +442,7 @@ class SpeechTranscriber:
             "uncertain_segments": len(result.get_uncertain_segments()),
             "duration_seconds": result.duration_seconds,
             "processing_time_ms": result.processing_time_ms,
-            "wpm": (word_count / result.duration_seconds)
-            if result.duration_seconds > 0
-            else 0,
+            "wpm": (word_count / result.duration_seconds) if result.duration_seconds > 0 else 0,
         }
 
     def get_transcription_stats(self) -> Dict:

@@ -87,24 +87,15 @@ def setup_module_env(request):
 # ---------------------------------------------------------------------------
 
 from backend.agents.auto_agent import AutoAgent  # noqa: E402
-from backend.agents.auto_agent_phases.exhaustive_review_repair_phase import \
-    ExhaustiveReviewRepairPhase  # noqa: E402
-from backend.agents.auto_agent_phases.final_review_phase import \
-    FinalReviewPhase  # noqa: E402
-from backend.agents.auto_agent_phases.iterative_improvement_phase import \
-    IterativeImprovementPhase  # noqa: E402
-from backend.agents.auto_agent_phases.logic_planning_phase import \
-    LogicPlanningPhase  # noqa: E402
-from backend.agents.auto_agent_phases.phase_context import \
-    PhaseContext  # noqa: E402
-from backend.agents.auto_agent_phases.readme_generation_phase import \
-    ReadmeGenerationPhase  # noqa: E402
-from backend.agents.auto_agent_phases.senior_review_phase import \
-    SeniorReviewPhase  # noqa: E402
-from backend.agents.auto_agent_phases.structure_generation_phase import \
-    StructureGenerationPhase  # noqa: E402
-from backend.agents.auto_agent_phases.test_generation_execution_phase import \
-    TestGenerationExecutionPhase  # noqa: E402
+from backend.agents.auto_agent_phases.exhaustive_review_repair_phase import ExhaustiveReviewRepairPhase  # noqa: E402
+from backend.agents.auto_agent_phases.final_review_phase import FinalReviewPhase  # noqa: E402
+from backend.agents.auto_agent_phases.iterative_improvement_phase import IterativeImprovementPhase  # noqa: E402
+from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase  # noqa: E402
+from backend.agents.auto_agent_phases.phase_context import PhaseContext  # noqa: E402
+from backend.agents.auto_agent_phases.readme_generation_phase import ReadmeGenerationPhase  # noqa: E402
+from backend.agents.auto_agent_phases.senior_review_phase import SeniorReviewPhase  # noqa: E402
+from backend.agents.auto_agent_phases.structure_generation_phase import StructureGenerationPhase  # noqa: E402
+from backend.agents.auto_agent_phases.test_generation_execution_phase import TestGenerationExecutionPhase  # noqa: E402
 from backend.core.containers import main_container  # noqa: E402
 from backend.core.kernel import AgentKernel  # noqa: E402
 
@@ -275,25 +266,17 @@ def auto_agent_instance(
     mock_execution_plan,
 ):
     """Provides an AutoAgent with all dependencies mocked."""
-    mocker.patch(
-        "backend.agents.auto_agent.ExecutionPlan", return_value=mock_execution_plan
-    )
+    mocker.patch("backend.agents.auto_agent.ExecutionPlan", return_value=mock_execution_plan)
 
     # Get the real event loop BEFORE patching, then use it inside the mock
     real_loop = asyncio.new_event_loop()
 
     mock_loop = mocker.MagicMock(spec=asyncio.BaseEventLoop)
-    mock_loop.run_until_complete.side_effect = (
-        lambda coro: real_loop.run_until_complete(coro)
-        if asyncio.iscoroutine(coro)
-        else coro
+    mock_loop.run_until_complete.side_effect = lambda coro: (
+        real_loop.run_until_complete(coro) if asyncio.iscoroutine(coro) else coro
     )
-    mocker.patch(
-        "backend.agents.auto_agent.asyncio.get_event_loop", return_value=mock_loop
-    )
-    mocker.patch(
-        "backend.agents.auto_agent.asyncio.new_event_loop", return_value=mock_loop
-    )
+    mocker.patch("backend.agents.auto_agent.asyncio.get_event_loop", return_value=mock_loop)
+    mocker.patch("backend.agents.auto_agent.asyncio.new_event_loop", return_value=mock_loop)
     mocker.patch("backend.agents.auto_agent.asyncio.set_event_loop")
 
     test_kernel.event_publisher = mock_event_publisher
@@ -302,18 +285,13 @@ def auto_agent_instance(
     factory.return_value = mocker.AsyncMock(spec=IAgentPhase)
     factory.return_value.execute.return_value = ({}, {}, [])
 
-    with main_container.core.agent_kernel.override(
-        test_kernel
-    ), main_container.auto_agent_module.phase_context.override(
-        mock_phase_context
-    ), main_container.auto_agent_module.phases_list.override(
-        mock_phases
-    ), main_container.auto_agent_module.project_analysis_phase_factory.override(
-        factory
-    ), main_container.auto_agent_module.llm_client_manager.override(
-        mock_llm_manager
-    ), main_container.core.llm_recorder.override(
-        mock_llm_recorder
+    with (
+        main_container.core.agent_kernel.override(test_kernel),
+        main_container.auto_agent_module.phase_context.override(mock_phase_context),
+        main_container.auto_agent_module.phases_list.override(mock_phases),
+        main_container.auto_agent_module.project_analysis_phase_factory.override(factory),
+        main_container.auto_agent_module.llm_client_manager.override(mock_llm_manager),
+        main_container.core.llm_recorder.override(mock_llm_recorder),
     ):
         agent: AutoAgent = main_container.auto_agent_module.auto_agent()
         agent.logger = mocker.MagicMock()
@@ -395,17 +373,16 @@ class TestAutoAgentInitialization:
         """AutoAgent raises ValueError when no LLM manager is provided."""
         main_container.wire(modules=[__name__, "backend.agents.auto_agent"])
 
-        with main_container.core.agent_kernel.override(
-            test_kernel
-        ), main_container.auto_agent_module.llm_client_manager.override(None):
+        with (
+            main_container.core.agent_kernel.override(test_kernel),
+            main_container.auto_agent_module.llm_client_manager.override(None),
+        ):
             with pytest.raises((ValueError, Exception)):
                 main_container.auto_agent_module.auto_agent()
 
         main_container.unwire()
 
-    def test_generated_projects_dir_created(
-        self, auto_agent_instance, mock_phase_context
-    ):
+    def test_generated_projects_dir_created(self, auto_agent_instance, mock_phase_context):
         """generated_projects_dir should exist after init."""
         assert mock_phase_context.generated_projects_dir.exists()
 
@@ -416,9 +393,7 @@ class TestAutoAgentInitialization:
 
 
 class TestAutoAgentRun:
-    def test_run_new_project_creates_directory(
-        self, auto_agent_instance, mock_phase_context
-    ):
+    def test_run_new_project_creates_directory(self, auto_agent_instance, mock_phase_context):
         """run() for a new project creates the project root."""
         agent = auto_agent_instance
         project_name = "test_new_proj"
@@ -429,9 +404,7 @@ class TestAutoAgentRun:
         assert result == project_root
         assert project_root.exists()
 
-    def test_run_new_project_executes_all_phases(
-        self, auto_agent_instance, mock_phases
-    ):
+    def test_run_new_project_executes_all_phases(self, auto_agent_instance, mock_phases):
         """All phases should execute for a brand-new project."""
         agent = auto_agent_instance
         agent.run("Build a calculator", "calc_project")
@@ -443,16 +416,12 @@ class TestAutoAgentRun:
         """run() publishes execution_plan_initialized and project_complete events."""
         auto_agent_instance.run("Build a CLI tool", "cli_tool")
 
-        call_event_types = [
-            c[0][0] for c in mock_event_publisher.publish.call_args_list
-        ]
+        call_event_types = [c[0][0] for c in mock_event_publisher.publish.call_args_list]
 
         assert "execution_plan_initialized" in call_event_types
         assert "project_complete" in call_event_types
 
-    def test_run_existing_project_ingests(
-        self, auto_agent_instance, mock_phase_context, mocker
-    ):
+    def test_run_existing_project_ingests(self, auto_agent_instance, mock_phase_context, mocker):
         """When project directory already has files, ingestion runs."""
         agent = auto_agent_instance
         project_name = "existing_proj"
@@ -469,25 +438,19 @@ class TestAutoAgentRun:
         agent.run("Improve the calculator", project_name)
         mock_phase_context.ingest_existing_project.assert_called_once()
 
-    def test_run_writes_execution_plan_json(
-        self, auto_agent_instance, mock_phase_context, mock_execution_plan
-    ):
+    def test_run_writes_execution_plan_json(self, auto_agent_instance, mock_phase_context, mock_execution_plan):
         """_finalize_project writes EXECUTION_PLAN.json."""
         auto_agent_instance.run("Build a todo app", "todo_app")
         mock_phase_context.file_manager.write_file.assert_called()
 
-    def test_run_handles_phase_error(
-        self, auto_agent_instance, mock_phases, mock_event_publisher
-    ):
+    def test_run_handles_phase_error(self, auto_agent_instance, mock_phases, mock_event_publisher):
         """If a phase raises, the error is propagated and events published."""
         mock_phases[0].execute.side_effect = RuntimeError("Phase crashed")
 
         with pytest.raises(RuntimeError, match="Phase crashed"):
             auto_agent_instance.run("Build broken app", "broken_app")
 
-        call_event_types = [
-            c[0][0] for c in mock_event_publisher.publish.call_args_list
-        ]
+        call_event_types = [c[0][0] for c in mock_event_publisher.publish.call_args_list]
         assert "phase_error" in call_event_types
 
 
@@ -497,9 +460,7 @@ class TestAutoAgentRun:
 
 
 class TestGenerateStructureOnly:
-    def test_returns_readme_and_structure(
-        self, auto_agent_instance, mock_phases, mocker
-    ):
+    def test_returns_readme_and_structure(self, auto_agent_instance, mock_phases, mocker):
         """generate_structure_only returns (readme, structure) tuple."""
         mock_readme_phase = mocker.AsyncMock(spec=ReadmeGenerationPhase)
         mock_readme_phase.execute.return_value = (
@@ -516,16 +477,12 @@ class TestGenerateStructureOnly:
 
         auto_agent_instance.phases = [mock_readme_phase, mock_struct_phase]
 
-        readme, structure = auto_agent_instance.generate_structure_only(
-            "A web scraper", "scraper"
-        )
+        readme, structure = auto_agent_instance.generate_structure_only("A web scraper", "scraper")
 
         assert "# My Project" in readme
         assert isinstance(structure, dict)
 
-    def test_structure_only_does_not_generate_files(
-        self, auto_agent_instance, mock_phase_context, mocker
-    ):
+    def test_structure_only_does_not_generate_files(self, auto_agent_instance, mock_phase_context, mocker):
         """generate_structure_only should not run content-generation phases."""
         mock_readme = mocker.AsyncMock(spec=ReadmeGenerationPhase)
         mock_readme.execute.return_value = ({"README.md": "# Proj"}, {}, ["README.md"])
@@ -587,16 +544,12 @@ class TestPhaseContextInferLanguage:
             ("main.go", "go", "main_test.go"),
         ],
     )
-    def test_get_test_file_path(
-        self, real_phase_context, source, lang, expected_pattern
-    ):
+    def test_get_test_file_path(self, real_phase_context, source, lang, expected_pattern):
         result = real_phase_context.get_test_file_path(source, lang)
         assert expected_pattern in result
 
     def test_update_generated_data(self, real_phase_context):
-        real_phase_context.update_generated_data(
-            {"a.py": "code"}, {"a.py": {}}, ["a.py"], "# README"
-        )
+        real_phase_context.update_generated_data({"a.py": "code"}, {"a.py": {}}, ["a.py"], "# README")
         assert real_phase_context.current_generated_files == {"a.py": "code"}
         assert real_phase_context.current_readme_content == "# README"
 
@@ -605,9 +558,7 @@ class TestPhaseContextInferLanguage:
 
     def test_select_related_files_heuristic_fallback(self, real_phase_context):
         """When RAG fails, heuristic scoring is used."""
-        real_phase_context.rag_context_selector.select_relevant_files.side_effect = (
-            Exception("no chromadb")
-        )
+        real_phase_context.rag_context_selector.select_relevant_files.side_effect = Exception("no chromadb")
         files = {
             "src/routes.py": "from models import User",
             "src/models.py": "class User: pass",
@@ -639,9 +590,7 @@ class TestPhaseContextInferLanguage:
                 },
             ]
         }
-        files, structure, paths = real_phase_context.implement_plan(
-            plan, tmp_path, "# README", {}, {}, []
-        )
+        files, structure, paths = real_phase_context.implement_plan(plan, tmp_path, "# README", {}, {}, [])
         assert "new_file.py" in files
         assert "new_file.py" in paths
 
@@ -656,23 +605,14 @@ class TestPhaseContextInferLanguage:
             ]
         }
         files = {"app.py": "def old_func(): pass"}
-        files, _, _ = real_phase_context.implement_plan(
-            plan, tmp_path, "", {}, files, []
-        )
+        files, _, _ = real_phase_context.implement_plan(plan, tmp_path, "", {}, files, [])
         assert "new_func" in files["app.py"]
         assert "old_func" not in files["app.py"]
 
     def test_implement_plan_limits_actions(self, real_phase_context, tmp_path):
         """implement_plan processes at most 10 actions."""
-        plan = {
-            "actions": [
-                {"type": "create_file", "path": f"file_{i}.py", "content": f"# {i}"}
-                for i in range(15)
-            ]
-        }
-        files, _, paths = real_phase_context.implement_plan(
-            plan, tmp_path, "", {}, {}, []
-        )
+        plan = {"actions": [{"type": "create_file", "path": f"file_{i}.py", "content": f"# {i}"} for i in range(15)]}
+        files, _, paths = real_phase_context.implement_plan(plan, tmp_path, "", {}, {}, [])
         assert len(files) == 10  # Capped at 10
 
 
@@ -684,9 +624,7 @@ class TestPhaseContextInferLanguage:
 class TestReadmeGenerationPhase:
     @pytest.mark.asyncio
     async def test_generates_readme(self, mock_phase_context, tmp_path):
-        mock_phase_context.project_planner.generate_readme.return_value = (
-            "# Calculator\nA simple calculator."
-        )
+        mock_phase_context.project_planner.generate_readme.return_value = "# Calculator\nA simple calculator."
 
         phase = ReadmeGenerationPhase(mock_phase_context)
         files, structure, paths = await phase.execute(
@@ -766,9 +704,7 @@ class TestLogicPlanningPhase:
         """LogicPlanningPhase stores the logic_plan in context."""
         mock_client = MagicMock()
         mock_client.chat.return_value = (
-            {
-                "content": '{"src/main.py": {"purpose": "Entry point", "exports": ["main()"]}}'
-            },
+            {"content": '{"src/main.py": {"purpose": "Entry point", "exports": ["main()"]}}'},
             {},
         )
         mock_phase_context.llm_manager.get_client.return_value = mock_client
@@ -811,12 +747,8 @@ class TestLogicPlanningPhase:
 class TestFinalReviewPhase:
     @pytest.mark.asyncio
     async def test_writes_review_file(self, mock_phase_context, tmp_path):
-        mock_phase_context.file_completeness_checker.get_validation_summary.return_value = (
-            "All good"
-        )
-        mock_phase_context.project_reviewer.review.return_value = (
-            "# Review\nLooks great."
-        )
+        mock_phase_context.file_completeness_checker.get_validation_summary.return_value = "All good"
+        mock_phase_context.project_reviewer.review.return_value = "# Review\nLooks great."
 
         phase = FinalReviewPhase(mock_phase_context)
         files, _, _ = await phase.execute(
@@ -834,12 +766,8 @@ class TestFinalReviewPhase:
 
     @pytest.mark.asyncio
     async def test_handles_review_error(self, mock_phase_context, tmp_path):
-        mock_phase_context.file_completeness_checker.get_validation_summary.return_value = (
-            ""
-        )
-        mock_phase_context.project_reviewer.review.side_effect = Exception(
-            "Review failed"
-        )
+        mock_phase_context.file_completeness_checker.get_validation_summary.return_value = ""
+        mock_phase_context.project_reviewer.review.side_effect = Exception("Review failed")
 
         phase = FinalReviewPhase(mock_phase_context)
         files, _, _ = await phase.execute(
@@ -897,12 +825,8 @@ class TestSeniorReviewPhase:
             {"status": "passed", "summary": "All fixed."},
         ]
         mock_phase_context.file_refiner.refine_file.return_value = "fixed code"
-        mock_phase_context.file_completeness_checker.verify_and_fix.return_value = {
-            "main.py": "fixed code"
-        }
-        mock_phase_context.contingency_planner.generate_contingency_plan.return_value = (
-            None
-        )
+        mock_phase_context.file_completeness_checker.verify_and_fix.return_value = {"main.py": "fixed code"}
+        mock_phase_context.contingency_planner.generate_contingency_plan.return_value = None
 
         phase = SeniorReviewPhase(mock_phase_context)
         files, _, _ = await phase.execute(
@@ -939,21 +863,15 @@ class TestSeniorReviewPhase:
             file_paths=["main.py"],
         )
 
-        write_calls = [
-            str(c) for c in mock_phase_context.file_manager.write_file.call_args_list
-        ]
+        write_calls = [str(c) for c in mock_phase_context.file_manager.write_file.call_args_list]
         assert any("SENIOR_REVIEW_FAILED" in c for c in write_calls)
 
 
 class TestTestGenerationExecutionPhase:
     @pytest.mark.asyncio
-    async def test_mvp_requirement_raises_on_no_tests(
-        self, mock_phase_context, tmp_path
-    ):
+    async def test_mvp_requirement_raises_on_no_tests(self, mock_phase_context, tmp_path):
         """Raises RuntimeError when no test files are generated (MVP requirement)."""
-        mock_phase_context.group_files_by_language.return_value = {
-            "python": [("app.py", "print('hello')")]
-        }
+        mock_phase_context.group_files_by_language.return_value = {"python": [("app.py", "print('hello')")]}
         mock_phase_context.test_generator.generate_tests.return_value = None
         mock_phase_context.get_test_file_path.return_value = "tests/test_app.py"
 
@@ -971,12 +889,8 @@ class TestTestGenerationExecutionPhase:
 
     @pytest.mark.asyncio
     async def test_generates_and_executes_tests(self, mock_phase_context, tmp_path):
-        mock_phase_context.group_files_by_language.return_value = {
-            "python": [("app.py", "def add(a,b): return a+b")]
-        }
-        mock_phase_context.test_generator.generate_tests.return_value = (
-            "def test_add(): assert add(1,2)==3"
-        )
+        mock_phase_context.group_files_by_language.return_value = {"python": [("app.py", "def add(a,b): return a+b")]}
+        mock_phase_context.test_generator.generate_tests.return_value = "def test_add(): assert add(1,2)==3"
         mock_phase_context.get_test_file_path.return_value = "tests/test_app.py"
         mock_phase_context.test_generator.execute_tests.return_value = {"success": True}
         mock_phase_context.test_generator.generate_integration_tests.return_value = (
@@ -1003,9 +917,7 @@ class TestTestGenerationExecutionPhase:
         mock_phase_context.group_files_by_language.return_value = {
             "python": [("app.py", "def broken(): raise Exception()")]
         }
-        mock_phase_context.test_generator.generate_tests.return_value = (
-            "def test_broken(): broken()"
-        )
+        mock_phase_context.test_generator.generate_tests.return_value = "def test_broken(): broken()"
         mock_phase_context.get_test_file_path.return_value = "tests/test_app.py"
         mock_phase_context.test_generator.generate_integration_tests.return_value = (
             None,
@@ -1023,9 +935,7 @@ class TestTestGenerationExecutionPhase:
             },
             {"success": True},
         ]
-        mock_phase_context.file_refiner.refine_file.return_value = (
-            "def fixed(): return True"
-        )
+        mock_phase_context.file_refiner.refine_file.return_value = "def fixed(): return True"
 
         phase = TestGenerationExecutionPhase(mock_phase_context)
         await phase.execute(
@@ -1049,9 +959,7 @@ class TestTestGenerationExecutionPhase:
                 ("test_app.py", "def test_add(): pass"),
             ]
         }
-        mock_phase_context.test_generator.generate_tests.return_value = (
-            "def test_add(): assert True"
-        )
+        mock_phase_context.test_generator.generate_tests.return_value = "def test_add(): assert True"
         mock_phase_context.get_test_file_path.return_value = "tests/test_app.py"
         mock_phase_context.test_generator.execute_tests.return_value = {"success": True}
         mock_phase_context.test_generator.generate_integration_tests.return_value = (
@@ -1100,9 +1008,7 @@ class TestExhaustiveReviewRepairPhase:
     async def test_detects_missing_entry_point(self, mock_phase_context, tmp_path):
         """Detects when project lacks an entry point."""
         phase = ExhaustiveReviewRepairPhase(mock_phase_context)
-        mock_phase_context.contingency_planner.generate_contingency_plan.return_value = {
-            "actions": []
-        }
+        mock_phase_context.contingency_planner.generate_contingency_plan.return_value = {"actions": []}
 
         files = {"utils.py": "def helper(): pass"}
         await phase.execute(
@@ -1141,9 +1047,7 @@ class TestExhaustiveReviewRepairPhase:
 
     def test_convert_test_failures(self, mock_phase_context):
         phase = ExhaustiveReviewRepairPhase(mock_phase_context)
-        failures = {
-            "test_main.py": {"error": "AssertionError", "output": "expected 1 got 2"}
-        }
+        failures = {"test_main.py": {"error": "AssertionError", "output": "expected 1 got 2"}}
         issues = phase._convert_test_failures_to_issues(failures)
         assert len(issues) == 1
         assert issues[0]["severity"] == "high"
@@ -1203,9 +1107,7 @@ class TestIterativeImprovementPhase:
             ["app.py"],
         )
         mock_phase_context.file_refiner.refine_file.return_value = "refined"
-        mock_phase_context.file_completeness_checker.verify_and_fix.return_value = {
-            "app.py": "verified"
-        }
+        mock_phase_context.file_completeness_checker.verify_and_fix.return_value = {"app.py": "verified"}
 
         phase = IterativeImprovementPhase(mock_phase_context)
         await phase.execute(
@@ -1219,10 +1121,7 @@ class TestIterativeImprovementPhase:
             num_refine_loops=3,
         )
 
-        assert (
-            mock_phase_context.improvement_suggester.suggest_improvements.call_count
-            == 2
-        )
+        assert mock_phase_context.improvement_suggester.suggest_improvements.call_count == 2
 
     @pytest.mark.asyncio
     async def test_skips_iteration_when_plan_empty(self, mock_phase_context, tmp_path):
@@ -1236,9 +1135,7 @@ class TestIterativeImprovementPhase:
             {"actions": []},  # Second plan is empty
         ]
         mock_phase_context.file_refiner.refine_file.return_value = None
-        mock_phase_context.file_completeness_checker.verify_and_fix.return_value = {
-            "app.py": "code"
-        }
+        mock_phase_context.file_completeness_checker.verify_and_fix.return_value = {"app.py": "code"}
 
         phase = IterativeImprovementPhase(mock_phase_context)
         await phase.execute(
@@ -1267,9 +1164,7 @@ class TestIngestExistingProject:
         return _make_real_phase_context(mocker, tmp_path)
 
     def test_ingest_nonexistent_path(self, real_ctx, tmp_path):
-        files, structure, paths = real_ctx.ingest_existing_project(
-            tmp_path / "nonexistent"
-        )
+        files, structure, paths = real_ctx.ingest_existing_project(tmp_path / "nonexistent")
         assert files == {}
         assert paths == []
 
@@ -1389,9 +1284,7 @@ class TestEdgeCases:
 
     def test_run_with_special_characters_in_name(self, auto_agent_instance):
         """Project names with unusual characters are handled."""
-        result = auto_agent_instance.run(
-            "A project", "proj-with-dashes_and_underscores"
-        )
+        result = auto_agent_instance.run("A project", "proj-with-dashes_and_underscores")
         assert result is not None
 
     @pytest.mark.asyncio

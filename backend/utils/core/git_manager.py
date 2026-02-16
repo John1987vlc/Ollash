@@ -11,9 +11,7 @@ class GitManager:
     def _run_git(self, *args) -> Dict[str, Any]:
         """Ejecuta un comando git."""
         try:
-            result = subprocess.run(
-                ["git"] + list(args), cwd=self.repo_path, capture_output=True, text=True
-            )
+            result = subprocess.run(["git"] + list(args), cwd=self.repo_path, capture_output=True, text=True)
             return {
                 "success": result.returncode == 0,
                 "output": result.stdout.strip(),

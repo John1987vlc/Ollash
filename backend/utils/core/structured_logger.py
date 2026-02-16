@@ -113,9 +113,7 @@ class StructuredLogger:
 
         # Console handler for development (optional, can be removed in production)
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(
-            logging.Formatter("%(levelname)s - %(name)s - %(message)s")
-        )
+        console_handler.setFormatter(logging.Formatter("%(levelname)s - %(name)s - %(message)s"))
         self._logger.addHandler(console_handler)
 
     def get_logger(self) -> logging.Logger:

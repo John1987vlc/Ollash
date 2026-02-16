@@ -7,8 +7,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from backend.utils.core.concurrent_rate_limiter import (
-    ConcurrentGPUAwareRateLimiter, GlobalGPUResourceTracker,
-    SessionResourceManager)
+    ConcurrentGPUAwareRateLimiter,
+    GlobalGPUResourceTracker,
+    SessionResourceManager,
+)
 
 
 @pytest.fixture
@@ -36,9 +38,7 @@ class TestGlobalGPUResourceTracker:
         tracker._used_gpu_memory_mb = 0
 
         # Should acquire slot
-        acquired = tracker.acquire_gpu_slot(
-            estimated_memory_mb=1000, timeout_seconds=1.0
-        )
+        acquired = tracker.acquire_gpu_slot(estimated_memory_mb=1000, timeout_seconds=1.0)
         assert acquired is True
         assert tracker._active_requests == 1
         assert tracker._used_gpu_memory_mb == 1000
@@ -72,9 +72,7 @@ class TestGlobalGPUResourceTracker:
         tracker.acquire_gpu_slot(estimated_memory_mb=1000, timeout_seconds=0.1)
 
         # Try to acquire second slot (should timeout)
-        acquired = tracker.acquire_gpu_slot(
-            estimated_memory_mb=1000, timeout_seconds=0.1
-        )
+        acquired = tracker.acquire_gpu_slot(estimated_memory_mb=1000, timeout_seconds=0.1)
         assert acquired is False
 
 

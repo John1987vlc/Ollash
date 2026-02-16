@@ -4,11 +4,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from backend.utils.core.permission_profiles import (Permission,
-                                                    PermissionProfile,
-                                                    PermissionProfileManager,
-                                                    PermissionRule,
-                                                    PolicyEnforcer)
+from backend.utils.core.permission_profiles import (
+    Permission,
+    PermissionProfile,
+    PermissionProfileManager,
+    PermissionRule,
+    PolicyEnforcer,
+)
 
 
 @pytest.fixture
@@ -265,9 +267,7 @@ class TestPermissionProfileManager:
 class TestPolicyEnforcer:
     """Test PolicyEnforcer."""
 
-    def test_enforcer_initialization(
-        self, mock_logger, mock_tool_settings_config, tmp_path
-    ):
+    def test_enforcer_initialization(self, mock_logger, mock_tool_settings_config, tmp_path):
         """Test enforcer initialization."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
 
@@ -279,9 +279,7 @@ class TestPolicyEnforcer:
 
         assert enforcer.active_profile is not None
 
-    def test_authorize_file_write(
-        self, mock_logger, mock_tool_settings_config, tmp_path
-    ):
+    def test_authorize_file_write(self, mock_logger, mock_tool_settings_config, tmp_path):
         """Test file write authorization."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
 
@@ -297,9 +295,7 @@ class TestPolicyEnforcer:
         result, reason = enforcer.authorize_file_write("test_file.py", 1000)
         assert result is False
 
-    def test_authorize_shell_command_safe(
-        self, mock_logger, mock_tool_settings_config, tmp_path
-    ):
+    def test_authorize_shell_command_safe(self, mock_logger, mock_tool_settings_config, tmp_path):
         """Test safe shell command authorization."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
 
@@ -315,9 +311,7 @@ class TestPolicyEnforcer:
         result, reason = enforcer.authorize_shell_command("python script.py")
         assert isinstance(result, bool)
 
-    def test_authorize_shell_command_dangerous(
-        self, mock_logger, mock_tool_settings_config, tmp_path
-    ):
+    def test_authorize_shell_command_dangerous(self, mock_logger, mock_tool_settings_config, tmp_path):
         """Test dangerous command detection."""
         manager = PermissionProfileManager(logger=mock_logger, project_root=tmp_path)
 

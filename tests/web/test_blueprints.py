@@ -8,9 +8,14 @@ from flask import Flask
 
 # Import blueprints to be tested
 from frontend.blueprints import (  # Import the new registration function
-    auto_agent_bp, benchmark_bp, common_bp, register_blueprints)
-from frontend.services.chat_session_manager import \
-    ChatSessionManager  # Import the actual class for type hinting (not for direct patching here)
+    auto_agent_bp,
+    benchmark_bp,
+    common_bp,
+    register_blueprints,
+)
+from frontend.services.chat_session_manager import (
+    ChatSessionManager,
+)  # Import the actual class for type hinting (not for direct patching here)
 
 # Import the chat_bp module directly (not the Blueprint object from __init__.py)
 # This is needed to access module-level globals like _session_manager
@@ -59,15 +64,15 @@ def app(tmp_path, monkeypatch):
     # AFTER register_blueprints runs and init_chat sets chat_bp._session_manager
     # We explicitly override it with our mock to ensure it's used in tests.
     # The _session_manager is a global in the chat_bp module, not an attribute of the chat_bp Blueprint object.
-    monkeypatch.setattr(
-        chat_bp_module, "_session_manager", app.mock_session_manager_instance
-    )
+    monkeypatch.setattr(chat_bp_module, "_session_manager", app.mock_session_manager_instance)
 
     with app.app_context():
         # Patch external dependencies for all tests in this file
-        with patch("backend.agents.auto_agent.AutoAgent"), patch(
-            "backend.agents.auto_benchmarker.ModelBenchmarker"
-        ), patch("frontend.services.chat_session_manager.DefaultAgent"):
+        with (
+            patch("backend.agents.auto_agent.AutoAgent"),
+            patch("backend.agents.auto_benchmarker.ModelBenchmarker"),
+            patch("frontend.services.chat_session_manager.DefaultAgent"),
+        ):
             yield app
 
 
@@ -99,9 +104,7 @@ class TestChatBlueprint:
         mock_mgr.create_session.return_value = mock_session_id
         mock_mgr.get_session.return_value = None  # No existing session
 
-        resp = client.post(
-            "/api/chat", json={"message": "hello", "agent_type": "default"}
-        )
+        resp = client.post("/api/chat", json={"message": "hello", "agent_type": "default"})
         assert resp.status_code == 200
         assert resp.get_json()["session_id"] == mock_session_id
         # create_session is called with positional args (project_path, agent_type)
@@ -137,9 +140,7 @@ class TestBenchmarkBlueprint:
         # This test now needs to patch requests inside the blueprint's scope
         with patch("requests.get") as mock_get:
             mock_get.return_value.status_code = 200
-            mock_get.return_value.json.return_value = {
-                "models": [{"name": "test-model", "size": 1000}]
-            }
+            mock_get.return_value.json.return_value = {"models": [{"name": "test-model", "size": 1000}]}
             mock_get.return_value.raise_for_status = lambda: None
 
             resp = client.get("/api/benchmark/models")
@@ -182,9 +183,7 @@ class TestBenchmarkBlueprint:
         fake_result = log_dir / "auto_benchmark_results_20260101_120000.json"
         fake_result.write_text(json.dumps([{"model": "test", "score": 8}]))
 
-        resp = client.get(
-            "/api/benchmark/results/auto_benchmark_results_20260101_120000.json"
-        )
+        resp = client.get("/api/benchmark/results/auto_benchmark_results_20260101_120000.json")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["status"] == "ok"

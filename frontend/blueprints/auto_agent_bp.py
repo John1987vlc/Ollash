@@ -1,4 +1,5 @@
 """Blueprint for AutoAgent project generation routes."""
+
 import io
 import os
 import re
@@ -8,10 +9,10 @@ import zipfile
 from pathlib import Path
 from typing import Dict, List
 
-from flask import (Blueprint, Response, jsonify, request, send_file,
-                   stream_with_context)
+from flask import Blueprint, Response, jsonify, request, send_file, stream_with_context
 
 from backend.agents.auto_agent import AutoAgent
+
 # DI Container and Agent
 from backend.core.containers import main_container
 from backend.utils.core.event_publisher import EventPublisher
@@ -72,9 +73,7 @@ def generate_project_structure():
             "include_docker": request.form.get("include_docker") == "true",
         }
 
-        readme, structure_json = local_auto_agent.generate_structure_only(
-            project_description, project_name, **kwargs
-        )
+        readme, structure_json = local_auto_agent.generate_structure_only(project_description, project_name, **kwargs)
         return jsonify(
             {
                 "status": "structure_generated",
@@ -103,9 +102,7 @@ def create_project():
 
     if not project_description or not project_name:
         return (
-            jsonify(
-                {"status": "error", "message": "Missing required project details."}
-            ),
+            jsonify({"status": "error", "message": "Missing required project details."}),
             400,
         )
 
@@ -118,9 +115,7 @@ def create_project():
             # Hook up the global event publisher for this long-running task
             agent.event_publisher = _event_publisher
 
-            agent.logger.info(
-                f"[PROJECT_STATUS] Project '{project_name}' generation starting in background."
-            )
+            agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' generation starting in background.")
 
             run_kwargs = {
                 "project_description": project_description,
@@ -134,21 +129,15 @@ def create_project():
 
             project_root = agent.run(**run_kwargs)
 
-            agent.logger.info(
-                f"[PROJECT_STATUS] Project '{project_name}' created at {project_root}"
-            )
-            _chat_event_bridge.push_event(
-                "stream_end", {"message": f"Project '{project_name}' completed."}
-            )
+            agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' created at {project_root}")
+            _chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' completed."})
         except Exception as e:
             logger = main_container.core.logger()
             logger.error(
                 f"[PROJECT_STATUS] Error creating project '{project_name}': {e}",
                 exc_info=True,
             )
-            _chat_event_bridge.push_event(
-                "error", {"message": f"Error creating project: {e}"}
-            )
+            _chat_event_bridge.push_event("error", {"message": f"Error creating project: {e}"})
 
     # Run the agent in a background thread
     thread = threading.Thread(target=run_agent_in_thread, daemon=True)
@@ -183,14 +172,8 @@ def list_all_projects():
         return jsonify({"status": "success", "projects": []})
 
     try:
-        projects = [
-            d
-            for d in os.listdir(projects_dir)
-            if os.path.isdir(os.path.join(projects_dir, d))
-        ]
-        projects.sort(
-            key=lambda x: os.path.getmtime(os.path.join(projects_dir, x)), reverse=True
-        )
+        projects = [d for d in os.listdir(projects_dir) if os.path.isdir(os.path.join(projects_dir, d))]
+        projects.sort(key=lambda x: os.path.getmtime(os.path.join(projects_dir, x)), reverse=True)
         return jsonify({"status": "success", "projects": projects})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -198,9 +181,7 @@ def list_all_projects():
 
 @auto_agent_bp.route("/api/projects/<project_name>/files")
 def list_project_files(project_name):
-    project_path = str(
-        _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
-    )
+    project_path = str(_ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name)
 
     if not os.path.isdir(project_path):
         return jsonify({"status": "error", "message": "Project not found."}), 404
@@ -208,11 +189,7 @@ def list_project_files(project_name):
     file_tree = []
     try:
         for root, dirs, files in os.walk(project_path):
-            dirs[:] = [
-                d
-                for d in dirs
-                if d not in [".git", "__pycache__", "node_modules", ".venv", "venv"]
-            ]
+            dirs[:] = [d for d in dirs if d not in [".git", "__pycache__", "node_modules", ".venv", "venv"]]
 
             rel_root = os.path.relpath(root, project_path)
             if rel_root == ".":
@@ -247,12 +224,8 @@ def read_file_content(project_name):
     if not file_path_relative:
         return jsonify({"status": "error", "message": "File path is required."}), 400
 
-    project_base_path = str(
-        _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
-    )
-    full_file_path = os.path.normpath(
-        os.path.join(project_base_path, file_path_relative)
-    )
+    project_base_path = str(_ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name)
+    full_file_path = os.path.normpath(os.path.join(project_base_path, file_path_relative))
 
     # Security: prevent directory traversal
     if not full_file_path.startswith(project_base_path):
@@ -290,9 +263,7 @@ def save_file_content(project_name):
     if content is None:  # Allow saving empty content
         return jsonify({"status": "error", "message": "Content is required."}), 400
 
-    project_base_path = (
-        _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
-    )
+    project_base_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
     full_file_path = project_base_path / file_path_relative
 
     # Security: prevent directory traversal
@@ -317,9 +288,7 @@ def execute_command(project_name):
     if not command:
         return jsonify({"status": "error", "message": "Command is required."}), 400
 
-    project_base_path = (
-        _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
-    )
+    project_base_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
 
     # Security: Ensure command is executed within the project directory
     if not project_base_path.is_dir():
@@ -355,9 +324,7 @@ def execute_command(project_name):
 @auto_agent_bp.route("/api/projects/<project_name>/export")
 def export_project_zip(project_name):
     """Download a project as a ZIP archive."""
-    project_path = (
-        _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
-    )
+    project_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
 
     if not project_path.is_dir():
         return jsonify({"status": "error", "message": "Project not found."}), 404
@@ -387,9 +354,7 @@ def export_project_zip(project_name):
 @auto_agent_bp.route("/api/projects/<project_name>/issues")
 def get_project_issues(project_name):
     """Retrieve structured issues from senior review markdown files for a given project."""
-    project_path = (
-        _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
-    )
+    project_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
 
     if not project_path.is_dir():
         return jsonify({"status": "error", "message": "Project not found."}), 404

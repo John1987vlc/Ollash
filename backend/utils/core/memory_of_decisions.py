@@ -210,8 +210,7 @@ class MemoryOfDecisions:
             self._update_decision_stats(domain, outcome, satisfaction_score)
 
             logger.info(
-                f"Decision outcome recorded: {decision_id} = {outcome.value} "
-                f"(satisfaction: {satisfaction_score})"
+                f"Decision outcome recorded: {decision_id} = {outcome.value} (satisfaction: {satisfaction_score})"
             )
 
             return True
@@ -258,9 +257,7 @@ class MemoryOfDecisions:
                     reasoning=similar_decision["reasoning"],
                     success_rate=success_rate,
                     confidence=min(similarity_score * 0.6 + success_rate * 0.4, 100),
-                    relevant_context=self._extract_relevant_context(
-                        current_context, similar_decision["context"]
-                    ),
+                    relevant_context=self._extract_relevant_context(current_context, similar_decision["context"]),
                 )
 
                 suggestions.append(suggestion)
@@ -268,9 +265,7 @@ class MemoryOfDecisions:
             # Sort by confidence
             suggestions.sort(key=lambda s: s.confidence, reverse=True)
 
-            logger.info(
-                f"Generated {len(suggestions)} decision suggestions for {domain or 'any'} domain"
-            )
+            logger.info(f"Generated {len(suggestions)} decision suggestions for {domain or 'any'} domain")
 
             return suggestions[:limit]
 
@@ -278,9 +273,7 @@ class MemoryOfDecisions:
             logger.error(f"Failed to get decision suggestions: {e}")
             return []
 
-    def get_learned_preferences(
-        self, domain: Optional[DecisionDomain] = None
-    ) -> List[PreferencePattern]:
+    def get_learned_preferences(self, domain: Optional[DecisionDomain] = None) -> List[PreferencePattern]:
         """
         Get preferences learned from decision history.
 
@@ -305,9 +298,7 @@ class MemoryOfDecisions:
             logger.error(f"Failed to get learned preferences: {e}")
             return []
 
-    def suggest_preference_change(
-        self, preference_type: str, domain: DecisionDomain, reasoning: str
-    ) -> bool:
+    def suggest_preference_change(self, preference_type: str, domain: DecisionDomain, reasoning: str) -> bool:
         """
         Suggest a preference change based on recent decisions.
 
@@ -348,9 +339,7 @@ class MemoryOfDecisions:
             logger.error(f"Failed to suggest preference change: {e}")
             return False
 
-    def get_decision_analytics(
-        self, domain: Optional[DecisionDomain] = None
-    ) -> Dict[str, Any]:
+    def get_decision_analytics(self, domain: Optional[DecisionDomain] = None) -> Dict[str, Any]:
         """
         Get analytics about decisions made.
 
@@ -364,9 +353,7 @@ class MemoryOfDecisions:
             decisions_to_analyze = list(self.decisions.values())
 
             if domain:
-                decisions_to_analyze = [
-                    d for d in decisions_to_analyze if d["domain"] == domain.value
-                ]
+                decisions_to_analyze = [d for d in decisions_to_analyze if d["domain"] == domain.value]
 
             if not decisions_to_analyze:
                 return {
@@ -378,43 +365,23 @@ class MemoryOfDecisions:
                 }
 
             # Calculate metrics
-            completed = [
-                d
-                for d in decisions_to_analyze
-                if d["outcome"] != DecisionOutcome.PENDING.value
-            ]
-            successful = [
-                d for d in completed if d["outcome"] == DecisionOutcome.SUCCESSFUL.value
-            ]
+            completed = [d for d in decisions_to_analyze if d["outcome"] != DecisionOutcome.PENDING.value]
+            successful = [d for d in completed if d["outcome"] == DecisionOutcome.SUCCESSFUL.value]
 
-            satisfaction_scores = [
-                d["satisfaction_score"]
-                for d in completed
-                if d["satisfaction_score"] is not None
-            ]
+            satisfaction_scores = [d["satisfaction_score"] for d in completed if d["satisfaction_score"] is not None]
 
             analytics = {
                 "total_decisions": len(decisions_to_analyze),
                 "completed_decisions": len(completed),
                 "pending_decisions": len(decisions_to_analyze) - len(completed),
-                "success_rate": (len(successful) / len(completed) * 100)
-                if completed
-                else 0.0,
+                "success_rate": (len(successful) / len(completed) * 100) if completed else 0.0,
                 "average_satisfaction": (
-                    sum(satisfaction_scores) / len(satisfaction_scores)
-                    if satisfaction_scores
-                    else None
+                    sum(satisfaction_scores) / len(satisfaction_scores) if satisfaction_scores else None
                 ),
                 "domains": self.domain_stats,
-                "most_common_decision": self._get_most_common_decision(
-                    decisions_to_analyze
-                ),
-                "highest_satisfaction_decision": self._get_highest_satisfaction_decision(
-                    decisions_to_analyze
-                ),
-                "learned_preferences": [
-                    p.to_dict() for p in self.get_learned_preferences(domain)
-                ],
+                "most_common_decision": self._get_most_common_decision(decisions_to_analyze),
+                "highest_satisfaction_decision": self._get_highest_satisfaction_decision(decisions_to_analyze),
+                "learned_preferences": [p.to_dict() for p in self.get_learned_preferences(domain)],
             }
 
             return analytics
@@ -441,9 +408,7 @@ class MemoryOfDecisions:
                 continue
 
             # Calculate similarity score
-            similarity = self._calculate_context_similarity(
-                context, decision["context"]
-            )
+            similarity = self._calculate_context_similarity(context, decision["context"])
 
             if similarity > 30:  # Minimum 30% similarity
                 similar.append((decision, similarity))
@@ -452,9 +417,7 @@ class MemoryOfDecisions:
         similar.sort(key=lambda x: x[1], reverse=True)
         return similar[:10]  # Return top 10
 
-    def _calculate_context_similarity(
-        self, context1: Dict[str, Any], context2: Dict[str, Any]
-    ) -> float:
+    def _calculate_context_similarity(self, context1: Dict[str, Any], context2: Dict[str, Any]) -> float:
         """Calculate similarity between two contexts."""
         if not context1 or not context2:
             return 0.0
@@ -474,19 +437,13 @@ class MemoryOfDecisions:
     def _calculate_success_rate(self, domain: str, option: str) -> float:
         """Calculate success rate for a domain and option combination."""
         matching_decisions = [
-            d
-            for d in self.decisions.values()
-            if d["domain"] == domain and d["chosen_option"] == option
+            d for d in self.decisions.values() if d["domain"] == domain and d["chosen_option"] == option
         ]
 
         if not matching_decisions:
             return 50.0  # Default
 
-        successful = [
-            d
-            for d in matching_decisions
-            if d["outcome"] == DecisionOutcome.SUCCESSFUL.value
-        ]
+        successful = [d for d in matching_decisions if d["outcome"] == DecisionOutcome.SUCCESSFUL.value]
 
         return (len(successful) / len(matching_decisions)) * 100
 
@@ -537,9 +494,7 @@ class MemoryOfDecisions:
         elif outcome == DecisionOutcome.UNSUCCESSFUL:
             stats["unsuccessful"] = stats.get("unsuccessful", 0) + 1
 
-    def _get_recent_decisions(
-        self, domain: Optional[DecisionDomain] = None, days: int = 7
-    ) -> List[Dict[str, Any]]:
+    def _get_recent_decisions(self, domain: Optional[DecisionDomain] = None, days: int = 7) -> List[Dict[str, Any]]:
         """Get decisions from the last N days."""
         cutoff = datetime.now() - timedelta(days=days)
         recent = []
@@ -552,9 +507,7 @@ class MemoryOfDecisions:
 
         return recent
 
-    def _extract_relevant_context(
-        self, current: Dict[str, Any], similar: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _extract_relevant_context(self, current: Dict[str, Any], similar: Dict[str, Any]) -> Dict[str, Any]:
         """Extract overlapping context keys."""
         return {k: current[k] for k in current.keys() if k in similar}
 
@@ -564,9 +517,7 @@ class MemoryOfDecisions:
             return 0.0
 
         satisfaction_scores = [
-            d.get("satisfaction_score", 50)
-            for d in decisions
-            if d.get("satisfaction_score") is not None
+            d.get("satisfaction_score", 50) for d in decisions if d.get("satisfaction_score") is not None
         ]
 
         if satisfaction_scores:
@@ -574,9 +525,7 @@ class MemoryOfDecisions:
 
         return 50.0
 
-    def _get_most_common_decision(
-        self, decisions: List[Dict[str, Any]]
-    ) -> Optional[str]:
+    def _get_most_common_decision(self, decisions: List[Dict[str, Any]]) -> Optional[str]:
         """Get the most frequently made decision."""
         if not decisions:
             return None
@@ -589,9 +538,7 @@ class MemoryOfDecisions:
 
         return max(options.items(), key=lambda x: x[1])[0] if options else None
 
-    def _get_highest_satisfaction_decision(
-        self, decisions: List[Dict[str, Any]]
-    ) -> Optional[str]:
+    def _get_highest_satisfaction_decision(self, decisions: List[Dict[str, Any]]) -> Optional[str]:
         """Get decision with highest satisfaction."""
         best = None
         best_score = -1

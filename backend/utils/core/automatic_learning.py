@@ -98,18 +98,13 @@ class PostMortemAnalyzer:
             phase=phase,
         )
 
-        self.logger.info(
-            f"📝 Captured correction pattern: {error_type} in {file_path} "
-            f"(signature: {error_hash})"
-        )
+        self.logger.info(f"📝 Captured correction pattern: {error_type} in {file_path} (signature: {error_hash})")
 
         return pattern
 
     def save_pattern(self, pattern: CorrectionPattern) -> Path:
         """Save a correction pattern to disk."""
-        filename = f"{pattern.error_signature}_{pattern.project_name}_{pattern.timestamp}".replace(
-            ":", "-"
-        )
+        filename = f"{pattern.error_signature}_{pattern.project_name}_{pattern.timestamp}".replace(":", "-")
         file_path = self.postmortem_dir / f"{filename}.json"
 
         with open(file_path, "w") as f:
@@ -139,9 +134,7 @@ class PostMortemAnalyzer:
 class LearningIndexer:
     """Indexes correction patterns in ChromaDB for semantic retrieval."""
 
-    def __init__(
-        self, logger: AgentLogger, project_root: Path, settings_manager: dict = None
-    ):
+    def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict = None):
         self.logger = logger
         self.project_root = project_root
 
@@ -152,9 +145,7 @@ class LearningIndexer:
             return
 
         try:
-            self.client = ChromaClientManager.get_client(
-                settings_manager or {}, project_root
-            )
+            self.client = ChromaClientManager.get_client(settings_manager or {}, project_root)
             self.collection = self.client.get_or_create_collection(
                 name="correction_patterns",
                 metadata={"hnsw:space": "cosine"},
@@ -176,7 +167,7 @@ Type: {pattern.error_type}
 Language: {pattern.language}
 File: {pattern.file_path}
 Phase: {pattern.phase}
-Steps: {' '.join(pattern.correction_steps)}
+Steps: {" ".join(pattern.correction_steps)}
 
 Original Code:
 {pattern.initial_code}
@@ -185,9 +176,7 @@ Corrected Code:
 {pattern.corrected_code}
 """
 
-        doc_id = f"pattern_{pattern.error_signature}_{pattern.timestamp}".replace(
-            ":", "-"
-        )
+        doc_id = f"pattern_{pattern.error_signature}_{pattern.timestamp}".replace(":", "-")
 
         self.collection.add(
             ids=[doc_id],
@@ -233,9 +222,7 @@ Corrected Code:
                     {
                         "document": results["documents"][0][i],
                         "metadata": results["metadatas"][0][i],
-                        "relevance": results["distances"][0][i]
-                        if results.get("distances")
-                        else 0,
+                        "relevance": results["distances"][0][i] if results.get("distances") else 0,
                     }
                 )
 
@@ -248,9 +235,7 @@ Corrected Code:
 class AutomaticLearningSystem:
     """Orchestrates post-mortem analysis and learning."""
 
-    def __init__(
-        self, logger: AgentLogger, project_root: Path, settings_manager: dict = None
-    ):
+    def __init__(self, logger: AgentLogger, project_root: Path, settings_manager: dict = None):
         self.logger = logger
         self.project_root = project_root
         self.analyzer = PostMortemAnalyzer(logger, project_root)
@@ -322,9 +307,7 @@ class AutomaticLearningSystem:
             self.logger.info("No similar past corrections found")
             return []
 
-        self.logger.info(
-            f"💡 Found {len(patterns)} similar correction patterns from past projects"
-        )
+        self.logger.info(f"💡 Found {len(patterns)} similar correction patterns from past projects")
 
         suggestions = []
         for pattern in patterns:
@@ -369,13 +352,9 @@ class AutomaticLearningSystem:
             "error_type_distribution": error_type_count,
             "language_distribution": language_count,
             "phase_distribution": phase_distribution,
-            "most_common_error": max(error_type_count, key=error_type_count.get)
-            if error_type_count
-            else None,
+            "most_common_error": max(error_type_count, key=error_type_count.get) if error_type_count else None,
         }
 
-        self.logger.info(
-            f"📊 Learning Report: {report['total_patterns']} patterns indexed"
-        )
+        self.logger.info(f"📊 Learning Report: {report['total_patterns']} patterns indexed")
 
         return report

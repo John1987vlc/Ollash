@@ -145,9 +145,7 @@ class AdvancedTriggerManager:
         name: str,
         states: List[str],
         initial_state: str,
-        transitions: Dict[
-            str, List[Dict[str, Any]]
-        ],  # from_state -> [conditions, to_state]
+        transitions: Dict[str, List[Dict[str, Any]]],  # from_state -> [conditions, to_state]
         action_on_transition: Optional[Callable] = None,
     ) -> bool:
         """
@@ -218,9 +216,7 @@ class AdvancedTriggerManager:
 
             self.dependencies[dependent_trigger_id].append(dependency)
 
-            logger.info(
-                f"Dependency added: {dependent_trigger_id} depends on {required_trigger_id}"
-            )
+            logger.info(f"Dependency added: {dependent_trigger_id} depends on {required_trigger_id}")
 
             return True
 
@@ -264,18 +260,14 @@ class AdvancedTriggerManager:
             if trigger.get("type") == "state_machine":
                 return self._evaluate_state_machine(trigger_id, context)
             else:
-                return self._evaluate_composite_condition(
-                    trigger.get("condition"), context
-                )
+                return self._evaluate_composite_condition(trigger.get("condition"), context)
 
         except Exception as e:
             logger.error(f"Error evaluating trigger {trigger_id}: {e}")
             self.trigger_states[trigger_id] = TriggerState.ERROR
             return False
 
-    def fire_trigger(
-        self, trigger_id: str, context: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
+    def fire_trigger(self, trigger_id: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Fire a trigger (execute its action).
 
@@ -303,9 +295,7 @@ class AdvancedTriggerManager:
 
             if trigger.get("action_callback"):
                 try:
-                    result["callback_result"] = trigger["action_callback"](
-                        context or {}
-                    )
+                    result["callback_result"] = trigger["action_callback"](context or {})
                 except Exception as e:
                     logger.error(f"Callback error for {trigger_id}: {e}")
                     result["callback_error"] = str(e)
@@ -324,11 +314,10 @@ class AdvancedTriggerManager:
             if len(self.firing_history) > self.max_history:
                 self.firing_history = self.firing_history[-self.max_history :]
 
-            logger.info(f"Trigger fired: {trigger.get('name')} ({trigger_id})")
             return result
 
         except Exception as e:
-            logger.error(f"Failed to fire trigger {trigger_id}: {e}")
+            logger.error(f"Error firing trigger {trigger_id}: {e}")
             return {"success": False, "error": str(e)}
 
     def detect_conflicts(self) -> List[Dict[str, Any]]:
@@ -376,14 +365,11 @@ class AdvancedTriggerManager:
             return {
                 "id": trigger_id,
                 "name": trigger.get("name"),
-                "state": self.trigger_states.get(
-                    trigger_id, TriggerState.INACTIVE
-                ).value,
+                "state": self.trigger_states.get(trigger_id, TriggerState.INACTIVE).value,
                 "enabled": trigger.get("enabled"),
                 "fire_count": trigger.get("fire_count"),
                 "last_fired": trigger.get("last_fired"),
-                "in_cooldown": self.trigger_states.get(trigger_id)
-                == TriggerState.COOLDOWN,
+                "in_cooldown": self.trigger_states.get(trigger_id) == TriggerState.COOLDOWN,
             }
         else:
             return {
@@ -397,9 +383,7 @@ class AdvancedTriggerManager:
 
     # ==================== Private Methods ====================
 
-    def _evaluate_composite_condition(
-        self, condition: Dict[str, Any], context: Dict[str, Any]
-    ) -> bool:
+    def _evaluate_composite_condition(self, condition: Dict[str, Any], context: Dict[str, Any]) -> bool:
         """Recursively evaluate composite condition."""
         if not condition:
             return False
@@ -435,9 +419,7 @@ class AdvancedTriggerManager:
 
         return False
 
-    def _evaluate_simple_condition(
-        self, condition: Dict[str, Any], context: Dict[str, Any]
-    ) -> bool:
+    def _evaluate_simple_condition(self, condition: Dict[str, Any], context: Dict[str, Any]) -> bool:
         """Evaluate a simple condition."""
         metric = condition.get("metric")
         operator = condition.get("operator", "==")

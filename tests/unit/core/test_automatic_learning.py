@@ -5,10 +5,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.utils.core.automatic_learning import (AutomaticLearningSystem,
-                                                   CorrectionPattern,
-                                                   LearningIndexer,
-                                                   PostMortemAnalyzer)
+from backend.utils.core.automatic_learning import (
+    AutomaticLearningSystem,
+    CorrectionPattern,
+    LearningIndexer,
+    PostMortemAnalyzer,
+)
 
 
 @pytest.fixture

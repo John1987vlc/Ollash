@@ -54,14 +54,10 @@ class OrchestrationTools:
             for risk_type, keywords in high_risk_keywords.items():
                 for keyword in keywords:
                     if keyword in step_lower:
-                        risks.append(
-                            {"type": risk_type, "keyword": keyword, "step": step}
-                        )
+                        risks.append({"type": risk_type, "keyword": keyword, "step": step})
                         if risk_type in ["security", "impact"]:
                             risk_level = "high"
-                        elif (
-                            risk_level == "low"
-                        ):  # Upgrade from low to medium if technical risk found
+                        elif risk_level == "low":  # Upgrade from low to medium if technical risk found
                             risk_level = "medium"
 
         if not risks:
@@ -106,16 +102,12 @@ class OrchestrationTools:
         if detected_intents:
             # Select the intent with the most matching keywords
             best_intent = max(detected_intents, key=detected_intents.get)
-            confidence = detected_intents[best_intent] / len(
-                user_request_lower.split()
-            )  # Simple confidence
+            confidence = detected_intents[best_intent] / len(user_request_lower.split())  # Simple confidence
             details = f"Detected intent '{best_intent}' based on keywords."
         else:
             best_intent = "exploration"
             confidence = 0.5
-            details = (
-                "No specific intent keywords detected. Defaulting to 'exploration'."
-            )
+            details = "No specific intent keywords detected. Defaulting to 'exploration'."
 
         return {
             "ok": True,
@@ -154,22 +146,10 @@ class OrchestrationTools:
         self.logger.info("Summarizing session state...")
 
         # Default/generic values
-        active_agent = (
-            agent_state.get("active_agent", "unknown")
-            if agent_state
-            else "orchestrator"
-        )
-        conversation_length = (
-            agent_state.get("conversation_length", 0) if agent_state else 0
-        )
-        last_user_request = (
-            agent_state.get("last_user_request", "N/A") if agent_state else "N/A"
-        )
-        current_plan_goal = (
-            agent_state.get("current_plan_goal", "No active plan")
-            if agent_state
-            else "No active plan"
-        )
+        active_agent = agent_state.get("active_agent", "unknown") if agent_state else "orchestrator"
+        conversation_length = agent_state.get("conversation_length", 0) if agent_state else 0
+        last_user_request = agent_state.get("last_user_request", "N/A") if agent_state else "N/A"
+        current_plan_goal = agent_state.get("current_plan_goal", "No active plan") if agent_state else "No active plan"
 
         summary_details = f"Currently operating in '{active_agent}' context. "
         summary_details += f"Conversation has {conversation_length} turns. "
@@ -188,9 +168,7 @@ class OrchestrationTools:
             },
         }
 
-    def explain_decision(
-        self, decision_id: Optional[str] = None, current_context: Optional[Dict] = None
-    ) -> Dict:
+    def explain_decision(self, decision_id: Optional[str] = None, current_context: Optional[Dict] = None) -> Dict:
         """
         Explains why the agent made a specific decision and what alternatives it discarded.
         This implementation provides a generic explanation. A more complete version would
@@ -236,9 +214,7 @@ class OrchestrationTools:
         if "os_type" in expectations:
             expected_os = expectations["os_type"].lower()
             current_os = self.os_type.lower()
-            if (
-                expected_os in current_os
-            ):  # Check for partial match (e.g., 'linux' in 'gnulinux')
+            if expected_os in current_os:  # Check for partial match (e.g., 'linux' in 'gnulinux')
                 validation_results.append(
                     {
                         "check": "os_type",
@@ -286,9 +262,7 @@ class OrchestrationTools:
         if overall_status == "match":
             details = "All checked environment expectations are met."
         else:
-            details = (
-                "Some environment expectations do not match. See findings for details."
-            )
+            details = "Some environment expectations do not match. See findings for details."
 
         return {
             "ok": overall_status == "match",
@@ -306,9 +280,7 @@ class OrchestrationTools:
         Detects deviations with respect to a known baseline.
         Reads and compares the content of two files line by line.
         """
-        self.logger.info(
-            f"Detecting configuration drift between {baseline_file} and {current_file}..."
-        )
+        self.logger.info(f"Detecting configuration drift between {baseline_file} and {current_file}...")
 
         try:
             baseline_path = Path(baseline_file)
@@ -325,24 +297,16 @@ class OrchestrationTools:
                     "result": {"error": f"Current file not found: {current_file}"},
                 }
 
-            baseline_content = baseline_path.read_text(
-                encoding="utf-8", errors="ignore"
-            ).splitlines()
-            current_content = current_path.read_text(
-                encoding="utf-8", errors="ignore"
-            ).splitlines()
+            baseline_content = baseline_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+            current_content = current_path.read_text(encoding="utf-8", errors="ignore").splitlines()
 
             drift_detected = False
             differences = []
 
             max_lines = max(len(baseline_content), len(current_content))
             for i in range(max_lines):
-                line_in_baseline = (
-                    baseline_content[i].strip() if i < len(baseline_content) else ""
-                )
-                line_in_current = (
-                    current_content[i].strip() if i < len(current_content) else ""
-                )
+                line_in_baseline = baseline_content[i].strip() if i < len(baseline_content) else ""
+                line_in_current = current_content[i].strip() if i < len(current_content) else ""
 
                 if line_in_baseline != line_in_current:
                     drift_detected = True
@@ -389,16 +353,12 @@ class OrchestrationTools:
                 },
             }
 
-    def evaluate_compliance(
-        self, compliance_standard: str, audit_scope: List[str]
-    ) -> Dict:
+    def evaluate_compliance(self, compliance_standard: str, audit_scope: List[str]) -> Dict:
         """
         Evaluates system configurations and practices against a specified compliance standard (e.g., ISO 27001, GDPR).
         Provides a generic evaluation framework, emphasizing the need for detailed, tool-specific checks.
         """
-        self.logger.info(
-            f"Evaluating compliance against {compliance_standard} for scope: {audit_scope}"
-        )
+        self.logger.info(f"Evaluating compliance against {compliance_standard} for scope: {audit_scope}")
 
         findings = []
         overall_status = "needs_assessment"
@@ -541,9 +501,7 @@ class OrchestrationTools:
         Proposes new governance policies or updates existing ones based on compliance gaps or best practices.
         Generates a generic policy outline based on the specified type and scope.
         """
-        self.logger.info(
-            f"Proposing governance policy of type '{policy_type}' for scope: {scope}"
-        )
+        self.logger.info(f"Proposing governance policy of type '{policy_type}' for scope: {scope}")
 
         policy_template = {
             "title": f"Draft Governance Policy: {policy_type.replace('_', ' ').title()}",
@@ -572,9 +530,7 @@ class OrchestrationTools:
                     "Principle of Confidentiality and Integrity",
                 ]
             )
-            policy_template["objectives"].insert(
-                0, "Protect sensitive data throughout its lifecycle."
-            )
+            policy_template["objectives"].insert(0, "Protect sensitive data throughout its lifecycle.")
         elif policy_type.lower() == "access_control":
             policy_template["key_principles"].extend(
                 [
@@ -583,9 +539,7 @@ class OrchestrationTools:
                     "Principle of Need-to-Know",
                 ]
             )
-            policy_template["objectives"].insert(
-                0, "Ensure appropriate access to systems and information."
-            )
+            policy_template["objectives"].insert(0, "Ensure appropriate access to systems and information.")
         elif policy_type.lower() == "incident_response":
             policy_template["key_principles"].extend(
                 [
@@ -595,14 +549,10 @@ class OrchestrationTools:
                     "Principle of Post-Incident Learning",
                 ]
             )
-            policy_template["objectives"].insert(
-                0, "Define procedures for managing security incidents effectively."
-            )
+            policy_template["objectives"].insert(0, "Define procedures for managing security incidents effectively.")
         else:
             policy_template["key_principles"].append("General Best Practice Principles")
-            policy_template["objectives"].insert(
-                0, "Establish sound governance practices."
-            )
+            policy_template["objectives"].insert(0, "Establish sound governance practices.")
 
         return {
             "ok": True,

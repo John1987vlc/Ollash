@@ -23,26 +23,18 @@ class VerificationPhase(IAgentPhase):
         generated_files: Dict[str, str],  # This will be verified and potentially fixed
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        file_paths = kwargs.get(
-            "file_paths", []
-        )  # Get from kwargs or assume context has it
+        file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5.5: Verification loop...")
-        self.context.event_publisher.publish(
-            "phase_start", phase="5.5", message="Starting verification loop"
-        )
+        self.context.event_publisher.publish("phase_start", phase="5.5", message="Starting verification loop")
 
-        generated_files = self.context.file_completeness_checker.verify_and_fix(
-            generated_files, readme_content[:1000]
-        )
+        generated_files = self.context.file_completeness_checker.verify_and_fix(generated_files, readme_content[:1000])
 
         for rel_path, content in generated_files.items():
             if content:
                 self.context.file_manager.write_file(project_root / rel_path, content)
 
-        self.context.event_publisher.publish(
-            "phase_complete", phase="5.5", message="Verification loop complete"
-        )
+        self.context.event_publisher.publish("phase_complete", phase="5.5", message="Verification loop complete")
         self.context.logger.info("PHASE 5.5 complete.")
 
         return generated_files, initial_structure, file_paths

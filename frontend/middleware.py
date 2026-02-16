@@ -1,4 +1,5 @@
 """Security middleware for the Ollash Web UI."""
+
 import os
 import threading
 import time
@@ -85,9 +86,7 @@ def require_api_key(f):
             # No key configured — open access
             return f(*args, **kwargs)
 
-        provided_key = request.headers.get("X-API-Key", "") or request.args.get(
-            "api_key", ""
-        )
+        provided_key = request.headers.get("X-API-Key", "") or request.args.get("api_key", "")
         if provided_key != expected_key:
             return (
                 jsonify(

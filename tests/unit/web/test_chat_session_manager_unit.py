@@ -1,4 +1,5 @@
 """Unit tests for src/web/services/chat_session_manager.py."""
+
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -37,23 +38,16 @@ class TestChatSessionManager:
         )
         prompts_dir = tmp_path / "prompts" / "orchestrator"
         prompts_dir.mkdir(parents=True, exist_ok=True)
-        (prompts_dir / "default_orchestrator.json").write_text(
-            json.dumps({"system_prompt": "test", "tools": []})
-        )
+        (prompts_dir / "default_orchestrator.json").write_text(json.dumps({"system_prompt": "test", "tools": []}))
         for domain in ["code", "network", "system", "cybersecurity"]:
             d = tmp_path / "prompts" / domain
             d.mkdir(parents=True, exist_ok=True)
-            fname = (
-                "default_agent.json"
-                if domain == "code"
-                else f"default_{domain}_agent.json"
-            )
+            fname = "default_agent.json" if domain == "code" else f"default_{domain}_agent.json"
             (d / fname).write_text(json.dumps({"system_prompt": "test", "tools": []}))
 
         with patch("frontend.services.chat_session_manager.DefaultAgent"):
             from backend.utils.core.event_publisher import EventPublisher
-            from frontend.services.chat_session_manager import \
-                ChatSessionManager
+            from frontend.services.chat_session_manager import ChatSessionManager
 
             publisher = EventPublisher()
             mgr = ChatSessionManager(tmp_path, event_publisher=publisher)
@@ -64,8 +58,7 @@ class TestChatSessionManager:
     def test_max_sessions_limit(self):
         with patch("frontend.services.chat_session_manager.DefaultAgent"):
             from backend.utils.core.event_publisher import EventPublisher
-            from frontend.services.chat_session_manager import \
-                ChatSessionManager
+            from frontend.services.chat_session_manager import ChatSessionManager
 
             publisher = EventPublisher()
             mgr = ChatSessionManager(Path("."), event_publisher=publisher)
@@ -85,8 +78,7 @@ class TestChatSessionManager:
             mock_instance.active_tool_names = ["plan_actions"]
 
             from backend.utils.core.event_publisher import EventPublisher
-            from frontend.services.chat_session_manager import \
-                ChatSessionManager
+            from frontend.services.chat_session_manager import ChatSessionManager
 
             publisher = EventPublisher()
             mgr = ChatSessionManager(Path("."), event_publisher=publisher)

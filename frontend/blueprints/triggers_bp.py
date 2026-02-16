@@ -59,9 +59,7 @@ def create_trigger():
             return jsonify({"error": "Trigger already exists"}), 409
 
         # Add trigger
-        success = _trigger_manager.add_trigger(
-            trigger_id=trigger_id, rule=data["rule"], actions=data["actions"]
-        )
+        success = _trigger_manager.add_trigger(trigger_id=trigger_id, rule=data["rule"], actions=data["actions"])
 
         if not success:
             return jsonify({"error": "Failed to create trigger"}), 500
@@ -255,9 +253,7 @@ def get_trigger_templates():
             "name": "High CPU Usage Alert",
             "description": "Alert when CPU usage exceeds 80%",
             "rule": {
-                "conditions": [
-                    {"metric": "system.cpu_usage", "operator": ">", "value": 80}
-                ],
+                "conditions": [{"metric": "system.cpu_usage", "operator": ">", "value": 80}],
                 "logic": "AND",
             },
             "actions": [
@@ -279,9 +275,7 @@ def get_trigger_templates():
             "name": "Low Disk Space Alert",
             "description": "Alert when free disk space falls below 10%",
             "rule": {
-                "conditions": [
-                    {"metric": "system.disk_free_percent", "operator": "<", "value": 10}
-                ],
+                "conditions": [{"metric": "system.disk_free_percent", "operator": "<", "value": 10}],
                 "logic": "AND",
             },
             "actions": [

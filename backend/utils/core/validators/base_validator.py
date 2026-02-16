@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 if TYPE_CHECKING:
-    from backend.utils.core.command_executor import \
-        CommandExecutor  # Avoid circular import at runtime
+    from backend.utils.core.command_executor import CommandExecutor  # Avoid circular import at runtime
 
 
 class ValidationStatus(Enum):
@@ -32,9 +31,7 @@ class BaseValidator:
     """Base class for all language-specific validators, providing common utilities."""
 
     @abstractmethod
-    def validate(
-        self, file_path: str, content: str, lines: int, chars: int, ext: str
-    ) -> ValidationResult:
+    def validate(self, file_path: str, content: str, lines: int, chars: int, ext: str) -> ValidationResult:
         """Abstract method to be implemented by subclasses for language-specific validation."""
         pass
 
@@ -120,15 +117,11 @@ class BaseValidator:
     ]
     _placeholder_re = re.compile("|".join(PLACEHOLDER_PATTERNS), re.IGNORECASE)
 
-    def __init__(
-        self, logger=None, command_executor: Optional["CommandExecutor"] = None
-    ):
+    def __init__(self, logger=None, command_executor: Optional["CommandExecutor"] = None):
         self.logger = logger
         self.command_executor = command_executor
 
-    def basic_validation(
-        self, file_path: str, content: str, ext: str, lines: int, chars: int
-    ) -> ValidationResult:
+    def basic_validation(self, file_path: str, content: str, ext: str, lines: int, chars: int) -> ValidationResult:
         """Performs basic validation checks common to all file types."""
         min_lines = self.MIN_LINES.get(ext, 1)
         if lines < min_lines:
@@ -149,9 +142,7 @@ class BaseValidator:
                 lines,
                 chars,
             )
-        return ValidationResult(
-            file_path, ValidationStatus.VALID, "Basic checks passed", lines, chars
-        )
+        return ValidationResult(file_path, ValidationStatus.VALID, "Basic checks passed", lines, chars)
 
     def _run_linter_command(
         self,
@@ -190,9 +181,7 @@ class BaseValidator:
             tmp_f.write(content)
             temp_file_path = Path(tmp_f.name)
 
-        rel_temp_file_path = temp_file_path.relative_to(
-            self.command_executor.working_dir
-        )
+        rel_temp_file_path = temp_file_path.relative_to(self.command_executor.working_dir)
 
         linter_command = command + [str(rel_temp_file_path)]
 
@@ -205,9 +194,7 @@ class BaseValidator:
                 Path(lint_temp_dir).rmdir()  # Use Path object for rmdir
 
         if result.success:
-            return ValidationResult(
-                file_path, ValidationStatus.VALID, success_message, lines, chars
-            )
+            return ValidationResult(file_path, ValidationStatus.VALID, success_message, lines, chars)
         else:
             error_message = result.stderr.strip() or result.stdout.strip()
 
@@ -247,9 +234,7 @@ class BaseValidator:
                             try:
                                 line_num = int(match.group(line_col_group_indices[0]))
                                 col_num = int(match.group(line_col_group_indices[1]))
-                                parsed_errors.append(
-                                    f"Line {line_num}, Col {col_num}: {line}"
-                                )
+                                parsed_errors.append(f"Line {line_num}, Col {col_num}: {line}")
                             except (ValueError, IndexError):
                                 parsed_errors.append(line)
                         else:
@@ -259,9 +244,7 @@ class BaseValidator:
 
                 full_error_message = "Linter errors:\n" + "\n".join(parsed_errors[:10])
                 if len(parsed_errors) > 10:
-                    full_error_message += (
-                        f"\n... ({len(parsed_errors) - 10} more errors)"
-                    )
+                    full_error_message += f"\n... ({len(parsed_errors) - 10} more errors)"
 
                 return ValidationResult(
                     file_path,
@@ -310,6 +293,4 @@ class BaseValidator:
                 lines,
                 chars,
             )
-        return ValidationResult(
-            path, ValidationStatus.VALID, "Brace check passed", lines, chars
-        )
+        return ValidationResult(path, ValidationStatus.VALID, "Brace check passed", lines, chars)

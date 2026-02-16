@@ -79,24 +79,18 @@ class EnhancedFileContentGenerator:
         # Generate with retry logic
         for attempt in range(self.max_retries):
             try:
-                content = self._generate_with_prompt(
-                    file_path, context, purpose, exports, main_logic, validation
-                )
+                content = self._generate_with_prompt(file_path, context, purpose, exports, main_logic, validation)
 
                 if self._validate_content(content, file_path, exports, validation):
                     return content
 
-                self.logger.warning(
-                    f"  Attempt {attempt + 1}: Generated content failed validation"
-                )
+                self.logger.warning(f"  Attempt {attempt + 1}: Generated content failed validation")
 
             except Exception as e:
                 self.logger.error(f"  Attempt {attempt + 1} failed: {e}")
 
         # If all retries failed, return partial content with comments
-        self.logger.error(
-            f"Failed to generate valid {file_path} after {self.max_retries} attempts"
-        )
+        self.logger.error(f"Failed to generate valid {file_path} after {self.max_retries} attempts")
         return self._generate_fallback_skeleton(file_path, purpose, exports, imports)
 
     def _build_detailed_context(
@@ -121,16 +115,16 @@ class EnhancedFileContentGenerator:
 {purpose}
 
 ### What to Export (Functions/Classes/Variables)
-{chr(10).join(f'- {e}' for e in exports)}
+{chr(10).join(f"- {e}" for e in exports)}
 
 ### Required Imports
-{chr(10).join(f'- {i}' for i in imports) if imports else 'None (if internal only)'}
+{chr(10).join(f"- {i}" for i in imports) if imports else "None (if internal only)"}
 
 ### Main Implementation Logic (Step by step)
-{chr(10).join(f'{i+1}. {logic}' for i, logic in enumerate(main_logic))}
+{chr(10).join(f"{i + 1}. {logic}" for i, logic in enumerate(main_logic))}
 
 ### Dependencies on Other Files
-{chr(10).join(f'- {d}' for d in dependencies) if dependencies else 'None'}
+{chr(10).join(f"- {d}" for d in dependencies) if dependencies else "None"}
 
 ### Related Project Files for Context
 {self._format_related_files(related_files)}
@@ -139,7 +133,7 @@ class EnhancedFileContentGenerator:
 {readme[:500]}...
 
 ### Validation Criteria
-{chr(10).join(f'- {v}' for v in validation)}
+{chr(10).join(f"- {v}" for v in validation)}
 
 ## Instructions
 1. Generate COMPLETE, working code
@@ -245,9 +239,7 @@ Generate ONLY the file content, no explanations."""
             "You are a code generation expert. Generate production-ready content.",
         )
 
-    def _validate_content(
-        self, content: str, file_path: str, exports: List[str], validation: List[str]
-    ) -> bool:
+    def _validate_content(self, content: str, file_path: str, exports: List[str], validation: List[str]) -> bool:
         """Validate that generated content meets requirements."""
 
         if not content or len(content.strip()) < 20:
@@ -290,28 +282,20 @@ Generate ONLY the file content, no explanations."""
 
         return True
 
-    def _generate_fallback_skeleton(
-        self, file_path: str, purpose: str, exports: List[str], imports: List[str]
-    ) -> str:
+    def _generate_fallback_skeleton(self, file_path: str, purpose: str, exports: List[str], imports: List[str]) -> str:
         """Generate a basic skeleton when full generation fails."""
 
         file_ext = Path(file_path).suffix
 
         if file_ext == ".py":
-            imports_str = (
-                "\n".join("from ... import ..." for _ in imports) if imports else ""
-            )
+            imports_str = "\n".join("from ... import ..." for _ in imports) if imports else ""
             exports_parts = []
             for e in exports:
                 if "()" in e:
                     func_name = e.replace("()", "")
-                    exports_parts.append(
-                        f'def {func_name}():\n    """Implement {e}."""\n    pass'
-                    )
+                    exports_parts.append(f'def {func_name}():\n    """Implement {e}."""\n    pass')
                 else:
-                    exports_parts.append(
-                        f'class {e}:\n    """Implement {e}."""\n    pass'
-                    )
+                    exports_parts.append(f'class {e}:\n    """Implement {e}."""\n    pass')
             exports_str = "\n\n".join(exports_parts)
             skeleton = f'''"""
 {purpose}
@@ -321,11 +305,7 @@ Generate ONLY the file content, no explanations."""
 {exports_str}
 '''
         elif file_ext == ".js" or file_ext == ".ts":
-            imports_str = (
-                "\n".join('import { ... } from "...";' for _ in imports)
-                if imports
-                else ""
-            )
+            imports_str = "\n".join('import { ... } from "...";' for _ in imports) if imports else ""
             exports_parts = []
             for e in exports:
                 if "()" in e:
@@ -387,21 +367,15 @@ TODO: Implement {file_path}
             Updated file content
         """
 
-        self.logger.info(
-            f"📝 Editing existing {file_path} using {edit_strategy} strategy..."
-        )
+        self.logger.info(f"📝 Editing existing {file_path} using {edit_strategy} strategy...")
 
         if not current_content:
             return ""
 
         if edit_strategy == "partial" and issues_to_fix:
-            return self._apply_partial_edits(
-                file_path, current_content, readme, issues_to_fix
-            )
+            return self._apply_partial_edits(file_path, current_content, readme, issues_to_fix)
         elif edit_strategy == "merge":
-            return self._merge_original_with_improvements(
-                file_path, current_content, readme
-            )
+            return self._merge_original_with_improvements(file_path, current_content, readme)
         else:
             return current_content
 
@@ -430,9 +404,7 @@ TODO: Implement {file_path}
                 self.logger.info(f"    Found: {issue_desc[:40]}...")
 
                 # Generate fix for this section
-                fix = self._generate_section_fix(
-                    file_path, problem_section, issue_desc, readme
-                )
+                fix = self._generate_section_fix(file_path, problem_section, issue_desc, readme)
 
                 if fix and fix != problem_section:
                     edited_content = edited_content.replace(problem_section, fix, 1)
@@ -440,9 +412,7 @@ TODO: Implement {file_path}
 
         return edited_content
 
-    def _merge_original_with_improvements(
-        self, file_path: str, current_content: str, readme: str
-    ) -> str:
+    def _merge_original_with_improvements(self, file_path: str, current_content: str, readme: str) -> str:
         """
         Generate an improved version and intelligently merge it with the original.
         Preserves custom modifications while applying improvements.
@@ -539,9 +509,7 @@ Output the improved version only, no explanations."""
 
         return ""
 
-    def _generate_section_fix(
-        self, file_path: str, problem_section: str, issue_desc: str, readme: str
-    ) -> str:
+    def _generate_section_fix(self, file_path: str, problem_section: str, issue_desc: str, readme: str) -> str:
         """Generate a fix for a specific section."""
 
         fix_prompt = f"""Fix this specific issue in {file_path}:
@@ -584,9 +552,7 @@ Generate ONLY the fixed code (same language), no explanations."""
             return False
 
         # Improved line is better if it's longer and has more substance
-        if len(improved) > len(orig) and improved.count("{") + improved.count(
-            "("
-        ) > orig.count("{") + orig.count("("):
+        if len(improved) > len(orig) and improved.count("{") + improved.count("(") > orig.count("{") + orig.count("("):
             return True
 
         # Or if it has less "TODO" markers
@@ -597,9 +563,9 @@ Generate ONLY the fixed code (same language), no explanations."""
             return True
 
         # Or if it has more comments/documentation
-        if improved.count("#") + improved.count("//") + improved.count(
-            '"""'
-        ) > orig.count("#") + orig.count("//") + orig.count('"""'):
+        if improved.count("#") + improved.count("//") + improved.count('"""') > orig.count("#") + orig.count(
+            "//"
+        ) + orig.count('"""'):
             return True
 
         return False

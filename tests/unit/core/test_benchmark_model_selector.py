@@ -7,9 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from backend.utils.core.benchmark_model_selector import (AutoModelSelector,
-                                                         BenchmarkDatabase,
-                                                         ModelBenchmarkResult)
+from backend.utils.core.benchmark_model_selector import AutoModelSelector, BenchmarkDatabase, ModelBenchmarkResult
 
 
 @pytest.fixture
@@ -200,9 +198,7 @@ class TestAutoModelSelector:
         base_config = {  # Added base_config
             "models": {"coder": "old-coder-model", "planner": "old-planner-model"}
         }
-        config = selector.generate_optimized_config(
-            base_config=base_config
-        )  # Passed base_config
+        config = selector.generate_optimized_config(base_config=base_config)  # Passed base_config
 
         # Should return dictionary with models updated
         assert config is not None and isinstance(config, dict)  # Modified assertion
@@ -232,17 +228,11 @@ class TestAutoModelSelector:
         base_config = {  # Added base_config
             "models": {"coder": "old-coder-model", "planner": "old-planner-model"}
         }
-        config = selector.generate_optimized_config(
-            base_config=base_config
-        )  # Passed base_config
+        config = selector.generate_optimized_config(base_config=base_config)  # Passed base_config
 
         # With high threshold, it should likely not find a model with 0.95 success rate
-        assert (
-            config["models"]["coder"] == "old-coder-model"
-        )  # Assert old model is kept
-        assert (
-            config["models"]["planner"] == "old-planner-model"
-        )  # Assert old model is kept
+        assert config["models"]["coder"] == "old-coder-model"  # Assert old model is kept
+        assert config["models"]["planner"] == "old-planner-model"  # Assert old model is kept
 
     def test_integration_with_settings(self, mock_logger, tmp_benchmarks, tmp_path):
         """Test integrating benchmark results into settings.json."""
@@ -263,20 +253,12 @@ class TestAutoModelSelector:
             benchmark_dir=tmp_benchmarks,
         )
 
-        optimized = selector.generate_optimized_config(
-            base_config=settings
-        )  # Passed base_config
+        optimized = selector.generate_optimized_config(base_config=settings)  # Passed base_config
 
         # Should be able to generate config with updated models
-        assert optimized is not None and isinstance(
-            optimized, dict
-        )  # Modified assertion
-        assert (
-            "models" in optimized and "coder" in optimized["models"]
-        )  # Check structure exists
-        assert isinstance(
-            optimized["models"]["coder"], str
-        )  # Verify coder model is string
+        assert optimized is not None and isinstance(optimized, dict)  # Modified assertion
+        assert "models" in optimized and "coder" in optimized["models"]  # Check structure exists
+        assert isinstance(optimized["models"]["coder"], str)  # Verify coder model is string
 
 
 # ============================================================================
@@ -334,26 +316,20 @@ class TestStructurePreReviewPhaseStressTest:
             ],
         }
 
-    def test_detect_circular_dependencies(
-        self, mock_logger, circular_dependency_scenario
-    ):
+    def test_detect_circular_dependencies(self, mock_logger, circular_dependency_scenario):
         """Test that benchmark can detect circular dependencies in structure."""
         scenario = circular_dependency_scenario
 
         # Simulate DependencyGraph detection
         detected_cycles = []
         for path in scenario["circular_paths"]:
-            detected_cycles.append(
-                {"type": "circular", "nodes": path, "severity": "critical"}
-            )
+            detected_cycles.append({"type": "circular", "nodes": path, "severity": "critical"})
 
         # Assertions
         assert len(detected_cycles) >= 2, "Should detect multiple cycles"
         assert all(c["severity"] == "critical" for c in detected_cycles)
 
-    def test_model_capability_on_circular_resolution(
-        self, mock_logger, circular_dependency_scenario
-    ):
+    def test_model_capability_on_circular_resolution(self, mock_logger, circular_dependency_scenario):
         """
         NEW STRESS TEST: Evaluate which models can resolve circular dependencies.
 
@@ -419,9 +395,7 @@ class TestStructurePreReviewPhaseStressTest:
                 "proposed_solution": {
                     "restructure": {
                         "auth": {"depends_on": []},
-                        "database": {
-                            "depends_on": ["models", "auth"]
-                        },  # Still circular!
+                        "database": {"depends_on": ["models", "auth"]},  # Still circular!
                     },
                     "refactoring_steps": ["Reorganize imports"],
                 },
@@ -469,9 +443,7 @@ class TestStructurePreReviewPhaseStressTest:
         ]
 
         best_model, best_score = max(scores, key=lambda x: x[1])
-        assert (
-            best_score >= 0.7
-        ), f"Best model {best_model} should achieve >=0.7 repair score"
+        assert best_score >= 0.7, f"Best model {best_model} should achieve >=0.7 repair score"
         assert best_model == "gpt-oss:20b", "gpt-oss:20b should be the best performer"
 
     def test_rescue_model_escalation(self, mock_logger):
@@ -509,9 +481,7 @@ class TestStructurePreReviewPhaseStressTest:
 
         for phase_name, expected_criticality in critical_phases:
             criticality = selector.evaluate_phase_criticality(phase_name)
-            assert (
-                criticality == expected_criticality
-            ), f"{phase_name} should have criticality {expected_criticality}"
+            assert criticality == expected_criticality, f"{phase_name} should have criticality {expected_criticality}"
 
 
 # ============================================================================
@@ -570,9 +540,7 @@ def advanced_metrics_benchmarks(tmp_path):
 class TestAdvancedMetrics:
     """Test new advanced metrics for detailed phase evaluation."""
 
-    def test_evaluate_model_performance_with_weights(
-        self, mock_logger, advanced_metrics_benchmarks
-    ):
+    def test_evaluate_model_performance_with_weights(self, mock_logger, advanced_metrics_benchmarks):
         """Test evaluate_model_performance with custom weights."""
         db = BenchmarkDatabase(
             logger=mock_logger,
@@ -596,9 +564,7 @@ class TestAdvancedMetrics:
 
         # Score should be in range and reflect high performance
         assert 0.0 <= score <= 10.0, "Score should be normalized to 0-10"
-        assert score == pytest.approx(
-            6.36
-        ), f"gpt-oss:20b should score high, got {score:.2f}"
+        assert score == pytest.approx(6.36), f"gpt-oss:20b should score high, got {score:.2f}"
 
     def test_hallucination_ratio_metric(self, mock_logger, advanced_metrics_benchmarks):
         """Test that hallucination ratio is properly tracked."""
@@ -613,9 +579,7 @@ class TestAdvancedMetrics:
 
         for result in results:
             assert 0.0 <= result.hallucination_ratio <= 1.0
-            assert (
-                result.hallucination_ratio == 0.05
-            ), "Should preserve hallucination ratio"
+            assert result.hallucination_ratio == 0.05, "Should preserve hallucination ratio"
 
     def test_repair_efficiency_metric(self, mock_logger, advanced_metrics_benchmarks):
         """Test that repair efficiency is properly evaluated."""
@@ -624,9 +588,7 @@ class TestAdvancedMetrics:
             benchmark_dir=advanced_metrics_benchmarks,
         )
 
-        results = [
-            r for r in db.results if r.phase_name == "ExhaustiveReviewRepairPhase"
-        ]
+        results = [r for r in db.results if r.phase_name == "ExhaustiveReviewRepairPhase"]
 
         assert len(results) > 0, "Should have repair phase results"
 
@@ -636,9 +598,7 @@ class TestAdvancedMetrics:
             if result.model_name == "qwen3-coder:30b":
                 assert result.repair_efficiency == 0.78
 
-    def test_rag_context_effectiveness_metric(
-        self, mock_logger, advanced_metrics_benchmarks
-    ):
+    def test_rag_context_effectiveness_metric(self, mock_logger, advanced_metrics_benchmarks):
         """Test RAG context effectiveness metric for file retrieval accuracy."""
         db = BenchmarkDatabase(
             logger=mock_logger,
@@ -648,9 +608,9 @@ class TestAdvancedMetrics:
         # Get results
         results = db.results
 
-        assert all(
-            0.0 <= r.rag_context_effectiveness <= 1.0 for r in results
-        ), "RAG effectiveness should be between 0-1"
+        assert all(0.0 <= r.rag_context_effectiveness <= 1.0 for r in results), (
+            "RAG effectiveness should be between 0-1"
+        )
 
         # Verify values are being loaded correctly
         gpt_results = [r for r in results if r.model_name == "gpt-oss:20b"]

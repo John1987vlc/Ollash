@@ -59,9 +59,7 @@ class TestDocumentationWatcher:
         refs_dir = Path(tempfile.gettempdir()) / "init_test"
         refs_dir.mkdir(exist_ok=True)
 
-        watcher = DocumentationWatcher(
-            references_dir=refs_dir, documentation_manager=doc_manager, logger=logger
-        )
+        watcher = DocumentationWatcher(references_dir=refs_dir, documentation_manager=doc_manager, logger=logger)
 
         assert watcher.references_dir == refs_dir
         assert watcher._running is False
@@ -90,9 +88,7 @@ class TestDocumentationWatcher:
 
     def test_manual_index(self, watcher, logger):
         """Test manual indexing of a file"""
-        with tempfile.NamedTemporaryFile(
-            suffix=".txt", dir=watcher.references_dir, delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".txt", dir=watcher.references_dir, delete=False) as f:
             f.write(b"Test content")
             f.flush()
             file_path = Path(f.name)
@@ -141,9 +137,7 @@ class TestDocumentationWatcher:
         refs_dir = Path(tempfile.gettempdir()) / "nonexistent_dir_test"
         doc_manager = Mock(spec=DocumentationManager)
 
-        watcher = DocumentationWatcher(
-            references_dir=refs_dir, documentation_manager=doc_manager, logger=logger
-        )
+        watcher = DocumentationWatcher(references_dir=refs_dir, documentation_manager=doc_manager, logger=logger)
 
         # Should not raise exception
         watcher._scan_and_index()

@@ -1,6 +1,7 @@
 """
 AutoAgent Refactored with Dependency Injection
 """
+
 import asyncio
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -8,24 +9,22 @@ from typing import Dict, List, Optional, Tuple
 from dependency_injector import providers
 from dependency_injector.wiring import Provide, inject
 
-from backend.agents.auto_agent_phases.logic_planning_phase import \
-    LogicPlanningPhase
+from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
-from backend.agents.auto_agent_phases.project_analysis_phase import \
-    ProjectAnalysisPhase
-from backend.agents.auto_agent_phases.readme_generation_phase import \
-    ReadmeGenerationPhase
-from backend.agents.auto_agent_phases.structure_generation_phase import \
-    StructureGenerationPhase
-from backend.agents.auto_agent_phases.structure_pre_review_phase import \
-    StructurePreReviewPhase
+from backend.agents.auto_agent_phases.project_analysis_phase import ProjectAnalysisPhase
+from backend.agents.auto_agent_phases.readme_generation_phase import ReadmeGenerationPhase
+from backend.agents.auto_agent_phases.structure_generation_phase import StructureGenerationPhase
+from backend.agents.auto_agent_phases.structure_pre_review_phase import StructurePreReviewPhase
+
 # Core Agent and Kernel
 from backend.agents.core_agent import CoreAgent
 from backend.core.kernel import AgentKernel
+
 # Agent Phases & Context
 from backend.interfaces.iagent_phase import IAgentPhase
 from backend.interfaces.imodel_provider import IModelProvider
 from backend.utils.core.execution_plan import ExecutionPlan
+
 # Core utilities
 from backend.utils.core.llm_recorder import LLMRecorder
 
@@ -40,13 +39,11 @@ class AutoAgent(CoreAgent):
         self,
         phase_context: PhaseContext = Provide["auto_agent_module.phase_context"],
         phases: List[IAgentPhase] = Provide["auto_agent_module.phases_list"],
-        project_analysis_phase_factory: providers.Factory[
-            ProjectAnalysisPhase
-        ] = Provide["auto_agent_module.project_analysis_phase_factory"],
-        kernel: Optional[AgentKernel] = Provide["auto_agent_module.agent_kernel"],
-        llm_manager: Optional[IModelProvider] = Provide[
-            "auto_agent_module.llm_manager"
+        project_analysis_phase_factory: providers.Factory[ProjectAnalysisPhase] = Provide[
+            "auto_agent_module.project_analysis_phase_factory"
         ],
+        kernel: Optional[AgentKernel] = Provide["auto_agent_module.agent_kernel"],
+        llm_manager: Optional[IModelProvider] = Provide["auto_agent_module.llm_manager"],
         llm_recorder: Optional[LLMRecorder] = Provide["core.llm_recorder"],
         **kwargs,
     ):
@@ -61,9 +58,7 @@ class AutoAgent(CoreAgent):
         self.logger.info("AutoAgent initializing with injected dependencies.")
 
         if not self.llm_manager:
-            raise ValueError(
-                "IModelProvider (LLMManager) must be provided to AutoAgent."
-            )
+            raise ValueError("IModelProvider (LLMManager) must be provided to AutoAgent.")
 
         # --- Dependencies are now injected ---
         self.phase_context = phase_context
@@ -79,13 +74,9 @@ class AutoAgent(CoreAgent):
 
         self.logger.info("AutoAgent initialized with a modular phase pipeline.")
 
-    def run(
-        self, project_description: str, project_name: str = "new_project", **kwargs
-    ) -> Path:
+    def run(self, project_description: str, project_name: str = "new_project", **kwargs) -> Path:
         """Orchestrates the full project creation pipeline through distinct phases."""
-        self.logger.info(
-            f"[PROJECT_NAME:{project_name}] Starting full generation for '{project_name}'."
-        )
+        self.logger.info(f"[PROJECT_NAME:{project_name}] Starting full generation for '{project_name}'.")
 
         project_root = self.generated_projects_dir / project_name
         project_exists = project_root.exists() and any(project_root.iterdir())
@@ -113,16 +104,10 @@ class AutoAgent(CoreAgent):
         if project_exists:
             analysis_phase = self.project_analysis_phase_factory()
             try:
-                logic_phase_index = next(
-                    i
-                    for i, p in enumerate(self.phases)
-                    if isinstance(p, LogicPlanningPhase)
-                )
+                logic_phase_index = next(i for i, p in enumerate(self.phases) if isinstance(p, LogicPlanningPhase))
                 active_phases = [analysis_phase] + self.phases[logic_phase_index:]
             except StopIteration:
-                self.logger.error(
-                    "LogicPlanningPhase not found, running all phases after analysis."
-                )
+                self.logger.error("LogicPlanningPhase not found, running all phases after analysis.")
                 active_phases = [analysis_phase] + self.phases[1:]
 
         execution_plan = self._setup_and_run_phases(
@@ -137,9 +122,7 @@ class AutoAgent(CoreAgent):
             file_paths,
         )
 
-        self._finalize_project(
-            project_name, project_root, len(file_paths), execution_plan
-        )
+        self._finalize_project(project_name, project_root, len(file_paths), execution_plan)
         return project_root
 
     def _setup_and_run_phases(
@@ -166,16 +149,12 @@ class AutoAgent(CoreAgent):
 
         for phase in phases:
             phase_name = phase.__class__.__name__
-            milestone_id = execution_plan.get_milestone_id_by_phase_class_name(
-                phase_name
-            )
+            milestone_id = execution_plan.get_milestone_id_by_phase_class_name(phase_name)
 
             self.logger.info(f"Executing phase: {phase_name}")
             if milestone_id:
                 execution_plan.start_milestone(milestone_id)
-                self.event_publisher.publish(
-                    "milestone_started", milestone_id=milestone_id, phase=phase_name
-                )
+                self.event_publisher.publish("milestone_started", milestone_id=milestone_id, phase=phase_name)
 
             try:
                 # Run the phase execution asynchronously
@@ -197,9 +176,7 @@ class AutoAgent(CoreAgent):
                     )
                 )
                 readme_content = generated_files.get("README.md", readme_content)
-                self.phase_context.update_generated_data(
-                    generated_files, initial_structure, file_paths, readme_content
-                )
+                self.phase_context.update_generated_data(generated_files, initial_structure, file_paths, readme_content)
 
                 if milestone_id:
                     summary = f"Phase completed. Files: {len(generated_files)}."
@@ -221,9 +198,7 @@ class AutoAgent(CoreAgent):
                         phase=phase_name,
                         error=str(e),
                     )
-                self.event_publisher.publish(
-                    "phase_error", phase=phase_name, error=str(e)
-                )
+                self.event_publisher.publish("phase_error", phase=phase_name, error=str(e))
                 raise
 
         return execution_plan
@@ -250,23 +225,15 @@ class AutoAgent(CoreAgent):
         )
 
         self.logger.info(f"Project '{project_name}' completed at {project_root}")
-        self.logger.info(
-            f"Knowledge Base Stats: {self.phase_context.error_knowledge_base.get_error_statistics()}"
-        )
-        self.logger.info(
-            f"Fragment Cache Stats: {self.phase_context.fragment_cache.stats()}"
-        )
+        self.logger.info(f"Knowledge Base Stats: {self.phase_context.error_knowledge_base.get_error_statistics()}")
+        self.logger.info(f"Fragment Cache Stats: {self.phase_context.fragment_cache.stats()}")
 
         plan_file = project_root / "EXECUTION_PLAN.json"
         self.phase_context.file_manager.write_file(plan_file, execution_plan.to_json())
 
-    def generate_structure_only(
-        self, project_description: str, project_name: str, **kwargs
-    ) -> Tuple[str, Dict]:
+    def generate_structure_only(self, project_description: str, project_name: str, **kwargs) -> Tuple[str, Dict]:
         """Executes only the initial project setup phases."""
-        self.logger.info(
-            f"[PROJECT_NAME:{project_name}] Starting structure generation for '{project_name}'."
-        )
+        self.logger.info(f"[PROJECT_NAME:{project_name}] Starting structure generation for '{project_name}'.")
 
         self.phase_context.initial_exec_params = kwargs
 
@@ -290,9 +257,7 @@ class AutoAgent(CoreAgent):
 
         try:
             readme, structure = loop.run_until_complete(
-                self._run_structure_phases_async(
-                    structure_phases, project_description, project_name
-                )
+                self._run_structure_phases_async(structure_phases, project_description, project_name)
             )
             return readme, structure
         finally:
@@ -318,8 +283,6 @@ class AutoAgent(CoreAgent):
                 **self.phase_context.initial_exec_params,
             )
             readme_content = generated_files.get("README.md", readme_content)
-            self.phase_context.update_generated_data(
-                generated_files, initial_structure, file_paths, readme_content
-            )
+            self.phase_context.update_generated_data(generated_files, initial_structure, file_paths, readme_content)
 
         return readme_content, initial_structure

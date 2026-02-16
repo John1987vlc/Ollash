@@ -31,9 +31,7 @@ class ModelRouter:
         self.config = config
 
         if self.senior_reviewer_model_name not in self.llm_clients:
-            raise ValueError(
-                f"Senior reviewer model '{self.senior_reviewer_model_name}' not found in llm_clients."
-            )
+            raise ValueError(f"Senior reviewer model '{self.senior_reviewer_model_name}' not found in llm_clients.")
         self.senior_reviewer_client = self.llm_clients[self.senior_reviewer_model_name]
 
     async def aroute_and_aggregate(
@@ -51,27 +49,19 @@ class ModelRouter:
 
         Returns the chosen response and a list of all raw candidate responses.
         """
-        candidate_responses: List[
-            Tuple[str, Dict]
-        ] = []  # (model_role, raw_response_data)
+        candidate_responses: List[Tuple[str, Dict]] = []  # (model_role, raw_response_data)
 
         tasks = []
         roles_in_task_order = []
         for role in candidate_model_roles:
             if role not in self.llm_clients:
-                self.logger.warning(
-                    f"Model client for role '{role}' not found. Skipping."
-                )
+                self.logger.warning(f"Model client for role '{role}' not found. Skipping.")
                 continue
 
             roles_in_task_order.append(role)
             client = self.llm_clients[role]
-            self.logger.info(
-                f"  Routing prompt to specialist model: {role} ({client.model})"
-            )
-            self.event_publisher.publish(
-                "tool_start", tool_name="model_router", model=client.model, role=role
-            )
+            self.logger.info(f"  Routing prompt to specialist model: {role} ({client.model})")
+            self.event_publisher.publish("tool_start", tool_name="model_router", model=client.model, role=role)
             tasks.append(
                 client.achat(
                     messages=messages,
@@ -86,9 +76,7 @@ class ModelRouter:
             result = results[i]
             client = self.llm_clients[role]
             if isinstance(result, Exception):
-                self.logger.error(
-                    f"  Error getting response from model {client.model} (role: {role}): {result}"
-                )
+                self.logger.error(f"  Error getting response from model {client.model} (role: {role}): {result}")
                 self.event_publisher.publish(
                     "tool_output",
                     tool_name="model_router",
@@ -108,9 +96,7 @@ class ModelRouter:
                     status="success",
                     content=response_data["message"].get("content", "")[:200],
                 )
-            self.event_publisher.publish(
-                "tool_end", tool_name="model_router", model=client.model, role=role
-            )
+            self.event_publisher.publish("tool_end", tool_name="model_router", model=client.model, role=role)
 
         if not candidate_responses:
             raise RuntimeError("No candidate models provided a response.")
@@ -119,9 +105,7 @@ class ModelRouter:
             self.logger.info("  Only one candidate response. Skipping senior review.")
             return candidate_responses[0][1], candidate_responses
 
-        self.logger.info(
-            "  Multiple candidate responses. Invoking Senior Reviewer to select the best."
-        )
+        self.logger.info("  Multiple candidate responses. Invoking Senior Reviewer to select the best.")
         self.event_publisher.publish(
             "tool_start",
             tool_name="senior_reviewer_selection",
@@ -145,14 +129,10 @@ class ModelRouter:
 
             if candidate_content and candidate_tool_calls:
                 # If both exist, prioritize content and append tool calls
-                candidate_content += "\n\nTool Calls:\n" + json.dumps(
-                    candidate_tool_calls, indent=2
-                )
+                candidate_content += "\n\nTool Calls:\n" + json.dumps(candidate_tool_calls, indent=2)
             elif candidate_tool_calls:
                 # If only tool calls exist, represent them as content
-                candidate_content = "Tool Calls:\n" + json.dumps(
-                    candidate_tool_calls, indent=2
-                )
+                candidate_content = "Tool Calls:\n" + json.dumps(candidate_tool_calls, indent=2)
             elif not candidate_content:
                 # Ensure content is never None, even if empty
                 candidate_content = ""
@@ -185,20 +165,14 @@ class ModelRouter:
                 status="error",
                 message=str(e),
             )
-            self.event_publisher.publish(
-                "tool_end", tool_name="senior_reviewer_selection"
-            )
+            self.event_publisher.publish("tool_end", tool_name="senior_reviewer_selection")
             # Fallback to the first candidate if reviewer fails
-            self.logger.warning(
-                "  Senior Reviewer failed. Falling back to the first candidate solution."
-            )
+            self.logger.warning("  Senior Reviewer failed. Falling back to the first candidate solution.")
             return candidate_responses[0][1], candidate_responses
         self.event_publisher.publish("tool_end", tool_name="senior_reviewer_selection")
 
         # Parse reviewer's choice - this needs to be robust
-        chosen_response_data = self._parse_reviewer_choice(
-            choice_content, candidate_responses
-        )
+        chosen_response_data = self._parse_reviewer_choice(choice_content, candidate_responses)
         return chosen_response_data, candidate_responses
 
     def route_and_aggregate(
@@ -216,24 +190,16 @@ class ModelRouter:
 
         Returns the chosen response and a list of all raw candidate responses.
         """
-        candidate_responses: List[
-            Tuple[str, Dict]
-        ] = []  # (model_role, raw_response_data)
+        candidate_responses: List[Tuple[str, Dict]] = []  # (model_role, raw_response_data)
 
         for role in candidate_model_roles:
             if role not in self.llm_clients:
-                self.logger.warning(
-                    f"Model client for role '{role}' not found. Skipping."
-                )
+                self.logger.warning(f"Model client for role '{role}' not found. Skipping.")
                 continue
 
             client = self.llm_clients[role]
-            self.logger.info(
-                f"  Routing prompt to specialist model: {role} ({client.model})"
-            )
-            self.event_publisher.publish(
-                "tool_start", tool_name="model_router", model=client.model, role=role
-            )
+            self.logger.info(f"  Routing prompt to specialist model: {role} ({client.model})")
+            self.event_publisher.publish("tool_start", tool_name="model_router", model=client.model, role=role)
             try:
                 response_data, usage = client.chat(
                     messages=messages,
@@ -250,9 +216,7 @@ class ModelRouter:
                     content=response_data["message"].get("content", "")[:200],
                 )
             except Exception as e:
-                self.logger.error(
-                    f"  Error getting response from model {client.model} (role: {role}): {e}"
-                )
+                self.logger.error(f"  Error getting response from model {client.model} (role: {role}): {e}")
                 self.event_publisher.publish(
                     "tool_output",
                     tool_name="model_router",
@@ -261,9 +225,7 @@ class ModelRouter:
                     status="error",
                     message=str(e),
                 )
-            self.event_publisher.publish(
-                "tool_end", tool_name="model_router", model=client.model, role=role
-            )
+            self.event_publisher.publish("tool_end", tool_name="model_router", model=client.model, role=role)
 
         if not candidate_responses:
             raise RuntimeError("No candidate models provided a response.")
@@ -272,9 +234,7 @@ class ModelRouter:
             self.logger.info("  Only one candidate response. Skipping senior review.")
             return candidate_responses[0][1], candidate_responses
 
-        self.logger.info(
-            "  Multiple candidate responses. Invoking Senior Reviewer to select the best."
-        )
+        self.logger.info("  Multiple candidate responses. Invoking Senior Reviewer to select the best.")
         self.event_publisher.publish(
             "tool_start",
             tool_name="senior_reviewer_selection",
@@ -298,14 +258,10 @@ class ModelRouter:
 
             if candidate_content and candidate_tool_calls:
                 # If both exist, prioritize content and append tool calls
-                candidate_content += "\n\nTool Calls:\n" + json.dumps(
-                    candidate_tool_calls, indent=2
-                )
+                candidate_content += "\n\nTool Calls:\n" + json.dumps(candidate_tool_calls, indent=2)
             elif candidate_tool_calls:
                 # If only tool calls exist, represent them as content
-                candidate_content = "Tool Calls:\n" + json.dumps(
-                    candidate_tool_calls, indent=2
-                )
+                candidate_content = "Tool Calls:\n" + json.dumps(candidate_tool_calls, indent=2)
             elif not candidate_content:
                 # Ensure content is never None, even if empty
                 candidate_content = ""
@@ -338,13 +294,9 @@ class ModelRouter:
                 status="error",
                 message=str(e),
             )
-            self.event_publisher.publish(
-                "tool_end", tool_name="senior_reviewer_selection"
-            )
+            self.event_publisher.publish("tool_end", tool_name="senior_reviewer_selection")
             # Fallback to the first candidate if reviewer fails
-            self.logger.warning(
-                "  Senior Reviewer failed. Falling back to the first candidate solution."
-            )
+            self.logger.warning("  Senior Reviewer failed. Falling back to the first candidate solution.")
             return candidate_responses[0][1], candidate_responses
         self.event_publisher.publish("tool_end", tool_name="senior_reviewer_selection")
 
@@ -352,9 +304,7 @@ class ModelRouter:
         # For simplicity, let's assume the reviewer outputs the content of the chosen solution directly
         # or references the chosen model role/index.
         # A more complex implementation could have the reviewer output a tool call for selection.
-        chosen_response_data = self._parse_reviewer_choice(
-            choice_content, candidate_responses
-        )
+        chosen_response_data = self._parse_reviewer_choice(choice_content, candidate_responses)
         return chosen_response_data, candidate_responses
 
     def _get_senior_reviewer_system_prompt(self) -> str:
@@ -371,9 +321,7 @@ class ModelRouter:
             "Your output must ONLY be the chosen solution's content or tool calls, or your synthesized version, nothing else."
         )
 
-    def _parse_reviewer_choice(
-        self, choice_content: str, candidate_responses: List[Tuple[str, Dict]]
-    ) -> Dict:
+    def _parse_reviewer_choice(self, choice_content: str, candidate_responses: List[Tuple[str, Dict]]) -> Dict:
         """
         Parses the Senior Reviewer's output to select one of the candidate responses.
         Fallback to the first candidate if parsing fails.
@@ -381,26 +329,20 @@ class ModelRouter:
         # Attempt to match the choice content directly to one of the candidate responses
         for role, response_data in candidate_responses:
             if response_data["message"].get("content") == choice_content:
-                self.logger.info(
-                    f"  Senior Reviewer explicitly chose solution from {role}."
-                )
+                self.logger.info(f"  Senior Reviewer explicitly chose solution from {role}.")
                 return response_data
             if (
                 response_data["message"].get("tool_calls")
                 and json.dumps(response_data["message"]["tool_calls"]) == choice_content
             ):
-                self.logger.info(
-                    f"  Senior Reviewer explicitly chose tool calls from {role}."
-                )
+                self.logger.info(f"  Senior Reviewer explicitly chose tool calls from {role}.")
                 return response_data
 
         # If direct match fails, try to infer based on content similarity or keywords
         # This part can be made more sophisticated
         for role, response_data in candidate_responses:
             if role in choice_content.lower():  # Simple keyword match
-                self.logger.info(
-                    f"  Senior Reviewer's choice content referenced {role}. Selecting it."
-                )
+                self.logger.info(f"  Senior Reviewer's choice content referenced {role}. Selecting it.")
                 return response_data
 
         self.logger.warning(

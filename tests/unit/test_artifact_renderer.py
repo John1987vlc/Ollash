@@ -47,9 +47,7 @@ class ArtifactRendererMock:
         elif artifact["type"] == "code":
             html += f"<pre><code>{artifact['content']}</code></pre>"
         elif artifact["type"] == "json":
-            html += (
-                f"<pre>{json.dumps(json.loads(artifact['content']), indent=2)}</pre>"
-            )
+            html += f"<pre>{json.dumps(json.loads(artifact['content']), indent=2)}</pre>"
         elif artifact["type"] == "plan":
             html += f"<div class='plan-tasks'>{artifact['content']}</div>"
 
@@ -115,9 +113,7 @@ class TestArtifactRenderer:
     def test_register_json_artifact(self, renderer):
         """Test registering a JSON artifact"""
         json_content = json.dumps({"key": "value", "count": 42})
-        artifact = renderer.registerArtifact(
-            id="json-001", content=json_content, type="json"
-        )
+        artifact = renderer.registerArtifact(id="json-001", content=json_content, type="json")
 
         assert artifact["type"] == "json"
         assert "key" in artifact["content"]
@@ -155,9 +151,7 @@ class TestArtifactRenderer:
 
     def test_render_code_artifact(self, renderer):
         """Test rendering code artifact"""
-        renderer.registerArtifact(
-            id="code-001", content="function test() {}", type="code"
-        )
+        renderer.registerArtifact(id="code-001", content="function test() {}", type="code")
 
         container = Mock()
         html = renderer.renderArtifact("code-001", container)
@@ -186,9 +180,7 @@ class TestArtifactRenderer:
 
     def test_download_artifact(self, renderer):
         """Test downloading artifact"""
-        renderer.registerArtifact(
-            id="download-001", content="Content to download", type="markdown"
-        )
+        renderer.registerArtifact(id="download-001", content="Content to download", type="markdown")
 
         filename = renderer.downloadArtifact("download-001")
         assert filename is not None
@@ -245,9 +237,7 @@ class TestArtifactRenderer:
             "timestamp": "2026-02-11T10:30:00Z",
         }
 
-        artifact = renderer.registerArtifact(
-            id="meta-001", content="Specification content", metadata=metadata
-        )
+        artifact = renderer.registerArtifact(id="meta-001", content="Specification content", metadata=metadata)
 
         assert artifact["metadata"]["wordCount"] == 2500
         assert artifact["metadata"]["source"] == "requirements.pdf"
@@ -294,9 +284,7 @@ class TestArtifactRenderer:
         types = ["markdown", "code", "html", "json", "plan"]
 
         for i, artifact_type in enumerate(types):
-            artifact = renderer.registerArtifact(
-                id=f"type-{i}", content="Content", type=artifact_type
-            )
+            artifact = renderer.registerArtifact(id=f"type-{i}", content="Content", type=artifact_type)
             assert artifact["type"] == artifact_type
 
     def test_json_artifact_validation(self, renderer):
@@ -304,9 +292,7 @@ class TestArtifactRenderer:
         json_data = {"key": "value", "items": [1, 2, 3]}
         json_str = json.dumps(json_data)
 
-        artifact = renderer.registerArtifact(
-            id="json-valid", content=json_str, type="json"
-        )
+        artifact = renderer.registerArtifact(id="json-valid", content=json_str, type="json")
 
         # Should be able to parse back
         parsed = json.loads(artifact["content"])

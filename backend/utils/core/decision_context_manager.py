@@ -51,9 +51,7 @@ class DecisionContextManager:
     - Almacenar outcomes para aprendizaje continuo
     """
 
-    def __init__(
-        self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None
-    ):
+    def __init__(self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None):
         self.project_root = project_root
         self.logger = logger
         self.config = config or {}
@@ -109,9 +107,7 @@ class DecisionContextManager:
             self.decisions[decision_id] = dec
             self._save_decisions()
 
-            self.logger.info(
-                f"✓ Recorded decision [{category}]: {decision[:50]}... (ID: {decision_id})"
-            )
+            self.logger.info(f"✓ Recorded decision [{category}]: {decision[:50]}... (ID: {decision_id})")
 
             return decision_id
 
@@ -152,9 +148,7 @@ class DecisionContextManager:
                     continue
 
                 # Calcular similitud basada en palabras comunes
-                decision_words = set(
-                    (decision.decision + " " + decision.reasoning).lower().split()
-                )
+                decision_words = set((decision.decision + " " + decision.reasoning).lower().split())
 
                 common = len(problem_words & decision_words)
                 if common > 0:
@@ -173,9 +167,7 @@ class DecisionContextManager:
             self.logger.error(f"Error finding similar decisions: {e}")
             return []
 
-    def suggest_based_on_history(
-        self, question: str, category: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def suggest_based_on_history(self, question: str, category: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Sugiere soluciones basadas en decisiones históricas.
 
@@ -236,9 +228,7 @@ class DecisionContextManager:
         - Lecciones aprendidas
         """
         try:
-            project_decisions = [
-                d for d in self.decisions.values() if d.project == project
-            ]
+            project_decisions = [d for d in self.decisions.values() if d.project == project]
 
             # Agrupar por categoría
             by_category = {}
@@ -256,9 +246,7 @@ class DecisionContextManager:
             context = {
                 "project": project,
                 "total_decisions": len(project_decisions),
-                "decisions_by_category": {
-                    cat: len(decs) for cat, decs in by_category.items()
-                },
+                "decisions_by_category": {cat: len(decs) for cat, decs in by_category.items()},
                 "patterns": patterns,
                 "lessons_learned": lessons,
                 "timestamp": self._get_timestamp(),
@@ -291,9 +279,7 @@ class DecisionContextManager:
             by_project = {}
 
             for decision in self.decisions.values():
-                by_category[decision.category] = (
-                    by_category.get(decision.category, 0) + 1
-                )
+                by_category[decision.category] = by_category.get(decision.category, 0) + 1
                 by_project[decision.project] = by_project.get(decision.project, 0) + 1
 
             # Calcular decisiones con outcomes
@@ -305,12 +291,8 @@ class DecisionContextManager:
                 "by_category": by_category,
                 "by_project": by_project,
                 "projects_count": len(by_project),
-                "oldest_decision": min(
-                    (d.timestamp for d in self.decisions.values()), default=None
-                ),
-                "latest_decision": max(
-                    (d.timestamp for d in self.decisions.values()), default=None
-                ),
+                "oldest_decision": min((d.timestamp for d in self.decisions.values()), default=None),
+                "latest_decision": max((d.timestamp for d in self.decisions.values()), default=None),
             }
 
             return stats
@@ -319,9 +301,7 @@ class DecisionContextManager:
             self.logger.error(f"Error getting statistics: {e}")
             return {}
 
-    def export_project_memory(
-        self, project: str, output_path: Optional[Path] = None
-    ) -> Dict:
+    def export_project_memory(self, project: str, output_path: Optional[Path] = None) -> Dict:
         """
         Exporta la memoria de un proyecto en formato JSON.
 
@@ -365,10 +345,7 @@ class DecisionContextManager:
         for category, decs in categories.items():
             if len(decs) > 1:
                 # Este es un patrón: múltiples decisiones en la misma categoría
-                pattern = (
-                    f"Multiple {category} decisions detected - "
-                    f"this is a recurring concern in this project"
-                )
+                pattern = f"Multiple {category} decisions detected - this is a recurring concern in this project"
                 patterns.append(pattern)
 
         return patterns
@@ -403,9 +380,7 @@ class DecisionContextManager:
         """Guarda las decisiones a archivo JSON."""
         try:
             data = {
-                "decisions": {
-                    dec_id: dec.to_dict() for dec_id, dec in self.decisions.items()
-                },
+                "decisions": {dec_id: dec.to_dict() for dec_id, dec in self.decisions.items()},
                 "last_updated": self._get_timestamp(),
             }
 

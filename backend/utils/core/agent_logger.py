@@ -3,7 +3,10 @@ import traceback
 from typing import Any, Dict, Optional
 
 from colorama import (  # Still used for console output in chat_mode, not for file logs
-    Fore, Style, init)
+    Fore,
+    Style,
+    init,
+)
 
 from backend.utils.core.structured_logger import StructuredLogger
 
@@ -18,17 +21,11 @@ class AgentLogger:
     It delegates to a StructuredLogger instance provided at initialization.
     """
 
-    def __init__(
-        self, structured_logger: StructuredLogger, logger_name: str = "OllashAgent"
-    ):
+    def __init__(self, structured_logger: StructuredLogger, logger_name: str = "OllashAgent"):
         self._logger = structured_logger.get_logger()
-        self.name = (
-            logger_name  # Store name for specific agent identification if needed
-        )
+        self.name = logger_name  # Store name for specific agent identification if needed
 
-    def _log_to_structured(
-        self, level: int, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs
-    ):
+    def _log_to_structured(self, level: int, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Helper to log to the underlying StructuredLogger, injecting correlation ID."""
         full_extra = extra if extra is not None else {}
         # StructuredLogger's formatter already injects correlation_id, so no need to do it here again
@@ -65,9 +62,7 @@ class AgentLogger:
 
     def api_request(self, messages_count: int, tools_count: int):
         """Log API request"""
-        console_msg = (
-            f"📡 API REQUEST: {messages_count} messages, {tools_count} tools available"
-        )
+        console_msg = f"📡 API REQUEST: {messages_count} messages, {tools_count} tools available"
         self.info(
             f"{Fore.YELLOW}{console_msg}{Style.RESET_ALL}",
             extra={
@@ -107,9 +102,7 @@ class AgentLogger:
         """Log error with full traceback"""
         console_msg = f"{Fore.RED}❌ ERROR: {error_msg}{Style.RESET_ALL}"
         # structured_logger.py's JsonFormatter handles exc_info, so pass it directly.
-        self._log_to_structured(
-            logging.ERROR, console_msg, exc_info=exception, extra=extra, **kwargs
-        )
+        self._log_to_structured(logging.ERROR, console_msg, exc_info=exception, extra=extra, **kwargs)
         if exception:
             self._log_to_structured(
                 logging.DEBUG,

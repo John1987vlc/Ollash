@@ -24,15 +24,15 @@ class TokenTracker:
         """Get formatted session summary"""
         avg = self.session_total_tokens // max(1, self.request_count)
         return f"""
-{Fore.CYAN}{'='*60}
+{Fore.CYAN}{"=" * 60}
 📊 Token Usage Summary:
-{'='*60}{Style.RESET_ALL}
+{"=" * 60}{Style.RESET_ALL}
   • Requests: {self.request_count}
   • Prompt tokens: {self.session_prompt_tokens:,}
   • Completion tokens: {self.session_completion_tokens:,}
   • Total tokens: {self.session_total_tokens:,}
   • Avg per request: {avg:,}
-{Fore.CYAN}{'='*60}{Style.RESET_ALL}"""
+{Fore.CYAN}{"=" * 60}{Style.RESET_ALL}"""
 
     def display_current(self):
         """Display current usage"""

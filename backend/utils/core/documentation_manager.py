@@ -32,12 +32,8 @@ class DocumentationManager:
         self.summaries_dir.mkdir(parents=True, exist_ok=True)
         self.indexed_cache.mkdir(parents=True, exist_ok=True)
 
-        self.chroma_client = ChromaClientManager.get_client(
-            self.config, self.project_root
-        )
-        self.documentation_collection = self.chroma_client.get_or_create_collection(
-            name="documentation_store"
-        )
+        self.chroma_client = ChromaClientManager.get_client(self.config, self.project_root)
+        self.documentation_collection = self.chroma_client.get_or_create_collection(name="documentation_store")
 
         # Embedding client - reuse or create new
         # Create a consolidated config dictionary for OllamaClient
@@ -49,19 +45,13 @@ class DocumentationManager:
             ),
             "embedding_cache": self.config.get("embedding_cache", {}),
             "project_root": str(self.project_root),  # Pass project_root as string
-            "ollama_embedding_model": self.config.get(
-                "ollama_embedding_model", "all-minilm"
-            ),
+            "ollama_embedding_model": self.config.get("ollama_embedding_model", "all-minilm"),
         }
-        ollama_url = os.environ.get(
-            "OLLASH_OLLAMA_URL", self.config.get("ollama_url", "http://localhost:11434")
-        )
+        ollama_url = os.environ.get("OLLASH_OLLAMA_URL", self.config.get("ollama_url", "http://localhost:11434"))
         ollama_timeout = self.config.get("timeout", 300)  # Extract timeout here
         self.embedding_client = OllamaClient(
             url=ollama_url,
-            model=self.config.get(
-                "embedding", "all-minilm"
-            ),  # Get embedding model from config
+            model=self.config.get("embedding", "all-minilm"),  # Get embedding model from config
             timeout=ollama_timeout,  # Pass as positional argument
             logger=self.logger,
             config=ollama_client_config_dict,
@@ -71,13 +61,9 @@ class DocumentationManager:
         # Multi-format ingester
         self.ingester = MultiFormatIngester(logger, config)
 
-        self.logger.info(
-            "✓ DocumentationManager initialized with Knowledge Workspace support"
-        )
+        self.logger.info("✓ DocumentationManager initialized with Knowledge Workspace support")
 
-    def index_documentation(
-        self, doc_path: Path, chunk_size: int = 1000, overlap: int = 200
-    ):
+    def index_documentation(self, doc_path: Path, chunk_size: int = 1000, overlap: int = 200):
         """Index documentation files with support for multiple formats."""
         try:
             file_path = Path(doc_path)
@@ -89,9 +75,7 @@ class DocumentationManager:
             if file_path.suffix.lower() in self.ingester.SUPPORTED_FORMATS:
                 content = self.ingester.ingest_file(file_path)
                 if not content:
-                    self.logger.warning(
-                        f"  Could not extract content from {file_path.name}"
-                    )
+                    self.logger.warning(f"  Could not extract content from {file_path.name}")
                     return
             else:
                 # Fallback to plain text read for unsupported formats
@@ -127,9 +111,7 @@ class DocumentationManager:
                     metadatas=metadatas,
                     ids=ids,
                 )
-                self.logger.info(
-                    f"  ✓ Indexed {len(chunks)} chunks from {file_path.name}"
-                )
+                self.logger.info(f"  ✓ Indexed {len(chunks)} chunks from {file_path.name}")
         except Exception as e:
             self.logger.error(f"  Failed to index {file_path.name}: {e}")
 
@@ -150,9 +132,7 @@ class DocumentationManager:
 
         return chunks
 
-    def query_documentation(
-        self, query: str, n_results: int = 3, min_distance: float = 0.5
-    ) -> List[Dict]:
+    def query_documentation(self, query: str, n_results: int = 3, min_distance: float = 0.5) -> List[Dict]:
         """
         Queries the indexed documentation for relevant snippets.
         Returns a list of dictionaries, each with 'document', 'source', 'chunk_index'.
@@ -174,15 +154,11 @@ class DocumentationManager:
                             {
                                 "document": results["documents"][0][i],
                                 "source": results["metadatas"][0][i].get("source"),
-                                "chunk_index": results["metadatas"][0][i].get(
-                                    "chunk_index"
-                                ),
+                                "chunk_index": results["metadatas"][0][i].get("chunk_index"),
                                 "distance": distance,
                             }
                         )
-            self.logger.info(
-                f"  Found {len(relevant_docs)} relevant documentation chunks for query."
-            )
+            self.logger.info(f"  Found {len(relevant_docs)} relevant documentation chunks for query.")
             return relevant_docs
         except Exception as e:
             self.logger.error(f"  Failed to query documentation: {e}")
@@ -195,9 +171,7 @@ class DocumentationManager:
         Enhanced query with optional source filter.
         source_filter: Filter results by file source (e.g., 'requirements.md')
         """
-        all_results = self.query_documentation(
-            query, n_results * 2
-        )  # Get more to filter
+        all_results = self.query_documentation(query, n_results * 2)  # Get more to filter
 
         if source_filter:
             filtered = [r for r in all_results if source_filter in r.get("source", "")]
@@ -220,9 +194,7 @@ class DocumentationManager:
             },
             "summaries": {
                 "path": str(self.summaries_dir),
-                "count": len(list(self.summaries_dir.glob("*.json")))
-                if self.summaries_dir.exists()
-                else 0,
+                "count": len(list(self.summaries_dir.glob("*.json"))) if self.summaries_dir.exists() else 0,
             },
         }
 
@@ -265,9 +237,7 @@ class DocumentationManager:
         """Clears all indexed documentation from ChromaDB."""
         try:
             self.chroma_client.delete_collection(name="documentation_store")
-            self.documentation_collection = self.chroma_client.get_or_create_collection(
-                name="documentation_store"
-            )
+            self.documentation_collection = self.chroma_client.get_or_create_collection(name="documentation_store")
             self.logger.info("✓ Cleared documentation collection")
             return True
         except Exception as e:

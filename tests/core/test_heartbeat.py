@@ -1,4 +1,5 @@
 """Tests for Heartbeat."""
+
 from backend.utils.core.heartbeat import Heartbeat
 
 

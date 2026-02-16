@@ -24,24 +24,16 @@ class ContentCompletenessPhase(IAgentPhase):
         generated_files: Dict[str, str],  # Files to be checked and completed
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        file_paths = kwargs.get(
-            "file_paths", []
-        )  # Get from kwargs or assume context has it
+        file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
-        self.context.logger.info(
-            "PHASE 7.5: Checking content completeness (placeholder detection)..."
-        )
-        self.context.event_publisher.publish(
-            "phase_start", phase="7.5", message="Checking content completeness"
-        )
+        self.context.logger.info("PHASE 7.5: Checking content completeness (placeholder detection)...")
+        self.context.event_publisher.publish("phase_start", phase="7.5", message="Checking content completeness")
 
         incomplete_files = []
         for rel_path, content in generated_files.items():
             if not content:
                 continue
-            warning = self.context.file_validator.check_content_completeness(
-                rel_path, content
-            )
+            warning = self.context.file_validator.check_content_completeness(rel_path, content)
             if warning:
                 self.context.logger.warning(f"  INCOMPLETE: {rel_path} — {warning}")
                 incomplete_files.append(rel_path)
@@ -65,14 +57,10 @@ class ContentCompletenessPhase(IAgentPhase):
                             "recommendation": "Replace all TODO, placeholder, and stub content with real implementations",
                         }
                     ]
-                    refined = self.context.file_refiner.refine_file(
-                        rel_path, content, readme_content[:2000], issues
-                    )
+                    refined = self.context.file_refiner.refine_file(rel_path, content, readme_content[:2000], issues)
                     if refined:
                         generated_files[rel_path] = refined
-                        self.context.file_manager.write_file(
-                            project_root / rel_path, refined
-                        )
+                        self.context.file_manager.write_file(project_root / rel_path, refined)
                         self.context.logger.info(f"    Completed: {rel_path}")
                         self.context.event_publisher.publish(
                             "tool_output",
@@ -96,12 +84,8 @@ class ContentCompletenessPhase(IAgentPhase):
             )
             for rel_path, content in generated_files.items():
                 if content:
-                    self.context.file_manager.write_file(
-                        project_root / rel_path, content
-                    )
-            self.context.event_publisher.publish(
-                "tool_end", tool_name="complete_incomplete_files"
-            )
+                    self.context.file_manager.write_file(project_root / rel_path, content)
+            self.context.event_publisher.publish("tool_end", tool_name="complete_incomplete_files")
 
         self.context.event_publisher.publish(
             "phase_complete", phase="7.5", message="Content completeness check complete"

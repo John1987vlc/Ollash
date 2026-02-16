@@ -3,7 +3,6 @@ Unit Tests for Role Prompt Templates
 Tests prompt templates for Analyst, Writer, and Orchestrator roles
 """
 
-
 from backend.agents.prompt_templates import RolePromptTemplates
 
 
@@ -80,9 +79,7 @@ class TestRolePromptTemplates:
 
     def test_get_task_template_analyst_executive_summary(self):
         """Test getting analyst executive_summary template"""
-        template = RolePromptTemplates.get_task_template(
-            "analyst", "executive_summary", content="Test content"
-        )
+        template = RolePromptTemplates.get_task_template("analyst", "executive_summary", content="Test content")
 
         assert template is not None
         assert "Test content" in template

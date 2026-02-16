@@ -54,8 +54,7 @@ class GPUAwareRateLimiter:
                 if sleep_time > 0:
                     if self.logger:
                         self.logger.debug(
-                            f"Rate limiter: sleeping {sleep_time:.1f}s "
-                            f"(effective_rpm={self.effective_rpm})"
+                            f"Rate limiter: sleeping {sleep_time:.1f}s (effective_rpm={self.effective_rpm})"
                         )
                     self._lock.release()
                     time.sleep(sleep_time)
@@ -70,10 +69,7 @@ class GPUAwareRateLimiter:
             if self._ema_response_time == 0.0:
                 self._ema_response_time = elapsed_ms
             else:
-                self._ema_response_time = (
-                    self.ema_alpha * elapsed_ms
-                    + (1 - self.ema_alpha) * self._ema_response_time
-                )
+                self._ema_response_time = self.ema_alpha * elapsed_ms + (1 - self.ema_alpha) * self._ema_response_time
 
             self._adjust_rpm()
 

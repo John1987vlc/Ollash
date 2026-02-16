@@ -155,9 +155,7 @@ class FeedbackCycleManager:
             # Extract preference patterns
             self._extract_preferences_from_feedback(record)
 
-            logger.info(
-                f"Feedback recorded: {feedback_type.value} - {severity} severity"
-            )
+            logger.info(f"Feedback recorded: {feedback_type.value} - {severity} severity")
 
             return record
 
@@ -190,9 +188,7 @@ class FeedbackCycleManager:
                     recommendation[dimension] = {
                         "value": preference.value,
                         "confidence": preference.confidence,
-                        "recommendation": self._value_to_recommendation(
-                            dimension, preference.value
-                        ),
+                        "recommendation": self._value_to_recommendation(dimension, preference.value),
                     }
 
             return recommendation
@@ -201,9 +197,7 @@ class FeedbackCycleManager:
             logger.error(f"Failed to get style recommendation: {e}")
             return {}
 
-    def apply_style_preferences(
-        self, content: str, style_recommendations: Optional[Dict[str, Any]] = None
-    ) -> str:
+    def apply_style_preferences(self, content: str, style_recommendations: Optional[Dict[str, Any]] = None) -> str:
         """
         Apply learned style preferences to content.
 
@@ -229,13 +223,9 @@ class FeedbackCycleManager:
                     continue
 
                 if dimension == StyleDimension.VERBOSITY.value:
-                    adjusted = self._adjust_verbosity(
-                        adjusted, int(recommendation["value"])
-                    )
+                    adjusted = self._adjust_verbosity(adjusted, int(recommendation["value"]))
                 elif dimension == StyleDimension.TECHNICAL_LEVEL.value:
-                    adjusted = self._adjust_technical_level(
-                        adjusted, int(recommendation["value"])
-                    )
+                    adjusted = self._adjust_technical_level(adjusted, int(recommendation["value"]))
                 elif dimension == StyleDimension.TONE.value:
                     adjusted = self._adjust_tone(adjusted, int(recommendation["value"]))
 
@@ -258,11 +248,7 @@ class FeedbackCycleManager:
         """
         try:
             cutoff = datetime.now() - timedelta(days=days)
-            recent_feedback = [
-                f
-                for f in self.feedback_history
-                if datetime.fromisoformat(f.timestamp) >= cutoff
-            ]
+            recent_feedback = [f for f in self.feedback_history if datetime.fromisoformat(f.timestamp) >= cutoff]
 
             if not recent_feedback:
                 return {
@@ -311,8 +297,7 @@ class FeedbackCycleManager:
                 by_type[ft] = by_type.get(ft, 0) + 1
 
             avg_confidence = (
-                sum(p.confidence for p in self.style_profile.values())
-                / len(self.style_profile)
+                sum(p.confidence for p in self.style_profile.values()) / len(self.style_profile)
                 if self.style_profile
                 else 0.0
             )
@@ -320,12 +305,8 @@ class FeedbackCycleManager:
             return {
                 "total_feedback": len(self.feedback_history),
                 "by_type": by_type,
-                "top_issues": sorted(by_type.items(), key=lambda x: x[1], reverse=True)[
-                    :5
-                ],
-                "style_profile": {
-                    k: v.to_dict() for k, v in self.style_profile.items()
-                },
+                "top_issues": sorted(by_type.items(), key=lambda x: x[1], reverse=True)[:5],
+                "style_profile": {k: v.to_dict() for k, v in self.style_profile.items()},
                 "profile_confidence": avg_confidence,
             }
 
@@ -333,9 +314,7 @@ class FeedbackCycleManager:
             logger.error(f"Failed to get feedback summary: {e}")
             return {}
 
-    def refine_content_based_on_feedback(
-        self, content: str, recent_feedback_limit: int = 5
-    ) -> str:
+    def refine_content_based_on_feedback(self, content: str, recent_feedback_limit: int = 5) -> str:
         """
         Refine content based on recent feedback patterns.
 
@@ -395,9 +374,9 @@ class FeedbackCycleManager:
         if dimension_key in self.style_profile:
             # Update existing preference with weighted average
             existing = self.style_profile[dimension_key]
-            new_value = (
-                existing.value * existing.confidence + preference_value * confidence
-            ) / (existing.confidence + confidence)
+            new_value = (existing.value * existing.confidence + preference_value * confidence) / (
+                existing.confidence + confidence
+            )
 
             new_confidence = min(existing.confidence + confidence * 10, 100)
 
@@ -462,20 +441,14 @@ class FeedbackCycleManager:
         weights = {"minor": 10.0, "moderate": 30.0, "major": 50.0}
         return weights.get(severity, 20.0)
 
-    def _update_feedback_stats(
-        self, feedback_type: FeedbackType, severity: str
-    ) -> None:
+    def _update_feedback_stats(self, feedback_type: FeedbackType, severity: str) -> None:
         """Update feedback statistics."""
         self.feedback_stats["total_feedback"] += 1
 
         ft = feedback_type.value
-        self.feedback_stats["by_type"][ft] = (
-            self.feedback_stats["by_type"].get(ft, 0) + 1
-        )
+        self.feedback_stats["by_type"][ft] = self.feedback_stats["by_type"].get(ft, 0) + 1
 
-        self.feedback_stats["by_severity"][severity] = (
-            self.feedback_stats["by_severity"].get(severity, 0) + 1
-        )
+        self.feedback_stats["by_severity"][severity] = self.feedback_stats["by_severity"].get(severity, 0) + 1
 
     def _adjust_verbosity(self, content: str, value: int) -> str:
         """Adjust content verbosity."""
@@ -530,9 +503,7 @@ class FeedbackCycleManager:
 
         return f"Preference value: {value}"
 
-    def _identify_improvement_areas(
-        self, feedback_list: List[FeedbackRecord]
-    ) -> List[str]:
+    def _identify_improvement_areas(self, feedback_list: List[FeedbackRecord]) -> List[str]:
         """Identify areas needing improvement."""
         areas = {}
 
@@ -541,12 +512,7 @@ class FeedbackCycleManager:
             areas[area] = areas.get(area, 0) + 1
 
         # Return top 3 areas by frequency
-        return [
-            area
-            for area, count in sorted(areas.items(), key=lambda x: x[1], reverse=True)[
-                :3
-            ]
-        ]
+        return [area for area, count in sorted(areas.items(), key=lambda x: x[1], reverse=True)[:3]]
 
     def _apply_feedback_correction(self, content: str, feedback: FeedbackRecord) -> str:
         """Apply a specific feedback correction."""
@@ -586,18 +552,12 @@ class FeedbackCycleManager:
         """Save feedback history and profile to persistent storage."""
         try:
             # Save feedback history
-            feedback_data = [
-                {**f.to_dict(), "feedback_type": f.feedback_type.value}
-                for f in self.feedback_history
-            ]
+            feedback_data = [{**f.to_dict(), "feedback_type": f.feedback_type.value} for f in self.feedback_history]
             with open(self.feedback_file, "w") as f:
                 json.dump(feedback_data, f, indent=2)
 
             # Save style profile
-            profile_data = {
-                k: {**v.to_dict(), "dimension": v.dimension.value}
-                for k, v in self.style_profile.items()
-            }
+            profile_data = {k: {**v.to_dict(), "dimension": v.dimension.value} for k, v in self.style_profile.items()}
             with open(self.style_profile_file, "w") as f:
                 json.dump(profile_data, f, indent=2)
 

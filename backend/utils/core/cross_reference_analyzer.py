@@ -100,9 +100,7 @@ class CrossReferenceAnalyzer:
             ),
             "embedding_cache": self.config.get("embedding_cache", {}),
             "project_root": str(self.project_root),
-            "ollama_embedding_model": self.config.get(
-                "ollama_embedding_model", "all-minilm"
-            ),
+            "ollama_embedding_model": self.config.get("ollama_embedding_model", "all-minilm"),
         }
         ollama_url = self.config.get("ollama_url", "http://localhost:11434")
         ollama_timeout = self.config.get("timeout", 300)  # Extract timeout here
@@ -129,9 +127,7 @@ class CrossReferenceAnalyzer:
 
         self.logger.info("✓ CrossReferenceAnalyzer initialized")
 
-    def compare_documents(
-        self, doc1_path: Path, doc2_path: Path, chunk_size: int = 500
-    ) -> Dict[str, Any]:
+    def compare_documents(self, doc1_path: Path, doc2_path: Path, chunk_size: int = 500) -> Dict[str, Any]:
         """
         Compara dos documentos y extrae similitudes y diferencias.
 
@@ -158,9 +154,7 @@ class CrossReferenceAnalyzer:
             chunks1 = self._chunk_text(doc1_content, chunk_size)
             chunks2 = self._chunk_text(doc2_content, chunk_size)
 
-            self.logger.debug(
-                f"Doc1: {len(chunks1)} chunks, Doc2: {len(chunks2)} chunks"
-            )
+            self.logger.debug(f"Doc1: {len(chunks1)} chunks, Doc2: {len(chunks2)} chunks")
 
             # Extraer términos/conceptos clave
             concepts1 = self._extract_concepts(doc1_content)
@@ -189,15 +183,10 @@ class CrossReferenceAnalyzer:
             }
 
             # Guardar resultado
-            output_file = (
-                self.analysis_dir
-                / f"comparison_{Path(doc1_path).stem}_vs_{Path(doc2_path).stem}.json"
-            )
+            output_file = self.analysis_dir / f"comparison_{Path(doc1_path).stem}_vs_{Path(doc2_path).stem}.json"
             self._save_json(output_file, result)
 
-            self.logger.info(
-                f"✓ Comparison complete: {similarity_score:.2%} similarity"
-            )
+            self.logger.info(f"✓ Comparison complete: {similarity_score:.2%} similarity")
             return result
 
         except Exception as e:
@@ -292,9 +281,7 @@ class CrossReferenceAnalyzer:
 
                 concepts = self._extract_concepts(content)
                 for concept in concepts:
-                    term_map[concept].append(
-                        str(doc_path.relative_to(self.project_root))
-                    )
+                    term_map[concept].append(str(doc_path.relative_to(self.project_root)))
 
             # Buscar inconsistencias de terminología
             for term, locations in term_map.items():
@@ -325,9 +312,7 @@ class CrossReferenceAnalyzer:
             self.logger.error(f"Error extracting inconsistencies: {e}")
             return []
 
-    def find_gaps_theory_vs_practice(
-        self, theory_doc: Path, config_file: Path
-    ) -> Dict[str, Any]:
+    def find_gaps_theory_vs_practice(self, theory_doc: Path, config_file: Path) -> Dict[str, Any]:
         """
         Encuentra gaps entre documentación teórica y configuración real.
 
@@ -370,15 +355,10 @@ class CrossReferenceAnalyzer:
             # Items documentados pero no configurados
             for key in theory_keys:
                 if key not in config_keys:
-                    gaps["documented_but_not_implemented"].append(
-                        {"key": key, "severity": "warning"}
-                    )
+                    gaps["documented_but_not_implemented"].append({"key": key, "severity": "warning"})
 
             # Guardar análisis
-            output_file = (
-                self.analysis_dir
-                / f"gaps_{Path(theory_doc).stem}_vs_{Path(config_file).stem}.json"
-            )
+            output_file = self.analysis_dir / f"gaps_{Path(theory_doc).stem}_vs_{Path(config_file).stem}.json"
             self._save_json(output_file, gaps)
 
             self.logger.info("✓ Gap analysis complete")
@@ -440,9 +420,7 @@ class CrossReferenceAnalyzer:
 
         return similarities
 
-    def _find_differences(
-        self, concepts1: List[str], concepts2: List[str]
-    ) -> List[Difference]:
+    def _find_differences(self, concepts1: List[str], concepts2: List[str]) -> List[Difference]:
         """Encuentra diferencias entre conceptos."""
         differences = []
         all_concepts = set(concepts1) | set(concepts2)
@@ -452,17 +430,11 @@ class CrossReferenceAnalyzer:
             in2 = concept in concepts2
 
             if in1 != in2:
-                differences.append(
-                    Difference(
-                        term=concept, in_doc1=in1, in_doc2=in2, similarity_score=0.0
-                    )
-                )
+                differences.append(Difference(term=concept, in_doc1=in1, in_doc2=in2, similarity_score=0.0))
 
         return differences
 
-    def _calculate_similarity_score(
-        self, chunks1: List[str], chunks2: List[str]
-    ) -> float:
+    def _calculate_similarity_score(self, chunks1: List[str], chunks2: List[str]) -> float:
         """Calcula score de similitud general."""
         if not chunks1 or not chunks2:
             return 0.0
@@ -511,9 +483,7 @@ class CrossReferenceAnalyzer:
 
         return list(variations)
 
-    def _check_structural_consistency(
-        self, doc_paths: List[Path]
-    ) -> List[Inconsistency]:
+    def _check_structural_consistency(self, doc_paths: List[Path]) -> List[Inconsistency]:
         """Verifica consistencia estructural (headers, formato, etc.)."""
         inconsistencies = []
         # Implementación básica

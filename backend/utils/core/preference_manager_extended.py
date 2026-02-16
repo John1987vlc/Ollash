@@ -56,9 +56,7 @@ class EnumEncoder(json.JSONEncoder):
     """Custom JSON encoder for Enum values."""
 
     def default(self, obj):
-        if isinstance(
-            obj, (CommunicationStyle, ComplexityLevel, InteractionPreference)
-        ):
+        if isinstance(obj, (CommunicationStyle, ComplexityLevel, InteractionPreference)):
             return obj.value
         if isinstance(obj, Enum):
             return obj.value
@@ -212,9 +210,7 @@ class PreferenceManagerExtended:
             profile_path = self.prefs_dir / f"{profile.user_id}.json"
 
             with open(profile_path, "w", encoding="utf-8") as f:
-                json.dump(
-                    asdict(profile), f, indent=2, ensure_ascii=False, cls=EnumEncoder
-                )
+                json.dump(asdict(profile), f, indent=2, ensure_ascii=False, cls=EnumEncoder)
 
             self._profiles[profile.user_id] = profile
             logger.info(f"Saved profile for user {profile.user_id}")
@@ -338,9 +334,7 @@ class PreferenceManagerExtended:
             return recommendations  # Not enough data
 
         # Analyze feedback ratio
-        total_feedback = (
-            profile.positive_feedback_count + profile.negative_feedback_count
-        )
+        total_feedback = profile.positive_feedback_count + profile.negative_feedback_count
         if total_feedback > 0:
             positive_ratio = profile.positive_feedback_count / total_feedback
 
@@ -348,10 +342,7 @@ class PreferenceManagerExtended:
             if positive_ratio > 0.75:
                 recommendations["confidence"] = positive_ratio
             # If mixed, suggest slight adjustments
-            elif (
-                positive_ratio < 0.4
-                and profile.communication.style == CommunicationStyle.DETAILED
-            ):
+            elif positive_ratio < 0.4 and profile.communication.style == CommunicationStyle.DETAILED:
                 recommendations["style_recommendation"] = CommunicationStyle.CONCISE
                 recommendations["confidence"] = 0.6
 
@@ -371,9 +362,7 @@ class PreferenceManagerExtended:
 
         return recommendations
 
-    def apply_preferences_to_response(
-        self, user_id: str, response: str, content_type: str = "text"
-    ) -> str:
+    def apply_preferences_to_response(self, user_id: str, response: str, content_type: str = "text") -> str:
         """
         Transform response to match user preferences.
 
@@ -466,8 +455,7 @@ class PreferenceManagerExtended:
                     comm["complexity"] = ComplexityLevel(comm["complexity"])
                 if "interaction_prefs" in comm:
                     comm["interaction_prefs"] = [
-                        InteractionPreference(p) if isinstance(p, str) else p
-                        for p in comm["interaction_prefs"]
+                        InteractionPreference(p) if isinstance(p, str) else p for p in comm["interaction_prefs"]
                     ]
                 # Convert dict to CommunicationProfile object
                 data["communication"] = CommunicationProfile(**comm)
@@ -507,9 +495,7 @@ class PreferenceManagerExtended:
         profile = self.get_profile(user_id)
 
         if format == "json":
-            return json.dumps(
-                asdict(profile), indent=2, ensure_ascii=False, cls=EnumEncoder
-            )
+            return json.dumps(asdict(profile), indent=2, ensure_ascii=False, cls=EnumEncoder)
 
         elif format == "markdown":
             md = f"# Preference Profile: {user_id}\n\n"

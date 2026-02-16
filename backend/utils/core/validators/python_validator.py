@@ -1,8 +1,6 @@
 import re
 
-from backend.utils.core.validators.base_validator import (BaseValidator,
-                                                          ValidationResult,
-                                                          ValidationStatus)
+from backend.utils.core.validators.base_validator import BaseValidator, ValidationResult, ValidationStatus
 
 
 class PythonValidator(BaseValidator):
@@ -11,9 +9,7 @@ class PythonValidator(BaseValidator):
     def __init__(self, logger=None, command_executor=None):
         super().__init__(logger, command_executor)
 
-    def validate(
-        self, file_path: str, content: str, lines: int, chars: int, ext: str
-    ) -> ValidationResult:
+    def validate(self, file_path: str, content: str, lines: int, chars: int, ext: str) -> ValidationResult:
         """
         Validates Python file content using external linters (pylint, flake8) and basic syntax check.
         """
@@ -45,9 +41,7 @@ class PythonValidator(BaseValidator):
                 "--max-line-length=120",
             ]  # Focus on syntax errors
             # Example flake8 error: file.py:10:5: E901 some-error-message
-            flake8_error_pattern = re.compile(
-                r"^(.*?):(\d+):(\d+): (E\d{3}|F\d{3}) (.*)$"
-            )
+            flake8_error_pattern = re.compile(r"^(.*?):(\d+):(\d+): (E\d{3}|F\d{3}) (.*)$")
             flake8_result = self._run_linter_command(
                 file_path,
                 content,
@@ -75,22 +69,17 @@ class PythonValidator(BaseValidator):
         # If pylint failed for other reasons (e.g., not installed), try flake8
         if (
             "command not found" in pylint_result.message.lower()
-            or "not recognized as an internal or external command"
-            in pylint_result.message.lower()
+            or "not recognized as an internal or external command" in pylint_result.message.lower()
         ):
             if self.logger:
-                self.logger.info(
-                    f"  pylint not found for {file_path}. Trying flake8..."
-                )
+                self.logger.info(f"  pylint not found for {file_path}. Trying flake8...")
             flake8_cmd = [
                 "flake8",
                 "--isolated",
                 "--select=E9,F63,F7,F82",
                 "--max-line-length=120",
             ]
-            flake8_error_pattern = re.compile(
-                r"^(.*?):(\d+):(\d+): (E\d{3}|F\d{3}) (.*)$"
-            )
+            flake8_error_pattern = re.compile(r"^(.*?):(\d+):(\d+): (E\d{3}|F\d{3}) (.*)$")
             flake8_result = self._run_linter_command(
                 file_path,
                 content,
@@ -113,32 +102,23 @@ class PythonValidator(BaseValidator):
                 return flake8_result
             elif (
                 "command not found" in flake8_result.message.lower()
-                or "not recognized as an internal or external command"
-                in flake8_result.message.lower()
+                or "not recognized as an internal or external command" in flake8_result.message.lower()
             ):
                 if self.logger:
                     self.logger.warning(
                         f"  Neither pylint nor flake8 found for {file_path}. Falling back to basic Python syntax check."
                     )
-                return self._validate_python_syntax_only(
-                    file_path, content, lines, chars
-                )
+                return self._validate_python_syntax_only(file_path, content, lines, chars)
             else:
                 return flake8_result  # Some other error from flake8
 
-        return self._validate_python_syntax_only(
-            file_path, content, lines, chars
-        )  # Fallback if no linter can be run
+        return self._validate_python_syntax_only(file_path, content, lines, chars)  # Fallback if no linter can be run
 
-    def _validate_python_syntax_only(
-        self, file_path, content, lines, chars
-    ) -> ValidationResult:
+    def _validate_python_syntax_only(self, file_path, content, lines, chars) -> ValidationResult:
         """Performs a basic Python syntax check using Python's built-in compile function."""
         try:
             compile(content, file_path, "exec")
-            return ValidationResult(
-                file_path, ValidationStatus.VALID, "Python syntax OK", lines, chars
-            )
+            return ValidationResult(file_path, ValidationStatus.VALID, "Python syntax OK", lines, chars)
         except SyntaxError as e:
             return ValidationResult(
                 file_path,

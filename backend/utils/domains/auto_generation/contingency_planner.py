@@ -15,9 +15,7 @@ from backend.utils.core.ollama_client import OllamaClient
 class ContingencyPlanner:
     """Generates contingency plans for AutoAgent."""
 
-    def __init__(
-        self, client: OllamaClient, logger: AgentLogger, parser: LLMResponseParser
-    ):
+    def __init__(self, client: OllamaClient, logger: AgentLogger, parser: LLMResponseParser):
         """
         Initializes the ContingencyPlanner.
 
@@ -63,9 +61,7 @@ class ContingencyPlanner:
     ) -> List[Dict[str, str]]:
         """Constructs the prompt for the contingency planner."""
 
-        issue_str = "\n".join(
-            [f"- {issue.get('description', 'N/A')}" for issue in issues]
-        )
+        issue_str = "\n".join([f"- {issue.get('description', 'N/A')}" for issue in issues])
 
         prompt = f"""
         The senior review for the project has failed. Here are the issues that were found:

@@ -30,9 +30,7 @@ class NotificationManager:
 
     def _validate_smtp_config(self):
         """Check if SMTP configuration is valid."""
-        self.smtp_enabled = all(
-            [self.smtp_server, self.smtp_user, self.smtp_password, self.from_email]
-        )
+        self.smtp_enabled = all([self.smtp_server, self.smtp_user, self.smtp_password, self.from_email])
 
         if not self.smtp_enabled:
             logger.warning(
@@ -40,9 +38,7 @@ class NotificationManager:
                 "Set SMTP_SERVER, SMTP_USER, SMTP_PASSWORD, NOTIFICATION_FROM_EMAIL in .env"
             )
         else:
-            logger.info(
-                f"Email notifications enabled (SMTP: {self.smtp_server}:{self.smtp_port})"
-            )
+            logger.info(f"Email notifications enabled (SMTP: {self.smtp_server}:{self.smtp_port})")
 
     def subscribe_email(self, email: str) -> bool:
         """
@@ -102,8 +98,8 @@ class NotificationManager:
             title=f"Task {'Completed' if success else 'Failed'}: {task_name}",
             content=f"""
                 <p><strong>Agent:</strong> {agent_type}</p>
-                <p><strong>Status:</strong> {'Success' if success else 'Failed'}</p>
-                <p><strong>Completed At:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                <p><strong>Status:</strong> {"Success" if success else "Failed"}</p>
+                <p><strong>Completed At:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
                 <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-top: 15px;">
                     <p><strong>Result:</strong></p>
                     <pre style="overflow-x: auto; max-height: 300px;">{result}</pre>
@@ -112,9 +108,7 @@ class NotificationManager:
             status="success" if success else "error",
         )
 
-        return self._send_email(
-            subject=subject, html_body=html_body, recipient_emails=recipient_emails
-        )
+        return self._send_email(subject=subject, html_body=html_body, recipient_emails=recipient_emails)
 
     def send_threshold_alert(
         self,
@@ -154,14 +148,12 @@ class NotificationManager:
                 <p><strong>Metric:</strong> {metric_name}</p>
                 <p><strong>Current Value:</strong> <span style="color: #ef4444; font-weight: bold;">{metric_value}{unit}</span></p>
                 <p><strong>Threshold:</strong> {threshold}{unit}</p>
-                <p><strong>Alert Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                <p><strong>Alert Time:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
             """,
             status="warning",
         )
 
-        return self._send_email(
-            subject=subject, html_body=html_body, recipient_emails=recipient_emails
-        )
+        return self._send_email(subject=subject, html_body=html_body, recipient_emails=recipient_emails)
 
     def send_error_notification(
         self,
@@ -194,7 +186,7 @@ class NotificationManager:
             title=f"Task Error: {task_name}",
             content=f"""
                 <p><strong>Error Type:</strong> {error_type}</p>
-                <p><strong>Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                <p><strong>Time:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
                 <div style="background: #fef2f2; padding: 15px; border-left: 4px solid #ef4444; border-radius: 5px; margin-top: 15px;">
                     <p><strong>Details:</strong></p>
                     <pre style="overflow-x: auto; max-height: 300px; color: #991b1b;">{error_message}</pre>
@@ -203,9 +195,7 @@ class NotificationManager:
             status="error",
         )
 
-        return self._send_email(
-            subject=subject, html_body=html_body, recipient_emails=recipient_emails
-        )
+        return self._send_email(subject=subject, html_body=html_body, recipient_emails=recipient_emails)
 
     def send_custom_notification(
         self, subject: str, html_body: str, recipient_emails: Optional[List[str]] = None
@@ -224,15 +214,11 @@ class NotificationManager:
         if not recipient_emails:
             recipient_emails = list(self.subscribed_emails)
 
-        return self._send_email(
-            subject=subject, html_body=html_body, recipient_emails=recipient_emails
-        )
+        return self._send_email(subject=subject, html_body=html_body, recipient_emails=recipient_emails)
 
     # ==================== Private Methods ====================
 
-    def _send_email(
-        self, subject: str, html_body: str, recipient_emails: List[str]
-    ) -> bool:
+    def _send_email(self, subject: str, html_body: str, recipient_emails: List[str]) -> bool:
         """
         Send email via SMTP.
 
@@ -269,9 +255,7 @@ class NotificationManager:
                 server.login(self.smtp_user, self.smtp_password)
                 server.send_message(msg)
 
-            logger.info(
-                f"Email sent successfully to {len(recipient_emails)} recipient(s)"
-            )
+            logger.info(f"Email sent successfully to {len(recipient_emails)} recipient(s)")
             return True
 
         except Exception as e:

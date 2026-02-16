@@ -3,8 +3,7 @@ from pathlib import Path  # Added for Path.suffix
 from typing import Dict
 
 from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.documentation_manager import \
-    DocumentationManager  # ADDED IMPORT
+from backend.utils.core.documentation_manager import DocumentationManager  # ADDED IMPORT
 from backend.utils.core.fragment_cache import FragmentCache  # CACHE SUPPORT
 from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.ollama_client import OllamaClient
@@ -80,9 +79,8 @@ class FileContentGenerator:
             documentation_query, n_results=2
         )  # Get top 2 results
         if retrieved_docs:
-            documentation_context = (
-                "\n\nRelevant Documentation Snippets:\n"
-                + "\n---\n".join([doc["document"] for doc in retrieved_docs])
+            documentation_context = "\n\nRelevant Documentation Snippets:\n" + "\n---\n".join(
+                [doc["document"] for doc in retrieved_docs]
             )
 
         for attempt in range(max_retries):
@@ -106,14 +104,10 @@ class FileContentGenerator:
 
                 if is_json and content:
                     json.loads(content)  # Validate JSON
-                    self.logger.info(
-                        f"    Generated {len(content)} chars (attempt {attempt + 1}/{max_retries})"
-                    )
+                    self.logger.info(f"    Generated {len(content)} chars (attempt {attempt + 1}/{max_retries})")
                     break
                 elif content:
-                    self.logger.info(
-                        f"    Generated {len(content)} chars (attempt {attempt + 1}/{max_retries})"
-                    )
+                    self.logger.info(f"    Generated {len(content)} chars (attempt {attempt + 1}/{max_retries})")
                     break
                 else:
                     self.logger.warning(
@@ -121,19 +115,13 @@ class FileContentGenerator:
                     )
 
             except json.JSONDecodeError as e:
-                self.logger.error(
-                    f"    Invalid JSON for {file_path} (attempt {attempt + 1}/{max_retries}): {e}"
-                )
+                self.logger.error(f"    Invalid JSON for {file_path} (attempt {attempt + 1}/{max_retries}): {e}")
                 content = ""
             except Exception as e:
-                self.logger.error(
-                    f"    Error generating {file_path} (attempt {attempt + 1}/{max_retries}): {e}"
-                )
+                self.logger.error(f"    Error generating {file_path} (attempt {attempt + 1}/{max_retries}): {e}")
                 content = ""
 
         if not content:
-            self.logger.error(
-                f"    Failed to generate valid content for {file_path} after {max_retries} attempts."
-            )
+            self.logger.error(f"    Failed to generate valid content for {file_path} after {max_retries} attempts.")
 
         return content

@@ -5,9 +5,7 @@ from typing import Any, Dict, List, Optional
 
 
 class AdvancedCybersecurityTools:
-    def __init__(
-        self, command_executor: Any, file_manager: Any, logger: Any
-    ):  # Added file_manager
+    def __init__(self, command_executor: Any, file_manager: Any, logger: Any):  # Added file_manager
         self.exec = command_executor
         self.files = file_manager  # Stored FileManager
         self.logger = logger
@@ -85,9 +83,7 @@ class AdvancedCybersecurityTools:
             summary = "High potential attack surface. Review recommended integrations."
             overall_risk = "high"
         elif risk_score > 2:
-            summary = (
-                "Medium potential attack surface. Review recommended integrations."
-            )
+            summary = "Medium potential attack surface. Review recommended integrations."
             overall_risk = "medium"
         else:
             summary = "Low potential attack surface. Review recommended integrations."
@@ -136,9 +132,7 @@ class AdvancedCybersecurityTools:
         ]  # Double extensions, scripts
 
         # --- Check Process List (basic) ---
-        process_result = self.exec.execute(
-            "tasklist" if self.os_type == "Windows" else "ps aux"
-        )
+        process_result = self.exec.execute("tasklist" if self.os_type == "Windows" else "ps aux")
         if process_result.success:
             for proc_name in suspicious_process_names:
                 if proc_name.lower() in process_result.stdout.lower():
@@ -150,9 +144,7 @@ class AdvancedCybersecurityTools:
                         }
                     )
         else:
-            self.logger.warning(
-                f"Could not list processes for IOC detection: {process_result.stderr}"
-            )
+            self.logger.warning(f"Could not list processes for IOC detection: {process_result.stderr}")
 
         # --- Check File Paths (basic) ---
         scan_paths = (
@@ -186,9 +178,7 @@ class AdvancedCybersecurityTools:
 
                         # Basic content scan for keywords (very inefficient for large files)
                         try:
-                            content = f_path.read_text(
-                                encoding="utf-8", errors="ignore"
-                            ).lower()
+                            content = f_path.read_text(encoding="utf-8", errors="ignore").lower()
                             for keyword in suspicious_keywords:
                                 if keyword in content:
                                     iocs_found.append(
@@ -253,10 +243,7 @@ class AdvancedCybersecurityTools:
                 if result.success:
                     # Example output: C:\Users\Public BUILTIN\Users:(I)(OI)(CI)(F)
                     # Look for "(F)" (Full control) or "(W)" (Write) for non-admin users
-                    if (
-                        "Everyone:(F)" in result.stdout
-                        or "BUILTIN\\Users:(I)(OI)(CI)(F)" in result.stdout
-                    ):
+                    if "Everyone:(F)" in result.stdout or "BUILTIN\\Users:(I)(OI)(CI)(F)" in result.stdout:
                         findings.append(
                             {
                                 "type": "excessive_permissions",
@@ -300,9 +287,7 @@ class AdvancedCybersecurityTools:
                                     "severity": "high",
                                 }
                             )
-                        elif (
-                            perms[5] == "w" and target_path.is_file()
-                        ):  # Group writable file
+                        elif perms[5] == "w" and target_path.is_file():  # Group writable file
                             findings.append(
                                 {
                                     "type": "excessive_permissions",
@@ -328,14 +313,10 @@ class AdvancedCybersecurityTools:
             return {"ok": False, "result": {"error": str(e), "path": path}}
 
         if findings:
-            summary = (
-                f"Detected {len(findings)} potential permission issues for '{path}'."
-            )
+            summary = f"Detected {len(findings)} potential permission issues for '{path}'."
             status = "permission_issues_detected"
         else:
-            summary = (
-                f"No immediate permission issues detected for '{path}' (basic check)."
-            )
+            summary = f"No immediate permission issues detected for '{path}' (basic check)."
             status = "no_permission_issues"
 
         return {
@@ -361,9 +342,7 @@ class AdvancedCybersecurityTools:
 
         # Adjust score based on OS type (simplified)
         if self.os_type == "Windows":
-            base_score -= (
-                5  # Higher historical vulnerability, more configuration needed
-            )
+            base_score -= 5  # Higher historical vulnerability, more configuration needed
             explanation.append(
                 {
                     "area": "os_base_security",

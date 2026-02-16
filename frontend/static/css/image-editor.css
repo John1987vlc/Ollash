@@ -1,0 +1,86 @@
+/* Image Editor Styles (F14) */
+
+.image-editor-container {
+    position: relative;
+    background: #1a1a2e;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #333;
+}
+
+.image-editor-toolbar {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid #333;
+    flex-wrap: wrap;
+}
+
+.image-editor-toolbar button {
+    background: #2a2a3e;
+    color: #ccc;
+    border: 1px solid #444;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.image-editor-toolbar button:hover {
+    background: #3a3a5e;
+    color: #fff;
+}
+
+.image-editor-toolbar button.active {
+    background: #4285f4;
+    color: #fff;
+    border-color: #4285f4;
+}
+
+.image-editor-toolbar .separator {
+    width: 1px;
+    background: #444;
+    margin: 0 4px;
+}
+
+.image-editor-canvas-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    min-height: 300px;
+    overflow: auto;
+    background: #111;
+}
+
+.image-editor-canvas-wrap canvas {
+    max-width: 100%;
+    border: 1px dashed #333;
+}
+
+/* Filter pills */
+.image-editor-filters {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-top: 1px solid #333;
+}
+
+.filter-pill {
+    background: #2a2a3e;
+    color: #aaa;
+    border: 1px solid #444;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-pill:hover {
+    background: #3a3a5e;
+    color: #fff;
+}

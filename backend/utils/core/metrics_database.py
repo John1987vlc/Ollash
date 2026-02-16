@@ -111,11 +111,7 @@ class MetricsDatabase:
 
             # Filter by time
             cutoff_time = datetime.now() - timedelta(hours=hours)
-            filtered = [
-                record
-                for record in data
-                if datetime.fromisoformat(record["timestamp"]) > cutoff_time
-            ]
+            filtered = [record for record in data if datetime.fromisoformat(record["timestamp"]) > cutoff_time]
 
             # Apply limit
             if limit:
@@ -124,14 +120,10 @@ class MetricsDatabase:
             return filtered
 
         except Exception as e:
-            logger.error(
-                f"Error retrieving metric history {category}/{metric_name}: {e}"
-            )
+            logger.error(f"Error retrieving metric history {category}/{metric_name}: {e}")
             return []
 
-    def get_latest_metric(
-        self, category: str, metric_name: str
-    ) -> Optional[Dict[str, Any]]:
+    def get_latest_metric(self, category: str, metric_name: str) -> Optional[Dict[str, Any]]:
         """
         Get the most recent value of a metric.
 
@@ -157,14 +149,10 @@ class MetricsDatabase:
             return None
 
         except Exception as e:
-            logger.error(
-                f"Error retrieving latest metric {category}/{metric_name}: {e}"
-            )
+            logger.error(f"Error retrieving latest metric {category}/{metric_name}: {e}")
             return None
 
-    def get_metric_stats(
-        self, category: str, metric_name: str, hours: int = 24
-    ) -> Optional[Dict[str, Any]]:
+    def get_metric_stats(self, category: str, metric_name: str, hours: int = 24) -> Optional[Dict[str, Any]]:
         """
         Get statistics (min, max, avg) for a metric over a time period.
 
@@ -225,19 +213,13 @@ class MetricsDatabase:
                             data = json.load(f)
 
                         # Filter out old records
-                        filtered = [
-                            record
-                            for record in data
-                            if record.get("timestamp", "") > cutoff_iso
-                        ]
+                        filtered = [record for record in data if record.get("timestamp", "") > cutoff_iso]
 
                         # Save cleaned data
                         with open(metric_file, "w") as f:
                             json.dump(filtered, f, indent=2)
 
-                        logger.debug(
-                            f"Cleaned {metric_file.name}: {len(data) - len(filtered)} old records removed"
-                        )
+                        logger.debug(f"Cleaned {metric_file.name}: {len(data) - len(filtered)} old records removed")
 
                     except Exception as e:
                         logger.error(f"Error cleaning {metric_file.name}: {e}")

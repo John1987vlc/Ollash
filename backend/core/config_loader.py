@@ -1,14 +1,14 @@
 """
 Configuration Loader for the Ollash Agent System.
 """
+
 from typing import Any, Dict, Optional, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
 # Centralized config object and schemas
 from backend.core.config import get_config
-from backend.core.config_schemas import (AgentFeaturesConfig, LLMModelsConfig,
-                                         ToolSettingsConfig)
+from backend.core.config_schemas import AgentFeaturesConfig, LLMModelsConfig, ToolSettingsConfig
 from backend.utils.core.agent_logger import AgentLogger
 
 T = TypeVar("T", bound=BaseModel)
@@ -45,17 +45,13 @@ class ConfigLoader:
 
         try:
             for key, model in self._config_map.items():
-                self._loaded_configs[key] = model.model_validate(
-                    self._raw_config_data.get(key, {})
-                )
+                self._loaded_configs[key] = model.model_validate(self._raw_config_data.get(key, {}))
             self._logger.info("All configurations loaded and validated successfully.")
         except ValidationError as e:
             self._logger.error(f"Configuration validation failed: {e.errors()}")
             raise RuntimeError(f"Invalid configuration: {e}")
         except Exception as e:
-            self._logger.error(
-                f"An unexpected error occurred during config loading: {e}"
-            )
+            self._logger.error(f"An unexpected error occurred during config loading: {e}")
             raise RuntimeError(f"Configuration error: {e}")
 
     def get_config(self, config_type: str) -> Optional[BaseModel]:

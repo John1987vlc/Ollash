@@ -163,17 +163,11 @@ Summarize findings by severity.""",
         try:
             # Simple extraction - can be enhanced with better parsing
             if "CPU" in report or "cpu" in report:
-                self.metrics_db.record_metric(
-                    "system", "cpu_check", 1, {"reported": True}
-                )
+                self.metrics_db.record_metric("system", "cpu_check", 1, {"reported": True})
             if "RAM" in report or "Memory" in report or "memory" in report:
-                self.metrics_db.record_metric(
-                    "system", "memory_check", 1, {"reported": True}
-                )
+                self.metrics_db.record_metric("system", "memory_check", 1, {"reported": True})
             if "Disk" in report or "disk" in report:
-                self.metrics_db.record_metric(
-                    "system", "disk_check", 1, {"reported": True}
-                )
+                self.metrics_db.record_metric("system", "disk_check", 1, {"reported": True})
         except Exception as e:
             logger.error(f"Error recording system metrics: {e}")
 
@@ -204,9 +198,7 @@ class NetworkMonitorAgent:
         self.event_publisher = event_publisher
         self.metrics_db = get_metrics_database(ollash_root_dir)
 
-    async def check_services_uptime(
-        self, services: Optional[list] = None
-    ) -> Dict[str, Any]:
+    async def check_services_uptime(self, services: Optional[list] = None) -> Dict[str, Any]:
         """
         Check uptime of critical services using heartbeat pings.
 
@@ -243,9 +235,7 @@ For each service, report:
             )
 
             # Record metrics
-            self.metrics_db.record_metric(
-                "network", "uptime_check", 1, {"result": "completed"}
-            )
+            self.metrics_db.record_metric("network", "uptime_check", 1, {"result": "completed"})
 
             return {
                 "status": "completed",
@@ -293,9 +283,7 @@ For each port, report:
 4. Last seen change""",
             )
 
-            self.metrics_db.record_metric(
-                "network", "port_check", 1, {"result": "completed"}
-            )
+            self.metrics_db.record_metric("network", "port_check", 1, {"result": "completed"})
 
             return {
                 "status": "completed",
@@ -357,9 +345,7 @@ For each file:
 4. Report any unauthorized changes detected""",
             )
 
-            self.metrics_db.record_metric(
-                "security", "integrity_scan", 1, {"result": "completed"}
-            )
+            self.metrics_db.record_metric("security", "integrity_scan", 1, {"result": "completed"})
 
             return {
                 "status": "completed",
@@ -402,9 +388,7 @@ For each file:
 Summarize threats by severity (Critical/High/Medium/Low)""",
             )
 
-            self.metrics_db.record_metric(
-                "security", "log_analysis", 1, {"result": "completed"}
-            )
+            self.metrics_db.record_metric("security", "log_analysis", 1, {"result": "completed"})
 
             return {
                 "status": "completed",
@@ -445,9 +429,7 @@ Summarize threats by severity (Critical/High/Medium/Low)""",
 5. Report CVEs and severity levels""",
             )
 
-            self.metrics_db.record_metric(
-                "security", "vulnerability_scan", 1, {"result": "completed"}
-            )
+            self.metrics_db.record_metric("security", "vulnerability_scan", 1, {"result": "completed"})
 
             return {
                 "status": "completed",
@@ -461,9 +443,7 @@ Summarize threats by severity (Critical/High/Medium/Low)""",
 
 
 # Factory function to create monitor agents
-def create_monitor_agents(
-    ollash_root_dir: Path, event_publisher: EventPublisher
-) -> Dict[str, Any]:
+def create_monitor_agents(ollash_root_dir: Path, event_publisher: EventPublisher) -> Dict[str, Any]:
     """Create all monitor agent instances."""
     return {
         "system": SystemMonitorAgent(ollash_root_dir, event_publisher),

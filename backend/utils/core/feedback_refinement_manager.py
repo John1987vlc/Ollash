@@ -37,9 +37,7 @@ class ParagraphContext:
         avg_sentence_length = len(words) / max(len(self.text.split(".")), 1)
 
         # Flesch-Kincaid simplified: lower is better (more readable)
-        score = min(
-            100, max(0, 100 - (avg_word_length * 4 + avg_sentence_length * 1.5))
-        )
+        score = min(100, max(0, 100 - (avg_word_length * 4 + avg_sentence_length * 1.5)))
         return score
 
 
@@ -195,9 +193,7 @@ class FeedbackRefinementManager:
 
         return selected
 
-    def generate_critique(
-        self, paragraph: ParagraphContext, critique_type: str = "clarity"
-    ) -> str:
+    def generate_critique(self, paragraph: ParagraphContext, critique_type: str = "clarity") -> str:
         """
         Generate critique for a paragraph
 
@@ -227,9 +223,7 @@ class FeedbackRefinementManager:
         sentences = re.split(r"[.!?]+", text)
         long_sentences = [s for s in sentences if len(s.split()) > 25]
         if long_sentences:
-            issues.append(
-                f"Found {len(long_sentences)} sentences over 25 words (clarity issue)"
-            )
+            issues.append(f"Found {len(long_sentences)} sentences over 25 words (clarity issue)")
 
         # Check for passive voice
         passive_patterns = [r"\bis\b.*\bed\b", r"\bwas\b.*\bed\b", r"\bwere\b.*\bed\b"]
@@ -300,9 +294,7 @@ class FeedbackRefinementManager:
 
         return "Structure issues: " + "; ".join(issues)
 
-    def apply_refinement(
-        self, paragraph: ParagraphContext, refinement: str, critique: str
-    ) -> RefinementRecord:
+    def apply_refinement(self, paragraph: ParagraphContext, refinement: str, critique: str) -> RefinementRecord:
         """
         Record and apply a refinement to a paragraph
 
@@ -330,9 +322,7 @@ class FeedbackRefinementManager:
 
         self.metrics["refined_count"] += 1
         self.metrics["avg_readability_improvement"] = (
-            self.metrics["avg_readability_improvement"]
-            * (self.metrics["refined_count"] - 1)
-            + (new_score - old_score)
+            self.metrics["avg_readability_improvement"] * (self.metrics["refined_count"] - 1) + (new_score - old_score)
         ) / self.metrics["refined_count"]
         self.metrics["total_iterations"] += 1
 
@@ -372,14 +362,8 @@ class FeedbackRefinementManager:
         return {
             "total_paragraphs": self.metrics["total_paragraphs"],
             "refined": self.metrics["refined_count"],
-            "refinement_rate": (
-                self.metrics["refined_count"]
-                / max(self.metrics["total_paragraphs"], 1)
-                * 100
-            ),
-            "avg_readability_improvement": round(
-                self.metrics["avg_readability_improvement"], 2
-            ),
+            "refinement_rate": (self.metrics["refined_count"] / max(self.metrics["total_paragraphs"], 1) * 100),
+            "avg_readability_improvement": round(self.metrics["avg_readability_improvement"], 2),
             "validation_passed": self.metrics["validation_passed"],
             "validation_failed": self.metrics["validation_failed"],
             "total_iterations": self.metrics["total_iterations"],

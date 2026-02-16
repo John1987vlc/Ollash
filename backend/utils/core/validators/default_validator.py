@@ -3,9 +3,7 @@ import re
 import xml.etree.ElementTree as ET  # For XML validation
 from pathlib import Path
 
-from backend.utils.core.validators.base_validator import (BaseValidator,
-                                                          ValidationResult,
-                                                          ValidationStatus)
+from backend.utils.core.validators.base_validator import BaseValidator, ValidationResult, ValidationStatus
 
 
 class DefaultValidator(BaseValidator):
@@ -32,16 +30,12 @@ class DefaultValidator(BaseValidator):
     def __init__(self, logger=None, command_executor=None):
         super().__init__(logger, command_executor)
 
-    def validate(
-        self, file_path: str, content: str, lines: int, chars: int, ext: str
-    ) -> ValidationResult:
+    def validate(self, file_path: str, content: str, lines: int, chars: int, ext: str) -> ValidationResult:
         filename = Path(file_path).name
 
         # Handle dependency files
         if filename in self.DEPENDENCY_FILES:
-            dep_result = self._validate_dependency_file(
-                file_path, content, lines, chars
-            )
+            dep_result = self._validate_dependency_file(file_path, content, lines, chars)
             if dep_result.status != ValidationStatus.VALID:
                 return dep_result
             # For dependency files, this is the primary validation, so we return it.
@@ -84,9 +78,7 @@ class DefaultValidator(BaseValidator):
         lower = content.lower()
         if self._is_html_partial(path):
             if not lower:
-                return ValidationResult(
-                    path, ValidationStatus.EMPTY, "HTML partial is empty", lines, chars
-                )
+                return ValidationResult(path, ValidationStatus.EMPTY, "HTML partial is empty", lines, chars)
             if not re.search(r"<\w+[^>]*>", lower):
                 return ValidationResult(
                     path,
@@ -95,9 +87,7 @@ class DefaultValidator(BaseValidator):
                     lines,
                     chars,
                 )
-            return ValidationResult(
-                path, ValidationStatus.VALID, "HTML partial structure OK", lines, chars
-            )
+            return ValidationResult(path, ValidationStatus.VALID, "HTML partial structure OK", lines, chars)
 
         if "<html" not in lower and "<!doctype" not in lower:
             return ValidationResult(
@@ -118,9 +108,7 @@ class DefaultValidator(BaseValidator):
                     lines,
                     chars,
                 )
-        return ValidationResult(
-            path, ValidationStatus.VALID, "HTML structure OK", lines, chars
-        )
+        return ValidationResult(path, ValidationStatus.VALID, "HTML structure OK", lines, chars)
 
     def _validate_css(self, path, content, lines, chars) -> ValidationResult:
         open_braces = content.count("{")
@@ -150,14 +138,10 @@ class DefaultValidator(BaseValidator):
                 lines,
                 chars,
             )
-        return ValidationResult(
-            path, ValidationStatus.VALID, "CSS structure OK", lines, chars
-        )
+        return ValidationResult(path, ValidationStatus.VALID, "CSS structure OK", lines, chars)
 
     def _validate_markdown(self, path, content, lines, chars) -> ValidationResult:
-        non_heading_content = re.sub(
-            r"^#{1,6}\s+.*$", "", content, flags=re.MULTILINE
-        ).strip()
+        non_heading_content = re.sub(r"^#{1,6}\s+.*$", "", content, flags=re.MULTILINE).strip()
         if len(non_heading_content) < 20:
             return ValidationResult(
                 path,
@@ -166,16 +150,12 @@ class DefaultValidator(BaseValidator):
                 lines,
                 chars,
             )
-        return ValidationResult(
-            path, ValidationStatus.VALID, "Markdown structure OK", lines, chars
-        )
+        return ValidationResult(path, ValidationStatus.VALID, "Markdown structure OK", lines, chars)
 
     def _validate_xml(self, path, content, lines, chars) -> ValidationResult:
         try:
             ET.fromstring(content)
-            return ValidationResult(
-                path, ValidationStatus.VALID, "Valid XML", lines, chars
-            )
+            return ValidationResult(path, ValidationStatus.VALID, "Valid XML", lines, chars)
         except ET.ParseError as e:
             return ValidationResult(
                 path,
@@ -195,22 +175,12 @@ class DefaultValidator(BaseValidator):
                 lines,
                 chars,
             )
-        return ValidationResult(
-            path, ValidationStatus.VALID, "Shell script OK", lines, chars
-        )
+        return ValidationResult(path, ValidationStatus.VALID, "Shell script OK", lines, chars)
 
     def _validate_batch(self, path, content, lines, chars) -> ValidationResult:
         lower = content.lower()
-        if (
-            "@echo" in lower
-            or "set " in lower
-            or "echo " in lower
-            or "rem " in lower
-            or "call " in lower
-        ):
-            return ValidationResult(
-                path, ValidationStatus.VALID, "Batch file OK", lines, chars
-            )
+        if "@echo" in lower or "set " in lower or "echo " in lower or "rem " in lower or "call " in lower:
+            return ValidationResult(path, ValidationStatus.VALID, "Batch file OK", lines, chars)
         return ValidationResult(
             path,
             ValidationStatus.VALID,
@@ -233,16 +203,10 @@ class DefaultValidator(BaseValidator):
             "DECLARE",
         ]
         if any(kw in upper for kw in sql_keywords):
-            return ValidationResult(
-                path, ValidationStatus.VALID, "SQL syntax OK", lines, chars
-            )
-        return ValidationResult(
-            path, ValidationStatus.VALID, "SQL file (basic check passed)", lines, chars
-        )
+            return ValidationResult(path, ValidationStatus.VALID, "SQL syntax OK", lines, chars)
+        return ValidationResult(path, ValidationStatus.VALID, "SQL file (basic check passed)", lines, chars)
 
-    def _validate_dependency_file(
-        self, path, content, lines, chars
-    ) -> ValidationResult:
+    def _validate_dependency_file(self, path, content, lines, chars) -> ValidationResult:
         """Validate dependency manifest files for hallucinated or excessive entries."""
         filename = Path(path).name
 
@@ -259,13 +223,9 @@ class DefaultValidator(BaseValidator):
                 chars,
             )
         elif filename == "go.mod":  # Placeholder
-            return ValidationResult(
-                path, ValidationStatus.VALID, "go.mod basic check passed", lines, chars
-            )
+            return ValidationResult(path, ValidationStatus.VALID, "go.mod basic check passed", lines, chars)
         elif filename == "Gemfile":  # Placeholder
-            return ValidationResult(
-                path, ValidationStatus.VALID, "Gemfile basic check passed", lines, chars
-            )
+            return ValidationResult(path, ValidationStatus.VALID, "Gemfile basic check passed", lines, chars)
 
         return ValidationResult(
             path,
@@ -275,9 +235,7 @@ class DefaultValidator(BaseValidator):
             chars,
         )
 
-    def _validate_requirements_txt(
-        self, path, content, lines, chars
-    ) -> ValidationResult:
+    def _validate_requirements_txt(self, path, content, lines, chars) -> ValidationResult:
         """Validate Python requirements.txt for hallucinated packages."""
         entries = []
         for line in content.splitlines():
@@ -339,16 +297,12 @@ class DefaultValidator(BaseValidator):
             chars,
         )
 
-    def _validate_package_json_deps(
-        self, path, content, lines, chars
-    ) -> ValidationResult:
+    def _validate_package_json_deps(self, path, content, lines, chars) -> ValidationResult:
         """Validate package.json dependencies for excessive entries."""
         try:
             data = json.loads(content)
         except json.JSONDecodeError:
-            return ValidationResult(
-                path, ValidationStatus.VALID, "Deferred to JSON validator", lines, chars
-            )
+            return ValidationResult(path, ValidationStatus.VALID, "Deferred to JSON validator", lines, chars)
 
         total_deps = 0
         for key in ("dependencies", "devDependencies", "peerDependencies"):

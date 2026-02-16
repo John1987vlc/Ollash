@@ -81,9 +81,7 @@ class AlertManager:
             self.alert_callbacks[alert_id] = callback
             logger.info(f"Registered callback for alert: {alert_id}")
 
-    def check_alert(
-        self, alert_id: str, current_value: float
-    ) -> Optional[Dict[str, Any]]:
+    def check_alert(self, alert_id: str, current_value: float) -> Optional[Dict[str, Any]]:
         """
         Check if an alert should trigger based on current metric value.
 
@@ -109,9 +107,7 @@ class AlertManager:
             operator = alert.get("operator", ">")
             severity = alert.get("severity", self.SEVERITY_WARNING)
 
-            should_trigger = self._evaluate_threshold(
-                current_value, threshold, operator
-            )
+            should_trigger = self._evaluate_threshold(current_value, threshold, operator)
 
             if not should_trigger:
                 return None
@@ -149,9 +145,7 @@ class AlertManager:
 
             return alert_info
 
-    def trigger_alert(
-        self, alert_id: str, alert_info: Dict[str, Any], channels: List[str] = None
-    ) -> bool:
+    def trigger_alert(self, alert_id: str, alert_info: Dict[str, Any], channels: List[str] = None) -> bool:
         """
         Trigger an alert with notifications.
 
@@ -177,9 +171,7 @@ class AlertManager:
             operator = alert_info.get("operator", ">")
 
             if current is not None and threshold is not None:
-                message += (
-                    f"\n\nCurrent Value: {current}\nThreshold: {threshold} ({operator})"
-                )
+                message += f"\n\nCurrent Value: {current}\nThreshold: {threshold} ({operator})"
 
             # Log the alert
             if "log" in channels:
@@ -189,9 +181,7 @@ class AlertManager:
                     self.SEVERITY_CRITICAL: logging.CRITICAL,
                 }.get(severity, logging.INFO)
 
-                logger.log(
-                    log_level, f"🚨 ALERT [{severity.upper()}]: {title} - {message}"
-                )
+                logger.log(log_level, f"🚨 ALERT [{severity.upper()}]: {title} - {message}")
 
             # UI notification
             if "ui" in channels and self.notification_manager:
@@ -227,9 +217,7 @@ class AlertManager:
             logger.error(f"❌ Failed to trigger alert {alert_id}: {e}")
             return False
 
-    def _evaluate_threshold(
-        self, current_value: float, threshold: float, operator: str
-    ) -> bool:
+    def _evaluate_threshold(self, current_value: float, threshold: float, operator: str) -> bool:
         """Evaluate if threshold is exceeded."""
         try:
             if operator == ">":
@@ -256,14 +244,14 @@ class AlertManager:
         return f"""
 Ollash System Alert
 
-Alert: {alert_info.get('name', 'Unknown')}
-Severity: {alert_info.get('severity', 'Unknown').upper()}
-Entity: {alert_info.get('entity', 'Unknown')}
-Description: {alert_info.get('description', '')}
+Alert: {alert_info.get("name", "Unknown")}
+Severity: {alert_info.get("severity", "Unknown").upper()}
+Entity: {alert_info.get("entity", "Unknown")}
+Description: {alert_info.get("description", "")}
 
-Current Value: {alert_info.get('current_value')}
-Threshold: {alert_info.get('threshold')} ({alert_info.get('operator', '?')})
-Timestamp: {alert_info.get('timestamp')}
+Current Value: {alert_info.get("current_value")}
+Threshold: {alert_info.get("threshold")} ({alert_info.get("operator", "?")})
+Timestamp: {alert_info.get("timestamp")}
 
 Please review your system and take any necessary action.
         """

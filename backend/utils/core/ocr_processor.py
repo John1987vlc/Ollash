@@ -48,9 +48,7 @@ class OCRConfig:
     temperature: float = 0.0  # Deterministic for OCR
     timeout_seconds: int = 120
     max_image_size_mb: int = 50
-    supported_formats: List[str] = field(
-        default_factory=lambda: ["png", "jpg", "jpeg", "pdf", "webp"]
-    )
+    supported_formats: List[str] = field(default_factory=lambda: ["png", "jpg", "jpeg", "pdf", "webp"])
 
     def to_dict(self):
         return asdict(self)
@@ -111,22 +109,16 @@ class OCRProcessor:
         # Check format
         suffix = path.suffix.lstrip(".").lower()
         if suffix not in self.config.supported_formats:
-            raise ValueError(
-                f"Unsupported format: {suffix}. Supported: {self.config.supported_formats}"
-            )
+            raise ValueError(f"Unsupported format: {suffix}. Supported: {self.config.supported_formats}")
 
         # Check size
         size_mb = path.stat().st_size / (1024 * 1024)
         if size_mb > self.config.max_image_size_mb:
-            raise ValueError(
-                f"Image too large: {size_mb}MB (max: {self.config.max_image_size_mb}MB)"
-            )
+            raise ValueError(f"Image too large: {size_mb}MB (max: {self.config.max_image_size_mb}MB)")
 
         return True
 
-    def process_image(
-        self, image_path: str, image_id: Optional[str] = None
-    ) -> OCRResult:
+    def process_image(self, image_path: str, image_id: Optional[str] = None) -> OCRResult:
         """
         Process an image and extract text using deepseek-ocr:3b
 
@@ -157,8 +149,7 @@ class OCRProcessor:
             result = self._call_ollama_ocr(image_data, image_id)
         except requests.exceptions.ConnectionError:
             raise ConnectionError(
-                f"Cannot connect to Ollama at {self.config.ollama_host}. "
-                f"Make sure Ollama is running: ollama serve"
+                f"Cannot connect to Ollama at {self.config.ollama_host}. Make sure Ollama is running: ollama serve"
             )
 
         # Cache result
@@ -188,17 +179,13 @@ class OCRProcessor:
         }
 
         try:
-            response = requests.post(
-                url, json=payload, timeout=self.config.timeout_seconds
-            )
+            response = requests.post(url, json=payload, timeout=self.config.timeout_seconds)
             response.raise_for_status()
 
             data = response.json()
             extracted_text = data.get("response", "")
 
-            processing_time = (
-                time.time() - start_time
-            ) * 1000  # Convert to milliseconds
+            processing_time = (time.time() - start_time) * 1000  # Convert to milliseconds
 
             # Parse response to detect blocks and confidence
             blocks = self._parse_text_blocks(extracted_text)
@@ -221,14 +208,10 @@ class OCRProcessor:
         blocks = []
         for idx, line in enumerate(text.split("\n")):
             if line.strip():
-                blocks.append(
-                    {"block_id": idx, "text": line.strip(), "confidence": 0.9}
-                )
+                blocks.append({"block_id": idx, "text": line.strip(), "confidence": 0.9})
         return blocks
 
-    def process_batch(
-        self, image_paths: List[str], image_ids: Optional[List[str]] = None
-    ) -> List[OCRResult]:
+    def process_batch(self, image_paths: List[str], image_ids: Optional[List[str]] = None) -> List[OCRResult]:
         """
         Process multiple images
 
@@ -253,9 +236,7 @@ class OCRProcessor:
 
         return results
 
-    def extract_text_from_directory(
-        self, directory_path: str, pattern: str = "*.png"
-    ) -> Dict[str, str]:
+    def extract_text_from_directory(self, directory_path: str, pattern: str = "*.png") -> Dict[str, str]:
         """
         Process all images in a directory
 
@@ -326,9 +307,7 @@ class PDFOCRProcessor:
         try:
             from pdf2image import convert_from_path
         except ImportError:
-            raise ImportError(
-                "pdf2image not installed. Install with: pip install pdf2image"
-            )
+            raise ImportError("pdf2image not installed. Install with: pip install pdf2image")
 
         pdf_path = Path(pdf_path)
         if not pdf_path.exists():

@@ -72,9 +72,7 @@ class ErrorKnowledgeBase:
     - Build immunity to common mistakes
     """
 
-    def __init__(
-        self, knowledge_dir: Path, logger: AgentLogger, enable_persistence: bool = True
-    ):
+    def __init__(self, knowledge_dir: Path, logger: AgentLogger, enable_persistence: bool = True):
         """
         Initialize error knowledge base.
 
@@ -124,9 +122,7 @@ class ErrorKnowledgeBase:
         if pattern_id in self.patterns:
             self.patterns[pattern_id].frequency += 1
             self.patterns[pattern_id].last_encountered = datetime.now().isoformat()
-            self.logger.debug(
-                f"Updated error pattern {pattern_id} (frequency: {self.patterns[pattern_id].frequency})"
-            )
+            self.logger.debug(f"Updated error pattern {pattern_id} (frequency: {self.patterns[pattern_id].frequency})")
         else:
             # Create new pattern
             language = self._detect_language(file_path)
@@ -226,19 +222,13 @@ class ErrorKnowledgeBase:
 
         for pattern in self.patterns.values():
             # By error type
-            by_type[pattern.error_type] = (
-                by_type.get(pattern.error_type, 0) + pattern.frequency
-            )
+            by_type[pattern.error_type] = by_type.get(pattern.error_type, 0) + pattern.frequency
 
             # By language
-            by_language[pattern.language] = (
-                by_language.get(pattern.language, 0) + pattern.frequency
-            )
+            by_language[pattern.language] = by_language.get(pattern.language, 0) + pattern.frequency
 
             # By severity
-            by_severity[pattern.severity] = (
-                by_severity.get(pattern.severity, 0) + pattern.frequency
-            )
+            by_severity[pattern.severity] = by_severity.get(pattern.severity, 0) + pattern.frequency
 
         total_errors = sum(p.frequency for p in self.patterns.values())
 

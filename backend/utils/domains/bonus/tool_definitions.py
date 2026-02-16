@@ -42,9 +42,7 @@ BONUS_TOOL_DEFINITIONS: List[Dict] = [
             "description": "Analyzes the sentiment of a given text (e.g., positive, negative, neutral).",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "text": {"type": "string", "description": "The text to analyze."}
-                },
+                "properties": {"text": {"type": "string", "description": "The text to analyze."}},
                 "required": ["text"],
             },
         },

@@ -92,9 +92,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def file_content_generation_basic(
-        file_path: str, parent_context: str
-    ) -> Tuple[str, str]:
+    def file_content_generation_basic(file_path: str, parent_context: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for basic file content generation."""
         system = (
             "You are an expert software developer. Generate clean, complete, and well-structured code "
@@ -114,13 +112,10 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def file_refinement_with_issues(
-        file_path: str, content: str, issues: str
-    ) -> Tuple[str, str]:
+    def file_refinement_with_issues(file_path: str, content: str, issues: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file refinement with issues."""
         system = (
-            "You are a senior code reviewer. Fix the identified issues in the code "
-            "while improving overall quality."
+            "You are a senior code reviewer. Fix the identified issues in the code while improving overall quality."
         )
         user = f"Fix these issues in '{file_path}':\n{issues}\n\nCurrent content:\n{content}"
         return system, user
@@ -129,15 +124,11 @@ class AutoGenPrompts:
     def file_fix(file_path: str, content: str, error: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file fixing."""
         system = "You are an expert debugger. Analyze the error and fix the code accordingly."
-        user = (
-            f"Fix this error in '{file_path}':\n\nError: {error}\n\nContent:\n{content}"
-        )
+        user = f"Fix this error in '{file_path}':\n\nError: {error}\n\nContent:\n{content}"
         return system, user
 
     @staticmethod
-    def generate_unit_tests(
-        file_path: str, content: str, readme: str = ""
-    ) -> Tuple[str, str]:
+    def generate_unit_tests(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for unit test generation."""
         system = (
             "You are a QA engineer. Generate comprehensive, clear unit tests "
@@ -161,12 +152,9 @@ class AutoGenPrompts:
     def generate_improvement_plan_prompt(improvements: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for improvement plan generation."""
         system = (
-            "You are a project planner. Create a detailed, actionable plan "
-            "to implement the suggested improvements."
+            "You are a project planner. Create a detailed, actionable plan to implement the suggested improvements."
         )
-        user = (
-            f"Create an implementation plan for these improvements:\n\n{improvements}"
-        )
+        user = f"Create an implementation plan for these improvements:\n\n{improvements}"
         return system, user
 
     @staticmethod
@@ -195,9 +183,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def file_content_generation(
-        file_path: str, content: str, readme: str = ""
-    ) -> Tuple[str, str]:
+    def file_content_generation(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file content generation."""
         system = (
             "You are an expert software developer generating production-ready code. "
@@ -267,7 +253,5 @@ class AutoGenPrompts:
             "You are a solution architect. Plan a well-structured project architecture "
             "that addresses the requirements and follows industry best practices."
         )
-        user = (
-            f"Create an architecture plan for the following project:\n\n{description}"
-        )
+        user = f"Create an architecture plan for the following project:\n\n{description}"
         return system, user

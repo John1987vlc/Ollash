@@ -133,9 +133,7 @@ class SystemTools:
                 except json.JSONDecodeError as e:
                     self.logger.error(f"Failed to parse JSON system info: {e}")
                     parsed_output["error_parsing_json"] = str(e)
-                    parsed_output[
-                        "info"
-                    ] = result.stdout  # Fallback to raw if parsing fails
+                    parsed_output["info"] = result.stdout  # Fallback to raw if parsing fails
             elif self.os_type == "Darwin":
                 info_lines = result.stdout.splitlines()
                 mac_info = {}
@@ -150,9 +148,7 @@ class SystemTools:
                         mac_info["CpuModel"] = line.split(":")[-1].strip()
                     elif "hw.memsize" in line:
                         mem_bytes = int(line.split(":")[-1].strip())
-                        mac_info["TotalPhysicalMemoryGB"] = round(
-                            mem_bytes / (1024**3), 2
-                        )
+                        mac_info["TotalPhysicalMemoryGB"] = round(mem_bytes / (1024**3), 2)
                     elif "hw.physicalcpu" in line:
                         mac_info["PhysicalCores"] = int(line.split(":")[-1].strip())
                     elif "hw.logicalcpu" in line:
@@ -223,15 +219,11 @@ class SystemTools:
                                     "pid": int(parts[1]),
                                     "cpu_percent": float(parts[2]),
                                     "mem_percent": float(parts[3]),
-                                    "command": " ".join(
-                                        parts[10:]
-                                    ),  # Command might have spaces
+                                    "command": " ".join(parts[10:]),  # Command might have spaces
                                 }
                                 parsed_output["processes"].append(process)
                             except (ValueError, IndexError) as e:
-                                self.logger.warning(
-                                    f"Failed to parse process line: {line.strip()} - {e}"
-                                )
+                                self.logger.warning(f"Failed to parse process line: {line.strip()} - {e}")
             return {"ok": True, "result": parsed_output}
         else:
             self.logger.error(f"❌ Failed to list processes: {result.stderr}")
@@ -267,9 +259,7 @@ class SystemTools:
             command = f"sudo apt-get update && sudo apt-get install -y {package_name}"
         elif package_manager == "yum" and (self.os_type == "Linux"):
             command = f"sudo yum install -y {package_name}"
-        elif package_manager == "dnf" and (
-            self.os_type == "Linux"
-        ):  # Adding dnf for modern Fedora/RHEL
+        elif package_manager == "dnf" and (self.os_type == "Linux"):  # Adding dnf for modern Fedora/RHEL
             command = f"sudo dnf install -y {package_name}"
         elif package_manager == "choco" and (self.os_type == "Windows"):
             command = f"choco install {package_name} -y"
@@ -290,13 +280,9 @@ class SystemTools:
                 },
             }
 
-        result = self.exec.execute(
-            command, timeout=300
-        )  # Increased timeout for installation
+        result = self.exec.execute(command, timeout=300)  # Increased timeout for installation
         if result.success:
-            self.logger.info(
-                f"✅ Package {package_name} installed successfully using {package_manager}."
-            )
+            self.logger.info(f"✅ Package {package_name} installed successfully using {package_manager}.")
             return {
                 "ok": True,
                 "result": {
@@ -307,9 +293,7 @@ class SystemTools:
                 },
             }
         else:
-            self.logger.error(
-                f"❌ Failed to install package {package_name}: {result.stderr}"
-            )
+            self.logger.error(f"❌ Failed to install package {package_name}: {result.stderr}")
             return {
                 "ok": False,
                 "result": {
@@ -398,9 +382,7 @@ class SystemTools:
         Checks if a system resource (disk/ram) is below a critical threshold.
         Returns alert status and current free percentage.
         """
-        self.logger.info(
-            f"🔍 Checking {resource} resource threshold (alert if < {threshold_percent}%)..."
-        )
+        self.logger.info(f"🔍 Checking {resource} resource threshold (alert if < {threshold_percent}%)...")
 
         if resource not in ["disk", "ram"]:
             return {
@@ -449,9 +431,7 @@ class SystemTools:
                                     size_str = parts[1].rstrip("KMGT")
                                     avail = float(avail_str)
                                     size = float(size_str)
-                                    current_free_percent = (
-                                        (avail / size) * 100 if size > 0 else 0
-                                    )
+                                    current_free_percent = (avail / size) * 100 if size > 0 else 0
                                     total = size
                                     used = size - avail
                                     free = avail
@@ -470,9 +450,7 @@ class SystemTools:
                                     total = int(parts[1])
                                     used = int(parts[2])
                                     free = int(parts[3])
-                                    current_free_percent = (
-                                        (free / total) * 100 if total > 0 else 0
-                                    )
+                                    current_free_percent = (free / total) * 100 if total > 0 else 0
                                 except (ValueError, IndexError):
                                     pass
 
@@ -495,9 +473,7 @@ class SystemTools:
                 "total": total,
                 "used": used,
                 "free": free,
-                "message": f"⚠️ {resource.upper()} CRITICAL"
-                if alert_triggered
-                else f"✅ {resource.upper()} OK",
+                "message": f"⚠️ {resource.upper()} CRITICAL" if alert_triggered else f"✅ {resource.upper()} OK",
                 "severity": "critical" if alert_triggered else "info",
             }
 

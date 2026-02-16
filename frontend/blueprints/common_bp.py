@@ -1,4 +1,5 @@
 """Blueprint for shared routes (index page, health check)."""
+
 import json
 from pathlib import Path
 

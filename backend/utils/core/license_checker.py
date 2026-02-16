@@ -24,9 +24,7 @@ class LicenseChecker:
         """
         self.logger = logger
         self.config = config.get("license_checker", {})
-        self.allowed_licenses = self.config.get(
-            "allowed_licenses", ["MIT", "Apache-2.0", "GPL-3.0"]
-        )
+        self.allowed_licenses = self.config.get("allowed_licenses", ["MIT", "Apache-2.0", "GPL-3.0"])
 
     def check_file_license(self, file_path: Path) -> bool:
         """

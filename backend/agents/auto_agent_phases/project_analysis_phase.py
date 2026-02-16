@@ -45,17 +45,13 @@ class ProjectAnalysisPhase(IAgentPhase):
             f"[PROJECT_NAME:{project_name}] PHASE 0.5: Analyzing existing project "
             f"({len(generated_files)} files, {len(file_paths)} paths)..."
         )
-        self.context.event_publisher.publish(
-            "phase_start", phase="0.5", message="Analyzing existing project code"
-        )
+        self.context.event_publisher.publish("phase_start", phase="0.5", message="Analyzing existing project code")
 
         # Step 1: Analyze current codebase
         codebase_analysis = await self._analyze_codebase(generated_files, file_paths)
 
         # Step 2: Compare with project description
-        gaps = await self._identify_gaps(
-            project_description, codebase_analysis, readme_content
-        )
+        gaps = await self._identify_gaps(project_description, codebase_analysis, readme_content)
 
         # Step 3: Generate improvement plan
         logic_plan = await self._generate_improvement_plan(
@@ -72,9 +68,7 @@ class ProjectAnalysisPhase(IAgentPhase):
         }
 
         analysis_file = project_root / "ANALYSIS_REPORT.json"
-        self.context.file_manager.write_file(
-            analysis_file, json.dumps(analysis_report, indent=2)
-        )
+        self.context.file_manager.write_file(analysis_file, json.dumps(analysis_report, indent=2))
         generated_files["ANALYSIS_REPORT.json"] = json.dumps(analysis_report, indent=2)
 
         # Store in context for use by subsequent phases
@@ -97,9 +91,7 @@ class ProjectAnalysisPhase(IAgentPhase):
 
         return generated_files, initial_structure, file_paths
 
-    async def _analyze_codebase(
-        self, generated_files: Dict[str, str], file_paths: List[str]
-    ) -> Dict[str, Any]:
+    async def _analyze_codebase(self, generated_files: Dict[str, str], file_paths: List[str]) -> Dict[str, Any]:
         """
         Analyzes the existing codebase to understand structure and patterns.
 
@@ -124,9 +116,7 @@ class ProjectAnalysisPhase(IAgentPhase):
 
         # Group files by language
         files_by_language = self.context.group_files_by_language(generated_files)
-        analysis["files_by_type"] = {
-            lang: len(files) for lang, files in files_by_language.items()
-        }
+        analysis["files_by_type"] = {lang: len(files) for lang, files in files_by_language.items()}
 
         # Analyze each file
         test_files = []
@@ -176,24 +166,22 @@ class ProjectAnalysisPhase(IAgentPhase):
         Returns:
             Dictionary with identified gaps, missing features, and improvement opportunities
         """
-        self.context.logger.info(
-            "  Identifying gaps between current state and requirements..."
-        )
+        self.context.logger.info("  Identifying gaps between current state and requirements...")
 
         # Prepare context for LLM
         analysis_context = f"""
 ## Current Project State
-- Total files: {len(codebase_analysis['file_details'])}
-- Total lines of code: {codebase_analysis['total_lines_of_code']}
-- Languages used: {', '.join(codebase_analysis['files_by_type'].keys())}
-- Has tests: {codebase_analysis['test_coverage']['has_tests']}
-- Test files: {len(codebase_analysis['test_coverage']['test_files'])}
+- Total files: {len(codebase_analysis["file_details"])}
+- Total lines of code: {codebase_analysis["total_lines_of_code"]}
+- Languages used: {", ".join(codebase_analysis["files_by_type"].keys())}
+- Has tests: {codebase_analysis["test_coverage"]["has_tests"]}
+- Test files: {len(codebase_analysis["test_coverage"]["test_files"])}
 
 ## Required Project Description
 {project_description}
 
 ## Current README
-{readme_content[:1000] if readme_content else 'No README found'}
+{readme_content[:1000] if readme_content else "No README found"}
 
 ## Analysis Task
 1. Compare the current codebase with the requirements in the project description

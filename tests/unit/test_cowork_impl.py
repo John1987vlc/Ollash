@@ -75,9 +75,7 @@ class TestCoworkTools:
 
     def test_document_to_task_missing_document(self, cowork):
         """Test document_to_task with missing document"""
-        result = cowork.document_to_task(
-            document_name="nonexistent.pdf", task_category="automation"
-        )
+        result = cowork.document_to_task(document_name="nonexistent.pdf", task_category="automation")
 
         assert result["status"] == "error"
         assert "not found" in result["message"].lower()
@@ -89,9 +87,7 @@ class TestCoworkTools:
         unsupported_file = doc_manager.references_dir / "test.xyz"
         unsupported_file.write_text("content")
 
-        result = cowork.document_to_task(
-            document_name="test.xyz", task_category="automation"
-        )
+        result = cowork.document_to_task(document_name="test.xyz", task_category="automation")
 
         assert result["status"] == "error"
 
@@ -103,20 +99,14 @@ class TestCoworkTools:
         test_doc.write_text("Implement authentication\nAdd logging\nSetup monitoring")
 
         # Mock ingester
-        with patch(
-            "backend.utils.domains.bonus.cowork_impl.MultiFormatIngester"
-        ) as mock_ingester_class:
+        with patch("backend.utils.domains.bonus.cowork_impl.MultiFormatIngester") as mock_ingester_class:
             mock_ingester = Mock()
-            mock_ingester.ingest_file.return_value = (
-                "Implement auth\nAdd logging\nSetup monitoring"
-            )
+            mock_ingester.ingest_file.return_value = "Implement auth\nAdd logging\nSetup monitoring"
             mock_ingester_class.return_value = mock_ingester
 
             cowork.ingester = mock_ingester
 
-            ollama.call_ollama_api.return_value = (
-                '[{"task_id": "t1", "name": "Auth", "description": "Implement"}]'
-            )
+            ollama.call_ollama_api.return_value = '[{"task_id": "t1", "name": "Auth", "description": "Implement"}]'
 
             result = cowork.document_to_task(
                 document_name="requirements.txt",
@@ -134,26 +124,20 @@ class TestCoworkTools:
         test_doc = doc_manager.references_dir / "test.txt"
         test_doc.write_text("Some requirement")
 
-        with patch(
-            "backend.utils.domains.bonus.cowork_impl.MultiFormatIngester"
-        ) as mock_ingester_class:
+        with patch("backend.utils.domains.bonus.cowork_impl.MultiFormatIngester") as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "Requirement text"
             cowork.ingester = mock_ingester
             cowork.ollama.call_ollama_api.return_value = "[]"
 
             for priority in ["low", "medium", "high", "critical"]:
-                result = cowork.document_to_task(
-                    document_name="test.txt", priority=priority
-                )
+                result = cowork.document_to_task(document_name="test.txt", priority=priority)
                 # Should not crash
                 assert isinstance(result, dict)
 
     def test_analyze_recent_logs_no_logs(self, cowork, logger):
         """Test analyze_recent_logs when no logs found"""
-        result = cowork.analyze_recent_logs(
-            log_type="system", time_period="24hours", risk_threshold="high"
-        )
+        result = cowork.analyze_recent_logs(log_type="system", time_period="24hours", risk_threshold="high")
 
         # Result should indicate warning or success with no issues
         assert result["status"] in ["warning", "success", "error"]
@@ -167,13 +151,9 @@ class TestCoworkTools:
 
                 mock_get_paths.return_value = [Path(log_file.name)]
 
-                cowork.ollama.call_ollama_api.return_value = (
-                    '[{"issue": "Failed login", "severity": "High"}]'
-                )
+                cowork.ollama.call_ollama_api.return_value = '[{"issue": "Failed login", "severity": "High"}]'
 
-                result = cowork.analyze_recent_logs(
-                    log_type="security", time_period="24hours", top_n=5
-                )
+                result = cowork.analyze_recent_logs(log_type="security", time_period="24hours", top_n=5)
 
                 assert "status" in result
 
@@ -199,9 +179,7 @@ class TestCoworkTools:
         test_doc = doc_manager.references_dir / "spec.txt"
         test_doc.write_text("System specification with " + "many words " * 100)
 
-        with patch(
-            "backend.utils.domains.bonus.cowork_impl.MultiFormatIngester"
-        ) as mock_ingester_class:
+        with patch("backend.utils.domains.bonus.cowork_impl.MultiFormatIngester") as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "System spec content"
             cowork.ingester = mock_ingester
@@ -223,18 +201,14 @@ class TestCoworkTools:
         test_doc = doc_manager.references_dir / "doc.txt"
         test_doc.write_text("Content")
 
-        with patch(
-            "backend.utils.domains.bonus.cowork_impl.MultiFormatIngester"
-        ) as mock_ingester_class:
+        with patch("backend.utils.domains.bonus.cowork_impl.MultiFormatIngester") as mock_ingester_class:
             mock_ingester = Mock()
             mock_ingester.ingest_file.return_value = "Document content"
             cowork.ingester = mock_ingester
             cowork.ollama.call_ollama_api.return_value = "Summary"
 
             for summary_type in ["executive", "technical", "general", "key_insights"]:
-                result = cowork.generate_executive_summary(
-                    document_name="doc.txt", summary_type=summary_type
-                )
+                result = cowork.generate_executive_summary(document_name="doc.txt", summary_type=summary_type)
                 # Should not crash
                 assert isinstance(result, dict)
 

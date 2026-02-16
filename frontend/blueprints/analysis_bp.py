@@ -95,9 +95,7 @@ def find_cross_references():
         source_paths = [project_root / d for d in source_dirs]
 
         managers = get_analysis_managers()
-        references = managers["cross_ref"].find_cross_references(
-            term, source_paths, context_window
-        )
+        references = managers["cross_ref"].find_cross_references(term, source_paths, context_window)
 
         return (
             jsonify(
@@ -174,9 +172,7 @@ def find_gaps():
         config_file = project_root / data["config_file"]
 
         managers = get_analysis_managers()
-        gaps = managers["cross_ref"].find_gaps_theory_vs_practice(
-            theory_doc, config_file
-        )
+        gaps = managers["cross_ref"].find_gaps_theory_vs_practice(theory_doc, config_file)
 
         return jsonify(gaps), 200
 
@@ -224,9 +220,7 @@ def get_concept_connections(term):
         max_depth = request.args.get("max_depth", 2, type=int)
 
         managers = get_analysis_managers()
-        connections = managers["knowledge_graph"].get_concept_connections(
-            term, max_depth
-        )
+        connections = managers["knowledge_graph"].get_concept_connections(term, max_depth)
 
         return jsonify(connections), 200
 

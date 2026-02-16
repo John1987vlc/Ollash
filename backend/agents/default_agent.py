@@ -8,34 +8,35 @@ from colorama import Fore, Style, init
 
 # Core Agent and Kernel
 from backend.agents.core_agent import CoreAgent
-from backend.agents.mixins.context_summarizer_mixin import \
-    ContextSummarizerMixin
+from backend.agents.mixins.context_summarizer_mixin import ContextSummarizerMixin
+
 # Mixins
 from backend.agents.mixins.intent_routing_mixin import IntentRoutingMixin
 from backend.agents.mixins.tool_loop_mixin import ToolLoopMixin
-from backend.core.config_schemas import (LLMModelsConfig,  # For type hinting
-                                         ToolSettingsConfig)
+from backend.core.config_schemas import (
+    LLMModelsConfig,  # For type hinting
+    ToolSettingsConfig,
+)
 from backend.core.kernel import AgentKernel  # Import AgentKernel
+
 # Interfaces (for type hinting, if needed for clarity on injected components)
 from backend.interfaces.imodel_provider import IModelProvider
 from backend.interfaces.itool_executor import IToolExecutor
-from backend.utils.core.async_tool_executor import \
-    AsyncToolExecutor  # Still used for parallel execution
+from backend.utils.core.async_tool_executor import AsyncToolExecutor  # Still used for parallel execution
 from backend.utils.core.code_analyzer import CodeAnalyzer
 from backend.utils.core.command_executor import CommandExecutor, SandboxLevel
-from backend.utils.core.confirmation_manager import \
-    ConfirmationManager  # New: For confirmation gates
+from backend.utils.core.confirmation_manager import ConfirmationManager  # New: For confirmation gates
+
 # Utils from Core
 from backend.utils.core.file_manager import FileManager
 from backend.utils.core.git_manager import GitManager
 from backend.utils.core.llm_recorder import LLMRecorder  # NEW
 from backend.utils.core.loop_detector import LoopDetector
 from backend.utils.core.memory_manager import MemoryManager
-from backend.utils.core.permission_profiles import \
-    PolicyEnforcer  # Used for confirmation gates policies
+from backend.utils.core.permission_profiles import PolicyEnforcer  # Used for confirmation gates policies
+
 # Tool implementations (still needed for ToolRegistry)
-from backend.utils.core.tool_interface import \
-    ToolExecutor  # Concrete ToolExecutor
+from backend.utils.core.tool_interface import ToolExecutor  # Concrete ToolExecutor
 from backend.utils.core.tool_registry import ToolRegistry
 from backend.utils.core.tool_span_manager import ToolSpanManager  # NEW
 
@@ -46,9 +47,7 @@ init(autoreset=True)
 MAX_INSTRUCTION_LENGTH = 10000
 
 
-class DefaultAgent(
-    CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummarizerMixin
-):
+class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummarizerMixin):
     """
     The DefaultAgent orchestrates tasks, utilizing mixins for specific functionalities
     like intent routing, tool execution loops, and context summarization.
@@ -62,38 +61,22 @@ class DefaultAgent(
         base_path: Path = Path.cwd(),
         event_bridge=None,
         kernel: Optional[AgentKernel] = None,  # Inject AgentKernel
-        llm_manager: Optional[
-            IModelProvider
-        ] = None,  # Inject LLMClientManager (as IModelProvider)
+        llm_manager: Optional[IModelProvider] = None,  # Inject LLMClientManager (as IModelProvider)
         tool_executor: Optional[IToolExecutor] = None,  # Inject ToolExecutor
         loop_detector: Optional[LoopDetector] = None,  # Inject LoopDetector
-        confirmation_manager: Optional[
-            ConfirmationManager
-        ] = None,  # Inject ConfirmationManager
+        confirmation_manager: Optional[ConfirmationManager] = None,  # Inject ConfirmationManager
         policy_enforcer: Optional[PolicyEnforcer] = None,  # Inject PolicyEnforcer
         llm_recorder: Optional[LLMRecorder] = None,  # NEW
         tool_span_manager: Optional[ToolSpanManager] = None,  # NEW
     ):
         # Initialize AgentKernel if not provided (should ideally be provided)
         # The kernel now loads configuration from environment variables.
-        self.kernel = (
-            kernel
-            if kernel
-            else AgentKernel(
-                ollash_root_dir=Path(project_root) if project_root else None
-            )
-        )
+        self.kernel = kernel if kernel else AgentKernel(ollash_root_dir=Path(project_root) if project_root else None)
 
         # Initialize LLMRecorder and ToolSpanManager if not injected
-        self.llm_recorder = (
-            llm_recorder
-            if llm_recorder
-            else LLMRecorder(logger=self.kernel.get_logger())
-        )
+        self.llm_recorder = llm_recorder if llm_recorder else LLMRecorder(logger=self.kernel.get_logger())
         self.tool_span_manager = (
-            tool_span_manager
-            if tool_span_manager
-            else ToolSpanManager(logger=self.kernel.get_logger())
+            tool_span_manager if tool_span_manager else ToolSpanManager(logger=self.kernel.get_logger())
         )
 
         # Call parent constructor, passing the kernel and llm_manager
@@ -108,22 +91,18 @@ class DefaultAgent(
         # No need to re-assign self.logger, self.config here as CoreAgent does it
         # However, these are still needed for direct access in DefaultAgent
         self.llm_models_config: LLMModelsConfig = self.kernel.get_llm_models_config()
-        self.tool_settings_config: ToolSettingsConfig = (
-            self.kernel.get_tool_settings_config()
-        )
+        self.tool_settings_config: ToolSettingsConfig = self.kernel.get_tool_settings_config()
 
         self._base_path = base_path
         self.project_root = Path(project_root or self._base_path)
         self.auto_confirm = auto_confirm
         self._event_bridge = event_bridge
 
-        self.max_iterations = (
-            self.tool_settings_config.max_iterations
-        )  # Get from tool_settings_config
+        self.max_iterations = self.tool_settings_config.max_iterations  # Get from tool_settings_config
 
-        self.logger.info(f"\n{Fore.GREEN}{'='*60}")
+        self.logger.info(f"\n{Fore.GREEN}{'=' * 60}")
         self.logger.info("Default Agent Initialized")
-        self.logger.info(f"{'='*60}{Style.RESET_ALL}")
+        self.logger.info(f"{'=' * 60}{Style.RESET_ALL}")
         self.logger.info(f"📁 Project: {self.project_root}")
 
         # Core Services (some might be from CoreAgent, others instantiated here for DefaultAgent's specific needs)
@@ -146,9 +125,7 @@ class DefaultAgent(
             config=self.kernel.get_full_config(),
             llm_recorder=self.llm_recorder,
         )  # Pass full raw config
-        self.token_tracker = (
-            self.token_tracker
-        )  # From CoreAgent, used by ContextSummarizerMixin
+        self.token_tracker = self.token_tracker  # From CoreAgent, used by ContextSummarizerMixin
         self.event_publisher = self.event_publisher  # From CoreAgent, used by mixins
 
         # Confirmation & Policy for ToolLoopMixin
@@ -212,9 +189,7 @@ class DefaultAgent(
             if loop_detector
             else LoopDetector(
                 logger=self.logger,
-                embedding_client=self.llm_manager.get_client(
-                    "default"
-                ),  # Use llm_manager for embedding client
+                embedding_client=self.llm_manager.get_client("default"),  # Use llm_manager for embedding client
                 threshold=self.tool_settings_config.loop_detection_threshold,  # From tool_settings_config
                 similarity_threshold=self.tool_settings_config.semantic_similarity_threshold,  # From tool_settings_config
                 stagnation_timeout_minutes=2,
@@ -222,9 +197,7 @@ class DefaultAgent(
         )
 
         # Load system prompt from file
-        default_prompt_path = (
-            self.tool_settings_config.default_system_prompt_path
-        )  # From tool_settings_config
+        default_prompt_path = self.tool_settings_config.default_system_prompt_path  # From tool_settings_config
         try:
             full_prompt_path = self._base_path / default_prompt_path
             with open(full_prompt_path, "r", encoding="utf-8") as f:
@@ -236,25 +209,17 @@ class DefaultAgent(
                 )
                 self.system_prompt = self._get_fallback_system_prompt()
         except (FileNotFoundError, json.JSONDecodeError, Exception) as e:
-            self.logger.error(
-                f"Error loading system prompt from {full_prompt_path}: {e}. Using default fallback."
-            )
+            self.logger.error(f"Error loading system prompt from {full_prompt_path}: {e}. Using default fallback.")
             self.system_prompt = self._get_fallback_system_prompt()
 
         self.conversation: List[Dict] = self.memory_manager.get_conversation_history()
-        self.domain_context_memory: Dict[
-            str, str
-        ] = self.memory_manager.get_domain_context_memory()
+        self.domain_context_memory: Dict[str, str] = self.memory_manager.get_domain_context_memory()
         self.checkpoint_counter: int = 0
         self.active_agent_type = "orchestrator"
         self.active_tool_names = self._agent_tool_name_mappings[self.active_agent_type]
 
-        self.logger.info(
-            f"Ollama URL: {self.llm_models_config.ollama_url}"
-        )  # Access from llm_models_config
-        self.logger.info(
-            f"Default Model: {self.llm_models_config.default_model} (Initial)"
-        )
+        self.logger.info(f"Ollama URL: {self.llm_models_config.ollama_url}")  # Access from llm_models_config
+        self.logger.info(f"Default Model: {self.llm_models_config.default_model} (Initial)")
 
     def _get_fallback_system_prompt(self) -> str:
         return """You are a disciplined coding agent.
@@ -294,15 +259,11 @@ RULES:
         ]
 
         try:
-            preprocess_client = self.llm_manager.get_client(
-                "orchestration"
-            )  # Use llm_manager
+            preprocess_client = self.llm_manager.get_client("orchestration")  # Use llm_manager
             response, _ = await preprocess_client.achat(refine_prompt, tools=[])
             refined_text = response.get("message", {}).get("content", instruction)
 
-            original_lang = (
-                "es" if any(ord(c) > 127 for c in instruction) else "en"
-            )  # Very basic
+            original_lang = "es" if any(ord(c) > 127 for c in instruction) else "en"  # Very basic
 
             return refined_text, original_lang
         except Exception as e:
@@ -323,9 +284,7 @@ RULES:
         ]
 
         try:
-            translate_client = self.llm_manager.get_client(
-                "orchestration"
-            )  # Use llm_manager
+            translate_client = self.llm_manager.get_client("orchestration")  # Use llm_manager
             response, _ = await translate_client.achat(translation_prompt, tools=[])
             return response.get("message", {}).get("content", text)
         except Exception as e:
@@ -370,24 +329,16 @@ RULES:
             self.loop_detector.reset()
 
             # 1. Pre-processing Phase (Input)
-            english_instruction, original_lang = await self._preprocess_instruction(
-                instruction
-            )
+            english_instruction, original_lang = await self._preprocess_instruction(instruction)
             self.logger.info(f"Original Instruction: {instruction}")
             self.logger.info(f"Refined Instruction (EN): {english_instruction}")
 
             if not self.conversation or self.conversation[-1]["role"] != "user":
-                self.conversation.append(
-                    {"role": "user", "content": english_instruction}
-                )
+                self.conversation.append({"role": "user", "content": english_instruction})
 
             # --- Intent Routing Mixin Usage ---
-            intent_for_this_turn = await self._classify_intent(
-                english_instruction
-            )  # Use mixin method
-            selected_model_client = self._select_model_for_intent(
-                intent_for_this_turn
-            )  # Use mixin method
+            intent_for_this_turn = await self._classify_intent(english_instruction)  # Use mixin method
+            selected_model_client = self._select_model_for_intent(intent_for_this_turn)  # Use mixin method
 
             # Override default client for this turn, or use it for routing later
             # For now, let's assume the mixin returns the client directly, which DefaultAgent then uses.
@@ -409,21 +360,15 @@ RULES:
                     f"\n{Fore.MAGENTA}━━━ Iteration {iterations}/{self.max_iterations} ━━━{Style.RESET_ALL}"
                 )
                 if self._event_bridge:
-                    self._event_bridge.push_event(
-                        "iteration", {"current": iterations, "max": self.max_iterations}
-                    )
+                    self._event_bridge.push_event("iteration", {"current": iterations, "max": self.max_iterations})
 
                 # --- Context Summarizer Mixin Usage ---
-                messages = await self._manage_context_window(
-                    messages
-                )  # Use mixin method
+                messages = await self._manage_context_window(messages)  # Use mixin method
                 self.conversation = [
                     msg for msg in messages if msg["role"] != "system"
                 ]  # Update conversation based on summarized messages
                 self.system_prompt = (
-                    messages[0]["content"]
-                    if messages and messages[0]["role"] == "system"
-                    else self.system_prompt
+                    messages[0]["content"] if messages and messages[0]["role"] == "system" else self.system_prompt
                 )
 
                 try:
@@ -432,9 +377,7 @@ RULES:
                     # Directly use the selected_model_client (IModelProvider client)
                     response, _ = await selected_model_client.achat(
                         messages=messages,
-                        tools=self.tool_executor.get_tool_definitions(
-                            self.active_tool_names
-                        ),
+                        tools=self.tool_executor.get_tool_definitions(self.active_tool_names),
                     )
 
                     # Track tokens from the chosen response
@@ -454,22 +397,14 @@ RULES:
 
                         if last_error_context:
                             # Assuming memory_manager now exists on self (from CoreAgent or injected)
-                            self.memory_manager.add_to_reasoning_cache(
-                                last_error_context["error"], final_response_en
-                            )
+                            self.memory_manager.add_to_reasoning_cache(last_error_context["error"], final_response_en)
                             last_error_context = None
 
-                        final_response_translated = (
-                            await self._translate_to_user_language(
-                                final_response_en, original_lang
-                            )
+                        final_response_translated = await self._translate_to_user_language(
+                            final_response_en, original_lang
                         )
-                        self.conversation.append(
-                            {"role": "assistant", "content": final_response_en}
-                        )
-                        self.logger.info(
-                            f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}"
-                        )
+                        self.conversation.append({"role": "assistant", "content": final_response_en})
+                        self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
                         return final_response_translated
 
                     tool_calls = msg["tool_calls"]
@@ -477,14 +412,10 @@ RULES:
                     self.conversation.append(msg)
 
                     # --- Tool Loop Mixin Usage ---
-                    tool_outputs = await self._execute_tool_loop(
-                        tool_calls, english_instruction
-                    )  # Use mixin method
+                    tool_outputs = await self._execute_tool_loop(tool_calls, english_instruction)  # Use mixin method
 
                     for result in tool_outputs:
-                        self.conversation.append(
-                            {"role": "tool", "content": json.dumps(result)}
-                        )
+                        self.conversation.append({"role": "tool", "content": json.dumps(result)})
 
                         if isinstance(result, dict) and not result.get("ok"):
                             error_msg = result.get("error", "Unknown tool error")
@@ -493,16 +424,10 @@ RULES:
                             )  # ToolLoopMixin now includes tool_name in output
 
                             if self._event_bridge:
-                                self._event_bridge.push_event(
-                                    "error", {"message": error_msg, "tool": tool_name}
-                                )
+                                self._event_bridge.push_event("error", {"message": error_msg, "tool": tool_name})
 
                             original_tool_call = next(
-                                (
-                                    tc
-                                    for tc in tool_calls
-                                    if tc.get("id") == result.get("tool_call_id")
-                                ),
+                                (tc for tc in tool_calls if tc.get("id") == result.get("tool_call_id")),
                                 {},
                             )
                             last_error_context = {
@@ -514,13 +439,9 @@ RULES:
                             # This part of error handling (retrying with smaller model, etc.)
                             # could also be abstracted into a mixin if it becomes more complex.
                             # For now, it remains in DefaultAgent.
-                            self.logger.info(
-                                "Handling tool error with layered orchestration..."
-                            )
+                            self.logger.info("Handling tool error with layered orchestration...")
 
-                            cached_solution = (
-                                self.memory_manager.search_reasoning_cache(error_msg)
-                            )
+                            cached_solution = self.memory_manager.search_reasoning_cache(error_msg)
                             if cached_solution:
                                 self.logger.info(
                                     "Found a similar error in the reasoning cache. Applying cached solution."
@@ -540,12 +461,8 @@ RULES:
                                         f"Failed to decode cached solution: {e}. Solution: {cached_solution}"
                                     )
 
-                            self.logger.info(
-                                "Escalating to small model for error analysis."
-                            )
-                            correction_client = self.llm_manager.get_client(
-                                "self_correction"
-                            )
+                            self.logger.info("Escalating to small model for error analysis.")
+                            correction_client = self.llm_manager.get_client("self_correction")
                             if correction_client:
                                 correction_prompt = [
                                     {
@@ -558,17 +475,11 @@ RULES:
                                     },
                                 ]
                                 try:
-                                    response, _ = await correction_client.achat(
-                                        correction_prompt, tools=[]
-                                    )
-                                    response_content = response.get("message", {}).get(
-                                        "content", ""
-                                    )
+                                    response, _ = await correction_client.achat(correction_prompt, tools=[])
+                                    response_content = response.get("message", {}).get("content", "")
                                     solution_data = json.loads(response_content)
                                     confidence = solution_data.get("confidence", 0.0)
-                                    tool_calls_from_correction = solution_data.get(
-                                        "tool_calls"
-                                    )
+                                    tool_calls_from_correction = solution_data.get("tool_calls")
 
                                     if confidence > 0.8 and tool_calls_from_correction:
                                         self.logger.info(
@@ -591,13 +502,9 @@ RULES:
                                         f"Small model did not provide a valid JSON response or error during correction: {err}"
                                     )
                             else:
-                                self.logger.warning(
-                                    "Self-correction LLM client not available."
-                                )
+                                self.logger.warning("Self-correction LLM client not available.")
 
-                            self.logger.info(
-                                "Escalating to large model for deeper error analysis."
-                            )
+                            self.logger.info("Escalating to large model for deeper error analysis.")
                             # If self-correction fails, then we allow the original message
                             # to be re-processed or indicate human intervention.
                             if auto_confirm:
@@ -619,17 +526,13 @@ RULES:
                             f"Check agent.log for details."
                         )
                     else:
-                        return (
-                            f"❌ API Error: {error_str}\n\nCheck agent.log for details."
-                        )
+                        return f"❌ API Error: {error_str}\n\nCheck agent.log for details."
 
                 except requests.exceptions.ConnectionError:
                     self.logger.error("Cannot connect to Ollama")
                     # This line uses self.ollama, which is not defined.
                     # It should use self.llm_manager.ollama_url
-                    ollama_url = (
-                        self.llm_models_config.ollama_url
-                    )  # Use llm_models_config
+                    ollama_url = self.llm_models_config.ollama_url  # Use llm_models_config
                     return (
                         "❌ Connection Error: Cannot connect to Ollama.\n\n"
                         "Make sure Ollama is running: 'ollama serve'\n"
@@ -638,9 +541,7 @@ RULES:
 
                 except Exception as e:
                     self.logger.error(f"Unexpected error in iteration {iterations}", e)
-                    return (
-                        f"❌ Unexpected error: {str(e)}\n\nCheck agent.log for details."
-                    )
+                    return f"❌ Unexpected error: {str(e)}\n\nCheck agent.log for details."
 
             self.logger.warning("Max iterations reached")
             return f"⚠️  Reached maximum iterations ({self.max_iterations})"
@@ -650,15 +551,13 @@ RULES:
 
     def chat_mode(self):
         """Interactive chat mode with enhanced UX"""
-        print(f"\n{Fore.GREEN}{'='*60}")
+        print(f"\n{Fore.GREEN}{'=' * 60}")
         print("🤖 DEFAULT AGENT - Enhanced Interactive Mode")
-        print(f"{'='*60}{Style.RESET_ALL}")
+        print(f"{'=' * 60}{Style.RESET_ALL}")
         print(f"📁 Project: {Fore.CYAN}{self.project_root}{Style.RESET_ALL}")
-        print(
-            f"📝 Logs: {Fore.CYAN}{self.tool_settings_config.log_file}{Style.RESET_ALL}"
-        )  # Use tool_settings_config
+        print(f"📝 Logs: {Fore.CYAN}{self.tool_settings_config.log_file}{Style.RESET_ALL}")  # Use tool_settings_config
         print(f"💡 Commands: {Fore.YELLOW}exit, quit, help{Style.RESET_ALL}")
-        print(f"{Fore.GREEN}{'='*60}{Style.RESET_ALL}\n")
+        print(f"{Fore.GREEN}{'=' * 60}{Style.RESET_ALL}\n")
 
         while True:
             try:
@@ -666,9 +565,7 @@ RULES:
 
                 if q.lower() in {"exit", "quit", "salir"}:
                     self.memory_manager.update_conversation_history(self.conversation)
-                    self.memory_manager.update_domain_context_memory(
-                        self.domain_context_memory
-                    )
+                    self.memory_manager.update_domain_context_memory(self.domain_context_memory)
                     print(self.token_tracker.get_session_summary())
                     self.logger.info("Session ended by user")
                     print(f"\n{Fore.GREEN}👋 Goodbye!{Style.RESET_ALL}\n")
@@ -688,16 +585,12 @@ RULES:
                     continue
 
                 print(f"\n{Fore.MAGENTA}🤖 Agent:{Style.RESET_ALL}")
-                response = asyncio.run(
-                    self.chat(q, auto_confirm=self.auto_confirm)
-                )  # Pass auto_confirm to chat
+                response = asyncio.run(self.chat(q, auto_confirm=self.auto_confirm))  # Pass auto_confirm to chat
                 print(f"\n{response}\n")
 
             except KeyboardInterrupt:
                 self.memory_manager.update_conversation_history(self.conversation)
-                self.memory_manager.update_domain_context_memory(
-                    self.domain_context_memory
-                )
+                self.memory_manager.update_domain_context_memory(self.domain_context_memory)
                 print(self.token_tracker.get_session_summary())
                 self.logger.info("Session interrupted by user")
                 print(f"\n\n{Fore.GREEN}👋 Goodbye!{Style.RESET_ALL}\n")

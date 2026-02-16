@@ -16,32 +16,21 @@ from backend.utils.core.fragment_cache import FragmentCache
 from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.parallel_generator import ParallelFileGenerator  # NEW
 from backend.utils.core.permission_profiles import PolicyEnforcer
-from backend.utils.core.scanners.rag_context_selector import \
-    RAGContextSelector  # NEW
-from backend.utils.domains.auto_generation.contingency_planner import \
-    ContingencyPlanner
-from backend.utils.domains.auto_generation.file_completeness_checker import \
-    FileCompletenessChecker
-from backend.utils.domains.auto_generation.file_content_generator import \
-    FileContentGenerator
+from backend.utils.core.scanners.rag_context_selector import RAGContextSelector  # NEW
+from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
+from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
+from backend.utils.domains.auto_generation.file_content_generator import FileContentGenerator
 from backend.utils.domains.auto_generation.file_refiner import FileRefiner
-from backend.utils.domains.auto_generation.improvement_planner import \
-    ImprovementPlanner
-from backend.utils.domains.auto_generation.improvement_suggester import \
-    ImprovementSuggester
-from backend.utils.domains.auto_generation.multi_language_test_generator import \
-    MultiLanguageTestGenerator
+from backend.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
+from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
+from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
+
 # Specialized AutoAgent services
-from backend.utils.domains.auto_generation.project_planner import \
-    ProjectPlanner
-from backend.utils.domains.auto_generation.project_reviewer import \
-    ProjectReviewer
-from backend.utils.domains.auto_generation.senior_reviewer import \
-    SeniorReviewer
-from backend.utils.domains.auto_generation.structure_generator import \
-    StructureGenerator
-from backend.utils.domains.auto_generation.structure_pre_reviewer import \
-    StructurePreReviewer
+from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
+from backend.utils.domains.auto_generation.project_reviewer import ProjectReviewer
+from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
+from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
+from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
 
 
 class PhaseContext:
@@ -146,9 +135,7 @@ class PhaseContext:
         self.current_project_structure: Dict[str, Any] = {}
         self.current_file_paths: List[str] = []
         self.current_readme_content: str = ""
-        self.logic_plan: Dict[
-            str, Dict[str, Any]
-        ] = {}  # NEW: Store implementation plans
+        self.logic_plan: Dict[str, Dict[str, Any]] = {}  # NEW: Store implementation plans
 
     def update_generated_data(
         self,
@@ -192,9 +179,7 @@ class PhaseContext:
             )
 
             if context_files:
-                self.logger.info(
-                    f"🔍 Selected {len(context_files)} contextual files using RAG semantic search"
-                )
+                self.logger.info(f"🔍 Selected {len(context_files)} contextual files using RAG semantic search")
                 return context_files
         except Exception as e:
             self.logger.info(f"RAG selection unavailable, using heuristic scoring: {e}")
@@ -263,9 +248,7 @@ class PhaseContext:
         }
         return language_map.get(ext, "unknown")
 
-    def group_files_by_language(
-        self, files: Dict[str, str]
-    ) -> Dict[str, List[Tuple[str, str]]]:
+    def group_files_by_language(self, files: Dict[str, str]) -> Dict[str, List[Tuple[str, str]]]:
         """Group files by programming language."""
         grouped = defaultdict(list)
 
@@ -335,22 +318,16 @@ class PhaseContext:
                 issues = action.get("issues", [])
                 if target_path and target_path in files:
                     try:
-                        refined = self.file_refiner.refine_file(
-                            target_path, files[target_path], readme[:2000], issues
-                        )
+                        refined = self.file_refiner.refine_file(target_path, files[target_path], readme[:2000], issues)
                         if refined:
                             files[target_path] = refined
-                            self.file_manager.write_file(
-                                project_root / target_path, refined
-                            )
+                            self.file_manager.write_file(project_root / target_path, refined)
                     except Exception as e:
                         self.logger.error(f"Error refining {target_path}: {e}")
 
         return files, structure, file_paths
 
-    def ingest_existing_project(
-        self, project_path: Path
-    ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
+    def ingest_existing_project(self, project_path: Path) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         """
         Loads an existing project into the agent's state.
 
@@ -453,9 +430,7 @@ class PhaseContext:
                         loaded_files[rel_path_str] = content
                         file_paths.append(rel_path_str)
 
-                        self.logger.debug(
-                            f"  Loaded: {rel_path_str} ({len(content)} bytes)"
-                        )
+                        self.logger.debug(f"  Loaded: {rel_path_str} ({len(content)} bytes)")
                     except Exception as e:
                         self.logger.warning(f"Could not load {rel_path}: {e}")
 
@@ -463,12 +438,8 @@ class PhaseContext:
             structure = self._build_structure_from_files(loaded_files)
 
             # Update context state
-            self.update_generated_data(
-                loaded_files, structure, file_paths, readme_content
-            )
-            self.logger.info(
-                f"✅ Ingested {len(loaded_files)} files from existing project"
-            )
+            self.update_generated_data(loaded_files, structure, file_paths, readme_content)
+            self.logger.info(f"✅ Ingested {len(loaded_files)} files from existing project")
 
             return loaded_files, structure, file_paths
 

@@ -231,14 +231,10 @@ class WebhookManager:
                 results[name] = False
                 continue
 
-            payload = self._build_payload(
-                webhook.webhook_type, message=message, title=title, priority=priority
-            )
+            payload = self._build_payload(webhook.webhook_type, message=message, title=title, priority=priority)
 
             tasks.append(
-                self._send_with_retry(webhook, payload).then(
-                    lambda success, n=name: results.update({n: success})
-                )
+                self._send_with_retry(webhook, payload).then(lambda success, n=name: results.update({n: success}))
             )
 
         # Execute all sends concurrently
@@ -274,22 +270,14 @@ class WebhookManager:
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 # If already in async context, use sync send
-                return self._send_webhook_sync_internal(
-                    webhook_name, message, title, priority, color, fields
-                )
+                return self._send_webhook_sync_internal(webhook_name, message, title, priority, color, fields)
             else:
                 return loop.run_until_complete(
-                    self.send_to_webhook(
-                        webhook_name, message, title, priority, color, fields
-                    )
+                    self.send_to_webhook(webhook_name, message, title, priority, color, fields)
                 )
         except RuntimeError:
             # No event loop, create one
-            return asyncio.run(
-                self.send_to_webhook(
-                    webhook_name, message, title, priority, color, fields
-                )
-            )
+            return asyncio.run(self.send_to_webhook(webhook_name, message, title, priority, color, fields))
 
     def _send_webhook_sync_internal(
         self,
@@ -328,9 +316,7 @@ class WebhookManager:
                 logger.info(f"Message sent to {webhook_name}")
                 return True
             else:
-                self._log_failed_delivery(
-                    webhook_name, response.status_code, response.text
-                )
+                self._log_failed_delivery(webhook_name, response.status_code, response.text)
                 return False
 
         except Exception as e:
@@ -338,9 +324,7 @@ class WebhookManager:
             self._log_failed_delivery(webhook_name, "exception", str(e))
             return False
 
-    async def _send_with_retry(
-        self, webhook: WebhookConfig, payload: Dict[str, Any]
-    ) -> bool:
+    async def _send_with_retry(self, webhook: WebhookConfig, payload: Dict[str, Any]) -> bool:
         """Send message to webhook with retry logic."""
         last_error = None
 
@@ -354,15 +338,11 @@ class WebhookManager:
                         headers=webhook.headers or {"Content-Type": "application/json"},
                     ) as response:
                         if response.status in (200, 201, 204):
-                            logger.info(
-                                f"Message sent to {webhook.name} (attempt {attempt + 1})"
-                            )
+                            logger.info(f"Message sent to {webhook.name} (attempt {attempt + 1})")
                             return True
                         else:
                             text = await response.text()
-                            self._log_failed_delivery(
-                                webhook.name, response.status, text
-                            )
+                            self._log_failed_delivery(webhook.name, response.status, text)
                             last_error = f"HTTP {response.status}"
 
             except asyncio.TimeoutError:
@@ -373,15 +353,10 @@ class WebhookManager:
             # Wait before retry (exponential backoff)
             if attempt < webhook.retry_attempts - 1:
                 wait_time = webhook.retry_delay_seconds * (2**attempt)
-                logger.warning(
-                    f"Retry {attempt + 1}/{webhook.retry_attempts} for {webhook.name} "
-                    f"in {wait_time}s"
-                )
+                logger.warning(f"Retry {attempt + 1}/{webhook.retry_attempts} for {webhook.name} in {wait_time}s")
                 await asyncio.sleep(wait_time)
 
-        logger.error(
-            f"Failed to send to {webhook.name} after {webhook.retry_attempts} attempts: {last_error}"
-        )
+        logger.error(f"Failed to send to {webhook.name} after {webhook.retry_attempts} attempts: {last_error}")
         return False
 
     # ==================== Message Format Builders ====================
@@ -432,9 +407,7 @@ class WebhookManager:
         ]
 
         if fields:
-            field_blocks = [
-                {"type": "mrkdwn", "text": f"*{k}*\n{v}"} for k, v in fields.items()
-            ]
+            field_blocks = [{"type": "mrkdwn", "text": f"*{k}*\n{v}"} for k, v in fields.items()]
             if field_blocks:
                 blocks.append({"type": "section", "fields": field_blocks})
 
@@ -472,10 +445,7 @@ class WebhookManager:
         }
 
         if fields:
-            embed["fields"] = [
-                {"name": k, "value": v, "inline": len(str(v)) < 50}
-                for k, v in fields.items()
-            ]
+            embed["fields"] = [{"name": k, "value": v, "inline": len(str(v)) < 50} for k, v in fields.items()]
 
         embed["footer"] = {"text": "Ollash Agent"}
 
@@ -525,9 +495,7 @@ class WebhookManager:
 
     # ==================== Logging & Diagnostics ====================
 
-    def _log_failed_delivery(
-        self, webhook_name: str, error_code: Any, error_details: str
-    ) -> None:
+    def _log_failed_delivery(self, webhook_name: str, error_code: Any, error_details: str) -> None:
         """Log a failed delivery attempt."""
         failure = {
             "webhook": webhook_name,
@@ -540,9 +508,7 @@ class WebhookManager:
 
         # Keep only the last N failures
         if len(self.failed_deliveries) > self.max_failed_deliveries_log:
-            self.failed_deliveries = self.failed_deliveries[
-                -self.max_failed_deliveries_log :
-            ]
+            self.failed_deliveries = self.failed_deliveries[-self.max_failed_deliveries_log :]
 
         logger.warning(f"Failed delivery to {webhook_name}: {error_code}")
 

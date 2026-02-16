@@ -133,9 +133,7 @@ class AutomationTaskExecutor:
                             message=action.get("message", ""),
                             severity=action.get("severity", "info"),
                         )
-                        results.append(
-                            {"action": "notification_sent", "status": "success"}
-                        )
+                        results.append({"action": "notification_sent", "status": "success"})
 
                     elif action_type == "publish_event":
                         # Publish event
@@ -143,9 +141,7 @@ class AutomationTaskExecutor:
                             action.get("event_name", "automation:triggered"),
                             event_data=action.get("event_data", {}),
                         )
-                        results.append(
-                            {"action": "event_published", "status": "success"}
-                        )
+                        results.append({"action": "event_published", "status": "success"})
 
                 except Exception as e:
                     logger.error(f"Error executing triggered action: {e}")
@@ -200,9 +196,7 @@ class AutomationTaskExecutor:
         }
 
         try:
-            logger.info(
-                f"Executing task {task_id}: {task_name} with agent {agent_type}"
-            )
+            logger.info(f"Executing task {task_id}: {task_name} with agent {agent_type}")
 
             # Create a temporary event bridge for this execution
             bridge = ChatEventBridge(self.event_publisher)
@@ -251,9 +245,7 @@ class AutomationTaskExecutor:
             error_msg = str(e)
             result["status"] = "error"
             result["error"] = error_msg
-            logger.error(
-                f"Task {task_id} failed with error: {error_msg}", exc_info=True
-            )
+            logger.error(f"Task {task_id} failed with error: {error_msg}", exc_info=True)
 
             # Send error notification email
             if notify_email and recipient_emails:
@@ -299,9 +291,7 @@ class AutomationTaskExecutor:
         asyncio.set_event_loop(loop)
 
         try:
-            result = loop.run_until_complete(
-                self.execute_task(task_id, task_data, recipient_emails)
-            )
+            result = loop.run_until_complete(self.execute_task(task_id, task_data, recipient_emails))
             return result
         finally:
             loop.close()
@@ -329,9 +319,7 @@ def get_task_executor(
 
     if _executor_instance is None:
         if ollash_root_dir is None or event_publisher is None:
-            raise ValueError(
-                "ollash_root_dir and event_publisher required for first initialization"
-            )
+            raise ValueError("ollash_root_dir and event_publisher required for first initialization")
         _executor_instance = AutomationTaskExecutor(ollash_root_dir, event_publisher)
 
     return _executor_instance

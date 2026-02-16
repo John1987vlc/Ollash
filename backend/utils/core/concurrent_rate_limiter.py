@@ -67,8 +67,7 @@ class GlobalGPUResourceTracker:
             with self._state_lock:
                 if (
                     self._active_requests < self._max_concurrent_requests
-                    and self._used_gpu_memory_mb + estimated_memory_mb
-                    <= self._estimated_gpu_memory_mb
+                    and self._used_gpu_memory_mb + estimated_memory_mb <= self._estimated_gpu_memory_mb
                 ):
                     self._active_requests += 1
                     self._used_gpu_memory_mb += estimated_memory_mb
@@ -94,9 +93,7 @@ class GlobalGPUResourceTracker:
                 "max_concurrent": self._max_concurrent_requests,
                 "used_memory_mb": self._used_gpu_memory_mb,
                 "total_memory_mb": self._estimated_gpu_memory_mb,
-                "memory_utilization_percent": (
-                    100 * self._used_gpu_memory_mb / self._estimated_gpu_memory_mb
-                ),
+                "memory_utilization_percent": (100 * self._used_gpu_memory_mb / self._estimated_gpu_memory_mb),
             }
 
     def record_token_usage(self, tokens: int):
@@ -111,9 +108,7 @@ class GlobalGPUResourceTracker:
     def can_process_tokens(self, tokens: int) -> bool:
         """Check if adding tokens would exceed RPM limit."""
         with self._state_lock:
-            return (
-                self._tokens_per_minute_global + tokens <= self._max_tokens_per_minute
-            )
+            return self._tokens_per_minute_global + tokens <= self._max_tokens_per_minute
 
 
 class ConcurrentGPUAwareRateLimiter:
@@ -172,19 +167,13 @@ class ConcurrentGPUAwareRateLimiter:
 
             current_tokens = sum(tokens for _, tokens in self._token_usage)
             if current_tokens + estimated_tokens > self.tpm:
-                self.logger.warning(
-                    f"Token rate limit exceeded: {current_tokens}/{self.tpm} tokens/min"
-                )
+                self.logger.warning(f"Token rate limit exceeded: {current_tokens}/{self.tpm} tokens/min")
                 return False
 
             # GPU awareness
             if self.gpu_aware and self._gpu_tracker:
-                if not self._gpu_tracker.acquire_gpu_slot(
-                    estimated_gpu_memory_mb, timeout_seconds=10.0
-                ):
-                    self.logger.warning(
-                        f"GPU resources unavailable: {estimated_gpu_memory_mb}MB requested"
-                    )
+                if not self._gpu_tracker.acquire_gpu_slot(estimated_gpu_memory_mb, timeout_seconds=10.0):
+                    self.logger.warning(f"GPU resources unavailable: {estimated_gpu_memory_mb}MB requested")
                     return False
 
                 # Record for later release
@@ -209,9 +198,7 @@ class ConcurrentGPUAwareRateLimiter:
         with self._lock:
             now = time.time()
             active_requests = sum(1 for ts in self._request_timestamps if now - ts < 60)
-            active_tokens = sum(
-                tokens for ts, tokens in self._token_usage if now - ts < 60
-            )
+            active_tokens = sum(tokens for ts, tokens in self._token_usage if now - ts < 60)
 
             status = {
                 "requests_per_minute": active_requests,
@@ -243,9 +230,7 @@ class SessionResourceManager:
         """Get or create a rate limiter for a session."""
         with cls._sessions_lock:
             if session_id not in cls._sessions:
-                cls._sessions[session_id] = ConcurrentGPUAwareRateLimiter(
-                    logger=logger, gpu_aware=True
-                )
+                cls._sessions[session_id] = ConcurrentGPUAwareRateLimiter(logger=logger, gpu_aware=True)
             return cls._sessions[session_id]
 
     @classmethod

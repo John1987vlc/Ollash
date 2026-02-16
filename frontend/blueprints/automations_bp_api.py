@@ -7,9 +7,7 @@ from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request
 
-automations_api_bp = Blueprint(
-    "automations_api", __name__, url_prefix="/api/automations"
-)
+automations_api_bp = Blueprint("automations_api", __name__, url_prefix="/api/automations")
 logger = logging.getLogger(__name__)
 
 

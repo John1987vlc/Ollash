@@ -175,10 +175,7 @@ class ActivityReportGenerator:
                 report_type=ReportType.DAILY_SUMMARY,
                 title=f"Daily System Summary - {datetime.now().strftime('%B %d, %Y')}",
                 summary=self._build_summary_text(metrics, performance_score),
-                metrics=[
-                    self._format_metric(name, value, thresholds)
-                    for name, value in metrics.items()
-                ],
+                metrics=[self._format_metric(name, value, thresholds) for name, value in metrics.items()],
                 trends=[trend.to_dict() for trend in trends],
                 anomalies=anomalies,
                 recommendations=recommendations,
@@ -189,11 +186,9 @@ class ActivityReportGenerator:
             # Cache the report
             self.reports_generated.append(report)
             if len(self.reports_generated) > self.max_reports_cached:
-                                self.reports_generated = self.reports_generated[-self.max_reports_cached:]
+                self.reports_generated = self.reports_generated[-self.max_reports_cached :]
 
-            logger.info(
-                f"Daily summary generated: {report_id} (score: {performance_score})"
-            )
+            logger.info(f"Daily summary generated: {report_id} (score: {performance_score})")
             return report
 
         except Exception as e:
@@ -218,11 +213,7 @@ class ActivityReportGenerator:
 
             # Filter historical metrics by date range
             cutoff_date = datetime.now() - timedelta(days=days)
-            recent_metrics = [
-                m
-                for m in self.metric_history
-                if datetime.fromisoformat(m.timestamp) >= cutoff_date
-            ]
+            recent_metrics = [m for m in self.metric_history if datetime.fromisoformat(m.timestamp) >= cutoff_date]
 
             if not recent_metrics:
                 logger.warning(f"No metrics found for last {days} days")
@@ -232,20 +223,13 @@ class ActivityReportGenerator:
             metric_trends = self._calculate_metric_trends(recent_metrics, metric_names)
 
             # Identify improving and degrading metrics
-            improvements = [
-                m for m in metric_trends if m.direction == TrendDirection.IMPROVING
-            ]
-            degradations = [
-                m for m in metric_trends if m.direction == TrendDirection.DEGRADING
-            ]
+            improvements = [m for m in metric_trends if m.direction == TrendDirection.IMPROVING]
+            degradations = [m for m in metric_trends if m.direction == TrendDirection.DEGRADING]
 
             recommendations = []
             if degradations:
                 recommendations.extend(
-                    [
-                        f"⚠️ {m.name} is degrading. {m.recommendation or 'Investigate further.'}"
-                        for m in degradations
-                    ]
+                    [f"⚠️ {m.name} is degrading. {m.recommendation or 'Investigate further.'}" for m in degradations]
                 )
             if improvements:
                 recommendations.extend(
@@ -269,19 +253,9 @@ class ActivityReportGenerator:
                 highlights={
                     "improving_metrics": len(improvements),
                     "degrading_metrics": len(degradations),
-                    "stable_metrics": len(
-                        [
-                            m
-                            for m in metric_trends
-                            if m.direction == TrendDirection.STABLE
-                        ]
-                    ),
-                    "best_performer": max(metric_trends, key=lambda m: m.value).name
-                    if metric_trends
-                    else None,
-                    "worst_performer": min(metric_trends, key=lambda m: m.value).name
-                    if metric_trends
-                    else None,
+                    "stable_metrics": len([m for m in metric_trends if m.direction == TrendDirection.STABLE]),
+                    "best_performer": max(metric_trends, key=lambda m: m.value).name if metric_trends else None,
+                    "worst_performer": min(metric_trends, key=lambda m: m.value).name if metric_trends else None,
                 },
                 performance_score=self._calculate_trend_score(metric_trends),
             )
@@ -294,9 +268,7 @@ class ActivityReportGenerator:
             logger.error(f"Failed to generate trend report: {e}")
             return None
 
-    def generate_anomaly_report(
-        self, metric_names: Optional[List[str]] = None
-    ) -> Optional[DailyReport]:
+    def generate_anomaly_report(self, metric_names: Optional[List[str]] = None) -> Optional[DailyReport]:
         """
         Generate a report focused on detected anomalies.
 
@@ -320,9 +292,7 @@ class ActivityReportGenerator:
                 return None
 
             # Categorize anomalies
-            critical_anomalies = [
-                a for a in anomalies if a.get("severity") == "critical"
-            ]
+            critical_anomalies = [a for a in anomalies if a.get("severity") == "critical"]
             warning_anomalies = [a for a in anomalies if a.get("severity") == "warning"]
 
             # Generate remediation steps
@@ -340,9 +310,7 @@ class ActivityReportGenerator:
                 title="Anomaly Detection Report",
                 summary=f"Detected {len(anomalies)} anomalies "
                 f"({len(critical_anomalies)} critical, {len(warning_anomalies)} warnings)",
-                metrics=[
-                    self._format_metric(name, value) for name, value in metrics.items()
-                ],
+                metrics=[self._format_metric(name, value) for name, value in metrics.items()],
                 trends=[],
                 anomalies=anomalies,
                 recommendations=recommendations,
@@ -352,9 +320,7 @@ class ActivityReportGenerator:
                     "warning_count": len(warning_anomalies),
                     "flagged_metrics": [a["metric"] for a in critical_anomalies],
                 },
-                performance_score=max(
-                    0, 100 - (len(critical_anomalies) * 20)
-                ),  # Score based on anomalies
+                performance_score=max(0, 100 - (len(critical_anomalies) * 20)),  # Score based on anomalies
             )
 
             self.reports_generated.append(report)
@@ -381,9 +347,7 @@ class ActivityReportGenerator:
         ]
 
         if report.recommendations:
-            lines.extend(
-                ["## Recommendations", *[f"- {r}" for r in report.recommendations], ""]
-            )
+            lines.extend(["## Recommendations", *[f"- {r}" for r in report.recommendations], ""])
 
         if report.metrics:
             lines.extend(
@@ -395,19 +359,14 @@ class ActivityReportGenerator:
             )
             for metric in report.metrics:
                 status = "⚠️" if metric.get("breach") else "✓"
-                lines.append(
-                    f"| {metric['name']} | {metric['value']} {metric['unit']} | {status} |"
-                )
+                lines.append(f"| {metric['name']} | {metric['value']} {metric['unit']} | {status} |")
             lines.append("")
 
         if report.trends:
             lines.extend(
                 [
                     "## Trends",
-                    *[
-                        f"- {t['name']}: {t['direction']} ({t['change_percent']:.1f}%)"
-                        for t in report.trends
-                    ],
+                    *[f"- {t['name']}: {t['direction']} ({t['change_percent']:.1f}%)" for t in report.trends],
                     "",
                 ]
             )
@@ -416,10 +375,7 @@ class ActivityReportGenerator:
             lines.extend(
                 [
                     "## Anomalies",
-                    *[
-                        f"- {a.get('metric')}: {a.get('description', 'Unknown anomaly')}"
-                        for a in report.anomalies
-                    ],
+                    *[f"- {a.get('metric')}: {a.get('description', 'Unknown anomaly')}" for a in report.anomalies],
                     "",
                 ]
             )
@@ -520,9 +476,7 @@ class ActivityReportGenerator:
                 change_percent = 0.0
             else:
                 previous = metric_records[-2].value
-                change_percent = (
-                    ((current - previous) / previous * 100) if previous != 0 else 0
-                )
+                change_percent = ((current - previous) / previous * 100) if previous != 0 else 0
 
             # Determine direction
             if previous is None:
@@ -530,9 +484,7 @@ class ActivityReportGenerator:
             elif abs(change_percent) < 2:
                 direction = TrendDirection.STABLE
             elif change_percent > 0:
-                direction = (
-                    TrendDirection.DEGRADING
-                )  # Most metrics degrading = increasing
+                direction = TrendDirection.DEGRADING  # Most metrics degrading = increasing
             else:
                 direction = TrendDirection.IMPROVING
 
@@ -607,9 +559,7 @@ class ActivityReportGenerator:
 
             direction = TrendDirection.STABLE
             if abs(change) > 5:
-                direction = (
-                    TrendDirection.DEGRADING if change > 0 else TrendDirection.IMPROVING
-                )
+                direction = TrendDirection.DEGRADING if change > 0 else TrendDirection.IMPROVING
 
             trend = TrendMetric(
                 name=name,
@@ -637,19 +587,13 @@ class ActivityReportGenerator:
         # Recommendation based on anomalies
         if anomalies:
             for anomaly in anomalies[:3]:
-                recommendations.append(
-                    f"⚠️ {anomaly['metric']} is {anomaly['description'].lower()}"
-                )
+                recommendations.append(f"⚠️ {anomaly['metric']} is {anomaly['description'].lower()}")
 
         # Recommendation based on trends
-        degrading_trends = [
-            t for t in trends if t.direction == TrendDirection.DEGRADING
-        ]
+        degrading_trends = [t for t in trends if t.direction == TrendDirection.DEGRADING]
         if degrading_trends:
             for trend in degrading_trends[:2]:
-                recommendations.append(
-                    f"📈 {trend.name} is increasing ({trend.change_percent:.1f}%). Monitor closely."
-                )
+                recommendations.append(f"📈 {trend.name} is increasing ({trend.change_percent:.1f}%). Monitor closely.")
 
         # If no specific issues
         if not recommendations:
@@ -657,9 +601,7 @@ class ActivityReportGenerator:
 
         return recommendations
 
-    def _calculate_performance_score(
-        self, metrics: Dict[str, float], thresholds: Dict[str, float]
-    ) -> float:
+    def _calculate_performance_score(self, metrics: Dict[str, float], thresholds: Dict[str, float]) -> float:
         """Calculate an overall performance score (0-100)."""
         breaches = 0
         for name, value in metrics.items():
@@ -687,28 +629,18 @@ class ActivityReportGenerator:
     ) -> Dict[str, Any]:
         """Extract key highlights for the report."""
         return {
-            "highest_metric": max(metrics.items(), key=lambda x: x[1])[0]
-            if metrics
-            else None,
-            "lowest_metric": min(metrics.items(), key=lambda x: x[1])[0]
-            if metrics
-            else None,
+            "highest_metric": max(metrics.items(), key=lambda x: x[1])[0] if metrics else None,
+            "lowest_metric": min(metrics.items(), key=lambda x: x[1])[0] if metrics else None,
             "anomaly_count": len(anomalies),
-            "improving_metrics": sum(
-                1 for t in trends if t.direction == TrendDirection.IMPROVING
-            ),
-            "degrading_metrics": sum(
-                1 for t in trends if t.direction == TrendDirection.DEGRADING
-            ),
+            "improving_metrics": sum(1 for t in trends if t.direction == TrendDirection.IMPROVING),
+            "degrading_metrics": sum(1 for t in trends if t.direction == TrendDirection.DEGRADING),
         }
 
     def _build_summary_text(self, metrics: Dict[str, float], score: float) -> str:
         """Build a natural language summary."""
         if score >= 80:
             status = "💚 Excellent"
-            description = (
-                "System is operating very well with good performance across all metrics"
-            )
+            description = "System is operating very well with good performance across all metrics"
         elif score >= 60:
             status = "💛 Good"
             description = "System is operating well with minor issues"
@@ -728,15 +660,11 @@ class ActivityReportGenerator:
 
         return f"Over the last {days} days: {improving} metrics improving, {degrading} degrading"
 
-    def _get_latest_metrics(
-        self, metric_names: Optional[List[str]]
-    ) -> List[Dict[str, Any]]:
+    def _get_latest_metrics(self, metric_names: Optional[List[str]]) -> List[Dict[str, Any]]:
         """Get latest metric values."""
         latest = {}
 
-        for record in sorted(
-            self.metric_history, key=lambda x: x.timestamp, reverse=True
-        ):
+        for record in sorted(self.metric_history, key=lambda x: x.timestamp, reverse=True):
             if metric_names and record.name not in metric_names:
                 continue
             if record.name not in latest:
@@ -750,9 +678,7 @@ class ActivityReportGenerator:
         return list(latest.values())
 
     @staticmethod
-    def _format_metric(
-        name: str, value: float, thresholds: Optional[Dict[str, float]] = None
-    ) -> Dict[str, Any]:
+    def _format_metric(name: str, value: float, thresholds: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
         """Format a metric for output."""
         threshold = thresholds.get(name) if thresholds else None
         breach = threshold is not None and value > threshold

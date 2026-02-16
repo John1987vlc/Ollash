@@ -116,10 +116,7 @@ class DocumentationWatcher:
             # Get metadata
             metadata = self.ingester.get_file_metadata(file_path)
 
-            self.logger.info(
-                f"✅ Auto-indexed: {file_path.name} "
-                f"({metadata.get('word_count', 0)} words)"
-            )
+            self.logger.info(f"✅ Auto-indexed: {file_path.name} ({metadata.get('word_count', 0)} words)")
 
             # Invoke user callbacks
             for callback in self._callbacks:

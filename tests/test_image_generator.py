@@ -5,8 +5,7 @@ from dotenv import load_dotenv  # Import load_dotenv
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.structured_logger import StructuredLogger
-from backend.utils.domains.multimedia.image_generation_tools import \
-    ImageGeneratorTools
+from backend.utils.domains.multimedia.image_generation_tools import ImageGeneratorTools
 
 
 async def main():
@@ -19,9 +18,7 @@ async def main():
     generator = ImageGeneratorTools(logger=logger)
 
     print("Generating a test image...")
-    result = await generator.generate_image(
-        prompt="a photo of a cat sitting on a table"
-    )
+    result = await generator.generate_image(prompt="a photo of a cat sitting on a table")
 
     if result["ok"]:
         print(f"Image generated successfully: {result['path']}")

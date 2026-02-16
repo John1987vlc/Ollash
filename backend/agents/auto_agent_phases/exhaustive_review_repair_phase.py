@@ -37,9 +37,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
         test_results = kwargs.get("test_results", {})
 
         self.context.logger.info("PHASE 5.75: Exhaustive Review and Repair...")
-        self.context.event_publisher.publish(
-            "phase_start", phase="5.75", message="Starting Exhaustive Review & Repair"
-        )
+        self.context.event_publisher.publish("phase_start", phase="5.75", message="Starting Exhaustive Review & Repair")
 
         # ========== STEP 1: DIAGNOSTIC PHASE ==========
         self.context.logger.info("  STEP 1: Diagnostic Analysis...")
@@ -48,20 +46,14 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
         )
 
         if diagnostics["critical_issues"]:
-            self.context.logger.warning(
-                f"  Found {len(diagnostics['critical_issues'])} critical issues"
-            )
+            self.context.logger.warning(f"  Found {len(diagnostics['critical_issues'])} critical issues")
 
         # ========== STEP 2: ERROR PREDICTION ==========
         self.context.logger.info("  STEP 2: Error Prediction Phase...")
-        predicted_errors = self._predict_errors_from_knowledge_base(
-            generated_files, readme_content, diagnostics
-        )
+        predicted_errors = self._predict_errors_from_knowledge_base(generated_files, readme_content, diagnostics)
 
         if predicted_errors:
-            self.context.logger.warning(
-                f"  Predicted {len(predicted_errors)} potential issues from pattern analysis"
-            )
+            self.context.logger.warning(f"  Predicted {len(predicted_errors)} potential issues from pattern analysis")
 
         # ========== STEP 3: STRUCTURAL REPAIR ==========
         all_issues = diagnostics["critical_issues"] + predicted_errors
@@ -71,9 +63,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
             # Merge test failures with other issues
             if test_results and test_results.get("failures"):
-                test_failures = self._convert_test_failures_to_issues(
-                    test_results["failures"]
-                )
+                test_failures = self._convert_test_failures_to_issues(test_results["failures"])
                 all_issues.extend(test_failures)
 
             self.context.logger.info(f"  Total issues to address: {len(all_issues)}")
@@ -84,9 +74,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
             )
 
             if repair_plan and repair_plan.get("actions"):
-                self.context.logger.info(
-                    f"  Generated repair plan with {len(repair_plan['actions'])} actions"
-                )
+                self.context.logger.info(f"  Generated repair plan with {len(repair_plan['actions'])} actions")
 
                 # Implement the repair plan
                 (
@@ -103,30 +91,18 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
                 )
 
                 # Save repair report
-                repair_report = self._generate_repair_report(
-                    diagnostics, predicted_errors, repair_plan, test_results
-                )
+                repair_report = self._generate_repair_report(diagnostics, predicted_errors, repair_plan, test_results)
                 generated_files["EXHAUSTIVE_REPAIR_REPORT.md"] = repair_report
-                self.context.file_manager.write_file(
-                    project_root / "EXHAUSTIVE_REPAIR_REPORT.md", repair_report
-                )
+                self.context.file_manager.write_file(project_root / "EXHAUSTIVE_REPAIR_REPORT.md", repair_report)
                 self.context.logger.info("  Repair plan implemented and documented")
             else:
-                self.context.logger.warning(
-                    "  Could not generate repair plan, proceeding with best effort fixes"
-                )
+                self.context.logger.warning("  Could not generate repair plan, proceeding with best effort fixes")
                 # Fall back to simpler fixes
-                generated_files = await self._apply_fallback_fixes(
-                    all_issues, project_root, generated_files
-                )
+                generated_files = await self._apply_fallback_fixes(all_issues, project_root, generated_files)
         else:
-            self.context.logger.info(
-                "  No critical issues detected, proceeding to final phases"
-            )
+            self.context.logger.info("  No critical issues detected, proceeding to final phases")
 
-        self.context.event_publisher.publish(
-            "phase_end", phase="5.75", status="completed"
-        )
+        self.context.event_publisher.publish("phase_end", phase="5.75", status="completed")
         return generated_files, initial_structure, file_paths
 
     def _perform_diagnostic_analysis(
@@ -188,13 +164,9 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
         config_issues = self._validate_config_files(generated_files, readme_content)
         diagnostics["critical_issues"].extend(config_issues)
 
-        diagnostics["coherence_score"] = max(
-            0.0, 1.0 - (len(diagnostics["critical_issues"]) * 0.1)
-        )
+        diagnostics["coherence_score"] = max(0.0, 1.0 - (len(diagnostics["critical_issues"]) * 0.1))
 
-        self.context.logger.info(
-            f"    Coherence score: {diagnostics['coherence_score']:.2f}"
-        )
+        self.context.logger.info(f"    Coherence score: {diagnostics['coherence_score']:.2f}")
         return diagnostics
 
     def _predict_errors_from_knowledge_base(
@@ -222,18 +194,14 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
                                 "severity": pattern.get("severity", "warning"),
                                 "file": file_path,
                                 "description": f"Detected problematic pattern: {pattern.get('description', 'Unknown')}",
-                                "recommendation": pattern.get(
-                                    "fix", "Review and update manually"
-                                ),
+                                "recommendation": pattern.get("fix", "Review and update manually"),
                                 "pattern": pattern.get("pattern"),
                             }
                         )
 
         return predicted_errors
 
-    def _convert_test_failures_to_issues(
-        self, test_failures: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+    def _convert_test_failures_to_issues(self, test_failures: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Converts test failure data into issue format for consistency."""
         issues = []
 
@@ -290,14 +258,10 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
                     if new_content:
                         generated_files[file_path] = new_content
-                        self.context.file_manager.write_file(
-                            project_root / file_path, new_content
-                        )
+                        self.context.file_manager.write_file(project_root / file_path, new_content)
                         self.context.logger.info(f"      ✓ Regenerated {file_path}")
                 except Exception as e:
-                    self.context.logger.error(
-                        f"      ✗ Error regenerating {file_path}: {e}"
-                    )
+                    self.context.logger.error(f"      ✗ Error regenerating {file_path}: {e}")
 
             elif action_type == "fix_file":
                 file_path = action.get("file")
@@ -317,14 +281,10 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
                         if fixed_content:
                             generated_files[file_path] = fixed_content
-                            self.context.file_manager.write_file(
-                                project_root / file_path, fixed_content
-                            )
+                            self.context.file_manager.write_file(project_root / file_path, fixed_content)
                             self.context.logger.info(f"      ✓ Fixed {file_path}")
                     except Exception as e:
-                        self.context.logger.error(
-                            f"      ✗ Error fixing {file_path}: {e}"
-                        )
+                        self.context.logger.error(f"      ✗ Error fixing {file_path}: {e}")
 
             elif action_type == "simplify_file":
                 file_path = action.get("file")
@@ -333,24 +293,18 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
                 if file_path in generated_files:
                     try:
-                        simplified_content = (
-                            self.context.file_refiner.simplify_file_content(
-                                file_path,
-                                generated_files[file_path],
-                                remove_redundancy=True,
-                            )
+                        simplified_content = self.context.file_refiner.simplify_file_content(
+                            file_path,
+                            generated_files[file_path],
+                            remove_redundancy=True,
                         )
 
                         if simplified_content:
                             generated_files[file_path] = simplified_content
-                            self.context.file_manager.write_file(
-                                project_root / file_path, simplified_content
-                            )
+                            self.context.file_manager.write_file(project_root / file_path, simplified_content)
                             self.context.logger.info(f"      ✓ Simplified {file_path}")
                     except Exception as e:
-                        self.context.logger.error(
-                            f"      ✗ Error simplifying {file_path}: {e}"
-                        )
+                        self.context.logger.error(f"      ✗ Error simplifying {file_path}: {e}")
 
             elif action_type == "create_file":
                 file_path = action.get("file")
@@ -370,16 +324,12 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
                     if new_content:
                         generated_files[file_path] = new_content
-                        self.context.file_manager.write_file(
-                            project_root / file_path, new_content
-                        )
+                        self.context.file_manager.write_file(project_root / file_path, new_content)
                         if file_path not in file_paths:
                             file_paths.append(file_path)
                         self.context.logger.info(f"      ✓ Created {file_path}")
                 except Exception as e:
-                    self.context.logger.error(
-                        f"      ✗ Error creating {file_path}: {e}"
-                    )
+                    self.context.logger.error(f"      ✗ Error creating {file_path}: {e}")
 
         self.context.logger.info(f"    Implemented {len(actions)} repair actions")
         return generated_files, initial_structure, file_paths
@@ -414,13 +364,9 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
                     if fixed_content:
                         generated_files[file_path] = fixed_content
-                        self.context.file_manager.write_file(
-                            project_root / file_path, fixed_content
-                        )
+                        self.context.file_manager.write_file(project_root / file_path, fixed_content)
                 except Exception as e:
-                    self.context.logger.warning(
-                        f"    Fallback fix failed for {file_path}: {e}"
-                    )
+                    self.context.logger.warning(f"    Fallback fix failed for {file_path}: {e}")
 
         return generated_files
 
@@ -443,14 +389,10 @@ during Phase 5.75 to ensure code quality before Senior Review.
 
         # Diagnostics section
         report += "## 1. Diagnostic Analysis Results\n\n"
-        report += (
-            f"**Coherence Score:** {diagnostics.get('coherence_score', 0):.2%}\n\n"
-        )
+        report += f"**Coherence Score:** {diagnostics.get('coherence_score', 0):.2%}\n\n"
 
         if diagnostics.get("critical_issues"):
-            report += (
-                f"**Critical Issues Found:** {len(diagnostics['critical_issues'])}\n\n"
-            )
+            report += f"**Critical Issues Found:** {len(diagnostics['critical_issues'])}\n\n"
             for issue in diagnostics["critical_issues"]:
                 report += f"- **[{issue.get('severity', 'unknown').upper()}]** {issue.get('file', 'Unknown')}: "
                 report += f"{issue.get('description', 'N/A')}\n"
@@ -511,9 +453,7 @@ during Phase 5.75 to ensure code quality before Senior Review.
         traverse(structure)
         return required
 
-    def _find_entry_points(
-        self, generated_files: Dict[str, str], structure: Dict[str, Any]
-    ) -> List[str]:
+    def _find_entry_points(self, generated_files: Dict[str, str], structure: Dict[str, Any]) -> List[str]:
         """Finds valid entry points in the generated files."""
         entry_point_names = [
             "main.py",
@@ -524,11 +464,7 @@ during Phase 5.75 to ensure code quality before Senior Review.
             "App.java",
         ]
 
-        return [
-            f
-            for f in generated_files.keys()
-            if any(f.endswith(ep) for ep in entry_point_names)
-        ]
+        return [f for f in generated_files.keys() if any(f.endswith(ep) for ep in entry_point_names)]
 
     def _check_import_coherence(
         self, generated_files: Dict[str, str], structure: Dict[str, Any]
@@ -538,9 +474,7 @@ during Phase 5.75 to ensure code quality before Senior Review.
         # Implementation would parse imports and check for coherence
         return issues
 
-    def _validate_config_files(
-        self, generated_files: Dict[str, str], readme_content: str
-    ) -> List[Dict[str, Any]]:
+    def _validate_config_files(self, generated_files: Dict[str, str], readme_content: str) -> List[Dict[str, Any]]:
         """Validates key configuration files."""
         issues = []
 

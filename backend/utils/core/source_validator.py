@@ -139,9 +139,7 @@ class SourceValidator:
 
         # Run selected validation checks
         if validation_type in ["full", "semantic"]:
-            self._check_semantic_preservation(
-                original_text, refined_text, source, result
-            )
+            self._check_semantic_preservation(original_text, refined_text, source, result)
 
         if validation_type in ["full", "factual"]:
             self._check_factual_consistency(refined_text, source, original_text, result)
@@ -151,9 +149,7 @@ class SourceValidator:
             critical_count = len([i for i in result.issues if i.severity == "critical"])
             warning_count = len([i for i in result.issues if i.severity == "warning"])
 
-            result.validation_score = max(
-                0, 100 - (critical_count * 20 + warning_count * 5)
-            )
+            result.validation_score = max(0, 100 - (critical_count * 20 + warning_count * 5))
             result.is_valid = result.validation_score >= 70  # Threshold
             result.confidence_level = "medium" if warning_count > 0 else "high"
 
@@ -163,9 +159,7 @@ class SourceValidator:
 
         return result
 
-    def _check_semantic_preservation(
-        self, original: str, refined: str, source: str, result: ValidationResult
-    ):
+    def _check_semantic_preservation(self, original: str, refined: str, source: str, result: ValidationResult):
         """Check if meaning is preserved in refinement"""
 
         # Check semantic similarity using word overlap
@@ -215,9 +209,7 @@ class SourceValidator:
         quoted_pattern = r'"([^"]+)"'
         quoted_facts = re.findall(quoted_pattern, original_text)
 
-        number_pattern = (
-            r"\d+\.?\d*\s*(?:%|million|billion|thousand|years?|days?|hours?|kb|mb|gb)?"
-        )
+        number_pattern = r"\d+\.?\d*\s*(?:%|million|billion|thousand|years?|days?|hours?|kb|mb|gb)?"
         numeric_facts = re.findall(number_pattern, original_text)
 
         all_facts = quoted_facts + numeric_facts
@@ -237,21 +229,15 @@ class SourceValidator:
                     )
                 )
 
-    def _check_for_contradictions(
-        self, refined_text: str, original_text: str, source: str
-    ) -> List[ValidationIssue]:
+    def _check_for_contradictions(self, refined_text: str, original_text: str, source: str) -> List[ValidationIssue]:
         """Check for direct contradictions"""
         issues = []
 
         # Look for negations or opposite claims
         negation_words = ["not", "no", "never", "neither", "cannot", "should not"]
 
-        original_has_negation = any(
-            word in original_text.lower() for word in negation_words
-        )
-        refined_has_negation = any(
-            word in refined_text.lower() for word in negation_words
-        )
+        original_has_negation = any(word in original_text.lower() for word in negation_words)
+        refined_has_negation = any(word in refined_text.lower() for word in negation_words)
 
         if original_has_negation != refined_has_negation:
             issues.append(
@@ -313,9 +299,7 @@ class SourceValidator:
 
         passed = len([v for v in self.validations if v["is_valid"]])
         failed = len(self.validations) - passed
-        avg_score = sum(v["validation_score"] for v in self.validations) / len(
-            self.validations
-        )
+        avg_score = sum(v["validation_score"] for v in self.validations) / len(self.validations)
 
         return {
             "total_validations": len(self.validations),

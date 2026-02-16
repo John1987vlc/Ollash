@@ -159,9 +159,7 @@ class TestKnowledgeGraphBuilder:
         connections = builder.get_concept_connections("API", max_depth=2)
 
         # Verify connections returns a dict-like result
-        assert isinstance(connections, (dict, type(None))) or hasattr(
-            connections, "__contains__"
-        )
+        assert isinstance(connections, (dict, type(None))) or hasattr(connections, "__contains__")
 
     def test_generate_thematic_index(self, temp_project):
         """Prueba generación de índice temático."""
@@ -217,9 +215,7 @@ class TestDecisionContextManager:
         )
 
         # Buscar similar
-        similar = manager.find_similar_decisions(
-            "Need scalable database storage", category="architecture"
-        )
+        similar = manager.find_similar_decisions("Need scalable database storage", category="architecture")
 
         # Verify similar_decisions returns a list or callable result
         assert isinstance(similar, (list, tuple)) or similar is not None
@@ -256,9 +252,7 @@ class TestDecisionContextManager:
         )
 
         # Actualizar outcome
-        success = manager.update_outcome(
-            decision_id, {"success": True, "lesson": "Cosmos DB worked well"}
-        )
+        success = manager.update_outcome(decision_id, {"success": True, "lesson": "Cosmos DB worked well"})
 
         assert success is True
         decision = manager.get_decision(decision_id)

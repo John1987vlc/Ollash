@@ -2,8 +2,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.documentation_manager import \
-    DocumentationManager  # ADDED IMPORT
+from backend.utils.core.documentation_manager import DocumentationManager  # ADDED IMPORT
 from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.ollama_client import OllamaClient
 
@@ -80,9 +79,8 @@ class FileRefiner:
             documentation_query, n_results=2
         )  # Get top 2 results
         if retrieved_docs:
-            documentation_context = (
-                "\n\nRelevant Documentation Snippets:\n"
-                + "\n---\n".join([doc["document"] for doc in retrieved_docs])
+            documentation_context = "\n\nRelevant Documentation Snippets:\n" + "\n---\n".join(
+                [doc["document"] for doc in retrieved_docs]
             )
 
         if issues:
@@ -90,9 +88,7 @@ class FileRefiner:
                 file_path, current_content, readme_excerpt, issues
             )
         else:
-            system, user = AutoGenPrompts.file_refinement(
-                file_path, current_content, readme_excerpt
-            )
+            system, user = AutoGenPrompts.file_refinement(file_path, current_content, readme_excerpt)
 
         # Append documentation context to the user prompt
         user += documentation_context
@@ -120,7 +116,5 @@ class FileRefiner:
             self.logger.info(f"    Refined ({len(refined)} chars)")
             return refined
 
-        self.logger.warning(
-            f"    Refinement produced poor result for {file_path}, keeping original"
-        )
+        self.logger.warning(f"    Refinement produced poor result for {file_path}, keeping original")
         return None

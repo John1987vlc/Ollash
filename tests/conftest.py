@@ -4,12 +4,10 @@ from pathlib import Path
 import pytest
 
 from backend.agents.default_agent import DefaultAgent
-from backend.core.config import \
-    reload_config  # Still needed for refreshing our own config
+from backend.core.config import reload_config  # Still needed for refreshing our own config
 from backend.core.kernel import AgentKernel
 
 # Removed importlib as it's no longer needed for module reloading hacks
-
 
 
 # Constants for tests
@@ -68,9 +66,7 @@ def default_agent(monkeypatch, temp_project_root: Path) -> DefaultAgent:
     # Monkeypatch settings BEFORE reloading config and creating the agent
     monkeypatch.setenv("PROMPTS_DIR", str(temp_project_root / "prompts"))
     monkeypatch.setenv("USE_BENCHMARK_SELECTOR", "False")
-    monkeypatch.setenv(
-        "AGENT_FEATURES_JSON", json.dumps({"enable_auto_learning": False})
-    )
+    monkeypatch.setenv("AGENT_FEATURES_JSON", json.dumps({"enable_auto_learning": False}))
     monkeypatch.setenv("OLLAMA_URL", TEST_OLLAMA_URL)
 
     # Set LLM_MODELS_JSON explicitly for tests in conftest

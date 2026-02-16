@@ -9,9 +9,7 @@ class BonusTools:
         """
         Estimates how many components, users, or services will be affected by a change.
         """
-        self.logger.info(
-            f"Estimating blast radius for change: '{change_description[:50]}...'"
-        )
+        self.logger.info(f"Estimating blast radius for change: '{change_description[:50]}...'")
         # Placeholder implementation
         return {
             "ok": True,
@@ -29,9 +27,7 @@ class BonusTools:
         """
         Generates a human-readable runbook from repeated actions or resolved incidents.
         """
-        self.logger.info(
-            f"Generating runbook for: '{incident_or_task_description[:50]}...'"
-        )
+        self.logger.info(f"Generating runbook for: '{incident_or_task_description[:50]}...'")
         # Placeholder implementation
         return {
             "ok": True,
@@ -115,9 +111,7 @@ class BonusTools:
         Generates creative text content based on a prompt and desired style.
         Provides a generic response based on the prompt and specified style.
         """
-        self.logger.info(
-            f"Generating creative content for prompt: '{prompt[:50]}...' in style: {style}"
-        )
+        self.logger.info(f"Generating creative content for prompt: '{prompt[:50]}...' in style: {style}")
 
         generated_content = ""
 
@@ -149,9 +143,7 @@ class BonusTools:
         """
         self.logger.info(f"Translating text to {target_language}: '{text[:50]}...'")
 
-        translated_text = (
-            f"[Translated to {target_language}]: {text}"  # Default generic translation
-        )
+        translated_text = f"[Translated to {target_language}]: {text}"  # Default generic translation
 
         # Simulate translations for common languages
         if target_language.lower() == "es":

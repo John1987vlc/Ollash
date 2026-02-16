@@ -36,19 +36,13 @@ class TriggerEvaluator:
             OperatorType.LESS_THAN: lambda a, b: a < b,
             OperatorType.GREATER_EQUAL: lambda a, b: a >= b,
             OperatorType.LESS_EQUAL: lambda a, b: a <= b,
-            OperatorType.CONTAINS: lambda a, b: b in a
-            if isinstance(a, (str, list))
-            else False,
-            OperatorType.NOT_CONTAINS: lambda a, b: b not in a
-            if isinstance(a, (str, list))
-            else True,
+            OperatorType.CONTAINS: lambda a, b: b in a if isinstance(a, (str, list)) else False,
+            OperatorType.NOT_CONTAINS: lambda a, b: b not in a if isinstance(a, (str, list)) else True,
             OperatorType.IN_RANGE: self._check_range,
             OperatorType.PATTERN_MATCH: self._check_pattern,
         }
 
-    def evaluate_condition(
-        self, condition: Dict[str, Any], context: Dict[str, Any]
-    ) -> bool:
+    def evaluate_condition(self, condition: Dict[str, Any], context: Dict[str, Any]) -> bool:
         """
         Evaluate a single condition.
 
@@ -154,9 +148,7 @@ class TriggerEvaluator:
 class ConditionalTrigger:
     """Represents a conditional trigger that can be enabled/disabled."""
 
-    def __init__(
-        self, trigger_id: str, rule: Dict[str, Any], actions: List[Dict[str, Any]]
-    ):
+    def __init__(self, trigger_id: str, rule: Dict[str, Any], actions: List[Dict[str, Any]]):
         """
         Initialize a conditional trigger.
 
@@ -173,9 +165,7 @@ class ConditionalTrigger:
         self.trigger_count = 0
         self.evaluator = TriggerEvaluator()
 
-    def should_trigger(
-        self, context: Dict[str, Any], cooldown_minutes: int = 0
-    ) -> bool:
+    def should_trigger(self, context: Dict[str, Any], cooldown_minutes: int = 0) -> bool:
         """
         Determine if this trigger should execute.
 
@@ -216,9 +206,7 @@ class ConditionalTrigger:
             "rule": self.rule,
             "actions": self.actions,
             "enabled": self.enabled,
-            "last_triggered": self.last_triggered.isoformat()
-            if self.last_triggered
-            else None,
+            "last_triggered": self.last_triggered.isoformat() if self.last_triggered else None,
             "trigger_count": self.trigger_count,
         }
 
@@ -231,9 +219,7 @@ class TriggerManager:
         self.triggers: Dict[str, ConditionalTrigger] = {}
         self.history: List[Dict[str, Any]] = []
 
-    def add_trigger(
-        self, trigger_id: str, rule: Dict[str, Any], actions: List[Dict[str, Any]]
-    ) -> bool:
+    def add_trigger(self, trigger_id: str, rule: Dict[str, Any], actions: List[Dict[str, Any]]) -> bool:
         """Add a new trigger."""
         try:
             if trigger_id in self.triggers:
@@ -269,9 +255,7 @@ class TriggerManager:
             return True
         return False
 
-    def evaluate_all(
-        self, context: Dict[str, Any], cooldown_minutes: int = 0
-    ) -> List[Dict[str, Any]]:
+    def evaluate_all(self, context: Dict[str, Any], cooldown_minutes: int = 0) -> List[Dict[str, Any]]:
         """
         Evaluate all active triggers against current context.
 
@@ -304,10 +288,7 @@ class TriggerManager:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert all triggers to dictionary."""
-        return {
-            trigger_id: trigger.to_dict()
-            for trigger_id, trigger in self.triggers.items()
-        }
+        return {trigger_id: trigger.to_dict() for trigger_id, trigger in self.triggers.items()}
 
 
 # Global instance

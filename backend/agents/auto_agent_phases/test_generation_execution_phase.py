@@ -33,18 +33,12 @@ class TestGenerationExecutionPhase(IAgentPhase):
         project_root: Path,
         readme_content: str,
         initial_structure: Dict[str, Any],
-        generated_files: Dict[
-            str, str
-        ],  # Files for which tests are generated and executed
+        generated_files: Dict[str, str],  # Files for which tests are generated and executed
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        file_paths = kwargs.get(
-            "file_paths", []
-        )  # Get from kwargs or assume context has it
+        file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
-        self.context.logger.info(
-            "PHASE 5.7 (MVP): Generating and executing tests - MANDATORY FOR MVP..."
-        )
+        self.context.logger.info("PHASE 5.7 (MVP): Generating and executing tests - MANDATORY FOR MVP...")
         self.context.event_publisher.publish(
             "phase_start",
             phase="5.7",
@@ -74,18 +68,12 @@ class TestGenerationExecutionPhase(IAgentPhase):
                 )
 
                 try:
-                    test_content = self.context.test_generator.generate_tests(
-                        rel_path, content, readme_content
-                    )
+                    test_content = self.context.test_generator.generate_tests(rel_path, content, readme_content)
                     if test_content:
                         # Determine test file path based on language
-                        test_rel_path = self.context.get_test_file_path(
-                            rel_path, language
-                        )
+                        test_rel_path = self.context.get_test_file_path(rel_path, language)
                         generated_test_files[test_rel_path] = test_content
-                        self.context.file_manager.write_file(
-                            project_root / test_rel_path, test_content
-                        )
+                        self.context.file_manager.write_file(project_root / test_rel_path, test_content)
                         test_file_paths.append(project_root / Path(test_rel_path))
                         self.context.event_publisher.publish(
                             "tool_output",
@@ -94,13 +82,9 @@ class TestGenerationExecutionPhase(IAgentPhase):
                             status="success",
                             test_file=test_rel_path,
                         )
-                        self.context.logger.info(
-                            f"    ✅ Test generated: {test_rel_path}"
-                        )
+                        self.context.logger.info(f"    ✅ Test generated: {test_rel_path}")
                     else:
-                        self.context.logger.warning(
-                            f"    ⚠️ Could not generate test for {rel_path}"
-                        )
+                        self.context.logger.warning(f"    ⚠️ Could not generate test for {rel_path}")
                         self.context.event_publisher.publish(
                             "tool_output",
                             tool_name="generate_test",
@@ -109,9 +93,7 @@ class TestGenerationExecutionPhase(IAgentPhase):
                         )
 
                 except Exception as e:
-                    self.context.logger.error(
-                        f"Error generating tests for {rel_path}: {e}"
-                    )
+                    self.context.logger.error(f"Error generating tests for {rel_path}: {e}")
                     self.context.error_knowledge_base.record_error(
                         rel_path,
                         "test_generation",
@@ -127,9 +109,7 @@ class TestGenerationExecutionPhase(IAgentPhase):
                         message=str(e),
                     )
 
-                self.context.event_publisher.publish(
-                    "tool_end", tool_name="generate_test", file=rel_path
-                )
+                self.context.event_publisher.publish("tool_end", tool_name="generate_test", file=rel_path)
 
         # Verify MVP requirement: at least one test file generated
         if len(generated_test_files) < self.MIN_TEST_FILES_REQUIRED:
@@ -146,50 +126,34 @@ class TestGenerationExecutionPhase(IAgentPhase):
                 f"MVP Requirement Failed: Must generate at least {self.MIN_TEST_FILES_REQUIRED} test file(s)"
             )
 
-        self.context.logger.info(
-            f"✅ Generated {len(generated_test_files)} test files (MVP requirement met)"
-        )
+        self.context.logger.info(f"✅ Generated {len(generated_test_files)} test files (MVP requirement met)")
 
         # Step 2: Generate integration tests if applicable
-        if len(files_by_language) > 1 or any(
-            lang in files_by_language for lang in ["javascript", "go", "java"]
-        ):
+        if len(files_by_language) > 1 or any(lang in files_by_language for lang in ["javascript", "go", "java"]):
             self.context.logger.info("  🔗 Generating integration tests...")
             try:
                 (
                     integration_test_content,
                     docker_compose_content,
-                ) = self.context.test_generator.generate_integration_tests(
-                    project_root, readme_content
-                )
+                ) = self.context.test_generator.generate_integration_tests(project_root, readme_content)
 
                 if integration_test_content:
-                    integration_test_path = (
-                        project_root / "tests" / "integration_tests.py"
-                    )
+                    integration_test_path = project_root / "tests" / "integration_tests.py"
                     integration_test_path.parent.mkdir(parents=True, exist_ok=True)
-                    self.context.file_manager.write_file(
-                        integration_test_path, integration_test_content
+                    self.context.file_manager.write_file(integration_test_path, integration_test_content)
+                    generated_test_files[str(integration_test_path.relative_to(project_root))] = (
+                        integration_test_content
                     )
-                    generated_test_files[
-                        str(integration_test_path.relative_to(project_root))
-                    ] = integration_test_content
                     test_file_paths.append(integration_test_path)
                     self.context.logger.info("    ✅ Integration tests generated")
 
                 if docker_compose_content:
                     docker_compose_path = project_root / "docker-compose.test.yml"
-                    self.context.file_manager.write_file(
-                        docker_compose_path, docker_compose_content
-                    )
-                    generated_test_files[
-                        str(docker_compose_path.relative_to(project_root))
-                    ] = docker_compose_content
+                    self.context.file_manager.write_file(docker_compose_path, docker_compose_content)
+                    generated_test_files[str(docker_compose_path.relative_to(project_root))] = docker_compose_content
                     self.context.logger.info("    ✅ Test orchestration file generated")
             except Exception as e:
-                self.context.logger.warning(
-                    f"Could not generate integration tests: {e}"
-                )
+                self.context.logger.warning(f"Could not generate integration tests: {e}")
 
         # Step 3: Execute tests with aggressive retry logic (MVP requirement: tests must pass)
         if test_file_paths:
@@ -198,9 +162,7 @@ class TestGenerationExecutionPhase(IAgentPhase):
             test_results = None
 
             while test_retries < max_test_retries:
-                self.context.logger.info(
-                    f"  🧪 Test Execution Attempt {test_retries + 1}/{max_test_retries}..."
-                )
+                self.context.logger.info(f"  🧪 Test Execution Attempt {test_retries + 1}/{max_test_retries}...")
                 self.context.event_publisher.publish(
                     "tool_start",
                     tool_name="execute_tests",
@@ -222,18 +184,14 @@ class TestGenerationExecutionPhase(IAgentPhase):
                 )
 
                 if test_results["success"]:
-                    self.context.logger.info(
-                        "  ✅ ALL TESTS PASSED! (MVP requirement satisfied)"
-                    )
+                    self.context.logger.info("  ✅ ALL TESTS PASSED! (MVP requirement satisfied)")
                     self.context.event_publisher.publish(
                         "tool_output",
                         tool_name="execute_tests",
                         status="success",
                         message=f"All tests passed on attempt {test_retries + 1}",
                     )
-                    self.context.event_publisher.publish(
-                        "tool_end", tool_name="execute_tests"
-                    )
+                    self.context.event_publisher.publish("tool_end", tool_name="execute_tests")
                     break
                 else:
                     failure_count = len(test_results.get("failures", []))
@@ -250,10 +208,7 @@ class TestGenerationExecutionPhase(IAgentPhase):
                     )
 
                     # Refine code based on failures (aggressive refinement for MVP)
-                    if (
-                        test_results.get("failures")
-                        and test_retries < max_test_retries - 1
-                    ):
+                    if test_results.get("failures") and test_retries < max_test_retries - 1:
                         self.context.logger.info(
                             f"  🔧 Refining code based on {failure_count} test failure(s) "
                             f"(MVP requirement: tests must pass)..."
@@ -274,10 +229,7 @@ class TestGenerationExecutionPhase(IAgentPhase):
                             # Find matching source file to refine
                             matched_rel_path = None
                             for rel_path in generated_files.keys():
-                                if (
-                                    failed_file in rel_path
-                                    or Path(rel_path).name == Path(failed_file).name
-                                ):
+                                if failed_file in rel_path or Path(rel_path).name == Path(failed_file).name:
                                     matched_rel_path = rel_path
                                     break
 
@@ -302,31 +254,21 @@ class TestGenerationExecutionPhase(IAgentPhase):
                                     ]
 
                                     # Refine the file
-                                    refined_content = (
-                                        self.context.file_refiner.refine_file(
-                                            matched_rel_path,
-                                            generated_files[matched_rel_path],
-                                            readme_content[:2000],
-                                            issues,
-                                        )
+                                    refined_content = self.context.file_refiner.refine_file(
+                                        matched_rel_path,
+                                        generated_files[matched_rel_path],
+                                        readme_content[:2000],
+                                        issues,
                                     )
 
-                                    if (
-                                        refined_content
-                                        and refined_content
-                                        != generated_files[matched_rel_path]
-                                    ):
-                                        generated_files[
-                                            matched_rel_path
-                                        ] = refined_content
+                                    if refined_content and refined_content != generated_files[matched_rel_path]:
+                                        generated_files[matched_rel_path] = refined_content
                                         self.context.file_manager.write_file(
                                             project_root / matched_rel_path,
                                             refined_content,
                                         )
                                         refined_count += 1
-                                        self.context.logger.info(
-                                            f"    ✅ Refined: {matched_rel_path}"
-                                        )
+                                        self.context.logger.info(f"    ✅ Refined: {matched_rel_path}")
                                         self.context.event_publisher.publish(
                                             "tool_output",
                                             tool_name="refine_code_from_test_failure",
@@ -334,9 +276,7 @@ class TestGenerationExecutionPhase(IAgentPhase):
                                             status="success",
                                         )
                                     else:
-                                        self.context.logger.warning(
-                                            f"    ⚠️ No changes made to {matched_rel_path}"
-                                        )
+                                        self.context.logger.warning(f"    ⚠️ No changes made to {matched_rel_path}")
                                         self.context.event_publisher.publish(
                                             "tool_output",
                                             tool_name="refine_code_from_test_failure",
@@ -351,9 +291,7 @@ class TestGenerationExecutionPhase(IAgentPhase):
                                     )
 
                                 except Exception as e:
-                                    self.context.logger.error(
-                                        f"  ❌ Error refining {matched_rel_path}: {e}"
-                                    )
+                                    self.context.logger.error(f"  ❌ Error refining {matched_rel_path}: {e}")
                                     self.context.event_publisher.publish(
                                         "tool_output",
                                         tool_name="refine_code_from_test_failure",
@@ -362,9 +300,7 @@ class TestGenerationExecutionPhase(IAgentPhase):
                                         message=str(e),
                                     )
 
-                        self.context.logger.info(
-                            f"    Refinement complete: {refined_count} files refined"
-                        )
+                        self.context.logger.info(f"    Refinement complete: {refined_count} files refined")
                         self.context.event_publisher.publish(
                             "phase_complete",
                             phase="5.7.1",
@@ -385,9 +321,7 @@ class TestGenerationExecutionPhase(IAgentPhase):
                     failures=test_results.get("failures", []),
                 )
                 # For MVP, we log but continue (could be made stricter)
-                self.context.logger.warning(
-                    "⚠️ Tests did not pass, but continuing with project generation..."
-                )
+                self.context.logger.warning("⚠️ Tests did not pass, but continuing with project generation...")
         else:
             self.context.logger.error("❌ No test files to execute!")
             raise RuntimeError("MVP Requirement Failed: No test files were generated")

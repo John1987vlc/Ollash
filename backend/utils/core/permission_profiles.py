@@ -13,8 +13,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from backend.core.config_schemas import \
-    ToolSettingsConfig  # NEW: For accessing auto_confirm_tools
+from backend.core.config_schemas import ToolSettingsConfig  # NEW: For accessing auto_confirm_tools
 from backend.utils.core.agent_logger import AgentLogger
 
 
@@ -332,9 +331,7 @@ class PolicyEnforcer:
         """Checks if a given tool is considered state-modifying."""
         return tool_name in self._state_modifying_tools
 
-    def get_permission_for_tool(
-        self, tool_name: str
-    ) -> Optional[Permission]:  # NEW METHOD
+    def get_permission_for_tool(self, tool_name: str) -> Optional[Permission]:  # NEW METHOD
         """Returns the associated permission for a given tool, if it's state-modifying."""
         return self._state_modifying_tools.get(tool_name)
 
@@ -354,9 +351,7 @@ class PolicyEnforcer:
                 file_size_bytes=context.get("file_size_bytes", 0) if context else 0,
             )
         elif tool_name == "run_shell_command":
-            return self.authorize_shell_command(
-                resource_path
-            )  # resource_path here is the command itself
+            return self.authorize_shell_command(resource_path)  # resource_path here is the command itself
         elif tool_name == "delete_file" or tool_name == "remove_dir":
             return self.authorize_delete(resource_path)
         elif tool_name.startswith("git_"):  # Generic for git operations
@@ -370,14 +365,10 @@ class PolicyEnforcer:
             "copy_dir",
             "create_dir",
         ]:
-            return self.profile_manager.check_operation(
-                self.active_profile, permission, resource_path, context
-            )
+            return self.profile_manager.check_operation(self.active_profile, permission, resource_path, context)
 
         # Fallback for other state-modifying tools without specific authorize_ methods
-        return self.profile_manager.check_operation(
-            self.active_profile, permission, resource_path, context
-        )
+        return self.profile_manager.check_operation(self.active_profile, permission, resource_path, context)
 
     def authorize_file_write(
         self,

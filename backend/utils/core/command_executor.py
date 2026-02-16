@@ -52,9 +52,7 @@ class CommandExecutor:
                 self.docker_client = docker.from_env()
                 self.logger.info("Docker client initialized successfully.")
             except Exception as e:
-                self.logger.error(
-                    f"Failed to initialize Docker client: {e}. Docker sandboxing will be disabled."
-                )
+                self.logger.error(f"Failed to initialize Docker client: {e}. Docker sandboxing will be disabled.")
                 self.use_docker_sandbox = False
 
     def _is_allowed(self, command: str | List[str]) -> bool:
@@ -77,9 +75,7 @@ class CommandExecutor:
             if os.name == "nt" and command.strip().lower().startswith("powershell"):
                 # For PowerShell, the entire command string is the 'command', subsequent parts are args to it
                 base_cmd = command.split(" ")[0].lower()
-                args = shlex.split(command)[
-                    1:
-                ]  # For argument checks, shlex.split is safer
+                args = shlex.split(command)[1:]  # For argument checks, shlex.split is safer
             else:
                 try:
                     parts = shlex.split(command)
@@ -87,9 +83,7 @@ class CommandExecutor:
                     args = parts[1:]
                 except ValueError as e:
                     if self.logger:
-                        self.logger.warning(
-                            f"Error parsing command with shlex: {e}. Command: '{command}'"
-                        )
+                        self.logger.warning(f"Error parsing command with shlex: {e}. Command: '{command}'")
                     return False
         else:  # command is already a list
             base_cmd = command[0].lower()
@@ -97,9 +91,7 @@ class CommandExecutor:
 
         return self.policy_manager.is_command_allowed(base_cmd, args)
 
-    def _pre_validate_command(
-        self, command: str | List[str]
-    ) -> tuple[bool, Optional[str], Optional[str]]:
+    def _pre_validate_command(self, command: str | List[str]) -> tuple[bool, Optional[str], Optional[str]]:
         """
         Performs a pre-validation (dry run) of the command.
         Returns (is_valid, suggested_correction, error_message).
@@ -154,9 +146,7 @@ class CommandExecutor:
                     command_list = shlex.split(command)
                 except ValueError as e:
                     if self.logger:
-                        self.logger.error(
-                            f"Error splitting command with shlex: {e}. Command: '{command}'"
-                        )
+                        self.logger.error(f"Error splitting command with shlex: {e}. Command: '{command}'")
                     return ExecutionResult(False, "", str(e), 1, command)
         else:  # command is already a list
             command_list = command
@@ -174,9 +164,7 @@ class CommandExecutor:
                     -1,
                     original_command,
                 )
-            return ExecutionResult(
-                False, "", f"Pre-validation failed: {error_msg}", -1, original_command
-            )
+            return ExecutionResult(False, "", f"Pre-validation failed: {error_msg}", -1, original_command)
 
         if not self._is_allowed(
             command_list
@@ -259,7 +247,7 @@ import sys
 import os
 os.chdir('{self.working_dir}')
 try:
-{chr(10).join('    ' + line for line in code.split(chr(10)))}
+{chr(10).join("    " + line for line in code.split(chr(10)))}
 except Exception as e:
     print(f"ERROR: {{e}}", file=sys.stderr)
     sys.exit(1)
@@ -271,9 +259,7 @@ except Exception as e:
         try:
             self.docker_client.images.get(image_name)
         except ImageNotFound:
-            self.logger.info(
-                f"Docker image '{image_name}' not found locally. Pulling..."
-            )
+            self.logger.info(f"Docker image '{image_name}' not found locally. Pulling...")
             self.docker_client.images.pull(image_name)
             self.logger.info(f"Docker image '{image_name}' pulled successfully.")
 
@@ -288,9 +274,7 @@ except Exception as e:
         The project's working directory is mounted into the container.
         """
         if not self.docker_client:
-            return ExecutionResult(
-                False, "", "Docker client not initialized.", 1, command
-            )
+            return ExecutionResult(False, "", "Docker client not initialized.", 1, command)
 
         target_dir = Path(dir_path) if dir_path else Path(self.working_dir)
         # Ensure target_dir is absolute and within the project root for mounting
@@ -329,14 +313,10 @@ except Exception as e:
                 working_dir=mount_path,
                 name=f"ollash_sandbox_{os.urandom(4).hex()}",  # Unique name
             )
-            self.logger.info(
-                f"  Docker container '{container.name}' started for command: '{command}'"
-            )
+            self.logger.info(f"  Docker container '{container.name}' started for command: '{command}'")
 
             # Calculate the relative path for workdir inside the container
-            container_workdir = Path(mount_path) / target_dir.relative_to(
-                self.working_dir
-            )
+            container_workdir = Path(mount_path) / target_dir.relative_to(self.working_dir)
 
             exit_code, output = container.exec_run(
                 cmd=command_list,
@@ -360,9 +340,7 @@ except Exception as e:
                 command=command,
             )
         except ImageNotFound:
-            stderr_msg = (
-                f"Docker image '{image_name}' not found. Please ensure it's available."
-            )
+            stderr_msg = f"Docker image '{image_name}' not found. Please ensure it's available."
             self.logger.error(stderr_msg)
             return ExecutionResult(False, "", stderr_msg, 1, command)
         except ContainerError as e:

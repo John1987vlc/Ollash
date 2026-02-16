@@ -1,6 +1,4 @@
-from backend.utils.core.validators.base_validator import (BaseValidator,
-                                                          ValidationResult,
-                                                          ValidationStatus)
+from backend.utils.core.validators.base_validator import BaseValidator, ValidationResult, ValidationStatus
 
 
 class YamlValidator(BaseValidator):
@@ -9,9 +7,7 @@ class YamlValidator(BaseValidator):
     def __init__(self, logger=None, command_executor=None):
         super().__init__(logger, command_executor)
 
-    def validate(
-        self, file_path: str, content: str, lines: int, chars: int, ext: str
-    ) -> ValidationResult:
+    def validate(self, file_path: str, content: str, lines: int, chars: int, ext: str) -> ValidationResult:
         """
         Validates YAML file content.
         """
@@ -19,9 +15,7 @@ class YamlValidator(BaseValidator):
             import yaml
 
             yaml.safe_load(content)
-            return ValidationResult(
-                file_path, ValidationStatus.VALID, "Valid YAML", lines, chars
-            )
+            return ValidationResult(file_path, ValidationStatus.VALID, "Valid YAML", lines, chars)
         except ImportError:
             return ValidationResult(
                 file_path,

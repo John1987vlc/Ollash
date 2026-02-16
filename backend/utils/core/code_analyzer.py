@@ -148,14 +148,8 @@ class CodeAnalyzer:
         return {
             "total_files": total_files,
             "total_lines": total_lines,
-            "total_functions": len(
-                set(f for info in files.values() for f in info.functions)
-            ),
-            "total_classes": len(
-                set(f for info in files.values() for f in info.classes)
-            ),
+            "total_functions": len(set(f for info in files.values() for f in info.functions)),
+            "total_classes": len(set(f for info in files.values() for f in info.classes)),
             "languages": list(set(info.language.value for info in files.values())),
-            "test_coverage": sum(1 for f in files.values() if f.has_tests)
-            / max(total_files, 1)
-            * 100,
+            "test_coverage": sum(1 for f in files.values() if f.has_tests) / max(total_files, 1) * 100,
         }

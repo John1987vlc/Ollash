@@ -1,4 +1,5 @@
 """Blueprint for task automation scheduling."""
+
 import json
 import logging
 from datetime import datetime
@@ -126,9 +127,7 @@ def create_automation():
             logger.warning(f"Failed to schedule task {task_id} with APScheduler")
 
     return (
-        jsonify(
-            {"status": "created", "id": task_id, "task": _scheduled_tasks[task_id]}
-        ),
+        jsonify({"status": "created", "id": task_id, "task": _scheduled_tasks[task_id]}),
         201,
     )
 
@@ -243,8 +242,7 @@ async def _execute_scheduled_task(task_id: str, task_data: dict):
     if task_data.get("notifyEmail"):
         # TODO: Get user's configured email addresses
         # For now, we'll just use the manager's subscribed emails
-        from backend.utils.core.notification_manager import \
-            get_notification_manager
+        from backend.utils.core.notification_manager import get_notification_manager
 
         nm = get_notification_manager()
         recipient_emails = list(nm.subscribed_emails) if nm.subscribed_emails else None

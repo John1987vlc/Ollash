@@ -88,9 +88,7 @@ class StructurePreReviewer:
         self.parser = response_parser
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def review_structure(
-        self, readme_content: str, structure: Dict, project_name: str = "project"
-    ) -> StructureReview:
+    def review_structure(self, readme_content: str, structure: Dict, project_name: str = "project") -> StructureReview:
         """
         Perform comprehensive structure pre-review.
 
@@ -114,9 +112,7 @@ class StructurePreReviewer:
         }
 
         # Get LLM review for subjective aspects
-        llm_issues = self._get_llm_structure_review(
-            readme_content, structure, project_name
-        )
+        llm_issues = self._get_llm_structure_review(readme_content, structure, project_name)
 
         # Synthesize all issues
         all_issues = []
@@ -130,11 +126,7 @@ class StructurePreReviewer:
         quality_score = self._calculate_quality_score(metric_scores, llm_issues)
 
         # Determine status
-        status = (
-            "passed"
-            if quality_score >= 80
-            else ("needs_improvement" if quality_score >= 60 else "critical")
-        )
+        status = "passed" if quality_score >= 80 else ("needs_improvement" if quality_score >= 60 else "critical")
 
         # Generate recommendations
         recommendations = self._generate_recommendations(all_issues, status)
@@ -149,8 +141,7 @@ class StructurePreReviewer:
         )
 
         self.logger.info(
-            f"Structure Pre-Review complete: Score={quality_score:.1f}, "
-            f"Status={status}, Issues={len(all_issues)}"
+            f"Structure Pre-Review complete: Score={quality_score:.1f}, Status={status}, Issues={len(all_issues)}"
         )
 
         return review
@@ -192,9 +183,7 @@ class StructurePreReviewer:
 
         return issues, score
 
-    def _check_naming_conventions(
-        self, structure: Dict
-    ) -> Tuple[List[StructureIssue], float]:
+    def _check_naming_conventions(self, structure: Dict) -> Tuple[List[StructureIssue], float]:
         """Check naming consistency."""
         issues = []
         score = 100.0
@@ -228,9 +217,7 @@ class StructurePreReviewer:
 
         return issues, score
 
-    def _check_naming_conflicts(
-        self, structure: Dict
-    ) -> Tuple[List[StructureIssue], float]:
+    def _check_naming_conflicts(self, structure: Dict) -> Tuple[List[StructureIssue], float]:
         """Check for naming conflicts (file with folder name)."""
         issues = []
         score = 100.0
@@ -258,9 +245,7 @@ class StructurePreReviewer:
 
         return issues, score
 
-    def _check_completeness(
-        self, structure: Dict, readme: str
-    ) -> Tuple[List[StructureIssue], float]:
+    def _check_completeness(self, structure: Dict, readme: str) -> Tuple[List[StructureIssue], float]:
         """Check for required files based on project type."""
         issues = []
         score = 100.0
@@ -296,9 +281,7 @@ class StructurePreReviewer:
 
         return issues, score
 
-    def _check_organization(
-        self, structure: Dict
-    ) -> Tuple[List[StructureIssue], float]:
+    def _check_organization(self, structure: Dict) -> Tuple[List[StructureIssue], float]:
         """Check logical organization (src/, tests/, etc.)."""
         issues = []
         score = 100.0
@@ -335,9 +318,7 @@ class StructurePreReviewer:
 
         return issues, score
 
-    def _get_llm_structure_review(
-        self, readme: str, structure: Dict, project_name: str
-    ) -> List[StructureIssue]:
+    def _get_llm_structure_review(self, readme: str, structure: Dict, project_name: str) -> List[StructureIssue]:
         """Get LLM's subjective review of structure."""
         issues = []
 
@@ -401,9 +382,7 @@ Respond ONLY with valid JSON (no markdown):
 
         return issues
 
-    def _calculate_quality_score(
-        self, metrics: Dict[str, float], issues: List[StructureIssue]
-    ) -> float:
+    def _calculate_quality_score(self, metrics: Dict[str, float], issues: List[StructureIssue]) -> float:
         """Calculate overall quality score 0-100."""
         # Start with average of metrics
         base_score = sum(metrics.values()) / len(metrics) if metrics else 100.0
@@ -417,9 +396,7 @@ Respond ONLY with valid JSON (no markdown):
 
         return max(0, min(100, base_score))
 
-    def _generate_recommendations(
-        self, issues: List[StructureIssue], status: str
-    ) -> List[str]:
+    def _generate_recommendations(self, issues: List[StructureIssue], status: str) -> List[str]:
         """Generate actionable recommendations from issues."""
         recommendations = []
 
@@ -432,13 +409,10 @@ Respond ONLY with valid JSON (no markdown):
 
         # Generate recommendations per category
         for category, cat_issues in by_category.items():
-            high_priority = [
-                i for i in cat_issues if i.severity in ("high", "critical")
-            ]
+            high_priority = [i for i in cat_issues if i.severity in ("high", "critical")]
             if high_priority:
                 recommendations.append(
-                    f"Fix {len(high_priority)} critical {category} issues: "
-                    f"{high_priority[0].suggestion}"
+                    f"Fix {len(high_priority)} critical {category} issues: {high_priority[0].suggestion}"
                 )
 
         return recommendations

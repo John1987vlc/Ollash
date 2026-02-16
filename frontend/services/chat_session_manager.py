@@ -27,18 +27,14 @@ class ChatSessionManager:
         self._lock = threading.Lock()
         self.event_publisher = event_publisher
 
-    def create_session(
-        self, project_path: Optional[str] = None, agent_type: Optional[str] = None
-    ) -> str:
+    def create_session(self, project_path: Optional[str] = None, agent_type: Optional[str] = None) -> str:
         """Create a new chat session with its own DefaultAgent instance."""
         with self._lock:
             # Clean up finished sessions
             self._cleanup_finished()
 
             if len(self.sessions) >= self.MAX_SESSIONS:
-                raise RuntimeError(
-                    f"Maximum concurrent sessions ({self.MAX_SESSIONS}) reached."
-                )
+                raise RuntimeError(f"Maximum concurrent sessions ({self.MAX_SESSIONS}) reached.")
 
             session_id = uuid.uuid4().hex
             bridge = ChatEventBridge(self.event_publisher)
@@ -88,10 +84,6 @@ class ChatSessionManager:
 
     def _cleanup_finished(self):
         """Remove sessions whose threads have completed."""
-        finished = [
-            sid
-            for sid, s in self.sessions.items()
-            if s.thread is not None and not s.thread.is_alive()
-        ]
+        finished = [sid for sid, s in self.sessions.items() if s.thread is not None and not s.thread.is_alive()]
         for sid in finished:
             del self.sessions[sid]

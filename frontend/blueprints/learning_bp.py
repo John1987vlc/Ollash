@@ -21,7 +21,10 @@ from flask import Blueprint, jsonify, request
 from backend.utils.core.behavior_tuner import BehaviorTuner, TuningParameter
 from backend.utils.core.pattern_analyzer import PatternAnalyzer, SentimentType
 from backend.utils.core.preference_manager_extended import (
-    CommunicationStyle, ComplexityLevel, PreferenceManagerExtended)
+    CommunicationStyle,
+    ComplexityLevel,
+    PreferenceManagerExtended,
+)
 
 logger = logging.getLogger(__name__)
 learning_bp = Blueprint("learning", __name__, url_prefix="/api/learning")
@@ -33,9 +36,7 @@ def init_app(app):
     pass
 
 
-def get_learning_managers() -> (
-    Tuple[PreferenceManagerExtended, PatternAnalyzer, BehaviorTuner]
-):
+def get_learning_managers() -> Tuple[PreferenceManagerExtended, PatternAnalyzer, BehaviorTuner]:
     """
     Get or create learning managers (cached in app context).
 
@@ -88,9 +89,7 @@ def get_preference_profile(user_id: str):
                     "communication": {
                         "style": profile.communication.style.value,
                         "complexity": profile.communication.complexity.value,
-                        "preferences": [
-                            p.value for p in profile.communication.interaction_prefs
-                        ],
+                        "preferences": [p.value for p in profile.communication.interaction_prefs],
                         "use_examples": profile.communication.use_examples,
                         "use_visuals": profile.communication.use_visuals,
                     },
@@ -138,9 +137,7 @@ def update_preference_profile(user_id: str):
         # Extract other kwargs
         kwargs = {k: v for k, v in data.items() if k not in ["style", "complexity"]}
 
-        profile = pref_mgr.update_communication_style(
-            user_id, style=style, complexity=complexity, **kwargs
-        )
+        profile = pref_mgr.update_communication_style(user_id, style=style, complexity=complexity, **kwargs)
 
         return jsonify(
             {
@@ -198,9 +195,7 @@ def export_preference_profile(user_id: str):
 
         exported = pref_mgr.export_profile(user_id, format_type)
 
-        return jsonify(
-            {"status": "success", "format": format_type, "content": exported}
-        )
+        return jsonify({"status": "success", "format": format_type, "content": exported})
     except Exception as e:
         logger.error(f"Error exporting profile: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -244,9 +239,7 @@ def record_feedback():
         )
 
         # Auto-adapt behavior based on feedback
-        behavior_tuner.adapt_to_feedback(
-            entry.score, data.get("task_type"), keywords=data.get("keywords", [])
-        )
+        behavior_tuner.adapt_to_feedback(entry.score, data.get("task_type"), keywords=data.get("keywords", []))
 
         return jsonify(
             {
@@ -294,9 +287,7 @@ def get_detected_patterns():
         limit = int(request.args.get("limit", 10))
 
         _, pattern_analyzer, _ = get_learning_managers()
-        patterns = pattern_analyzer.get_patterns(
-            pattern_type=pattern_type, min_confidence=min_confidence, limit=limit
-        )
+        patterns = pattern_analyzer.get_patterns(pattern_type=pattern_type, min_confidence=min_confidence, limit=limit)
 
         return jsonify(
             {
@@ -490,9 +481,7 @@ def reset_tuning_config():
         _, _, behavior_tuner = get_learning_managers()
         behavior_tuner.reset_to_defaults()
 
-        return jsonify(
-            {"status": "success", "message": "Tuning configuration reset to defaults"}
-        )
+        return jsonify({"status": "success", "message": "Tuning configuration reset to defaults"})
     except Exception as e:
         logger.error(f"Error resetting config: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -540,9 +529,7 @@ def learning_health_check():
 
         return jsonify(
             {
-                "status": "healthy"
-                if all([prefs_ok, patterns_ok, tuning_ok])
-                else "degraded",
+                "status": "healthy" if all([prefs_ok, patterns_ok, tuning_ok]) else "degraded",
                 "components": {
                     "preferences": "ok" if prefs_ok else "error",
                     "patterns": "ok" if patterns_ok else "error",

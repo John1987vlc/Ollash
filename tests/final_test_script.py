@@ -2,6 +2,7 @@
 """
 Test final del código corregido
 """
+
 import sys
 from pathlib import Path
 
@@ -10,13 +11,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import logging
 
-from backend.utils.domains.multimedia.image_generation_tools import \
-    ImageGeneratorTools
+from backend.utils.domains.multimedia.image_generation_tools import ImageGeneratorTools
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 print("=" * 80)
@@ -38,9 +36,7 @@ print(f"   Version: {status.get('version')}")
 
 # Generate image
 print("\n2. Generando imagen...")
-result = image_gen.generate_image(
-    prompt="a beautiful sunset", steps=5, filename="final_test"
-)
+result = image_gen.generate_image(prompt="a beautiful sunset", steps=5, filename="final_test")
 
 print("\n" + "=" * 80)
 if result.get("ok"):

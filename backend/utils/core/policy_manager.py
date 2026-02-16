@@ -36,9 +36,7 @@ class PolicyManager:
                 self.logger.error(f"Error decoding policy file {self.policy_file}: {e}")
                 self.policies = {}  # Reset policies on error
             except Exception as e:
-                self.logger.error(
-                    f"Unexpected error loading policies from {self.policy_file}: {e}"
-                )
+                self.logger.error(f"Unexpected error loading policies from {self.policy_file}: {e}")
                 self.policies = {}
         else:
             self.logger.warning(
@@ -95,39 +93,28 @@ class PolicyManager:
         """Checks if the license of a file is compliant."""
         return self.license_checker.check_file_license(file_path)
 
-    def is_command_allowed(
-        self, command: str, args: List[str], current_agent_type: str = "orchestrator"
-    ) -> bool:
+    def is_command_allowed(self, command: str, args: List[str], current_agent_type: str = "orchestrator") -> bool:
         """
         Checks if a command is allowed based on defined policies,
         including path validation to prevent symlink traversal outside project_root.
         """
         allowed_commands = self.policies.get("allowed_commands", [])
         disallowed_patterns = self.policies.get("disallowed_patterns", [])
-        path_traversal_regex = self.policies.get(
-            "path_traversal_regex", r"(\.\./|\.\.\)"
-        )
+        path_traversal_regex = self.policies.get("path_traversal_regex", r"(\.\./|\.\.\)")
 
         cmd_parts = command.split(" ")[0]  # Get the base command
 
         # 1. Check against disallowed patterns in command itself
         for pattern in disallowed_patterns:
             if pattern in command:
-                self.logger.warning(
-                    f"Command '{command}' blocked: contains disallowed pattern '{pattern}'"
-                )
+                self.logger.warning(f"Command '{command}' blocked: contains disallowed pattern '{pattern}'")
                 return False
 
         # 2. Path Traversal & Symlink Validation (before other checks)
         # Apply to all arguments, as distinguishing between data and path arguments is hard heuristic-ally.
         # If an argument contains path separators, treat it as a potential path.
         for arg in args:
-            if (
-                "/" in arg
-                or "\\" in arg
-                or arg.startswith("..")
-                or arg.startswith("./")
-            ):
+            if "/" in arg or "\\" in arg or arg.startswith("..") or arg.startswith("./"):
                 try:
                     # Construct an absolute path relative to the project_root (sandbox)
                     abs_path = self.project_root / arg
@@ -142,22 +129,16 @@ class PolicyManager:
                         )
                         return False
                 except Exception as e:
-                    self.logger.warning(
-                        f"Error resolving path for argument '{arg}': {e}. Blocking command for safety."
-                    )
+                    self.logger.warning(f"Error resolving path for argument '{arg}': {e}. Blocking command for safety.")
                     return False
 
         # 3. Check for path traversal regex in original command and args (redundant but extra safety)
         if re.search(path_traversal_regex, command):
-            self.logger.warning(
-                f"Command '{command}' blocked: contains path traversal pattern (regex)"
-            )
+            self.logger.warning(f"Command '{command}' blocked: contains path traversal pattern (regex)")
             return False
         for arg in args:
             if re.search(path_traversal_regex, arg):
-                self.logger.warning(
-                    f"Argument '{arg}' blocked: contains path traversal pattern (regex)"
-                )
+                self.logger.warning(f"Argument '{arg}' blocked: contains path traversal pattern (regex)")
                 return False
 
         # 4. Check against allowed commands list
@@ -197,23 +178,15 @@ class PolicyManager:
                         return True
                 else:  # Assume direct path or regex-like without glob
                     # Use relative path for matching against patterns defined as such (e.g., "settings.json")
-                    relative_resolved_path = resolved_file_path.relative_to(
-                        self.project_root
-                    )
-                    if str(relative_resolved_path) == pattern or re.match(
-                        pattern, str(relative_resolved_path)
-                    ):
+                    relative_resolved_path = resolved_file_path.relative_to(self.project_root)
+                    if str(relative_resolved_path) == pattern or re.match(pattern, str(relative_resolved_path)):
                         self.logger.debug(
                             f"Path '{file_path}' resolved to '{resolved_file_path}' matches critical pattern '{pattern}'."
                         )
                         return True
         except Exception as e:
-            self.logger.error(
-                f"Error during critical path check for '{file_path}': {e}. Blocking for safety."
-            )
-            return (
-                True  # Error during resolution should be considered critical for safety
-            )
+            self.logger.error(f"Error during critical path check for '{file_path}': {e}. Blocking for safety.")
+            return True  # Error during resolution should be considered critical for safety
         return False
 
     def get_auto_confirm_thresholds(self, action_type: str) -> Dict[str, Any]:

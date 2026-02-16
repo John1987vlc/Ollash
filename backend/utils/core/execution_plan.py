@@ -32,9 +32,7 @@ class Milestone:
     end_time: Optional[str] = None
     error_message: Optional[str] = None
     output_summary: Optional[str] = None
-    dependencies: List[str] = field(
-        default_factory=list
-    )  # IDs of milestone dependencies
+    dependencies: List[str] = field(default_factory=list)  # IDs of milestone dependencies
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert milestone to dictionary."""
@@ -109,9 +107,7 @@ class ExecutionPlan:
             self.milestones[milestone_id].status = MilestoneStatus.IN_PROGRESS
             self.milestones[milestone_id].start_time = datetime.now().isoformat()
 
-    def complete_milestone(
-        self, milestone_id: str, output_summary: Optional[str] = None
-    ) -> None:
+    def complete_milestone(self, milestone_id: str, output_summary: Optional[str] = None) -> None:
         """Mark a milestone as completed."""
         if milestone_id in self.milestones:
             milestone = self.milestones[milestone_id]
@@ -152,23 +148,11 @@ class ExecutionPlan:
             Dictionary with progress metrics
         """
         total = len(self.milestones)
-        completed = sum(
-            1 for m in self.milestones.values() if m.status == MilestoneStatus.COMPLETED
-        )
-        failed = sum(
-            1 for m in self.milestones.values() if m.status == MilestoneStatus.FAILED
-        )
-        in_progress = sum(
-            1
-            for m in self.milestones.values()
-            if m.status == MilestoneStatus.IN_PROGRESS
-        )
-        skipped = sum(
-            1 for m in self.milestones.values() if m.status == MilestoneStatus.SKIPPED
-        )
-        pending = sum(
-            1 for m in self.milestones.values() if m.status == MilestoneStatus.PENDING
-        )
+        completed = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.COMPLETED)
+        failed = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.FAILED)
+        in_progress = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.IN_PROGRESS)
+        skipped = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.SKIPPED)
+        pending = sum(1 for m in self.milestones.values() if m.status == MilestoneStatus.PENDING)
 
         return {
             "project_name": self.project_name,
@@ -207,9 +191,7 @@ class ExecutionPlan:
         """Mark the entire execution plan as complete."""
         self.completion_time = datetime.now().isoformat()
 
-    def get_milestone_id_by_phase_class_name(
-        self, phase_class_name: str
-    ) -> Optional[str]:
+    def get_milestone_id_by_phase_class_name(self, phase_class_name: str) -> Optional[str]:
         """
         Retrieves the milestone ID for a given phase class name.
         """
@@ -218,9 +200,7 @@ class ExecutionPlan:
                 return milestone_id
         return None
 
-    def _get_milestone_info(
-        self, phase_class_name: str, phase_index: int
-    ) -> Dict[str, Any]:
+    def _get_milestone_info(self, phase_class_name: str, phase_index: int) -> Dict[str, Any]:
         """
         Get milestone information for a specific phase.
 

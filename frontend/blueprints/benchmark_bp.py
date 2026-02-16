@@ -1,4 +1,5 @@
 """Blueprint for model benchmarking routes."""
+
 import json
 import os
 import queue
@@ -14,9 +15,7 @@ from frontend.middleware import rate_limit_benchmark, require_api_key
 benchmark_bp = Blueprint("benchmark", __name__)
 
 _ollash_root_dir: Path = None
-_active_run: dict = (
-    None  # {"thread": Thread, "queue": Queue, "benchmarker": ModelBenchmarker}
-)
+_active_run: dict = None  # {"thread": Thread, "queue": Queue, "benchmarker": ModelBenchmarker}
 
 
 def init_app(ollash_root_dir: Path):
@@ -236,9 +235,7 @@ def list_results():
 def get_result(filename):
     """Load a specific benchmark result file."""
     # Security: only allow expected filenames
-    if not filename.startswith("auto_benchmark_results_") or not filename.endswith(
-        ".json"
-    ):
+    if not filename.startswith("auto_benchmark_results_") or not filename.endswith(".json"):
         return jsonify({"status": "error", "message": "Invalid filename."}), 400
 
     file_path = _ollash_root_dir / "logs" / filename

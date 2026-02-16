@@ -5,44 +5,28 @@ from pathlib import Path
 from dependency_injector import containers, providers
 
 from backend.agents.auto_agent import AutoAgent
-from backend.agents.auto_agent_phases.code_quarantine_phase import \
-    CodeQuarantinePhase
-from backend.agents.auto_agent_phases.content_completeness_phase import \
-    ContentCompletenessPhase
-from backend.agents.auto_agent_phases.dependency_reconciliation_phase import \
-    DependencyReconciliationPhase
-from backend.agents.auto_agent_phases.empty_file_scaffolding_phase import \
-    EmptyFileScaffoldingPhase
-from backend.agents.auto_agent_phases.exhaustive_review_repair_phase import \
-    ExhaustiveReviewRepairPhase
-from backend.agents.auto_agent_phases.file_content_generation_phase import \
-    FileContentGenerationPhase
-from backend.agents.auto_agent_phases.file_refinement_phase import \
-    FileRefinementPhase
-from backend.agents.auto_agent_phases.final_review_phase import \
-    FinalReviewPhase
-from backend.agents.auto_agent_phases.iterative_improvement_phase import \
-    IterativeImprovementPhase
-from backend.agents.auto_agent_phases.license_compliance_phase import \
-    LicenseCompliancePhase
-from backend.agents.auto_agent_phases.logic_planning_phase import \
-    LogicPlanningPhase
+from backend.agents.auto_agent_phases.code_quarantine_phase import CodeQuarantinePhase
+from backend.agents.auto_agent_phases.content_completeness_phase import ContentCompletenessPhase
+from backend.agents.auto_agent_phases.dependency_reconciliation_phase import DependencyReconciliationPhase
+from backend.agents.auto_agent_phases.empty_file_scaffolding_phase import EmptyFileScaffoldingPhase
+from backend.agents.auto_agent_phases.exhaustive_review_repair_phase import ExhaustiveReviewRepairPhase
+from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
+from backend.agents.auto_agent_phases.file_refinement_phase import FileRefinementPhase
+from backend.agents.auto_agent_phases.final_review_phase import FinalReviewPhase
+from backend.agents.auto_agent_phases.iterative_improvement_phase import IterativeImprovementPhase
+from backend.agents.auto_agent_phases.license_compliance_phase import LicenseCompliancePhase
+from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
+
 # Agent Phases
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
-from backend.agents.auto_agent_phases.project_analysis_phase import \
-    ProjectAnalysisPhase
-from backend.agents.auto_agent_phases.readme_generation_phase import \
-    ReadmeGenerationPhase
-from backend.agents.auto_agent_phases.senior_review_phase import \
-    SeniorReviewPhase
-from backend.agents.auto_agent_phases.structure_generation_phase import \
-    StructureGenerationPhase
-from backend.agents.auto_agent_phases.structure_pre_review_phase import \
-    StructurePreReviewPhase
-from backend.agents.auto_agent_phases.test_generation_execution_phase import \
-    TestGenerationExecutionPhase
-from backend.agents.auto_agent_phases.verification_phase import \
-    VerificationPhase
+from backend.agents.auto_agent_phases.project_analysis_phase import ProjectAnalysisPhase
+from backend.agents.auto_agent_phases.readme_generation_phase import ReadmeGenerationPhase
+from backend.agents.auto_agent_phases.senior_review_phase import SeniorReviewPhase
+from backend.agents.auto_agent_phases.structure_generation_phase import StructureGenerationPhase
+from backend.agents.auto_agent_phases.structure_pre_review_phase import StructurePreReviewPhase
+from backend.agents.auto_agent_phases.test_generation_execution_phase import TestGenerationExecutionPhase
+from backend.agents.auto_agent_phases.verification_phase import VerificationPhase
+
 # Import all services and phases to be managed by the container
 from backend.core.config import config
 from backend.core.kernel import AgentKernel
@@ -60,44 +44,32 @@ from backend.utils.core.fragment_cache import FragmentCache
 from backend.utils.core.llm_recorder import LLMRecorder
 from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.parallel_generator import ParallelFileGenerator
-from backend.utils.core.permission_profiles import (PermissionProfileManager,
-                                                    PolicyEnforcer)
+from backend.utils.core.permission_profiles import PermissionProfileManager, PolicyEnforcer
 from backend.utils.core.scanners.rag_context_selector import RAGContextSelector
+
 # Core Utilities
 from backend.utils.core.structured_logger import StructuredLogger
-from backend.utils.domains.auto_generation.contingency_planner import \
-    ContingencyPlanner
-from backend.utils.domains.auto_generation.file_completeness_checker import \
-    FileCompletenessChecker
-from backend.utils.domains.auto_generation.file_content_generator import \
-    FileContentGenerator
+from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
+from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
+from backend.utils.domains.auto_generation.file_content_generator import FileContentGenerator
 from backend.utils.domains.auto_generation.file_refiner import FileRefiner
-from backend.utils.domains.auto_generation.improvement_planner import \
-    ImprovementPlanner
-from backend.utils.domains.auto_generation.improvement_suggester import \
-    ImprovementSuggester
-from backend.utils.domains.auto_generation.multi_language_test_generator import \
-    MultiLanguageTestGenerator
+from backend.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
+from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
+from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
+
 # Specialized AutoAgent services
-from backend.utils.domains.auto_generation.project_planner import \
-    ProjectPlanner
-from backend.utils.domains.auto_generation.project_reviewer import \
-    ProjectReviewer
-from backend.utils.domains.auto_generation.senior_reviewer import \
-    SeniorReviewer
-from backend.utils.domains.auto_generation.structure_generator import \
-    StructureGenerator
-from backend.utils.domains.auto_generation.structure_pre_reviewer import \
-    StructurePreReviewer
+from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
+from backend.utils.domains.auto_generation.project_reviewer import ProjectReviewer
+from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
+from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
+from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
 
 
 class CoreContainer(containers.DeclarativeContainer):
     """Container for core, cross-cutting services."""
 
     config = providers.Object(config)
-    ollash_root_dir = providers.Factory(
-        Path, config.provided.get.call("ollash_root_dir", ".")
-    )
+    ollash_root_dir = providers.Factory(Path, config.provided.get.call("ollash_root_dir", "."))
     generated_projects_dir = providers.Factory(
         lambda root: root / "generated_projects" / "auto_agent_projects",
         ollash_root_dir,
@@ -120,14 +92,10 @@ class CoreContainer(containers.DeclarativeContainer):
         structured_logger=structured_logger,
     )
 
-    logger = providers.Singleton(
-        AgentLogger, structured_logger=structured_logger, logger_name="OllashApp"
-    )
+    logger = providers.Singleton(AgentLogger, structured_logger=structured_logger, logger_name="OllashApp")
     event_publisher = providers.Singleton(EventPublisher)
 
-    tool_settings_config = providers.Singleton(
-        lambda k: k.get_tool_settings_config(), agent_kernel
-    )
+    tool_settings_config = providers.Singleton(lambda k: k.get_tool_settings_config(), agent_kernel)
 
     command_executor = providers.Singleton(
         CommandExecutor,
@@ -138,9 +106,7 @@ class CoreContainer(containers.DeclarativeContainer):
 
     file_manager = providers.Singleton(FileManager, root_path=ollash_root_dir.provided)
     response_parser = providers.Singleton(LLMResponseParser)
-    file_validator = providers.Singleton(
-        FileValidator, logger=logger, command_executor=command_executor
-    )
+    file_validator = providers.Singleton(FileValidator, logger=logger, command_executor=command_executor)
 
     llm_recorder = providers.Singleton(LLMRecorder, logger=logger)
     documentation_manager = providers.Singleton(
@@ -151,33 +117,21 @@ class CoreContainer(containers.DeclarativeContainer):
         config=config.provided,
     )
 
-    code_quarantine = providers.Singleton(
-        CodeQuarantine, project_root=ollash_root_dir.provided, logger=logger
-    )
+    code_quarantine = providers.Singleton(CodeQuarantine, project_root=ollash_root_dir.provided, logger=logger)
 
-    cache_dir = providers.Factory(
-        lambda root: root / ".cache" / "fragments", ollash_root_dir
-    )
-    fragment_cache = providers.Singleton(
-        FragmentCache, cache_dir=cache_dir, logger=logger, enable_persistence=True
-    )
+    cache_dir = providers.Factory(lambda root: root / ".cache" / "fragments", ollash_root_dir)
+    fragment_cache = providers.Singleton(FragmentCache, cache_dir=cache_dir, logger=logger, enable_persistence=True)
 
     dependency_graph = providers.Singleton(DependencyGraph, logger=logger)
 
     parallel_generator = providers.Singleton(
         ParallelFileGenerator,
         logger=logger,
-        max_concurrent=config.provided.get.call(
-            "parallel_generation_max_concurrent", 3
-        ),
-        max_requests_per_minute=config.provided.get.call(
-            "parallel_generation_max_rpm", 10
-        ),
+        max_concurrent=config.provided.get.call("parallel_generation_max_concurrent", 3),
+        max_requests_per_minute=config.provided.get.call("parallel_generation_max_rpm", 10),
     )
 
-    kb_dir = providers.Factory(
-        lambda root: root / ".cache" / "knowledge", ollash_root_dir
-    )
+    kb_dir = providers.Factory(lambda root: root / ".cache" / "knowledge", ollash_root_dir)
     error_knowledge_base = providers.Singleton(
         ErrorKnowledgeBase, knowledge_dir=kb_dir, logger=logger, enable_persistence=True
     )
@@ -205,9 +159,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
 
     core = providers.Container(CoreContainer)
 
-    llm_models_config = providers.Singleton(
-        lambda k: k.get_llm_models_config(), core.agent_kernel
-    )
+    llm_models_config = providers.Singleton(lambda k: k.get_llm_models_config(), core.agent_kernel)
 
     llm_client_manager = providers.Singleton(
         LLMClientManager,
@@ -329,9 +281,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         generated_projects_dir=core.generated_projects_dir,
     )
 
-    project_analysis_phase_factory = providers.Factory(
-        ProjectAnalysisPhase, context=phase_context
-    )
+    project_analysis_phase_factory = providers.Factory(ProjectAnalysisPhase, context=phase_context)
 
     # --- Phase Providers ---
     phases_list = providers.List(

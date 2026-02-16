@@ -4,8 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.utils.core.scanners.rag_context_selector import (
-    CodeFragment, RAGContextSelector, SemanticContextManager)
+from backend.utils.core.scanners.rag_context_selector import CodeFragment, RAGContextSelector, SemanticContextManager
 
 
 @pytest.fixture
@@ -110,13 +109,9 @@ class TestRAGContextSelector:
         """Test that context building respects token limits."""
         # Mock index_code_fragments and select_relevant_fragments to control behavior
         with patch.object(selector, "index_code_fragments") as mock_index:
-            with patch.object(
-                selector, "select_relevant_fragments"
-            ) as mock_select_fragments:
+            with patch.object(selector, "select_relevant_fragments") as mock_select_fragments:
                 # Simulate some fragments being indexed and selected
-                mock_index.return_value = (
-                    None  # No actual indexing needed for this test
-                )
+                mock_index.return_value = None  # No actual indexing needed for this test
                 mock_select_fragments.return_value = [
                     CodeFragment(
                         file_path="large_file.py",
@@ -155,9 +150,7 @@ class TestRAGContextSelector:
 class TestSemanticContextManager:
     """Test SemanticContextManager high-level API."""
 
-    def test_initialization(
-        self, mock_logger, tmp_project
-    ):  # Remove mock_token_tracker
+    def test_initialization(self, mock_logger, tmp_project):  # Remove mock_token_tracker
         """Test SemanticContextManager initialization."""
         manager = SemanticContextManager(
             logger=mock_logger,
@@ -167,9 +160,7 @@ class TestSemanticContextManager:
         assert manager.logger is not None
         assert manager.selector is not None
 
-    def test_prepare_context_for_phase(
-        self, mock_logger, tmp_project
-    ):  # Remove mock_token_tracker
+    def test_prepare_context_for_phase(self, mock_logger, tmp_project):  # Remove mock_token_tracker
         """Test preparing context for a specific phase."""
         manager = SemanticContextManager(
             logger=mock_logger,
@@ -194,9 +185,7 @@ class TestSemanticContextManager:
             # ChromaDB might not be available
             pass
 
-    def test_context_phases(
-        self, mock_logger, tmp_project
-    ):  # Remove mock_token_tracker
+    def test_context_phases(self, mock_logger, tmp_project):  # Remove mock_token_tracker
         """Test that context manager supports different phases."""
         manager = SemanticContextManager(
             logger=mock_logger,

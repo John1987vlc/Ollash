@@ -148,23 +148,17 @@ class LLMResponseParser:
 
             # Look for filename directive outside code blocks
             if not in_code_block:
-                filename_match = re.search(
-                    r"(?:#|//)[\s]*filename:\s*([^\n]+)", stripped
-                )
+                filename_match = re.search(r"(?:#|//)[\s]*filename:\s*([^\n]+)", stripped)
                 if filename_match:
                     raw = filename_match.group(1).strip()
-                    potential_filename = (
-                        Path(raw).as_posix().replace("..", "").lstrip("/")
-                    )
+                    potential_filename = Path(raw).as_posix().replace("..", "").lstrip("/")
                     continue
 
             if stripped.startswith("```"):
                 if in_code_block:
                     # End of block
                     if current_filename:
-                        files[current_filename] = "\n".join(
-                            current_file_content
-                        ).strip()
+                        files[current_filename] = "\n".join(current_file_content).strip()
                     current_file_content = []
                     current_filename = None
                     in_code_block = False
@@ -177,20 +171,14 @@ class LLMResponseParser:
                         potential_filename = None
                     elif "# filename:" in line:
                         raw = line.split("# filename:", 1)[1].strip()
-                        current_filename = (
-                            Path(raw).as_posix().replace("..", "").lstrip("/")
-                        )
+                        current_filename = Path(raw).as_posix().replace("..", "").lstrip("/")
                     else:
                         current_filename = None
             elif in_code_block:
                 # Check for filename directive inside the code block
-                if current_filename is None and stripped.startswith(
-                    ("# filename:", "// filename:")
-                ):
+                if current_filename is None and stripped.startswith(("# filename:", "// filename:")):
                     raw = stripped.split(":", 1)[1].strip()
-                    current_filename = (
-                        Path(raw).as_posix().replace("..", "").lstrip("/")
-                    )
+                    current_filename = Path(raw).as_posix().replace("..", "").lstrip("/")
                 else:
                     current_file_content.append(line)
 

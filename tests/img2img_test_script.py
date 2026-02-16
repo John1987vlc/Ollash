@@ -2,6 +2,7 @@
 """
 Test de imagen a imagen (img2img)
 """
+
 import sys
 from pathlib import Path
 
@@ -9,12 +10,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import logging
 
-from backend.utils.domains.multimedia.image_generation_tools import \
-    ImageGeneratorTools
+from backend.utils.domains.multimedia.image_generation_tools import ImageGeneratorTools
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 print("=" * 80)
@@ -25,9 +23,7 @@ image_gen = ImageGeneratorTools(logger=logger)
 
 # 1. Generar imagen inicial
 print("\n1. Generando imagen inicial...")
-initial_result = image_gen.generate_image(
-    prompt="a beautiful red car", steps=5, filename="input_car"
-)
+initial_result = image_gen.generate_image(prompt="a beautiful red car", steps=5, filename="input_car")
 
 if not initial_result.get("ok"):
     print(f"ERROR: {initial_result.get('error')}")

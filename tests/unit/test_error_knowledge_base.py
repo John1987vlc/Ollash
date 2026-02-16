@@ -7,8 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from backend.utils.core.error_knowledge_base import (ErrorKnowledgeBase,
-                                                     ErrorPattern)
+from backend.utils.core.error_knowledge_base import ErrorKnowledgeBase, ErrorPattern
 
 
 @pytest.fixture
@@ -127,9 +126,7 @@ class TestKnowledgeBaseQuerying:
         )
 
         # Query similar errors
-        similar = error_kb.query_similar_errors(
-            "new_file.py", "python", "type", max_results=5
-        )
+        similar = error_kb.query_similar_errors("new_file.py", "python", "type", max_results=5)
 
         assert len(similar) > 0
         assert all(p.error_type == "type" for p in similar)
@@ -139,9 +136,7 @@ class TestKnowledgeBaseQuerying:
         error_kb.record_error("py_file.py", "syntax", "Error", "code")
         error_kb.record_error("js_file.js", "logic", "Error", "code")
 
-        python_errors = error_kb.query_similar_errors(
-            "test.py", "python", max_results=10
-        )
+        python_errors = error_kb.query_similar_errors("test.py", "python", max_results=10)
 
         # Should only return Python errors
         assert all(p.language == "python" for p in python_errors)
@@ -161,9 +156,7 @@ class TestPreventionWarnings:
                 "import nonexistent",
             )
 
-        warnings = error_kb.get_prevention_warnings(
-            "new_file.py", "MyProject", "python"
-        )
+        warnings = error_kb.get_prevention_warnings("new_file.py", "MyProject", "python")
 
         if warnings:  # May be empty if no matching errors
             assert "careful" in warnings.lower() or "avoid" in warnings.lower()

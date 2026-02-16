@@ -69,9 +69,7 @@ class ArtifactManager:
     que se mostrarán en el panel derecho de la UI.
     """
 
-    def __init__(
-        self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None
-    ):
+    def __init__(self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None):
         self.project_root = project_root
         self.logger = logger
         self.config = config or {}
@@ -158,8 +156,7 @@ class ArtifactManager:
                 type=ArtifactType.DIAGRAM.value,
                 title=title,
                 content={"mermaid_code": mermaid_code, "diagram_type": diagram_type},
-                metadata=metadata
-                or {"max_width": "1000px", "max_height": "800px", "responsive": True},
+                metadata=metadata or {"max_width": "1000px", "max_height": "800px", "responsive": True},
                 created_at=self._get_timestamp(),
             )
 
@@ -173,9 +170,7 @@ class ArtifactManager:
             self.logger.error(f"Error creating diagram: {e}")
             return ""
 
-    def create_checklist(
-        self, title: str, items: List[Dict[str, Any]], metadata: Optional[Dict] = None
-    ) -> str:
+    def create_checklist(self, title: str, items: List[Dict[str, Any]], metadata: Optional[Dict] = None) -> str:
         """
         Crea una lista de verificación interactiva.
 
@@ -213,9 +208,7 @@ class ArtifactManager:
                 content={
                     "items": [item.to_dict() for item in checklist_items],
                     "total_items": len(checklist_items),
-                    "completed_items": sum(
-                        1 for item in checklist_items if item.completed
-                    ),
+                    "completed_items": sum(1 for item in checklist_items if item.completed),
                 },
                 metadata=metadata or {"interactive": True, "show_progress": True},
                 created_at=self._get_timestamp(),
@@ -427,16 +420,12 @@ class ArtifactManager:
 
         for item in items:
             checked = "checked" if item["completed"] else ""
-            category = (
-                f"<span class='category'>{item['category']}</span>"
-                if item.get("category")
-                else ""
-            )
+            category = f"<span class='category'>{item['category']}</span>" if item.get("category") else ""
 
             html += f"""
                 <li class="checklist-item">
-                    <input type="checkbox" id="{item['id']}" {checked} class="checklist-input">
-                    <label for="{item['id']}">{item['label']}</label>
+                    <input type="checkbox" id="{item["id"]}" {checked} class="checklist-input">
+                    <label for="{item["id"]}">{item["label"]}</label>
                     {category}
                 </li>
             """
@@ -528,9 +517,7 @@ class ArtifactManager:
             return True
         return False
 
-    def update_checklist_item(
-        self, artifact_id: str, item_id: str, completed: bool
-    ) -> bool:
+    def update_checklist_item(self, artifact_id: str, item_id: str, completed: bool) -> bool:
         """Actualiza el estado de un item de checklist."""
         try:
             artifact = self.artifacts.get(artifact_id)
@@ -542,9 +529,7 @@ class ArtifactManager:
                     item["completed"] = completed
 
                     # Actualizar contadores
-                    artifact.content["completed_items"] = sum(
-                        1 for i in artifact.content["items"] if i["completed"]
-                    )
+                    artifact.content["completed_items"] = sum(1 for i in artifact.content["items"] if i["completed"])
                     artifact.updated_at = self._get_timestamp()
 
                     self._save_artifacts()
@@ -568,9 +553,7 @@ class ArtifactManager:
         """Guarda los artefactos a archivo."""
         try:
             data = {
-                "artifacts": {
-                    aid: artifact.to_dict() for aid, artifact in self.artifacts.items()
-                },
+                "artifacts": {aid: artifact.to_dict() for aid, artifact in self.artifacts.items()},
                 "last_updated": self._get_timestamp(),
             }
 

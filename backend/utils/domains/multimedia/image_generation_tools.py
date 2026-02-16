@@ -109,9 +109,7 @@ class ImageGeneratorTools:
         model_info = self._get_model_key(model_name)
 
         if not model_info:
-            raise ValueError(
-                f"Model '{model_name}' not found. Use check_invoke_ui_status() to see available models."
-            )
+            raise ValueError(f"Model '{model_name}' not found. Use check_invoke_ui_status() to see available models.")
 
         # Generate unique IDs for each node
         model_loader_id = str(uuid.uuid4())
@@ -253,9 +251,7 @@ class ImageGeneratorTools:
         model_info = self._get_model_key(model_name)
 
         if not model_info:
-            raise ValueError(
-                f"Model '{model_name}' not found. Use check_invoke_ui_status() to see available models."
-            )
+            raise ValueError(f"Model '{model_name}' not found. Use check_invoke_ui_status() to see available models.")
 
         # Generate unique IDs for each node
         model_loader_id = str(uuid.uuid4())
@@ -444,9 +440,7 @@ class ImageGeneratorTools:
                     timeout=10,
                 )
 
-                self.logger.debug(
-                    f"[Attempt {attempts}] Item status code: {item_response.status_code}"
-                )
+                self.logger.debug(f"[Attempt {attempts}] Item status code: {item_response.status_code}")
 
                 if item_response.status_code == 200:
                     item_data = item_response.json()
@@ -458,9 +452,7 @@ class ImageGeneratorTools:
                         session = item_data.get("session", {})
                         results = session.get("results", {})
 
-                        self.logger.debug(
-                            f"Session results keys: {list(results.keys())}"
-                        )
+                        self.logger.debug(f"Session results keys: {list(results.keys())}")
 
                         # Look for the image output in results
                         for node_id, result in results.items():
@@ -473,15 +465,11 @@ class ImageGeneratorTools:
                                 if isinstance(image_data, dict):
                                     image_name = image_data.get("image_name")
                                     if image_name:
-                                        self.logger.info(
-                                            f"✅ Found image_name: {image_name}"
-                                        )
+                                        self.logger.info(f"✅ Found image_name: {image_name}")
                                         return image_name
 
                         # If we get here, item completed but image not found
-                        self.logger.warning(
-                            "Item completed but image_output not found in results"
-                        )
+                        self.logger.warning("Item completed but image_output not found in results")
                         return None
 
                     elif status == "failed":
@@ -492,24 +480,18 @@ class ImageGeneratorTools:
                         return None
 
                     else:  # Processing or pending
-                        self.logger.debug(
-                            f"Item still processing... ({time.time() - start_time:.1f}s elapsed)"
-                        )
+                        self.logger.debug(f"Item still processing... ({time.time() - start_time:.1f}s elapsed)")
 
                 elif item_response.status_code == 404:
                     self.logger.debug(f"Item {item_id} not yet ready (404)")
                 else:
-                    self.logger.warning(
-                        f"Unexpected status code: {item_response.status_code}"
-                    )
+                    self.logger.warning(f"Unexpected status code: {item_response.status_code}")
 
                 # Wait before next check
                 time.sleep(2)
 
             except Exception as e:
-                self.logger.error(
-                    f"Error checking item status: {str(e)}", exc_info=True
-                )
+                self.logger.error(f"Error checking item status: {str(e)}", exc_info=True)
                 time.sleep(2)
 
         self.logger.error(f"Timeout waiting for image generation after {timeout}s")
@@ -550,14 +532,10 @@ class ImageGeneratorTools:
                     f.write(response.content)
 
                 file_size = output_path.stat().st_size
-                self.logger.info(
-                    f"✅ Image downloaded successfully ({file_size} bytes): {output_path}"
-                )
+                self.logger.info(f"✅ Image downloaded successfully ({file_size} bytes): {output_path}")
                 return True
             else:
-                self.logger.error(
-                    f"❌ Failed to download image: HTTP {response.status_code}"
-                )
+                self.logger.error(f"❌ Failed to download image: HTTP {response.status_code}")
                 self.logger.error(f"Response text: {response.text[:500]}")
                 return False
 
@@ -646,9 +624,7 @@ class ImageGeneratorTools:
         Returns:
             Dict with status, file path, or error details
         """
-        self.logger.info(
-            f"🎨 Generating image with prompt: {prompt[:100]}... using model: {model_name}"
-        )
+        self.logger.info(f"🎨 Generating image with prompt: {prompt[:100]}... using model: {model_name}")
 
         # Generate filename if not provided
         if not filename:
@@ -717,14 +693,10 @@ class ImageGeneratorTools:
             self.logger.info("⏳ Waiting for image generation...")
             image_name = self._wait_for_completion(batch_id, item_ids, timeout=300)
 
-            self.logger.info(
-                f"Result from _wait_for_completion: image_name={image_name}"
-            )
+            self.logger.info(f"Result from _wait_for_completion: image_name={image_name}")
 
             if not image_name:
-                self.logger.error(
-                    "❌ Image generation timed out or failed - _wait_for_completion returned None"
-                )
+                self.logger.error("❌ Image generation timed out or failed - _wait_for_completion returned None")
                 return {
                     "ok": False,
                     "error": "Image generation timed out or failed to complete",
@@ -759,9 +731,7 @@ class ImageGeneratorTools:
             return {"ok": False, "error": error_msg}
 
         except requests.exceptions.ConnectionError as e:
-            error_msg = (
-                f"Cannot connect to Invoke UI at {self.api_base_url}. Is it running?"
-            )
+            error_msg = f"Cannot connect to Invoke UI at {self.api_base_url}. Is it running?"
             self.logger.error(f"❌ {error_msg}")
             return {"ok": False, "error": error_msg, "details": str(e)}
 
@@ -850,9 +820,7 @@ class ImageGeneratorTools:
         Returns:
             Dict with status, file path, or error details
         """
-        self.logger.info(
-            f"🎨 Generating img2img with prompt: {prompt[:100]}... using model: {model_name}"
-        )
+        self.logger.info(f"🎨 Generating img2img with prompt: {prompt[:100]}... using model: {model_name}")
 
         # Generate filename if not provided
         if not filename:
@@ -944,18 +912,12 @@ class ImageGeneratorTools:
 
             # Wait for completion
             self.logger.info("⏳ Waiting for image generation...")
-            output_image_name = self._wait_for_completion(
-                batch_id, item_ids, timeout=300
-            )
+            output_image_name = self._wait_for_completion(batch_id, item_ids, timeout=300)
 
-            self.logger.info(
-                f"Result from _wait_for_completion: output_image_name={output_image_name}"
-            )
+            self.logger.info(f"Result from _wait_for_completion: output_image_name={output_image_name}")
 
             if not output_image_name:
-                self.logger.error(
-                    "❌ Image generation timed out or failed - _wait_for_completion returned None"
-                )
+                self.logger.error("❌ Image generation timed out or failed - _wait_for_completion returned None")
                 return {
                     "ok": False,
                     "error": "Image generation timed out or failed to complete",
@@ -990,9 +952,7 @@ class ImageGeneratorTools:
             return {"ok": False, "error": error_msg}
 
         except requests.exceptions.ConnectionError as e:
-            error_msg = (
-                f"Cannot connect to Invoke UI at {self.api_base_url}. Is it running?"
-            )
+            error_msg = f"Cannot connect to Invoke UI at {self.api_base_url}. Is it running?"
             self.logger.error(f"❌ {error_msg}")
             return {"ok": False, "error": error_msg, "details": str(e)}
 
@@ -1062,14 +1022,10 @@ class ImageGeneratorTools:
             if result.get("ok"):
                 results["generated"].append(result)
             else:
-                results["failed"].append(
-                    {"prompt": prompt, "error": result.get("error")}
-                )
+                results["failed"].append({"prompt": prompt, "error": result.get("error")})
 
         self.logger.info(
-            f"✅ Batch generation complete: "
-            f"{len(results['generated'])} successful, "
-            f"{len(results['failed'])} failed"
+            f"✅ Batch generation complete: {len(results['generated'])} successful, {len(results['failed'])} failed"
         )
 
         return results
@@ -1089,9 +1045,7 @@ class ImageGeneratorTools:
             Dict with list of generated images and their info
         """
         try:
-            images = list(self.output_dir.glob("*.png")) + list(
-                self.output_dir.glob("*.jpg")
-            )
+            images = list(self.output_dir.glob("*.png")) + list(self.output_dir.glob("*.jpg"))
             images.sort(key=lambda x: x.stat().st_mtime, reverse=True)
 
             image_info = []
@@ -1200,9 +1154,7 @@ class ImageGeneratorTools:
 
         try:
             # Try to get API info - check root endpoint
-            response = requests.get(
-                f"{self.api_base_url}/api/v1/app/version", timeout=10
-            )
+            response = requests.get(f"{self.api_base_url}/api/v1/app/version", timeout=10)
 
             if response.status_code == 200:
                 version_info = response.json()

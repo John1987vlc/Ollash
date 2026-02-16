@@ -43,10 +43,7 @@ def validate_prompt_file(path: Path) -> Tuple[bool, List[str]]:
         if field not in data:
             errors.append(f"Missing required field: '{field}'")
         elif not isinstance(data[field], expected_type):
-            errors.append(
-                f"Field '{field}' must be {expected_type.__name__}, "
-                f"got {type(data[field]).__name__}"
-            )
+            errors.append(f"Field '{field}' must be {expected_type.__name__}, got {type(data[field]).__name__}")
         elif expected_type is str and not data[field].strip():
             errors.append(f"Field '{field}' must not be empty")
 

@@ -1,9 +1,7 @@
 import re
 import shutil
 
-from backend.utils.core.validators.base_validator import (BaseValidator,
-                                                          ValidationResult,
-                                                          ValidationStatus)
+from backend.utils.core.validators.base_validator import BaseValidator, ValidationResult, ValidationStatus
 
 
 class JavascriptValidator(BaseValidator):
@@ -17,18 +15,14 @@ class JavascriptValidator(BaseValidator):
         """Check if ESLint is available in the system."""
         return shutil.which("eslint") is not None
 
-    def validate(
-        self, file_path: str, content: str, lines: int, chars: int, ext: str
-    ) -> ValidationResult:
+    def validate(self, file_path: str, content: str, lines: int, chars: int, ext: str) -> ValidationResult:
         """
         Validates JavaScript file content using ESLint, or falls back to basic checks.
         """
         # If ESLint is not available, use basic checks
         if not self.eslint_available or not self.command_executor:
             if not self.eslint_available and self.logger:
-                self.logger.debug(
-                    f"  ESLint not available. Using basic JS brace check for {file_path}."
-                )
+                self.logger.debug(f"  ESLint not available. Using basic JS brace check for {file_path}.")
             return self._validate_brace_language(file_path, content, lines, chars)
 
         eslint_cmd = [
@@ -37,9 +31,7 @@ class JavascriptValidator(BaseValidator):
             "--parser-options=ecmaVersion:2021",
             "--format=compact",
         ]
-        eslint_error_pattern = re.compile(
-            r"^(.*?): line (\d+), col (\d+), (Error|Warning) - (.*)$"
-        )
+        eslint_error_pattern = re.compile(r"^(.*?): line (\d+), col (\d+), (Error|Warning) - (.*)$")
         eslint_result = self._run_linter_command(
             file_path,
             content,
@@ -58,14 +50,9 @@ class JavascriptValidator(BaseValidator):
                 lines,
                 chars,
             )
-        elif (
-            "command not found" in eslint_result.message.lower()
-            or "not recognized" in eslint_result.message.lower()
-        ):
+        elif "command not found" in eslint_result.message.lower() or "not recognized" in eslint_result.message.lower():
             if self.logger:
-                self.logger.warning(
-                    f"  eslint not found for {file_path}. Falling back to basic JS brace check."
-                )
+                self.logger.warning(f"  eslint not found for {file_path}. Falling back to basic JS brace check.")
             self.eslint_available = False
             return self._validate_brace_language(file_path, content, lines, chars)
         else:

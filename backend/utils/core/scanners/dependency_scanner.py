@@ -155,9 +155,7 @@ class PythonDependencyScanner(LanguageDependencyScanner):
         for filename, content in files.items():
             if filename.endswith(".py"):
                 # Find import statements
-                for match in re.finditer(
-                    r"^(?:from|import)\s+([a-zA-Z0-9_\.]+)", content, re.MULTILINE
-                ):
+                for match in re.finditer(r"^(?:from|import)\s+([a-zA-Z0-9_\.]+)", content, re.MULTILINE):
                     module = match.group(1).split(".")[0]
                     if module not in stdlib_modules and not module.startswith("_"):
                         packages.add(module)
@@ -181,11 +179,7 @@ class PythonDependencyScanner(LanguageDependencyScanner):
             return files
 
         req_content = files[req_key]
-        lines = [
-            line.strip()
-            for line in req_content.splitlines()
-            if line.strip() and not line.strip().startswith("#")
-        ]
+        lines = [line.strip() for line in req_content.splitlines() if line.strip() and not line.strip().startswith("#")]
 
         scanned_packages = self.scan_imports(files)
 
@@ -198,14 +192,9 @@ class PythonDependencyScanner(LanguageDependencyScanner):
                 new_req = "\n".join(sorted(scanned_packages)) + "\n"
                 files[req_key] = new_req
             else:
-                logger.warning(
-                    f"  {req_key} has {len(lines)} entries but no Python imports found. "
-                    f"Keeping original."
-                )
+                logger.warning(f"  {req_key} has {len(lines)} entries but no Python imports found. Keeping original.")
         else:
-            logger.info(
-                f"  {req_key} looks reasonable ({len(lines)} entries). Keeping as is."
-            )
+            logger.info(f"  {req_key} looks reasonable ({len(lines)} entries). Keeping as is.")
 
         return files
 
@@ -266,11 +255,7 @@ class NodeDependencyScanner(LanguageDependencyScanner):
                     module = match.group(1) or match.group(2)
                     # Extract top-level package name
                     package = module.split("/")[0]
-                    if (
-                        package
-                        and not package.startswith(".")
-                        and package not in builtin_modules
-                    ):
+                    if package and not package.startswith(".") and package not in builtin_modules:
                         packages.add(package)
 
         return packages
@@ -305,17 +290,14 @@ class NodeDependencyScanner(LanguageDependencyScanner):
 
         if len(declared_deps) > max(len(scanned_packages) * 3, 30):
             logger.info(
-                f"  Trimming {pkg_key}: {len(declared_deps)} declared deps → "
-                f"{len(scanned_packages)} scanned packages"
+                f"  Trimming {pkg_key}: {len(declared_deps)} declared deps → {len(scanned_packages)} scanned packages"
             )
             new_deps = {pkg: "*" for pkg in sorted(scanned_packages)}
             pkg_data["dependencies"] = new_deps
             new_content = json.dumps(pkg_data, indent=2) + "\n"
             files[pkg_key] = new_content
         else:
-            logger.info(
-                f"  {pkg_key} looks reasonable ({len(declared_deps)} deps). Keeping as is."
-            )
+            logger.info(f"  {pkg_key} looks reasonable ({len(declared_deps)} deps). Keeping as is.")
 
         return files
 
@@ -371,12 +353,9 @@ class GoDependencyScanner(LanguageDependencyScanner):
         mod_content = files[mod_key]
         require_lines = re.findall(r"^\s+\S+\s+v\S+", mod_content, re.MULTILINE)
 
-        if (
-            len(require_lines) > len(scanned_modules) * 3
-        ):  # Use a heuristic to decide if file is "too big"
+        if len(require_lines) > len(scanned_modules) * 3:  # Use a heuristic to decide if file is "too big"
             logger.info(
-                f"  Regenerating {mod_key} require block: {len(require_lines)} → "
-                f"{len(scanned_modules)} modules"
+                f"  Regenerating {mod_key} require block: {len(require_lines)} → {len(scanned_modules)} modules"
             )
             module_line = re.search(r"^module\s+\S+", mod_content, re.MULTILINE)
             go_version = re.search(r"^go\s+\S+", mod_content, re.MULTILINE)
@@ -388,16 +367,12 @@ class GoDependencyScanner(LanguageDependencyScanner):
                 new_content += go_version.group(0) + "\n\n"
             new_content += "require (\n"
             for mod in sorted(scanned_modules):  # Sort for deterministic output
-                new_content += (
-                    f"\t{mod} v0.0.0\n"  # Use v0.0.0 or actual versions if available
-                )
+                new_content += f"\t{mod} v0.0.0\n"  # Use v0.0.0 or actual versions if available
             new_content += ")\n"
 
             files[mod_key] = new_content
         else:
-            logger.info(
-                f"  {mod_key} looks reasonable ({len(require_lines)} requires). Keeping as is."
-            )
+            logger.info(f"  {mod_key} looks reasonable ({len(require_lines)} requires). Keeping as is.")
 
         return files
 

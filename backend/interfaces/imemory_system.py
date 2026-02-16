@@ -50,9 +50,7 @@ class IMemorySystem(ABC):
         pass
 
     @abstractmethod
-    async def clear_agent_memory(
-        self, agent_id: str, key: Optional[str] = None
-    ) -> None:
+    async def clear_agent_memory(self, agent_id: str, key: Optional[str] = None) -> None:
         """
         Clears all or a specific part of an agent's memory.
 

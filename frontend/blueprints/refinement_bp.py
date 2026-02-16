@@ -7,8 +7,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from backend.utils.core.feedback_refinement_manager import \
-    FeedbackRefinementManager
+from backend.utils.core.feedback_refinement_manager import FeedbackRefinementManager
 from backend.utils.core.refinement_orchestrator import RefinementOrchestrator
 from backend.utils.core.source_validator import SourceValidator
 
@@ -131,9 +130,7 @@ def list_workflows():
     try:
         workflows = orchestrator.list_workflows()
         return (
-            jsonify(
-                {"status": "success", "count": len(workflows), "workflows": workflows}
-            ),
+            jsonify({"status": "success", "count": len(workflows), "workflows": workflows}),
             200,
         )
     except Exception as e:
@@ -198,9 +195,7 @@ def critique_paragraph():
 
         from .utils.core.feedback_refinement_manager import ParagraphContext
 
-        para = ParagraphContext(
-            index=0, text=text, original_text=text, source_id=source_id
-        )
+        para = ParagraphContext(index=0, text=text, original_text=text, source_id=source_id)
 
         critique = refinement_manager.generate_critique(para, critique_type)
 
@@ -334,9 +329,7 @@ def register_source():
         success = validator.register_source(source_id, source_text)
 
         return (
-            jsonify(
-                {"status": "success" if success else "failed", "source_id": source_id}
-            ),
+            jsonify({"status": "success" if success else "failed", "source_id": source_id}),
             201 if success else 400,
         )
     except Exception as e:

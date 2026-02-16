@@ -126,9 +126,7 @@ def test_html_email_building():
     from backend.utils.core.notification_manager import NotificationManager
 
     nm = NotificationManager()
-    html = nm._build_html_email(
-        title="Test Title", content="<p>Test content</p>", status="success"
-    )
+    html = nm._build_html_email(title="Test Title", content="<p>Test content</p>", status="success")
 
     assert "<!DOCTYPE html>" in html
     assert "Test Title" in html

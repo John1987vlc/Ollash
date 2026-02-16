@@ -1,4 +1,5 @@
 """Blueprint for DefaultAgent interactive chat routes."""
+
 from pathlib import Path
 
 from flask import Blueprint, Response, jsonify, request, stream_with_context

@@ -10,9 +10,7 @@ from backend.utils.core.tool_decorator import ollash_tool
 
 
 class CybersecurityTools:
-    def __init__(
-        self, command_executor: CommandExecutor, file_manager: FileManager, logger: Any
-    ):
+    def __init__(self, command_executor: CommandExecutor, file_manager: FileManager, logger: Any):
         self.exec = command_executor
         self.files = file_manager
         self.logger = logger
@@ -40,9 +38,7 @@ class CybersecurityTools:
         Scans common or all ports on a host for open services.
         Returns structured JSON output of scan results.
         """
-        self.logger.info(
-            f"🕵️‍♀️ Scanning ports on host: {host} (common_ports_only: {common_ports_only})..."
-        )
+        self.logger.info(f"🕵️‍♀️ Scanning ports on host: {host} (common_ports_only: {common_ports_only})...")
         command = ""
         ports_to_scan = "21,22,23,25,53,80,110,143,3389,443,8080"  # Common ports
 
@@ -58,7 +54,7 @@ class CybersecurityTools:
                     port_commands.append(
                         f'try {{ Test-NetConnection -ComputerName {host} -Port {p} -InformationLevel Detailed | ConvertTo-Json -Compress }} catch {{ Write-Output "{{ \\"Port\\": {p}, \\"Status\\": \\"Closed/Filtered\\" }}" }}'
                     )
-                command = f"powershell -command \"{';'.join(port_commands)}\""
+                command = f'powershell -command "{";".join(port_commands)}"'
             else:
                 return {
                     "ok": False,
@@ -91,31 +87,25 @@ class CybersecurityTools:
             if self.os_type == "Windows":
                 # Parse JSON array from PowerShell output
                 try:
-                    json_output = f"[{result.stdout.replace('}{', '},{')}]"  # Convert concatenated JSON objects to array
+                    json_output = (
+                        f"[{result.stdout.replace('}{', '},{')}]"  # Convert concatenated JSON objects to array
+                    )
                     ps_results = json.loads(json_output)
                     for res in ps_results:
-                        port_status = (
-                            "open" if res.get("TcpTestSucceeded") else "closed/filtered"
-                        )
+                        port_status = "open" if res.get("TcpTestSucceeded") else "closed/filtered"
                         port_num = res.get("Port")
-                        if not port_num and res.get(
-                            "remotePort"
-                        ):  # If Detailed, Port might be remotePort
+                        if not port_num and res.get("remotePort"):  # If Detailed, Port might be remotePort
                             port_num = res.get("remotePort")
 
                         parsed_output["ports"].append(
                             {
                                 "port": port_num,
                                 "status": port_status,
-                                "service": res.get(
-                                    "RemoteHost", host
-                                ),  # Placeholder for service, if any
+                                "service": res.get("RemoteHost", host),  # Placeholder for service, if any
                             }
                         )
                 except json.JSONDecodeError:
-                    self.logger.warning(
-                        "Failed to parse PowerShell JSON output for ports. Returning raw."
-                    )
+                    self.logger.warning("Failed to parse PowerShell JSON output for ports. Returning raw.")
             else:  # Linux/macOS (nmap parsing)
                 lines = result.stdout.splitlines()
                 port_section_started = False
@@ -234,9 +224,7 @@ class CybersecurityTools:
         Analyzes a security log file for specific keywords or anomalies.
         Returns structured JSON output with path, status, and details of matches.
         """
-        self.logger.info(
-            f"🕵️‍♀️ Analyzing security log: {path} for keywords: {keywords or 'any'}..."
-        )
+        self.logger.info(f"🕵️‍♀️ Analyzing security log: {path} for keywords: {keywords or 'any'}...")
         try:
             full_path = self.files.root / path
             if not full_path.exists():
@@ -280,9 +268,7 @@ class CybersecurityTools:
                         break
 
             if found_entries:
-                self.logger.warning(
-                    f"⚠️ Potential security events found in {path}. Matches: {len(found_entries)}"
-                )
+                self.logger.warning(f"⚠️ Potential security events found in {path}. Matches: {len(found_entries)}")
             else:
                 self.logger.info(f"✅ No immediate security concerns found in {path}.")
 
@@ -322,44 +308,28 @@ class CybersecurityTools:
         Provides basic security hardening recommendations for a given operating system.
         Returns structured JSON output with the OS type and a list of recommendations.
         """
-        self.logger.info(
-            f"🛡️ Generating security hardening recommendations for {os_type}..."
-        )
+        self.logger.info(f"🛡️ Generating security hardening recommendations for {os_type}...")
         recommendations = []
         os_type_lower = os_type.lower()
 
         if "windows" in os_type_lower:
-            recommendations.append(
-                "Ensure Windows Defender/Antivirus is active and up-to-date."
-            )
+            recommendations.append("Ensure Windows Defender/Antivirus is active and up-to-date.")
             recommendations.append("Keep OS and applications patched (Windows Update).")
             recommendations.append("Enable Firewall and configure rules appropriately.")
-            recommendations.append(
-                "Use strong, unique passwords and enable MFA where possible."
-            )
+            recommendations.append("Use strong, unique passwords and enable MFA where possible.")
             recommendations.append("Disable unnecessary services and features.")
             recommendations.append("Implement account lockout policies.")
-            recommendations.append(
-                "Enable Controlled Folder Access to protect against ransomware."
-            )
+            recommendations.append("Enable Controlled Folder Access to protect against ransomware.")
             recommendations.append("Regularly backup important data.")
         elif "linux" in os_type_lower:
-            recommendations.append(
-                "Keep packages updated (e.g., apt update && apt upgrade)."
-            )
+            recommendations.append("Keep packages updated (e.g., apt update && apt upgrade).")
             recommendations.append("Configure a firewall (e.g., ufw, firewalld).")
             recommendations.append(
                 "Disable root login via SSH; use key-based authentication and disable password authentication."
             )
-            recommendations.append(
-                "Regularly audit user accounts and permissions, enforce strong password policies."
-            )
-            recommendations.append(
-                "Install and configure an antivirus/malware scanner (e.g., ClamAV)."
-            )
-            recommendations.append(
-                "Implement SELinux/AppArmor for mandatory access control."
-            )
+            recommendations.append("Regularly audit user accounts and permissions, enforce strong password policies.")
+            recommendations.append("Install and configure an antivirus/malware scanner (e.g., ClamAV).")
+            recommendations.append("Implement SELinux/AppArmor for mandatory access control.")
             recommendations.append("Regularly backup important data.")
         elif "macos" in os_type_lower:
             recommendations.append("Enable FileVault for full disk encryption.")
@@ -367,18 +337,10 @@ class CybersecurityTools:
             recommendations.append(
                 "Enable Firewall and block all incoming connections by default. Configure stealth mode."
             )
-            recommendations.append(
-                "Review Privacy & Security settings, especially app permissions, regularly."
-            )
-            recommendations.append(
-                "Use strong passwords and enable Touch ID/Face ID. Do not reuse passwords."
-            )
-            recommendations.append(
-                "Avoid installing software from untrusted sources; use Gatekeeper/Notarization."
-            )
-            recommendations.append(
-                "Regularly backup important data using Time Machine or other solutions."
-            )
+            recommendations.append("Review Privacy & Security settings, especially app permissions, regularly.")
+            recommendations.append("Use strong passwords and enable Touch ID/Face ID. Do not reuse passwords.")
+            recommendations.append("Avoid installing software from untrusted sources; use Gatekeeper/Notarization.")
+            recommendations.append("Regularly backup important data using Time Machine or other solutions.")
         else:
             recommendations.append(
                 f"No specific recommendations for '{os_type}'. General advice: Keep software updated, use strong unique passwords, enable multi-factor authentication, employ a firewall, and regularly backup important data."

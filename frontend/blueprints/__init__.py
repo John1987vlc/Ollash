@@ -1,4 +1,5 @@
 """Centralized blueprint registration for the Flask app."""
+
 from pathlib import Path
 
 from flask import Flask
@@ -24,6 +25,7 @@ from .benchmark_bp import benchmark_bp
 from .benchmark_bp import init_app as init_benchmark
 from .chat_bp import chat_bp
 from .chat_bp import init_app as init_chat
+
 # Import all blueprints and their init functions
 from .common_bp import common_bp
 from .common_bp import init_app as init_common
@@ -38,6 +40,18 @@ from .multimodal_bp import multimodal_bp
 from .refinement_bp import init_refinement, refinement_bp
 from .triggers_bp import init_app as init_triggers
 from .triggers_bp import triggers_bp
+
+# New blueprints (F7, F8, F11, F12, F15)
+from .cicd_bp import cicd_bp
+from .cicd_bp import init_app as init_cicd
+from .cost_bp import cost_bp
+from .cost_bp import init_app as init_cost
+from .export_bp import export_bp
+from .export_bp import init_app as init_export
+from .knowledge_graph_bp import knowledge_graph_bp
+from .knowledge_graph_bp import init_app as init_knowledge_graph
+from .pair_programming_bp import pair_programming_bp
+from .pair_programming_bp import init_app as init_pair_programming
 
 
 def register_blueprints(
@@ -61,9 +75,7 @@ def register_blueprints(
         (common_bp, lambda: init_common(ollash_root_dir)),
         (
             auto_agent_bp,
-            lambda: init_auto_agent(
-                ollash_root_dir, event_publisher, chat_event_bridge
-            ),
+            lambda: init_auto_agent(ollash_root_dir, event_publisher, chat_event_bridge),
         ),
         (chat_bp, lambda: init_chat(ollash_root_dir, event_publisher)),
         (benchmark_bp, lambda: init_benchmark(ollash_root_dir)),
@@ -84,6 +96,12 @@ def register_blueprints(
         (learning_bp, lambda: init_learning(app)),
         (refinement_bp, lambda: init_refinement(app)),
         (multimodal_bp, lambda: init_multimodal(app, ollash_root_dir)),
+        # New blueprints (F7, F8, F11, F12, F15)
+        (cicd_bp, lambda: init_cicd(app)),
+        (cost_bp, lambda: init_cost(app)),
+        (export_bp, lambda: init_export(app)),
+        (knowledge_graph_bp, lambda: init_knowledge_graph(app)),
+        (pair_programming_bp, lambda: init_pair_programming(app, event_publisher)),
     ]
 
     logger = app.config["logger"]

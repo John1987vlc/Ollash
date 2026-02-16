@@ -33,9 +33,7 @@ class TestFragmentCacheBasics:
 
     def test_cache_set_and_get(self, fragment_cache):
         """Test setting and getting a fragment."""
-        fragment_cache.set(
-            "license_header", "python", "# MIT License\nCopyright (c) 2026"
-        )
+        fragment_cache.set("license_header", "python", "# MIT License\nCopyright (c) 2026")
 
         result = fragment_cache.get("license_header", "python")
         assert result == "# MIT License\nCopyright (c) 2026"
@@ -70,9 +68,7 @@ class TestFragmentCacheBasics:
         """Test caching with context hashing."""
         context = "project description"
 
-        fragment_cache.set(
-            "class_template", "python", "class MyClass: pass", context=context
-        )
+        fragment_cache.set("class_template", "python", "class MyClass: pass", context=context)
 
         # With same context
         result = fragment_cache.get("class_template", "python", context=context)
@@ -95,9 +91,7 @@ class TestFragmentCacheValidation:
         fragment_cache.set("class_template", "python", "class MyClass: pass")
 
         # Valid fragment
-        result = fragment_cache.get(
-            "class_template", "python", validate_fn=validate_syntax
-        )
+        result = fragment_cache.get("class_template", "python", validate_fn=validate_syntax)
         assert result is not None
 
         # Invalid fragment

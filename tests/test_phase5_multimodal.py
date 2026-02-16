@@ -46,12 +46,7 @@ class TestOCRProcessor:
         # IDAT chunk (minimal data)
         idat_data = zlib.compress(b"\x00\x00")
         idat_crc = zlib.crc32(b"IDAT" + idat_data) & 0xFFFFFFFF
-        idat = (
-            struct.pack(">I", len(idat_data))
-            + b"IDAT"
-            + idat_data
-            + struct.pack(">I", idat_crc)
-        )
+        idat = struct.pack(">I", len(idat_data)) + b"IDAT" + idat_data + struct.pack(">I", idat_crc)
 
         # IEND chunk
         iend_crc = zlib.crc32(b"IEND") & 0xFFFFFFFF
@@ -155,9 +150,7 @@ class TestMultimediaIngester:
     def sample_markdown_file(self, temp_workspace):
         """Create sample markdown file"""
         md_path = Path(temp_workspace) / "test.md"
-        md_path.write_text(
-            "# Heading 1\n\nSome text here.\n\n## Heading 2\n\n- List item 1\n- List item 2\n"
-        )
+        md_path.write_text("# Heading 1\n\nSome text here.\n\n## Heading 2\n\n- List item 1\n- List item 2\n")
         return str(md_path)
 
     @pytest.fixture
@@ -276,8 +269,7 @@ class TestSpeechTranscriber:
     @pytest.fixture
     def transcriber(self, temp_workspace):
         """Create speech transcriber instance"""
-        from backend.utils.core.speech_transcriber import (SpeechTranscriber,
-                                                           TranscriptionConfig)
+        from backend.utils.core.speech_transcriber import SpeechTranscriber, TranscriptionConfig
 
         config = TranscriptionConfig(model_name="whisper-tiny")
         return SpeechTranscriber(workspace_path=temp_workspace, config=config)
@@ -383,17 +375,14 @@ class TestSpeechTranscriber:
 
     def test_match_confidence_thresholds(self, transcriber):
         """Test confidence threshold matching"""
-        from backend.utils.core.speech_transcriber import (ConfidenceSegment,
-                                                           TranscriptionResult)
+        from backend.utils.core.speech_transcriber import ConfidenceSegment, TranscriptionResult
 
         # Create 3 segments with different confidence levels
         # Note: is_uncertain should be True for segments with confidence < 0.7
         segments = [
             ConfidenceSegment(0, 1000, "high conf text", 0.95, is_uncertain=False),
             ConfidenceSegment(1000, 2000, "low", 0.5, is_uncertain=True),
-            ConfidenceSegment(
-                2000, 3000, "high conf text two", 0.92, is_uncertain=False
-            ),
+            ConfidenceSegment(2000, 3000, "high conf text two", 0.92, is_uncertain=False),
         ]
 
         result = TranscriptionResult(
@@ -412,8 +401,7 @@ class TestSpeechTranscriber:
 
     def test_transcript_summary(self, transcriber):
         """Test transcript summary generation"""
-        from backend.utils.core.speech_transcriber import (ConfidenceSegment,
-                                                           TranscriptionResult)
+        from backend.utils.core.speech_transcriber import ConfidenceSegment, TranscriptionResult
 
         segments = [ConfidenceSegment(0, 100, "word one", 0.9)]
         # Count unique words: word, one, two, three, four = 5 words

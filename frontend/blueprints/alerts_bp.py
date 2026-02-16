@@ -32,9 +32,7 @@ def stream_alerts():
             return
 
         # Create a subscription queue for this client
-        event_queue = (
-            queue.Queue()
-        )  # Renamed to event_queue to avoid conflict with imported queue module
+        event_queue = queue.Queue()  # Renamed to event_queue to avoid conflict with imported queue module
 
         # Define a callback function to put events into the queue
         def _event_callback(event_type, event_data):
@@ -56,11 +54,7 @@ def stream_alerts():
                     event_type, event_data = event_queue.get(timeout=30)
 
                     # Format as SSE
-                    data = (
-                        json.dumps(event_data)
-                        if isinstance(event_data, dict)
-                        else str(event_data)
-                    )
+                    data = json.dumps(event_data) if isinstance(event_data, dict) else str(event_data)
                     yield f"event: {event_type}\n"
                     yield f"data: {data}\n\n"
 

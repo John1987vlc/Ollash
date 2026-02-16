@@ -34,10 +34,7 @@ class MultiFormatIngester:
             self.pypdf = PyPDF2
             self.logger.debug("PyPDF2 available for PDF processing")
         except ImportError:
-            self.logger.warning(
-                "PyPDF2 not installed. PDF extraction disabled. "
-                "Install with: pip install PyPDF2"
-            )
+            self.logger.warning("PyPDF2 not installed. PDF extraction disabled. Install with: pip install PyPDF2")
 
         try:
             import docx
@@ -46,8 +43,7 @@ class MultiFormatIngester:
             self.logger.debug("python-docx available for DOCX processing")
         except ImportError:
             self.logger.warning(
-                "python-docx not installed. DOCX extraction disabled. "
-                "Install with: pip install python-docx"
+                "python-docx not installed. DOCX extraction disabled. Install with: pip install python-docx"
             )
 
         try:
@@ -168,10 +164,7 @@ class MultiFormatIngester:
         """
         results = {}
         for file_path in directory.rglob("*"):
-            if (
-                file_path.is_file()
-                and file_path.suffix.lower() in self.SUPPORTED_FORMATS
-            ):
+            if file_path.is_file() and file_path.suffix.lower() in self.SUPPORTED_FORMATS:
                 text = self.ingest_file(file_path)
                 if text:
                     results[file_path.name] = text

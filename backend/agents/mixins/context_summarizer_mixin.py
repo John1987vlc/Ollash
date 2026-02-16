@@ -38,9 +38,7 @@ class ContextSummarizerMixin(ABC):
         max_tokens = self.config.get("max_context_tokens", 8000)
         summarize_threshold = self.config.get("summarize_threshold_ratio", 0.7)
 
-        current_tokens = self._count_tokens(
-            str(messages)
-        )  # Crude token count for all messages
+        current_tokens = self._count_tokens(str(messages))  # Crude token count for all messages
 
         if current_tokens < max_tokens * summarize_threshold:
             return messages  # No summarization needed yet
@@ -53,13 +51,9 @@ class ContextSummarizerMixin(ABC):
             {"status": "summarizing", "tokens_before": current_tokens},
         )
 
-        summarizer_client = self.llm_manager.get_client(
-            "writer"
-        )  # Use writer or generalist model for summarization
+        summarizer_client = self.llm_manager.get_client("writer")  # Use writer or generalist model for summarization
         if not summarizer_client:
-            self.logger.error(
-                "Summarization LLM client not available. Cannot summarize context."
-            )
+            self.logger.error("Summarization LLM client not available. Cannot summarize context.")
             return messages  # Cannot summarize, return original messages
 
         summarized_messages = []
@@ -87,9 +81,7 @@ class ContextSummarizerMixin(ABC):
         ]
 
         try:
-            summary_response, _ = await summarizer_client.achat(
-                summary_prompt, tools=[]
-            )
+            summary_response, _ = await summarizer_client.achat(summary_prompt, tools=[])
             summary_content = summary_response["message"]["content"]
 
             summarized_messages.append(
@@ -101,9 +93,7 @@ class ContextSummarizerMixin(ABC):
             summarized_messages.extend(remaining_messages)
 
             tokens_after = self._count_tokens(str(summarized_messages))
-            self.logger.info(
-                f"Context summarized. Tokens after: {tokens_after}/{max_tokens}."
-            )
+            self.logger.info(f"Context summarized. Tokens after: {tokens_after}/{max_tokens}.")
             self.event_publisher.publish(
                 "context_management",
                 {"status": "summarized", "tokens_after": tokens_after},
@@ -111,10 +101,6 @@ class ContextSummarizerMixin(ABC):
             return summarized_messages
 
         except Exception as e:
-            self.logger.error(
-                f"Error during context summarization: {e}. Returning original messages."
-            )
-            self.event_publisher.publish(
-                "context_management", {"status": "error", "error_message": str(e)}
-            )
+            self.logger.error(f"Error during context summarization: {e}. Returning original messages.")
+            self.event_publisher.publish("context_management", {"status": "error", "error_message": str(e)})
             return messages

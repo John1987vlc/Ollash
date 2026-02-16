@@ -126,9 +126,7 @@ class BehaviorTuner:
             try:
                 with open(self.changes_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    self.change_history = [
-                        TuningChange(**change) for change in data.get("changes", [])
-                    ]
+                    self.change_history = [TuningChange(**change) for change in data.get("changes", [])]
             except Exception as e:
                 logger.error(f"Error loading change history: {e}")
 
@@ -180,9 +178,7 @@ class BehaviorTuner:
 
             # Apply change using learning rate
             if isinstance(old_value, (int, float)):
-                adjusted_value = (
-                    old_value + (new_value - old_value) * self.config.learning_rate
-                )
+                adjusted_value = old_value + (new_value - old_value) * self.config.learning_rate
                 setattr(self.config, param_name, adjusted_value)
             else:
                 setattr(self.config, param_name, new_value)
@@ -207,9 +203,7 @@ class BehaviorTuner:
 
         return False
 
-    def adapt_to_feedback(
-        self, feedback_score: float, feedback_type: str, keywords: List[str] = None
-    ):
+    def adapt_to_feedback(self, feedback_score: float, feedback_type: str, keywords: List[str] = None):
         """
         Adapt behavior based on user feedback.
 
@@ -301,9 +295,7 @@ class BehaviorTuner:
             if keyword in keywords:
                 adjustment()
 
-    def toggle_feature(
-        self, feature_name: str, enabled: bool, reason: str = ""
-    ) -> bool:
+    def toggle_feature(self, feature_name: str, enabled: bool, reason: str = "") -> bool:
         """
         Toggle a feature on/off.
 
@@ -371,9 +363,7 @@ class BehaviorTuner:
             if len(changes) >= 3:
                 # Multiple recent changes to same parameter - may be instability
                 directions = [
-                    1 if c.new_value > c.old_value else -1
-                    for c in changes
-                    if isinstance(c.old_value, (int, float))
+                    1 if c.new_value > c.old_value else -1 for c in changes if isinstance(c.old_value, (int, float))
                 ]
                 if directions and directions != [directions[0]] * len(directions):
                     recommendations.append(
@@ -448,8 +438,8 @@ class BehaviorTuner:
             md += "### Response Parameters\n"
             md += f"- Max Length: {config['max_response_length']} chars\n"
             md += f"- Detail Level: {config['detail_level']}\n"
-            md += f"- Code Examples: {config['code_example_frequency']*100:.0f}%\n"
-            md += f"- Diagrams: {config['diagram_frequency']*100:.0f}%\n\n"
+            md += f"- Code Examples: {config['code_example_frequency'] * 100:.0f}%\n"
+            md += f"- Diagrams: {config['diagram_frequency'] * 100:.0f}%\n\n"
 
             md += "### Feature Toggles\n"
             for feature in [

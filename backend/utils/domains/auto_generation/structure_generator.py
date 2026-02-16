@@ -47,13 +47,9 @@ class StructureGenerator:
         self.logger.info("  Starting hierarchical structure generation...")
 
         # Phase 1: Generate high-level structure (root files and top-level folders)
-        high_level_structure = self._generate_high_level_structure(
-            readme_content, max_retries, template_name
-        )
+        high_level_structure = self._generate_high_level_structure(readme_content, max_retries, template_name)
         if not high_level_structure:
-            self.logger.error(
-                "  Failed to generate high-level structure. Using fallback."
-            )
+            self.logger.error("  Failed to generate high-level structure. Using fallback.")
             return self.create_fallback_structure(
                 readme_content,
                 template_name,
@@ -71,24 +67,16 @@ class StructureGenerator:
         )
 
         file_count = len(self.extract_file_paths(final_structure))
-        self.logger.info(
-            f"  Successfully generated hierarchical structure with {file_count} files"
-        )
+        self.logger.info(f"  Successfully generated hierarchical structure with {file_count} files")
         return final_structure
 
-    def _generate_high_level_structure(
-        self, readme_content: str, max_retries: int, template_name: str
-    ) -> dict:
+    def _generate_high_level_structure(self, readme_content: str, max_retries: int, template_name: str) -> dict:
         """Generates the high-level (root) folders and files for the project."""
-        system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation(
-            readme_content
-        )
+        system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation(readme_content)
 
         for attempt in range(max_retries):
             try:
-                self.logger.info(
-                    f"  Attempt {attempt + 1}/{max_retries} for high-level structure..."
-                )
+                self.logger.info(f"  Attempt {attempt + 1}/{max_retries} for high-level structure...")
                 response_data, usage = self.llm_client.chat(
                     messages=[
                         {"role": "system", "content": system_prompt},
@@ -98,14 +86,10 @@ class StructureGenerator:
                     options_override=self.options,
                 )
                 raw = response_data["message"]["content"]
-                self.logger.info(
-                    f"  Raw high-level response length: {len(raw)} characters"
-                )
+                self.logger.info(f"  Raw high-level response length: {len(raw)} characters")
                 structure = self.parser.extract_json(raw)
                 if structure is None:
-                    raise ValueError(
-                        "Could not extract valid JSON from high-level response"
-                    )
+                    raise ValueError("Could not extract valid JSON from high-level response")
 
                 structure.setdefault("path", "./")
                 structure.setdefault("folders", [])
@@ -120,19 +104,13 @@ class StructureGenerator:
             except Exception as e:
                 self.logger.error(f"  High-level attempt {attempt + 1} failed: {e}")
                 if structure is None:  # Log raw content if JSON extraction failed
-                    self.logger.error(
-                        f"  Raw LLM response that failed JSON extraction:\n{raw}"
-                    )
+                    self.logger.error(f"  Raw LLM response that failed JSON extraction:\n{raw}")
                 if attempt < max_retries - 1:
-                    self.logger.info(
-                        "  Retrying high-level generation with simplified prompt..."
-                    )
+                    self.logger.info("  Retrying high-level generation with simplified prompt...")
                     (
                         system_prompt,
                         user_prompt,
-                    ) = AutoGenPrompts.high_level_structure_generation_simplified(
-                        readme_content
-                    )
+                    ) = AutoGenPrompts.high_level_structure_generation_simplified(readme_content)
                 else:
                     self.logger.error("  All high-level attempts failed.")
                     return {}
@@ -154,9 +132,7 @@ class StructureGenerator:
             folder_name = folder_data.get("name")
             if folder_name:
                 full_folder_path = str(Path(parent_path) / folder_name)
-                self.logger.info(
-                    f"    Generating sub-structure for folder: {full_folder_path}"
-                )
+                self.logger.info(f"    Generating sub-structure for folder: {full_folder_path}")
 
                 sub_structure_content = self._generate_folder_sub_structure(
                     full_folder_path,
@@ -169,9 +145,7 @@ class StructureGenerator:
                 if sub_structure_content:
                     folder_data["folders"] = sub_structure_content.get("folders", [])
                     folder_data["files"] = sub_structure_content.get("files", [])
-                    detailed_structure["folders"][
-                        i
-                    ] = self._recursively_generate_sub_structure(
+                    detailed_structure["folders"][i] = self._recursively_generate_sub_structure(
                         folder_data,
                         readme_content,
                         max_retries,
@@ -179,9 +153,7 @@ class StructureGenerator:
                         template_name,
                     )
                 else:
-                    self.logger.warning(
-                        f"    Failed to generate sub-structure for {full_folder_path}. Leaving as is."
-                    )
+                    self.logger.warning(f"    Failed to generate sub-structure for {full_folder_path}. Leaving as is.")
 
         return detailed_structure
 
@@ -201,9 +173,7 @@ class StructureGenerator:
 
         for attempt in range(max_retries):
             try:
-                self.logger.info(
-                    f"      Attempt {attempt + 1}/{max_retries} for {folder_path} sub-structure..."
-                )
+                self.logger.info(f"      Attempt {attempt + 1}/{max_retries} for {folder_path} sub-structure...")
                 response_data, usage = self.llm_client.chat(
                     messages=[
                         {"role": "system", "content": system_prompt},
@@ -213,17 +183,11 @@ class StructureGenerator:
                     options_override=self.options,
                 )
                 raw = response_data["message"]["content"]
-                self.logger.info(
-                    f"      Raw sub-structure response length: {len(raw)} characters"
-                )
+                self.logger.info(f"      Raw sub-structure response length: {len(raw)} characters")
                 sub_structure = self.parser.extract_json(raw)
                 if sub_structure is None:
-                    self.logger.error(
-                        f"      Raw LLM response that failed JSON extraction:\n{raw}"
-                    )
-                    raise ValueError(
-                        "Could not extract valid JSON from sub-structure response"
-                    )
+                    self.logger.error(f"      Raw LLM response that failed JSON extraction:\n{raw}")
+                    raise ValueError("Could not extract valid JSON from sub-structure response")
 
                 sub_structure.pop("path", None)
                 sub_structure.setdefault("folders", [])
@@ -231,13 +195,9 @@ class StructureGenerator:
 
                 return sub_structure
             except Exception as e:
-                self.logger.error(
-                    f"      Sub-structure attempt {attempt + 1} for {folder_path} failed: {e}"
-                )
+                self.logger.error(f"      Sub-structure attempt {attempt + 1} for {folder_path} failed: {e}")
                 if attempt < max_retries - 1:
-                    self.logger.info(
-                        "      Retrying sub-structure generation with simplified prompt..."
-                    )
+                    self.logger.info("      Retrying sub-structure generation with simplified prompt...")
                     (
                         system_prompt,
                         user_prompt,
@@ -248,9 +208,7 @@ class StructureGenerator:
                         template_name,
                     )
                 else:
-                    self.logger.error(
-                        f"      All sub-structure attempts for {folder_path} failed."
-                    )
+                    self.logger.error(f"      All sub-structure attempts for {folder_path} failed.")
                     return {}
         return {}
 
@@ -265,16 +223,12 @@ class StructureGenerator:
             folder_name = folder_data.get("name")
             if folder_name:
                 new_path = str(Path(current_path) / folder_name)
-                file_paths.extend(
-                    StructureGenerator.extract_file_paths(folder_data, new_path)
-                )
+                file_paths.extend(StructureGenerator.extract_file_paths(folder_data, new_path))
 
         return file_paths
 
     @staticmethod
-    def create_empty_files(
-        project_root: Path, json_structure: dict, current_path: str = ""
-    ):
+    def create_empty_files(project_root: Path, json_structure: dict, current_path: str = ""):
         """Create empty placeholder files based on the JSON structure."""
         for file_name in json_structure.get("files", []):
             file_path = project_root / current_path / file_name

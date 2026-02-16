@@ -15,9 +15,7 @@ class ToolLoopMixin(ABC):
     - self.tool_span_manager (ToolSpanManager) # NEW
     """
 
-    async def _execute_tool_loop(
-        self, tool_calls: List[Dict], user_input: str
-    ) -> List[Dict]:
+    async def _execute_tool_loop(self, tool_calls: List[Dict], user_input: str) -> List[Dict]:
         """
         Executes a series of tool calls in a loop, handling confirmation gates, loop detection,
         and recording execution spans.
@@ -38,26 +36,18 @@ class ToolLoopMixin(ABC):
                 tool_name, tool_args, tool_call.get("id")
             )  # NEW: Start span
 
-            self.logger.info(
-                f"Agent attempting to use tool: {tool_name} with args: {tool_args}"
-            )
-            self.event_publisher.publish(
-                "tool_code", {"tool_name": tool_name, "tool_args": tool_args}
-            )
+            self.logger.info(f"Agent attempting to use tool: {tool_name} with args: {tool_args}")
+            self.event_publisher.publish("tool_code", {"tool_name": tool_name, "tool_args": tool_args})
 
             # Policy Enforcement & Confirmation Gate
             authorized, reason = self.policy_enforcer.authorize_tool_execution(
                 tool_name,
-                resource_path=tool_args.get(
-                    "path", tool_args.get("file_path", tool_args.get("command", ""))
-                ),
+                resource_path=tool_args.get("path", tool_args.get("file_path", tool_args.get("command", ""))),
                 context=tool_args,
             )
 
             if not authorized:
-                self.logger.warning(
-                    f"Tool '{tool_name}' execution denied by policy: {reason}"
-                )
+                self.logger.warning(f"Tool '{tool_name}' execution denied by policy: {reason}")
                 result_output = {
                     "tool_call_id": tool_call_id,
                     "output": f"Tool '{tool_name}' execution denied by policy: {reason}",
@@ -97,18 +87,12 @@ class ToolLoopMixin(ABC):
             success = False
             result_output: Any = {}
             error_message: Optional[str] = None
-            tool_execution_output: Any = (
-                None  # Store the actual output from tool_executor
-            )
+            tool_execution_output: Any = None  # Store the actual output from tool_executor
 
             try:
                 # Execute the tool using the injected tool_executor
-                tool_execution_output = await self.tool_executor.execute_tool(
-                    tool_name, **tool_args
-                )
-                self.logger.info(
-                    f"Tool '{tool_name}' executed. Output: {tool_execution_output}"
-                )
+                tool_execution_output = await self.tool_executor.execute_tool(tool_name, **tool_args)
+                self.logger.info(f"Tool '{tool_name}' executed. Output: {tool_execution_output}")
                 result_output = {
                     "tool_call_id": tool_call_id,
                     "output": tool_execution_output,
@@ -127,9 +111,7 @@ class ToolLoopMixin(ABC):
                     "output": f"Error executing tool '{tool_name}': {e}",
                 }
                 tool_outputs.append(result_output)
-                self.event_publisher.publish(
-                    "tool_error", {"tool_name": tool_name, "error": str(e)}
-                )
+                self.event_publisher.publish("tool_error", {"tool_name": tool_name, "error": str(e)})
             finally:
                 self.tool_span_manager.end_span(
                     tool_call_id,
@@ -148,8 +130,8 @@ class ToolLoopMixin(ABC):
                 self.logger.warning(
                     f"Loop detected after tool: {tool_name}, args: {tool_args}. Aborting further tool execution."
                 )
-                tool_outputs[-1][
-                    "output"
-                ] += "\nLoop detected. Aborting further tool execution."  # Append to last output
+                tool_outputs[-1]["output"] += (
+                    "\nLoop detected. Aborting further tool execution."  # Append to last output
+                )
                 break  # Exit the tool loop
         return tool_outputs

@@ -6,8 +6,7 @@ from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.command_executor import CommandExecutor
 from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.domains.auto_generation.prompt_templates import \
-    AutoGenPrompts
+from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 
 
 class TestGenerator:
@@ -37,18 +36,14 @@ class TestGenerator:
         self.command_executor = command_executor
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def generate_tests(
-        self, file_path: str, content: str, readme_context: str
-    ) -> Optional[str]:
+    def generate_tests(self, file_path: str, content: str, readme_context: str) -> Optional[str]:
         """
         Generates pytest unit tests for a given file content.
         Returns the generated test file content or None if generation fails.
         """
         self.logger.info(f"  Generating tests for {file_path}...")
 
-        system_prompt, user_prompt = AutoGenPrompts.generate_unit_tests(
-            file_path, content, readme_context
-        )
+        system_prompt, user_prompt = AutoGenPrompts.generate_unit_tests(file_path, content, readme_context)
 
         try:
             response_data, usage = self.llm_client.chat(
@@ -65,24 +60,18 @@ class TestGenerator:
                 self.logger.info(f"  Tests generated for {file_path}.")
                 return test_content
             else:
-                self.logger.warning(
-                    f"  LLM did not return test content for {file_path}."
-                )
+                self.logger.warning(f"  LLM did not return test content for {file_path}.")
                 return None
         except Exception as e:
             self.logger.error(f"  Error generating tests for {file_path}: {e}")
             return None
 
-    def execute_tests(
-        self, project_root: Path, test_file_paths: List[Path]
-    ) -> Dict[str, Any]:
+    def execute_tests(self, project_root: Path, test_file_paths: List[Path]) -> Dict[str, Any]:
         """
         Executes pytest tests and returns a structured result.
         Returns a dict with 'success' (bool) and 'output' (str) and 'failures' (list of dicts).
         """
-        self.logger.info(
-            f"  Executing tests in {project_root} for {len(test_file_paths)} files..."
-        )
+        self.logger.info(f"  Executing tests in {project_root} for {len(test_file_paths)} files...")
 
         if not test_file_paths:
             self.logger.info("  No test files to execute.")
@@ -102,9 +91,7 @@ class TestGenerator:
 
         try:
             # Execute pytest from the project_root
-            result = self.command_executor.execute(
-                pytest_command, dir_path=str(project_root), timeout=120
-            )
+            result = self.command_executor.execute(pytest_command, dir_path=str(project_root), timeout=120)
 
             report_path = project_root / ".pytest_report.json"
             if report_path.exists():
@@ -116,9 +103,7 @@ class TestGenerator:
                 self.logger.warning("  Pytest JSON report not found after execution.")
 
             if result.success:
-                self.logger.info(
-                    f"  Tests executed successfully for {len(test_file_paths)} files."
-                )
+                self.logger.info(f"  Tests executed successfully for {len(test_file_paths)} files.")
                 return {
                     "success": True,
                     "output": result.stdout,
@@ -136,9 +121,7 @@ class TestGenerator:
             self.logger.error(f"  Error executing tests: {e}")
             return {"success": False, "output": str(e), "failures": []}
 
-    def _parse_json_report_failures(
-        self, report_data: Optional[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    def _parse_json_report_failures(self, report_data: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Parses the pytest JSON report to extract failure details."""
         failures = []
         if not report_data or "tests" not in report_data:

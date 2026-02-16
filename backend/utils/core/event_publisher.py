@@ -24,9 +24,7 @@ class EventPublisher:
             except ValueError:
                 pass  # Callback not found, already unsubscribed or never subscribed
 
-    def publish(
-        self, event_type: str, event_data: Dict[str, Any] = None, **kwargs: Any
-    ):
+    def publish(self, event_type: str, event_data: Dict[str, Any] = None, **kwargs: Any):
         """Publishes an event to all subscribed listeners."""
         if event_type not in self._subscribers:
             return  # No subscribers for this event type

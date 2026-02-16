@@ -91,9 +91,7 @@ class CommandLineTools:
         self.logger.info("🔍 Validating changes...")
         try:
             tests = self.exec.execute("pytest -q", timeout=120)
-            lint = self.exec.execute(
-                "ruff .", timeout=60
-            )  # Assuming 'ruff' is available for linting
+            lint = self.exec.execute("ruff .", timeout=60)  # Assuming 'ruff' is available for linting
 
             test_icon = "✅" if tests.success else "❌"
             lint_icon = "✅" if lint.success else "❌"

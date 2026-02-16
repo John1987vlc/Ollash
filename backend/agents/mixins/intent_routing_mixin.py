@@ -49,11 +49,7 @@ Classify the intent:""",
 
                 # Extract intent from the response. The LLM is instructed to return only the intent string.
                 # Use .strip() to remove leading/trailing whitespace, and .lower() for case-insensitivity.
-                if (
-                    response
-                    and response.get("message")
-                    and response["message"].get("content")
-                ):
+                if response and response.get("message") and response["message"].get("content"):
                     classified_intent = response["message"]["content"].strip().lower()
 
                     # Validate if the classified intent is one of the expected intents
@@ -71,9 +67,7 @@ Classify the intent:""",
                         "writing",
                     ]
                     if classified_intent in valid_intents:
-                        self.logger.debug(
-                            f"Intent classified: {classified_intent} for prompt: {prompt[:50]}..."
-                        )
+                        self.logger.debug(f"Intent classified: {classified_intent} for prompt: {prompt[:50]}...")
                         return classified_intent
                     else:
                         self.logger.warning(
@@ -130,9 +124,7 @@ Classify the intent:""",
             client = self.llm_manager.get_client("default")
 
         if not client:
-            self.logger.error(
-                "Default LLM client also not available. Agent cannot function without an LLM."
-            )
+            self.logger.error("Default LLM client also not available. Agent cannot function without an LLM.")
             raise RuntimeError("No LLM client available for processing request.")
 
         return client

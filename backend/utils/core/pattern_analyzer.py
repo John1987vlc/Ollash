@@ -101,16 +101,12 @@ class PatternAnalyzer:
             if self.feedback_file.exists():
                 with open(self.feedback_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    self._feedback_entries = [
-                        FeedbackEntry(**entry) for entry in data.get("entries", [])
-                    ]
+                    self._feedback_entries = [FeedbackEntry(**entry) for entry in data.get("entries", [])]
 
             if self.patterns_file.exists():
                 with open(self.patterns_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    self._patterns = {
-                        pid: Pattern(**p) for pid, p in data.get("patterns", {}).items()
-                    }
+                    self._patterns = {pid: Pattern(**p) for pid, p in data.get("patterns", {}).items()}
 
             if self.metrics_file.exists():
                 with open(self.metrics_file, "r", encoding="utf-8") as f:
@@ -257,9 +253,7 @@ class PatternAnalyzer:
                 scores = [e.score for e in entries]
                 statistics.mean(scores)
 
-                positive_count = sum(
-                    1 for e in entries if e.sentiment == SentimentType.POSITIVE
-                )
+                positive_count = sum(1 for e in entries if e.sentiment == SentimentType.POSITIVE)
                 success_rate = positive_count / len(entries)
 
                 pattern_id = f"task_{task_type}_{datetime.now().timestamp()}"
@@ -268,7 +262,7 @@ class PatternAnalyzer:
                     pattern_type="success" if success_rate > 0.7 else "inefficiency",
                     frequency=len(entries),
                     confidence=success_rate,
-                    description=f"Task type '{task_type}': {success_rate*100:.0f}% success rate",
+                    description=f"Task type '{task_type}': {success_rate * 100:.0f}% success rate",
                     recommendations=self._suggest_task_improvements(task_type, entries),
                 )
 
@@ -285,9 +279,7 @@ class PatternAnalyzer:
         Counter(sentiments)
 
         # Check if there's a negative trend
-        recent_negative = sum(
-            1 for e in recent[-5:] if e.sentiment == SentimentType.NEGATIVE
-        )
+        recent_negative = sum(1 for e in recent[-5:] if e.sentiment == SentimentType.NEGATIVE)
 
         if recent_negative >= 3:  # 3 or more negative in last 5
             pattern = Pattern(
@@ -306,9 +298,7 @@ class PatternAnalyzer:
 
     def _analyze_performance_patterns(self):
         """Analyze performance metric patterns."""
-        resolution_times = [
-            e.resolution_time for e in self._feedback_entries if e.resolution_time > 0
-        ]
+        resolution_times = [e.resolution_time for e in self._feedback_entries if e.resolution_time > 0]
 
         if len(resolution_times) >= 3:
             avg_time = statistics.mean(resolution_times)
@@ -329,9 +319,7 @@ class PatternAnalyzer:
                 )
                 self._patterns[pattern.pattern_id] = pattern
 
-    def _suggest_improvements(
-        self, component: str, entries: List[FeedbackEntry]
-    ) -> List[str]:
+    def _suggest_improvements(self, component: str, entries: List[FeedbackEntry]) -> List[str]:
         """Suggest improvements for component."""
         suggestions = []
 
@@ -366,9 +354,7 @@ class PatternAnalyzer:
 
         return suggestions[:3]  # Top 3 suggestions
 
-    def _suggest_task_improvements(
-        self, task_type: str, entries: List[FeedbackEntry]
-    ) -> List[str]:
+    def _suggest_task_improvements(self, task_type: str, entries: List[FeedbackEntry]) -> List[str]:
         """Suggest improvements for task type."""
         suggestions = []
 
@@ -384,9 +370,7 @@ class PatternAnalyzer:
 
         return suggestions[:3]
 
-    def get_patterns(
-        self, pattern_type: str = None, min_confidence: float = 0.5, limit: int = 10
-    ) -> List[Pattern]:
+    def get_patterns(self, pattern_type: str = None, min_confidence: float = 0.5, limit: int = 10) -> List[Pattern]:
         """
         Get detected patterns.
 
@@ -447,9 +431,7 @@ class PatternAnalyzer:
             "average_score": round(avg_score, 2),
             "positive_feedback_percentage": round(positive_pct, 1),
             "sentiment_distribution": dict(sentiments),
-            "failing_components": {
-                comp: len(entries) for comp, entries in failing_components.items()
-            },
+            "failing_components": {comp: len(entries) for comp, entries in failing_components.items()},
             "top_keywords": [kw for kw, count in top_keywords],
             "detected_patterns": len(self._patterns),
             "critical_patterns": len(self.get_patterns("failure", min_confidence=0.7)),
@@ -466,9 +448,7 @@ class PatternAnalyzer:
         Returns:
             Health metrics
         """
-        entries = [
-            e for e in self._feedback_entries if e.affected_component == component
-        ]
+        entries = [e for e in self._feedback_entries if e.affected_component == component]
 
         if not entries:
             return {"status": "unknown", "entries": 0}
@@ -489,12 +469,8 @@ class PatternAnalyzer:
             "status": status,
             "average_score": round(avg_score, 2),
             "entries": len(entries),
-            "positive_feedback": sum(
-                1 for e in entries if e.sentiment == SentimentType.POSITIVE
-            ),
-            "negative_feedback": sum(
-                1 for e in entries if e.sentiment == SentimentType.NEGATIVE
-            ),
+            "positive_feedback": sum(1 for e in entries if e.sentiment == SentimentType.POSITIVE),
+            "negative_feedback": sum(1 for e in entries if e.sentiment == SentimentType.NEGATIVE),
         }
 
     def export_report(self, format: str = "json") -> str:
@@ -531,7 +507,7 @@ class PatternAnalyzer:
             for i, pattern in enumerate(patterns, 1):
                 md += f"\n### {i}. {pattern.description}\n"
                 md += f"- Type: {pattern.pattern_type}\n"
-                md += f"- Confidence: {pattern.confidence*100:.0f}%\n"
+                md += f"- Confidence: {pattern.confidence * 100:.0f}%\n"
                 if pattern.recommendations:
                     md += "- Recommendations:\n"
                     for rec in pattern.recommendations:

@@ -1,8 +1,7 @@
 import json
 from typing import Dict, List, Optional
 
-from backend.utils.core.agent_logger import \
-    AgentLogger  # Use AgentLogger for structured logging
+from backend.utils.core.agent_logger import AgentLogger  # Use AgentLogger for structured logging
 
 
 class LLMRecorder:
@@ -15,24 +14,18 @@ class LLMRecorder:
     def __init__(self, logger: AgentLogger):
         self._logger = logger
 
-    def record_request(
-        self, model: str, messages: List[Dict], tools: List[Dict], options: Dict
-    ):
+    def record_request(self, model: str, messages: List[Dict], tools: List[Dict], options: Dict):
         """
         Records an LLM request before it is sent.
         """
-        prompt_hash = hash(
-            json.dumps(messages)
-        )  # Use hash to avoid logging potentially very large prompts directly
+        prompt_hash = hash(json.dumps(messages))  # Use hash to avoid logging potentially very large prompts directly
         self._logger.info(
             f"LLM Request for {model}",
             extra={
                 "event_type": "llm_request",
                 "model": model,
                 "prompt_hash": prompt_hash,
-                "messages_preview": messages[0].get("content", "")[:100]
-                if messages
-                else "",
+                "messages_preview": messages[0].get("content", "")[:100] if messages else "",
                 "tool_names": [t["function"]["name"] for t in tools],
                 "options": options,
             },

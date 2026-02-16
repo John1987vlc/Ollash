@@ -153,11 +153,7 @@ class AdaptiveNotificationUI:
             artifact_id = f"status_{status_type}_{datetime.now().timestamp()}"
 
             # Determine severity based on threshold breaches
-            severity = (
-                NotificationSeverity.CRITICAL
-                if threshold_breaches
-                else NotificationSeverity.INFO
-            )
+            severity = NotificationSeverity.CRITICAL if threshold_breaches else NotificationSeverity.INFO
 
             artifact = InteractiveArtifact(
                 id=artifact_id,
@@ -166,16 +162,12 @@ class AdaptiveNotificationUI:
                 content={
                     "metrics": metrics,
                     "breaches": threshold_breaches or [],
-                    "recommendations": self._generate_recommendations(
-                        status_type, metrics, threshold_breaches or []
-                    ),
+                    "recommendations": self._generate_recommendations(status_type, metrics, threshold_breaches or []),
                 },
                 severity=severity,
                 timestamp=datetime.now().isoformat(),
                 dismissible=True,
-                auto_dismiss_after=60
-                if severity == NotificationSeverity.INFO
-                else None,
+                auto_dismiss_after=60 if severity == NotificationSeverity.INFO else None,
             )
 
             self.active_artifacts[artifact_id] = artifact
@@ -265,8 +257,7 @@ class AdaptiveNotificationUI:
                 content={
                     "problem": problem,
                     "findings": findings,
-                    "diagram": diagnostic_diagram
-                    or self._generate_default_diagnostic(),
+                    "diagram": diagnostic_diagram or self._generate_default_diagnostic(),
                     "severity_indicators": self._classify_findings(findings),
                 },
                 severity=NotificationSeverity.DIAGNOSTIC,
@@ -331,9 +322,7 @@ class AdaptiveNotificationUI:
 
     # ==================== Artifact Generation Methods ====================
 
-    def _generate_network_diagram(
-        self, service_name: str, failed_nodes: List[Dict[str, str]]
-    ) -> str:
+    def _generate_network_diagram(self, service_name: str, failed_nodes: List[Dict[str, str]]) -> str:
         """Generate a Mermaid diagram of network topology with failed nodes highlighted."""
         nodes = [
             f"{service_name} Service",
@@ -370,18 +359,16 @@ class AdaptiveNotificationUI:
 
         return "\n".join(diagram_lines)
 
-    def _generate_decision_tree(
-        self, options: List[Dict[str, str]], recommended: str
-    ) -> str:
+    def _generate_decision_tree(self, options: List[Dict[str, str]], recommended: str) -> str:
         """Generate a Mermaid diagram of decision tree."""
         diagram_lines = ["graph TD", "    Decision{Troubleshooting}:::decision"]
 
         for i, option in enumerate(options):
-            label = option.get("label", f"Option {i+1}")
+            label = option.get("label", f"Option {i + 1}")
             is_recommended = label == recommended
             style = ":::recommended" if is_recommended else ":::option"
             diagram_lines.append(f"    Option{i}[{label}]{style}")
-            diagram_lines.append(f"    Decision -->|Option {i+1}| Option{i}")
+            diagram_lines.append(f"    Decision -->|Option {i + 1}| Option{i}")
 
         diagram_lines.extend(
             [
@@ -416,19 +403,15 @@ class AdaptiveNotificationUI:
             timeline.append(
                 {
                     "order": i + 1,
-                    "step": step.get("step", f"Step {i+1}"),
+                    "step": step.get("step", f"Step {i + 1}"),
                     "description": step.get("description", ""),
                     "command": step.get("command", ""),
-                    "estimated_duration_seconds": estimated_total_time // len(steps)
-                    if estimated_total_time
-                    else None,
+                    "estimated_duration_seconds": estimated_total_time // len(steps) if estimated_total_time else None,
                 }
             )
         return timeline
 
-    def _generate_recommendations(
-        self, status_type: str, metrics: Dict[str, float], breaches: List[str]
-    ) -> List[str]:
+    def _generate_recommendations(self, status_type: str, metrics: Dict[str, float], breaches: List[str]) -> List[str]:
         """Generate recommendations based on system status."""
         recommendations = []
 
@@ -497,16 +480,10 @@ class AdaptiveNotificationUI:
 
     def clear_artifacts_by_severity(self, severity: NotificationSeverity) -> int:
         """Clear artifacts matching a specific severity level."""
-        to_remove = [
-            aid
-            for aid, artifact in self.active_artifacts.items()
-            if artifact.severity == severity
-        ]
+        to_remove = [aid for aid, artifact in self.active_artifacts.items() if artifact.severity == severity]
         for aid in to_remove:
             del self.active_artifacts[aid]
-        logger.info(
-            f"Cleared {len(to_remove)} artifacts with severity {severity.value}"
-        )
+        logger.info(f"Cleared {len(to_remove)} artifacts with severity {severity.value}")
         return len(to_remove)
 
 

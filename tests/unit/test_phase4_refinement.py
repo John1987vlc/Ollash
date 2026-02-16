@@ -7,12 +7,9 @@ import tempfile
 
 import pytest
 
-from backend.utils.core.feedback_refinement_manager import (
-    FeedbackRefinementManager, ParagraphContext)
+from backend.utils.core.feedback_refinement_manager import FeedbackRefinementManager, ParagraphContext
 from backend.utils.core.refinement_orchestrator import RefinementOrchestrator
-from backend.utils.core.source_validator import (SourceValidator,
-                                                 ValidationIssue,
-                                                 ValidationResult)
+from backend.utils.core.source_validator import SourceValidator, ValidationIssue, ValidationResult
 
 
 @pytest.fixture
@@ -65,15 +62,15 @@ class TestFeedbackRefinementManager:
     def test_select_paragraphs_by_readability(self, refinement_mgr):
         """Test paragraph selection by readability"""
         easy_text = "This is easy. It is clear."
-        hard_text = "Notwithstanding the aforementioned considerations, implementation necessitates comprehensive evaluation."
+        hard_text = (
+            "Notwithstanding the aforementioned considerations, implementation necessitates comprehensive evaluation."
+        )
 
         text = easy_text + "\n\n" + hard_text
         paragraphs = refinement_mgr.extract_paragraphs(text, "test")
 
         # Low readability threshold selects hard text
-        selected = refinement_mgr.select_paragraphs_for_refinement(
-            paragraphs, {"min_readability": 30}
-        )
+        selected = refinement_mgr.select_paragraphs_for_refinement(paragraphs, {"min_readability": 30})
 
         assert len(selected) >= 0
 
@@ -81,9 +78,7 @@ class TestFeedbackRefinementManager:
         """Test clarity critique"""
         text = "This is a very long sentence that goes on and on without proper punctuation and structure which makes it hard to read and understand what the author is trying to communicate to the reader."
 
-        para = ParagraphContext(
-            index=0, text=text, original_text=text, source_id="test"
-        )
+        para = ParagraphContext(index=0, text=text, original_text=text, source_id="test")
 
         critique = refinement_mgr.generate_critique(para, "clarity")
         assert critique != ""
@@ -154,9 +149,7 @@ class TestSourceValidator:
         original = "The implementation uses Cosmos DB for storage."
         refined = "The implementation uses Cosmos DB for reliable storage."
 
-        result = source_validator.validate_refinement(
-            original, refined, "src1", "semantic"
-        )
+        result = source_validator.validate_refinement(original, refined, "src1", "semantic")
 
         assert isinstance(result, ValidationResult)
         assert result.validation_score >= 0
@@ -169,9 +162,7 @@ class TestSourceValidator:
         original = "Use Azure Storage"
         refined = "Use AWS S3 instead"
 
-        result = source_validator.validate_refinement(
-            original, refined, "src", "semantic"
-        )
+        result = source_validator.validate_refinement(original, refined, "src", "semantic")
 
         # Should detect significant difference
         assert isinstance(result, ValidationResult)
@@ -194,12 +185,8 @@ class TestSourceValidator:
             is_valid=False,
             validation_score=40.0,
             issues=[
-                ValidationIssue(
-                    "critical", "contradiction", "old", "new", "Critical issue 1"
-                ),
-                ValidationIssue(
-                    "critical", "semantic_change", "old", "new", "Critical issue 2"
-                ),
+                ValidationIssue("critical", "contradiction", "old", "new", "Critical issue 1"),
+                ValidationIssue("critical", "semantic_change", "old", "new", "Critical issue 2"),
             ],
         )
 
@@ -262,9 +249,7 @@ class TestRefinementOrchestrator:
         text = "Short text.\n\nAnother paragraph here."
         workflow = orchestrator.create_workflow("wf_refine", "src", text)
 
-        results = orchestrator.refine_workflow(
-            workflow_id="wf_refine", strategy_name="quick_polish"
-        )
+        results = orchestrator.refine_workflow(workflow_id="wf_refine", strategy_name="quick_polish")
 
         assert results["workflow_id"] == "wf_refine"
         assert "refinements" in results
@@ -333,9 +318,7 @@ class TestRefinementIntegration:
 
     def test_full_refinement_workflow(self, orchestrator):
         """Test a complete refinement workflow from start to finish"""
-        source_text = (
-            "The implementation uses complex technologies with many considerations."
-        )
+        source_text = "The implementation uses complex technologies with many considerations."
 
         # Create workflow
         wf = orchestrator.create_workflow(
@@ -363,9 +346,7 @@ class TestRefinementIntegration:
         """Test validation within refinement workflow"""
         source_validator.register_source("validation_src", "Source content here")
 
-        wf = orchestrator.create_workflow(
-            "validation_test", "validation_src", "Source content here with more"
-        )
+        wf = orchestrator.create_workflow("validation_test", "validation_src", "Source content here with more")
 
         results = orchestrator.refine_workflow("validation_test")
 

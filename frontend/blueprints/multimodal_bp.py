@@ -117,9 +117,7 @@ def ocr_batch_process():
 
         logger.info(
             f"Batch OCR processed {len(results)} images",
-            extra={
-                "avg_confidence": sum([r.confidence for r in results]) / len(results)
-            },
+            extra={"avg_confidence": sum([r.confidence for r in results]) / len(results)},
         )
 
         return (
@@ -339,9 +337,7 @@ def ingest_directory():
 
         documents = multimedia_ingester.ingest_directory(directory_path)
 
-        logger.info(
-            f"Directory ingested: {directory_path}", extra={"documents": len(documents)}
-        )
+        logger.info(f"Directory ingested: {directory_path}", extra={"documents": len(documents)})
 
         return (
             jsonify(
@@ -381,8 +377,7 @@ def ingest_normalize():
 
         doc_data = multimedia_ingester.parsed_documents[document_id]
         # Reconstruct document object - need to handle dataclass conversion
-        from backend.utils.core.multimedia_ingester import (ContentBlock,
-                                                            ParsedDocument)
+        from backend.utils.core.multimedia_ingester import ContentBlock, ParsedDocument
 
         blocks = [ContentBlock(**b) for b in doc_data.get("blocks", [])]
         document = ParsedDocument(
@@ -403,9 +398,7 @@ def ingest_normalize():
         )
 
         return (
-            jsonify(
-                {**normalization.to_dict(), "timestamp": datetime.now().isoformat()}
-            ),
+            jsonify({**normalization.to_dict(), "timestamp": datetime.now().isoformat()}),
             200,
         )
     except Exception as e:
@@ -498,9 +491,7 @@ def stream_transcribe():
 
         results = speech_transcriber.stream_transcription(audio_path, chunk_duration)
 
-        logger.info(
-            f"Audio streaming transcribed: {audio_path}", extra={"chunks": len(results)}
-        )
+        logger.info(f"Audio streaming transcribed: {audio_path}", extra={"chunks": len(results)})
 
         return (
             jsonify(
@@ -541,9 +532,7 @@ def integrate_web_speech():
         if not audio_id or not transcript:
             return jsonify({"error": "audio_id and transcript required"}), 400
 
-        result = speech_transcriber.integrate_web_speech_result(
-            audio_id, transcript, confidence
-        )
+        result = speech_transcriber.integrate_web_speech_result(audio_id, transcript, confidence)
 
         logger.info(
             f"Web Speech API result integrated: {audio_id}",
@@ -583,8 +572,7 @@ def analyze_confidence():
             return jsonify({"error": "Transcription not found"}), 404
 
         trans_data = speech_transcriber.transcriptions[audio_id]
-        from backend.utils.core.speech_transcriber import (ConfidenceSegment,
-                                                           TranscriptionResult)
+        from backend.utils.core.speech_transcriber import ConfidenceSegment, TranscriptionResult
 
         segments = [ConfidenceSegment(**s) for s in trans_data.get("segments", [])]
         result = TranscriptionResult(
@@ -624,8 +612,7 @@ def speech_summary():
             return jsonify({"error": "Transcription not found"}), 404
 
         trans_data = speech_transcriber.transcriptions[audio_id]
-        from backend.utils.core.speech_transcriber import (ConfidenceSegment,
-                                                           TranscriptionResult)
+        from backend.utils.core.speech_transcriber import ConfidenceSegment, TranscriptionResult
 
         segments = [ConfidenceSegment(**s) for s in trans_data.get("segments", [])]
         result = TranscriptionResult(
@@ -711,12 +698,8 @@ def health_check():
     try:
         health_status = {
             "ocr_processor": "operational" if ocr_processor else "not_initialized",
-            "multimedia_ingester": "operational"
-            if multimedia_ingester
-            else "not_initialized",
-            "speech_transcriber": "operational"
-            if speech_transcriber
-            else "not_initialized",
+            "multimedia_ingester": "operational" if multimedia_ingester else "not_initialized",
+            "speech_transcriber": "operational" if speech_transcriber else "not_initialized",
             "timestamp": datetime.now().isoformat(),
         }
 

@@ -1,6 +1,7 @@
 """
 Manages the lifecycle of OllamaClient instances based on configured agent roles.
 """
+
 from typing import Dict, Optional
 
 from backend.core.config_schemas import LLMModelsConfig, ToolSettingsConfig
@@ -59,9 +60,7 @@ class LLMClientManager(IModelProvider):
             return self.clients_by_model[model_name]
 
         # Otherwise, create a new client for this model and cache it.
-        self.logger.info(
-            f"Creating new OllamaClient for model '{model_name}' (for role '{role}')."
-        )
+        self.logger.info(f"Creating new OllamaClient for model '{model_name}' (for role '{role}').")
 
         new_client = OllamaClient(
             url=str(self.config.ollama_url),

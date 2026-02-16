@@ -61,9 +61,7 @@ class ModelHealthMonitor:
             return {"status": "unknown"}
 
         avg_latency = sum(self.latencies[model_name]) / len(self.latencies[model_name])
-        error_rate = sum(self.error_rates[model_name]) / len(
-            self.error_rates[model_name]
-        )
+        error_rate = sum(self.error_rates[model_name]) / len(self.error_rates[model_name])
 
         return {
             "status": "ok",

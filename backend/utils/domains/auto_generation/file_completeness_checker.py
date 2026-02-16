@@ -39,9 +39,7 @@ class FileCompletenessChecker:
         self.max_retries = max_retries_per_file
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def verify_and_fix(
-        self, files: Dict[str, str], readme_context: str = ""
-    ) -> Dict[str, str]:
+    def verify_and_fix(self, files: Dict[str, str], readme_context: str = "") -> Dict[str, str]:
         """Validate all files. For failures, attempt LLM-based fix up to max_retries times.
 
         Args:
@@ -64,19 +62,13 @@ class FileCompletenessChecker:
                 continue
 
             # File needs fixing
-            self.logger.warning(
-                f"  FAILED: {result.file_path} - {result.status.value}: {result.message}"
-            )
+            self.logger.warning(f"  FAILED: {result.file_path} - {result.status.value}: {result.message}")
             current_content = fixed_files[result.file_path]
 
             for attempt in range(1, self.max_retries + 1):
-                self.logger.info(
-                    f"    Fix attempt {attempt}/{self.max_retries} for {result.file_path}"
-                )
+                self.logger.info(f"    Fix attempt {attempt}/{self.max_retries} for {result.file_path}")
 
-                system, user = AutoGenPrompts.file_fix(
-                    result.file_path, current_content, result.message
-                )
+                system, user = AutoGenPrompts.file_fix(result.file_path, current_content, result.message)
 
                 try:
                     response_data, usage = self.llm_client.chat(
@@ -94,22 +86,16 @@ class FileCompletenessChecker:
 
                     if new_result.status == ValidationStatus.VALID:
                         fixed_files[result.file_path] = new_content
-                        self.logger.info(
-                            f"    FIXED: {result.file_path} on attempt {attempt}"
-                        )
+                        self.logger.info(f"    FIXED: {result.file_path} on attempt {attempt}")
                         break
                     else:
-                        self.logger.warning(
-                            f"    Still invalid after attempt {attempt}: {new_result.message}"
-                        )
+                        self.logger.warning(f"    Still invalid after attempt {attempt}: {new_result.message}")
                         current_content = new_content
 
                 except Exception as e:
                     self.logger.error(f"    Error during fix attempt {attempt}: {e}")
             else:
-                self.logger.error(
-                    f"  GAVE UP: {result.file_path} after {self.max_retries} attempts"
-                )
+                self.logger.error(f"  GAVE UP: {result.file_path} after {self.max_retries} attempts")
 
         return fixed_files
 

@@ -55,9 +55,7 @@ class CodeAnalysisTools:
             # ---------- Structure ----------
             if focus in ("all", "structure"):
                 py_files = list(self.project_root.rglob("*.py"))
-                directories = sorted(
-                    {str(f.parent.relative_to(self.project_root)) for f in py_files}
-                )
+                directories = sorted({str(f.parent.relative_to(self.project_root)) for f in py_files})
 
                 analysis["structure"] = {
                     "python_files": len(py_files),
@@ -65,9 +63,7 @@ class CodeAnalysisTools:
                     "top_level_dirs": sorted(
                         d.name
                         for d in self.project_root.iterdir()
-                        if d.is_dir()
-                        and not d.name.startswith(".")
-                        and not d.name.startswith("venv")  # Exclude venv
+                        if d.is_dir() and not d.name.startswith(".") and not d.name.startswith("venv")  # Exclude venv
                     ),
                 }
 
@@ -75,11 +71,7 @@ class CodeAnalysisTools:
             if focus in ("all", "dependencies"):
                 req_file = self.project_root / "requirements.txt"
                 if req_file.exists():
-                    deps = [
-                        d.strip()
-                        for d in req_file.read_text().splitlines()
-                        if d.strip() and not d.startswith("#")
-                    ]
+                    deps = [d.strip() for d in req_file.read_text().splitlines() if d.strip() and not d.startswith("#")]
                     analysis["dependencies"] = deps
                 else:
                     analysis["dependencies"] = []
@@ -90,9 +82,7 @@ class CodeAnalysisTools:
                     # Assuming CodeAnalyzer has an analyze_quality method, if not, it needs to be added or faked.
                     # For now, let's just add a placeholder.
                     # analysis["code_quality"] = self.analyzer.analyze_quality()
-                    analysis["code_quality"] = {
-                        "placeholder": "Code quality analysis will go here"
-                    }
+                    analysis["code_quality"] = {"placeholder": "Code quality analysis will go here"}
                 except Exception as e:
                     analysis["code_quality"] = {"error": str(e)}
 
@@ -150,9 +140,7 @@ class CodeAnalysisTools:
 
             # ---------- Conditional MD writing ----------
             # This part is now handled by CodeAgent via file_system_tools.write_file
-            md_written = write_md and (
-                force_md or not (self.project_root / md_name).exists()
-            )
+            md_written = write_md and (force_md or not (self.project_root / md_name).exists())
 
             self.logger.info("✅ Project analysis complete")
 
@@ -161,9 +149,7 @@ class CodeAnalysisTools:
                 "analysis": analysis,
                 "markdown": markdown_content,
                 "md_written": md_written,
-                "md_path": str(self.project_root / md_name)
-                if md_written
-                else None,  # Return potential path
+                "md_path": str(self.project_root / md_name) if md_written else None,  # Return potential path
             }
 
         except Exception as e:

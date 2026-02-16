@@ -75,15 +75,12 @@ class SeniorReviewer:
 
         if review_results is None:
             self.logger.warning(
-                "Senior Reviewer returned non-JSON response. "
-                "Retrying with simplified JSON-only prompt..."
+                "Senior Reviewer returned non-JSON response. Retrying with simplified JSON-only prompt..."
             )
             review_results = self._retry_json_extraction(raw_review)
 
         if review_results is None:
-            self.logger.error(
-                "Senior Reviewer could not produce valid JSON after retry. Assuming failed."
-            )
+            self.logger.error("Senior Reviewer could not produce valid JSON after retry. Assuming failed.")
             return {
                 "status": "failed",
                 "summary": "LLM returned invalid JSON review.",

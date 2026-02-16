@@ -37,11 +37,7 @@ class AdvancedSystemTools:
                                 total_gb = round(int(size_str) / (1024**3), 2)
                                 free_gb = round(int(freespace_str) / (1024**3), 2)
                                 used_gb = round(total_gb - free_gb, 2)
-                                usage_percent = (
-                                    round((used_gb / total_gb) * 100, 2)
-                                    if total_gb > 0
-                                    else 0
-                                )
+                                usage_percent = round((used_gb / total_gb) * 100, 2) if total_gb > 0 else 0
                                 partitions_info.append(
                                     {
                                         "name": caption,
@@ -54,9 +50,7 @@ class AdvancedSystemTools:
                                 )
                                 if usage_percent > 90:
                                     overall_status = "warning"
-                                    partitions_info[-1]["anomalies"].append(
-                                        "High disk usage (>90%)"
-                                    )
+                                    partitions_info[-1]["anomalies"].append("High disk usage (>90%)")
                             except ValueError:
                                 pass  # Skip unparseable lines
 
@@ -97,9 +91,7 @@ class AdvancedSystemTools:
                                 )
                                 if usage_percent > 90:
                                     overall_status = "warning"
-                                    partitions_info[-1]["anomalies"].append(
-                                        "High disk usage (>90%)"
-                                    )
+                                    partitions_info[-1]["anomalies"].append("High disk usage (>90%)")
                             except ValueError:
                                 pass  # Skip unparseable lines
 
@@ -132,9 +124,7 @@ class AdvancedSystemTools:
                                         p["inodes_usage_percent"] = iuse_percent
                                         if iuse_percent > 90:
                                             overall_status = "warning"
-                                            p["anomalies"].append(
-                                                "High inode usage (>90%)"
-                                            )
+                                            p["anomalies"].append("High inode usage (>90%)")
                                         break
                             except ValueError:
                                 pass
@@ -158,9 +148,7 @@ class AdvancedSystemTools:
             },
         }
 
-    def monitor_resource_spikes(
-        self, resource_type: str = "cpu", duration_minutes: int = 5
-    ) -> Dict:
+    def monitor_resource_spikes(self, resource_type: str = "cpu", duration_minutes: int = 5) -> Dict:
         """
         Detects recent spikes in CPU, RAM, or I/O and correlates them with processes.
         Provides current resource usage and notes that spike detection requires historical data.
@@ -173,9 +161,7 @@ class AdvancedSystemTools:
         if resource_type not in ["cpu", "ram", "io"]:
             return {
                 "ok": False,
-                "result": {
-                    "error": f"Invalid resource_type: {resource_type}. Must be 'cpu', 'ram', or 'io'."
-                },
+                "result": {"error": f"Invalid resource_type: {resource_type}. Must be 'cpu', 'ram', or 'io'."},
             }
 
         try:
@@ -191,9 +177,7 @@ class AdvancedSystemTools:
                 if result.success:
                     value = json.loads(result.stdout)
                     parsed_output["current_value"] = round(float(value), 2)
-                    parsed_output["unit"] = (
-                        "%" if resource_type == "cpu" or resource_type == "io" else "MB"
-                    )
+                    parsed_output["unit"] = "%" if resource_type == "cpu" or resource_type == "io" else "MB"
                     parsed_output["raw_output"] = result.stdout
                 else:
                     parsed_output["error"] = result.stderr
@@ -220,9 +204,7 @@ class AdvancedSystemTools:
                             parsed_output["total_mb"] = total_mb
                             parsed_output["used_mb"] = used_mb
                             parsed_output["free_mb"] = total_mb - used_mb
-                            parsed_output["usage_percent"] = round(
-                                (used_mb / total_mb) * 100, 2
-                            )
+                            parsed_output["usage_percent"] = round((used_mb / total_mb) * 100, 2)
                             parsed_output["unit"] = "MB"
                         parsed_output["raw_output"] = result.stdout
                 elif resource_type == "io":
@@ -292,9 +274,7 @@ class AdvancedSystemTools:
                             }
                         )
                 else:
-                    self.logger.error(
-                        f"Failed to get Windows services: {result.stderr}"
-                    )
+                    self.logger.error(f"Failed to get Windows services: {result.stderr}")
                     return {"ok": False, "result": {"error": result.stderr}}
             elif self.os_type == "Linux":
                 command = "systemctl list-unit-files --type=service --state=enabled --no-pager"
@@ -341,9 +321,7 @@ class AdvancedSystemTools:
             else:
                 return {
                     "ok": False,
-                    "result": {
-                        "error": f"Unsupported OS for analyze_startup_services: {self.os_type}"
-                    },
+                    "result": {"error": f"Unsupported OS for analyze_startup_services: {self.os_type}"},
                 }
 
         except Exception as e:
@@ -454,12 +432,8 @@ class AdvancedSystemTools:
                 },
             }
         except Exception as e:
-            self.logger.error(
-                f"An unexpected error occurred during rollback: {e}", exc_info=True
-            )
+            self.logger.error(f"An unexpected error occurred during rollback: {e}", exc_info=True)
             return {
                 "ok": False,
-                "result": {
-                    "error": f"An unexpected error occurred during rollback: {e}"
-                },
+                "result": {"error": f"An unexpected error occurred during rollback: {e}"},
             }

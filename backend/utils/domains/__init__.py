@@ -10,5 +10,4 @@ a plug-and-play architecture for adding new tools.
 # Import all tool modules to trigger decorator registration.
 # The order does not matter.
 
-from . import (bonus, code, command_line, cybersecurity, git, multimedia,
-               network, orchestration, planning, system)
+from . import bonus, code, command_line, cybersecurity, git, multimedia, network, orchestration, planning, system

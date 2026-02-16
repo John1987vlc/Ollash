@@ -59,9 +59,7 @@ class AutomationManager:
 
         try:
             config_data = json.loads(self.config_path.read_text())
-            self.tasks = {
-                task["task_id"]: task for task in config_data.get("tasks", [])
-            }
+            self.tasks = {task["task_id"]: task for task in config_data.get("tasks", [])}
             self.logger.info(f"✅ Loaded {len(self.tasks)} automation tasks")
             return self.tasks
         except Exception as e:
@@ -162,9 +160,7 @@ class AutomationManager:
                 )
 
                 human_readable = schedule_config.get("human_readable", "")
-                self.logger.info(
-                    f"📅 Scheduled task '{task.get('name')}' - {human_readable}"
-                )
+                self.logger.info(f"📅 Scheduled task '{task.get('name')}' - {human_readable}")
 
         except Exception as e:
             self.logger.error(f"❌ Failed to schedule task {task_id}: {e}")
@@ -184,9 +180,7 @@ class AutomationManager:
             if "check_tool" in task:
                 result = self._check_threshold(task)
                 if not result.get("should_proceed", True):
-                    self.logger.info(
-                        f"Task {task_id} threshold check: no action needed"
-                    )
+                    self.logger.info(f"Task {task_id} threshold check: no action needed")
                     return
 
             # Execute the registered callback if it exists
@@ -219,9 +213,7 @@ class AutomationManager:
             "params": check_params,
         }
 
-    def _publish_task_event(
-        self, task_id: str, task: Dict[str, Any], event_type: str, details: Any = None
-    ):
+    def _publish_task_event(self, task_id: str, task: Dict[str, Any], event_type: str, details: Any = None):
         """Publish a task execution event."""
         self.event_publisher.publish(
             f"task_{event_type}",
@@ -295,9 +287,7 @@ class AutomationManager:
 _automation_manager: Optional[AutomationManager] = None
 
 
-def get_automation_manager(
-    ollash_root_dir: Path = None, event_publisher: EventPublisher = None
-) -> AutomationManager:
+def get_automation_manager(ollash_root_dir: Path = None, event_publisher: EventPublisher = None) -> AutomationManager:
     """Get or create the automation manager singleton."""
     global _automation_manager
 
@@ -311,8 +301,6 @@ def get_automation_manager(
         # AgentKernel needs ollash_root_dir to initialize if it hasn't already been.
         kernel_logger = AgentKernel(ollash_root_dir=ollash_root_dir).get_logger()
 
-        _automation_manager = AutomationManager(
-            ollash_root_dir, event_publisher, kernel_logger
-        )
+        _automation_manager = AutomationManager(ollash_root_dir, event_publisher, kernel_logger)
 
     return _automation_manager

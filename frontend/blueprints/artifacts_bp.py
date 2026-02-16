@@ -194,9 +194,7 @@ def create_checklist():
             return jsonify({"error": "Missing title or items"}), 400
 
         manager = get_artifact_manager()
-        artifact_id = manager.create_checklist(
-            title=data["title"], items=data["items"], metadata=data.get("metadata")
-        )
+        artifact_id = manager.create_checklist(title=data["title"], items=data["items"], metadata=data.get("metadata"))
 
         return jsonify({"status": "created", "artifact_id": artifact_id}), 201
 

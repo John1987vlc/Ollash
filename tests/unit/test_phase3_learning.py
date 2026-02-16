@@ -15,7 +15,10 @@ import pytest
 from backend.utils.core.behavior_tuner import BehaviorTuner, TuningParameter
 from backend.utils.core.pattern_analyzer import PatternAnalyzer, SentimentType
 from backend.utils.core.preference_manager_extended import (
-    CommunicationStyle, ComplexityLevel, PreferenceManagerExtended)
+    CommunicationStyle,
+    ComplexityLevel,
+    PreferenceManagerExtended,
+)
 
 
 class TestPreferenceManagerExtended:
@@ -90,9 +93,7 @@ class TestPreferenceManagerExtended:
 
         # Add multiple interactions
         for i in range(5):
-            pref_mgr.add_interaction(
-                "user003", feedback_type="positive" if i < 4 else "negative"
-            )
+            pref_mgr.add_interaction("user003", feedback_type="positive" if i < 4 else "negative")
 
         recs = pref_mgr.get_recommendations("user003")
 
@@ -160,15 +161,9 @@ class TestPatternAnalyzer:
     def test_get_insights(self, pattern_analyzer):
         """Test insight generation."""
         # Record varied feedback
-        pattern_analyzer.record_feedback(
-            "user003", "analysis", SentimentType.POSITIVE, 5.0
-        )
-        pattern_analyzer.record_feedback(
-            "user003", "analysis", SentimentType.POSITIVE, 4.0
-        )
-        pattern_analyzer.record_feedback(
-            "user003", "artifact_creation", SentimentType.NEUTRAL, 3.0
-        )
+        pattern_analyzer.record_feedback("user003", "analysis", SentimentType.POSITIVE, 5.0)
+        pattern_analyzer.record_feedback("user003", "analysis", SentimentType.POSITIVE, 4.0)
+        pattern_analyzer.record_feedback("user003", "artifact_creation", SentimentType.NEUTRAL, 3.0)
 
         insights = pattern_analyzer.get_insights()
 
@@ -194,9 +189,7 @@ class TestPatternAnalyzer:
 
     def test_export_report_json(self, pattern_analyzer):
         """Test exporting report as JSON."""
-        pattern_analyzer.record_feedback(
-            "user005", "analysis", SentimentType.POSITIVE, 4.0
-        )
+        pattern_analyzer.record_feedback("user005", "analysis", SentimentType.POSITIVE, 4.0)
 
         report = pattern_analyzer.export_report(format="json")
         data = json.loads(report)
@@ -206,9 +199,7 @@ class TestPatternAnalyzer:
 
     def test_export_report_markdown(self, pattern_analyzer):
         """Test exporting report as markdown."""
-        pattern_analyzer.record_feedback(
-            "user006", "analysis", SentimentType.POSITIVE, 5.0
-        )
+        pattern_analyzer.record_feedback("user006", "analysis", SentimentType.POSITIVE, 5.0)
 
         report = pattern_analyzer.export_report(format="markdown")
 
@@ -248,9 +239,7 @@ class TestBehaviorTuner:
 
     def test_handle_negative_feedback(self, tuner):
         """Test adaptation to negative feedback."""
-        tuner.adapt_to_feedback(
-            feedback_score=1.5, feedback_type="response_length", keywords=["too_long"]
-        )
+        tuner.adapt_to_feedback(feedback_score=1.5, feedback_type="response_length", keywords=["too_long"])
 
         # Should reduce response length (with learning rate <1.0, may not be exactly)
         config = tuner.get_current_config()
@@ -261,21 +250,15 @@ class TestBehaviorTuner:
         """Test that positive feedback maintains parameters."""
         initial_config = tuner.get_current_config()
 
-        tuner.adapt_to_feedback(
-            feedback_score=5.0, feedback_type="general", keywords=[]
-        )
+        tuner.adapt_to_feedback(feedback_score=5.0, feedback_type="general", keywords=[])
 
         # Config should not change significantly
         new_config = tuner.get_current_config()
-        assert (
-            new_config["max_response_length"] == initial_config["max_response_length"]
-        )
+        assert new_config["max_response_length"] == initial_config["max_response_length"]
 
     def test_toggle_feature(self, tuner):
         """Test feature toggling."""
-        success = tuner.toggle_feature(
-            "cross_reference", enabled=False, reason="Testing"
-        )
+        success = tuner.toggle_feature("cross_reference", enabled=False, reason="Testing")
 
         assert success
         config = tuner.get_current_config()

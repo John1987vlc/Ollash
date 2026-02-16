@@ -70,9 +70,7 @@ class OllamaClient:
         # Configure retry strategy for sync requests
         max_retries = min(self.config.get("ollama_max_retries", 5), 10)
         backoff_factor = min(self.config.get("ollama_backoff_factor", 1.0), 5.0)
-        status_forcelist = self.config.get(
-            "ollama_retry_status_forcelist", [429, 500, 502, 503, 504]
-        )
+        status_forcelist = self.config.get("ollama_retry_status_forcelist", [429, 500, 502, 503, 504])
 
         retry_strategy = Retry(
             total=max_retries,
@@ -88,9 +86,7 @@ class OllamaClient:
 
         # Aiohttp session for async requests - initialized lazily
         self._aiohttp_session: Optional[aiohttp.ClientSession] = None
-        self._aiohttp_session_lock = (
-            asyncio.Lock()
-        )  # Use asyncio.Lock for async creation safety
+        self._aiohttp_session_lock = asyncio.Lock()  # Use asyncio.Lock for async creation safety
 
         # Timeout for individual requests
         self.timeout = timeout
@@ -110,8 +106,7 @@ class OllamaClient:
         )
 
         # Embedding model configuration (config will eventually be LLMModelsConfig)
-        from backend.utils.core.constants import \
-            DEFAULT_EMBEDDING_MODEL  # Added import
+        from backend.utils.core.constants import DEFAULT_EMBEDDING_MODEL  # Added import
 
         models_config = self.config.get("models", {})
         self.embedding_model = models_config.get(
@@ -124,9 +119,7 @@ class OllamaClient:
         cache_persist_path = None
         if cache_config.get("persist_to_disk", True):
             # project_root will eventually be passed via AgentKernel
-            cache_persist_path = (
-                Path(self.config.get("project_root", ".")) / ".embedding_cache.json"
-            )
+            cache_persist_path = Path(self.config.get("project_root", ".")) / ".embedding_cache.json"
         self._embedding_cache = EmbeddingCache(
             max_size=cache_config.get("max_size", 10000),
             ttl_seconds=cache_config.get("ttl_seconds", 3600),
@@ -160,19 +153,13 @@ class OllamaClient:
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=300)
 
             if process.returncode == 0:
-                self.logger.info(
-                    f"Successfully pulled model {model_name}:\n{stdout.decode()}"
-                )
+                self.logger.info(f"Successfully pulled model {model_name}:\n{stdout.decode()}")
                 return True
             else:
-                self.logger.error(
-                    f"Failed to pull model {model_name}. Error:\n{stderr.decode()}"
-                )
+                self.logger.error(f"Failed to pull model {model_name}. Error:\n{stderr.decode()}")
                 return False
         except asyncio.TimeoutError:
-            self.logger.error(
-                f"Ollama pull command for {model_name} timed out after 300 seconds."
-            )
+            self.logger.error(f"Ollama pull command for {model_name} timed out after 300 seconds.")
             return False
         except FileNotFoundError:
             self.logger.error(
@@ -180,9 +167,7 @@ class OllamaClient:
             )
             return False
         except Exception as e:
-            self.logger.error(
-                f"An unexpected error occurred while pulling model {model_name}: {e}"
-            )
+            self.logger.error(f"An unexpected error occurred while pulling model {model_name}: {e}")
             return False
 
     def _pull_model(self, model_name: str) -> bool:
@@ -193,20 +178,14 @@ class OllamaClient:
         self.logger.info(f"Attempting to pull Ollama model: {model_name}...")
         command = ["ollama", "pull", model_name]
         try:
-            process = subprocess.run(
-                command, check=True, capture_output=True, text=True, timeout=300
-            )
-            self.logger.info(
-                f"Successfully pulled model {model_name}:\n{process.stdout}"
-            )
+            process = subprocess.run(command, check=True, capture_output=True, text=True, timeout=300)
+            self.logger.info(f"Successfully pulled model {model_name}:\n{process.stdout}")
             return True
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Failed to pull model {model_name}. Error:\n{e.stderr}")
             return False
         except subprocess.TimeoutExpired:
-            self.logger.error(
-                f"Ollama pull command for {model_name} timed out after 300 seconds."
-            )
+            self.logger.error(f"Ollama pull command for {model_name} timed out after 300 seconds.")
             return False
         except FileNotFoundError:
             self.logger.error(
@@ -214,9 +193,7 @@ class OllamaClient:
             )
             return False
         except Exception as e:
-            self.logger.error(
-                f"An unexpected error occurred while pulling model {model_name}: {e}"
-            )
+            self.logger.error(f"An unexpected error occurred while pulling model {model_name}: {e}")
             return False
 
     async def achat(
@@ -246,9 +223,7 @@ class OllamaClient:
         error_message: Optional[str] = None
         usage: Dict = {}
 
-        self._llm_recorder.record_request(
-            self.model, messages, tools, default_options
-        )  # NEW
+        self._llm_recorder.record_request(self.model, messages, tools, default_options)  # NEW
 
         try:
             await self._rate_limiter.a_wait_if_needed()
@@ -259,9 +234,7 @@ class OllamaClient:
 
             _request_start = time.monotonic()
             session = await self._get_aiohttp_session()  # Lazy create/get session
-            async with session.post(
-                self.chat_url, json=payload, timeout=self.timeout
-            ) as response:
+            async with session.post(self.chat_url, json=payload, timeout=self.timeout) as response:
                 _elapsed_ms = (time.monotonic() - _request_start) * 1000
                 self._rate_limiter.record_response_time(_elapsed_ms)
                 # self.logger.debug(f"Async response status: {response.status} ({_elapsed_ms:.0f}ms)") # Removed, recorder handles
@@ -280,9 +253,7 @@ class OllamaClient:
 
         except aiohttp.ClientResponseError as e:
             error_message = f"Ollama API Error (Status {e.status}): {e.message}"
-            self.logger.error(
-                error_message, exception=e
-            )  # Using AgentLogger's error method
+            self.logger.error(error_message, exception=e)  # Using AgentLogger's error method
             if e.status == 404 and "model not found" in e.message.lower():
                 if await self._apull_model(self.model):
                     # If model pulled, retry the request
@@ -290,9 +261,7 @@ class OllamaClient:
             raise
         except Exception as e:
             error_message = f"Unexpected error in async API call: {str(e)}"
-            self.logger.error(
-                error_message, exception=e
-            )  # Using AgentLogger's error method
+            self.logger.error(error_message, exception=e)  # Using AgentLogger's error method
             raise
         finally:
             latency = time.monotonic() - start_time
@@ -342,9 +311,7 @@ class OllamaClient:
         data: Dict = {}
         usage: Dict = {}
 
-        self._llm_recorder.record_request(
-            self.model, messages, tools, default_options
-        )  # NEW
+        self._llm_recorder.record_request(self.model, messages, tools, default_options)  # NEW
 
         try:
             # Rate limiting
@@ -361,9 +328,7 @@ class OllamaClient:
 
             # Make request using session with retry logic (timed for GPU-aware rate limiter)
             _request_start = time.monotonic()
-            r = self.http_session.post(
-                self.chat_url, json=payload, timeout=self.timeout
-            )
+            r = self.http_session.post(self.chat_url, json=payload, timeout=self.timeout)
             _elapsed_ms = (time.monotonic() - _request_start) * 1000
             self._rate_limiter.record_response_time(_elapsed_ms)
 
@@ -391,32 +356,22 @@ class OllamaClient:
             self.logger.error(error_message)
             raise
         except requests.exceptions.ConnectionError:
-            error_message = (
-                f"Connection error: Cannot connect to Ollama at {self.chat_url}"
-            )
+            error_message = f"Connection error: Cannot connect to Ollama at {self.chat_url}"
             self.logger.error(error_message)
             self.logger.error("Make sure Ollama is running: 'ollama serve'")
             raise
         except requests.exceptions.HTTPError as e:
-            error_message = (
-                f"Ollama API Error (Status {r.status_code}): {e.response.text[:500]}"
-            )
+            error_message = f"Ollama API Error (Status {r.status_code}): {e.response.text[:500]}"
             self.logger.error(error_message, exception=e)
 
             # Check for "model not found" (HTTP 404) and attempt to pull
             if r.status_code == 404 and "model not found" in e.response.text.lower():
-                self.logger.warning(
-                    f"Model '{self.model}' not found. Attempting to pull..."
-                )
+                self.logger.warning(f"Model '{self.model}' not found. Attempting to pull...")
                 if self._pull_model(self.model):
-                    self.logger.info(
-                        f"Model '{self.model}' pulled successfully. Retrying chat request..."
-                    )
+                    self.logger.info(f"Model '{self.model}' pulled successfully. Retrying chat request...")
                     # After successful pull, retry the chat request once.
                     try:
-                        r = self.http_session.post(
-                            self.chat_url, json=payload, timeout=self.timeout
-                        )
+                        r = self.http_session.post(self.chat_url, json=payload, timeout=self.timeout)
                         r.raise_for_status()
                         data = r.json()
                         prompt_chars = sum(len(json.dumps(m)) for m in messages)
@@ -433,17 +388,12 @@ class OllamaClient:
                         self.logger.error(error_message, exception=retry_e)
                         raise  # Re-raise if retry fails
                 else:
-                    error_message = (
-                        f"Failed to pull model '{self.model}'. Cannot complete request."
-                    )
+                    error_message = f"Failed to pull model '{self.model}'. Cannot complete request."
                     self.logger.error(error_message)
                     raise  # Re-raise original error if pull fails
 
             # Original tool not found check (only if model pull logic didn't handle it)
-            if (
-                "tool" in e.response.text.lower()
-                and "not found" in e.response.text.lower()
-            ):
+            if "tool" in e.response.text.lower() and "not found" in e.response.text.lower():
                 self.logger.warning("The model tried to use a tool that doesn't exist.")
                 # Log available tools for debugging (tool_names was defined earlier in chat method)
                 # self.logger.warning(f"Available tools: {', '.join(tool_names)}") # tool_names is already defined above
@@ -485,17 +435,13 @@ class OllamaClient:
         try:
             # self.logger.debug(f"Sending async embedding request to {self.embed_url}") # Removed, recorder handles
             session = await self._get_aiohttp_session()  # Lazy create/get session
-            async with session.post(
-                self.embed_url, json=payload, timeout=self.timeout
-            ) as response:
+            async with session.post(self.embed_url, json=payload, timeout=self.timeout) as response:
                 response.raise_for_status()
                 data = await response.json()
                 embeddings = data.get("embedding")
                 if not embeddings:
                     self.logger.error(f"Ollama embedding response structure: {data}")
-                    raise ValueError(
-                        f"No embedding found in Ollama API response. Full response: {data}"
-                    )
+                    raise ValueError(f"No embedding found in Ollama API response. Full response: {data}")
                 self._embedding_cache.put(text, embeddings)
                 success = True
                 return embeddings
@@ -547,9 +493,7 @@ class OllamaClient:
             # self.logger.debug(f"Embedding model: {self.embedding_model}") # Removed, recorder handles
             # self.logger.debug(f"Text for embedding: {text[:100]}...") # Removed, recorder handles
 
-            r = self.http_session.post(
-                self.embed_url, json=payload, timeout=self.timeout
-            )
+            r = self.http_session.post(self.embed_url, json=payload, timeout=self.timeout)
 
             # self.logger.debug(f"Embedding response status: {r.status_code}") # Removed, recorder handles
             r.raise_for_status()
@@ -559,9 +503,7 @@ class OllamaClient:
 
             if not embeddings:
                 self.logger.error(f"Ollama embedding response structure: {data}")
-                raise ValueError(
-                    f"No embedding found in Ollama API response. Full response: {data}"
-                )
+                raise ValueError(f"No embedding found in Ollama API response. Full response: {data}")
 
             # Store in cache
             self._embedding_cache.put(text, embeddings)
@@ -582,35 +524,33 @@ class OllamaClient:
             self.logger.error(error_message, exception=e)
             # Check for "model not found" (HTTP 404) for embedding model
             if r.status_code == 404 and "model not found" in e.response.text.lower():
-                self.logger.warning(
-                    f"Embedding model '{self.embedding_model}' not found. Attempting to pull..."
-                )
+                self.logger.warning(f"Embedding model '{self.embedding_model}' not found. Attempting to pull...")
                 if self._pull_model(self.embedding_model):
                     self.logger.info(
                         f"Embedding model '{self.embedding_model}' pulled successfully. Retrying embedding request..."
                     )
                     try:
-                        r = self.http_session.post(
-                            self.embed_url, json=payload, timeout=self.timeout
-                        )
+                        r = self.http_session.post(self.embed_url, json=payload, timeout=self.timeout)
                         r.raise_for_status()
                         data = r.json()
                         embeddings = data.get("embedding")
                         if not embeddings:
-                            self.logger.error(
-                                f"Ollama embedding response after retry: {data}"
-                            )
+                            self.logger.error(f"Ollama embedding response after retry: {data}")
                             raise ValueError(
                                 f"No embedding found in Ollama API response after retry. Full response: {data}"
                             )
                         success = True
                         return embeddings
                     except Exception as retry_e:
-                        error_message = f"Retry after embedding model pull failed for '{self.embedding_model}': {retry_e}"
+                        error_message = (
+                            f"Retry after embedding model pull failed for '{self.embedding_model}': {retry_e}"
+                        )
                         self.logger.error(error_message, exception=retry_e)
                         raise
                 else:
-                    error_message = f"Failed to pull embedding model '{self.embedding_model}'. Cannot generate embeddings."
+                    error_message = (
+                        f"Failed to pull embedding model '{self.embedding_model}'. Cannot generate embeddings."
+                    )
                     self.logger.error(error_message)
                     raise
             raise

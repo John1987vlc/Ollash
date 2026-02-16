@@ -37,9 +37,7 @@ class LogicPlanningPhase(IAgentPhase):
         self.context.logger.info(
             f"[PROJECT_NAME:{project_name}] PHASE 2.5: Creating detailed logic plans for {len(file_paths)} files..."
         )
-        self.context.event_publisher.publish(
-            "phase_start", phase="2.5", message="Creating logic implementation plans"
-        )
+        self.context.event_publisher.publish("phase_start", phase="2.5", message="Creating logic implementation plans")
 
         logic_plan = {}
 
@@ -59,9 +57,7 @@ class LogicPlanningPhase(IAgentPhase):
 
         # Save plan to disk
         plan_file = project_root / "IMPLEMENTATION_PLAN.json"
-        self.context.file_manager.write_file(
-            plan_file, json.dumps(logic_plan, indent=2)
-        )
+        self.context.file_manager.write_file(plan_file, json.dumps(logic_plan, indent=2))
         generated_files["IMPLEMENTATION_PLAN.json"] = json.dumps(logic_plan, indent=2)
 
         # Store in context for FileContentGenerationPhase to use
@@ -101,9 +97,7 @@ class LogicPlanningPhase(IAgentPhase):
                 categories["web"].append(file_path)
             elif any(x in file_path for x in [".md", "README", "LICENSE"]):
                 categories["docs"].append(file_path)
-            elif any(
-                x in file_path for x in ["main", "app", "server", "index", "__main__"]
-            ):
+            elif any(x in file_path for x in ["main", "app", "server", "index", "__main__"]):
                 categories["main"].append(file_path)
             else:
                 categories["other"].append(file_path)
@@ -126,7 +120,7 @@ class LogicPlanningPhase(IAgentPhase):
 Description: {project_description}
 
 ## Files in this category:
-{chr(10).join(f'- {f}' for f in files)}
+{chr(10).join(f"- {f}" for f in files)}
 
 ## Create detailed implementation plans for EACH file above.
 Specify for each file:

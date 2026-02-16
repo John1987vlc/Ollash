@@ -72,9 +72,7 @@ def run_system_health_check():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                result = loop.run_until_complete(
-                    _monitor_agents["system"].perform_health_check()
-                )
+                result = loop.run_until_complete(_monitor_agents["system"].perform_health_check())
                 return result
             finally:
                 loop.close()
@@ -82,9 +80,7 @@ def run_system_health_check():
         # Execute in background thread
         result = _run_check()
 
-        return jsonify(
-            {"status": "completed", "check_type": "system_health", "result": result}
-        )
+        return jsonify({"status": "completed", "check_type": "system_health", "result": result})
 
     except Exception as e:
         logger.error(f"Error running system health check: {e}")
@@ -104,18 +100,14 @@ def run_system_cleanup():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                result = loop.run_until_complete(
-                    _monitor_agents["system"].cleanup_system()
-                )
+                result = loop.run_until_complete(_monitor_agents["system"].cleanup_system())
                 return result
             finally:
                 loop.close()
 
         result = _run_cleanup()
 
-        return jsonify(
-            {"status": "completed", "check_type": "system_cleanup", "result": result}
-        )
+        return jsonify({"status": "completed", "check_type": "system_cleanup", "result": result})
 
     except Exception as e:
         logger.error(f"Error running system cleanup: {e}")
@@ -137,18 +129,14 @@ def analyze_system_logs():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                result = loop.run_until_complete(
-                    _monitor_agents["system"].analyze_logs(patterns)
-                )
+                result = loop.run_until_complete(_monitor_agents["system"].analyze_logs(patterns))
                 return result
             finally:
                 loop.close()
 
         result = _run_analysis()
 
-        return jsonify(
-            {"status": "completed", "check_type": "log_analysis", "result": result}
-        )
+        return jsonify({"status": "completed", "check_type": "log_analysis", "result": result})
 
     except Exception as e:
         logger.error(f"Error analyzing logs: {e}")
@@ -170,18 +158,14 @@ def check_network_uptime():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                result = loop.run_until_complete(
-                    _monitor_agents["network"].check_services_uptime(services)
-                )
+                result = loop.run_until_complete(_monitor_agents["network"].check_services_uptime(services))
                 return result
             finally:
                 loop.close()
 
         result = _run_check()
 
-        return jsonify(
-            {"status": "completed", "check_type": "network_uptime", "result": result}
-        )
+        return jsonify({"status": "completed", "check_type": "network_uptime", "result": result})
 
     except Exception as e:
         logger.error(f"Error checking network uptime: {e}")
@@ -203,18 +187,14 @@ def detect_port_issues():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                result = loop.run_until_complete(
-                    _monitor_agents["network"].detect_port_issues(ports)
-                )
+                result = loop.run_until_complete(_monitor_agents["network"].detect_port_issues(ports))
                 return result
             finally:
                 loop.close()
 
         result = _run_check()
 
-        return jsonify(
-            {"status": "completed", "check_type": "port_detection", "result": result}
-        )
+        return jsonify({"status": "completed", "check_type": "port_detection", "result": result})
 
     except Exception as e:
         logger.error(f"Error detecting port issues: {e}")
@@ -236,18 +216,14 @@ def run_integrity_scan():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                result = loop.run_until_complete(
-                    _monitor_agents["security"].integrity_scan(file_paths)
-                )
+                result = loop.run_until_complete(_monitor_agents["security"].integrity_scan(file_paths))
                 return result
             finally:
                 loop.close()
 
         result = _run_scan()
 
-        return jsonify(
-            {"status": "completed", "check_type": "integrity_scan", "result": result}
-        )
+        return jsonify({"status": "completed", "check_type": "integrity_scan", "result": result})
 
     except Exception as e:
         logger.error(f"Error running integrity scan: {e}")
@@ -267,9 +243,7 @@ def analyze_security_logs():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                result = loop.run_until_complete(
-                    _monitor_agents["security"].security_log_analysis()
-                )
+                result = loop.run_until_complete(_monitor_agents["security"].security_log_analysis())
                 return result
             finally:
                 loop.close()
@@ -302,9 +276,7 @@ def scan_vulnerabilities():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                result = loop.run_until_complete(
-                    _monitor_agents["security"].vulnerability_scan()
-                )
+                result = loop.run_until_complete(_monitor_agents["security"].vulnerability_scan())
                 return result
             finally:
                 loop.close()

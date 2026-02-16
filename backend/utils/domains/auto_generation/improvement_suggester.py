@@ -54,9 +54,5 @@ class ImprovementSuggester:
         )
         raw_suggestions = response_data["message"]["content"]
         # Assuming the LLM returns a markdown list or similar
-        suggestions = [
-            line.strip("- ").strip()
-            for line in raw_suggestions.split("\n")
-            if line.strip().startswith("-")
-        ]
+        suggestions = [line.strip("- ").strip() for line in raw_suggestions.split("\n") if line.strip().startswith("-")]
         return suggestions

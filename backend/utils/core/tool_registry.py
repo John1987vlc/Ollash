@@ -12,10 +12,12 @@ from backend.utils.core.file_manager import FileManager
 from backend.utils.core.git_manager import GitManager
 
 # Import the discovery functions from the decorator module
-from .tool_decorator import (get_async_eligible_tools,
-                             get_discovered_agent_tools,
-                             get_discovered_definitions,
-                             get_discovered_tool_mapping)
+from .tool_decorator import (
+    get_async_eligible_tools,
+    get_discovered_agent_tools,
+    get_discovered_definitions,
+    get_discovered_tool_mapping,
+)
 
 
 def discover_tools(base_path: str = "backend/utils/domains"):
@@ -40,9 +42,7 @@ def discover_tools(base_path: str = "backend/utils/domains"):
         return
 
     # Walk through all modules and sub-packages
-    for _, name, is_pkg in pkgutil.walk_packages(
-        package.submodule_search_locations, prefix=f"{package.name}."
-    ):
+    for _, name, is_pkg in pkgutil.walk_packages(package.submodule_search_locations, prefix=f"{package.name}."):
         if not is_pkg:
             try:
                 importlib.import_module(name)
@@ -81,9 +81,7 @@ class ToolRegistry:
         self.command_executor = command_executor
         self.git_manager = git_manager
         self.code_analyzer = code_analyzer
-        self.tool_executor = (
-            tool_executor  # The ToolExecutor that will use this registry
-        )
+        self.tool_executor = tool_executor  # The ToolExecutor that will use this registry
         self.confirmation_manager = confirmation_manager
 
         self._loaded_toolsets: Dict[str, Any] = {}  # To store instances of toolsets
@@ -266,22 +264,16 @@ class ToolRegistry:
                 definitions.append(tool_def)
         return definitions
 
-    def get_callable_tool_function(
-        self, tool_name: str, agent_instance: Any
-    ) -> Callable:
+    def get_callable_tool_function(self, tool_name: str, agent_instance: Any) -> Callable:
         """
         Retrieves the callable function for a given tool, lazily instantiating its toolset if necessary.
         """
-        toolset_identifier, method_name_in_toolset = self.get_tool_mapping().get(
-            tool_name
-        )
+        toolset_identifier, method_name_in_toolset = self.get_tool_mapping().get(tool_name)
 
         if toolset_identifier not in self._loaded_toolsets:
             toolset_config = self._toolset_configs.get(toolset_identifier)
             if not toolset_config:
-                raise ValueError(
-                    f"Toolset configuration for '{toolset_identifier}' not found in registry."
-                )
+                raise ValueError(f"Toolset configuration for '{toolset_identifier}' not found in registry.")
 
             class_path = toolset_config["class_path"]
             module_name, class_name = class_path.rsplit(".", 1)
@@ -291,19 +283,12 @@ class ToolRegistry:
                 module = importlib.import_module(module_name)
                 toolset_class = getattr(module, class_name)
             except (ImportError, AttributeError) as e:
-                raise RuntimeError(
-                    f"Failed to dynamically load toolset class {class_path}: {e}"
-                )
+                raise RuntimeError(f"Failed to dynamically load toolset class {class_path}: {e}")
 
-            init_args = toolset_config[
-                "init_args"
-            ].copy()  # Use a copy to avoid modifying original
+            init_args = toolset_config["init_args"].copy()  # Use a copy to avoid modifying original
 
             # Dynamically set agent_instance for toolsets that require it
-            if (
-                toolset_identifier == "planning_tools"
-                or toolset_identifier == "system_tools"
-            ):
+            if toolset_identifier == "planning_tools" or toolset_identifier == "system_tools":
                 init_args["agent_instance"] = agent_instance
 
             self.logger.debug(
@@ -315,9 +300,7 @@ class ToolRegistry:
         tool_func = getattr(toolset_instance, method_name_in_toolset, None)
 
         if not tool_func:
-            raise AttributeError(
-                f"Method '{method_name_in_toolset}' not found in toolset '{toolset_identifier}'."
-            )
+            raise AttributeError(f"Method '{method_name_in_toolset}' not found in toolset '{toolset_identifier}'.")
 
         return tool_func
 

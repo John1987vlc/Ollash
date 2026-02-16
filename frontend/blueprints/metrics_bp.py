@@ -87,9 +87,7 @@ def get_metric_history(category: str, metric_name: str):
         if not _metrics_db:
             return jsonify({"error": "Metrics database not initialized"}), 503
 
-        history = _metrics_db.get_metric_history(
-            category, metric_name, hours=hours, limit=limit
-        )
+        history = _metrics_db.get_metric_history(category, metric_name, hours=hours, limit=limit)
 
         return jsonify(
             {
@@ -196,9 +194,7 @@ def cleanup_old_metrics():
 
         _metrics_db.clear_old_metrics(days=days)
 
-        return jsonify(
-            {"status": "success", "message": f"Cleaned metrics older than {days} days"}
-        )
+        return jsonify({"status": "success", "message": f"Cleaned metrics older than {days} days"})
 
     except Exception as e:
         logger.error(f"Error cleaning metrics: {e}")

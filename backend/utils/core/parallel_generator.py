@@ -149,8 +149,7 @@ class ParallelFileGenerator:
             Dict mapping file paths to GenerationResults
         """
         self.logger.info(
-            f"Starting parallel generation of {len(tasks)} files "
-            f"(max {self.rate_limiter.max_concurrent} concurrent)"
+            f"Starting parallel generation of {len(tasks)} files (max {self.rate_limiter.max_concurrent} concurrent)"
         )
 
         self.generation_fn = generation_fn
@@ -165,9 +164,7 @@ class ParallelFileGenerator:
 
         # Create worker coroutines
         workers = [
-            self._worker(
-                task_queue, progress_callback, completed_files, dependency_order
-            )
+            self._worker(task_queue, progress_callback, completed_files, dependency_order)
             for _ in range(self.rate_limiter.max_concurrent)
         ]
 
@@ -185,8 +182,7 @@ class ParallelFileGenerator:
         # Log summary
         success_count = sum(1 for r in self.results.values() if r.success)
         self.logger.info(
-            f"Parallel generation complete: {success_count}/{self.total_count} success, "
-            f"{len(self.failed_files)} failed"
+            f"Parallel generation complete: {success_count}/{self.total_count} success, {len(self.failed_files)} failed"
         )
 
         return self.results
@@ -218,13 +214,9 @@ class ParallelFileGenerator:
 
                 # Call the generation function
                 if asyncio.iscoroutinefunction(self.generation_fn):
-                    content, success, error = await self.generation_fn(
-                        task.file_path, task.context
-                    )
+                    content, success, error = await self.generation_fn(task.file_path, task.context)
                 else:
-                    content, success, error = self.generation_fn(
-                        task.file_path, task.context
-                    )
+                    content, success, error = self.generation_fn(task.file_path, task.context)
 
                 duration = time.time() - start_time
 
@@ -271,9 +263,7 @@ class ParallelFileGenerator:
             finally:
                 await self.rate_limiter.release()
 
-    def _get_file_dependencies(
-        self, file_path: str, dependency_order: List[str]
-    ) -> List[str]:
+    def _get_file_dependencies(self, file_path: str, dependency_order: List[str]) -> List[str]:
         """Get files that must be generated before this one."""
         if file_path not in dependency_order:
             return []
@@ -296,9 +286,7 @@ class ParallelFileGenerator:
             "failed": len(failed),
             "success_rate": len(successful) / len(self.results) if self.results else 0,
             "total_duration_seconds": total_duration,
-            "avg_time_per_file": total_duration / len(self.results)
-            if self.results
-            else 0,
+            "avg_time_per_file": total_duration / len(self.results) if self.results else 0,
             "failed_files": self.failed_files,
         }
 
@@ -322,7 +310,8 @@ class AsyncFileGenerationAdapter:
         """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None, lambda: sync_fn(*args, **kwargs)  # Use default executor
+            None,
+            lambda: sync_fn(*args, **kwargs),  # Use default executor
         )
 
     async def generate_file_async(
@@ -335,9 +324,7 @@ class AsyncFileGenerationAdapter:
             (content, success, error_message)
         """
         try:
-            content = await self.call_sync_function(
-                content_generator_fn, file_path, *args, **kwargs
-            )
+            content = await self.call_sync_function(content_generator_fn, file_path, *args, **kwargs)
             return (content, True, None)
         except Exception as e:
             self.logger.error(f"Error generating {file_path}: {e}")

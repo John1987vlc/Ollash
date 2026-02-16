@@ -35,9 +35,7 @@ class FragmentCache:
         "config_template": "Configuration file templates",
     }
 
-    def __init__(
-        self, cache_dir: Path, logger: AgentLogger, enable_persistence: bool = True
-    ):
+    def __init__(self, cache_dir: Path, logger: AgentLogger, enable_persistence: bool = True):
         """
         Initialize the fragment cache.
 
@@ -60,9 +58,7 @@ class FragmentCache:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             self._load_from_disk()
 
-    def _generate_cache_key(
-        self, fragment_type: str, language: str, context_hash: str = ""
-    ) -> str:
+    def _generate_cache_key(self, fragment_type: str, language: str, context_hash: str = "") -> str:
         """Generate a unique cache key for a fragment."""
         context_part = f":{context_hash}" if context_hash else ""
         return f"{fragment_type}:{language}{context_part}".lower()
@@ -71,9 +67,7 @@ class FragmentCache:
         """Compute MD5 hash of context for cache keying."""
         return hashlib.md5(context.encode()).hexdigest()[:8]
 
-    def get(
-        self, fragment_type: str, language: str, context: str = "", validate_fn=None
-    ) -> Optional[str]:
+    def get(self, fragment_type: str, language: str, context: str = "", validate_fn=None) -> Optional[str]:
         """
         Retrieve a cached fragment.
 
@@ -172,9 +166,7 @@ class FragmentCache:
 
         total_fragments = len(self._memory_cache)
         total_hits = sum(f.get("hits", 0) for f in self._memory_cache.values())
-        fragment_types = set(
-            f.get("fragment_type") for f in self._memory_cache.values()
-        )
+        fragment_types = set(f.get("fragment_type") for f in self._memory_cache.values())
         languages = set(f.get("language") for f in self._memory_cache.values())
 
         return {
@@ -182,9 +174,7 @@ class FragmentCache:
             "total_hits": total_hits,
             "fragment_types": len(fragment_types),
             "languages": len(languages),
-            "avg_hits_per_fragment": total_hits / total_fragments
-            if total_fragments > 0
-            else 0,
+            "avg_hits_per_fragment": total_hits / total_fragments if total_fragments > 0 else 0,
         }
 
     def _save_to_disk(self) -> None:
@@ -206,9 +196,7 @@ class FragmentCache:
         try:
             with open(self.cache_file, "r", encoding="utf-8") as f:
                 self._memory_cache = json.load(f)
-            self.logger.info(
-                f"Loaded {len(self._memory_cache)} fragments from disk cache"
-            )
+            self.logger.info(f"Loaded {len(self._memory_cache)} fragments from disk cache")
         except Exception as e:
             self.logger.warning(f"Failed to load fragment cache from disk: {e}")
             self._memory_cache = {}

@@ -1,8 +1,7 @@
 import time
 from typing import Any, Dict, Optional
 
-from backend.utils.core.agent_logger import \
-    AgentLogger  # Use AgentLogger for structured logging
+from backend.utils.core.agent_logger import AgentLogger  # Use AgentLogger for structured logging
 from backend.utils.core.structured_logger import get_correlation_id
 
 
@@ -50,17 +49,13 @@ class ToolSpanManager:
         )
         return tool_call_id
 
-    def end_span(
-        self, tool_call_id: str, success: bool, result: Any, error: Optional[str] = None
-    ):
+    def end_span(self, tool_call_id: str, success: bool, result: Any, error: Optional[str] = None):
         """
         Ends an active tool execution span and records its completion status.
         """
         span_data = self._active_spans.pop(tool_call_id, None)
         if span_data is None:
-            self._logger.warning(
-                f"Attempted to end non-existent tool span: {tool_call_id}"
-            )
+            self._logger.warning(f"Attempted to end non-existent tool span: {tool_call_id}")
             return
 
         end_time = time.monotonic()
@@ -85,8 +80,6 @@ class ToolSpanManager:
                 "latency_ms": span_data["latency_ms"],
                 "status": span_data["status"],
                 "error_message": error,
-                "result_hash": hash(
-                    str(result)
-                ),  # Hash of result to avoid logging large objects
+                "result_hash": hash(str(result)),  # Hash of result to avoid logging large objects
             },
         )

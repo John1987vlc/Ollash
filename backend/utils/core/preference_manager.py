@@ -35,9 +35,7 @@ class PreferenceManager:
                 with open(self.preferences_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError) as e:
-                self.logger.error(
-                    f"Failed to load preferences from {self.preferences_file}: {e}"
-                )
+                self.logger.error(f"Failed to load preferences from {self.preferences_file}: {e}")
                 return {}
         return {}
 
@@ -47,9 +45,7 @@ class PreferenceManager:
             with open(self.preferences_file, "w", encoding="utf-8") as f:
                 json.dump(self.preferences, f, indent=4)
         except IOError as e:
-            self.logger.error(
-                f"Failed to save preferences to {self.preferences_file}: {e}"
-            )
+            self.logger.error(f"Failed to save preferences to {self.preferences_file}: {e}")
 
     def get(self, key: str, default: Any = None) -> Any:
         """

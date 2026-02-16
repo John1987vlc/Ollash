@@ -5,15 +5,9 @@ from pydantic import BaseModel, Field, HttpUrl, NonNegativeInt, PositiveInt
 
 # --- Embedding Cache Configuration Schema ---
 class EmbeddingCacheConfig(BaseModel):
-    max_size: PositiveInt = Field(
-        10000, description="Maximum number of embeddings to store in cache."
-    )
-    ttl_seconds: PositiveInt = Field(
-        3600, description="Time-to-live for cache entries in seconds."
-    )
-    persist_to_disk: bool = Field(
-        True, description="Whether to persist the embedding cache to disk."
-    )
+    max_size: PositiveInt = Field(10000, description="Maximum number of embeddings to store in cache.")
+    ttl_seconds: PositiveInt = Field(3600, description="Time-to-live for cache entries in seconds.")
+    persist_to_disk: bool = Field(True, description="Whether to persist the embedding cache to disk.")
 
 
 # --- LLM Models Configuration Schema ---
@@ -24,9 +18,7 @@ class LLMModelDefinition(BaseModel):
 
 
 class LLMModelsConfig(BaseModel):
-    ollama_url: HttpUrl = Field(
-        default="http://localhost:11434", description="Base URL for the Ollama server."
-    )
+    ollama_url: HttpUrl = Field(default="http://localhost:11434", description="Base URL for the Ollama server.")
     default_model: str = Field(
         default="mistral:latest",
         description="Default LLM model to use for general tasks.",
@@ -46,16 +38,12 @@ class LLMModelsConfig(BaseModel):
 
     # Deprecated fields for specific tasks are removed in favor of agent_roles
 
-    embedding: Optional[str] = Field(
-        None, description="Model for embedding generation."
-    )
+    embedding: Optional[str] = Field(None, description="Model for embedding generation.")
     embedding_cache_settings: EmbeddingCacheConfig = Field(
         default_factory=EmbeddingCacheConfig, alias="embedding_cache"
     )
 
-    default_timeout: PositiveInt = Field(
-        300, description="Default timeout for LLM API calls in seconds."
-    )
+    default_timeout: PositiveInt = Field(300, description="Default timeout for LLM API calls in seconds.")
 
     class Config:
         extra = "allow"
@@ -98,21 +86,30 @@ class SpeechConfig(BaseModel):
     max_duration_seconds: PositiveInt = 60
 
 
+class InfraConfig(BaseModel):
+    cloud: str = Field("aws", description="Default cloud provider for IaC generation.")
+    container_orchestrator: str = Field("kubernetes", description="Default container orchestrator.")
+
+
 class AgentFeaturesConfig(BaseModel):
-    cross_reference: bool = Field(
-        False, description="Enable cross-referencing features."
-    )
+    cross_reference: bool = Field(False, description="Enable cross-referencing features.")
     artifacts_panel: bool = Field(False, description="Enable artifacts panel in UI.")
-    feedback_refinement: bool = Field(
-        False, description="Enable feedback-based refinement."
-    )
-    multimodal_ingestion: bool = Field(
-        False, description="Enable multimodal input ingestion."
-    )
-    ocr_enabled: bool = Field(
-        False, description="Enable Optical Character Recognition (OCR)."
-    )
+    feedback_refinement: bool = Field(False, description="Enable feedback-based refinement.")
+    multimodal_ingestion: bool = Field(False, description="Enable multimodal input ingestion.")
+    ocr_enabled: bool = Field(False, description="Enable Optical Character Recognition (OCR).")
     speech_enabled: bool = Field(False, description="Enable speech input/output.")
+
+    # --- New feature flags ---
+    refactoring_enabled: bool = Field(False, description="Enable proactive SOLID refactoring agent.")
+    ui_analysis_enabled: bool = Field(False, description="Enable multimodal UI/UX analysis.")
+    cicd_auto_healing: bool = Field(False, description="Enable CI/CD auto-healing capabilities.")
+    load_testing_enabled: bool = Field(False, description="Enable load simulation and app benchmarking.")
+    license_scanning_deep: bool = Field(False, description="Enable deep license compatibility scanning.")
+    project_license: str = Field("MIT", description="Default license type for generated projects.")
+    documentation_languages: List[str] = Field(
+        default_factory=lambda: ["en"],
+        description="Languages for documentation translation.",
+    )
 
     # Nested configurations
     knowledge_graph_settings: KnowledgeGraphConfig = Field(
@@ -121,11 +118,10 @@ class AgentFeaturesConfig(BaseModel):
     decision_context_settings: DecisionContextConfig = Field(
         default_factory=DecisionContextConfig, alias="decision_context"
     )
-    artifacts_settings: ArtifactsConfig = Field(
-        default_factory=ArtifactsConfig, alias="artifacts"
-    )
+    artifacts_settings: ArtifactsConfig = Field(default_factory=ArtifactsConfig, alias="artifacts")
     ocr_settings: OCRConfig = Field(default_factory=OCRConfig, alias="ocr")
     speech_settings: SpeechConfig = Field(default_factory=SpeechConfig, alias="speech")
+    infra_settings: InfraConfig = Field(default_factory=InfraConfig, alias="infrastructure")
 
     class Config:
         extra = "allow"
@@ -151,18 +147,14 @@ class ToolSettingsConfig(BaseModel):
         alias="sandbox",
         description="Security sandbox level for command execution.",
     )
-    max_context_tokens: PositiveInt = Field(
-        8000, description="Maximum tokens for LLM context window."
-    )
+    max_context_tokens: PositiveInt = Field(8000, description="Maximum tokens for LLM context window.")
     summarize_threshold_ratio: float = Field(
         0.7,
         ge=0.0,
         le=1.0,
         description="Ratio of max_context_tokens at which summarization is triggered.",
     )
-    history_limit: NonNegativeInt = Field(
-        20, description="Maximum number of conversation turns to keep in memory."
-    )
+    history_limit: NonNegativeInt = Field(20, description="Maximum number of conversation turns to keep in memory.")
     log_level: str = Field(
         "debug",
         description="Logging level (e.g., 'debug', 'info', 'warning', 'error').",
@@ -176,55 +168,33 @@ class ToolSettingsConfig(BaseModel):
         "prompts/orchestrator/default_orchestrator.json",
         description="Path to the default system prompt.",
     )
-    use_docker_sandbox: bool = Field(
-        False, description="Whether to use Docker for sandbox execution."
-    )
+    use_docker_sandbox: bool = Field(False, description="Whether to use Docker for sandbox execution.")
 
     rate_limiting: RateLimitingConfig = Field(default_factory=RateLimitingConfig)
-    gpu_rate_limiter: GPUAwareRateLimiterConfig = Field(
-        default_factory=GPUAwareRateLimiterConfig
-    )
+    gpu_rate_limiter: GPUAwareRateLimiterConfig = Field(default_factory=GPUAwareRateLimiterConfig)
 
     # AutoAgent specific settings for iteration and refinement
-    auto_confirm_tools: bool = Field(
-        False, description="Automatically confirm state-modifying tool executions."
-    )
-    max_iterations: PositiveInt = Field(
-        30, description="Maximum iterations for agent loops."
-    )
-    loop_detection_threshold: PositiveInt = Field(
-        3, description="Number of similar actions to trigger loop detection."
-    )
+    auto_confirm_tools: bool = Field(False, description="Automatically confirm state-modifying tool executions.")
+    max_iterations: PositiveInt = Field(30, description="Maximum iterations for agent loops.")
+    loop_detection_threshold: PositiveInt = Field(3, description="Number of similar actions to trigger loop detection.")
     semantic_similarity_threshold: float = Field(
         0.95,
         ge=0.0,
         le=1.0,
         description="Semantic similarity threshold for loop detection.",
     )
-    parallel_generation_max_concurrent: PositiveInt = Field(
-        3, description="Max concurrent file generations."
-    )
-    parallel_generation_max_rpm: PositiveInt = Field(
-        10, description="Max requests per minute for parallel generation."
-    )
-    senior_review_max_attempts: PositiveInt = Field(
-        3, description="Max attempts for senior review fixes."
-    )
-    completeness_checker_max_retries: PositiveInt = Field(
-        2, description="Max retries for file completeness checks."
-    )
+    parallel_generation_max_concurrent: PositiveInt = Field(3, description="Max concurrent file generations.")
+    parallel_generation_max_rpm: PositiveInt = Field(10, description="Max requests per minute for parallel generation.")
+    senior_review_max_attempts: PositiveInt = Field(3, description="Max attempts for senior review fixes.")
+    completeness_checker_max_retries: PositiveInt = Field(2, description="Max retries for file completeness checks.")
     token_encoding_name: str = Field(
         "cl100k_base",
         description="Encoding name for token counting (e.g., 'cl100k_base').",
     )
 
     # Ollama API retry settings
-    ollama_retries: PositiveInt = Field(
-        5, description="Max retries for Ollama API calls."
-    )
-    ollama_backoff_factor: float = Field(
-        1.0, description="Backoff factor for Ollama API call retries."
-    )
+    ollama_retries: PositiveInt = Field(5, description="Max retries for Ollama API calls.")
+    ollama_backoff_factor: float = Field(1.0, description="Backoff factor for Ollama API call retries.")
     ollama_retry_status_forcelist: List[int] = Field(
         [429, 500, 502, 503, 504],
         description="HTTP status codes that trigger retries for Ollama API calls.",
@@ -234,19 +204,28 @@ class ToolSettingsConfig(BaseModel):
     git_auto_confirm_lines_threshold: PositiveInt = Field(
         5, description="Lines threshold for auto-confirming git operations."
     )
-    auto_confirm_minor_git_commits: bool = Field(
-        False, description="Automatically confirm minor git commits."
-    )
+    auto_confirm_minor_git_commits: bool = Field(False, description="Automatically confirm minor git commits.")
     write_auto_confirm_lines_threshold: PositiveInt = Field(
         10, description="Lines threshold for auto-confirming write operations."
     )
-    auto_confirm_minor_writes: bool = Field(
-        False, description="Automatically confirm minor file writes."
-    )
+    auto_confirm_minor_writes: bool = Field(False, description="Automatically confirm minor file writes.")
     critical_paths_patterns: List[str] = Field(
         default_factory=list,
         description="List of glob patterns for critical paths requiring explicit confirmation.",
     )
+
+    # --- New feature settings ---
+    parallel_generation_enabled: bool = Field(False, description="Enable multi-agent parallel generation.")
+    parallel_agent_count: PositiveInt = Field(2, description="Number of parallel agent instances for generation.")
+    checkpoint_enabled: bool = Field(True, description="Enable checkpoint persistence for AutoAgent phases.")
+    checkpoint_dir: str = Field(".cache/checkpoints", description="Directory for checkpoint storage.")
+    security_scanning_enabled: bool = Field(True, description="Enable real-time vulnerability scanning.")
+    block_on_critical: bool = Field(True, description="Block code generation on critical vulnerabilities.")
+    cost_tracking_enabled: bool = Field(True, description="Enable model cost tracking and analysis.")
+    wasm_sandbox_enabled: bool = Field(False, description="Enable WebAssembly sandbox for test execution.")
+    wasm_runtime: str = Field("wasmtime", description="WebAssembly runtime to use (wasmtime or wasmer).")
+    plugins_dir: str = Field("plugins", description="Directory for third-party plugins.")
+    enabled_plugins: List[str] = Field(default_factory=list, description="List of enabled plugin IDs.")
 
     class Config:
         extra = "allow"

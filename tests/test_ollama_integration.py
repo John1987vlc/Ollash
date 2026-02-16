@@ -10,7 +10,9 @@ import pytest
 @pytest.mark.asyncio
 async def test_orchestrator_initial_prompt(default_agent):
     # Assert that the agent starts with the orchestrator prompt
-    expected_orchestrator_prompt_part = "You are the Ollash Autonomous Lead Engineer. Your goal is not just to answer, but to SOLVE missions."
+    expected_orchestrator_prompt_part = (
+        "You are the Ollash Autonomous Lead Engineer. Your goal is not just to answer, but to SOLVE missions."
+    )
     assert expected_orchestrator_prompt_part in default_agent.system_prompt
 
 

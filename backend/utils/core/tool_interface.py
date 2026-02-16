@@ -17,9 +17,7 @@ class ToolExecutor(IToolExecutor):
         agent_instance: Any,  # Pass the agent_instance down to ToolRegistry
     ):
         self.tool_registry = tool_registry
-        self.agent_instance = (
-            agent_instance  # Used to pass to ToolRegistry's get_callable_tool_function
-        )
+        self.agent_instance = agent_instance  # Used to pass to ToolRegistry's get_callable_tool_function
 
     def get_tool_definitions(self, tool_names: List[str]) -> List[Dict]:
         """Returns the OpenAPI-like definitions for a list of tool names."""
@@ -30,9 +28,7 @@ class ToolExecutor(IToolExecutor):
         Executes a tool identified by its name with the given arguments.
         Delegates to the ToolRegistry to get and execute the callable function.
         """
-        tool_func = self.tool_registry.get_callable_tool_function(
-            tool_name, self.agent_instance
-        )
+        tool_func = self.tool_registry.get_callable_tool_function(tool_name, self.agent_instance)
 
         if asyncio.iscoroutinefunction(tool_func):
             result = await tool_func(**kwargs)

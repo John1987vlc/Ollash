@@ -86,9 +86,7 @@ class VoiceCommandProcessor:
         self.command_patterns = self._initialize_command_patterns()
         logger.info("VoiceCommandProcessor initialized")
 
-    def process_voice_input(
-        self, transcribed_text: str, confidence: float = 0.0, language: str = "en"
-    ) -> VoiceCommand:
+    def process_voice_input(self, transcribed_text: str, confidence: float = 0.0, language: str = "en") -> VoiceCommand:
         """
         Process transcribed voice input and classify the command.
 
@@ -133,10 +131,7 @@ class VoiceCommandProcessor:
             if len(self.command_history) > self.max_history:
                 self.command_history = self.command_history[-self.max_history :]
 
-            logger.info(
-                f"Voice command processed: {command_type.value} "
-                f"(confidence: {final_confidence:.1f}%)"
-            )
+            logger.info(f"Voice command processed: {command_type.value} (confidence: {final_confidence:.1f}%)")
 
             return command
 
@@ -240,9 +235,7 @@ class VoiceCommandProcessor:
 
     # ==================== Parameter Extraction ====================
 
-    def _extract_parameters(
-        self, text: str, command_type: CommandType
-    ) -> Dict[str, Any]:
+    def _extract_parameters(self, text: str, command_type: CommandType) -> Dict[str, Any]:
         """Extract parameters from voice input based on command type."""
 
         if command_type == CommandType.ADD_TASK:
@@ -261,8 +254,7 @@ class VoiceCommandProcessor:
     def _extract_task_parameters(self, text: str) -> Dict[str, Any]:
         """Extract task creation parameters."""
         return {
-            "title": self._extract_quoted_string(text)
-            or self._extract_first_sentence(text),
+            "title": self._extract_quoted_string(text) or self._extract_first_sentence(text),
             "priority": self._extract_priority(text),
             "due_date": self._extract_due_date(text),
             "category": self._extract_category(text),
@@ -646,11 +638,7 @@ class VoiceCommandProcessor:
             by_type[cmd_type] = by_type.get(cmd_type, 0) + 1
 
         avg_confidence = sum(cmd.confidence for cmd in self.command_history) / total
-        high_confidence = sum(
-            1
-            for cmd in self.command_history
-            if cmd.confidence_level == CommandConfidence.HIGH
-        )
+        high_confidence = sum(1 for cmd in self.command_history if cmd.confidence_level == CommandConfidence.HIGH)
 
         return {
             "total_commands": total,

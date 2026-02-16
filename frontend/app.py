@@ -1,4 +1,5 @@
 """Flask application factory for the Ollash Web UI."""
+
 import logging
 import os
 from pathlib import Path
@@ -19,9 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Global instances for event handling
 event_publisher = EventPublisher()
-chat_event_bridge = ChatEventBridge(
-    event_publisher
-)  # ChatEventBridge subscribes to the publisher
+chat_event_bridge = ChatEventBridge(event_publisher)  # ChatEventBridge subscribes to the publisher
 
 
 def create_app(ollash_root_dir: Path = None) -> Flask:
@@ -71,9 +70,7 @@ def create_app(ollash_root_dir: Path = None) -> Flask:
         logger.info("✅ Automation Manager and core services started")
 
     except Exception as e:
-        logger.error(
-            f"Failed to initialize core automation/alert system: {e}", exc_info=True
-        )
+        logger.error(f"Failed to initialize core automation/alert system: {e}", exc_info=True)
         # If core systems fail, it might be better to exit, but for now we'll log and continue
 
     # Register all blueprints and their initializers

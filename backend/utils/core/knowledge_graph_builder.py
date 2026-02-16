@@ -53,9 +53,7 @@ class KnowledgeGraphBuilder:
     - Edges: Relaciones entre nodos (defines, references, relates_to, etc.)
     """
 
-    def __init__(
-        self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None
-    ):
+    def __init__(self, project_root: Path, logger: AgentLogger, config: Optional[Dict] = None):
         self.project_root = project_root
         self.logger = logger
         self.config = config or {}
@@ -64,9 +62,7 @@ class KnowledgeGraphBuilder:
         self.nodes: Dict[str, GraphNode] = {}
         self.edges: List[GraphEdge] = []
         self.node_index: Dict[str, str] = {}  # label -> id para búsqueda rápida
-        self.relationships: Dict[str, Set[str]] = defaultdict(
-            set
-        )  # node_id -> {related_ids}
+        self.relationships: Dict[str, Set[str]] = defaultdict(set)  # node_id -> {related_ids}
 
         # Paths
         self.graph_dir = project_root / "knowledge_workspace" / "graphs"
@@ -79,9 +75,7 @@ class KnowledgeGraphBuilder:
 
         self.logger.info("✓ KnowledgeGraphBuilder initialized")
 
-    def build_from_documentation(
-        self, doc_paths: Optional[List[Path]] = None
-    ) -> Dict[str, Any]:
+    def build_from_documentation(self, doc_paths: Optional[List[Path]] = None) -> Dict[str, Any]:
         """
         Construye el grafo a partir de documentación.
 
@@ -157,11 +151,7 @@ class KnowledgeGraphBuilder:
             # Guardar grafo
             self._save_graph()
 
-            self.logger.info(
-                f"✓ Knowledge graph built: "
-                f"{stats['nodes_created']} nodes, "
-                f"{stats['edges_created']} edges"
-            )
+            self.logger.info(f"✓ Knowledge graph built: {stats['nodes_created']} nodes, {stats['edges_created']} edges")
 
             return stats
 
@@ -200,9 +190,7 @@ class KnowledgeGraphBuilder:
             # Añadir arista
             self._add_edge(node1_id, node2_id, relationship, strength, context)
 
-            self.logger.debug(
-                f"Added relationship: {term1} --{relationship}--> {term2}"
-            )
+            self.logger.debug(f"Added relationship: {term1} --{relationship}--> {term2}")
             return True
 
         except Exception as e:
@@ -233,11 +221,7 @@ class KnowledgeGraphBuilder:
                 "node_id": node_id,
                 "connections": connections,
                 "total_connected_nodes": len(
-                    set(
-                        c["target_id"]
-                        for conn in connections.values()
-                        for c in conn.get("edges", [])
-                    )
+                    set(c["target_id"] for conn in connections.values() for c in conn.get("edges", []))
                 ),
                 "timestamp": self._get_timestamp(),
             }
@@ -248,9 +232,7 @@ class KnowledgeGraphBuilder:
             self.logger.error(f"Error getting concept connections: {e}")
             return {}
 
-    def find_knowledge_paths(
-        self, start_term: str, end_term: str
-    ) -> List[List[Tuple[str, str]]]:
+    def find_knowledge_paths(self, start_term: str, end_term: str) -> List[List[Tuple[str, str]]]:
         """
         Busca caminos de conocimiento entre dos términos.
 
@@ -293,9 +275,7 @@ class KnowledgeGraphBuilder:
                         readable_path.append(node.label)
                 readable_paths.append(readable_path)
 
-            self.logger.info(
-                f"Found {len(readable_paths)} path(s) between '{start_term}' and '{end_term}'"
-            )
+            self.logger.info(f"Found {len(readable_paths)} path(s) between '{start_term}' and '{end_term}'")
             return readable_paths
 
         except Exception as e:
@@ -314,23 +294,16 @@ class KnowledgeGraphBuilder:
 
             for node_id, node in self.nodes.items():
                 theme = node.metadata.get("theme", "general")
-                themes[theme].append(
-                    {"term": node.label, "node_id": node_id, "type": node.node_type}
-                )
+                themes[theme].append({"term": node.label, "node_id": node_id, "type": node.node_type})
 
             # Ordenar alfabéticamente
-            thematic_index = {
-                theme: sorted(terms, key=lambda t: t["term"])
-                for theme, terms in sorted(themes.items())
-            }
+            thematic_index = {theme: sorted(terms, key=lambda t: t["term"]) for theme, terms in sorted(themes.items())}
 
             # Guardar índice
             with open(self.index_file, "w", encoding="utf-8") as f:
                 json.dump(thematic_index, f, indent=2, ensure_ascii=False)
 
-            self.logger.info(
-                f"✓ Generated thematic index with {len(thematic_index)} themes"
-            )
+            self.logger.info(f"✓ Generated thematic index with {len(thematic_index)} themes")
             return thematic_index
 
         except Exception as e:
@@ -350,16 +323,10 @@ class KnowledgeGraphBuilder:
                 node_ids.add(edge.source)
                 node_ids.add(edge.target)
 
-                source_label = (
-                    self.nodes[edge.source].label if edge.source in self.nodes else "?"
-                )
-                target_label = (
-                    self.nodes[edge.target].label if edge.target in self.nodes else "?"
-                )
+                source_label = self.nodes[edge.source].label if edge.source in self.nodes else "?"
+                target_label = self.nodes[edge.target].label if edge.target in self.nodes else "?"
 
-                mermaid_code += (
-                    f"    {source_label} -->|{edge.relationship}| {target_label}\n"
-                )
+                mermaid_code += f"    {source_label} -->|{edge.relationship}| {target_label}\n"
 
             if output_path:
                 output_path.write_text(mermaid_code, encoding="utf-8")
@@ -442,11 +409,7 @@ class KnowledgeGraphBuilder:
         """Añade una arista al grafo."""
         # Evitar duplicados
         for edge in self.edges:
-            if (
-                edge.source == source
-                and edge.target == target
-                and edge.relationship == relationship
-            ):
+            if edge.source == source and edge.target == target and edge.relationship == relationship:
                 return  # Ya existe
 
         edge = GraphEdge(
@@ -529,18 +492,14 @@ class KnowledgeGraphBuilder:
             if edge.source == node_id:
                 connections["edges"].append(
                     {
-                        "target_label": self.nodes.get(
-                            edge.target, GraphNode("", "", "", {}, "")
-                        ).label,
+                        "target_label": self.nodes.get(edge.target, GraphNode("", "", "", {}, "")).label,
                         "target_id": edge.target,
                         "relationship": edge.relationship,
                     }
                 )
 
                 if current_depth < max_depth:
-                    sub_connections = self._traverse_graph(
-                        edge.target, max_depth, current_depth + 1, visited
-                    )
+                    sub_connections = self._traverse_graph(edge.target, max_depth, current_depth + 1, visited)
                     if sub_connections:
                         connections["children"] = sub_connections
 
@@ -603,9 +562,7 @@ class KnowledgeGraphBuilder:
                 edge = GraphEdge(**edge_data)
                 self.edges.append(edge)
 
-            self.logger.info(
-                f"Loaded knowledge graph: {len(self.nodes)} nodes, {len(self.edges)} edges"
-            )
+            self.logger.info(f"Loaded knowledge graph: {len(self.nodes)} nodes, {len(self.edges)} edges")
         except Exception as e:
             self.logger.warning(f"Could not load existing graph: {e}")
 

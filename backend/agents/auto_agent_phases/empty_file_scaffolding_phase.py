@@ -3,8 +3,7 @@ from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
-from backend.utils.domains.auto_generation.structure_generator import \
-    StructureGenerator
+from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
 
 
 class EmptyFileScaffoldingPhase(IAgentPhase):
@@ -25,22 +24,14 @@ class EmptyFileScaffoldingPhase(IAgentPhase):
         generated_files: Dict[str, str],
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        file_paths = kwargs.get(
-            "file_paths", []
-        )  # Get from kwargs or assume context has it
+        file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
-        self.context.logger.info(
-            f"[PROJECT_NAME:{project_name}] PHASE 3: Creating empty placeholders..."
-        )
-        self.context.event_publisher.publish(
-            "phase_start", phase="3", message="Creating empty files"
-        )
+        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 3: Creating empty placeholders...")
+        self.context.event_publisher.publish("phase_start", phase="3", message="Creating empty files")
 
         StructureGenerator.create_empty_files(project_root, initial_structure)
 
-        self.context.event_publisher.publish(
-            "phase_complete", phase="3", message="Empty files created"
-        )
+        self.context.event_publisher.publish("phase_complete", phase="3", message="Empty files created")
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 3 complete.")
 
         return generated_files, initial_structure, file_paths

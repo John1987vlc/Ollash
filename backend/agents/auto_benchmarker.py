@@ -80,20 +80,14 @@ class ModelBenchmarker:
         }
 
         log_file_path = Path("logs") / "auto_benchmark_debug.log"
-        structured_logger = StructuredLogger(
-            log_file_path=log_file_path, logger_name="AutoBenchmarkLogger"
-        )
-        self.logger = AgentLogger(
-            structured_logger=structured_logger, logger_name="AutoBenchmark"
-        )
+        structured_logger = StructuredLogger(log_file_path=log_file_path, logger_name="AutoBenchmarkLogger")
+        self.logger = AgentLogger(structured_logger=structured_logger, logger_name="AutoBenchmark")
         self.response_parser = LLMResponseParser()
         self.file_validator = FileValidator(logger=self.logger)
         self.results: List[dict] = []
         self._model_sizes: Dict[str, int] = {}
 
-        embedding_model_name = central_config.LLM_MODELS.get("models", {}).get(
-            "embedding", "all-minilm:latest"
-        )
+        embedding_model_name = central_config.LLM_MODELS.get("models", {}).get("embedding", "all-minilm:latest")
         self.embedding_models = [embedding_model_name]
 
         self.test_tasks = self._load_tasks()
@@ -109,18 +103,14 @@ class ModelBenchmarker:
             "Coherencia_Logica": ["logic_flow", "error_handling"],
             "Calidad_Codigo": ["code_structure", "readability", "functionality"],
         }
-        self.generated_projects_dir = (
-            Path("generated_projects") / "auto_benchmark_projects"
-        )
+        self.generated_projects_dir = Path("generated_projects") / "auto_benchmark_projects"
         self.generated_projects_dir.mkdir(parents=True, exist_ok=True)
 
     def _load_tasks(self) -> list:
         """Load benchmark tasks from the central configuration."""
         tasks = central_config.AUTO_BENCHMARK_TASKS
         if not tasks:
-            self.logger.warning(
-                "Auto benchmark tasks not found in config. Using empty list."
-            )
+            self.logger.warning("Auto benchmark tasks not found in config. Using empty list.")
             return []
         return tasks
 
@@ -173,9 +163,7 @@ class ModelBenchmarker:
             model_project_dir.mkdir(exist_ok=True)
 
             model_size = self._model_sizes.get(model_name, 0)
-            model_options, model_timeout, size_tier = self.compute_model_options(
-                model_size
-            )
+            model_options, model_timeout, size_tier = self.compute_model_options(model_size)
             size_str = f" ({self.format_size(model_size)})" if model_size else ""
 
             print(f"{'=' * 60}")
@@ -223,9 +211,7 @@ class ModelBenchmarker:
                 project_path = model_project_dir / f"project_{task_idx}_{task_type}"
                 project_path.mkdir(exist_ok=True)
 
-                print(
-                    f"  > {task_label} (Limit: {time_limit_minutes} min)...", flush=True
-                )
+                print(f"  > {task_label} (Limit: {time_limit_minutes} min)...", flush=True)
                 task_start = time.time()
                 heartbeat = Heartbeat(model_name, task_label, logger=self.logger)
                 heartbeat.start()
@@ -247,25 +233,19 @@ class ModelBenchmarker:
                     options_with_timeout = model_options.copy()
                     options_with_timeout["timeout"] = current_task_timeout
 
-                    response, usage = client.chat(
-                        messages, tools=[], options_override=options_with_timeout
-                    )
+                    response, usage = client.chat(messages, tools=[], options_override=options_with_timeout)
 
                     task_tokens_prompt = usage.get("prompt_tokens", 0)
                     task_tokens_completion = usage.get("completion_tokens", 0)
                     tracker.add_usage(task_tokens_prompt, task_tokens_completion)
                     task_response_content = response["message"]["content"]
 
-                    self._save_generated_project(
-                        project_path, task_response_content, task_description
-                    )
+                    self._save_generated_project(project_path, task_response_content, task_description)
 
                 except Exception as e:
                     task_status = f"Failed: {str(e)}"
                     model_overall_status = "Failed (some tasks failed)"
-                    self.logger.error(
-                        f"Error for model {model_name} ({task_name}): {e}"
-                    )
+                    self.logger.error(f"Error for model {model_name} ({task_name}): {e}")
                 finally:
                     heartbeat.stop()
 
@@ -300,16 +280,12 @@ class ModelBenchmarker:
             model_mins, model_secs = divmod(int(model_duration), 60)
             successful_tasks = sum(1 for o in outputs if o["status"] == "Success")
             print(
-                f"\n  Model {model_name} done: {successful_tasks}/{total_tasks} OK "
-                f"in {model_mins}m {model_secs}s",
+                f"\n  Model {model_name} done: {successful_tasks}/{total_tasks} OK in {model_mins}m {model_secs}s",
                 flush=True,
             )
 
             # Calculate thematic scores
-            thematic_scores = {
-                theme: {"score": 0, "tasks_count": 0}
-                for theme in self.thematic_categories
-            }
+            thematic_scores = {theme: {"score": 0, "tasks_count": 0} for theme in self.thematic_categories}
             for output in outputs:
                 for theme, task_types in self.thematic_categories.items():
                     if output["type"] in task_types:
@@ -320,26 +296,18 @@ class ModelBenchmarker:
             final_thematic = {}
             for theme, data in thematic_scores.items():
                 if data["tasks_count"] > 0:
-                    final_thematic[theme] = round(
-                        data["score"] / data["tasks_count"], 2
-                    )
+                    final_thematic[theme] = round(data["score"] / data["tasks_count"], 2)
                 else:
                     final_thematic[theme] = 0.0
 
             tokens_generated = tracker.session_total_tokens
-            tokens_per_second = (
-                round(tokens_generated / model_duration, 2)
-                if model_duration > 0
-                else 0.0
-            )
+            tokens_per_second = round(tokens_generated / model_duration, 2) if model_duration > 0 else 0.0
 
             self.results.append(
                 {
                     "model": model_name,
                     "model_size_bytes": model_size,
-                    "model_size_human": self.format_size(model_size)
-                    if model_size
-                    else "unknown",
+                    "model_size_human": self.format_size(model_size) if model_size else "unknown",
                     "size_tier": size_tier,
                     "options_used": {
                         "num_ctx": model_options["num_ctx"],
@@ -360,19 +328,13 @@ class ModelBenchmarker:
                 }
             )
 
-    def _save_generated_project(
-        self, project_dir: Path, model_response: str, task_description: str
-    ):
+    def _save_generated_project(self, project_dir: Path, model_response: str, task_description: str):
         """Parse model response and save as project files."""
         project_dir.mkdir(parents=True, exist_ok=True)
 
         # Always save the raw response and description
-        (project_dir / "model_response.txt").write_text(
-            model_response, encoding="utf-8"
-        )
-        (project_dir / "task_description.txt").write_text(
-            task_description, encoding="utf-8"
-        )
+        (project_dir / "model_response.txt").write_text(model_response, encoding="utf-8")
+        (project_dir / "task_description.txt").write_text(task_description, encoding="utf-8")
 
         # Extract and save individual files
         files = self.response_parser.extract_multiple_files(model_response)
@@ -411,9 +373,7 @@ class ModelBenchmarker:
             "Provide insights into which models excel in autonomous project generation."
         )
         try:
-            response, _ = summary_client.chat(
-                [{"role": "user", "content": prompt}], tools=[]
-            )
+            response, _ = summary_client.chat([{"role": "user", "content": prompt}], tools=[])
             return response["message"]["content"]
         except Exception as e:
             self.logger.error(f"Error generating summary: {e}")
@@ -423,10 +383,7 @@ class ModelBenchmarker:
         """Save benchmark results to a timestamped JSON file."""
         log_dir = Path("logs")
         log_dir.mkdir(exist_ok=True)
-        output_file = (
-            log_dir
-            / f"auto_benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        )
+        output_file = log_dir / f"auto_benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         with open(output_file, "w") as f:
             json.dump(self.results, f, indent=2)
         return output_file
@@ -434,12 +391,8 @@ class ModelBenchmarker:
     def print_model_table(self, models: List[str]):
         """Print a formatted table of models with their options."""
         print("\nModels sorted by size (ascending):")
-        print(
-            f"  {'#':<4} {'Model':<35} {'Size':>8}  {'Tier':<7} {'ctx':>5} {'pred':>5} {'tout':>5}"
-        )
-        print(
-            f"  {'-' * 4} {'-' * 35} {'-' * 8}  {'-' * 7} {'-' * 5} {'-' * 5} {'-' * 5}"
-        )
+        print(f"  {'#':<4} {'Model':<35} {'Size':>8}  {'Tier':<7} {'ctx':>5} {'pred':>5} {'tout':>5}")
+        print(f"  {'-' * 4} {'-' * 35} {'-' * 8}  {'-' * 7} {'-' * 5} {'-' * 5} {'-' * 5}")
         for i, name in enumerate(models, 1):
             size = self._model_sizes.get(name, 0)
             opts, tout, tier = self.compute_model_options(size)
@@ -447,6 +400,4 @@ class ModelBenchmarker:
                 f"  {i:<4} {name:<35} {self.format_size(size):>8}  {tier:<7} "
                 f"{opts['num_ctx']:>5} {opts['num_predict']:>5} {tout:>5}s"
             )
-        print(
-            f"\n  Total: {len(models)} models, {len(self.test_tasks)} projects per model"
-        )
+        print(f"\n  Total: {len(models)} models, {len(self.test_tasks)} projects per model")

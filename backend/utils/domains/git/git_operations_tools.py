@@ -6,9 +6,7 @@ from backend.utils.core.git_manager import GitManager
 
 
 class GitOperationsTools:
-    def __init__(
-        self, git_manager: GitManager, logger: Any, tool_executor: ConfirmationManager
-    ):
+    def __init__(self, git_manager: GitManager, logger: Any, tool_executor: ConfirmationManager):
         self.git = git_manager
         self.logger = logger
         self.tool_executor = tool_executor
@@ -29,12 +27,8 @@ class GitOperationsTools:
         diff_stats = self.git.diff_numstat(staged=True)
 
         if not diff_stats["success"]:
-            self.logger.warning(
-                "Could not get git diff stats, falling back to manual confirmation."
-            )
-            if not self.tool_executor._ask_confirmation(
-                "git_commit", {"message": message}
-            ):
+            self.logger.warning("Could not get git diff stats, falling back to manual confirmation.")
+            if not self.tool_executor._ask_confirmation("git_commit", {"message": message}):
                 return {
                     "ok": False,
                     "error": "user_cancelled",
@@ -57,12 +51,9 @@ class GitOperationsTools:
                 )
             elif (
                 self.tool_executor.auto_confirm_minor_git_commits
-                and total_lines_changed
-                <= self.tool_executor.git_auto_confirm_lines_threshold
+                and total_lines_changed <= self.tool_executor.git_auto_confirm_lines_threshold
             ):
-                self.logger.info(
-                    f"Auto-confirming minor git commit (total lines changed: {total_lines_changed})."
-                )
+                self.logger.info(f"Auto-confirming minor git commit (total lines changed: {total_lines_changed}).")
                 # Proceed with commit without asking user
             else:
                 # Changes too large for auto-confirm, ask user for manual confirmation

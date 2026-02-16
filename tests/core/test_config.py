@@ -1,4 +1,5 @@
 """Tests for the centralized configuration system."""
+
 import importlib
 import json
 

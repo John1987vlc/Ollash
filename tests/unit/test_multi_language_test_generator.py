@@ -7,7 +7,10 @@ from unittest.mock import Mock
 import pytest
 
 from backend.utils.domains.auto_generation.multi_language_test_generator import (
-    LanguageFrameworkMap, MultiLanguageTestGenerator, TestFramework)
+    LanguageFrameworkMap,
+    MultiLanguageTestGenerator,
+    TestFramework,
+)
 
 
 @pytest.fixture
@@ -35,13 +38,9 @@ def mock_command_executor():
 
 
 @pytest.fixture
-def test_generator(
-    mock_llm_client, mock_logger, mock_response_parser, mock_command_executor
-):
+def test_generator(mock_llm_client, mock_logger, mock_response_parser, mock_command_executor):
     """Create a test generator instance."""
-    return MultiLanguageTestGenerator(
-        mock_llm_client, mock_logger, mock_response_parser, mock_command_executor
-    )
+    return MultiLanguageTestGenerator(mock_llm_client, mock_logger, mock_response_parser, mock_command_executor)
 
 
 class TestLanguageFrameworkMap:
@@ -127,9 +126,7 @@ class TestFrameworkSelection:
 class TestGenerateTests:
     """Test test generation."""
 
-    def test_generate_python_tests(
-        self, test_generator, mock_llm_client, mock_response_parser
-    ):
+    def test_generate_python_tests(self, test_generator, mock_llm_client, mock_response_parser):
         """Test Python test generation."""
         # Setup mock
         mock_llm_client.chat.return_value = (
@@ -138,9 +135,7 @@ class TestGenerateTests:
         )
         mock_response_parser.extract_raw_content.return_value = "def test_func(): pass"
 
-        result = test_generator.generate_tests(
-            "module.py", "def my_func(): return 42", "A simple module"
-        )
+        result = test_generator.generate_tests("module.py", "def my_func(): return 42", "A simple module")
 
         assert result is not None
         assert isinstance(result, str)
@@ -154,7 +149,10 @@ class TestGenerateTests:
 
         # Generate for Python file without specifying framework
         test_generator.generate_tests(
-            "test.py", "code", "readme", framework=None  # Auto-detect
+            "test.py",
+            "code",
+            "readme",
+            framework=None,  # Auto-detect
         )
 
         # Should detect python and select pytest
@@ -233,25 +231,19 @@ class TestLanguageSpecificPrompts:
 
     def test_mocha_prompt(self, test_generator):
         """Test Mocha-specific prompt."""
-        system, user = test_generator._mocha_prompt(
-            "user.js", "function getUser() { }", "System"
-        )
+        system, user = test_generator._mocha_prompt("user.js", "function getUser() { }", "System")
 
         assert "mocha" in system.lower()
 
     def test_cargo_prompt(self, test_generator):
         """Test Cargo/Rust-specific prompt."""
-        system, user = test_generator._cargo_test_prompt(
-            "lib.rs", "pub fn get_user() { }", "System"
-        )
+        system, user = test_generator._cargo_test_prompt("lib.rs", "pub fn get_user() { }", "System")
 
         assert "rust" in system.lower() or "cargo" in system.lower()
 
     def test_unittest_prompt(self, test_generator):
         """Test unittest-specific prompt."""
-        system, user = test_generator._unittest_prompt(
-            "test_user.py", "def get_user(): pass", "System"
-        )
+        system, user = test_generator._unittest_prompt("test_user.py", "def get_user(): pass", "System")
 
         assert "unittest" in system.lower()
 
@@ -268,19 +260,13 @@ class TestTestExecution:
         assert result["success"] == True
         assert "no test files" in result["output"].lower()
 
-    def test_execute_tests_returns_structure(
-        self, test_generator, mock_command_executor
-    ):
+    def test_execute_tests_returns_structure(self, test_generator, mock_command_executor):
         """Test that execute_tests returns expected structure."""
         from pathlib import Path
 
-        mock_command_executor.execute.return_value = Mock(
-            success=True, stdout="", stderr=""
-        )
+        mock_command_executor.execute.return_value = Mock(success=True, stdout="", stderr="")
 
-        result = test_generator.execute_tests(
-            Path("/tmp"), [Path("/tmp/test_file.py")], language="python"
-        )
+        result = test_generator.execute_tests(Path("/tmp"), [Path("/tmp/test_file.py")], language="python")
 
         assert "success" in result
         assert "output" in result

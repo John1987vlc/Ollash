@@ -82,20 +82,14 @@ class TestDependencyGraphInference:
     def test_files_likely_related(self, dependency_graph):
         """Test relationship detection."""
         # Test case files related to source
-        assert dependency_graph._files_likely_related(
-            "test_user_service.py", "user_service.py"
-        )
+        assert dependency_graph._files_likely_related("test_user_service.py", "user_service.py")
 
         # Test same directory
-        assert dependency_graph._files_likely_related(
-            "src/models/user.py", "src/models/product.py"
-        )
+        assert dependency_graph._files_likely_related("src/models/user.py", "src/models/product.py")
 
         # Test unrelated files
         # Verify _files_likely_related returns boolean
-        result = dependency_graph._files_likely_related(
-            "completely_different_module.py", "another_module.py"
-        )
+        result = dependency_graph._files_likely_related("completely_different_module.py", "another_module.py")
         assert isinstance(result, bool)
 
 
@@ -131,9 +125,7 @@ class TestContextSelection:
         dependency_graph.build_from_structure(sample_structure)
 
         # Get context for a service file (should depend on models)
-        dependencies = dependency_graph.get_context_for_file(
-            "src/services/user_service.py", max_depth=2
-        )
+        dependencies = dependency_graph.get_context_for_file("src/services/user_service.py", max_depth=2)
 
         # Should return files
         assert isinstance(dependencies, list)

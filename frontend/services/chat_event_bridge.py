@@ -37,12 +37,8 @@ class ChatEventBridge:
         self.event_publisher.subscribe("iteration_end", self.push_event)
         self.event_publisher.subscribe("error", self.push_event)
         self.event_publisher.subscribe("info", self.push_event)  # General info messages
-        self.event_publisher.subscribe(
-            "warning", self.push_event
-        )  # General warning messages
-        self.event_publisher.subscribe(
-            "debug", self.push_event
-        )  # General debug messages
+        self.event_publisher.subscribe("warning", self.push_event)  # General warning messages
+        self.event_publisher.subscribe("debug", self.push_event)  # General debug messages
 
     def push_event(self, event_type: str, data: Optional[Dict[str, Any]] = None):
         """Push an event onto the queue (called from the agent thread)."""

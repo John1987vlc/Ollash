@@ -28,9 +28,7 @@ class DependencyGraph:
         self.logger = logger
         self.graph: Dict[str, Set[str]] = defaultdict(set)  # file -> dependencies
         self.reverse_graph: Dict[str, Set[str]] = defaultdict(set)  # file -> dependents
-        self.file_types: Dict[
-            str, str
-        ] = {}  # file -> type (test, util, model, view, etc.)
+        self.file_types: Dict[str, str] = {}  # file -> type (test, util, model, view, etc.)
         self.file_info: Dict[str, Dict] = {}  # file -> metadata
         self.circular_deps: List[Tuple[str, str]] = []  # circular dependencies found
 
@@ -113,9 +111,7 @@ class DependencyGraph:
         else:
             return "other"
 
-    def _infer_dependencies_from_patterns(
-        self, files: Dict[str, Dict], readme: str
-    ) -> None:
+    def _infer_dependencies_from_patterns(self, files: Dict[str, Dict], readme: str) -> None:
         """
         Infer dependencies based on file patterns and structure.
 
@@ -157,10 +153,7 @@ class DependencyGraph:
                 if pattern_fn(file_path):
                     # Find files in possible_deps categories that could be dependencies
                     for other_file, other_meta in files.items():
-                        if (
-                            other_file != file_path
-                            and other_meta["type"] in possible_deps
-                        ):
+                        if other_file != file_path and other_meta["type"] in possible_deps:
                             # Check if it's likely a dependency (matching name patterns)
                             if self._files_likely_related(file_path, other_file):
                                 self.add_dependency(file_path, other_file)
@@ -294,9 +287,7 @@ class DependencyGraph:
                         cycle_start = path.index(neighbor)
                         cycle = path[cycle_start:] + [neighbor]
                         self.circular_deps.append((file, neighbor))
-                        self.logger.warning(
-                            f"Circular dependency detected: {' -> '.join(cycle)}"
-                        )
+                        self.logger.warning(f"Circular dependency detected: {' -> '.join(cycle)}")
                     elif neighbor not in visited:
                         stack.append(neighbor)
                         path.append(neighbor)

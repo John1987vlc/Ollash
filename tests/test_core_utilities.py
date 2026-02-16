@@ -1,4 +1,5 @@
 """Tests for core utilities: LLMResponseParser, FileValidator, Heartbeat."""
+
 import json
 
 from backend.utils.core.file_validator import FileValidator, ValidationStatus
@@ -8,9 +9,7 @@ from backend.utils.core.llm_response_parser import LLMResponseParser
 
 class TestLLMResponseParser:
     def test_extract_raw_content_plain_text(self):
-        assert (
-            LLMResponseParser.extract_raw_content('print("hello")') == 'print("hello")'
-        )
+        assert LLMResponseParser.extract_raw_content('print("hello")') == 'print("hello")'
 
     def test_extract_raw_content_strips_markdown(self):
         text = '```python\nprint("hello")\n```'
@@ -84,7 +83,7 @@ class TestLLMResponseParser:
         assert LLMResponseParser.extract_multiple_files("no files here") == {}
 
     def test_extract_multiple_files_unclosed_block(self):
-        response = "# filename: test.py\n" "```python\n" "x = 1\n"
+        response = "# filename: test.py\n```python\nx = 1\n"
         files = LLMResponseParser.extract_multiple_files(response)
         assert "test.py" in files
 

@@ -89,10 +89,7 @@ def ollash_tool(
 
 def get_discovered_tool_mapping() -> Dict[str, tuple]:
     """Returns {tool_name: (toolset_id, method_name)} from all decorated tools."""
-    return {
-        name: (info["toolset_id"], info["method_name"])
-        for name, info in _DISCOVERED_TOOLS.items()
-    }
+    return {name: (info["toolset_id"], info["method_name"]) for name, info in _DISCOVERED_TOOLS.items()}
 
 
 def get_discovered_agent_tools() -> Dict[str, List[str]]:

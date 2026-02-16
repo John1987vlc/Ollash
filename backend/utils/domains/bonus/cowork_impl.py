@@ -133,9 +133,7 @@ Return ONLY valid JSON array of tasks, no other text."""
                 "status": "success",
                 "tasks_generated": len(enriched_tasks),
                 "tasks": enriched_tasks,
-                "saved_to": str(self.tasks_file)
-                if output_format in ["json", "both"]
-                else None,
+                "saved_to": str(self.tasks_file) if output_format in ["json", "both"] else None,
             }
 
         except Exception as e:
@@ -180,7 +178,7 @@ Return ONLY valid JSON array of tasks, no other text."""
 and identify critical risks, anomalies, and security concerns.
 
 Time period analyzed: {time_period}
-Log sources: {', '.join(str(p.name) for p in log_paths)}
+Log sources: {", ".join(str(p.name) for p in log_paths)}
 
 Recent log entries:
 {log_content[-5000:]}  # Limit to last 5000 chars

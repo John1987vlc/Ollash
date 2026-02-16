@@ -134,27 +134,13 @@ class FileSystemTools:
 
         # Calculate diff if file exists (skip for large files > 5MB)
         max_diff_size = 5 * 1024 * 1024  # 5MB threshold
-        if (
-            file_exists
-            and len(current_content) < max_diff_size
-            and len(content) < max_diff_size
-        ):
-            diff = list(
-                difflib.unified_diff(
-                    current_content.splitlines(), content.splitlines(), lineterm=""
-                )
-            )
-            lines_changed = sum(
-                1 for line in diff if line.startswith("+") or line.startswith("-")
-            )
+        if file_exists and len(current_content) < max_diff_size and len(content) < max_diff_size:
+            diff = list(difflib.unified_diff(current_content.splitlines(), content.splitlines(), lineterm=""))
+            lines_changed = sum(1 for line in diff if line.startswith("+") or line.startswith("-"))
         elif file_exists:
             # For large files, estimate based on length difference
-            lines_changed = abs(
-                len(content.splitlines()) - len(current_content.splitlines())
-            )
-            self.logger.info(
-                f"Skipping diff for large file {path} (>{max_diff_size // (1024*1024)}MB)"
-            )
+            lines_changed = abs(len(content.splitlines()) - len(current_content.splitlines()))
+            self.logger.info(f"Skipping diff for large file {path} (>{max_diff_size // (1024 * 1024)}MB)")
         else:
             lines_changed = len(content.splitlines())
 
@@ -166,9 +152,7 @@ class FileSystemTools:
                 break
 
         # Decision logic for confirmation
-        if (
-            is_critical_file
-        ):  # Always force human gate if critical file is modified or created
+        if is_critical_file:  # Always force human gate if critical file is modified or created
             return self.tool_executor.require_human_gate(
                 action_description=f"Attempting to modify/create critical file '{path}'. Manual approval required.",
                 reason="Changes to critical configuration/system files detected.",
@@ -177,9 +161,7 @@ class FileSystemTools:
             self.tool_executor.auto_confirm_minor_writes
             and lines_changed <= self.tool_executor.write_auto_confirm_lines_threshold
         ):
-            self.logger.info(
-                f"Auto-confirming minor file write to '{path}' (lines changed: {lines_changed})."
-            )
+            self.logger.info(f"Auto-confirming minor file write to '{path}' (lines changed: {lines_changed}).")
             # Proceed with write without asking user
         else:
             # Fallback to manual confirmation
@@ -236,9 +218,7 @@ class FileSystemTools:
             self.logger.warning(f"File not found for deletion: {path}")
             return {"ok": False, "error": "not_found", "path": path}
 
-        if not self.tool_executor._ask_confirmation(
-            "delete_file", {"path": path, "reason": reason}
-        ):
+        if not self.tool_executor._ask_confirmation("delete_file", {"path": path, "reason": reason}):
             self.logger.info(f"User cancelled deletion: {path}")
             return {
                 "ok": False,
@@ -296,9 +276,7 @@ class FileSystemTools:
                 else:
                     self.logger.debug(f"{Fore.WHITE}{line}{Style.RESET_ALL}")
             if len(diff) > 50:
-                self.logger.debug(
-                    f"{Fore.YELLOW}... ({len(diff) - 50} more lines){Style.RESET_ALL}"
-                )
+                self.logger.debug(f"{Fore.YELLOW}... ({len(diff) - 50} more lines){Style.RESET_ALL}")
 
         return {
             "ok": True,
@@ -339,10 +317,7 @@ class FileSystemTools:
             }
 
             self.logger.info(
-                f"📊 {path}: "
-                f"{summary['lines']} lines, "
-                f"{summary['functions']} functions, "
-                f"{summary['classes']} classes"
+                f"📊 {path}: {summary['lines']} lines, {summary['functions']} functions, {summary['classes']} classes"
             )
 
             return summary
@@ -376,10 +351,7 @@ class FileSystemTools:
         success_count = sum(1 for r in results if r.get("ok"))
         total_lines = sum(r.get("lines", 0) for r in results if r.get("ok"))
 
-        self.logger.info(
-            f"✅ Summarized {success_count}/{len(paths)} files "
-            f"({total_lines} total lines)"
-        )
+        self.logger.info(f"✅ Summarized {success_count}/{len(paths)} files ({total_lines} total lines)")
 
         return {
             "ok": True,
@@ -418,15 +390,9 @@ class FileSystemTools:
                 return {"ok": False, "error": "not_found"}
 
             if recursive:
-                files = [
-                    str(p.relative_to(self.project_root))
-                    for p in target.rglob("*")
-                    if p.is_file()
-                ]
+                files = [str(p.relative_to(self.project_root)) for p in target.rglob("*") if p.is_file()]
             else:
-                files = [
-                    str(p.relative_to(self.project_root)) for p in target.iterdir()
-                ]
+                files = [str(p.relative_to(self.project_root)) for p in target.iterdir()]
 
             self.logger.info(f"📁 {path}: {len(files)} items")
             for f in files[:10]:

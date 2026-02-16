@@ -79,9 +79,7 @@ class NetworkTools:
                     parsed_output["max_rtt_ms"] = int(max_match.group(1))
             # Parse Linux/macOS ping output
             else:
-                sent_received_match = re.search(
-                    r"(\d+) packets transmitted, (\d+) received", result.stdout
-                )
+                sent_received_match = re.search(r"(\d+) packets transmitted, (\d+) received", result.stdout)
                 loss_match = re.search(r"(\d+\.?\d*)% packet loss", result.stdout)
                 rtt_match = re.search(
                     r"min/avg/max/mdev = (\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*) ms",
@@ -90,9 +88,7 @@ class NetworkTools:
 
                 if sent_received_match:
                     parsed_output["packets_sent"] = int(sent_received_match.group(1))
-                    parsed_output["packets_received"] = int(
-                        sent_received_match.group(2)
-                    )
+                    parsed_output["packets_received"] = int(sent_received_match.group(2))
                 if loss_match:
                     parsed_output["packet_loss_percent"] = float(loss_match.group(1))
                 if rtt_match:
@@ -167,9 +163,7 @@ class NetworkTools:
                                 ).group(1)
                                 if "[" in ip_hostname
                                 else ip_hostname,
-                                "hostname": ip_hostname.split(" ")[0]
-                                if "[" in ip_hostname
-                                else None,
+                                "hostname": ip_hostname.split(" ")[0] if "[" in ip_hostname else None,
                                 "rtt_ms": [int(t) for t in times] if times else None,
                                 "raw": line.strip(),
                             }
@@ -290,9 +284,7 @@ class NetworkTools:
         if result.success and (
             ("succeeded" in result.stdout)
             or ("TcpTestSucceeded : True" in result.stdout)
-            or (
-                "Connection to" in result.stderr and "succeeded!" in result.stderr
-            )  # nc output to stderr on success
+            or ("Connection to" in result.stderr and "succeeded!" in result.stderr)  # nc output to stderr on success
         ):
             status = "open"
             self.logger.info(f"✅ Port {port} on {host} is {status}.")
@@ -306,9 +298,7 @@ class NetworkTools:
                 },
             }
         else:
-            self.logger.info(
-                f"❌ Port {port} on {host} is {status}. Error: {result.stderr}"
-            )
+            self.logger.info(f"❌ Port {port} on {host} is {status}. Error: {result.stderr}")
             return {
                 "ok": False,
                 "result": {

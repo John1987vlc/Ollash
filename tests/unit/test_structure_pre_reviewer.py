@@ -7,7 +7,10 @@ from unittest.mock import Mock
 import pytest
 
 from backend.utils.domains.auto_generation.structure_pre_reviewer import (
-    StructureIssue, StructurePreReviewer, StructureReview)
+    StructureIssue,
+    StructurePreReviewer,
+    StructureReview,
+)
 
 
 @pytest.fixture
@@ -198,11 +201,7 @@ class TestNamingConventions:
         issues, score = pre_reviewer._check_naming_conventions(poor_structure)
 
         # Should detect mixed naming (snake_case and kebab-case)
-        if any(
-            "-" in f and "_" in f
-            for folder_files in [poor_structure.get("files", [])]
-            for f in folder_files
-        ):
+        if any("-" in f and "_" in f for folder_files in [poor_structure.get("files", [])] for f in folder_files):
             # Mixed naming exists, so we might detect it
             pass
 
@@ -277,9 +276,7 @@ class TestFullReview:
 
     def test_review_good_structure(self, pre_reviewer, good_structure, sample_readme):
         """Test review of good structure."""
-        review = pre_reviewer.review_structure(
-            sample_readme, good_structure, "MyProject"
-        )
+        review = pre_reviewer.review_structure(sample_readme, good_structure, "MyProject")
 
         assert isinstance(review, StructureReview)
         assert review.quality_score >= 70
@@ -287,9 +284,7 @@ class TestFullReview:
 
     def test_review_poor_structure(self, pre_reviewer, poor_structure):
         """Test review of poor structure."""
-        review = pre_reviewer.review_structure(
-            "Simple project", poor_structure, "PoorProject"
-        )
+        review = pre_reviewer.review_structure("Simple project", poor_structure, "PoorProject")
 
         assert isinstance(review, StructureReview)
         # Review should return a quality_score

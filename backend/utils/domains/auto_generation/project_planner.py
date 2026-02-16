@@ -14,9 +14,7 @@ class ProjectPlanner:
         "keep_alive": "0s",
     }
 
-    def __init__(
-        self, llm_client: OllamaClient, logger: AgentLogger, options: dict = None
-    ):
+    def __init__(self, llm_client: OllamaClient, logger: AgentLogger, options: dict = None):
         self.llm_client = llm_client
         self.logger = logger
         self.options = options or self.DEFAULT_OPTIONS.copy()

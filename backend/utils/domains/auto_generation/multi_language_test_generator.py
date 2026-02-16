@@ -21,8 +21,7 @@ from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.command_executor import CommandExecutor
 from backend.utils.core.llm_response_parser import LLMResponseParser
 from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.domains.auto_generation.prompt_templates import \
-    AutoGenPrompts
+from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 
 
 class TestFramework(Enum):
@@ -140,14 +139,10 @@ class MultiLanguageTestGenerator:
             self.logger.warning(f"No test framework available for {language}")
             return None
 
-        self.logger.info(
-            f"Generating {framework.value} tests for {file_path} ({language})..."
-        )
+        self.logger.info(f"Generating {framework.value} tests for {file_path} ({language})...")
 
         # Get language-specific prompts
-        system_prompt, user_prompt = self._get_test_prompts(
-            file_path, content, readme_context, language, framework
-        )
+        system_prompt, user_prompt = self._get_test_prompts(file_path, content, readme_context, language, framework)
 
         try:
             response_data, usage = self.llm_client.chat(
@@ -162,9 +157,7 @@ class MultiLanguageTestGenerator:
             test_content = self.parser.extract_raw_content(raw_response)
 
             if test_content:
-                self.logger.info(
-                    f"Tests generated for {file_path} using {framework.value}"
-                )
+                self.logger.info(f"Tests generated for {file_path} using {framework.value}")
                 return test_content
             else:
                 self.logger.warning(f"LLM returned no test content for {file_path}")
@@ -222,9 +215,7 @@ Format as a single test file with clear organization."""
                 options_override=self.options,
             )
 
-            test_content = self.parser.extract_raw_content(
-                response_data["message"]["content"]
-            )
+            test_content = self.parser.extract_raw_content(response_data["message"]["content"])
 
             # Generate docker-compose for test orchestration
             docker_compose = self._generate_test_docker_compose(services)
@@ -284,9 +275,7 @@ Format as a single test file with clear organization."""
                 "failures": [],
             }
 
-    def _execute_pytest(
-        self, project_root: Path, test_file_paths: List[Path]
-    ) -> Dict[str, Any]:
+    def _execute_pytest(self, project_root: Path, test_file_paths: List[Path]) -> Dict[str, Any]:
         """Execute pytest tests."""
         try:
             cmd = [
@@ -296,9 +285,7 @@ Format as a single test file with clear organization."""
                 "-v",
             ] + [str(p.relative_to(project_root)) for p in test_file_paths]
 
-            result = self.command_executor.execute(
-                cmd, dir_path=str(project_root), timeout=120
-            )
+            result = self.command_executor.execute(cmd, dir_path=str(project_root), timeout=120)
 
             failures = self._parse_pytest_failures(project_root)
 
@@ -328,9 +315,7 @@ Format as a single test file with clear organization."""
             else:  # MOCHA
                 cmd = ["npm", "test"]
 
-            result = self.command_executor.execute(
-                cmd, dir_path=str(project_root), timeout=120
-            )
+            result = self.command_executor.execute(cmd, dir_path=str(project_root), timeout=120)
 
             failures = self._parse_nodejs_failures(result.stdout or result.stderr)
 
@@ -354,9 +339,7 @@ Format as a single test file with clear organization."""
         """Execute Go tests."""
         try:
             cmd = ["go", "test", "-v", "./..."]
-            result = self.command_executor.execute(
-                cmd, dir_path=str(project_root), timeout=120
-            )
+            result = self.command_executor.execute(cmd, dir_path=str(project_root), timeout=120)
 
             failures = self._parse_go_failures(result.stdout or result.stderr)
 
@@ -380,9 +363,7 @@ Format as a single test file with clear organization."""
         """Execute Cargo tests."""
         try:
             cmd = ["cargo", "test", "--", "--nocapture"]
-            result = self.command_executor.execute(
-                cmd, dir_path=str(project_root), timeout=180
-            )
+            result = self.command_executor.execute(cmd, dir_path=str(project_root), timeout=180)
 
             failures = self._parse_rust_failures(result.stdout or result.stderr)
 
@@ -402,9 +383,7 @@ Format as a single test file with clear organization."""
                 "framework": "cargo",
             }
 
-    def _execute_java_tests(
-        self, project_root: Path, framework: TestFramework
-    ) -> Dict[str, Any]:
+    def _execute_java_tests(self, project_root: Path, framework: TestFramework) -> Dict[str, Any]:
         """Execute Java tests (JUnit or Gradle)."""
         try:
             if framework == TestFramework.GRADLE:
@@ -412,9 +391,7 @@ Format as a single test file with clear organization."""
             else:  # JUNIT
                 cmd = ["mvn", "test"]
 
-            result = self.command_executor.execute(
-                cmd, dir_path=str(project_root), timeout=180
-            )
+            result = self.command_executor.execute(cmd, dir_path=str(project_root), timeout=180)
 
             failures = self._parse_java_failures(result.stdout or result.stderr)
 
@@ -460,9 +437,7 @@ Format as a single test file with clear organization."""
             # Fallback to generic
             return AutoGenPrompts.generate_unit_tests(file_path, content, readme)
 
-    def _pytest_prompt(
-        self, file_path: str, content: str, readme: str
-    ) -> Tuple[str, str]:
+    def _pytest_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate pytest-specific prompt."""
         system = """You are an expert Python test engineer using pytest.
 Create comprehensive pytest unit tests with fixtures, mocking, and edge cases."""
@@ -483,9 +458,7 @@ Generate pytest tests with:
 
         return system, user
 
-    def _jest_prompt(
-        self, file_path: str, content: str, readme: str
-    ) -> Tuple[str, str]:
+    def _jest_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate Jest-specific prompt."""
         system = """You are an expert JavaScript test engineer using Jest.
 Create comprehensive Jest unit tests with describe blocks and mocking."""
@@ -506,9 +479,7 @@ Generate Jest tests with:
 
         return system, user
 
-    def _go_test_prompt(
-        self, file_path: str, content: str, readme: str
-    ) -> Tuple[str, str]:
+    def _go_test_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate Go test-specific prompt."""
         system = """You are an expert Go test engineer.
 Create comprehensive Go tests using the testing package."""
@@ -529,9 +500,7 @@ Generate Go tests with:
 
         return system, user
 
-    def _mocha_prompt(
-        self, file_path: str, content: str, readme: str
-    ) -> Tuple[str, str]:
+    def _mocha_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate Mocha-specific prompt."""
         system = """You are an expert JavaScript test engineer using Mocha.
 Create comprehensive Mocha tests with assertions."""
@@ -552,9 +521,7 @@ Generate Mocha tests with:
 
         return system, user
 
-    def _cargo_test_prompt(
-        self, file_path: str, content: str, readme: str
-    ) -> Tuple[str, str]:
+    def _cargo_test_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate Rust/Cargo test prompt."""
         system = """You are an expert Rust test engineer.
 Create comprehensive Cargo tests using #[cfg(test)]."""
@@ -575,9 +542,7 @@ Generate Cargo tests with:
 
         return system, user
 
-    def _unittest_prompt(
-        self, file_path: str, content: str, readme: str
-    ) -> Tuple[str, str]:
+    def _unittest_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate unittest-specific prompt."""
         system = """You are an expert Python test engineer using unittest.
 Create comprehensive unittest tests with setUp/tearDown."""
@@ -598,9 +563,7 @@ Generate unittest tests with:
 
         return system, user
 
-    def _junit_prompt(
-        self, file_path: str, content: str, readme: str
-    ) -> Tuple[str, str]:
+    def _junit_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate JUnit-specific prompt."""
         system = """You are an expert Java test engineer using JUnit.
 Create comprehensive JUnit tests with annotations."""

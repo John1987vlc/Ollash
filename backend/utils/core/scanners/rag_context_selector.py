@@ -47,16 +47,14 @@ class RAGContextSelector:
         self.max_context_tokens = 4000
 
         try:
-            self.client = ChromaClientManager.get_client(
-                settings_manager or {}, project_root or Path.cwd()
-            )
+            self.client = ChromaClientManager.get_client(settings_manager or {}, project_root or Path.cwd())
         except Exception as e:
             self.logger.warning(f"Could not initialize ChromaDB client: {e}")
             self.client = None
 
-        self.knowledge_collection_name = self.settings.get(
-            "knowledge_workspace", {}
-        ).get("collection_name", "knowledge_base")
+        self.knowledge_collection_name = self.settings.get("knowledge_workspace", {}).get(
+            "collection_name", "knowledge_base"
+        )
         self.error_collection_name = self.settings.get("error_knowledge_base", {}).get(
             "collection_name", "error_knowledge_base"
         )
@@ -102,9 +100,7 @@ class RAGContextSelector:
         except Exception as e:
             self.logger.error(f"Error indexing fragments: {e}")
 
-    def select_relevant_fragments(
-        self, query: str, max_fragments: int = 5
-    ) -> List[CodeFragment]:
+    def select_relevant_fragments(self, query: str, max_fragments: int = 5) -> List[CodeFragment]:
         """Select relevant code fragments based on query."""
         if not self.knowledge_collection:
             return []
@@ -134,9 +130,7 @@ class RAGContextSelector:
             self.logger.error(f"Error selecting fragments: {e}")
             return []
 
-    def build_context(
-        self, task_description: str, required_files: List[str] = None
-    ) -> Tuple[str, int]:
+    def build_context(self, task_description: str, required_files: List[str] = None) -> Tuple[str, int]:
         """Build context for a task respecting token limits."""
         context_parts = []
         token_count = 0
@@ -165,9 +159,7 @@ class RAGContextSelector:
             logger.warning("Knowledge collection is not available.")
             return []
         try:
-            results = self.knowledge_collection.query(
-                query_texts=query_texts, n_results=n_results
-            )
+            results = self.knowledge_collection.query(query_texts=query_texts, n_results=n_results)
             return results
         except Exception as e:
             logger.error(f"Error querying knowledge base: {e}")
@@ -181,9 +173,7 @@ class RAGContextSelector:
             logger.warning("Error collection is not available.")
             return []
         try:
-            results = self.error_collection.query(
-                query_texts=[error_message], n_results=n_results
-            )
+            results = self.error_collection.query(query_texts=[error_message], n_results=n_results)
             return results["documents"]
         except Exception as e:
             logger.error(f"Error querying error knowledge base: {e}")
@@ -199,32 +189,22 @@ class RAGContextSelector:
             retrieved_docs = self.docs_retriever.get_relevant_documents(prompt)
             if retrieved_docs:
                 context.extend([doc.page_content for doc in retrieved_docs])
-                logger.debug(
-                    f"Retrieved {len(retrieved_docs)} documents from DocsManager."
-                )
+                logger.debug(f"Retrieved {len(retrieved_docs)} documents from DocsManager.")
 
         knowledge_context_results = self.query_knowledge_base(query_texts=[prompt])
         if knowledge_context_results and knowledge_context_results["documents"]:
             context.extend(knowledge_context_results["documents"][0])
-            logger.debug(
-                f"Retrieved {len(knowledge_context_results['documents'][0])} documents from Knowledge Base."
-            )
+            logger.debug(f"Retrieved {len(knowledge_context_results['documents'][0])} documents from Knowledge Base.")
 
         if error_context:
-            error_solutions = self.query_error_knowledge_base(
-                error_message=error_context
-            )
+            error_solutions = self.query_error_knowledge_base(error_message=error_context)
             if error_solutions:
                 context.extend(error_solutions[0])
-                logger.debug(
-                    f"Retrieved {len(error_solutions[0])} solutions from Error KB."
-                )
+                logger.debug(f"Retrieved {len(error_solutions[0])} solutions from Error KB.")
 
         return "\n---\n".join(context)
 
-    def select_relevant_files(
-        self, query: str, available_files: Dict[str, str], max_files: int = 5
-    ) -> Dict[str, str]:
+    def select_relevant_files(self, query: str, available_files: Dict[str, str], max_files: int = 5) -> Dict[str, str]:
         """Selects contextually relevant files using semantic search."""
         if not self.knowledge_collection:
             logger.warning("Knowledge collection not available for file selection.")
@@ -247,11 +227,7 @@ class RAGContextSelector:
                         relevant_paths.add(metadata["source"])
 
             # Return the content of the relevant files
-            context_files = {
-                path: available_files[path]
-                for path in relevant_paths
-                if path in available_files
-            }
+            context_files = {path: available_files[path] for path in relevant_paths if path in available_files}
 
             return dict(list(context_files.items())[:max_files])
 
@@ -263,9 +239,7 @@ class RAGContextSelector:
 class SemanticContextManager:
     """High-level API for managing semantic context across phases."""
 
-    def __init__(
-        self, logger=None, project_root: Path = None, settings_manager: dict = None
-    ):
+    def __init__(self, logger=None, project_root: Path = None, settings_manager: dict = None):
         """Initialize the semantic context manager."""
         self.logger = logger or logging.getLogger(__name__)
         self.project_root = project_root or Path.cwd()
@@ -276,9 +250,7 @@ class SemanticContextManager:
             logger=self.logger,
         )
 
-    def prepare_context_for_phase(
-        self, phase: str, files: Dict[str, str], task: str
-    ) -> str:
+    def prepare_context_for_phase(self, phase: str, files: Dict[str, str], task: str) -> str:
         """Prepare context for a specific phase."""
         try:
             # Index the files

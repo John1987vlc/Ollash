@@ -9,17 +9,14 @@ from backend.services.llm_client_manager import LLMClientManager
 from backend.utils.core.automatic_learning import AutomaticLearningSystem
 from backend.utils.core.benchmark_model_selector import AutoModelSelector
 from backend.utils.core.command_executor import CommandExecutor
-from backend.utils.core.concurrent_rate_limiter import (
-    ConcurrentGPUAwareRateLimiter, SessionResourceManager)
-from backend.utils.core.cross_reference_analyzer import \
-    CrossReferenceAnalyzer  # NEW
+from backend.utils.core.concurrent_rate_limiter import ConcurrentGPUAwareRateLimiter, SessionResourceManager
+from backend.utils.core.cross_reference_analyzer import CrossReferenceAnalyzer  # NEW
 from backend.utils.core.documentation_manager import DocumentationManager
 from backend.utils.core.event_publisher import EventPublisher
 from backend.utils.core.file_validator import FileValidator
 from backend.utils.core.llm_recorder import LLMRecorder
 from backend.utils.core.llm_response_parser import LLMResponseParser
-from backend.utils.core.permission_profiles import (PermissionProfileManager,
-                                                    PolicyEnforcer)
+from backend.utils.core.permission_profiles import PermissionProfileManager, PolicyEnforcer
 from backend.utils.core.scanners.dependency_scanner import DependencyScanner
 from backend.utils.core.scanners.rag_context_selector import RAGContextSelector
 from backend.utils.core.token_tracker import TokenTracker
@@ -407,9 +404,7 @@ class CoreAgent(ABC):
             use_docker_sandbox=self.config.get("use_docker_sandbox", False),
         )
 
-        self.file_validator = FileValidator(
-            logger=self.logger, command_executor=self.command_executor
-        )
+        self.file_validator = FileValidator(logger=self.logger, command_executor=self.command_executor)
         self.documentation_manager = DocumentationManager(
             project_root=self.ollash_root_dir,
             logger=self.logger,
@@ -433,9 +428,7 @@ class CoreAgent(ABC):
         # Initialize new architectural modules (6 improvements)
         self.dependency_scanner = DependencyScanner(logger=self.logger)
         chroma_db_path = str(self.ollash_root_dir / ".ollash" / "chroma_db")
-        self.rag_context_selector = RAGContextSelector(
-            self.config, chroma_db_path, None
-        )
+        self.rag_context_selector = RAGContextSelector(self.config, chroma_db_path, None)
         self.rate_limiter = ConcurrentGPUAwareRateLimiter(
             logger=self.logger,
         )
@@ -453,9 +446,7 @@ class CoreAgent(ABC):
             logger=self.logger,
             tool_settings_config=self.kernel.get_tool_settings_config(),  # NEW
         )
-        self.policy_enforcer.set_active_profile(
-            "developer"
-        )  # Set active profile after initialization
+        self.policy_enforcer.set_active_profile("developer")  # Set active profile after initialization
         self.learning_system = AutomaticLearningSystem(
             logger=self.logger,
             project_root=self.ollash_root_dir,
@@ -471,9 +462,7 @@ class CoreAgent(ABC):
                 recorder=self.llm_recorder,
             )
 
-        self.logger.info(
-            f"{logger_name} initialized with 6 architectural improvements and external LLM management."
-        )
+        self.logger.info(f"{logger_name} initialized with 6 architectural improvements and external LLM management.")
         self.logger.info("  ✓ DependencyScanner (multi-language desoupling)")
         self.logger.info("  ✓ RAGContextSelector (semantic context via ChromaDB)")
         self.logger.info("  ✓ ConcurrentGPUAwareRateLimiter (GPU resource management)")
@@ -521,9 +510,7 @@ class CoreAgent(ABC):
         """
         return self.dependency_scanner.scan_all_imports(files).get("rust", [])
 
-    def _reconcile_requirements(
-        self, files: Dict[str, str], project_root: Path, python_version: str
-    ) -> Dict[str, str]:
+    def _reconcile_requirements(self, files: Dict[str, str], project_root: Path, python_version: str) -> Dict[str, str]:
         """Reconcile dependency files with actual imports using DependencyScanner.
 
         Supports multiple languages:
@@ -537,18 +524,12 @@ class CoreAgent(ABC):
         try:
             # Use DependencyScanner for all reconciliation
             files = self.dependency_scanner.reconcile_dependencies(files, project_root)
-            self.logger.info(
-                "✓ Dependency reconciliation completed via DependencyScanner"
-            )
+            self.logger.info("✓ Dependency reconciliation completed via DependencyScanner")
             return files
         except Exception as e:
-            self.logger.warning(
-                f"DependencyScanner error, falling back to basic reconciliation: {e}"
-            )
+            self.logger.warning(f"DependencyScanner error, falling back to basic reconciliation: {e}")
             # Fallback to individual language scans if scanner fails
-            files = self._reconcile_python_requirements(
-                files, project_root, python_version
-            )
+            files = self._reconcile_python_requirements(files, project_root, python_version)
             files = self._reconcile_package_json(files, project_root)
             files = self._reconcile_go_mod(files, project_root)
             files = self._reconcile_cargo_toml(files, project_root)
@@ -568,11 +549,7 @@ class CoreAgent(ABC):
             return files
 
         req_content = files[req_key]
-        lines = [
-            line.strip()
-            for line in req_content.splitlines()
-            if line.strip() and not line.strip().startswith("#")
-        ]
+        lines = [line.strip() for line in req_content.splitlines() if line.strip() and not line.strip().startswith("#")]
 
         scanned_packages = self._scan_python_imports(files)
 
@@ -582,28 +559,19 @@ class CoreAgent(ABC):
                     f"  Regenerating {req_key}: replacing {len(lines)} entries "
                     f"with {len(scanned_packages)} scanned packages"
                 )
-                new_req = (
-                    f"# Python {python_version} requirements\n"
-                    + "\n".join(scanned_packages)
-                    + "\n"
-                )
+                new_req = f"# Python {python_version} requirements\n" + "\n".join(scanned_packages) + "\n"
                 files[req_key] = new_req
                 self._save_file(project_root / req_key, new_req)
             else:
                 self.logger.warning(
-                    f"  {req_key} has {len(lines)} entries but no Python imports found. "
-                    f"Keeping original."
+                    f"  {req_key} has {len(lines)} entries but no Python imports found. Keeping original."
                 )
         else:
-            self.logger.info(
-                f"  {req_key} looks reasonable ({len(lines)} entries). Keeping as is."
-            )
+            self.logger.info(f"  {req_key} looks reasonable ({len(lines)} entries). Keeping as is.")
 
         return files
 
-    def _reconcile_package_json(
-        self, files: Dict[str, str], project_root: Path
-    ) -> Dict[str, str]:
+    def _reconcile_package_json(self, files: Dict[str, str], project_root: Path) -> Dict[str, str]:
         """Reconcile package.json dependencies with actual JS/TS imports."""
         pkg_key = None
         for path in files:
@@ -628,8 +596,7 @@ class CoreAgent(ABC):
 
         if len(declared_deps) > max(len(scanned_packages) * 3, 30):
             self.logger.info(
-                f"  Trimming {pkg_key}: {len(declared_deps)} declared deps → "
-                f"{len(scanned_packages)} scanned packages"
+                f"  Trimming {pkg_key}: {len(declared_deps)} declared deps → {len(scanned_packages)} scanned packages"
             )
             new_deps = {pkg: "*" for pkg in sorted(scanned_packages)}
             pkg_data["dependencies"] = new_deps
@@ -637,15 +604,11 @@ class CoreAgent(ABC):
             files[pkg_key] = new_content
             self._save_file(project_root / pkg_key, new_content)
         else:
-            self.logger.info(
-                f"  {pkg_key} looks reasonable ({len(declared_deps)} deps). Keeping as is."
-            )
+            self.logger.info(f"  {pkg_key} looks reasonable ({len(declared_deps)} deps). Keeping as is.")
 
         return files
 
-    def _reconcile_go_mod(
-        self, files: Dict[str, str], project_root: Path
-    ) -> Dict[str, str]:
+    def _reconcile_go_mod(self, files: Dict[str, str], project_root: Path) -> Dict[str, str]:
         """Reconcile go.mod require block with actual Go imports."""
         mod_key = None
         for path in files:
@@ -658,9 +621,7 @@ class CoreAgent(ABC):
 
         scanned_modules = self._scan_go_imports(files)
         if not scanned_modules:
-            self.logger.info(
-                f"  {mod_key}: no third-party Go imports found. Keeping as is."
-            )
+            self.logger.info(f"  {mod_key}: no third-party Go imports found. Keeping as is.")
             return files
 
         mod_content = files[mod_key]
@@ -668,8 +629,7 @@ class CoreAgent(ABC):
 
         if len(require_lines) > max(len(scanned_modules) * 3, 30):
             self.logger.info(
-                f"  Regenerating {mod_key} require block: {len(require_lines)} → "
-                f"{len(scanned_modules)} modules"
+                f"  Regenerating {mod_key} require block: {len(require_lines)} → {len(scanned_modules)} modules"
             )
             module_line = re.search(r"^module\s+\S+", mod_content, re.MULTILINE)
             go_version = re.search(r"^go\s+\S+", mod_content, re.MULTILINE)
@@ -687,15 +647,11 @@ class CoreAgent(ABC):
             files[mod_key] = new_content
             self._save_file(project_root / mod_key, new_content)
         else:
-            self.logger.info(
-                f"  {mod_key} looks reasonable ({len(require_lines)} requires). Keeping as is."
-            )
+            self.logger.info(f"  {mod_key} looks reasonable ({len(require_lines)} requires). Keeping as is.")
 
         return files
 
-    def _reconcile_cargo_toml(
-        self, files: Dict[str, str], project_root: Path
-    ) -> Dict[str, str]:
+    def _reconcile_cargo_toml(self, files: Dict[str, str], project_root: Path) -> Dict[str, str]:
         """Reconcile Cargo.toml [dependencies] with actual Rust crate usage."""
         cargo_key = None
         for path in files:
@@ -708,46 +664,29 @@ class CoreAgent(ABC):
 
         scanned_crates = self._scan_rust_imports(files)
         if not scanned_crates:
-            self.logger.info(
-                f"  {cargo_key}: no external crate usage found. Keeping as is."
-            )
+            self.logger.info(f"  {cargo_key}: no external crate usage found. Keeping as is.")
             return files
 
         cargo_content = files[cargo_key]
-        dep_section = re.search(
-            r"\[dependencies\](.*?)(?=\n\[|\Z)", cargo_content, re.DOTALL
-        )
+        dep_section = re.search(r"\[dependencies\](.*?)(?=\n\[|\Z)", cargo_content, re.DOTALL)
         if dep_section:
-            dep_lines = [
-                line.strip()
-                for line in dep_section.group(1).splitlines()
-                if line.strip() and "=" in line
-            ]
+            dep_lines = [line.strip() for line in dep_section.group(1).splitlines() if line.strip() and "=" in line]
         else:
             dep_lines = []
 
         if len(dep_lines) > max(len(scanned_crates) * 3, 20):
-            self.logger.info(
-                f"  Trimming {cargo_key} [dependencies]: {len(dep_lines)} → "
-                f"{len(scanned_crates)} crates"
-            )
+            self.logger.info(f"  Trimming {cargo_key} [dependencies]: {len(dep_lines)} → {len(scanned_crates)} crates")
             new_deps = "\n".join(f'{crate} = "*"' for crate in scanned_crates)
             if dep_section:
                 new_content = (
-                    cargo_content[: dep_section.start(1)]
-                    + "\n"
-                    + new_deps
-                    + "\n"
-                    + cargo_content[dep_section.end(1):]
+                    cargo_content[: dep_section.start(1)] + "\n" + new_deps + "\n" + cargo_content[dep_section.end(1) :]
                 )
             else:
                 new_content = cargo_content + f"\n[dependencies]\n{new_deps}\n"
             files[cargo_key] = new_content
             self._save_file(project_root / cargo_key, new_content)
         else:
-            self.logger.info(
-                f"  {cargo_key} looks reasonable ({len(dep_lines)} deps). Keeping as is."
-            )
+            self.logger.info(f"  {cargo_key} looks reasonable ({len(dep_lines)} deps). Keeping as is.")
 
         return files
 
@@ -780,9 +719,7 @@ class CoreAgent(ABC):
             )
 
             if context_files:
-                self.logger.info(
-                    f"🔍 Selected {len(context_files)} contextual files using RAG semantic search"
-                )
+                self.logger.info(f"🔍 Selected {len(context_files)} contextual files using RAG semantic search")
                 return context_files
         except Exception as e:
             self.logger.info(f"RAG selection unavailable, using heuristic scoring: {e}")

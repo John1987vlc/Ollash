@@ -9,8 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from .feedback_refinement_manager import (FeedbackRefinementManager,
-                                          ParagraphContext)
+from .feedback_refinement_manager import FeedbackRefinementManager, ParagraphContext
 from .source_validator import SourceValidator
 
 
@@ -151,9 +150,7 @@ class RefinementOrchestrator:
         self.validator.register_source(source_id, document_text)
 
         # Extract paragraphs
-        paragraphs = self.refinement_manager.extract_paragraphs(
-            document_text, source_id
-        )
+        paragraphs = self.refinement_manager.extract_paragraphs(document_text, source_id)
 
         # Create workflow
         workflow = RefinementWorkflow(
@@ -252,17 +249,13 @@ class RefinementOrchestrator:
                 para_data = workflow.paragraphs[idx]
 
                 # Perform refinements based on strategy
-                para_results = self._refine_paragraph(
-                    workflow_id, idx, para_data, strategy
-                )
+                para_results = self._refine_paragraph(workflow_id, idx, para_data, strategy)
 
                 results["refinements"].append(para_results)
 
         # Validate all refinements
         workflow.status = "validating"
-        validation_summary = self._validate_refinements(
-            workflow_id, results["refinements"]
-        )
+        validation_summary = self._validate_refinements(workflow_id, results["refinements"])
         results["validations"] = validation_summary
 
         # Update workflow
@@ -333,9 +326,7 @@ class RefinementOrchestrator:
 
         return refined
 
-    def _validate_refinements(
-        self, workflow_id: str, refinements: List[Dict]
-    ) -> List[Dict]:
+    def _validate_refinements(self, workflow_id: str, refinements: List[Dict]) -> List[Dict]:
         """Validate all refinements"""
         workflow = self.active_workflows[workflow_id]
         validation_results = []
@@ -371,9 +362,7 @@ class RefinementOrchestrator:
             "created_at": workflow.created_at,
             "total_paragraphs": len(workflow.paragraphs),
             "refinements_applied": len(workflow.refinements_applied),
-            "validations_passed": len(
-                [v for v in workflow.validations if v.get("is_valid")]
-            ),
+            "validations_passed": len([v for v in workflow.validations if v.get("is_valid")]),
             "metrics": workflow.metrics,
         }
 
@@ -390,9 +379,7 @@ class RefinementOrchestrator:
         """Calculate average readability"""
         if not workflow.paragraphs:
             return 0.0
-        return sum(p["readability"] for p in workflow.paragraphs) / len(
-            workflow.paragraphs
-        )
+        return sum(p["readability"] for p in workflow.paragraphs) / len(workflow.paragraphs)
 
     def _calculate_workflow_metrics(self, workflow: RefinementWorkflow) -> Dict:
         """Calculate final metrics for workflow"""
@@ -400,9 +387,7 @@ class RefinementOrchestrator:
             "total_paragraphs": len(workflow.paragraphs),
             "refined": len(workflow.refinements_applied),
             "validated": len(workflow.validations),
-            "passed_validation": len(
-                [v for v in workflow.validations if v.get("is_valid")]
-            ),
+            "passed_validation": len([v for v in workflow.validations if v.get("is_valid")]),
             "completion_time": (datetime.fromisoformat(workflow.created_at)).isoformat()
             if workflow.created_at
             else None,
@@ -412,16 +397,10 @@ class RefinementOrchestrator:
         """List all workflows"""
         return [
             {
-                "workflow_id": wf.workflow_id
-                if hasattr(wf, "workflow_id")
-                else wf["workflow_id"],
+                "workflow_id": wf.workflow_id if hasattr(wf, "workflow_id") else wf["workflow_id"],
                 "status": wf.status if hasattr(wf, "status") else wf["status"],
-                "created_at": wf.created_at
-                if hasattr(wf, "created_at")
-                else wf["created_at"],
-                "source_id": wf.source_id
-                if hasattr(wf, "source_id")
-                else wf["source_id"],
+                "created_at": wf.created_at if hasattr(wf, "created_at") else wf["created_at"],
+                "source_id": wf.source_id if hasattr(wf, "source_id") else wf["source_id"],
             }
             for wf in self.active_workflows.values()
         ]

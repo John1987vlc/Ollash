@@ -33,15 +33,13 @@ class PlanningTools:
         toolset_id="planning_tools",
         agent_types=["orchestrator"],
     )
-    def plan_actions(
-        self, goal: str, steps: List[str], requires_confirmation: bool = False
-    ) -> Dict:
+    def plan_actions(self, goal: str, steps: List[str], requires_confirmation: bool = False) -> Dict:
         """
         Creates a step-by-step plan for the agent to follow.
         """
         self.logger.info(f"Agent planning actions for goal: {goal}")
         for i, step in enumerate(steps):
-            self.logger.info(f"Step {i+1}: {step}")
+            self.logger.info(f"Step {i + 1}: {step}")
 
         return {
             "ok": True,
@@ -83,9 +81,7 @@ class PlanningTools:
         Allows the orchestrator agent to switch to a specialized agent type.
         This tool is handled internally by the agent to change its context and available tools.
         """
-        self.logger.info(
-            f"Agent requesting switch to agent type: {agent_type} because {reason}"
-        )
+        self.logger.info(f"Agent requesting switch to agent type: {agent_type} because {reason}")
         # This tool's actual logic (changing agent type) is handled by the calling agent (DefaultAgent)
         return {
             "ok": True,
@@ -117,22 +113,13 @@ class PlanningTools:
         """
         if kwargs is None:
             kwargs = {}
-        self.logger.info(
-            f"Submitting tool '{tool_name}' for async execution with args: {kwargs}"
-        )
+        self.logger.info(f"Submitting tool '{tool_name}' for async execution with args: {kwargs}")
 
         # Delegate to the agent's async_tool_executor
-        if (
-            hasattr(self.agent_instance, "async_tool_executor")
-            and self.agent_instance.async_tool_executor
-        ):
+        if hasattr(self.agent_instance, "async_tool_executor") and self.agent_instance.async_tool_executor:
             # The async_tool_executor expects a tool_call dict, not individual name/kwargs
             tool_call_dict = {"function": {"name": tool_name, "arguments": kwargs}}
-            task_id = (
-                await self.agent_instance.async_tool_executor.submit_single_tool_call(
-                    tool_call_dict
-                )
-            )
+            task_id = await self.agent_instance.async_tool_executor.submit_single_tool_call(tool_call_dict)
             return {
                 "ok": True,
                 "result": {
@@ -150,9 +137,7 @@ class PlanningTools:
     @ollash_tool(
         name="check_async_task_status",
         description="Checks the status of an asynchronous task by its ID.",
-        parameters={
-            "task_id": {"type": "string", "description": "The ID of the task to check."}
-        },
+        parameters={"task_id": {"type": "string", "description": "The ID of the task to check."}},
         required=["task_id"],
         toolset_id="planning_tools",
         agent_types=["orchestrator"],
@@ -163,13 +148,8 @@ class PlanningTools:
         """
         self.logger.info(f"Checking status for async task ID: {task_id}")
 
-        if (
-            hasattr(self.agent_instance, "async_tool_executor")
-            and self.agent_instance.async_tool_executor
-        ):
-            status = await self.agent_instance.async_tool_executor.get_task_status(
-                task_id
-            )
+        if hasattr(self.agent_instance, "async_tool_executor") and self.agent_instance.async_tool_executor:
+            status = await self.agent_instance.async_tool_executor.get_task_status(task_id)
             return {
                 "ok": True,
                 "result": {

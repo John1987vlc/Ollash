@@ -24,27 +24,19 @@ class CodeQuarantinePhase(IAgentPhase):
         generated_files: Dict[str, str],  # Files to be scanned
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        file_paths = kwargs.get(
-            "file_paths", []
-        )  # Get from kwargs or assume context has it
+        file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5.55: Code Quarantine...")
-        self.context.event_publisher.publish(
-            "phase_start", phase="5.55", message="Starting code quarantine"
-        )
+        self.context.event_publisher.publish("phase_start", phase="5.55", message="Starting code quarantine")
 
         for rel_path, content in generated_files.items():
             if not content:
                 continue
             if "subprocess" in content or "eval" in content:  # Simple heuristic
-                self.context.logger.warning(
-                    f"  Quarantining {rel_path} due to potentially unsafe content."
-                )
+                self.context.logger.warning(f"  Quarantining {rel_path} due to potentially unsafe content.")
                 self.context.code_quarantine.quarantine_file(project_root / rel_path)
 
-        self.context.event_publisher.publish(
-            "phase_complete", phase="5.55", message="Code quarantine complete"
-        )
+        self.context.event_publisher.publish("phase_complete", phase="5.55", message="Code quarantine complete")
         self.context.logger.info("PHASE 5.55 complete.")
 
         return generated_files, initial_structure, file_paths

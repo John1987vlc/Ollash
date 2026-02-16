@@ -10,21 +10,15 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_file
 
-from backend.utils.core.activity_report_generator import \
-    get_activity_report_generator
+from backend.utils.core.activity_report_generator import get_activity_report_generator
+
 # Import Phase 6 components
-from backend.utils.core.adaptive_notification_ui import \
-    get_adaptive_notification_ui
-from backend.utils.core.advanced_trigger_manager import (
-    LogicOperator, get_advanced_trigger_manager)
-from backend.utils.core.feedback_cycle_manager import (
-    FeedbackType, get_feedback_cycle_manager)
-from backend.utils.core.memory_of_decisions import (DecisionDomain,
-                                                    MemoryOfDecisions)
-from backend.utils.core.voice_command_processor import \
-    get_voice_command_processor
-from backend.utils.core.webhook_manager import (MessagePriority, WebhookType,
-                                                get_webhook_manager)
+from backend.utils.core.adaptive_notification_ui import get_adaptive_notification_ui
+from backend.utils.core.advanced_trigger_manager import LogicOperator, get_advanced_trigger_manager
+from backend.utils.core.feedback_cycle_manager import FeedbackType, get_feedback_cycle_manager
+from backend.utils.core.memory_of_decisions import DecisionDomain, MemoryOfDecisions
+from backend.utils.core.voice_command_processor import get_voice_command_processor
+from backend.utils.core.webhook_manager import MessagePriority, WebhookType, get_webhook_manager
 
 # Create blueprint
 phase6_bp = Blueprint("phase6_api", __name__, url_prefix="/api/v1")
@@ -45,12 +39,8 @@ def get_artifacts():
             "artifacts": [
                 {
                     "id": str(a.id) if hasattr(a, "id") else str(i),
-                    "type": a.artifact_type
-                    if hasattr(a, "artifact_type")
-                    else "unknown",
-                    "created": str(a.timestamp)
-                    if hasattr(a, "timestamp")
-                    else str(datetime.now()),
+                    "type": a.artifact_type if hasattr(a, "artifact_type") else "unknown",
+                    "created": str(a.timestamp) if hasattr(a, "timestamp") else str(datetime.now()),
                 }
                 for i, a in enumerate(artifacts)
             ],
@@ -74,9 +64,7 @@ def create_artifact():
             error_message=data.get("message", ""),
         )
     elif artifact_type == "system_status":
-        result = ui.notify_system_status(
-            metrics=data.get("metrics", {}), thresholds=data.get("thresholds", {})
-        )
+        result = ui.notify_system_status(metrics=data.get("metrics", {}), thresholds=data.get("thresholds", {}))
     elif artifact_type == "decision_point":
         result = ui.notify_decision_point(
             problem=data.get("problem", ""),
@@ -91,9 +79,7 @@ def create_artifact():
         )
     else:
         return (
-            jsonify(
-                {"success": False, "error": f"Unknown artifact type: {artifact_type}"}
-            ),
+            jsonify({"success": False, "error": f"Unknown artifact type: {artifact_type}"}),
             400,
         )
 
@@ -182,9 +168,7 @@ def send_webhook_message(webhook_name):
         fields=data.get("fields", {}),
     )
 
-    return jsonify(
-        {"success": success, "message": "Sent" if success else "Failed to send"}
-    )
+    return jsonify({"success": success, "message": "Sent" if success else "Failed to send"})
 
 
 @phase6_bp.route("/webhooks/<webhook_name>/health", methods=["GET"])
@@ -228,9 +212,7 @@ def get_daily_report():
                     "timestamp": str(report.timestamp),
                     "performance_score": report.performance_score,
                     "metrics": report.metrics if hasattr(report, "metrics") else {},
-                    "anomalies": report.anomalies
-                    if hasattr(report, "anomalies")
-                    else [],
+                    "anomalies": report.anomalies if hasattr(report, "anomalies") else [],
                 },
             }
         )
@@ -311,9 +293,7 @@ def process_voice_command():
                     "message": f"Low confidence ({command.confidence:.0f}%). Please repeat.",
                     "confidence": command.confidence,
                     "require_confirmation": True,
-                    "command": command.to_dict()
-                    if hasattr(command, "to_dict")
-                    else str(command),
+                    "command": command.to_dict() if hasattr(command, "to_dict") else str(command),
                 }
             ),
             400,
@@ -410,16 +390,13 @@ def get_decision_suggestions():
     data = request.get_json()
     memory = MemoryOfDecisions(Path.cwd())
 
-    suggestions = memory.get_decision_suggestions(
-        current_context=data.get("context", {}), limit=data.get("limit", 5)
-    )
+    suggestions = memory.get_decision_suggestions(current_context=data.get("context", {}), limit=data.get("limit", 5))
 
     return jsonify(
         {
             "success": True,
             "suggestions": [
-                {"decision": str(s), "similarity": getattr(s, "similarity_score", 0.5)}
-                for s in suggestions
+                {"decision": str(s), "similarity": getattr(s, "similarity_score", 0.5)} for s in suggestions
             ]
             if suggestions
             else [],
@@ -502,9 +479,7 @@ def get_triggers():
     """Get all registered triggers"""
     trigger_mgr = get_advanced_trigger_manager()
 
-    triggers = (
-        list(trigger_mgr.triggers.keys()) if hasattr(trigger_mgr, "triggers") else []
-    )
+    triggers = list(trigger_mgr.triggers.keys()) if hasattr(trigger_mgr, "triggers") else []
 
     return jsonify({"success": True, "triggers": triggers, "count": len(triggers)})
 
@@ -520,8 +495,7 @@ def register_trigger():
     except ValueError:
         operator = LogicOperator.AND
 
-    from backend.utils.core.advanced_trigger_manager import \
-        CompositeTriggerCondition
+    from backend.utils.core.advanced_trigger_manager import CompositeTriggerCondition
 
     condition = CompositeTriggerCondition(
         id=f"cond_{data.get('id', 'default')}",
@@ -640,9 +614,7 @@ def batch_operation():
             )
             results.append({"type": op_type, "success": True})
 
-    return jsonify(
-        {"success": True, "operations_processed": len(results), "results": results}
-    )
+    return jsonify({"success": True, "operations_processed": len(results), "results": results})
 
 
 # ==================== EXPORT ENDPOINTS ====================
@@ -663,7 +635,7 @@ def export_decisions():
         io.BytesIO(json_str.encode()),
         mimetype="application/json",
         as_attachment=True,
-        download_name=f'decisions_{datetime.now().strftime("%Y%m%d")}.json',
+        download_name=f"decisions_{datetime.now().strftime('%Y%m%d')}.json",
     )
 
 
@@ -682,5 +654,5 @@ def export_feedback():
         io.BytesIO(json_str.encode()),
         mimetype="application/json",
         as_attachment=True,
-        download_name=f'feedback_{datetime.now().strftime("%Y%m%d")}.json',
+        download_name=f"feedback_{datetime.now().strftime('%Y%m%d')}.json",
     )
