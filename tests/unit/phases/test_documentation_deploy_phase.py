@@ -41,9 +41,7 @@ class TestDocumentationDeployPhase:
             file_paths=[],
         )
         assert result == files
-        phase.context.logger.info.assert_any_call(
-            "Documentation Deploy: Skipped (git_push not enabled)"
-        )
+        phase.context.logger.info.assert_any_call("Documentation Deploy: Skipped (git_push not enabled)")
 
     @pytest.mark.asyncio
     async def test_creates_pages_workflow(self, phase, tmp_path):

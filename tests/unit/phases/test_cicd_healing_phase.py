@@ -45,9 +45,7 @@ class TestCICDHealingPhase:
             file_paths=[],
         )
         assert result_files == files
-        phase.context.logger.info.assert_any_call(
-            "CICD Healing: Skipped (git_push not enabled)"
-        )
+        phase.context.logger.info.assert_any_call("CICD Healing: Skipped (git_push not enabled)")
 
     @pytest.mark.asyncio
     async def test_skips_when_healer_not_available(self, phase):
@@ -97,15 +95,11 @@ class TestCICDHealingPhase:
                 git_push=True,
                 file_paths=[],
             )
-            phase.context.logger.info.assert_any_call(
-                "CICD Healing: CI passed successfully!"
-            )
+            phase.context.logger.info.assert_any_call("CICD Healing: CI passed successfully!")
 
     @pytest.mark.asyncio
     async def test_healing_attempt_on_failure(self, phase):
-        phase.context.cicd_healer.generate_fix = AsyncMock(
-            return_value={"requirements.txt": "requests==2.31.0\n"}
-        )
+        phase.context.cicd_healer.generate_fix = AsyncMock(return_value={"requirements.txt": "requests==2.31.0\n"})
 
         with (
             patch.object(phase, "_wait_for_workflow_completion", new_callable=AsyncMock) as mock_wait,

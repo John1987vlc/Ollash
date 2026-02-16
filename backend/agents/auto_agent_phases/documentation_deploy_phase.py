@@ -55,9 +55,7 @@ class DocumentationDeployPhase(IAgentPhase):
         doc_files = {
             path: content
             for path, content in generated_files.items()
-            if path.endswith(".md")
-            and path not in ("README.md", "SECURITY_BLOCKED.md")
-            and content
+            if path.endswith(".md") and path not in ("README.md", "SECURITY_BLOCKED.md") and content
         }
 
         # Initialize GitHub Wiki
@@ -70,9 +68,7 @@ class DocumentationDeployPhase(IAgentPhase):
             workflows_dir = project_root / ".github" / "workflows"
             workflows_dir.mkdir(parents=True, exist_ok=True)
             generated_files[".github/workflows/pages.yml"] = pages_workflow
-            self.context.file_manager.write_file(
-                workflows_dir / "pages.yml", pages_workflow
-            )
+            self.context.file_manager.write_file(workflows_dir / "pages.yml", pages_workflow)
             if ".github/workflows/pages.yml" not in file_paths:
                 file_paths.append(".github/workflows/pages.yml")
             self.context.logger.info("  GitHub Pages workflow created")
@@ -85,9 +81,7 @@ class DocumentationDeployPhase(IAgentPhase):
             if "![CI]" not in current_readme:
                 updated_readme = f"{badges}\n\n{current_readme}"
                 generated_files["README.md"] = updated_readme
-                self.context.file_manager.write_file(
-                    project_root / "README.md", updated_readme
-                )
+                self.context.file_manager.write_file(project_root / "README.md", updated_readme)
                 self.context.logger.info("  Badges inserted into README.md")
 
         self.context.event_publisher.publish(
@@ -235,33 +229,21 @@ jobs:
         badges = []
 
         # CI badge
-        if any(
-            fp.startswith(".github/workflows/") and "ci" in fp.lower()
-            for fp in generated_files
-        ):
-            badges.append(
-                f"![CI](https://github.com/{repo_owner}/{repo_name}"
-                f"/actions/workflows/ci.yml/badge.svg)"
-            )
+        if any(fp.startswith(".github/workflows/") and "ci" in fp.lower() for fp in generated_files):
+            badges.append(f"![CI](https://github.com/{repo_owner}/{repo_name}/actions/workflows/ci.yml/badge.svg)")
 
         # Deploy badge
         if ".github/workflows/deploy.yml" in generated_files:
             badges.append(
-                f"![Deploy](https://github.com/{repo_owner}/{repo_name}"
-                f"/actions/workflows/deploy.yml/badge.svg)"
+                f"![Deploy](https://github.com/{repo_owner}/{repo_name}/actions/workflows/deploy.yml/badge.svg)"
             )
 
         # Security badge (if security scan report exists)
         if "SECURITY_SCAN_REPORT.md" in generated_files:
-            badges.append(
-                "![Security](https://img.shields.io/badge/security-scanned-green)"
-            )
+            badges.append("![Security](https://img.shields.io/badge/security-scanned-green)")
 
         # License badge
         if any("LICENSE" in fp.upper() for fp in generated_files):
-            badges.append(
-                f"![License](https://img.shields.io/github/license"
-                f"/{repo_owner}/{repo_name})"
-            )
+            badges.append(f"![License](https://img.shields.io/github/license/{repo_owner}/{repo_name})")
 
         return " ".join(badges) if badges else ""

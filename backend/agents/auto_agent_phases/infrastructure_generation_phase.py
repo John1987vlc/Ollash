@@ -51,9 +51,7 @@ class InfrastructureGenerationPhase(IAgentPhase):
         )
 
         # Detect needs
-        needs = self.context.infra_generator.detect_infra_needs(
-            readme_content, initial_structure, generated_files
-        )
+        needs = self.context.infra_generator.detect_infra_needs(readme_content, initial_structure, generated_files)
         primary_lang = needs["languages"][0] if needs.get("languages") else "python"
 
         self.context.logger.info(
@@ -125,9 +123,7 @@ class InfrastructureGenerationPhase(IAgentPhase):
         if path not in file_paths:
             file_paths.append(path)
 
-    def _generate_deploy_workflow(
-        self, needs: Dict[str, Any], language: str, project_name: str
-    ) -> str:
+    def _generate_deploy_workflow(self, needs: Dict[str, Any], language: str, project_name: str) -> str:
         """Generate GitHub Actions deploy workflow based on detected stack."""
         install_step = {
             "python": """      - uses: actions/setup-python@v5
@@ -142,10 +138,13 @@ class InfrastructureGenerationPhase(IAgentPhase):
         with:
           go-version: '1.22'
       - run: go mod download""",
-        }.get(language, """      - uses: actions/setup-python@v5
+        }.get(
+            language,
+            """      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install -r requirements.txt""")
+      - run: pip install -r requirements.txt""",
+        )
 
         return f"""name: Deploy
 
@@ -171,9 +170,7 @@ jobs:
           echo "Image: {project_name}:${{{{ github.sha }}}}"
 """
 
-    def _generate_dependabot_config(
-        self, needs: Dict[str, Any], generated_files: Dict[str, str]
-    ) -> str:
+    def _generate_dependabot_config(self, needs: Dict[str, Any], generated_files: Dict[str, str]) -> str:
         """Generate .github/dependabot.yml based on detected package ecosystems."""
         ecosystems = []
 
@@ -250,16 +247,25 @@ updates:
     def _detect_required_secrets(self, generated_files: Dict[str, str]) -> List[str]:
         """Scan code for environment variable references that may need GitHub Secrets."""
         secret_patterns = [
-            r'os\.environ\[[\"\'](\w+)[\"\']\]',
-            r'os\.getenv\([\"\'](\w+)[\"\']\)',
-            r'process\.env\.(\w+)',
-            r'\$\{\{\s*secrets\.(\w+)\s*\}\}',
+            r"os\.environ\[[\"\'](\w+)[\"\']\]",
+            r"os\.getenv\([\"\'](\w+)[\"\']\)",
+            r"process\.env\.(\w+)",
+            r"\$\{\{\s*secrets\.(\w+)\s*\}\}",
         ]
 
         found_secrets = set()
         skip_vars = {
-            "PATH", "HOME", "USER", "LANG", "SHELL", "TERM",
-            "PYTHONPATH", "NODE_ENV", "DEBUG", "PORT", "HOST",
+            "PATH",
+            "HOME",
+            "USER",
+            "LANG",
+            "SHELL",
+            "TERM",
+            "PYTHONPATH",
+            "NODE_ENV",
+            "DEBUG",
+            "PORT",
+            "HOST",
         }
 
         for content in generated_files.values():

@@ -297,9 +297,7 @@ variable "project_name" {
 # Add your provider and resource configurations here
 """
 
-    def generate_deploy_workflow(
-        self, language: str, project_name: str, cloud_provider: str = "generic"
-    ) -> str:
+    def generate_deploy_workflow(self, language: str, project_name: str, cloud_provider: str = "generic") -> str:
         """Generate a GitHub Actions deploy workflow for detected stack."""
         install_steps = {
             "python": "      - uses: actions/setup-python@v5\n        with:\n          python-version: '3.11'\n      - run: pip install -r requirements.txt",
@@ -352,13 +350,22 @@ jobs:
         import re
 
         patterns = [
-            r'os\.environ\[[\"\'](\w+)[\"\']\]',
-            r'os\.getenv\([\"\'](\w+)[\"\']\)',
-            r'process\.env\.(\w+)',
+            r"os\.environ\[[\"\'](\w+)[\"\']\]",
+            r"os\.getenv\([\"\'](\w+)[\"\']\)",
+            r"process\.env\.(\w+)",
         ]
         skip_vars = {
-            "PATH", "HOME", "USER", "LANG", "SHELL", "TERM",
-            "PYTHONPATH", "NODE_ENV", "DEBUG", "PORT", "HOST",
+            "PATH",
+            "HOME",
+            "USER",
+            "LANG",
+            "SHELL",
+            "TERM",
+            "PYTHONPATH",
+            "NODE_ENV",
+            "DEBUG",
+            "PORT",
+            "HOST",
         }
 
         found = set()

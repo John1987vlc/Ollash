@@ -171,9 +171,7 @@ class TestInfrastructureGenerationPhase:
             "go.mod": "module app",
             ".github/workflows/ci.yml": "name: CI",
         }
-        result = phase._generate_dependabot_config(
-            {"languages": ["python", "node", "go"]}, files
-        )
+        result = phase._generate_dependabot_config({"languages": ["python", "node", "go"]}, files)
         assert "pip" in result
         assert "npm" in result
         assert "gomod" in result

@@ -122,37 +122,27 @@ class TestSeniorReviewPR:
 
     def test_format_pr_body_coherence_scores(self, phase):
         # 0 issues -> 95
-        body = phase._format_pr_body(
-            {"status": "passed", "summary": "", "issues": []}, {}, Path("/tmp")
-        )
+        body = phase._format_pr_body({"status": "passed", "summary": "", "issues": []}, {}, Path("/tmp"))
         assert "95/100" in body
 
         # 3 issues -> 75
         issues_3 = [{"severity": "low", "file": "a.py", "description": "x"}] * 3
-        body = phase._format_pr_body(
-            {"status": "failed", "summary": "", "issues": issues_3}, {}, Path("/tmp")
-        )
+        body = phase._format_pr_body({"status": "failed", "summary": "", "issues": issues_3}, {}, Path("/tmp"))
         assert "75/100" in body
 
         # 8 issues -> 55
         issues_8 = [{"severity": "low", "file": "a.py", "description": "x"}] * 8
-        body = phase._format_pr_body(
-            {"status": "failed", "summary": "", "issues": issues_8}, {}, Path("/tmp")
-        )
+        body = phase._format_pr_body({"status": "failed", "summary": "", "issues": issues_8}, {}, Path("/tmp"))
         assert "55/100" in body
 
         # 15 issues -> 35
         issues_15 = [{"severity": "low", "file": "a.py", "description": "x"}] * 15
-        body = phase._format_pr_body(
-            {"status": "failed", "summary": "", "issues": issues_15}, {}, Path("/tmp")
-        )
+        body = phase._format_pr_body({"status": "failed", "summary": "", "issues": issues_15}, {}, Path("/tmp"))
         assert "35/100" in body
 
     def test_run_ruff_metrics_success(self, phase):
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                stdout="E501: 5 occurrences\nW291: 2 occurrences"
-            )
+            mock_run.return_value = MagicMock(stdout="E501: 5 occurrences\nW291: 2 occurrences")
             result = phase._run_ruff_metrics(Path("/tmp"))
             assert "E501" in result
 

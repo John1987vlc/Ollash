@@ -172,9 +172,7 @@ class ExportManager:
         wiki_dir = project_root / ".wiki_temp"
 
         try:
-            self.command_executor.execute(
-                f"git clone {wiki_url} {wiki_dir}", cwd=str(project_root), timeout=30
-            )
+            self.command_executor.execute(f"git clone {wiki_url} {wiki_dir}", cwd=str(project_root), timeout=30)
 
             for doc_path, content in doc_files.items():
                 page_name = Path(doc_path).stem.replace("_", "-")
@@ -187,9 +185,7 @@ class ExportManager:
                 'git commit -m "docs: Initialize wiki from generated documentation"',
                 cwd=str(wiki_dir),
             )
-            result = self.command_executor.execute(
-                "git push -u origin master", cwd=str(wiki_dir), timeout=30
-            )
+            result = self.command_executor.execute("git push -u origin master", cwd=str(wiki_dir), timeout=30)
 
             shutil.rmtree(wiki_dir, ignore_errors=True)
 
@@ -256,19 +252,12 @@ jobs:
 
         badges = []
 
+        badges.append(f"![CI](https://github.com/{repo_owner}/{project_name}/actions/workflows/ci.yml/badge.svg)")
         badges.append(
-            f"![CI](https://github.com/{repo_owner}/{project_name}"
-            f"/actions/workflows/ci.yml/badge.svg)"
-        )
-        badges.append(
-            f"![Deploy](https://github.com/{repo_owner}/{project_name}"
-            f"/actions/workflows/deploy.yml/badge.svg)"
+            f"![Deploy](https://github.com/{repo_owner}/{project_name}/actions/workflows/deploy.yml/badge.svg)"
         )
         badges.append("![Security](https://img.shields.io/badge/security-scanned-green)")
-        badges.append(
-            f"![License](https://img.shields.io/github/license"
-            f"/{repo_owner}/{project_name})"
-        )
+        badges.append(f"![License](https://img.shields.io/github/license/{repo_owner}/{project_name})")
 
         return " ".join(badges)
 

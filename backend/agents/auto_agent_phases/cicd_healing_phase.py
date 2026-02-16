@@ -57,9 +57,7 @@ class CICDHealingPhase(IAgentPhase):
             return generated_files, initial_structure, file_paths
 
         self.context.logger.info("PHASE CI/CD: Starting CI/CD healing monitor...")
-        self.context.event_publisher.publish(
-            "phase_start", phase="cicd_healing", message="Monitoring CI/CD pipeline"
-        )
+        self.context.event_publisher.publish("phase_start", phase="cicd_healing", message="Monitoring CI/CD pipeline")
 
         healing_attempt = 0
         ci_passed = False
@@ -85,9 +83,7 @@ class CICDHealingPhase(IAgentPhase):
 
             # CI failed - attempt healing
             healing_attempt += 1
-            self.context.logger.info(
-                f"CICD Healing: Attempt {healing_attempt}/{self.MAX_HEALING_ATTEMPTS}"
-            )
+            self.context.logger.info(f"CICD Healing: Attempt {healing_attempt}/{self.MAX_HEALING_ATTEMPTS}")
             self.context.event_publisher.publish(
                 "tool_start",
                 tool_name="cicd_healing",
@@ -148,9 +144,7 @@ class CICDHealingPhase(IAgentPhase):
                 status="success",
             )
         else:
-            self.context.logger.warning(
-                f"CICD Healing: CI still failing after {healing_attempt} attempts"
-            )
+            self.context.logger.warning(f"CICD Healing: CI still failing after {healing_attempt} attempts")
             self.context.event_publisher.publish(
                 "phase_complete",
                 phase="cicd_healing",
@@ -160,9 +154,7 @@ class CICDHealingPhase(IAgentPhase):
 
         return generated_files, initial_structure, file_paths
 
-    async def _wait_for_workflow_completion(
-        self, project_root: Path
-    ) -> Dict[str, Any] | None:
+    async def _wait_for_workflow_completion(self, project_root: Path) -> Dict[str, Any] | None:
         """Poll GitHub Actions for the latest workflow run status."""
         elapsed = 0
 
@@ -170,9 +162,13 @@ class CICDHealingPhase(IAgentPhase):
             try:
                 result = subprocess.run(
                     [
-                        "gh", "run", "list",
-                        "--limit", "1",
-                        "--json", "databaseId,status,conclusion,name,headBranch",
+                        "gh",
+                        "run",
+                        "list",
+                        "--limit",
+                        "1",
+                        "--json",
+                        "databaseId,status,conclusion,name,headBranch",
                     ],
                     capture_output=True,
                     text=True,
@@ -189,9 +185,7 @@ class CICDHealingPhase(IAgentPhase):
                         if status == "completed":
                             return run
 
-                        self.context.logger.info(
-                            f"  CI status: {status} (waiting...)"
-                        )
+                        self.context.logger.info(f"  CI status: {status} (waiting...)")
             except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception) as e:
                 self.context.logger.debug(f"  Polling error: {e}")
 
@@ -217,9 +211,7 @@ class CICDHealingPhase(IAgentPhase):
 
         return ""
 
-    def _commit_and_push_fix(
-        self, project_root: Path, attempt: int, root_cause: str
-    ) -> None:
+    def _commit_and_push_fix(self, project_root: Path, attempt: int, root_cause: str) -> None:
         """Commit the healing fixes and push to remote."""
         try:
             git = GitManager(repo_path=str(project_root))
