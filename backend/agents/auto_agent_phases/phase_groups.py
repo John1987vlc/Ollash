@@ -49,12 +49,24 @@ class PhaseGroup:
         """Execute all phases in the group, either sequentially or in parallel."""
         if self.parallel and len(self.phases) > 1:
             return await self._execute_parallel(
-                project_description, project_name, project_root,
-                readme_content, initial_structure, generated_files, file_paths, **kwargs,
+                project_description,
+                project_name,
+                project_root,
+                readme_content,
+                initial_structure,
+                generated_files,
+                file_paths,
+                **kwargs,
             )
         return await self._execute_sequential(
-            project_description, project_name, project_root,
-            readme_content, initial_structure, generated_files, file_paths, **kwargs,
+            project_description,
+            project_name,
+            project_root,
+            readme_content,
+            initial_structure,
+            generated_files,
+            file_paths,
+            **kwargs,
         )
 
     async def _execute_sequential(

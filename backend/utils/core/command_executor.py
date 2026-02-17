@@ -397,9 +397,7 @@ except Exception as e:
                 stderr=asyncio.subprocess.PIPE,
                 cwd=execution_dir,
             )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                process.communicate(), timeout=timeout
-            )
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(process.communicate(), timeout=timeout)
             return ExecutionResult(
                 success=process.returncode == 0,
                 stdout=stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else "",

@@ -284,9 +284,7 @@ class EpisodicMemory:
             f"Recorded episode: {entry.error_type} in {entry.project_name}/{entry.phase_name} -> {entry.outcome}"
         )
 
-    def record_episode_with_embedding(
-        self, entry: EpisodicEntry, embedding: List[float]
-    ) -> None:
+    def record_episode_with_embedding(self, entry: EpisodicEntry, embedding: List[float]) -> None:
         """Record an episode and store its embedding for semantic search."""
         self.record_episode(entry)
 
@@ -343,7 +341,9 @@ class EpisodicMemory:
         query_embedding = embedding_cache.get(error_description)
         if query_embedding is None:
             # Fall back to string matching
-            return self.query_solutions(error_description.split(":")[0] if ":" in error_description else error_description)
+            return self.query_solutions(
+                error_description.split(":")[0] if ":" in error_description else error_description
+            )
 
         with sqlite3.connect(str(self._db_path)) as conn:
             conn.row_factory = sqlite3.Row

@@ -198,10 +198,12 @@ class MultiProviderManager(IModelProvider):
         """List all registered providers with their capabilities."""
         result = []
         for name, provider in self._providers.items():
-            result.append({
-                "name": name,
-                "type": getattr(provider, "PROVIDER_TYPE", "unknown"),
-                "supports_tools": provider.supports_tools(),
-                "supports_vision": provider.supports_vision(),
-            })
+            result.append(
+                {
+                    "name": name,
+                    "type": getattr(provider, "PROVIDER_TYPE", "unknown"),
+                    "supports_tools": provider.supports_tools(),
+                    "supports_vision": provider.supports_vision(),
+                }
+            )
         return result

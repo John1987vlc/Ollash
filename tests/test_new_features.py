@@ -50,17 +50,19 @@ def _make_png(path):
 # 1. Exception Hierarchy Tests
 # ============================================================
 class TestExceptionHierarchy:
-
     def test_ollash_error_is_base(self):
         from backend.utils.core.exceptions import OllashError
+
         assert isinstance(OllashError("x"), Exception)
 
     def test_infrastructure_inherits_ollash(self):
         from backend.utils.core.exceptions import InfrastructureError, OllashError
+
         assert isinstance(InfrastructureError("x"), OllashError)
 
     def test_resource_exhaustion(self):
         from backend.utils.core.exceptions import ResourceExhaustionError, InfrastructureError
+
         e = ResourceExhaustionError("GPU", "out of VRAM")
         assert isinstance(e, InfrastructureError)
         assert e.resource == "GPU"
@@ -68,6 +70,7 @@ class TestExceptionHierarchy:
 
     def test_sandbox_unavailable(self):
         from backend.utils.core.exceptions import SandboxUnavailableError, InfrastructureError
+
         e = SandboxUnavailableError(["docker", "wasmtime"])
         assert isinstance(e, InfrastructureError)
         assert e.attempted_runtimes == ["docker", "wasmtime"]
@@ -75,20 +78,24 @@ class TestExceptionHierarchy:
 
     def test_sandbox_unavailable_empty(self):
         from backend.utils.core.exceptions import SandboxUnavailableError
+
         assert SandboxUnavailableError().attempted_runtimes == []
 
     def test_network_timeout(self):
         from backend.utils.core.exceptions import NetworkTimeoutError, InfrastructureError
+
         e = NetworkTimeoutError("fetch", 30.0)
         assert isinstance(e, InfrastructureError)
         assert e.operation == "fetch" and e.timeout_seconds == 30.0
 
     def test_agent_logic_error(self):
         from backend.utils.core.exceptions import AgentLogicError, OllashError
+
         assert isinstance(AgentLogicError("x"), OllashError)
 
     def test_invalid_tool_output_truncates(self):
         from backend.utils.core.exceptions import InvalidToolOutputError, AgentLogicError
+
         e = InvalidToolOutputError("tool", "bad", "x" * 1000)
         assert isinstance(e, AgentLogicError)
         assert e.tool_name == "tool"
@@ -96,36 +103,44 @@ class TestExceptionHierarchy:
 
     def test_phase_contract_violation(self):
         from backend.utils.core.exceptions import PhaseContractViolationError
+
         e = PhaseContractViolationError("Review", "no files")
         assert e.phase_name == "Review" and e.violation == "no files"
 
     def test_prompt_parsing_truncates(self):
         from backend.utils.core.exceptions import PromptParsingError
+
         e = PromptParsingError("json", "z" * 1000)
         assert e.expected_format == "json"
         assert len(e.raw_response) <= 500
 
     def test_ollama_backward_compat(self):
         from backend.utils.core.exceptions import OllamaError, InfrastructureError
+
         assert isinstance(OllamaError("x"), InfrastructureError)
 
     def test_agent_loop_dual_inheritance(self):
         from backend.utils.core.exceptions import AgentLoopError, AgentError, AgentLogicError
+
         e = AgentLoopError("stuck")
         assert isinstance(e, AgentError)
         assert isinstance(e, AgentLogicError)
 
     def test_parallel_phase_error(self):
         from backend.utils.core.exceptions import ParallelPhaseError, PipelineError
+
         e = ParallelPhaseError({"A": "err_a", "B": "err_b"})
         assert isinstance(e, PipelineError)
         assert "A" in str(e) and "B" in str(e)
 
     def test_provider_errors(self):
         from backend.utils.core.exceptions import (
-            ProviderError, ProviderConnectionError,
-            ProviderAuthenticationError, OllashError,
+            ProviderError,
+            ProviderConnectionError,
+            ProviderAuthenticationError,
+            OllashError,
         )
+
         assert issubclass(ProviderError, OllashError)
         e1 = ProviderConnectionError("groq", "timeout")
         assert e1.provider_name == "groq"
@@ -137,15 +152,16 @@ class TestExceptionHierarchy:
 # 2. Type Definitions Tests
 # ============================================================
 class TestTypeDefinitions:
-
     def test_literal_types_importable(self):
         from backend.core.type_definitions import (
             PhaseOutcome,
         )
+
         assert PhaseOutcome is not None
 
     def test_phase_result_dict(self):
         from backend.core.type_definitions import PhaseResultDict
+
         d: PhaseResultDict = {
             "generated_files": {"main.py": "x"},
             "structure": {},
@@ -155,11 +171,13 @@ class TestTypeDefinitions:
 
     def test_execution_plan_dict_partial(self):
         from backend.core.type_definitions import ExecutionPlanDict
+
         d: ExecutionPlanDict = {"project_name": "test"}
         assert d["project_name"] == "test"
 
     def test_tool_dicts(self):
         from backend.core.type_definitions import ToolCallDict, ToolResultDict
+
         tc: ToolCallDict = {"name": "write_file", "arguments": {"path": "x.py"}}
         tr: ToolResultDict = {"name": "write_file", "result": "ok", "success": True}
         assert tc["name"] == "write_file" and tr["success"] is True
@@ -168,10 +186,17 @@ class TestTypeDefinitions:
         from backend.core.type_definitions import LLMProviderProtocol
 
         class P:
-            async def chat(self, messages, tools=None, temperature=0.5): return {}
-            async def embed(self, text): return [0.1]
-            def supports_tools(self): return True
-            def supports_vision(self): return False
+            async def chat(self, messages, tools=None, temperature=0.5):
+                return {}
+
+            async def embed(self, text):
+                return [0.1]
+
+            def supports_tools(self):
+                return True
+
+            def supports_vision(self):
+                return False
 
         assert isinstance(P(), LLMProviderProtocol)
 
@@ -179,9 +204,14 @@ class TestTypeDefinitions:
         from backend.core.type_definitions import ModelProviderProtocol
 
         class M:
-            def get_client(self, role): return None
-            def get_embedding_client(self): return None
-            def get_all_clients(self): return {}
+            def get_client(self, role):
+                return None
+
+            def get_embedding_client(self):
+                return None
+
+            def get_all_clients(self):
+                return {}
 
         assert isinstance(M(), ModelProviderProtocol)
 
@@ -189,7 +219,8 @@ class TestTypeDefinitions:
         from backend.core.type_definitions import ToolExecutorProtocol
 
         class T:
-            async def execute_tool(self, tool_name, **kwargs): return "ok"
+            async def execute_tool(self, tool_name, **kwargs):
+                return "ok"
 
         assert isinstance(T(), ToolExecutorProtocol)
 
@@ -198,19 +229,21 @@ class TestTypeDefinitions:
 # 3. EmbeddingCache Enhanced Tests
 # ============================================================
 class TestEmbeddingCacheEnhanced:
-
     def test_basic_get_put(self):
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         c = EmbeddingCache(max_size=100, ttl_seconds=3600)
         c.put("hello", [0.1, 0.2])
         assert c.get("hello") == [0.1, 0.2]
 
     def test_cache_miss(self):
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         assert EmbeddingCache().get("nope") is None
 
     def test_lru_eviction(self):
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         c = EmbeddingCache(max_size=2)
         c.put("a", [1.0])
         c.put("b", [2.0])
@@ -221,6 +254,7 @@ class TestEmbeddingCacheEnhanced:
     def test_ttl_expiration(self):
         import time
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         c = EmbeddingCache(ttl_seconds=1)
         c.put("x", [1.0])
         time.sleep(1.1)
@@ -228,6 +262,7 @@ class TestEmbeddingCacheEnhanced:
 
     def test_get_batch(self):
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         c = EmbeddingCache()
         c.put("a", [1.0])
         c.put("b", [2.0])
@@ -236,18 +271,21 @@ class TestEmbeddingCacheEnhanced:
 
     def test_put_batch(self):
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         c = EmbeddingCache()
         c.put_batch({"x": [1.0], "y": [2.0]})
         assert c.get("x") == [1.0] and c.get("y") == [2.0]
 
     def test_memory_usage(self):
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         c = EmbeddingCache()
         c.put("t", [0.1] * 100)
         assert c.get_memory_usage_bytes() > 0
 
     def test_stats_new_fields(self):
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         c = EmbeddingCache()
         c.put("s", [1.0])
         c.get("s")
@@ -258,6 +296,7 @@ class TestEmbeddingCacheEnhanced:
 
     def test_sqlite_persistence(self, tmp_path):
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         p = tmp_path / "cache"
         c1 = EmbeddingCache(persist_path=p, persist_backend="sqlite")
         c1.put("saved", [1.0, 2.0])
@@ -267,6 +306,7 @@ class TestEmbeddingCacheEnhanced:
 
     def test_json_persistence(self, tmp_path):
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         p = tmp_path / "cache.json"
         c1 = EmbeddingCache(persist_path=p, persist_backend="json")
         c1.put("js", [3.0])
@@ -276,6 +316,7 @@ class TestEmbeddingCacheEnhanced:
 
     def test_clear(self):
         from backend.utils.core.embedding_cache import EmbeddingCache
+
         c = EmbeddingCache()
         c.put("x", [1.0])
         c.clear()
@@ -287,20 +328,26 @@ class TestEmbeddingCacheEnhanced:
 # 4. EpisodicMemory Enhanced Tests
 # ============================================================
 class TestEpisodicMemoryEnhanced:
-
     @pytest.fixture
     def memory(self, tmp_path):
         from backend.utils.core.episodic_memory import EpisodicMemory
+
         return EpisodicMemory(memory_dir=tmp_path / "mem", logger=_mock_logger())
 
     @pytest.fixture
     def entry(self):
         from backend.utils.core.episodic_memory import EpisodicEntry
+
         return EpisodicEntry(
-            project_name="proj", phase_name="review", error_type="ImportError",
-            error_pattern_id="imp001", error_description="No module named 'foo'",
-            solution_applied="pip install foo", outcome="success",
-            language="python", file_path="main.py",
+            project_name="proj",
+            phase_name="review",
+            error_type="ImportError",
+            error_pattern_id="imp001",
+            error_description="No module named 'foo'",
+            solution_applied="pip install foo",
+            outcome="success",
+            language="python",
+            file_path="main.py",
         )
 
     def test_record_and_query(self, memory, entry):
@@ -327,26 +374,36 @@ class TestEpisodicMemoryEnhanced:
 
     def test_decision_recording(self, memory):
         from backend.utils.core.episodic_memory import DecisionRecord
+
         sid = memory.start_session()
-        memory.record_decision(DecisionRecord(
-            session_id=sid, decision_type="model", context="review",
-            choice="deepseek", reasoning="best",
-        ))
+        memory.record_decision(
+            DecisionRecord(
+                session_id=sid,
+                decision_type="model",
+                context="review",
+                choice="deepseek",
+                reasoning="best",
+            )
+        )
         r = memory.recall_decisions(decision_type="model")
         assert len(r) == 1 and r[0].choice == "deepseek"
 
     def test_recall_with_keyword(self, memory):
         from backend.utils.core.episodic_memory import DecisionRecord
+
         sid = memory.start_session()
-        memory.record_decision(DecisionRecord(
-            session_id=sid, decision_type="t", context="file op", choice="a", reasoning="r"))
-        memory.record_decision(DecisionRecord(
-            session_id=sid, decision_type="t", context="network scan", choice="b", reasoning="r"))
+        memory.record_decision(
+            DecisionRecord(session_id=sid, decision_type="t", context="file op", choice="a", reasoning="r")
+        )
+        memory.record_decision(
+            DecisionRecord(session_id=sid, decision_type="t", context="network scan", choice="b", reasoning="r")
+        )
         r = memory.recall_decisions(context_keyword="network")
         assert len(r) == 1 and r[0].choice == "b"
 
     def test_decision_record_serde(self):
         from backend.utils.core.episodic_memory import DecisionRecord
+
         dr = DecisionRecord(session_id="a", decision_type="t", context="c", choice="ch", reasoning="r")
         d = dr.to_dict()
         dr2 = DecisionRecord.from_dict(d)
@@ -354,10 +411,15 @@ class TestEpisodicMemoryEnhanced:
 
     def test_episodic_entry_serde(self):
         from backend.utils.core.episodic_memory import EpisodicEntry
+
         e = EpisodicEntry(
-            project_name="p", phase_name="ph", error_type="E",
-            error_pattern_id="e1", error_description="d",
-            solution_applied="f", outcome="success",
+            project_name="p",
+            phase_name="ph",
+            error_type="E",
+            error_pattern_id="e1",
+            error_description="d",
+            solution_applied="f",
+            outcome="success",
         )
         e2 = EpisodicEntry.from_dict(e.to_dict())
         assert e2.outcome == "success"
@@ -393,9 +455,13 @@ class TestEpisodicMemoryEnhanced:
 
     def test_async_record_decision(self, memory):
         from backend.utils.core.episodic_memory import DecisionRecord
+
         sid = memory.start_session()
-        asyncio.run(memory.async_record_decision(DecisionRecord(
-            session_id=sid, decision_type="t", context="c", choice="ch", reasoning="r")))
+        asyncio.run(
+            memory.async_record_decision(
+                DecisionRecord(session_id=sid, decision_type="t", context="c", choice="ch", reasoning="r")
+            )
+        )
         assert len(memory.recall_decisions()) == 1
 
 
@@ -403,21 +469,23 @@ class TestEpisodicMemoryEnhanced:
 # 5. PromptTuner Enhanced Tests
 # ============================================================
 class TestPromptTunerEnhanced:
-
     @pytest.fixture
     def tuner(self, tmp_path):
         from backend.utils.core.prompt_tuner import FeedbackStore, PromptTuner
+
         store = FeedbackStore(store_dir=tmp_path / "fb")
         return PromptTuner(feedback_store=store, logger=_mock_logger())
 
     def test_feedback_entry_serde(self):
         from backend.utils.core.prompt_tuner import FeedbackEntry
+
         fe = FeedbackEntry(prompt_id="p1", original_output="o", user_correction="c", rating=0.3)
         fe2 = FeedbackEntry.from_dict(fe.to_dict())
         assert fe2.rating == 0.3
 
     def test_store_save_query(self, tmp_path):
         from backend.utils.core.prompt_tuner import FeedbackStore, FeedbackEntry
+
         s = FeedbackStore(store_dir=tmp_path / "fb2")
         s.save(FeedbackEntry(prompt_id="p1", original_output="o", user_correction="c", rating=0.5))
         s.save(FeedbackEntry(prompt_id="p2", original_output="o", user_correction="c", rating=0.9))
@@ -435,12 +503,16 @@ class TestPromptTunerEnhanced:
 
     def test_adjust_temp_low(self, tuner):
         from backend.utils.core.prompt_tuner import FeedbackEntry
+
         for _ in range(5):
-            tuner.feedback_store.save(FeedbackEntry(prompt_id="p", original_output="o", user_correction="c", rating=0.2))
+            tuner.feedback_store.save(
+                FeedbackEntry(prompt_id="p", original_output="o", user_correction="c", rating=0.2)
+            )
         assert tuner.adjust_temperature("p", 0.5) < 0.5
 
     def test_adjust_temp_high(self, tuner):
         from backend.utils.core.prompt_tuner import FeedbackEntry
+
         for _ in range(5):
             tuner.feedback_store.save(FeedbackEntry(prompt_id="p", original_output="o", user_correction="", rating=0.9))
         assert tuner.adjust_temperature("p", 0.5) > 0.5
@@ -496,7 +568,6 @@ class TestPromptTunerEnhanced:
 # 6. BasePhase Tests
 # ============================================================
 class TestBasePhase:
-
     @pytest.fixture
     def ctx(self):
         c = MagicMock()
@@ -507,25 +578,52 @@ class TestBasePhase:
 
     def test_run_not_implemented(self, ctx):
         from backend.agents.auto_agent_phases.base_phase import BasePhase
+
         with pytest.raises(NotImplementedError):
-            asyncio.run(BasePhase(ctx).run(
-                project_description="", project_name="", project_root=Path("/tmp"),
-                readme_content="", initial_structure={}, generated_files={}, file_paths=[]))
+            asyncio.run(
+                BasePhase(ctx).run(
+                    project_description="",
+                    project_name="",
+                    project_root=Path("/tmp"),
+                    readme_content="",
+                    initial_structure={},
+                    generated_files={},
+                    file_paths=[],
+                )
+            )
 
     def test_concrete_execute(self, ctx, tmp_path):
         from backend.agents.auto_agent_phases.base_phase import BasePhase
 
         class TP(BasePhase):
             phase_id = "tp"
-            async def run(self, project_description, project_name, project_root,
-                          readme_content, initial_structure, generated_files, file_paths, **kw):
+
+            async def run(
+                self,
+                project_description,
+                project_name,
+                project_root,
+                readme_content,
+                initial_structure,
+                generated_files,
+                file_paths,
+                **kw,
+            ):
                 generated_files["t.py"] = "x"
                 file_paths.append("t.py")
                 return generated_files, initial_structure, file_paths
 
-        f, s, p = asyncio.run(TP(ctx).execute(
-            project_description="d", project_name="p", project_root=tmp_path,
-            readme_content="", initial_structure={}, generated_files={}, file_paths=["e.py"]))
+        f, s, p = asyncio.run(
+            TP(ctx).execute(
+                project_description="d",
+                project_name="p",
+                project_root=tmp_path,
+                readme_content="",
+                initial_structure={},
+                generated_files={},
+                file_paths=["e.py"],
+            )
+        )
         assert "t.py" in f and "t.py" in p and "e.py" in p
 
     def test_execute_publishes_events(self, ctx, tmp_path):
@@ -533,11 +631,20 @@ class TestBasePhase:
 
         class Ok(BasePhase):
             phase_id = "ok"
-            async def run(self, **kw): return {}, {}, []
 
-        asyncio.run(Ok(ctx).execute(
-            project_description="", project_name="", project_root=tmp_path,
-            readme_content="", initial_structure={}, generated_files={}))
+            async def run(self, **kw):
+                return {}, {}, []
+
+        asyncio.run(
+            Ok(ctx).execute(
+                project_description="",
+                project_name="",
+                project_root=tmp_path,
+                readme_content="",
+                initial_structure={},
+                generated_files={},
+            )
+        )
         calls = ctx.event_publisher.publish.call_args_list
         assert calls[0][0][0] == "phase_start"
         assert calls[1][0][0] == "phase_complete"
@@ -548,28 +655,55 @@ class TestBasePhase:
 
         class Bad(BasePhase):
             phase_id = "bad"
-            async def run(self, **kw): raise ValueError("boom")
+
+            async def run(self, **kw):
+                raise ValueError("boom")
 
         with pytest.raises(PipelinePhaseError):
-            asyncio.run(Bad(ctx).execute(
-                project_description="", project_name="", project_root=tmp_path,
-                readme_content="", initial_structure={}, generated_files={}))
+            asyncio.run(
+                Bad(ctx).execute(
+                    project_description="",
+                    project_name="",
+                    project_root=tmp_path,
+                    readme_content="",
+                    initial_structure={},
+                    generated_files={},
+                )
+            )
 
     def test_file_paths_extracted(self, ctx, tmp_path):
         from backend.agents.auto_agent_phases.base_phase import BasePhase
+
         received = []
 
         class FP(BasePhase):
             phase_id = "fp"
-            async def run(self, project_description, project_name, project_root,
-                          readme_content, initial_structure, generated_files, file_paths, **kw):
+
+            async def run(
+                self,
+                project_description,
+                project_name,
+                project_root,
+                readme_content,
+                initial_structure,
+                generated_files,
+                file_paths,
+                **kw,
+            ):
                 received.extend(file_paths)
                 return generated_files, initial_structure, file_paths
 
-        asyncio.run(FP(ctx).execute(
-            project_description="", project_name="", project_root=tmp_path,
-            readme_content="", initial_structure={}, generated_files={},
-            file_paths=["a.py", "b.py"]))
+        asyncio.run(
+            FP(ctx).execute(
+                project_description="",
+                project_name="",
+                project_root=tmp_path,
+                readme_content="",
+                initial_structure={},
+                generated_files={},
+                file_paths=["a.py", "b.py"],
+            )
+        )
         assert received == ["a.py", "b.py"]
 
 
@@ -577,26 +711,49 @@ class TestBasePhase:
 # 7. PhaseGroup Tests
 # ============================================================
 class TestPhaseGroups:
-
     def test_sequential(self):
         from backend.agents.auto_agent_phases.phase_groups import PhaseGroup
         from backend.interfaces.iagent_phase import IAgentPhase
 
         class A(IAgentPhase):
-            async def execute(self, project_description, project_name, project_root,
-                              readme_content, initial_structure, generated_files, **kw):
+            async def execute(
+                self,
+                project_description,
+                project_name,
+                project_root,
+                readme_content,
+                initial_structure,
+                generated_files,
+                **kw,
+            ):
                 generated_files["a.py"] = "a"
                 return generated_files, initial_structure, kw.get("file_paths", [])
 
         class B(IAgentPhase):
-            async def execute(self, project_description, project_name, project_root,
-                              readme_content, initial_structure, generated_files, **kw):
+            async def execute(
+                self,
+                project_description,
+                project_name,
+                project_root,
+                readme_content,
+                initial_structure,
+                generated_files,
+                **kw,
+            ):
                 generated_files["b.py"] = "b"
                 return generated_files, initial_structure, kw.get("file_paths", [])
 
-        f, _, _ = asyncio.run(PhaseGroup("t", [A(), B()]).execute(
-            project_description="", project_name="", project_root=Path("/tmp"),
-            readme_content="", initial_structure={}, generated_files={}, file_paths=[]))
+        f, _, _ = asyncio.run(
+            PhaseGroup("t", [A(), B()]).execute(
+                project_description="",
+                project_name="",
+                project_root=Path("/tmp"),
+                readme_content="",
+                initial_structure={},
+                generated_files={},
+                file_paths=[],
+            )
+        )
         assert "a.py" in f and "b.py" in f
 
     def test_parallel_merges(self):
@@ -604,20 +761,44 @@ class TestPhaseGroups:
         from backend.interfaces.iagent_phase import IAgentPhase
 
         class C(IAgentPhase):
-            async def execute(self, project_description, project_name, project_root,
-                              readme_content, initial_structure, generated_files, **kw):
+            async def execute(
+                self,
+                project_description,
+                project_name,
+                project_root,
+                readme_content,
+                initial_structure,
+                generated_files,
+                **kw,
+            ):
                 generated_files["c.py"] = "c"
                 return generated_files, initial_structure, ["c.py"]
 
         class D(IAgentPhase):
-            async def execute(self, project_description, project_name, project_root,
-                              readme_content, initial_structure, generated_files, **kw):
+            async def execute(
+                self,
+                project_description,
+                project_name,
+                project_root,
+                readme_content,
+                initial_structure,
+                generated_files,
+                **kw,
+            ):
                 generated_files["d.py"] = "d"
                 return generated_files, initial_structure, ["d.py"]
 
-        f, _, p = asyncio.run(PhaseGroup("t", [C(), D()], parallel=True).execute(
-            project_description="", project_name="", project_root=Path("/tmp"),
-            readme_content="", initial_structure={}, generated_files={}, file_paths=[]))
+        f, _, p = asyncio.run(
+            PhaseGroup("t", [C(), D()], parallel=True).execute(
+                project_description="",
+                project_name="",
+                project_root=Path("/tmp"),
+                readme_content="",
+                initial_structure={},
+                generated_files={},
+                file_paths=[],
+            )
+        )
         assert "c.py" in f and "d.py" in f
 
     def test_parallel_failure(self):
@@ -634,16 +815,25 @@ class TestPhaseGroups:
                 raise RuntimeError("exploded")
 
         with pytest.raises(ParallelPhaseError):
-            asyncio.run(PhaseGroup("t", [Good(), Bad()], parallel=True).execute(
-                project_description="", project_name="", project_root=Path("/tmp"),
-                readme_content="", initial_structure={}, generated_files={}, file_paths=[]))
+            asyncio.run(
+                PhaseGroup("t", [Good(), Bad()], parallel=True).execute(
+                    project_description="",
+                    project_name="",
+                    project_root=Path("/tmp"),
+                    readme_content="",
+                    initial_structure={},
+                    generated_files={},
+                    file_paths=[],
+                )
+            )
 
     def test_build_single_phases(self):
         from backend.agents.auto_agent_phases.phase_groups import build_phase_groups
         from backend.interfaces.iagent_phase import IAgentPhase
 
         class R(IAgentPhase):
-            async def execute(self, *a, **kw): pass
+            async def execute(self, *a, **kw):
+                pass
 
         groups = build_phase_groups([R(), R()])
         assert len(groups) == 2
@@ -665,13 +855,14 @@ class TestPhaseGroups:
 # 8. WasmSandbox & DockerSandbox Tests
 # ============================================================
 class TestSandboxes:
-
     def test_wasm_unavailable(self):
         from backend.utils.core.wasm_sandbox import WasmSandbox
+
         assert WasmSandbox(runtime="nonexistent_xyz").is_available is False
 
     def test_wasm_create_destroy(self):
         from backend.utils.core.wasm_sandbox import WasmSandbox
+
         sb = WasmSandbox(runtime="nonexistent_xyz")
         inst = sb.create_sandbox()
         assert inst.work_dir.exists()
@@ -680,6 +871,7 @@ class TestSandboxes:
 
     def test_wasm_destroy_all(self):
         from backend.utils.core.wasm_sandbox import WasmSandbox
+
         sb = WasmSandbox(runtime="nonexistent_xyz")
         sb.create_sandbox()
         sb.create_sandbox()
@@ -689,6 +881,7 @@ class TestSandboxes:
 
     def test_sandbox_instance_to_dict(self):
         from backend.utils.core.wasm_sandbox import WasmSandbox
+
         sb = WasmSandbox(runtime="nonexistent_xyz")
         inst = sb.create_sandbox(memory_limit_mb=512)
         d = inst.to_dict()
@@ -697,9 +890,17 @@ class TestSandboxes:
 
     def test_test_result_to_dict_truncates(self):
         from backend.utils.core.wasm_sandbox import TestResult
-        r = TestResult(success=True, exit_code=0, stdout="x" * 10000,
-                       stderr="y" * 5000, duration_seconds=1.2345,
-                       tests_run=5, tests_passed=4, tests_failed=1)
+
+        r = TestResult(
+            success=True,
+            exit_code=0,
+            stdout="x" * 10000,
+            stderr="y" * 5000,
+            duration_seconds=1.2345,
+            tests_run=5,
+            tests_passed=4,
+            tests_failed=1,
+        )
         d = r.to_dict()
         assert len(d["stdout"]) <= 5000 and len(d["stderr"]) <= 2000
         assert d["tests_passed"] == 4
@@ -707,17 +908,20 @@ class TestSandboxes:
     @patch("subprocess.run")
     def test_docker_available(self, mock_run):
         from backend.utils.core.wasm_sandbox import DockerSandbox
+
         mock_run.return_value = MagicMock(returncode=0)
         assert DockerSandbox(logger=_mock_logger()).is_available is True
 
     @patch("subprocess.run", side_effect=FileNotFoundError)
     def test_docker_unavailable(self, mock_run):
         from backend.utils.core.wasm_sandbox import DockerSandbox
+
         assert DockerSandbox(logger=_mock_logger()).is_available is False
 
     def test_docker_execute_unavailable_raises(self):
         from backend.utils.core.wasm_sandbox import DockerSandbox
         from backend.utils.core.exceptions import SandboxUnavailableError
+
         with patch("subprocess.run", side_effect=FileNotFoundError):
             sb = DockerSandbox(logger=_mock_logger())
         with pytest.raises(SandboxUnavailableError):
@@ -726,6 +930,7 @@ class TestSandboxes:
     @patch("subprocess.run")
     def test_docker_cleanup(self, mock_run):
         from backend.utils.core.wasm_sandbox import DockerSandbox
+
         mock_run.side_effect = [
             MagicMock(returncode=0),  # docker info
             MagicMock(returncode=0, stdout="ollash_sandbox_abc\n"),
@@ -739,29 +944,40 @@ class TestSandboxes:
 # 9. CommandExecutor async_execute Tests
 # ============================================================
 class TestCommandExecutorAsync:
-
     def test_async_simple(self):
         from backend.utils.core.command_executor import CommandExecutor, SandboxLevel
-        r = asyncio.run(CommandExecutor(sandbox=SandboxLevel.NONE, logger=_mock_logger())
-                        .async_execute("python -c \"print('hi')\""))
+
+        r = asyncio.run(
+            CommandExecutor(sandbox=SandboxLevel.NONE, logger=_mock_logger()).async_execute("python -c \"print('hi')\"")
+        )
         assert r.success is True and "hi" in r.stdout
 
     def test_async_not_found(self):
         from backend.utils.core.command_executor import CommandExecutor, SandboxLevel
-        r = asyncio.run(CommandExecutor(sandbox=SandboxLevel.NONE, logger=_mock_logger())
-                        .async_execute("nonexistent_cmd_xyz"))
+
+        r = asyncio.run(
+            CommandExecutor(sandbox=SandboxLevel.NONE, logger=_mock_logger()).async_execute("nonexistent_cmd_xyz")
+        )
         assert r.success is False
 
     def test_async_timeout(self):
         from backend.utils.core.command_executor import CommandExecutor, SandboxLevel
-        r = asyncio.run(CommandExecutor(sandbox=SandboxLevel.NONE, logger=_mock_logger())
-                        .async_execute("python -c \"import time; time.sleep(10)\"", timeout=1))
+
+        r = asyncio.run(
+            CommandExecutor(sandbox=SandboxLevel.NONE, logger=_mock_logger()).async_execute(
+                'python -c "import time; time.sleep(10)"', timeout=1
+            )
+        )
         assert r.success is False
 
     def test_async_list_command(self):
         from backend.utils.core.command_executor import CommandExecutor, SandboxLevel
-        r = asyncio.run(CommandExecutor(sandbox=SandboxLevel.NONE, logger=_mock_logger())
-                        .async_execute(["python", "-c", "print('list')"]))
+
+        r = asyncio.run(
+            CommandExecutor(sandbox=SandboxLevel.NONE, logger=_mock_logger()).async_execute(
+                ["python", "-c", "print('list')"]
+            )
+        )
         assert r.success is True and "list" in r.stdout
 
 
@@ -769,10 +985,10 @@ class TestCommandExecutorAsync:
 # 10. ImageAnalyzer Tests
 # ============================================================
 class TestImageAnalyzer:
-
     @pytest.fixture
     def analyzer(self):
         from backend.utils.domains.multimedia.image_analyzer import ImageAnalyzer
+
         vc = MagicMock()
         vc.chat.return_value = {"message": {"content": "Found: button and field."}}
         return ImageAnalyzer(vision_client=vc, logger=_mock_logger())
@@ -783,6 +999,7 @@ class TestImageAnalyzer:
 
     def test_load_valid(self, analyzer, png):
         import base64
+
         r = analyzer._load_image_base64(png)
         assert r is not None
         assert base64.b64decode(r)[:4] == b"\x89PNG"
@@ -797,6 +1014,7 @@ class TestImageAnalyzer:
 
     def test_extract_list_items(self):
         from backend.utils.domains.multimedia.image_analyzer import ImageAnalyzer
+
         items = ImageAnalyzer._extract_list_items("- DB\n* API\n1. LB", "c")
         assert "DB" in items and "API" in items and "LB" in items
 
@@ -820,10 +1038,10 @@ class TestImageAnalyzer:
 # 11. MultiProviderManager Tests
 # ============================================================
 class TestMultiProviderManager:
-
     @pytest.fixture
     def manager(self):
         from backend.services.multi_provider_manager import MultiProviderManager
+
         cfg = MagicMock()
         cfg.ollama_url = "http://localhost:11434"
         cfg.default_model = "llama3.2"
@@ -839,18 +1057,27 @@ class TestMultiProviderManager:
 
     def test_register_openai_compat(self, manager):
         from backend.services.multi_provider_manager import ProviderConfig
-        manager.register_provider(ProviderConfig(
-            name="groq", provider_type="openai_compatible",
-            base_url="https://api.groq.com/openai", api_key="k",
-            models={"reviewer": "llama-70b"}))
+
+        manager.register_provider(
+            ProviderConfig(
+                name="groq",
+                provider_type="openai_compatible",
+                base_url="https://api.groq.com/openai",
+                api_key="k",
+                models={"reviewer": "llama-70b"},
+            )
+        )
         assert "groq" in manager._providers
         assert manager._role_provider_map.get("reviewer") == "groq"
 
     def test_register_ollama_provider(self, manager):
         from backend.services.multi_provider_manager import ProviderConfig
-        manager.register_provider(ProviderConfig(
-            name="remote", provider_type="ollama",
-            base_url="http://remote:11434", models={"default": "llama3.2"}))
+
+        manager.register_provider(
+            ProviderConfig(
+                name="remote", provider_type="ollama", base_url="http://remote:11434", models={"default": "llama3.2"}
+            )
+        )
         assert "remote" in manager._providers
 
     def test_available_providers(self, manager):
@@ -859,11 +1086,14 @@ class TestMultiProviderManager:
 
     def test_provider_config(self):
         from backend.services.multi_provider_manager import ProviderConfig
-        pc = ProviderConfig(name="t", provider_type="openai_compatible",
-                            base_url="http://x", api_key="k", models={"a": "m"}, timeout=60)
+
+        pc = ProviderConfig(
+            name="t", provider_type="openai_compatible", base_url="http://x", api_key="k", models={"a": "m"}, timeout=60
+        )
         assert pc.name == "t" and pc.timeout == 60
 
     def test_unknown_type_ignored(self, manager):
         from backend.services.multi_provider_manager import ProviderConfig
+
         manager.register_provider(ProviderConfig(name="bad", provider_type="unknown"))
         assert "bad" not in manager._providers

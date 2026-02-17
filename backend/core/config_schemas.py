@@ -62,9 +62,7 @@ class ExternalProviderConfig(BaseModel):
     """Configuration for an external LLM provider."""
 
     name: str = Field(description="Provider name (e.g., 'groq', 'together').")
-    type: Literal["ollama", "openai_compatible"] = Field(
-        "openai_compatible", description="Provider type."
-    )
+    type: Literal["ollama", "openai_compatible"] = Field("openai_compatible", description="Provider type.")
     base_url: str = Field(description="Provider API base URL.")
     api_key: Optional[str] = Field(None, description="API key for authentication.")
     models: Dict[str, str] = Field(

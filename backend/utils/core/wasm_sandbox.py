@@ -219,9 +219,11 @@ class DockerSandbox:
         self._containers.append(container_name)
 
         docker_cmd = [
-            "docker", "run",
+            "docker",
+            "run",
             "--rm",
-            "--name", container_name,
+            "--name",
+            container_name,
             f"--memory={memory_limit}",
             f"--cpus={cpu_limit}",
         ]
@@ -233,7 +235,7 @@ class DockerSandbox:
         docker_cmd.extend(["-v", f"{work_dir}:/app", "-w", "/app"])
 
         # Mount additional directories as read-only
-        for d in (allowed_dirs or []):
+        for d in allowed_dirs or []:
             docker_cmd.extend(["-v", f"{d}:{d}:ro"])
 
         docker_cmd.extend([image, "sh", "-c", command])

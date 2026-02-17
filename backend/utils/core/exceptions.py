@@ -30,7 +30,9 @@ class ResourceExhaustionError(InfrastructureError):
 
     def __init__(self, resource: str, message: str = ""):
         self.resource = resource
-        super().__init__(f"Resource exhausted ({resource}): {message}" if message else f"Resource exhausted: {resource}")
+        super().__init__(
+            f"Resource exhausted ({resource}): {message}" if message else f"Resource exhausted: {resource}"
+        )
 
 
 class SandboxUnavailableError(InfrastructureError):

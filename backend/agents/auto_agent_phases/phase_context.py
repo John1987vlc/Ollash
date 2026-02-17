@@ -229,9 +229,7 @@ class PhaseContext:
         self.review_ctx = ReviewSubContext(
             project_reviewer, senior_reviewer, improvement_suggester, improvement_planner
         )
-        self.infra_ctx = InfraSubContext(
-            cicd_healer, vulnerability_scanner, infra_generator, export_manager
-        )
+        self.infra_ctx = InfraSubContext(cicd_healer, vulnerability_scanner, infra_generator, export_manager)
 
     def update_generated_data(
         self,

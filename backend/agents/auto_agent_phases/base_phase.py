@@ -102,8 +102,9 @@ class BasePhase(IAgentPhase):
             status="error",
         )
 
-    def _write_file(self, project_root: Path, rel_path: str, content: str, generated_files: Dict[str, str],
-                     file_paths: List[str]) -> None:
+    def _write_file(
+        self, project_root: Path, rel_path: str, content: str, generated_files: Dict[str, str], file_paths: List[str]
+    ) -> None:
         """Helper to write a file and update tracking structures."""
         generated_files[rel_path] = content
         self.context.file_manager.write_file(project_root / rel_path, content)
