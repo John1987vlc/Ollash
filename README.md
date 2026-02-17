@@ -158,6 +158,35 @@ Clone existing Git repositories directly from the Web UI. Validates URLs (HTTPS/
 
 ---
 
+## Latest Improvements (v2.0)
+
+### Code Robustness
+- **Granular Exception Hierarchy** &mdash; Expanded exception tree with `InfrastructureError`, `AgentLogicError`, `ProviderError` categories. Backward compatible.
+- **Centralized Type Definitions** &mdash; `TypedDict`, `Literal`, and `Protocol` types in `backend/core/type_definitions.py` for strict static typing.
+- **BasePhase Abstraction** &mdash; Shared boilerplate (event publishing, logging, error handling) for all pipeline phases via `BasePhase` class.
+- **Phase Groups** &mdash; Parallel execution of independent phases via `asyncio.gather()` (e.g., SecurityScan + LicenseCompliance run concurrently).
+
+### Performance & Scalability
+- **Enhanced Embedding Cache** &mdash; Batch operations (`get_batch`/`put_batch`), SQLite persistence backend, memory monitoring and auto-eviction.
+- **Full Async Support** &mdash; `async_execute()` in CommandExecutor, async wrappers in EpisodicMemory, non-blocking subprocess execution.
+- **Phase Parallelization** &mdash; `PhaseGroup` system detects and runs independent phases in parallel with result merging.
+
+### Agent Intelligence
+- **Enhanced Episodic Memory** &mdash; Session tracking, decision recording, semantic similarity search via cosine similarity on embeddings, cross-session recall.
+- **Prompt Auto-Tuning** &mdash; Heuristic `auto_evaluate()` for output quality scoring, `suggest_prompt_rewrite()` for correction-based prompt improvement, `apply_rewrite()` for prompt file updates.
+- **Multimodal Image Analysis** &mdash; `ImageAnalyzer` for screenshot analysis, diagram interpretation, and OCR via Ollama vision models (llava, bakllava).
+
+### Frontend & UX
+- **Knowledge Graph Enhancements** &mdash; SSE real-time updates, severity-based color coding, node type filtering, file navigation to editor.
+- **Cost Dashboard** &mdash; Real-time Chart.js visualization of token usage by model/phase, latency tracking, SSE streaming.
+- **Integrated Web Terminal** &mdash; WebSocket-based terminal via flask-sock with xterm.js, bidirectional command streaming.
+
+### DevOps & Security
+- **Docker Sandbox** &mdash; Primary execution sandbox using ephemeral Docker containers with network isolation, memory/CPU limits, and auto-cleanup.
+- **Multi-Provider LLM Support** &mdash; `MultiProviderManager` for routing LLM requests to Ollama, Groq, Together, OpenRouter, or any OpenAI-compatible API. Role-based provider selection.
+
+---
+
 ## Post-Generation Improvements
 
 ### 1. FinalReviewPhase with Interactive Git Push
@@ -323,7 +352,9 @@ Ollash/
 │   │   └── auto_agent.py        # Project generation agent
 │   ├── core/                # Kernel, config, DI containers
 │   ├── interfaces/          # Abstract interfaces (IAgentPhase, IModelProvider, etc.)
-│   ├── services/            # LLMClientManager
+│   ├── services/            # LLMClientManager, MultiProviderManager
+│   │   ├── providers/           # OllamaProvider, OpenAICompatibleProvider
+│   │   └── multi_provider_manager.py
 │   └── utils/
 │       ├── core/            # 80+ core utilities
 │       │   ├── autonomous_maintenance.py   # Hourly maintenance task
@@ -341,7 +372,8 @@ Ollash/
 │       │   ├── refactoring_analyzer.py     # SOLID code analysis
 │       │   ├── voice_intent_classifier.py  # Advanced voice commands
 │       │   ├── vulnerability_scanner.py    # Security scanning
-│       │   └── wasm_sandbox.py             # WebAssembly isolation
+│       │   └── wasm_sandbox.py             # WebAssembly + Docker sandbox isolation
+│       │   └── embedding_cache.py          # LRU cache with batch ops + SQLite backend
 │       └── domains/         # Tools by domain (code, network, system, cyber, etc.)
 ├── frontend/
 │   ├── blueprints/          # 22 Flask blueprints
@@ -349,7 +381,8 @@ Ollash/
 │   │   ├── cost_bp.py           # Cost analysis endpoints
 │   │   ├── export_bp.py         # Multi-purpose export
 │   │   ├── knowledge_graph_bp.py # Graph visualizer API
-│   │   └── pair_programming_bp.py # Live coding SSE
+│   │   ├── pair_programming_bp.py # Live coding SSE
+│   │   └── terminal_bp.py        # WebSocket terminal
 │   ├── services/            # Web services
 │   ├── static/
 │   │   ├── js/
@@ -357,7 +390,8 @@ Ollash/
 │   │   │   ├── knowledge-graph.js   # vis.js graph renderer
 │   │   │   ├── pair-programming.js  # Live coding client
 │   │   │   ├── voice-commands.js    # Speech API integration
-│   │   │   └── image-editor.js      # Canvas image editor
+│   │   │   ├── image-editor.js      # Canvas image editor
+│   │   │   └── cost-dashboard.js   # Chart.js cost visualization
 │   │   └── css/
 │   │       ├── knowledge-graph.css
 │   │       └── image-editor.css

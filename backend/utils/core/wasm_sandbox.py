@@ -1,17 +1,20 @@
 """
-WebAssembly Sandbox
+Execution Sandbox
 
-Provides isolated execution environment for running tests
-using WebAssembly runtimes (wasmtime/wasmer).
+Provides isolated execution environment for running tests and generated code.
+Fallback chain: Docker (primary) -> WASM -> Subprocess (restricted) -> Subprocess (unrestricted).
 """
 
+import os
 import shutil
+import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.exceptions import SandboxUnavailableError
 
 
 @dataclass
@@ -138,6 +141,160 @@ class WasmSandbox:
         """Destroy all sandbox instances."""
         for instance in list(self._instances.values()):
             self.destroy_sandbox(instance)
+
+
+class DockerSandbox:
+    """Docker-based sandbox for isolated execution (primary sandbox method).
+
+    Uses ephemeral Docker containers with:
+    - Network isolation (--network=none)
+    - Memory limits (--memory)
+    - CPU limits (--cpus)
+    - Read-only filesystem options
+    - Automatic cleanup
+    """
+
+    def __init__(self, logger: Optional[AgentLogger] = None, default_image: str = "python:3.11-slim"):
+        self.logger = logger
+        self.default_image = default_image
+        self._docker_available = self._check_docker()
+        self._containers: List[str] = []
+
+    def _check_docker(self) -> bool:
+        """Check if Docker is available."""
+        try:
+            result = subprocess.run(
+                ["docker", "info"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                if self.logger:
+                    self.logger.info("Docker sandbox: Docker is available")
+                return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        if self.logger:
+            self.logger.info("Docker sandbox: Docker not available")
+        return False
+
+    @property
+    def is_available(self) -> bool:
+        return self._docker_available
+
+    def execute_in_container(
+        self,
+        command: str,
+        work_dir: Path,
+        image: Optional[str] = None,
+        memory_limit: str = "512m",
+        cpu_limit: str = "1",
+        network: bool = False,
+        timeout: int = 120,
+        allowed_dirs: Optional[List[Path]] = None,
+    ) -> TestResult:
+        """Execute a command inside an ephemeral Docker container.
+
+        Args:
+            command: Command to execute.
+            work_dir: Host directory to mount as /app.
+            image: Docker image to use.
+            memory_limit: Memory limit (e.g., "512m", "1g").
+            cpu_limit: CPU limit (e.g., "1", "0.5").
+            network: Whether to allow network access.
+            timeout: Execution timeout in seconds.
+            allowed_dirs: Additional directories to mount read-only.
+
+        Returns:
+            TestResult with execution output.
+        """
+        import time
+
+        if not self._docker_available:
+            raise SandboxUnavailableError(["docker"])
+
+        image = image or self.default_image
+        container_name = f"ollash_sandbox_{os.urandom(4).hex()}"
+        self._containers.append(container_name)
+
+        docker_cmd = [
+            "docker", "run",
+            "--rm",
+            "--name", container_name,
+            f"--memory={memory_limit}",
+            f"--cpus={cpu_limit}",
+        ]
+
+        if not network:
+            docker_cmd.append("--network=none")
+
+        # Mount working directory
+        docker_cmd.extend(["-v", f"{work_dir}:/app", "-w", "/app"])
+
+        # Mount additional directories as read-only
+        for d in (allowed_dirs or []):
+            docker_cmd.extend(["-v", f"{d}:{d}:ro"])
+
+        docker_cmd.extend([image, "sh", "-c", command])
+
+        start = time.time()
+        try:
+            result = subprocess.run(
+                docker_cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            duration = time.time() - start
+            return TestResult(
+                success=result.returncode == 0,
+                exit_code=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                duration_seconds=duration,
+            )
+        except subprocess.TimeoutExpired:
+            # Kill the container
+            subprocess.run(["docker", "kill", container_name], capture_output=True, timeout=10)
+            return TestResult(
+                success=False,
+                exit_code=-1,
+                stdout="",
+                stderr="Docker execution timed out",
+                duration_seconds=float(timeout),
+            )
+        except Exception as e:
+            return TestResult(
+                success=False,
+                exit_code=-1,
+                stdout="",
+                stderr=str(e),
+                duration_seconds=time.time() - start,
+            )
+        finally:
+            if container_name in self._containers:
+                self._containers.remove(container_name)
+
+    def cleanup_orphaned_containers(self) -> int:
+        """Clean up any orphaned Ollash sandbox containers."""
+        cleaned = 0
+        try:
+            result = subprocess.run(
+                ["docker", "ps", "-a", "--filter", "name=ollash_sandbox_", "--format", "{{.Names}}"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            for name in result.stdout.strip().split("\n"):
+                if name:
+                    subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=10)
+                    cleaned += 1
+        except Exception:
+            pass
+        if cleaned and self.logger:
+            self.logger.info(f"Cleaned up {cleaned} orphaned sandbox containers")
+        return cleaned
 
 
 class WasmTestRunner:

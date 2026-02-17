@@ -43,10 +43,35 @@ class LLMModelsConfig(BaseModel):
         default_factory=EmbeddingCacheConfig, alias="embedding_cache"
     )
 
+    # Vision model for multimodal analysis
+    vision_model: Optional[str] = Field(None, description="Model for image/vision analysis (e.g., llava).")
+
     default_timeout: PositiveInt = Field(300, description="Default timeout for LLM API calls in seconds.")
+
+    # Multi-provider configuration
+    providers: List["ExternalProviderConfig"] = Field(
+        default_factory=list,
+        description="Additional LLM providers (Groq, Together, OpenRouter, etc.).",
+    )
 
     class Config:
         extra = "allow"
+
+
+class ExternalProviderConfig(BaseModel):
+    """Configuration for an external LLM provider."""
+
+    name: str = Field(description="Provider name (e.g., 'groq', 'together').")
+    type: Literal["ollama", "openai_compatible"] = Field(
+        "openai_compatible", description="Provider type."
+    )
+    base_url: str = Field(description="Provider API base URL.")
+    api_key: Optional[str] = Field(None, description="API key for authentication.")
+    models: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Role-to-model mapping for this provider.",
+    )
+    timeout: PositiveInt = Field(120, description="Request timeout in seconds.")
 
 
 # --- Agent Features Configuration Schema ---
@@ -105,6 +130,7 @@ class AgentFeaturesConfig(BaseModel):
     cicd_auto_healing: bool = Field(False, description="Enable CI/CD auto-healing capabilities.")
     load_testing_enabled: bool = Field(False, description="Enable load simulation and app benchmarking.")
     license_scanning_deep: bool = Field(False, description="Enable deep license compatibility scanning.")
+    prompt_auto_tuning: bool = Field(False, description="Enable automatic prompt optimization from feedback.")
     project_license: str = Field("MIT", description="Default license type for generated projects.")
     documentation_languages: List[str] = Field(
         default_factory=lambda: ["en"],

@@ -38,10 +38,76 @@ from backend.utils.domains.auto_generation.structure_generator import StructureG
 from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
 
 
+class LLMSubContext:
+    """Sub-context for LLM-related services."""
+
+    def __init__(self, llm_manager: "IModelProvider", response_parser: "LLMResponseParser"):
+        self.manager = llm_manager
+        self.response_parser = response_parser
+
+
+class FileSubContext:
+    """Sub-context for file operation services."""
+
+    def __init__(
+        self,
+        file_manager: "FileManager",
+        file_validator: "FileValidator",
+        file_content_generator: "FileContentGenerator",
+        file_refiner: "FileRefiner",
+        file_completeness_checker: "FileCompletenessChecker",
+    ):
+        self.manager = file_manager
+        self.validator = file_validator
+        self.content_generator = file_content_generator
+        self.refiner = file_refiner
+        self.completeness_checker = file_completeness_checker
+
+
+class ReviewSubContext:
+    """Sub-context for review services."""
+
+    def __init__(
+        self,
+        project_reviewer: "ProjectReviewer",
+        senior_reviewer: "SeniorReviewer",
+        improvement_suggester: "ImprovementSuggester",
+        improvement_planner: "ImprovementPlanner",
+    ):
+        self.project_reviewer = project_reviewer
+        self.senior_reviewer = senior_reviewer
+        self.improvement_suggester = improvement_suggester
+        self.improvement_planner = improvement_planner
+
+
+class InfraSubContext:
+    """Sub-context for infrastructure services."""
+
+    def __init__(
+        self,
+        cicd_healer: Optional["CICDHealer"] = None,
+        vulnerability_scanner: Optional["VulnerabilityScanner"] = None,
+        infra_generator: Optional["InfraGenerator"] = None,
+        export_manager: Optional["ExportManager"] = None,
+    ):
+        self.cicd_healer = cicd_healer
+        self.vulnerability_scanner = vulnerability_scanner
+        self.infra_generator = infra_generator
+        self.export_manager = export_manager
+
+
 class PhaseContext:
     """
     A container for all services and managers required by the AutoAgent phases.
     This simplifies dependency injection into individual phase classes.
+
+    Sub-contexts provide grouped access:
+    - context.llm → LLM manager and response parser
+    - context.files → File manager, validator, generator, refiner
+    - context.review → Project reviewer, senior reviewer, improvement tools
+    - context.infra → CI/CD healer, vulnerability scanner, infra generator
+
+    Backward-compatible: context.file_manager etc. still work via properties.
     """
 
     # File categories for intelligent context selection (Moved from CoreAgent)
@@ -154,6 +220,18 @@ class PhaseContext:
         self.current_file_paths: List[str] = []
         self.current_readme_content: str = ""
         self.logic_plan: Dict[str, Dict[str, Any]] = {}  # NEW: Store implementation plans
+
+        # Sub-contexts for grouped access
+        self.llm = LLMSubContext(llm_manager, response_parser)
+        self.files_ctx = FileSubContext(
+            file_manager, file_validator, file_content_generator, file_refiner, file_completeness_checker
+        )
+        self.review_ctx = ReviewSubContext(
+            project_reviewer, senior_reviewer, improvement_suggester, improvement_planner
+        )
+        self.infra_ctx = InfraSubContext(
+            cicd_healer, vulnerability_scanner, infra_generator, export_manager
+        )
 
     def update_generated_data(
         self,

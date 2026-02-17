@@ -17,6 +17,16 @@ requests==2.32.5
 tiktoken==0.6.0
 Werkzeug==3.0.1
 
+# Async support
+aiofiles==23.2.1
+aiosqlite==0.19.0
+
+# WebSocket support for terminal
+flask-sock==0.7.0
+
+# Type checking support
+typing_extensions>=4.8.0
+
 # Document processing
 pypdf==4.2.0
 python-docx==1.0.1

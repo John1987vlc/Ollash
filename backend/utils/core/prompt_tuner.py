@@ -202,6 +202,146 @@ class PromptTuner:
 
         return round(adjusted, 2)
 
+    def auto_evaluate(
+        self,
+        prompt_id: str,
+        output: str,
+        expected_criteria: Dict[str, Any],
+    ) -> float:
+        """Automatically evaluate output quality against expected criteria.
+
+        Scores output on a 0.0-1.0 scale based on simple heuristic checks.
+        Does not require an LLM call - uses pattern matching.
+
+        Args:
+            prompt_id: Identifier for the prompt that generated the output.
+            output: The generated output to evaluate.
+            expected_criteria: Dict with keys like:
+                - "min_length": Minimum expected character count
+                - "max_length": Maximum expected character count
+                - "required_keywords": List of keywords that should appear
+                - "forbidden_patterns": List of patterns that should NOT appear
+                - "expected_format": "json", "markdown", "code", etc.
+
+        Returns:
+            Quality score from 0.0 to 1.0.
+        """
+        if not output or not output.strip():
+            return 0.0
+
+        score = 1.0
+        penalties = 0.0
+
+        # Length checks
+        min_len = expected_criteria.get("min_length", 0)
+        max_len = expected_criteria.get("max_length", 0)
+        if min_len and len(output) < min_len:
+            penalties += 0.3
+        if max_len and len(output) > max_len:
+            penalties += 0.1
+
+        # Required keywords
+        required = expected_criteria.get("required_keywords", [])
+        if required:
+            output_lower = output.lower()
+            found = sum(1 for kw in required if kw.lower() in output_lower)
+            if required:
+                keyword_ratio = found / len(required)
+                penalties += (1.0 - keyword_ratio) * 0.3
+
+        # Forbidden patterns
+        forbidden = expected_criteria.get("forbidden_patterns", [])
+        for pattern in forbidden:
+            if pattern.lower() in output.lower():
+                penalties += 0.15
+
+        # Format checks
+        expected_format = expected_criteria.get("expected_format", "")
+        if expected_format == "json":
+            try:
+                json.loads(output)
+            except (json.JSONDecodeError, ValueError):
+                penalties += 0.4
+        elif expected_format == "markdown":
+            if not any(marker in output for marker in ["#", "```", "- ", "* "]):
+                penalties += 0.2
+
+        final_score = max(0.0, score - penalties)
+
+        # Auto-record as feedback
+        self.record_feedback(
+            prompt_id=prompt_id,
+            output=output[:500],
+            correction="",
+            rating=final_score,
+        )
+
+        return round(final_score, 2)
+
+    def suggest_prompt_rewrite(self, prompt_id: str) -> Optional[str]:
+        """Suggest improvements to a prompt based on accumulated feedback.
+
+        Analyzes correction patterns and generates textual suggestions.
+        Returns None if insufficient feedback data.
+        """
+        entries = self.feedback_store.query(prompt_id=prompt_id, limit=20)
+        if len(entries) < 3:
+            return None
+
+        avg_rating = self.feedback_store.get_avg_rating(prompt_id)
+        if avg_rating >= 0.8:
+            return None  # Prompt is performing well
+
+        # Analyze common correction patterns
+        corrections = [e for e in entries if e.rating < 0.7 and e.user_correction]
+        if not corrections:
+            return None
+
+        suggestions = []
+        suggestions.append(f"Prompt '{prompt_id}' has avg rating {avg_rating:.2f} ({len(entries)} samples).")
+        suggestions.append(f"Found {len(corrections)} corrections to learn from.")
+
+        # Extract recurring themes from corrections
+        correction_texts = [c.user_correction for c in corrections[:5]]
+        if correction_texts:
+            suggestions.append("Recent correction patterns:")
+            for i, ct in enumerate(correction_texts, 1):
+                suggestions.append(f"  {i}. {ct[:200]}")
+
+        suggestions.append("Consider adjusting the prompt to address these recurring issues.")
+
+        return "\n".join(suggestions)
+
+    def apply_rewrite(self, prompt_id: str, new_prompt_content: str, prompt_file: Path) -> bool:
+        """Apply a prompt rewrite to the prompt JSON file.
+
+        Updates the 'content' field of the prompt while preserving other fields.
+
+        Args:
+            prompt_id: Identifier for tracking.
+            new_prompt_content: The new prompt text.
+            prompt_file: Path to the prompt JSON file.
+
+        Returns:
+            True if successfully written, False otherwise.
+        """
+        try:
+            if not prompt_file.exists():
+                self.logger.warning(f"Prompt file not found: {prompt_file}")
+                return False
+
+            data = json.loads(prompt_file.read_text(encoding="utf-8"))
+            data["content"] = new_prompt_content
+            data["_tuned_at"] = datetime.now().isoformat()
+            data["_tuned_from"] = prompt_id
+
+            prompt_file.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            self.logger.info(f"Prompt rewritten: {prompt_file}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to apply prompt rewrite: {e}")
+            return False
+
     def get_feedback_summary(self, prompt_id: Optional[str] = None) -> Dict[str, Any]:
         """Get a summary of feedback statistics."""
         entries = self.feedback_store.query(prompt_id=prompt_id)

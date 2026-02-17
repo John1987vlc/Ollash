@@ -1,3 +1,4 @@
+import asyncio
 import os
 import py_compile
 import shlex
@@ -355,6 +356,83 @@ except Exception as e:
             stderr_msg = f"Unexpected Docker execution error: {e}"
             self.logger.error(stderr_msg)
             return ExecutionResult(False, "", stderr_msg, 1, command)
+
+    async def async_execute(
+        self,
+        command: str | List[str],
+        timeout: int = 60,
+        dir_path: Optional[str] = None,
+    ) -> ExecutionResult:
+        """Async version of execute() using asyncio.create_subprocess_exec.
+
+        Non-blocking alternative for use in async contexts (phases, web handlers).
+        """
+        execution_dir = dir_path or self.working_dir
+        command_str: str
+        command_list: List[str]
+
+        if isinstance(command, str):
+            command_str = command
+            try:
+                command_list = shlex.split(command)
+            except ValueError as e:
+                return ExecutionResult(False, "", str(e), 1, command)
+        else:
+            command_str = shlex.join(command)
+            command_list = command
+
+        if not self._is_allowed(command_list):
+            return ExecutionResult(
+                success=False,
+                stdout="",
+                stderr=f"Comando no permitido: {command_str}",
+                return_code=1,
+                command=command_str,
+            )
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *command_list,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=execution_dir,
+            )
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                process.communicate(), timeout=timeout
+            )
+            return ExecutionResult(
+                success=process.returncode == 0,
+                stdout=stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else "",
+                stderr=stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else "",
+                return_code=process.returncode or 0,
+                command=command_str,
+            )
+        except asyncio.TimeoutError:
+            if process:
+                process.kill()
+            return ExecutionResult(
+                success=False,
+                stdout="",
+                stderr="Timeout: comando excedio el limite de tiempo",
+                return_code=-1,
+                command=command_str,
+            )
+        except FileNotFoundError:
+            return ExecutionResult(
+                success=False,
+                stdout="",
+                stderr=f"Comando no encontrado: '{command_list[0]}'",
+                return_code=1,
+                command=command_str,
+            )
+        except Exception as e:
+            return ExecutionResult(
+                success=False,
+                stdout="",
+                stderr=str(e),
+                return_code=-1,
+                command=command_str,
+            )
 
     def get_python_packages(self) -> List[str]:
         """Lista paquetes Python instalados."""

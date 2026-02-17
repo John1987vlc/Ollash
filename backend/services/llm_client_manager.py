@@ -85,6 +85,28 @@ class LLMClientManager(IModelProvider):
         # Use "embedding" as a special role to get a dedicated client
         return self.get_client("embedding")
 
+    def get_vision_client(self) -> "OllamaClient":
+        """
+        Retrieves a dedicated client for vision/multimodal tasks.
+        Uses the configured vision_model or falls back to 'llava'.
+        """
+        vision_model = getattr(self.config, "vision_model", None) or "llava"
+
+        if vision_model in self.clients_by_model:
+            return self.clients_by_model[vision_model]
+
+        self.logger.info(f"Creating vision client for model '{vision_model}'.")
+        new_client = OllamaClient(
+            url=str(self.config.ollama_url),
+            model=vision_model,
+            timeout=self.config.default_timeout,
+            logger=self.logger,
+            config=self.tool_settings.model_dump(),
+            llm_recorder=self.recorder,
+        )
+        self.clients_by_model[vision_model] = new_client
+        return new_client
+
     def get_all_clients(self) -> Dict[str, "OllamaClient"]:
         """
         Returns a dictionary of all initialized OllamaClient instances, keyed by model name.
