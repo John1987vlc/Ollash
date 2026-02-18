@@ -89,6 +89,34 @@ class NotificationService {
     }
 
     /**
+     * Request permission for desktop notifications
+     */
+    requestDesktopPermission() {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }
+
+    /**
+     * Show a desktop notification (falls back to toast if not permitted)
+     * @param {string} title - Notification title
+     * @param {string} body - Notification body text
+     * @returns {Notification|HTMLElement}
+     */
+    showDesktop(title, body) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            const n = new Notification(title, {
+                body: body,
+                tag: 'ollash-notification',
+            });
+            setTimeout(() => n.close(), 10000);
+            return n;
+        }
+        // Fallback to toast
+        return this.show(body, 'success', 10000);
+    }
+
+    /**
      * Clear all notifications
      */
     clearAll() {

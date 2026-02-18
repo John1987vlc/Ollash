@@ -1914,3 +1914,271 @@ class TestBasePhaseHooks:
         # These should not raise despite the RuntimeError
         phase._publish_shadow_evaluate(None)
         phase._publish_phase_failure("exception", "details")
+
+
+# ============================================================
+# UX Blueprints Tests
+# ============================================================
+
+
+class TestSystemHealthBlueprint:
+    """Tests for the system health dashboard blueprint."""
+
+    def test_blueprint_exists(self):
+        from frontend.blueprints.system_health_bp import system_health_bp
+
+        assert system_health_bp.name == "system_health"
+
+    def test_init_app(self):
+        from frontend.blueprints.system_health_bp import init_app
+
+        mock_app = MagicMock()
+        mock_app.config = {"ollash_root_dir": Path(".")}
+        init_app(mock_app)
+
+    def test_health_endpoint(self):
+        from flask import Flask
+
+        from frontend.blueprints.system_health_bp import init_app, system_health_bp
+
+        app = Flask(__name__)
+        app.config["ollash_root_dir"] = Path(".")
+        init_app(app)
+        app.register_blueprint(system_health_bp)
+
+        with app.test_client() as client:
+            resp = client.get("/api/system/health")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            # psutil should be installed, so we should get real values
+            assert "cpu_percent" in data
+            assert "ram_percent" in data
+            assert "disk_percent" in data
+            assert isinstance(data["cpu_percent"], (int, float))
+
+
+class TestRefactorBlueprint:
+    """Tests for the refactoring apply blueprint."""
+
+    def test_blueprint_exists(self):
+        from frontend.blueprints.refactor_bp import refactor_bp
+
+        assert refactor_bp.name == "refactor"
+
+    def test_init_app(self):
+        from frontend.blueprints.refactor_bp import init_app
+
+        mock_app = MagicMock()
+        mock_app.config = {"ollash_root_dir": Path(".")}
+        init_app(mock_app)
+
+    def test_apply_missing_fields(self):
+        from flask import Flask
+
+        from frontend.blueprints.refactor_bp import init_app, refactor_bp
+
+        app = Flask(__name__)
+        app.config["ollash_root_dir"] = Path(".")
+        init_app(app)
+        app.register_blueprint(refactor_bp)
+
+        with app.test_client() as client:
+            resp = client.post(
+                "/api/refactor/apply",
+                json={"project_name": "test"},
+            )
+            assert resp.status_code == 400
+
+    def test_apply_directory_traversal(self):
+        from flask import Flask
+
+        from frontend.blueprints.refactor_bp import init_app, refactor_bp
+
+        app = Flask(__name__)
+        app.config["ollash_root_dir"] = Path(".")
+        init_app(app)
+        app.register_blueprint(refactor_bp)
+
+        with app.test_client() as client:
+            resp = client.post(
+                "/api/refactor/apply",
+                json={
+                    "project_name": "../etc",
+                    "file_path": "../../etc/passwd",
+                    "modified_content": "evil",
+                },
+            )
+            assert resp.status_code == 400
+
+    def test_apply_project_not_found(self, tmp_path):
+        from flask import Flask
+
+        from frontend.blueprints.refactor_bp import init_app, refactor_bp
+
+        app = Flask(__name__)
+        app.config["ollash_root_dir"] = tmp_path
+        init_app(app)
+        app.register_blueprint(refactor_bp)
+
+        with app.test_client() as client:
+            resp = client.post(
+                "/api/refactor/apply",
+                json={
+                    "project_name": "nonexistent",
+                    "file_path": "main.py",
+                    "modified_content": "print('hello')",
+                },
+            )
+            assert resp.status_code == 404
+
+    def test_apply_success(self, tmp_path):
+        from flask import Flask
+
+        from frontend.blueprints.refactor_bp import init_app, refactor_bp
+
+        app = Flask(__name__)
+        app.config["ollash_root_dir"] = tmp_path
+        init_app(app)
+        app.register_blueprint(refactor_bp)
+
+        # Create project directory and file
+        project_dir = tmp_path / "generated_projects" / "testproj"
+        project_dir.mkdir(parents=True)
+        (project_dir / "main.py").write_text("old content")
+
+        with app.test_client() as client:
+            resp = client.post(
+                "/api/refactor/apply",
+                json={
+                    "project_name": "testproj",
+                    "file_path": "main.py",
+                    "modified_content": "new content",
+                },
+            )
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["status"] == "success"
+
+        # Verify file was written
+        assert (project_dir / "main.py").read_text() == "new content"
+
+
+class TestProjectGraphBlueprint:
+    """Tests for the project dependency graph blueprint."""
+
+    def test_blueprint_exists(self):
+        from frontend.blueprints.project_graph_bp import project_graph_bp
+
+        assert project_graph_bp.name == "project_graph"
+
+    def test_init_app(self):
+        from frontend.blueprints.project_graph_bp import init_app
+
+        mock_app = MagicMock()
+        mock_app.config = {"ollash_root_dir": Path(".")}
+        init_app(mock_app)
+
+    def test_scan_python_imports(self):
+        from frontend.blueprints.project_graph_bp import _scan_python_imports
+
+        content = "from os.path import join\nimport sys\nfrom flask import Flask"
+        modules = _scan_python_imports(content)
+        assert "os.path" in modules
+        assert "sys" in modules
+        assert "flask" in modules
+
+    def test_scan_js_imports(self):
+        from frontend.blueprints.project_graph_bp import _scan_js_imports
+
+        content = "import React from 'react';\nconst fs = require('fs');"
+        modules = _scan_js_imports(content)
+        assert "react" in modules
+        assert "fs" in modules
+
+    def test_get_file_type_group(self):
+        from frontend.blueprints.project_graph_bp import _get_file_type_group
+
+        assert _get_file_type_group("main.py") == "python"
+        assert _get_file_type_group("app.js") == "javascript"
+        assert _get_file_type_group("style.css") == "css"
+        assert _get_file_type_group("README.md") == "docs"
+        assert _get_file_type_group("unknown.xyz") == "other"
+
+    def test_invalid_project_name(self, tmp_path):
+        from flask import Flask
+
+        from frontend.blueprints.project_graph_bp import (
+            init_app,
+            project_graph_bp,
+        )
+
+        app = Flask(__name__)
+        app.config["ollash_root_dir"] = tmp_path
+        init_app(app)
+        app.register_blueprint(project_graph_bp)
+
+        with app.test_client() as client:
+            # Backslash in name triggers 400
+            resp = client.get("/api/projects/test%5Cevil/dependency-graph")
+            assert resp.status_code == 400
+
+    def test_project_not_found(self, tmp_path):
+        from flask import Flask
+
+        from frontend.blueprints.project_graph_bp import (
+            init_app,
+            project_graph_bp,
+        )
+
+        app = Flask(__name__)
+        app.config["ollash_root_dir"] = tmp_path
+        init_app(app)
+        app.register_blueprint(project_graph_bp)
+
+        with app.test_client() as client:
+            resp = client.get("/api/projects/nonexistent/dependency-graph")
+            assert resp.status_code == 404
+
+    def test_dependency_graph_success(self, tmp_path):
+        from frontend.blueprints.project_graph_bp import (
+            _scan_python_imports,
+            _resolve_module_to_file,
+        )
+
+        # Create project with Python files
+        project_dir = tmp_path / "generated_projects" / "testproj"
+        project_dir.mkdir(parents=True)
+        (project_dir / "main.py").write_text("from utils import helper\nimport os")
+        (project_dir / "utils.py").write_text("import json")
+
+        # Test at the function level instead of endpoint
+        content = (project_dir / "main.py").read_text()
+        imports = _scan_python_imports(content)
+        assert "utils" in imports
+        assert "os" in imports
+
+        # Test module resolution
+        project_files = {"main.py", "utils.py"}
+        result = _resolve_module_to_file("utils", "main.py", project_files, "python")
+        assert result == "utils.py"
+
+    def test_resolve_module_python(self):
+        from frontend.blueprints.project_graph_bp import _resolve_module_to_file
+
+        project_files = {"utils.py", "lib/__init__.py", "lib/helper.py"}
+        result = _resolve_module_to_file("utils", "main.py", project_files, "python")
+        assert result == "utils.py"
+
+        result = _resolve_module_to_file("lib", "main.py", project_files, "python")
+        assert result == "lib/__init__.py"
+
+    def test_resolve_module_js(self):
+        from frontend.blueprints.project_graph_bp import _resolve_module_to_file
+
+        project_files = {"src/utils.js", "src/lib/helper.js"}
+        result = _resolve_module_to_file("./utils", "src/main.js", project_files, "javascript")
+        assert result == "src/utils.js"
+
+        # External package returns None
+        result = _resolve_module_to_file("react", "src/main.js", project_files, "javascript")
+        assert result is None

@@ -1233,3 +1233,572 @@ input:checked + .slider:before {
     --brightCyan: #00FFFF;
     --brightWhite: #FFFFFF;
 }
+
+/* ==================== F2: Wizard Mode ==================== */
+.wizard-container {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.wizard-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-lg) 0;
+}
+
+.wizard-step-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    position: relative;
+}
+
+.wizard-step-indicator .step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    background: var(--color-surface-elevated);
+    border: 2px solid var(--color-border);
+    color: var(--color-text-muted);
+    transition: all 0.3s ease;
+}
+
+.wizard-step-indicator.active .step-number {
+    background: var(--gradient-primary);
+    border-color: var(--color-primary);
+    color: white;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+}
+
+.wizard-step-indicator.completed .step-number {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    color: white;
+}
+
+.wizard-step-indicator .step-label {
+    font-size: 0.8rem;
+    color: var(--color-text-subtle);
+    font-weight: 500;
+}
+
+.wizard-step-indicator.active .step-label {
+    color: var(--color-primary);
+}
+
+.wizard-step-indicator.completed .step-label {
+    color: var(--color-success);
+}
+
+.wizard-step-indicator:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: calc(50% + 25px);
+    width: 60px;
+    height: 2px;
+    background: var(--color-border);
+}
+
+.wizard-step-indicator.completed:not(:last-child)::after {
+    background: var(--color-success);
+}
+
+.wizard-step {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.wizard-step.active {
+    display: block;
+}
+
+.wizard-step .create-form {
+    margin-bottom: var(--spacing-lg);
+}
+
+.wizard-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+}
+
+/* ==================== F1: Structure Editor ==================== */
+.structure-editor-tree {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+}
+
+.se-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    transition: background 0.15s ease;
+    cursor: default;
+    user-select: none;
+}
+
+.se-item:hover {
+    background: var(--color-surface-elevated);
+}
+
+.se-item.dragging {
+    opacity: 0.5;
+}
+
+.se-drag-handle {
+    cursor: grab;
+    color: var(--color-text-subtle);
+    font-size: 0.8rem;
+    padding: 0 2px;
+}
+
+.se-drag-handle:active {
+    cursor: grabbing;
+}
+
+.se-icon {
+    flex-shrink: 0;
+    font-size: 1rem;
+}
+
+.se-name {
+    flex: 1;
+    color: var(--color-text);
+}
+
+.se-name[contenteditable="true"] {
+    background: var(--color-surface);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    padding: 0 var(--spacing-xs);
+    outline: none;
+}
+
+.se-delete-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--color-error);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0 4px;
+    transition: opacity 0.15s;
+}
+
+.se-item:hover .se-delete-btn {
+    display: block;
+}
+
+.se-drop-zone {
+    height: 4px;
+    border-radius: 2px;
+    transition: all 0.15s;
+}
+
+.se-drop-zone.drag-over {
+    height: 20px;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px dashed var(--color-primary);
+    margin: 2px 0;
+}
+
+/* ==================== F3: Chat Action Buttons ==================== */
+.chat-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-md);
+    background: var(--gradient-primary);
+    border: none;
+    border-radius: var(--radius-xl);
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin: var(--spacing-xs) var(--spacing-xs) var(--spacing-xs) 0;
+}
+
+.chat-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+/* F7: Refactor suggestion in chat */
+.refactor-suggestion {
+    margin: var(--spacing-sm) 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.refactor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-surface-elevated);
+}
+
+.chat-diff-btn {
+    font-size: 0.8rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+/* ==================== F4: System Health Dashboard ==================== */
+.health-dashboard {
+    padding: var(--spacing-md) 0;
+    border-top: 1px solid var(--color-border);
+    margin-top: var(--spacing-md);
+}
+
+.health-dashboard-title {
+    font-size: 0.75rem;
+    color: var(--color-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--spacing-sm);
+}
+
+.health-metric {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    font-size: 0.8rem;
+}
+
+.health-label {
+    width: 28px;
+    color: var(--color-text-subtle);
+    font-weight: 600;
+    font-size: 0.7rem;
+}
+
+.health-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--color-surface-elevated);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.health-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease, background-color 0.3s ease;
+    width: 0%;
+}
+
+.health-bar-fill.green { background: var(--color-success); }
+.health-bar-fill.yellow { background: var(--color-warning); }
+.health-bar-fill.red { background: var(--color-error); }
+
+.health-value {
+    width: 32px;
+    text-align: right;
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+}
+
+/* ==================== F6: Floating Terminal ==================== */
+.floating-terminal {
+    position: fixed;
+    bottom: 0;
+    left: 260px;
+    right: 0;
+    height: 300px;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    display: none;
+    flex-direction: column;
+    z-index: 100;
+    transition: height 0.2s ease;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.floating-terminal.visible {
+    display: flex;
+}
+
+.floating-terminal.minimized {
+    height: 40px;
+}
+
+.floating-terminal.minimized .floating-terminal-body {
+    display: none;
+}
+
+.floating-terminal.maximized {
+    height: 50vh;
+}
+
+.floating-terminal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-surface-elevated);
+    border-bottom: 1px solid var(--color-border);
+    cursor: ns-resize;
+    flex-shrink: 0;
+}
+
+.floating-terminal-header h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.floating-terminal-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.terminal-action-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.15s;
+}
+
+.terminal-action-btn:hover {
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+.floating-terminal-body {
+    flex: 1;
+    overflow: hidden;
+}
+
+.floating-terminal-body #terminal-container {
+    height: 100%;
+}
+
+/* ==================== F8: Smart Prompt Library ==================== */
+.prompt-library-toggle {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+}
+
+.prompt-library-toggle:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.prompt-library-panel {
+    display: none;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    animation: fadeIn 0.2s ease;
+}
+
+.prompt-library-panel.visible {
+    display: block;
+}
+
+.prompt-cat-tabs {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.prompt-cat-btn {
+    padding: var(--spacing-xs) var(--spacing-md);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.prompt-cat-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.prompt-cat-btn.active {
+    background: var(--gradient-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+.prompt-library-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--spacing-sm);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.prompt-card {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.prompt-card:hover {
+    border-color: var(--color-primary);
+    background: rgba(99, 102, 241, 0.1);
+    transform: translateY(-1px);
+}
+
+.prompt-card-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-xs);
+}
+
+.prompt-card-cat {
+    font-size: 0.7rem;
+    color: var(--color-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ==================== F11: Log Filtering ==================== */
+.log-filters {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.log-filter-btn {
+    padding: 2px var(--spacing-sm);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    color: var(--color-text-subtle);
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.log-filter-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.log-filter-btn.active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+.log-line.filtered-out {
+    display: none;
+}
+
+/* ==================== F7: Diff Modal ==================== */
+.modal-wide .modal-content {
+    max-width: 1100px;
+    width: 95%;
+}
+
+#diff-editor-container {
+    height: 500px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.diff-file-path {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--color-primary);
+}
+
+.diff-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+    margin-top: var(--spacing-lg);
+}
+
+/* ==================== F5: Project Mini-map ==================== */
+#project-minimap-container {
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+}
+
+#minimap-tab {
+    display: none;
+    flex: 1;
+}
+
+#minimap-tab.active {
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-md);
+}
+
+/* ==================== Responsive adjustments for new features ==================== */
+@media (max-width: 768px) {
+    .floating-terminal {
+        left: 70px;
+    }
+    .wizard-progress {
+        gap: var(--spacing-sm);
+    }
+    .wizard-step-indicator:not(:last-child)::after {
+        width: 30px;
+    }
+    .prompt-library-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -32,6 +32,48 @@ document.addEventListener('DOMContentLoaded', function() {
     const terminalTabContent = document.getElementById('terminal-tab');
     const terminalContainer = document.getElementById('terminal-container');
 
+    // Wizard elements
+    const wizardSteps = document.querySelectorAll('.wizard-step');
+    const wizardIndicators = document.querySelectorAll('.wizard-step-indicator');
+    const wizardNextBtns = document.querySelectorAll('.wizard-next-btn');
+    const wizardBackBtns = document.querySelectorAll('.wizard-back-btn');
+    const wizardGenerateBtn = document.getElementById('wizard-generate-btn');
+
+    // Floating terminal elements
+    const floatingTerminal = document.getElementById('floating-terminal');
+    const toggleTerminalBtn = document.getElementById('toggle-terminal-btn');
+    const terminalMinimizeBtn = document.getElementById('terminal-minimize-btn');
+    const terminalMaximizeBtn = document.getElementById('terminal-maximize-btn');
+    const terminalCloseBtn = document.getElementById('terminal-close-btn');
+    const floatingTerminalHeader = floatingTerminal ? floatingTerminal.querySelector('.floating-terminal-header') : null;
+
+    // Log filter elements
+    const logFilterBtns = document.querySelectorAll('.log-filter-btn');
+
+    // Health dashboard elements
+    const healthCpuBar = document.getElementById('health-cpu-bar');
+    const healthRamBar = document.getElementById('health-ram-bar');
+    const healthGpuBar = document.getElementById('health-gpu-bar');
+    const healthCpuVal = document.getElementById('health-cpu-val');
+    const healthRamVal = document.getElementById('health-ram-val');
+    const healthGpuVal = document.getElementById('health-gpu-val');
+    const healthGpuMetric = document.getElementById('health-gpu-metric');
+
+    // Prompt library elements
+    const promptLibraryToggle = document.getElementById('prompt-library-toggle');
+    const promptLibraryPanel = document.getElementById('prompt-library-panel');
+    const promptCatBtns = document.querySelectorAll('.prompt-cat-btn');
+
+    // Diff modal elements
+    const diffModal = document.getElementById('diff-modal');
+    const diffEditorContainer = document.getElementById('diff-editor-container');
+    const diffFilePath = document.getElementById('diff-file-path');
+    const diffApplyBtn = document.getElementById('diff-apply-btn');
+    const diffDiscardBtn = document.getElementById('diff-discard-btn');
+
+    // Minimap elements
+    const minimapTab = document.getElementById('minimap-tab');
+    const minimapContainer = document.getElementById('project-minimap-container');
 
     // New DOM elements for structure editor
     const generatedStructureSection = document.getElementById('generated-structure-section');
@@ -86,6 +128,27 @@ document.addEventListener('DOMContentLoaded', function() {
     let monacoModel; // Current Monaco Editor model
     let monacoDecorations = []; // Decorations for highlighting lines
 
+    // Wizard state
+    let currentWizardStep = 1;
+
+    // Floating terminal state
+    let floatingTerminalState = 'hidden'; // hidden, normal, minimized, maximized
+
+    // Log filter state
+    let activeLogFilter = 'all';
+
+    // Diff editor state
+    let diffEditor = null;
+    let diffOriginalContent = '';
+    let diffModifiedContent = '';
+    let diffCurrentFilePath = '';
+
+    // Structure editor instance
+    let structureEditor = null;
+
+    // Minimap network instance
+    let minimapNetwork = null;
+
     // Xterm.js instance
     let term;
     let fitAddon;
@@ -106,6 +169,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==================== Navigation ====================
     navItems.forEach(item => {
         item.addEventListener('click', function() {
+            autoSaveCurrentFile(); // F10: Auto-save before navigation
             const viewId = this.dataset.view;
             navItems.forEach(nav => nav.classList.remove('active'));
             this.classList.add('active');
@@ -120,36 +184,46 @@ document.addEventListener('DOMContentLoaded', function() {
     tabBtns.forEach(btn => {
         btn.addEventListener('click', function() {
             const tabId = this.dataset.tab;
+
+            // F6: Terminal tab toggles floating terminal instead of switching tabs
+            if (tabId === 'terminal') {
+                toggleFloatingTerminal();
+                return;
+            }
+
+            // F5: Minimap tab
+            if (tabId === 'minimap') {
+                tabBtns.forEach(tab => tab.classList.remove('active'));
+                this.classList.add('active');
+                previewTab.classList.remove('active');
+                codeTab.classList.remove('active');
+                issuesTabContent.classList.remove('active');
+                if (minimapTab) minimapTab.classList.add('active');
+                loadProjectMinimap();
+                return;
+            }
+
+            autoSaveCurrentFile(); // F10: Auto-save on tab switch
+
             tabBtns.forEach(tab => tab.classList.remove('active'));
             this.classList.add('active');
+            if (minimapTab) minimapTab.classList.remove('active');
+
             if (tabId === 'preview') {
                 previewTab.classList.add('active');
                 codeTab.classList.remove('active');
                 issuesTabContent.classList.remove('active');
-                terminalTabContent.classList.remove('active');
                 updatePreview();
             } else if (tabId === 'code') {
                 previewTab.classList.remove('active');
                 codeTab.classList.add('active');
                 issuesTabContent.classList.remove('active');
-                terminalTabContent.classList.remove('active');
-                // Ensure editor is laid out correctly when tab is shown
                 if (monacoEditor) monacoEditor.layout();
             } else if (tabId === 'issues') {
                 previewTab.classList.remove('active');
                 codeTab.classList.remove('active');
                 issuesTabContent.classList.add('active');
-                terminalTabContent.classList.remove('active');
                 loadProjectIssues(currentProject);
-            } else if (tabId === 'terminal') {
-                previewTab.classList.remove('active');
-                codeTab.classList.remove('active');
-                issuesTabContent.classList.remove('active');
-                terminalTabContent.classList.add('active');
-                if (term) {
-                    fitAddon.fit();
-                    term.focus();
-                }
             }
         });
     });
@@ -165,8 +239,18 @@ document.addEventListener('DOMContentLoaded', function() {
     function addLogLine(message, type = 'info') {
         const logLine = document.createElement('div');
         logLine.className = `log-line ${type}`;
+        // F11: Determine log type for filtering
+        let logType = type;
+        if (message.includes('TOOL:') || message.startsWith('$') || message.includes('$ ')) {
+            logType = 'cmd';
+        }
+        logLine.dataset.logType = logType;
         const timestamp = new Date().toLocaleTimeString();
         logLine.innerHTML = `<span style="opacity: 0.5">[${timestamp}]</span> ${escapeHtml(message)}`;
+        // F11: Apply current filter
+        if (activeLogFilter !== 'all' && logType !== activeLogFilter) {
+            logLine.classList.add('filtered-out');
+        }
         agentLogs.appendChild(logLine);
         agentLogs.scrollTop = agentLogs.scrollHeight;
     }
@@ -375,13 +459,53 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function formatAnswer(text) {
-        return escapeHtml(text)
+        let html = escapeHtml(text);
+
+        // F7: Detect [REFACTOR:filepath] code blocks and render diff button
+        html = html.replace(/\[REFACTOR:([^\]]+)\]\s*```([\s\S]*?)```/g, function(match, filepath, code) {
+            const escapedPath = escapeHtml(filepath.trim());
+            const escapedCode = code.trim();
+            return `<div class="refactor-suggestion" data-filepath="${escapedPath}">
+                <div class="refactor-header"><span class="diff-file-path">${escapedPath}</span>
+                <button class="btn-secondary chat-diff-btn" data-filepath="${escapedPath}">Review Diff</button></div>
+                <pre class="chat-code-block" style="display:none">${escapedCode}</pre>
+            </div>`;
+        });
+
+        html = html
             .replace(/```([\s\S]*?)```/g, '<pre class="chat-code-block">$1</pre>')
             .replace(/`([^`]+)`/g, '<code class="chat-inline-code">$1</code>')
             .replace(/\n/g, '<br>');
+
+        // F3: Parse [ACTION:label|agent_type|prompt] patterns into clickable buttons
+        html = html.replace(/\[ACTION:([^|]+)\|([^|]+)\|([^\]]+)\]/g, function(match, label, agentType, prompt) {
+            return `<button class="chat-action-btn" data-agent="${escapeHtml(agentType.trim())}" data-prompt="${escapeHtml(prompt.trim())}">${escapeHtml(label.trim())}</button>`;
+        });
+
+        return html;
     }
 
     sendBtn.addEventListener('click', sendChatMessage);
+
+    // F3: Delegated click handler for chat action buttons
+    chatMessages.addEventListener('click', function(e) {
+        const actionBtn = e.target.closest('.chat-action-btn');
+        if (actionBtn) {
+            const prompt = actionBtn.dataset.prompt;
+            const agentType = actionBtn.dataset.agent;
+            if (prompt) sendChatMessage(prompt, agentType || null);
+            return;
+        }
+        // F7: Delegated click handler for diff review buttons
+        const diffBtn = e.target.closest('.chat-diff-btn');
+        if (diffBtn) {
+            const filepath = diffBtn.dataset.filepath;
+            const codeBlock = diffBtn.closest('.refactor-suggestion').querySelector('.chat-code-block');
+            if (codeBlock && filepath) {
+                showDiffModal(filepath, codeBlock.textContent);
+            }
+        }
+    });
 
     chatInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -431,8 +555,9 @@ document.addEventListener('DOMContentLoaded', function() {
     createProjectForm.addEventListener('submit', handleGenerateStructureSubmit);
 
     async function handleGenerateStructureSubmit(event) {
-        event.preventDefault();
+        if (event) event.preventDefault();
 
+        // F2: Read from wizard fields (they have the same IDs)
         currentProjectName = document.getElementById('project-name').value.trim();
         currentProjectDescription = document.getElementById('project-description').value.trim();
 
@@ -468,11 +593,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentGeneratedStructure = data.structure;
                 currentGeneratedReadme = data.readme;
 
-                // Hide creation form, show structure editor
-                createProjectFormContainer.style.display = 'none';
+                // Hide wizard/creation form, show structure editor
+                const wizardContainer = document.querySelector('.wizard-container');
+                if (wizardContainer) wizardContainer.style.display = 'none';
+                if (createProjectFormContainer) createProjectFormContainer.style.display = 'none';
                 generatedStructureSection.style.display = 'block';
 
-                renderGeneratedFileTree(currentGeneratedStructure, generatedFileTreeContainer, true);
+                // F1: Use StructureEditor if available
+                const seTree = document.getElementById('structure-editor-tree');
+                if (typeof StructureEditor !== 'undefined' && seTree) {
+                    structureEditor = new StructureEditor(seTree);
+                    structureEditor.setStructure(currentGeneratedStructure);
+                } else {
+                    renderGeneratedFileTree(currentGeneratedStructure, generatedFileTreeContainer, true);
+                }
 
             } else {
                 showMessage(`Error generating structure: ${data.message}`, 'error');
@@ -488,6 +622,11 @@ document.addEventListener('DOMContentLoaded', function() {
     confirmStructureBtn.addEventListener('click', async function() {
         console.log('Confirm Structure button clicked. Initiating full project generation...');
         showMessage('Confirming structure and initiating full project generation...', 'info');
+
+        // F1: Get structure from editor if available
+        if (structureEditor) {
+            currentGeneratedStructure = structureEditor.getStructure();
+        }
 
         const formData = new FormData();
         formData.append('project_name', currentProjectName);
@@ -519,8 +658,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 1000);
                 // Reset form and UI
                 createProjectForm.reset();
-                createProjectFormContainer.style.display = 'block'; // Show the initial form again
-                generatedStructureSection.style.display = 'none'; // Hide structure editor
+                const wizardContainer = document.querySelector('.wizard-container');
+                if (wizardContainer) {
+                    wizardContainer.style.display = 'block';
+                    wizardGoTo(1); // Reset wizard to step 1
+                }
+                if (createProjectFormContainer) createProjectFormContainer.style.display = 'block';
+                generatedStructureSection.style.display = 'none';
             } else {
                 showMessage(`Error: ${data.message}`, 'error');
             }
@@ -724,13 +868,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     fetchFileTree(projectName);
                     logEventSource.close();
                     logEventSource = null;
-                    // Mark final phase as completed
-                    updatePhaseTimeline(8, 'completed'); // Assuming 8 phases for completion
+                    updatePhaseTimeline(8, 'completed');
+                    // F9: Desktop notification on project completion
+                    notificationService.showDesktop('Project Complete!', `${parsedEvent.project_name} has been generated successfully.`);
                     break;
                 case 'error':
                     addLogLine(`ERROR: ${parsedEvent.message}`, 'error');
-                    // Mark current phase as error, and potentially all subsequent as error or cancelled
                     updatePhaseTimeline(parsedEvent.phase, 'error');
+                    // F9: Desktop notification on error
+                    notificationService.showDesktop('Error', parsedEvent.message || 'An error occurred during generation.');
                     break;
                 case 'info':
                     addLogLine(`INFO: ${parsedEvent.message}`, 'info');
@@ -1013,6 +1159,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function selectFile(element, filePathRelative, lineNumber = 0) {
+        autoSaveCurrentFile(); // F10: Auto-save before switching files
+
         if (selectedFileElement) selectedFileElement.classList.remove('selected');
         const targetElement = element || document.querySelector(`.file-tree-item[data-path="${filePathRelative}"]`);
         if (targetElement) {
@@ -1569,11 +1717,495 @@ document.addEventListener('DOMContentLoaded', function() {
     const origPushFinal = window._ollashSaveChatHook;
     window._ollashSaveChatHook = saveChatHistory;
 
+    // ==================== F10: Monaco Autosave ====================
+    async function autoSaveCurrentFile() {
+        if (!currentProject || !currentFilePath || !monacoEditor || !isEditorDirty) return;
+        try {
+            const contentToSave = monacoEditor.getValue();
+            const response = await fetch(`/api/projects/${currentProject}/save_file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_path_relative: currentFilePath, content: contentToSave })
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                isEditorDirty = false;
+                updateEditorActionButtons();
+                notificationService.info('Auto-saved', 2000);
+            }
+        } catch (err) {
+            console.error('Auto-save failed:', err);
+        }
+    }
+
+    // ==================== F11: Log Filtering ====================
+    logFilterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            logFilterBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            activeLogFilter = this.dataset.filter;
+
+            const logLines = agentLogs.querySelectorAll('.log-line');
+            logLines.forEach(line => {
+                if (activeLogFilter === 'all') {
+                    line.classList.remove('filtered-out');
+                } else {
+                    const logType = line.dataset.logType || 'info';
+                    if (logType === activeLogFilter) {
+                        line.classList.remove('filtered-out');
+                    } else {
+                        line.classList.add('filtered-out');
+                    }
+                }
+            });
+        });
+    });
+
+    // ==================== F2: Wizard Mode ====================
+    function wizardGoTo(step) {
+        currentWizardStep = step;
+        wizardSteps.forEach(s => s.classList.remove('active'));
+        wizardIndicators.forEach((ind, i) => {
+            ind.classList.remove('active', 'completed');
+            if (i + 1 < step) ind.classList.add('completed');
+            else if (i + 1 === step) ind.classList.add('active');
+        });
+        const target = document.getElementById(`wizard-step-${step}`);
+        if (target) target.classList.add('active');
+    }
+
+    wizardNextBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const nextStep = currentWizardStep + 1;
+            // Validate current step
+            if (currentWizardStep === 1) {
+                const name = document.getElementById('project-name');
+                if (name && !name.value.trim()) {
+                    showMessage('Please enter a project name.', 'error');
+                    return;
+                }
+            }
+            if (nextStep <= 3) wizardGoTo(nextStep);
+        });
+    });
+
+    wizardBackBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (currentWizardStep > 1) wizardGoTo(currentWizardStep - 1);
+        });
+    });
+
+    if (wizardGenerateBtn) {
+        wizardGenerateBtn.addEventListener('click', function() {
+            const desc = document.getElementById('project-description');
+            if (desc && !desc.value.trim()) {
+                showMessage('Please enter a project description.', 'error');
+                return;
+            }
+            handleGenerateStructureSubmit(null);
+        });
+    }
+
+    // ==================== F6: Floating Terminal ====================
+    function toggleFloatingTerminal() {
+        if (!floatingTerminal) return;
+        if (floatingTerminalState === 'hidden') {
+            floatingTerminal.classList.add('visible');
+            floatingTerminal.classList.remove('minimized', 'maximized');
+            floatingTerminalState = 'normal';
+            initTerminalIfNeeded();
+        } else {
+            floatingTerminal.classList.remove('visible', 'minimized', 'maximized');
+            floatingTerminalState = 'hidden';
+        }
+    }
+
+    function initTerminalIfNeeded() {
+        if (term) {
+            setTimeout(() => { fitAddon.fit(); term.focus(); }, 100);
+            return;
+        }
+        if (typeof Terminal === 'undefined') return;
+        term = new Terminal({
+            cursorBlink: true,
+            theme: { background: '#000000', foreground: '#F8F8F8' },
+            fontFamily: 'JetBrains Mono, Fira Code, monospace',
+            fontSize: 14
+        });
+        fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(terminalContainer);
+        fitAddon.fit();
+        term.writeln('\x1b[1;32mOllash Terminal\x1b[0m');
+        term.writeln('Type commands and press Enter.');
+        term.write(prompt);
+
+        term.onData(data => {
+            if (data === '\r') {
+                term.writeln('');
+                if (currentCommand.trim()) executeTerminalCommand(currentCommand.trim());
+                currentCommand = '';
+                term.write(prompt);
+            } else if (data === '\x7f') {
+                if (currentCommand.length > 0) {
+                    currentCommand = currentCommand.slice(0, -1);
+                    term.write('\b \b');
+                }
+            } else {
+                currentCommand += data;
+                term.write(data);
+            }
+        });
+    }
+
+    async function executeTerminalCommand(cmd) {
+        if (!currentProject) {
+            term.writeln('\x1b[31mNo project selected.\x1b[0m');
+            return;
+        }
+        try {
+            const resp = await fetch('/api/terminal/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: cmd, project_name: currentProject })
+            });
+            const data = await resp.json();
+            if (data.output) term.writeln(data.output);
+            if (data.error) term.writeln(`\x1b[31m${data.error}\x1b[0m`);
+        } catch (err) {
+            term.writeln(`\x1b[31mError: ${err.message}\x1b[0m`);
+        }
+    }
+
+    if (toggleTerminalBtn) {
+        toggleTerminalBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFloatingTerminal();
+        });
+    }
+    if (terminalMinimizeBtn) {
+        terminalMinimizeBtn.addEventListener('click', function() {
+            if (!floatingTerminal) return;
+            floatingTerminal.classList.toggle('minimized');
+            floatingTerminal.classList.remove('maximized');
+            floatingTerminalState = floatingTerminal.classList.contains('minimized') ? 'minimized' : 'normal';
+        });
+    }
+    if (terminalMaximizeBtn) {
+        terminalMaximizeBtn.addEventListener('click', function() {
+            if (!floatingTerminal) return;
+            floatingTerminal.classList.toggle('maximized');
+            floatingTerminal.classList.remove('minimized');
+            floatingTerminalState = floatingTerminal.classList.contains('maximized') ? 'maximized' : 'normal';
+            if (term && fitAddon) setTimeout(() => fitAddon.fit(), 100);
+        });
+    }
+    if (terminalCloseBtn) {
+        terminalCloseBtn.addEventListener('click', function() {
+            if (!floatingTerminal) return;
+            floatingTerminal.classList.remove('visible', 'minimized', 'maximized');
+            floatingTerminalState = 'hidden';
+        });
+    }
+
+    // Floating terminal header drag to resize
+    if (floatingTerminalHeader) {
+        let isResizing = false;
+        let startY, startHeight;
+        floatingTerminalHeader.addEventListener('mousedown', function(e) {
+            if (e.target.closest('button')) return;
+            isResizing = true;
+            startY = e.clientY;
+            startHeight = floatingTerminal.offsetHeight;
+            document.body.style.userSelect = 'none';
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!isResizing) return;
+            const delta = startY - e.clientY;
+            const newHeight = Math.max(60, Math.min(window.innerHeight * 0.7, startHeight + delta));
+            floatingTerminal.style.height = newHeight + 'px';
+        });
+        document.addEventListener('mouseup', function() {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.userSelect = '';
+                if (term && fitAddon) fitAddon.fit();
+            }
+        });
+    }
+
+    // ==================== F4: System Health Dashboard ====================
+    async function fetchSystemHealth() {
+        try {
+            const resp = await fetch('/api/system/health');
+            const data = await resp.json();
+            if (data.status !== 'ok') return;
+
+            const cpu = data.cpu_percent || 0;
+            const ram = data.ram_percent || 0;
+
+            if (healthCpuBar) {
+                healthCpuBar.style.width = cpu + '%';
+                healthCpuBar.className = 'health-bar-fill ' + getHealthColor(cpu);
+            }
+            if (healthCpuVal) healthCpuVal.textContent = Math.round(cpu) + '%';
+
+            if (healthRamBar) {
+                healthRamBar.style.width = ram + '%';
+                healthRamBar.className = 'health-bar-fill ' + getHealthColor(ram);
+            }
+            if (healthRamVal) healthRamVal.textContent = Math.round(ram) + '%';
+
+            if (data.gpu && data.gpu.util_percent !== undefined) {
+                const gpu = data.gpu.util_percent;
+                if (healthGpuMetric) healthGpuMetric.style.display = 'flex';
+                if (healthGpuBar) {
+                    healthGpuBar.style.width = gpu + '%';
+                    healthGpuBar.className = 'health-bar-fill ' + getHealthColor(gpu);
+                }
+                if (healthGpuVal) healthGpuVal.textContent = Math.round(gpu) + '%';
+            } else {
+                if (healthGpuMetric) healthGpuMetric.style.display = 'none';
+            }
+        } catch {
+            // Silently fail - health dashboard is optional
+        }
+    }
+
+    function getHealthColor(percent) {
+        if (percent < 60) return 'green';
+        if (percent < 85) return 'yellow';
+        return 'red';
+    }
+
+    // ==================== F5: Project Mini-map (Dependency Graph) ====================
+    async function loadProjectMinimap() {
+        if (!currentProject || !minimapContainer) return;
+        minimapContainer.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--color-text-muted)">Loading dependency graph...</div>';
+
+        try {
+            const resp = await fetch(`/api/projects/${encodeURIComponent(currentProject)}/dependency-graph`);
+            const data = await resp.json();
+            if (data.status !== 'ok') {
+                minimapContainer.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--color-text-muted)">${escapeHtml(data.message || 'No graph data')}</div>`;
+                return;
+            }
+
+            if (data.nodes.length === 0) {
+                minimapContainer.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--color-text-muted)">No files found in project</div>';
+                return;
+            }
+
+            minimapContainer.innerHTML = '';
+
+            const nodes = new vis.DataSet(data.nodes);
+            const edges = new vis.DataSet(data.edges);
+
+            if (minimapNetwork) minimapNetwork.destroy();
+            minimapNetwork = new vis.Network(minimapContainer, { nodes, edges }, {
+                physics: {
+                    solver: 'forceAtlas2Based',
+                    forceAtlas2Based: { gravitationalConstant: -30, centralGravity: 0.005, springLength: 100, springConstant: 0.02 },
+                    stabilization: { iterations: 100 }
+                },
+                nodes: {
+                    shape: 'dot',
+                    size: 12,
+                    font: { size: 11, color: '#e4e4e7' },
+                    borderWidth: 2
+                },
+                edges: {
+                    arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+                    color: { color: '#2a2a35', highlight: '#6366f1' },
+                    width: 1
+                },
+                interaction: { hover: true, tooltipDelay: 200 }
+            });
+
+            // Click node -> navigate to file
+            minimapNetwork.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const filePath = params.nodes[0];
+                    document.querySelector('.tab-btn[data-tab="code"]').click();
+                    selectFile(null, filePath);
+                }
+            });
+        } catch (err) {
+            minimapContainer.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--color-error)">Error loading graph: ${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    // ==================== F7: Diff Modal ====================
+    async function showDiffModal(filepath, modifiedContent) {
+        if (!diffModal || !diffEditorContainer) return;
+
+        diffCurrentFilePath = filepath;
+        diffModifiedContent = modifiedContent;
+
+        // Load original content
+        if (currentProject) {
+            try {
+                const resp = await fetch(`/api/projects/${currentProject}/file`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_path_relative: filepath })
+                });
+                const data = await resp.json();
+                diffOriginalContent = data.status === 'success' ? data.content : '';
+            } catch {
+                diffOriginalContent = '';
+            }
+        }
+
+        if (diffFilePath) diffFilePath.textContent = filepath;
+        diffModal.style.display = 'flex';
+
+        // Create diff editor if Monaco is loaded
+        if (typeof monaco !== 'undefined') {
+            diffEditorContainer.innerHTML = '';
+            const ext = getFileExtension(filepath);
+            diffEditor = monaco.editor.createDiffEditor(diffEditorContainer, {
+                automaticLayout: true,
+                readOnly: false,
+                theme: (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark' ? 'vs-dark' : 'vs-light',
+                renderSideBySide: true
+            });
+            diffEditor.setModel({
+                original: monaco.editor.createModel(diffOriginalContent, ext),
+                modified: monaco.editor.createModel(diffModifiedContent, ext)
+            });
+        }
+    }
+
+    function closeDiffModal() {
+        if (diffModal) diffModal.style.display = 'none';
+        if (diffEditor) {
+            diffEditor.dispose();
+            diffEditor = null;
+        }
+    }
+
+    if (diffApplyBtn) {
+        diffApplyBtn.addEventListener('click', async function() {
+            if (!currentProject || !diffCurrentFilePath || !diffEditor) return;
+            const modified = diffEditor.getModel().modified.getValue();
+            try {
+                const resp = await fetch('/api/refactor/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project_name: currentProject,
+                        file_path: diffCurrentFilePath,
+                        modified_content: modified
+                    })
+                });
+                const data = await resp.json();
+                if (data.status === 'ok') {
+                    notificationService.success('Changes applied successfully!');
+                    closeDiffModal();
+                    // Reload file if it's currently open
+                    if (currentFilePath === diffCurrentFilePath) {
+                        selectFile(null, currentFilePath);
+                    }
+                } else {
+                    notificationService.error(data.message || 'Failed to apply changes.');
+                }
+            } catch (err) {
+                notificationService.error('Error applying changes: ' + err.message);
+            }
+        });
+    }
+
+    if (diffDiscardBtn) {
+        diffDiscardBtn.addEventListener('click', closeDiffModal);
+    }
+
+    // Close diff modal on background click
+    if (diffModal) {
+        diffModal.addEventListener('click', function(e) {
+            if (e.target === diffModal) closeDiffModal();
+        });
+    }
+
+    // ==================== F8: Smart Prompt Library ====================
+    const PROMPT_LIBRARY = [
+        { category: 'system', label: 'Disk Usage Report', agent: 'system', prompt: 'Check disk usage on all mounted volumes and report any partitions above 80% utilization.' },
+        { category: 'system', label: 'Service Status Check', agent: 'system', prompt: 'List all running services and identify any that have failed or are in a degraded state.' },
+        { category: 'system', label: 'Process Monitor', agent: 'system', prompt: 'Show the top 10 processes by CPU and memory usage. Identify any anomalies.' },
+        { category: 'network', label: 'Latency Diagnostic', agent: 'network', prompt: 'Run a latency diagnostic to common DNS servers and major websites. Report any packet loss.' },
+        { category: 'network', label: 'Port Scan', agent: 'network', prompt: 'Scan open ports on localhost and identify any unexpected services listening.' },
+        { category: 'network', label: 'DNS Resolution', agent: 'network', prompt: 'Check DNS resolution for common domains and identify any DNS issues.' },
+        { category: 'security', label: 'Permission Audit', agent: 'cybersecurity', prompt: 'Audit file permissions in the current project directory. Identify any world-writable files or insecure permissions.' },
+        { category: 'security', label: 'Dependency Vulnerabilities', agent: 'cybersecurity', prompt: 'Check project dependencies for known vulnerabilities and suggest updates.' },
+        { category: 'security', label: 'Secret Scanner', agent: 'cybersecurity', prompt: 'Scan the current project for hardcoded secrets, API keys, or credentials that should be in environment variables.' },
+        { category: 'code', label: 'Code Quality Review', agent: 'code', prompt: 'Analyze the project code for common anti-patterns, code smells, and suggest improvements.' },
+        { category: 'code', label: 'Test Coverage', agent: 'code', prompt: 'Analyze the project test coverage and suggest areas that need additional testing.' },
+        { category: 'code', label: 'Documentation Check', agent: 'code', prompt: 'Check if all public functions and classes have proper docstrings and documentation.' },
+    ];
+
+    function renderPromptLibrary(filter = 'all') {
+        const grid = document.getElementById('prompt-library-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        const filtered = filter === 'all' ? PROMPT_LIBRARY : PROMPT_LIBRARY.filter(p => p.category === filter);
+        filtered.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'prompt-card';
+            card.innerHTML = `
+                <div class="prompt-card-label">${escapeHtml(p.label)}</div>
+                <div class="prompt-card-cat">${escapeHtml(p.category)}</div>
+            `;
+            card.addEventListener('click', function() {
+                chatInput.value = p.prompt;
+                chatInput.style.height = 'auto';
+                chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
+                // Set agent type
+                selectedAgentType = p.agent;
+                document.querySelectorAll('.agent-card').forEach(c => {
+                    c.classList.toggle('selected', c.dataset.agent === p.agent);
+                });
+                // Close prompt library
+                if (promptLibraryPanel) promptLibraryPanel.classList.remove('visible');
+                chatInput.focus();
+            });
+            grid.appendChild(card);
+        });
+    }
+
+    if (promptLibraryToggle) {
+        promptLibraryToggle.addEventListener('click', function() {
+            if (!promptLibraryPanel) return;
+            promptLibraryPanel.classList.toggle('visible');
+            if (promptLibraryPanel.classList.contains('visible')) {
+                renderPromptLibrary();
+            }
+        });
+    }
+
+    promptCatBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            promptCatBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            renderPromptLibrary(this.dataset.category);
+        });
+    });
+
     // ==================== Init ====================
     restoreChatHistory();
     populateExistingProjects();
     checkOllamaStatus();
     setInterval(checkOllamaStatus, 30000);
+
+    // F9: Request desktop notification permission
+    notificationService.requestDesktopPermission();
+
+    // F4: Start health dashboard polling
+    fetchSystemHealth();
+    setInterval(fetchSystemHealth, 10000);
+
+    // F2: Initialize wizard to step 1
+    wizardGoTo(1);
 
     // ==================== Automations View ==================== 
     const newAutomationBtn = document.getElementById('new-automation-btn');

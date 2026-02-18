@@ -52,6 +52,12 @@ from .knowledge_graph_bp import knowledge_graph_bp
 from .knowledge_graph_bp import init_app as init_knowledge_graph
 from .pair_programming_bp import pair_programming_bp
 from .pair_programming_bp import init_app as init_pair_programming
+from .project_graph_bp import project_graph_bp
+from .project_graph_bp import init_app as init_project_graph
+from .refactor_bp import refactor_bp
+from .refactor_bp import init_app as init_refactor
+from .system_health_bp import system_health_bp
+from .system_health_bp import init_app as init_system_health
 
 
 def register_blueprints(
@@ -102,6 +108,10 @@ def register_blueprints(
         (export_bp, lambda: init_export(app)),
         (knowledge_graph_bp, lambda: init_knowledge_graph(app)),
         (pair_programming_bp, lambda: init_pair_programming(app, event_publisher)),
+        # UX improvement blueprints
+        (system_health_bp, lambda: init_system_health(app)),
+        (refactor_bp, lambda: init_refactor(app)),
+        (project_graph_bp, lambda: init_project_graph(app)),
     ]
 
     logger = app.config["logger"]

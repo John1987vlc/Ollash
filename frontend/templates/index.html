@@ -80,6 +80,24 @@
             </nav>
 
             <div class="sidebar-footer">
+                <!-- System Health Dashboard -->
+                <div class="health-dashboard" id="health-dashboard">
+                    <div class="health-metric">
+                        <span class="health-label">CPU</span>
+                        <div class="health-bar"><div class="health-bar-fill" id="health-cpu"></div></div>
+                        <span class="health-value" id="health-cpu-val">--%</span>
+                    </div>
+                    <div class="health-metric">
+                        <span class="health-label">RAM</span>
+                        <div class="health-bar"><div class="health-bar-fill" id="health-ram"></div></div>
+                        <span class="health-value" id="health-ram-val">--%</span>
+                    </div>
+                    <div class="health-metric" id="health-gpu-row" style="display:none;">
+                        <span class="health-label">GPU</span>
+                        <div class="health-bar"><div class="health-bar-fill" id="health-gpu"></div></div>
+                        <span class="health-value" id="health-gpu-val">--%</span>
+                    </div>
+                </div>
                 <button class="theme-toggle" id="theme-toggle">
                     <span id="theme-icon">&#x2600;&#xfe0f;</span>
                     <span id="theme-label">Light Mode</span>
@@ -129,7 +147,26 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Prompt Library Panel -->
+                    <div class="prompt-library-panel" id="prompt-library-panel" style="display: none;">
+                        <div class="prompt-library-header">
+                            <h4>Quick Prompts</h4>
+                            <div class="prompt-library-categories">
+                                <button class="prompt-cat-btn active" data-cat="all">All</button>
+                                <button class="prompt-cat-btn" data-cat="system">System</button>
+                                <button class="prompt-cat-btn" data-cat="network">Network</button>
+                                <button class="prompt-cat-btn" data-cat="security">Security</button>
+                                <button class="prompt-cat-btn" data-cat="code">Code</button>
+                            </div>
+                        </div>
+                        <div class="prompt-library-list" id="prompt-library-list"></div>
+                    </div>
                     <div class="chat-input-area">
+                        <button class="btn-icon" id="toggle-prompt-library" title="Prompt Library">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 4H17M3 8H17M3 12H13M3 16H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </button>
                         <textarea id="chat-input" placeholder="Ask Ollash anything..." rows="1"></textarea>
                         <button id="send-btn" class="btn-primary" title="Send">
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -140,118 +177,129 @@
                 </div>
             </div>
 
-            <!-- Create Project View -->
+            <!-- Create Project View (Wizard Mode) -->
             <div class="view" id="create-view">
                 <div class="view-header">
                     <h1>Create New Project</h1>
-                    <p class="subtitle">Describe your project and let AI generate the complete codebase</p>
+                    <p class="subtitle">Step-by-step project creation wizard</p>
                 </div>
 
                 <div class="create-form-container">
-                    <div class="template-selector">
-                        <h2>Choose a Project Template</h2>
-                        <div class="template-cards">
-                            <!-- Template Cards will go here -->
-                            <div class="template-card active" data-template="default">
-                                <h3>Default Project</h3>
-                                <p>A general-purpose project structure.</p>
+                    <div class="wizard-container" id="wizard-container">
+                        <div class="wizard-progress">
+                            <div class="wizard-step-indicator active" data-step="1"><span>1</span> Name &amp; Template</div>
+                            <div class="wizard-step-indicator" data-step="2"><span>2</span> Configuration</div>
+                            <div class="wizard-step-indicator" data-step="3"><span>3</span> Description</div>
+                        </div>
+
+                        <!-- Step 1: Name + Template -->
+                        <div class="wizard-step active" id="wizard-step-1">
+                            <div class="form-group">
+                                <label for="project-name">Project Name</label>
+                                <input type="text" id="project-name" name="project_name"
+                                       placeholder="e.g., my-awesome-app" required>
                             </div>
-                            <div class="template-card" data-template="fastapi-backend">
-                                <h3>FastAPI Backend</h3>
-                                <p>Python backend with FastAPI and uvicorn.</p>
+                            <div class="template-selector">
+                                <h2>Choose a Project Template</h2>
+                                <div class="template-cards">
+                                    <div class="template-card active" data-template="default">
+                                        <h3>Default Project</h3>
+                                        <p>A general-purpose project structure.</p>
+                                    </div>
+                                    <div class="template-card" data-template="fastapi-backend">
+                                        <h3>FastAPI Backend</h3>
+                                        <p>Python backend with FastAPI and uvicorn.</p>
+                                    </div>
+                                    <div class="template-card" data-template="react-frontend">
+                                        <h3>React Frontend</h3>
+                                        <p>Modern web frontend with React and Vite.</p>
+                                    </div>
+                                    <div class="template-card" data-template="automation-script">
+                                        <h3>Automation Script</h3>
+                                        <p>A simple Python automation script.</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="template-card" data-template="react-frontend">
-                                <h3>React Frontend</h3>
-                                <p>Modern web frontend with React and Vite.</p>
+                            <div class="wizard-nav">
+                                <div></div>
+                                <button type="button" class="btn-primary" id="wizard-next-1">Next: Configuration &rarr;</button>
                             </div>
-                            <div class="template-card" data-template="automation-script">
-                                <h3>Automation Script</h3>
-                                <p>A simple Python automation script.</p>
+                        </div>
+
+                        <!-- Step 2: Tech Config -->
+                        <div class="wizard-step" id="wizard-step-2">
+                            <div class="form-group">
+                                <label for="python-version">Python Version</label>
+                                <select id="python-version" name="python_version">
+                                    <option value="3.12">Python 3.12 (Recommended)</option>
+                                    <option value="3.11">Python 3.11</option>
+                                    <option value="3.10">Python 3.10</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="license-type">License Type</label>
+                                <select id="license-type" name="license_type">
+                                    <option value="MIT">MIT License (Permissive)</option>
+                                    <option value="Apache-2.0">Apache License 2.0 (Permissive)</option>
+                                    <option value="GPL-3.0">GPLv3 (Strong Copyleft)</option>
+                                    <option value="None">No License</option>
+                                </select>
+                            </div>
+                            <div class="form-group toggle-group">
+                                <label for="include-docker">Include Docker support</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="include-docker" name="include_docker" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="wizard-nav">
+                                <button type="button" class="btn-secondary" id="wizard-prev-2">&larr; Back</button>
+                                <button type="button" class="btn-primary" id="wizard-next-2">Next: Description &rarr;</button>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Description -->
+                        <div class="wizard-step" id="wizard-step-3">
+                            <div class="form-group">
+                                <label for="project-description">Project Description</label>
+                                <textarea id="project-description" name="project_description"
+                                          rows="8" placeholder="Describe what your project should do, what features it needs, and any specific requirements..." required></textarea>
+                            </div>
+                            <div class="wizard-nav">
+                                <button type="button" class="btn-secondary" id="wizard-prev-3">&larr; Back</button>
+                                <button type="button" class="btn-primary" id="wizard-generate">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                        <path d="M10 2L18 6V14L10 18L2 14V6L10 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                                    </svg>
+                                    <span>Generate Structure</span>
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Collapsible Advanced Configuration -->
-                    <div class="advanced-config-toggle" style="margin-top: var(--spacing-xl);">
-                        <button type="button" class="btn-secondary" id="toggle-advanced-config">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M7.5 14.5a.5.5 0 01-1 0v-4a.5.5 0 011 0v4zM7.5 6.5a.5.5 0 01-1 0v-4a.5.5 0 011 0v4z"/>
-                                <path d="M12.5 14.5a.5.5 0 01-1 0v-6a.5.5 0 011 0v6zM12.5 4.5a.5.5 0 01-1 0v-2a.5.5 0 011 0v2z"/>
-                                <path d="M2.5 14.5a.5.5 0 01-1 0v-8a.5.5 0 011 0v8zM2.5 6.5a.5.5 0 01-1 0v-4a.5.5 0 011 0v4z"/>
-                            </svg>
-                            <span>Advanced Configuration</span>
-                            <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M6 10l4-4-4-4"/>
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div id="advanced-config-panel" class="advanced-config-panel" style="display: none;">
-                        <div class="form-group">
-                            <label for="python-version">Python Version</label>
-                            <select id="python-version" name="python_version">
-                                <option value="3.12">Python 3.12 (Recommended)</option>
-                                <option value="3.11">Python 3.11</option>
-                                <option value="3.10">Python 3.10</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="license-type">License Type</label>
-                            <select id="license-type" name="license_type">
-                                <option value="MIT">MIT License (Permissive)</option>
-                                <option value="Apache-2.0">Apache License 2.0 (Permissive)</option>
-                                <option value="GPL-3.0">GPLv3 (Strong Copyleft)</option>
-                                <option value="None">No License</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group toggle-group">
-                            <label for="include-docker">Include Docker support</label>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="include-docker" name="include_docker" checked>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <form id="create-project-form" class="create-form">
-                        <div class="form-group">
-                            <label for="project-name">Project Name</label>
-                            <input type="text" id="project-name" name="project_name"
-                                   placeholder="e.g., my-awesome-app" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="project-description">Project Description</label>
-                            <textarea id="project-description" name="project_description"
-                                      rows="6" placeholder="Describe what your project should do, what features it needs, and any specific requirements..." required></textarea>
-                        </div>
-
-                        <button type="submit" class="btn-primary">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                                <path d="M10 2L18 6V14L10 18L2 14V6L10 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
-                            </svg>
-                            <span>Generate Project</span>
-                        </button>
+                    <!-- Hidden form for backward compat -->
+                    <form id="create-project-form" class="create-form" style="display:none;">
+                        <button type="submit" class="btn-primary"><span>Generate Project</span></button>
                     </form>
 
                     <div id="status-message" class="status-message"></div>
                 </div>
 
-                <!-- Generated Structure Display (Initially Hidden) -->
+                <!-- Generated Structure Display (Drag & Drop Editor) -->
                 <div id="generated-structure-section" style="display: none; margin-top: var(--spacing-xl);">
                     <div class="view-header">
-                        <h2>Review & Edit Structure</h2>
-                        <p class="subtitle">Review the proposed project structure. You can edit it before generation.</p>
+                        <h2>Review &amp; Edit Structure</h2>
+                        <p class="subtitle">Drag items to reorder. Double-click to rename. Click &times; to remove.</p>
                     </div>
 
-                    <div class="generated-file-tree" id="generated-file-tree">
-                        <!-- Interactive file tree will be rendered here -->
+                    <div class="structure-editor-container">
+                        <div class="structure-editor-tree" id="structure-editor-tree">
+                            <!-- Drag-and-drop tree rendered by StructureEditor class -->
+                        </div>
                     </div>
 
                     <div class="structure-actions" style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-md); align-items: center;">
-                        <input type="text" id="add-path-input" placeholder="Add new file or folder (e.g., src/utils/helper.py)" class="form-control" style="flex-grow: 1;">
+                        <input type="text" id="add-path-input" placeholder="path/to/new/file.py" class="form-control" style="flex-grow: 1;">
                         <button type="button" class="btn-secondary" id="add-path-btn">
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                                 <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -262,15 +310,15 @@
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                                 <path d="M17 5L7 15L3 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
-                            Confirm Structure & Generate Code
+                            Confirm &amp; Generate
                         </button>
                         <button type="button" class="btn-secondary" id="edit-structure-btn">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                                <path d="M12 4H16V8M16 12V16H12M8 16H4V12M4 8V4H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
                             Edit Structure
                         </button>
                     </div>
+
+                    <!-- Old generated-file-tree kept hidden for backward compat -->
+                    <div class="generated-file-tree" id="generated-file-tree" style="display:none;"></div>
                 </div>
             </div>
 
@@ -373,12 +421,21 @@
                                     </svg>
                                     Issues
                                 </button>
-                                <button class="tab-btn" data-tab="terminal">
+                                <button class="tab-btn" data-tab="terminal" id="toggle-terminal-btn">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M2 3L14 3L14 13L2 13L2 3Z"/>
                                         <polyline points="5 6 8 9 5 12"/>
                                     </svg>
                                     Terminal
+                                </button>
+                                <button class="tab-btn" data-tab="minimap">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <circle cx="4" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/>
+                                        <circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/>
+                                        <circle cx="8" cy="12" r="2" stroke="currentColor" stroke-width="1.5"/>
+                                        <path d="M6 4H10M5 6L7 10M11 6L9 10" stroke="currentColor" stroke-width="1"/>
+                                    </svg>
+                                    Graph
                                 </button>
                                 <div class="current-file-indicator">
                                     <span id="current-file-name">No file selected</span>
@@ -416,9 +473,12 @@
                                 </div>
                             </div>
 
-                            <!-- Terminal Tab Content -->
-                            <div class="tab-content" id="terminal-tab">
-                                <div id="terminal-container" style="width: 100%; height: 100%; background: #000; color: #fff;"></div>
+                            <!-- Terminal Tab Content (kept for compat, terminal is now floating) -->
+                            <div class="tab-content" id="terminal-tab" style="display:none;"></div>
+
+                            <!-- Graph (Mini-map) Tab Content -->
+                            <div class="tab-content" id="minimap-tab">
+                                <div id="project-minimap-container" style="width: 100%; height: 100%;"></div>
                             </div>
                         </div>
 
@@ -432,6 +492,13 @@
                                     </svg>
                                     Live Output
                                 </h3>
+                                <div class="log-filters">
+                                    <button class="log-filter-btn active" data-level="all">All</button>
+                                    <button class="log-filter-btn" data-level="info">Info</button>
+                                    <button class="log-filter-btn" data-level="warning">Warn</button>
+                                    <button class="log-filter-btn" data-level="error">Error</button>
+                                    <button class="log-filter-btn" data-level="commands">Cmds</button>
+                                </div>
                                 <div class="logs-actions">
                                     <button class="btn-icon" id="clear-logs" title="Clear logs">
                                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -562,13 +629,51 @@
                     </div>
                 </div>
             </div>
+            <!-- Floating Terminal (VS Code style) -->
+            <div class="floating-terminal" id="floating-terminal" style="display: none;">
+                <div class="floating-terminal-header" id="floating-terminal-header">
+                    <div class="floating-terminal-title">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M2 3L14 3L14 13L2 13L2 3Z"/>
+                            <polyline points="5 6 8 9 5 12"/>
+                        </svg>
+                        Terminal
+                    </div>
+                    <div class="floating-terminal-actions">
+                        <button class="btn-icon" id="terminal-minimize" title="Minimize">&#x2012;</button>
+                        <button class="btn-icon" id="terminal-maximize" title="Maximize">&#x25A1;</button>
+                        <button class="btn-icon" id="terminal-close" title="Close">&times;</button>
+                    </div>
+                </div>
+                <div id="floating-terminal-body">
+                    <div id="terminal-container" style="width: 100%; height: 100%; background: #000; color: #fff;"></div>
+                </div>
+            </div>
+
+            <!-- Diff Modal for Refactoring -->
+            <div class="modal" id="diff-modal" style="display: none;">
+                <div class="modal-content modal-wide">
+                    <div class="modal-header">
+                        <h2>Review Changes</h2>
+                        <span id="diff-file-path" class="diff-file-path"></span>
+                        <button class="close-modal" onclick="closeDiffModal()">&times;</button>
+                    </div>
+                    <div id="diff-editor-container" style="width: 100%; height: 500px;"></div>
+                    <div class="form-actions">
+                        <button class="btn-primary" id="apply-diff-btn">Apply Changes</button>
+                        <button class="btn-secondary" onclick="closeDiffModal()">Discard</button>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
     <script src="{{ url_for('static', filename='js/alert-handler.js') }}"></script>
     <script src="{{ url_for('static', filename='js/notification-service.js') }}"></script>
     <script src="{{ url_for('static', filename='js/artifact-renderer.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/structure-editor.js') }}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
