@@ -647,7 +647,9 @@ class TestBasePhase:
         )
         calls = ctx.event_publisher.publish.call_args_list
         assert calls[0][0][0] == "phase_start"
-        assert calls[1][0][0] == "phase_complete"
+        # shadow_evaluate is published between start and complete
+        assert calls[1][0][0] == "shadow_evaluate"
+        assert calls[2][0][0] == "phase_complete"
 
     def test_execute_wraps_exception(self, ctx, tmp_path):
         from backend.agents.auto_agent_phases.base_phase import BasePhase
@@ -1097,3 +1099,741 @@ class TestMultiProviderManager:
 
         manager.register_provider(ProviderConfig(name="bad", provider_type="unknown"))
         assert "bad" not in manager._providers
+
+
+# ============================================================
+# Benchmark Rubrics Tests
+# ============================================================
+class TestRubricEvaluator:
+    """Tests for multidimensional rubric evaluation system."""
+
+    def test_json_compliance_valid_json(self):
+        from backend.utils.core.benchmark_rubrics import RubricDimension, RubricEvaluator
+
+        evaluator = RubricEvaluator(logger=_mock_logger())
+        response = '```json\n{"name": "test", "version": "1.0"}\n```'
+        result = evaluator.evaluate(
+            model_name="test-model",
+            task_name="test-task",
+            response_content=response,
+            task_data={"type": "web_app"},
+            duration_sec=10.0,
+            dimensions=[RubricDimension.STRICT_JSON],
+        )
+        json_dim = result.dimension_results[0]
+        assert json_dim.score == 1.0  # All blocks are valid
+        assert json_dim.raw_data["valid_blocks"] >= 1
+
+    def test_json_compliance_malformed_json(self):
+        from backend.utils.core.benchmark_rubrics import RubricDimension, RubricEvaluator
+
+        evaluator = RubricEvaluator(logger=_mock_logger())
+        # Only use code blocks to avoid standalone regex double-counting
+        response = '```json\n{invalid json here}\n```\n```json\n{"valid": true}\n```'
+        result = evaluator.evaluate(
+            model_name="test-model",
+            task_name="test-task",
+            response_content=response,
+            task_data={},
+            duration_sec=5.0,
+            dimensions=[RubricDimension.STRICT_JSON],
+        )
+        json_dim = result.dimension_results[0]
+        assert json_dim.score == 0.5  # Half valid
+        assert json_dim.raw_data["total_blocks"] >= 2
+
+    def test_json_compliance_no_json_blocks(self):
+        from backend.utils.core.benchmark_rubrics import RubricDimension, RubricEvaluator
+
+        evaluator = RubricEvaluator(logger=_mock_logger())
+        result = evaluator.evaluate(
+            model_name="m", task_name="t",
+            response_content="No JSON here, just text.",
+            task_data={}, duration_sec=1.0,
+            dimensions=[RubricDimension.STRICT_JSON],
+        )
+        assert result.dimension_results[0].score == 0.5  # Neutral
+
+    def test_reasoning_depth_with_dependency_ordering(self):
+        from backend.utils.core.benchmark_rubrics import RubricDimension, RubricEvaluator
+
+        evaluator = RubricEvaluator(logger=_mock_logger())
+        response = (
+            "## Plan\n"
+            "1. First, resolve the circular dependency between auth and database\n"
+            "2. Then, create an interface abstraction to decouple modules\n"
+            "3. Finally, use topological sort to determine build order\n"
+            "Because auth depends on database, we need to break the cycle.\n"
+            "Therefore, we'll use dependency injection to resolve this."
+        )
+        result = evaluator.evaluate(
+            model_name="m", task_name="t",
+            response_content=response,
+            task_data={}, duration_sec=5.0,
+            dimensions=[RubricDimension.REASONING_DEPTH],
+        )
+        score = result.dimension_results[0].score
+        assert score > 0.5, f"Expected high reasoning depth, got {score}"
+
+    def test_reasoning_depth_minimal_response(self):
+        from backend.utils.core.benchmark_rubrics import RubricDimension, RubricEvaluator
+
+        evaluator = RubricEvaluator(logger=_mock_logger())
+        result = evaluator.evaluate(
+            model_name="m", task_name="t",
+            response_content="Here is the code.",
+            task_data={}, duration_sec=1.0,
+            dimensions=[RubricDimension.REASONING_DEPTH],
+        )
+        assert result.dimension_results[0].score < 0.3
+
+    def test_context_utilization_with_ground_truth(self):
+        from backend.utils.core.benchmark_rubrics import RubricDimension, RubricEvaluator
+
+        evaluator = RubricEvaluator(logger=_mock_logger())
+        ground_truth = "The application uses Flask with SQLAlchemy for database access"
+        response = "This application uses Flask framework with SQLAlchemy ORM for database access and management"
+        result = evaluator.evaluate(
+            model_name="m", task_name="t",
+            response_content=response,
+            task_data={"ground_truth_summary": ground_truth},
+            duration_sec=2.0,
+            dimensions=[RubricDimension.CONTEXT_UTILIZATION],
+        )
+        score = result.dimension_results[0].score
+        assert score > 0.3, f"Expected decent context utilization, got {score}"
+        assert result.dimension_results[0].raw_data["has_ground_truth"] is True
+
+    def test_context_utilization_no_ground_truth(self):
+        from backend.utils.core.benchmark_rubrics import RubricDimension, RubricEvaluator
+
+        evaluator = RubricEvaluator(logger=_mock_logger())
+        result = evaluator.evaluate(
+            model_name="m", task_name="t",
+            response_content="A detailed response with many words about the project structure and implementation.",
+            task_data={"description": "Build a web app"},
+            duration_sec=2.0,
+            dimensions=[RubricDimension.CONTEXT_UTILIZATION],
+        )
+        assert result.dimension_results[0].raw_data["has_ground_truth"] is False
+
+    def test_speed_score_fast_response(self):
+        from backend.utils.core.benchmark_rubrics import RubricDimension, RubricEvaluator
+
+        evaluator = RubricEvaluator(logger=_mock_logger())
+        result = evaluator.evaluate(
+            model_name="m", task_name="t",
+            response_content="output",
+            task_data={"time_limit_minutes": 5},
+            duration_sec=30.0,  # 30s out of 300s limit = 10% used
+            dimensions=[RubricDimension.SPEED],
+        )
+        assert result.dimension_results[0].score == pytest.approx(0.9, abs=0.01)
+
+    def test_speed_score_slow_response(self):
+        from backend.utils.core.benchmark_rubrics import RubricDimension, RubricEvaluator
+
+        evaluator = RubricEvaluator(logger=_mock_logger())
+        result = evaluator.evaluate(
+            model_name="m", task_name="t",
+            response_content="output",
+            task_data={"time_limit_minutes": 5},
+            duration_sec=270.0,  # 270s out of 300s = 90% used
+            dimensions=[RubricDimension.SPEED],
+        )
+        assert result.dimension_results[0].score == pytest.approx(0.1, abs=0.01)
+
+    def test_evaluate_all_dimensions(self):
+        from backend.utils.core.benchmark_rubrics import RubricEvaluator
+
+        evaluator = RubricEvaluator(logger=_mock_logger())
+        result = evaluator.evaluate(
+            model_name="test-model",
+            task_name="test-task",
+            response_content='```json\n{"key": "value"}\n```\nStep 1: plan\nStep 2: implement',
+            task_data={"time_limit_minutes": 5, "description": "test"},
+            duration_sec=60.0,
+            dimensions=None,  # All dimensions
+        )
+        assert len(result.dimension_results) == 5
+        assert 0.0 <= result.overall_score <= 1.0
+
+    def test_multidimensional_rubric_phase_mapping(self):
+        from backend.utils.core.benchmark_rubrics import MultidimensionalRubric, RubricDimension
+
+        dims = MultidimensionalRubric.get_dimensions_for_task("structure_generation")
+        assert RubricDimension.STRICT_JSON in dims
+        assert RubricDimension.REASONING_DEPTH in dims
+
+        # Unknown task type returns all dimensions
+        all_dims = MultidimensionalRubric.get_dimensions_for_task("nonexistent_type")
+        assert len(all_dims) == 5
+
+
+# ============================================================
+# Affinity Matrix Tests
+# ============================================================
+class TestAffinityMatrix:
+    """Tests for Phase-Model affinity matrix."""
+
+    @pytest.fixture
+    def affinity_setup(self, tmp_path):
+        import datetime
+
+        bench_dir = tmp_path / "bench"
+        bench_dir.mkdir()
+        results = [
+            {
+                "model_name": "model-a",
+                "task_type": "coder",
+                "phase_name": "LogicPlanningPhase",
+                "success_rate": 0.9, "quality_score": 8.5,
+                "avg_tokens": 500, "avg_time_ms": 5000,
+            },
+            {
+                "model_name": "model-b",
+                "task_type": "coder",
+                "phase_name": "LogicPlanningPhase",
+                "success_rate": 0.7, "quality_score": 6.0,
+                "avg_tokens": 300, "avg_time_ms": 3000,
+            },
+        ]
+        for i, r in enumerate(results):
+            r["timestamp"] = datetime.datetime.now().isoformat()
+            with open(bench_dir / f"r_{i}.json", "w") as f:
+                json.dump(r, f)
+        return bench_dir
+
+    def test_build_matrix_from_benchmark_data(self, affinity_setup):
+        from backend.utils.core.benchmark_model_selector import AffinityMatrix, BenchmarkDatabase
+
+        db = BenchmarkDatabase(affinity_setup, _mock_logger())
+        matrix = AffinityMatrix(db, _mock_logger())
+        matrix.build()
+        data = matrix.to_dict()
+        assert "LogicPlanningPhase" in data
+        assert "model-a" in data["LogicPlanningPhase"]
+
+    def test_get_best_model_for_phase(self, affinity_setup):
+        from backend.utils.core.benchmark_model_selector import AffinityMatrix, BenchmarkDatabase
+
+        db = BenchmarkDatabase(affinity_setup, _mock_logger())
+        matrix = AffinityMatrix(db, _mock_logger())
+        matrix.build()
+        best = matrix.get_best_model_for_phase("LogicPlanningPhase")
+        assert best == "model-a"  # Higher success rate
+
+    def test_get_affinity_missing_pair(self, affinity_setup):
+        from backend.utils.core.benchmark_model_selector import AffinityMatrix, BenchmarkDatabase
+
+        db = BenchmarkDatabase(affinity_setup, _mock_logger())
+        matrix = AffinityMatrix(db, _mock_logger())
+        matrix.build()
+        assert matrix.get_affinity("NonexistentPhase", "model-a") == 0.0
+
+    def test_to_dict_serialization(self, affinity_setup):
+        from backend.utils.core.benchmark_model_selector import AffinityMatrix, BenchmarkDatabase
+
+        db = BenchmarkDatabase(affinity_setup, _mock_logger())
+        matrix = AffinityMatrix(db, _mock_logger())
+        matrix.build()
+        d = matrix.to_dict()
+        assert isinstance(d, dict)
+        for phase_models in d.values():
+            for score in phase_models.values():
+                assert isinstance(score, float)
+
+
+# ============================================================
+# Cost Efficiency Calculator Tests
+# ============================================================
+class TestCostEfficiencyCalculator:
+    """Tests for cost-efficiency ratio calculations."""
+
+    def test_small_fast_model_high_efficiency(self):
+        from backend.utils.core.benchmark_model_selector import CostEfficiencyCalculator
+
+        sizes = {"small-model": 5 * 1_073_741_824}  # 5GB = small tier
+        calc = CostEfficiencyCalculator(sizes, _mock_logger())
+        eff = calc.compute_efficiency("small-model", quality_score=8.0, avg_time_ms=1000, max_time_ms=10000)
+        assert eff > 10.0  # High efficiency: good quality, small, fast
+
+    def test_large_slow_model_low_efficiency(self):
+        from backend.utils.core.benchmark_model_selector import CostEfficiencyCalculator
+
+        sizes = {"large-model": 80 * 1_073_741_824}  # 80GB = xlarge tier
+        calc = CostEfficiencyCalculator(sizes, _mock_logger())
+        eff = calc.compute_efficiency("large-model", quality_score=8.0, avg_time_ms=9000, max_time_ms=10000)
+        assert eff < 5.0  # Low efficiency: same quality but huge and slow
+
+    def test_rank_models_by_efficiency(self):
+        import datetime
+
+        from backend.utils.core.benchmark_model_selector import BenchmarkDatabase, CostEfficiencyCalculator
+
+        # Create in-memory benchmark data
+        logger = _mock_logger()
+        sizes = {
+            "fast-small": 3 * 1_073_741_824,
+            "slow-large": 50 * 1_073_741_824,
+        }
+        calc = CostEfficiencyCalculator(sizes, logger)
+
+        # Create temp benchmark dir
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            bench_dir = Path(td)
+            results = [
+                {
+                    "model_name": "fast-small", "task_type": "coder",
+                    "success_rate": 0.8, "quality_score": 7.0,
+                    "avg_tokens": 300, "avg_time_ms": 2000,
+                    "timestamp": datetime.datetime.now().isoformat(),
+                },
+                {
+                    "model_name": "slow-large", "task_type": "coder",
+                    "success_rate": 0.9, "quality_score": 8.0,
+                    "avg_tokens": 500, "avg_time_ms": 8000,
+                    "timestamp": datetime.datetime.now().isoformat(),
+                },
+            ]
+            for i, r in enumerate(results):
+                with open(bench_dir / f"r_{i}.json", "w") as f:
+                    json.dump(r, f)
+
+            db = BenchmarkDatabase(bench_dir, logger)
+            rankings = calc.rank_models_by_efficiency(db, "coder")
+
+        assert len(rankings) == 2
+        # fast-small should rank higher due to size/speed advantage
+        assert rankings[0][0] == "fast-small"
+
+    def test_equal_quality_different_sizes(self):
+        from backend.utils.core.benchmark_model_selector import CostEfficiencyCalculator
+
+        sizes = {
+            "small": 5 * 1_073_741_824,
+            "large": 50 * 1_073_741_824,
+        }
+        calc = CostEfficiencyCalculator(sizes, _mock_logger())
+        small_eff = calc.compute_efficiency("small", 8.0, 5000, 10000)
+        large_eff = calc.compute_efficiency("large", 8.0, 5000, 10000)
+        assert small_eff > large_eff  # Same quality/speed, smaller model wins
+
+
+# ============================================================
+# Weighted Phase Loss Tests
+# ============================================================
+class TestWeightedPhaseLoss:
+    """Tests for the weighted phase loss function."""
+
+    def test_critical_phase_higher_weight(self):
+        from backend.utils.core.benchmark_model_selector import BenchmarkDatabase
+
+        logger = _mock_logger()
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            db = BenchmarkDatabase(Path(td), logger)
+
+        # Scenario: model fails on SeniorReview (weight=3.0) but aces Readme (weight=0.5)
+        phase_results = {
+            "SeniorReviewPhase": 0.2,  # Bad
+            "ReadmeGenerationPhase": 1.0,  # Perfect
+        }
+        loss = db.weighted_phase_loss("model-x", phase_results)
+        # Loss should be dominated by SeniorReview failure
+        assert loss > 0.5, f"Loss should be high due to SeniorReview failure, got {loss}"
+
+    def test_zero_loss_perfect_scores(self):
+        from backend.utils.core.benchmark_model_selector import BenchmarkDatabase
+
+        logger = _mock_logger()
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            db = BenchmarkDatabase(Path(td), logger)
+
+        phase_results = {
+            "SeniorReviewPhase": 1.0,
+            "LogicPlanningPhase": 1.0,
+            "ReadmeGenerationPhase": 1.0,
+        }
+        loss = db.weighted_phase_loss("model-x", phase_results)
+        assert loss == pytest.approx(0.0)
+
+    def test_custom_weights(self):
+        from backend.utils.core.benchmark_model_selector import BenchmarkDatabase
+
+        logger = _mock_logger()
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            db = BenchmarkDatabase(Path(td), logger)
+
+        custom_weights = {"PhaseA": 10.0, "PhaseB": 1.0}
+        results = {"PhaseA": 0.0, "PhaseB": 1.0}
+        loss = db.weighted_phase_loss("m", results, phase_weights=custom_weights)
+        # PhaseA has weight 10, score 0 -> loss contribution = 10
+        # PhaseB has weight 1, score 1 -> loss contribution = 0
+        # Total = 10/11 ≈ 0.909
+        assert loss == pytest.approx(10.0 / 11.0, abs=0.01)
+
+
+# ============================================================
+# Shadow Evaluator Tests
+# ============================================================
+class TestShadowEvaluator:
+    """Tests for the shadow evaluation system."""
+
+    @pytest.fixture
+    def mock_publisher(self):
+        pub = MagicMock()
+        pub.subscribe = MagicMock()
+        pub.unsubscribe = MagicMock()
+        return pub
+
+    def test_start_subscribes_to_events(self, mock_publisher, tmp_path):
+        from backend.utils.core.shadow_evaluator import ShadowEvaluator
+
+        evaluator = ShadowEvaluator(
+            logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path
+        )
+        evaluator.start()
+        assert mock_publisher.subscribe.call_count == 2
+        assert evaluator._active is True
+
+    def test_stop_unsubscribes_and_persists(self, mock_publisher, tmp_path):
+        from backend.utils.core.shadow_evaluator import ShadowEvaluator, ShadowLog
+
+        evaluator = ShadowEvaluator(
+            logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path
+        )
+        evaluator.start()
+        evaluator.record_shadow_log(ShadowLog(
+            timestamp=1.0, phase_name="TestPhase", model_name="m",
+            input_hash="abc", output_preview="test",
+        ))
+        evaluator.stop()
+        assert mock_publisher.unsubscribe.call_count == 2
+        assert evaluator._active is False
+        # Check file was persisted
+        import glob as globmod
+        log_files = globmod.glob(str(tmp_path / "shadow_logs_*.json"))
+        assert len(log_files) == 1
+
+    def test_record_shadow_log(self, mock_publisher, tmp_path):
+        from backend.utils.core.shadow_evaluator import ShadowEvaluator, ShadowLog
+
+        evaluator = ShadowEvaluator(
+            logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path
+        )
+        log = ShadowLog(
+            timestamp=1.0, phase_name="P1", model_name="model-a",
+            input_hash="h1", output_preview="output",
+        )
+        evaluator.record_shadow_log(log)
+        assert len(evaluator._logs) == 1
+
+    def test_correction_rate_calculation(self, mock_publisher, tmp_path):
+        from backend.utils.core.shadow_evaluator import ShadowEvaluator, ShadowLog
+
+        evaluator = ShadowEvaluator(
+            logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path
+        )
+        # 2 logs: 1 with correction, 1 without
+        evaluator.record_shadow_log(ShadowLog(
+            timestamp=1.0, phase_name="P1", model_name="model-a",
+            input_hash="h1", output_preview="out1", critic_correction="fix this",
+        ))
+        evaluator.record_shadow_log(ShadowLog(
+            timestamp=2.0, phase_name="P1", model_name="model-a",
+            input_hash="h2", output_preview="out2",
+        ))
+        rate = evaluator.get_correction_rate("model-a")
+        assert rate == pytest.approx(0.5)
+
+    def test_correction_rate_above_threshold(self, mock_publisher, tmp_path):
+        from backend.utils.core.shadow_evaluator import ShadowEvaluator, ShadowLog
+
+        evaluator = ShadowEvaluator(
+            logger=_mock_logger(), event_publisher=mock_publisher,
+            log_dir=tmp_path, critic_threshold=0.3,
+        )
+        # All corrected
+        for i in range(5):
+            evaluator.record_shadow_log(ShadowLog(
+                timestamp=float(i), phase_name="P1", model_name="bad-model",
+                input_hash=f"h{i}", output_preview=f"out{i}",
+                critic_correction="rewrite needed",
+            ))
+        assert evaluator.is_model_flagged("bad-model") is True
+        assert evaluator.is_model_flagged("other-model") is False
+
+    def test_performance_report_generation(self, mock_publisher, tmp_path):
+        from backend.utils.core.shadow_evaluator import ShadowEvaluator, ShadowLog
+
+        evaluator = ShadowEvaluator(
+            logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path
+        )
+        evaluator.record_shadow_log(ShadowLog(
+            timestamp=1.0, phase_name="P1", model_name="m1",
+            input_hash="h1", output_preview="out",
+            critic_correction="fix", correction_severity=0.5,
+        ))
+        evaluator.record_shadow_log(ShadowLog(
+            timestamp=2.0, phase_name="P2", model_name="m1",
+            input_hash="h2", output_preview="out",
+        ))
+        report = evaluator.get_performance_report()
+        assert report["total_logs"] == 2
+        assert "m1" in report["models"]
+        assert report["models"]["m1"]["total_evaluations"] == 2
+        assert report["models"]["m1"]["corrections"] == 1
+        assert report["models"]["m1"]["correction_rate"] == pytest.approx(0.5)
+
+
+# ============================================================
+# Phase Failure Database Tests
+# ============================================================
+class TestPhaseFailureDatabase:
+    """Tests for the phase failure tracking database."""
+
+    def test_record_failure(self, tmp_path):
+        from backend.utils.core.phase_failure_db import PhaseFailureDatabase, PhaseFailureRecord
+
+        db = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger())
+        db.record_failure(PhaseFailureRecord(
+            model_name="model-a", phase_name="SeniorReviewPhase",
+            failure_type="exception", timestamp=1.0, details="timeout",
+        ))
+        assert db.get_failure_count("model-a", "SeniorReviewPhase") == 1
+
+    def test_model_becomes_unsuitable_after_threshold(self, tmp_path):
+        from backend.utils.core.phase_failure_db import PhaseFailureDatabase, PhaseFailureRecord
+
+        db = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger(), unsuitability_threshold=3)
+        for i in range(3):
+            db.record_failure(PhaseFailureRecord(
+                model_name="bad-model", phase_name="LogicPlanningPhase",
+                failure_type="loop_detected", timestamp=float(i),
+            ))
+        assert db.is_model_suitable("bad-model", "LogicPlanningPhase") is False
+        assert db.is_model_suitable("good-model", "LogicPlanningPhase") is True
+
+    def test_is_model_suitable_true(self, tmp_path):
+        from backend.utils.core.phase_failure_db import PhaseFailureDatabase
+
+        db = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger())
+        assert db.is_model_suitable("any-model", "AnyPhase") is True
+
+    def test_is_model_suitable_false(self, tmp_path):
+        from backend.utils.core.phase_failure_db import PhaseFailureDatabase, PhaseFailureRecord
+
+        db = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger(), unsuitability_threshold=2)
+        for i in range(2):
+            db.record_failure(PhaseFailureRecord(
+                model_name="m1", phase_name="P1",
+                failure_type="timeout", timestamp=float(i),
+            ))
+        assert db.is_model_suitable("m1", "P1") is False
+
+    def test_load_and_save_persistence(self, tmp_path):
+        from backend.utils.core.phase_failure_db import PhaseFailureDatabase, PhaseFailureRecord
+
+        # Create DB, add records, let it save
+        db1 = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger(), unsuitability_threshold=2)
+        db1.record_failure(PhaseFailureRecord(
+            model_name="m1", phase_name="P1",
+            failure_type="exception", timestamp=1.0,
+        ))
+        db1.record_failure(PhaseFailureRecord(
+            model_name="m1", phase_name="P1",
+            failure_type="exception", timestamp=2.0,
+        ))
+        # Create new DB instance from same dir - should load persisted data
+        db2 = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger(), unsuitability_threshold=2)
+        assert db2.get_failure_count("m1", "P1") == 2
+        assert db2.is_model_suitable("m1", "P1") is False
+
+    def test_failure_summary(self, tmp_path):
+        from backend.utils.core.phase_failure_db import PhaseFailureDatabase, PhaseFailureRecord
+
+        db = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger())
+        db.record_failure(PhaseFailureRecord(
+            model_name="m1", phase_name="P1",
+            failure_type="exception", timestamp=1.0,
+        ))
+        db.record_failure(PhaseFailureRecord(
+            model_name="m2", phase_name="P1",
+            failure_type="loop_detected", timestamp=2.0,
+        ))
+        summary = db.get_failure_summary()
+        assert summary["total_failures"] == 2
+        assert "P1" in summary["phases"]
+        assert "m1" in summary["phases"]["P1"]
+        assert "m2" in summary["phases"]["P1"]
+
+
+# ============================================================
+# Benchmark Validation Tests
+# ============================================================
+class TestBenchmarkValidation:
+    """Tests for dependency hallucination and refactoring validation."""
+
+    def test_dependency_hallucination_all_valid(self):
+        from backend.agents.auto_benchmarker import ModelBenchmarker
+
+        benchmarker = ModelBenchmarker.__new__(ModelBenchmarker)
+        benchmarker.logger = _mock_logger()
+        response = "```text\nflask==2.3.0\nrequests==2.31.0\nnumpy==1.24.0\n```"
+        result = benchmarker._validate_dependency_hallucination(response)
+        assert result["total_packages"] == 3
+        assert result["hallucination_rate"] == 0.0
+        assert len(result["hallucinated_packages"]) == 0
+
+    def test_dependency_hallucination_with_fake_packages(self):
+        from backend.agents.auto_benchmarker import ModelBenchmarker
+
+        benchmarker = ModelBenchmarker.__new__(ModelBenchmarker)
+        benchmarker.logger = _mock_logger()
+        response = "```text\nflask==2.3.0\nfake_nonexistent_pkg==1.0\nmagic_unicorn_lib==3.0\n```"
+        result = benchmarker._validate_dependency_hallucination(response)
+        assert result["total_packages"] == 3
+        assert result["verified_packages"] == 1
+        assert len(result["hallucinated_packages"]) == 2
+        assert result["hallucination_rate"] == pytest.approx(2 / 3, abs=0.01)
+
+    def test_refactoring_quality_flask_to_fastapi(self):
+        from backend.agents.auto_benchmarker import ModelBenchmarker
+
+        benchmarker = ModelBenchmarker.__new__(ModelBenchmarker)
+        benchmarker.logger = _mock_logger()
+        response = (
+            "from fastapi import FastAPI, HTTPException\n"
+            "from pydantic import BaseModel\n\n"
+            "app = FastAPI()\n\n"
+            "@app.get('/api/users')\n"
+            "async def list_users():\n"
+            "    return []\n\n"
+            "@app.post('/api/users')\n"
+            "async def create_user():\n"
+            "    return {}\n\n"
+            "@app.delete('/api/users/{id}')\n"
+            "async def delete_user(id: int):\n"
+            "    return {}\n"
+        )
+        result = benchmarker._validate_refactoring_quality(response, "flask", "fastapi")
+        assert result["original_removed"] is True
+        assert result["target_added"] is True
+        assert result["target_route_count"] >= 3
+        assert result["refactoring_score"] > 0.5
+
+    def test_refactoring_quality_missing_target_imports(self):
+        from backend.agents.auto_benchmarker import ModelBenchmarker
+
+        benchmarker = ModelBenchmarker.__new__(ModelBenchmarker)
+        benchmarker.logger = _mock_logger()
+        response = "from flask import Flask\napp = Flask(__name__)\n@app.route('/test')\ndef test(): pass"
+        result = benchmarker._validate_refactoring_quality(response, "flask", "fastapi")
+        assert result["original_removed"] is False  # Flask still present
+        assert result["target_added"] is False  # FastAPI not found
+        assert result["refactoring_score"] < 0.5
+
+
+# ============================================================
+# Benchmark Config Schema Tests
+# ============================================================
+class TestBenchmarkConfigSchema:
+    """Tests for BenchmarkConfig Pydantic schema."""
+
+    def test_default_benchmark_config(self):
+        from backend.core.config_schemas import BenchmarkConfig
+
+        config = BenchmarkConfig()
+        assert config.shadow_evaluation_enabled is False
+        assert config.shadow_critic_threshold == 0.3
+        assert config.phase_failure_threshold == 3
+        assert config.cost_efficiency_weight == 0.3
+        assert config.rubric_evaluation_enabled is True
+
+    def test_tool_settings_includes_benchmark(self):
+        from backend.core.config_schemas import ToolSettingsConfig
+
+        config = ToolSettingsConfig()
+        assert hasattr(config, "benchmark")
+        assert config.benchmark.shadow_evaluation_enabled is False
+
+    def test_custom_benchmark_config(self):
+        from backend.core.config_schemas import BenchmarkConfig
+
+        config = BenchmarkConfig(
+            shadow_evaluation_enabled=True,
+            shadow_critic_threshold=0.5,
+            phase_failure_threshold=5,
+            cost_efficiency_weight=0.7,
+        )
+        assert config.shadow_evaluation_enabled is True
+        assert config.shadow_critic_threshold == 0.5
+        assert config.phase_failure_threshold == 5
+
+
+# ============================================================
+# Base Phase Shadow Hooks Tests
+# ============================================================
+class TestBasePhaseHooks:
+    """Tests for shadow evaluation and failure hooks in BasePhase."""
+
+    def test_shadow_evaluate_publish_on_success(self):
+        from backend.agents.auto_agent_phases.base_phase import BasePhase
+
+        mock_context = MagicMock()
+        mock_context.event_publisher = MagicMock()
+        mock_context.logger = _mock_logger()
+
+        phase = BasePhase.__new__(BasePhase)
+        phase.context = mock_context
+        phase.phase_id = "TestPhase"
+        phase.phase_label = "Test"
+
+        result = ({"file.py": "content"}, {}, ["file.py"])
+        phase._publish_shadow_evaluate(result)
+
+        mock_context.event_publisher.publish.assert_called_once()
+        call_args = mock_context.event_publisher.publish.call_args
+        assert call_args[0][0] == "shadow_evaluate"
+
+    def test_phase_failure_publish(self):
+        from backend.agents.auto_agent_phases.base_phase import BasePhase
+
+        mock_context = MagicMock()
+        mock_context.event_publisher = MagicMock()
+        mock_context.logger = _mock_logger()
+
+        phase = BasePhase.__new__(BasePhase)
+        phase.context = mock_context
+        phase.phase_id = "TestPhase"
+        phase.phase_label = "Test"
+
+        phase._publish_phase_failure("exception", "some error")
+
+        mock_context.event_publisher.publish.assert_called_once()
+        call_args = mock_context.event_publisher.publish.call_args
+        assert call_args[0][0] == "phase_failure"
+
+    def test_shadow_hooks_never_raise(self):
+        from backend.agents.auto_agent_phases.base_phase import BasePhase
+
+        mock_context = MagicMock()
+        mock_context.event_publisher.publish.side_effect = RuntimeError("boom")
+        mock_context.logger = _mock_logger()
+
+        phase = BasePhase.__new__(BasePhase)
+        phase.context = mock_context
+        phase.phase_id = "TestPhase"
+        phase.phase_label = "Test"
+
+        # These should not raise despite the RuntimeError
+        phase._publish_shadow_evaluate(None)
+        phase._publish_phase_failure("exception", "details")

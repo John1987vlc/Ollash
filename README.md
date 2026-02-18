@@ -19,7 +19,7 @@
 - **Knowledge Workspace** &mdash; ChromaDB-backed RAG context selection, knowledge graph building, cross-reference analysis, and decision memory.
 - **Proactive Automation** &mdash; Trigger-based automation with scheduling (APScheduler), real-time alerts, webhook notifications (Slack, Discord, Teams), and system monitoring.
 - **Image Generation** &mdash; InvokeAI 6.10+ integration supporting text-to-image and image-to-image with FLUX, Stable Diffusion, Dreamshaper, and Juggernaut XL models.
-- **Model Benchmarking** &mdash; Benchmark LLM models on project generation tasks and auto-select the best model per role.
+- **Model Benchmarking** &mdash; Benchmark LLM models with multidimensional rubrics, dynamic model routing via affinity matrix, continuous shadow evaluation, and visual comparison API.
 - **Dependency Injection** &mdash; Full DI via `dependency-injector` for testable, modular architecture.
 
 ---
@@ -184,6 +184,62 @@ Clone existing Git repositories directly from the Web UI. Validates URLs (HTTPS/
 ### DevOps & Security
 - **Docker Sandbox** &mdash; Primary execution sandbox using ephemeral Docker containers with network isolation, memory/CPU limits, and auto-cleanup.
 - **Multi-Provider LLM Support** &mdash; `MultiProviderManager` for routing LLM requests to Ollama, Groq, Together, OpenRouter, or any OpenAI-compatible API. Role-based provider selection.
+
+### Benchmark & Continuous Learning (v2.1)
+
+#### Multidimensional Rubric Evaluation
+Replaces binary pass/fail scoring with 5-dimension evaluation via `RubricEvaluator`:
+- **Strict JSON** &mdash; Parse ```json blocks and standalone JSON, count valid/malformed structures.
+- **Reasoning Depth** &mdash; Keyword heuristics (27 reasoning indicators), structured step detection, dependency analysis.
+- **Context Utilization** &mdash; Token overlap with ground truth (precision/recall/F1), hallucination ratio detection.
+- **Creativity** &mdash; File type diversity, design pattern detection (16 patterns), completeness indicators.
+- **Speed** &mdash; Normalized duration against time limits.
+
+**Key file:** `backend/utils/core/benchmark_rubrics.py`
+
+#### Dynamic Model Router (Affinity Matrix + Cost-Efficiency)
+Enhanced `AutoModelSelector` with intelligent model-to-phase mapping:
+- **AffinityMatrix** &mdash; Builds a phase-model scoring table from benchmark data. `get_best_model_for_phase()` returns the highest-affinity model.
+- **CostEfficiencyCalculator** &mdash; Recommends smaller/faster models when quality is acceptable: `efficiency = quality / (time * size_factor)`.
+- **Weighted Phase Loss** &mdash; Custom loss function weighting critical phases higher (SeniorReview=3.0, LogicPlanning=2.0, Readme=0.5).
+- **PhaseFailureDatabase** integration &mdash; Automatically excludes models marked unsuitable for specific phases.
+
+**Key files:** `backend/utils/core/benchmark_model_selector.py`, `backend/utils/core/phase_failure_db.py`
+
+#### Continuous Learning (Shadow Evaluation)
+In-process monitoring that runs alongside the pipeline without affecting it:
+- **ShadowEvaluator** &mdash; Subscribes to `EventPublisher` events, compares model output against a critic, flags models with high correction rates (configurable threshold).
+- **PhaseFailureDatabase** &mdash; Tracks failures per (model, phase) pair. After N failures (default 3), marks the model as "unsuitable" for that phase.
+- **BasePhase hooks** &mdash; All pipeline phases automatically publish `shadow_evaluate` and `phase_failure` events (wrapped in try/except to never break the pipeline).
+
+**Key files:** `backend/utils/core/shadow_evaluator.py`, `backend/utils/core/phase_failure_db.py`, `backend/agents/auto_agent_phases/base_phase.py`
+
+#### New Benchmark Tests
+- **Critical Refactoring** &mdash; Flask-to-FastAPI migration: verifies import swaps, route preservation, and framework-specific pattern conversion.
+- **Dependency Hallucination** &mdash; Validates generated `requirements.txt` packages against a known-good list of ~70 real Python packages.
+
+**Key file:** `backend/agents/auto_benchmarker.py`
+
+#### Visual Comparison API
+Two new REST endpoints for benchmark visualization:
+- `GET /api/benchmark/radar/<model_name>` &mdash; Returns 5-dimension radar chart data (Code, Logic, Speed, Format, Creativity) aggregated from rubric + thematic scores.
+- `GET /api/benchmark/optimal-pipeline` &mdash; Returns recommended model-per-phase mapping using AffinityMatrix + CostEfficiency, with optional `?efficiency_weight=` parameter.
+
+**Key file:** `frontend/blueprints/benchmark_bp.py`
+
+#### Configuration
+New `BenchmarkConfig` schema in `config_schemas.py`:
+```json
+{
+  "shadow_evaluation_enabled": false,
+  "shadow_critic_threshold": 0.3,
+  "phase_failure_db_dir": ".cache/phase_failures",
+  "phase_failure_threshold": 3,
+  "cost_efficiency_weight": 0.3,
+  "rubric_evaluation_enabled": true,
+  "shadow_log_dir": ".cache/shadow_logs"
+}
+```
 
 ---
 
@@ -372,8 +428,11 @@ Ollash/
 │       │   ├── refactoring_analyzer.py     # SOLID code analysis
 │       │   ├── voice_intent_classifier.py  # Advanced voice commands
 │       │   ├── vulnerability_scanner.py    # Security scanning
-│       │   └── wasm_sandbox.py             # WebAssembly + Docker sandbox isolation
-│       │   └── embedding_cache.py          # LRU cache with batch ops + SQLite backend
+│       │   ├── wasm_sandbox.py             # WebAssembly + Docker sandbox isolation
+│       │   ├── embedding_cache.py          # LRU cache with batch ops + SQLite backend
+│       │   ├── benchmark_rubrics.py        # Multidimensional rubric evaluation (5 dimensions)
+│       │   ├── shadow_evaluator.py         # Continuous shadow evaluation + critic monitoring
+│       │   └── phase_failure_db.py         # Phase failure tracking per (model, phase) pair
 │       └── domains/         # Tools by domain (code, network, system, cyber, etc.)
 ├── frontend/
 │   ├── blueprints/          # 22 Flask blueprints

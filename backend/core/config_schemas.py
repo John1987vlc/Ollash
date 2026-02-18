@@ -152,6 +152,41 @@ class AgentFeaturesConfig(BaseModel):
         populate_by_name = True  # Allow using aliases for field names
 
 
+# --- Benchmark Configuration Schema ---
+class BenchmarkConfig(BaseModel):
+    """Configuration for benchmark and continuous learning features."""
+
+    shadow_evaluation_enabled: bool = Field(
+        False, description="Enable shadow evaluation during pipeline runs."
+    )
+    shadow_critic_threshold: float = Field(
+        0.3,
+        ge=0.0,
+        le=1.0,
+        description="Correction rate threshold to flag a model as underperforming.",
+    )
+    phase_failure_db_dir: str = Field(
+        ".cache/phase_failures",
+        description="Directory for phase failure database storage.",
+    )
+    phase_failure_threshold: PositiveInt = Field(
+        3, description="Number of failures before marking model unsuitable for a phase."
+    )
+    cost_efficiency_weight: float = Field(
+        0.3,
+        ge=0.0,
+        le=1.0,
+        description="Weight of cost-efficiency in model selection (vs raw quality).",
+    )
+    rubric_evaluation_enabled: bool = Field(
+        True, description="Enable multidimensional rubric evaluation in benchmarks."
+    )
+    shadow_log_dir: str = Field(
+        ".cache/shadow_logs",
+        description="Directory for shadow evaluation logs.",
+    )
+
+
 # --- Tool Settings Configuration Schema ---
 class RateLimitingConfig(BaseModel):
     requests_per_minute: PositiveInt = 60
@@ -250,6 +285,9 @@ class ToolSettingsConfig(BaseModel):
     wasm_runtime: str = Field("wasmtime", description="WebAssembly runtime to use (wasmtime or wasmer).")
     plugins_dir: str = Field("plugins", description="Directory for third-party plugins.")
     enabled_plugins: List[str] = Field(default_factory=list, description="List of enabled plugin IDs.")
+
+    # Benchmark and continuous learning
+    benchmark: BenchmarkConfig = Field(default_factory=BenchmarkConfig)
 
     class Config:
         extra = "allow"

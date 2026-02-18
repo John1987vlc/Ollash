@@ -1,14 +1,16 @@
 import json
+import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import requests
 
 # Use the new centralized config
 from backend.core.config import config as central_config
 from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.benchmark_rubrics import MultidimensionalRubric, RubricEvaluator
 from backend.utils.core.file_validator import FileValidator
 from backend.utils.core.heartbeat import Heartbeat
 from backend.utils.core.llm_recorder import LLMRecorder
@@ -91,6 +93,7 @@ class ModelBenchmarker:
         self.embedding_models = [embedding_model_name]
 
         self.test_tasks = self._load_tasks()
+        self.rubric_evaluator = RubricEvaluator(logger=self.logger)
 
         self.thematic_categories = {
             "Generacion_Aplicaciones": [
@@ -242,6 +245,39 @@ class ModelBenchmarker:
 
                     self._save_generated_project(project_path, task_response_content, task_description)
 
+                    # Rubric evaluation (multidimensional scoring)
+                    try:
+                        rubric_dimensions = MultidimensionalRubric.get_dimensions_for_task(task_type)
+                        rubric_result = self.rubric_evaluator.evaluate(
+                            model_name=model_name,
+                            task_name=task_name,
+                            response_content=task_response_content,
+                            task_data=task_data,
+                            duration_sec=time.time() - task_start,
+                            dimensions=rubric_dimensions,
+                        )
+                    except Exception as rubric_err:
+                        self.logger.warning(f"Rubric evaluation failed: {rubric_err}")
+                        rubric_result = None
+
+                    # Specialized validation for specific task types
+                    try:
+                        validation_type = task_data.get("validation")
+                        validation_result = {}
+                        if validation_type == "dependency_hallucination":
+                            validation_result = self._validate_dependency_hallucination(
+                                task_response_content
+                            )
+                        elif validation_type == "refactoring":
+                            validation_result = self._validate_refactoring_quality(
+                                task_response_content,
+                                task_data.get("original_framework", ""),
+                                task_data.get("target_framework", ""),
+                            )
+                    except Exception as val_err:
+                        self.logger.warning(f"Validation failed: {val_err}")
+                        validation_result = {}
+
                 except Exception as e:
                     task_status = f"Failed: {str(e)}"
                     model_overall_status = "Failed (some tasks failed)"
@@ -258,23 +294,31 @@ class ModelBenchmarker:
                     flush=True,
                 )
 
-                outputs.append(
-                    {
-                        "task_name": task_name,
-                        "task_description": task_description,
-                        "type": task_type,
-                        "status": task_status,
-                        "response_preview": (
-                            task_response_content[:500] + "..."
-                            if len(task_response_content) > 500
-                            else task_response_content
-                        ),
-                        "project_dir": str(project_path),
-                        "tokens_prompt": task_tokens_prompt,
-                        "tokens_completion": task_tokens_completion,
-                        "duration_sec": round(task_elapsed, 2),
-                    }
-                )
+                task_output = {
+                    "task_name": task_name,
+                    "task_description": task_description,
+                    "type": task_type,
+                    "status": task_status,
+                    "response_preview": (
+                        task_response_content[:500] + "..."
+                        if len(task_response_content) > 500
+                        else task_response_content
+                    ),
+                    "project_dir": str(project_path),
+                    "tokens_prompt": task_tokens_prompt,
+                    "tokens_completion": task_tokens_completion,
+                    "duration_sec": round(task_elapsed, 2),
+                }
+
+                # Attach rubric scores if available
+                if task_status == "Success" and rubric_result is not None:
+                    task_output["rubric_scores"] = rubric_result.to_dict()
+
+                # Attach validation results if available
+                if task_status == "Success" and validation_result:
+                    task_output["validation_result"] = validation_result
+
+                outputs.append(task_output)
 
             model_duration = time.time() - model_start_time
             model_mins, model_secs = divmod(int(model_duration), 60)
@@ -303,6 +347,9 @@ class ModelBenchmarker:
             tokens_generated = tracker.session_total_tokens
             tokens_per_second = round(tokens_generated / model_duration, 2) if model_duration > 0 else 0.0
 
+            # Aggregate rubric scores across all tasks for this model
+            aggregated_rubric_scores = self._aggregate_rubric_scores(outputs)
+
             self.results.append(
                 {
                     "model": model_name,
@@ -324,6 +371,7 @@ class ModelBenchmarker:
                         "total": tokens_generated,
                     },
                     "thematic_scores": final_thematic,
+                    "rubric_scores": aggregated_rubric_scores,
                     "projects_results": outputs,
                 }
             )
@@ -347,7 +395,285 @@ class ModelBenchmarker:
             except Exception as e:
                 self.logger.error(f"Error saving {file_path}: {e}")
 
-    # ... (Advanced metrics methods remain the same) ...
+    # Special benchmark tasks for advanced evaluation
+    SPECIAL_BENCHMARK_TASKS = [
+        {
+            "name": "flask_to_fastapi_refactor",
+            "type": "critical_refactoring",
+            "difficulty": "advanced",
+            "description": (
+                "Refactor the following Flask application to FastAPI, preserving all "
+                "route logic, error handling, and middleware. The app has: "
+                "GET /api/users, POST /api/users, GET /api/users/<id>, "
+                "DELETE /api/users/<id>, with JWT auth middleware and SQLAlchemy ORM. "
+                "Ensure all endpoints use async/await and Pydantic models for validation."
+            ),
+            "validation": "refactoring",
+            "original_framework": "flask",
+            "target_framework": "fastapi",
+            "time_limit_minutes": 8,
+        },
+        {
+            "name": "dependency_hallucination_check",
+            "type": "dependency_verification",
+            "difficulty": "intermediate",
+            "description": (
+                "Generate a complete requirements.txt for a Python ML pipeline that "
+                "performs: image segmentation using U-Net, data augmentation with albumentations, "
+                "experiment tracking with MLflow, distributed training with Horovod, "
+                "and model serving with BentoML. Include exact version pins."
+            ),
+            "validation": "dependency_hallucination",
+            "time_limit_minutes": 3,
+        },
+    ]
+
+    # Well-known Python packages for hallucination detection
+    KNOWN_PACKAGES = {
+        "flask",
+        "fastapi",
+        "django",
+        "requests",
+        "numpy",
+        "pandas",
+        "scipy",
+        "scikit-learn",
+        "sklearn",
+        "torch",
+        "pytorch",
+        "tensorflow",
+        "keras",
+        "transformers",
+        "pytest",
+        "black",
+        "ruff",
+        "mypy",
+        "pydantic",
+        "sqlalchemy",
+        "alembic",
+        "celery",
+        "redis",
+        "pillow",
+        "pil",
+        "matplotlib",
+        "seaborn",
+        "plotly",
+        "uvicorn",
+        "gunicorn",
+        "jinja2",
+        "click",
+        "typer",
+        "rich",
+        "httpx",
+        "aiohttp",
+        "beautifulsoup4",
+        "bs4",
+        "lxml",
+        "cryptography",
+        "jwt",
+        "pyjwt",
+        "bcrypt",
+        "passlib",
+        "boto3",
+        "botocore",
+        "docker",
+        "psycopg2",
+        "pymongo",
+        "motor",
+        "elasticsearch",
+        "mlflow",
+        "albumentations",
+        "bentoml",
+        "horovod",
+        "opencv-python",
+        "cv2",
+        "tqdm",
+        "loguru",
+        "structlog",
+        "starlette",
+        "werkzeug",
+        "marshmallow",
+        "attrs",
+        "dataclasses",
+        "typing-extensions",
+        "python-dotenv",
+        "toml",
+        "pyyaml",
+        "yaml",
+        "orjson",
+        "ujson",
+        "onnx",
+        "onnxruntime",
+        "ray",
+        "dask",
+        "joblib",
+        "multiprocessing",
+        "asyncio",
+        "aiofiles",
+        "websockets",
+        "grpcio",
+        "protobuf",
+        "pika",
+        "kombu",
+    }
+
+    def _aggregate_rubric_scores(self, outputs: List[Dict]) -> Dict[str, Any]:
+        """Aggregate rubric scores across all tasks for a model.
+
+        Returns averaged scores per dimension and overall.
+        """
+        dimension_totals: Dict[str, List[float]] = {}
+
+        for output in outputs:
+            rubric = output.get("rubric_scores")
+            if not rubric or "dimensions" not in rubric:
+                continue
+            for dim_name, dim_data in rubric["dimensions"].items():
+                if dim_name not in dimension_totals:
+                    dimension_totals[dim_name] = []
+                dimension_totals[dim_name].append(dim_data.get("score", 0.0))
+
+        aggregated = {}
+        for dim_name, scores in dimension_totals.items():
+            aggregated[dim_name] = round(sum(scores) / len(scores), 4) if scores else 0.0
+
+        overall_scores = [s for scores in dimension_totals.values() for s in scores]
+        aggregated["overall"] = round(sum(overall_scores) / len(overall_scores), 4) if overall_scores else 0.0
+
+        return aggregated
+
+    def _validate_dependency_hallucination(self, response_content: str) -> Dict[str, Any]:
+        """Parse requirements from response and check for hallucinated packages.
+
+        Extracts package names from requirements.txt-style content and
+        verifies against a known-good package list.
+
+        Returns:
+            Dict with total_packages, verified_packages, hallucinated_packages,
+            and hallucination_rate.
+        """
+        # Extract requirements.txt content from code blocks or inline
+        req_pattern = re.compile(
+            r"(?:```(?:text|txt|requirements)?\s*\n)(.*?)(?:```)",
+            re.DOTALL,
+        )
+        req_blocks = req_pattern.findall(response_content)
+
+        # Also try to find inline package==version patterns
+        if not req_blocks:
+            lines = response_content.split("\n")
+            req_lines = [
+                line.strip()
+                for line in lines
+                if re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*(?:\[.*\])?\s*[=<>!~]", line.strip())
+            ]
+            req_blocks = ["\n".join(req_lines)] if req_lines else []
+
+        packages = []
+        for block in req_blocks:
+            for line in block.strip().split("\n"):
+                line = line.strip()
+                if not line or line.startswith("#") or line.startswith("-"):
+                    continue
+                # Extract package name (before version specifier)
+                match = re.match(r"^([a-zA-Z][a-zA-Z0-9_.-]*)", line)
+                if match:
+                    pkg_name = match.group(1).lower().replace("-", "_").replace(".", "_")
+                    packages.append(pkg_name)
+
+        if not packages:
+            return {
+                "total_packages": 0,
+                "verified_packages": 0,
+                "hallucinated_packages": [],
+                "hallucination_rate": 0.0,
+            }
+
+        # Check against known packages
+        known_normalized = {p.lower().replace("-", "_").replace(".", "_") for p in self.KNOWN_PACKAGES}
+        verified = []
+        hallucinated = []
+        for pkg in packages:
+            if pkg in known_normalized:
+                verified.append(pkg)
+            else:
+                hallucinated.append(pkg)
+
+        total = len(packages)
+        return {
+            "total_packages": total,
+            "verified_packages": len(verified),
+            "hallucinated_packages": hallucinated,
+            "hallucination_rate": round(len(hallucinated) / total, 4) if total > 0 else 0.0,
+        }
+
+    def _validate_refactoring_quality(
+        self, response_content: str, original_framework: str, target_framework: str
+    ) -> Dict[str, Any]:
+        """Validate quality of framework refactoring.
+
+        Checks:
+        1. Original framework imports removed
+        2. Target framework imports added
+        3. Route/endpoint preservation
+        4. Overall refactoring score
+
+        Returns:
+            Dict with original_removed, target_added, route_preservation_ratio,
+            and refactoring_score.
+        """
+        response_lower = response_content.lower()
+
+        # Check framework import patterns
+        framework_imports = {
+            "flask": [r"from\s+flask\s+import", r"import\s+flask"],
+            "fastapi": [r"from\s+fastapi\s+import", r"import\s+fastapi"],
+            "django": [r"from\s+django", r"import\s+django"],
+            "express": [r"require\(['\"]express['\"]\)", r"from\s+['\"]express['\"]"],
+        }
+
+        # Check if original framework references are removed
+        original_patterns = framework_imports.get(original_framework, [])
+        original_found = any(re.search(p, response_content, re.IGNORECASE) for p in original_patterns)
+        original_removed = not original_found
+
+        # Check if target framework is present
+        target_patterns = framework_imports.get(target_framework, [])
+        target_added = any(re.search(p, response_content, re.IGNORECASE) for p in target_patterns)
+
+        # Count route definitions in both frameworks
+        route_patterns = {
+            "flask": [r"@app\.route\(", r"@bp\.route\(", r"@blueprint\.route\("],
+            "fastapi": [r"@app\.(get|post|put|delete|patch)\(", r"@router\.(get|post|put|delete|patch)\("],
+            "django": [r"path\(", r"url\("],
+            "express": [r"app\.(get|post|put|delete|patch)\(", r"router\.(get|post|put|delete|patch)\("],
+        }
+
+        # Count target routes
+        target_route_patterns = route_patterns.get(target_framework, [])
+        target_route_count = sum(
+            len(re.findall(p, response_content, re.IGNORECASE)) for p in target_route_patterns
+        )
+
+        # Estimate expected routes from description
+        expected_routes = max(response_lower.count("endpoint"), 1)
+        route_preservation = min(target_route_count / max(expected_routes, 1), 1.0)
+
+        # Compute overall score
+        score = 0.0
+        if original_removed:
+            score += 0.3
+        if target_added:
+            score += 0.3
+        score += route_preservation * 0.4
+
+        return {
+            "original_removed": original_removed,
+            "target_added": target_added,
+            "target_route_count": target_route_count,
+            "route_preservation_ratio": round(route_preservation, 4),
+            "refactoring_score": round(score, 4),
+        }
 
     def generate_summary(self, summary_model: str) -> str:
         """Use a designated model to create the final benchmark summary report."""

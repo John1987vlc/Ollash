@@ -1,10 +1,18 @@
-"""Blueprint for model benchmarking routes."""
+"""Blueprint for model benchmarking routes.
+
+Includes endpoints for:
+- Model listing, benchmark execution, result streaming
+- Radar chart visualization data per model
+- Optimal pipeline recommendation based on affinity matrix + cost-efficiency
+"""
 
 import json
 import os
 import queue
 import threading
 from pathlib import Path
+from statistics import mean
+from typing import Any, Dict, List, Optional
 
 import requests
 from flask import Blueprint, Response, jsonify, request, stream_with_context
@@ -248,3 +256,207 @@ def get_result(filename):
         return jsonify({"status": "ok", "data": data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+def _load_latest_results() -> Optional[List[Dict[str, Any]]]:
+    """Load the most recent benchmark results file."""
+    if not _ollash_root_dir:
+        return None
+    log_dir = _ollash_root_dir / "logs"
+    if not log_dir.exists():
+        return None
+    files = sorted(log_dir.glob("auto_benchmark_results_*.json"), reverse=True)
+    if not files:
+        return None
+    try:
+        with open(files[0], "r") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _extract_radar_dimensions(model_result: Dict[str, Any]) -> Dict[str, float]:
+    """Extract 5 radar chart dimensions from a model's benchmark result.
+
+    Maps rubric_scores and thematic_scores to:
+    - Code: quality of code generation (Calidad_Codigo + creativity)
+    - Logic: reasoning and coherence (Coherencia_Logica + reasoning_depth)
+    - Speed: performance efficiency (speed_score + tokens_per_second)
+    - Format: JSON/structure compliance (strict_json_score)
+    - Creativity: solution diversity (creativity_score)
+    """
+    rubric = model_result.get("rubric_scores", {})
+    thematic = model_result.get("thematic_scores", {})
+
+    # Code dimension: thematic code quality + rubric creativity
+    code_thematic = thematic.get("Calidad_Codigo", 0.0)
+    code_rubric = rubric.get("creativity_score", 0.0)
+    code = (code_thematic + code_rubric) / 2.0 * 10 if code_rubric else code_thematic * 10
+
+    # Logic dimension: thematic coherence + rubric reasoning depth
+    logic_thematic = thematic.get("Coherencia_Logica", 0.0)
+    logic_rubric = rubric.get("reasoning_depth_score", 0.0)
+    logic = (logic_thematic + logic_rubric) / 2.0 * 10 if logic_rubric else logic_thematic * 10
+
+    # Speed dimension: from rubric speed_score or tokens_per_second
+    speed_rubric = rubric.get("speed_score", 0.0)
+    tps = model_result.get("tokens_per_second", 0.0)
+    # Normalize tokens_per_second to 0-1 range (assume max ~100 t/s)
+    tps_normalized = min(tps / 100.0, 1.0) if tps > 0 else 0.0
+    speed = (speed_rubric + tps_normalized) / 2.0 * 10 if speed_rubric else tps_normalized * 10
+
+    # Format dimension: strict JSON compliance
+    format_score = rubric.get("strict_json_score", 0.0) * 10
+
+    # Creativity dimension
+    creativity = rubric.get("creativity_score", 0.0) * 10
+
+    # If no rubric data, derive from thematic + success
+    if not rubric:
+        gen_score = thematic.get("Generacion_Aplicaciones", 0.0)
+        code = code_thematic * 10
+        logic = logic_thematic * 10
+        speed = tps_normalized * 10
+        format_score = gen_score * 10  # Proxy: successful generation implies good format
+        creativity = gen_score * 5  # Conservative estimate
+
+    return {
+        "Code": round(min(code, 10.0), 2),
+        "Logic": round(min(logic, 10.0), 2),
+        "Speed": round(min(speed, 10.0), 2),
+        "Format": round(min(format_score, 10.0), 2),
+        "Creativity": round(min(creativity, 10.0), 2),
+    }
+
+
+@benchmark_bp.route("/api/benchmark/radar/<model_name>")
+def radar_chart_data(model_name: str):
+    """Return radar chart data for a model across 5 dimensions.
+
+    Dimensions: Code, Logic, Speed, Format, Creativity.
+    Aggregated from the most recent benchmark results file.
+
+    Response:
+        {
+            "status": "ok",
+            "model": "qwen3-coder",
+            "dimensions": {"Code": 7.5, "Logic": 8.2, "Speed": 6.0, "Format": 9.1, "Creativity": 5.8},
+            "max_value": 10
+        }
+    """
+    results = _load_latest_results()
+    if results is None:
+        return jsonify({"status": "error", "message": "No benchmark results found."}), 404
+
+    # Find the model in results
+    model_result = None
+    for r in results:
+        if r.get("model") == model_name:
+            model_result = r
+            break
+
+    if model_result is None:
+        return (
+            jsonify({"status": "error", "message": f"Model '{model_name}' not found in results."}),
+            404,
+        )
+
+    dimensions = _extract_radar_dimensions(model_result)
+
+    return jsonify({
+        "status": "ok",
+        "model": model_name,
+        "dimensions": dimensions,
+        "max_value": 10,
+    })
+
+
+@benchmark_bp.route("/api/benchmark/optimal-pipeline")
+def optimal_pipeline():
+    """Return recommended model-per-phase mapping based on benchmark data.
+
+    Uses affinity scores and cost-efficiency to determine the best model
+    for each pipeline phase.
+
+    Query params:
+        ?efficiency_weight=0.3  (optional, weight for cost-efficiency vs quality)
+
+    Response:
+        {
+            "status": "ok",
+            "pipeline": {
+                "phase_name": {"model": "model_name", "affinity": 8.5, "efficiency": 12.3},
+                ...
+            },
+            "model_rankings": {"model_name": {"dimensions": {...}, "overall": 7.5}},
+            "total_efficiency_score": 8.7
+        }
+    """
+    results = _load_latest_results()
+    if results is None:
+        return jsonify({"status": "error", "message": "No benchmark results found."}), 404
+
+    efficiency_weight = float(request.args.get("efficiency_weight", 0.3))
+
+    # Build model rankings from radar dimensions
+    model_rankings: Dict[str, Dict[str, Any]] = {}
+    for r in results:
+        model = r.get("model", "unknown")
+        dimensions = _extract_radar_dimensions(r)
+        overall = mean(dimensions.values()) if dimensions else 0.0
+        model_rankings[model] = {
+            "dimensions": dimensions,
+            "overall": round(overall, 2),
+            "size_tier": r.get("size_tier", "unknown"),
+            "tokens_per_second": r.get("tokens_per_second", 0.0),
+        }
+
+    # Phase-to-dimension mapping for optimal assignment
+    phase_requirements: Dict[str, Dict[str, float]] = {
+        "ReadmeGenerationPhase": {"Creativity": 0.4, "Format": 0.3, "Speed": 0.3},
+        "StructureGenerationPhase": {"Format": 0.5, "Logic": 0.3, "Code": 0.2},
+        "LogicPlanningPhase": {"Logic": 0.5, "Code": 0.3, "Creativity": 0.2},
+        "FileContentGenerationPhase": {"Code": 0.5, "Creativity": 0.2, "Speed": 0.3},
+        "TestGenerationExecutionPhase": {"Code": 0.4, "Logic": 0.4, "Format": 0.2},
+        "SeniorReviewPhase": {"Logic": 0.4, "Code": 0.4, "Format": 0.2},
+        "SecurityScanPhase": {"Logic": 0.5, "Code": 0.3, "Speed": 0.2},
+        "FileRefinementPhase": {"Code": 0.5, "Logic": 0.3, "Creativity": 0.2},
+    }
+
+    pipeline: Dict[str, Dict[str, Any]] = {}
+    for phase, requirements in phase_requirements.items():
+        best_model = None
+        best_score = -1.0
+
+        for model, data in model_rankings.items():
+            dims = data["dimensions"]
+            # Weighted score based on phase requirements
+            quality_score = sum(dims.get(dim, 0) * weight for dim, weight in requirements.items())
+
+            # Apply cost-efficiency bonus for smaller/faster models
+            tps = data.get("tokens_per_second", 1.0)
+            speed_bonus = min(tps / 50.0, 1.0) * efficiency_weight * 2
+
+            final_score = quality_score * (1 - efficiency_weight) + speed_bonus * 10
+
+            if final_score > best_score:
+                best_score = final_score
+                best_model = model
+
+        if best_model:
+            pipeline[phase] = {
+                "model": best_model,
+                "affinity": round(best_score, 2),
+                "efficiency": round(model_rankings[best_model].get("tokens_per_second", 0), 2),
+            }
+
+    # Total efficiency score
+    total_efficiency = mean(p["affinity"] for p in pipeline.values()) if pipeline else 0.0
+
+    return jsonify({
+        "status": "ok",
+        "pipeline": pipeline,
+        "model_rankings": model_rankings,
+        "total_efficiency_score": round(total_efficiency, 2),
+        "efficiency_weight_used": efficiency_weight,
+    })

@@ -56,13 +56,19 @@ class BasePhase(IAgentPhase):
                 file_paths=file_paths,
                 **kwargs,
             )
+
+            # Shadow evaluation hook (non-blocking, best-effort)
+            self._publish_shadow_evaluate(result)
+
             self._publish_complete()
             self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name} complete.")
             return result
         except PipelinePhaseError:
+            self._publish_phase_failure("pipeline_phase_error")
             raise
         except Exception as e:
             self._publish_error(str(e))
+            self._publish_phase_failure("exception", str(e))
             raise PipelinePhaseError(self.phase_name, str(e)) from e
 
     async def run(
@@ -93,6 +99,57 @@ class BasePhase(IAgentPhase):
             message=message or f"{self.phase_label or self.phase_name} complete",
             status="success",
         )
+
+    def _publish_shadow_evaluate(self, result: Any) -> None:
+        """Publish shadow evaluation event for continuous learning.
+
+        Never raises - shadow logging must not break the pipeline.
+        """
+        try:
+            output_preview = ""
+            if result and isinstance(result, tuple) and len(result) > 0:
+                first = result[0]
+                if isinstance(first, dict):
+                    output_preview = str(first)[:500]
+                elif isinstance(first, str):
+                    output_preview = first[:500]
+
+            model_name = "unknown"
+            if hasattr(self.context, "llm") and hasattr(self.context.llm, "llm_manager"):
+                mgr = self.context.llm.llm_manager
+                if hasattr(mgr, "current_model"):
+                    model_name = mgr.current_model or "unknown"
+
+            self.context.event_publisher.publish(
+                "shadow_evaluate",
+                phase=self.phase_name,
+                model_name=model_name,
+                output_preview=output_preview,
+            )
+        except Exception:
+            pass  # Shadow logging must never break the pipeline
+
+    def _publish_phase_failure(self, failure_type: str, details: str = "") -> None:
+        """Publish phase failure event for the failure database.
+
+        Never raises - failure recording must not break the pipeline.
+        """
+        try:
+            model_name = "unknown"
+            if hasattr(self.context, "llm") and hasattr(self.context.llm, "llm_manager"):
+                mgr = self.context.llm.llm_manager
+                if hasattr(mgr, "current_model"):
+                    model_name = mgr.current_model or "unknown"
+
+            self.context.event_publisher.publish(
+                "phase_failure",
+                phase=self.phase_name,
+                model_name=model_name,
+                failure_type=failure_type,
+                details=details,
+            )
+        except Exception:
+            pass  # Failure recording must never break the pipeline
 
     def _publish_error(self, error: str) -> None:
         self.context.event_publisher.publish(
