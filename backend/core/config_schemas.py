@@ -156,9 +156,7 @@ class AgentFeaturesConfig(BaseModel):
 class BenchmarkConfig(BaseModel):
     """Configuration for benchmark and continuous learning features."""
 
-    shadow_evaluation_enabled: bool = Field(
-        False, description="Enable shadow evaluation during pipeline runs."
-    )
+    shadow_evaluation_enabled: bool = Field(False, description="Enable shadow evaluation during pipeline runs.")
     shadow_critic_threshold: float = Field(
         0.3,
         ge=0.0,

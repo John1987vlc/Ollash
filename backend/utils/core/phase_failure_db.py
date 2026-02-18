@@ -119,11 +119,7 @@ class PhaseFailureDatabase:
 
     def get_failure_count(self, model_name: str, phase_name: str) -> int:
         """Get number of failures for a (model, phase) pair."""
-        return sum(
-            1
-            for r in self._records
-            if r.model_name == model_name and r.phase_name == phase_name
-        )
+        return sum(1 for r in self._records if r.model_name == model_name and r.phase_name == phase_name)
 
     def get_unsuitable_models(self, phase_name: str) -> List[str]:
         """Get list of models marked unsuitable for a phase."""
@@ -150,9 +146,7 @@ class PhaseFailureDatabase:
             summary[phase][model]["failure_count"] += 1
             if record.failure_type not in summary[phase][model]["failure_types"]:
                 summary[phase][model]["failure_types"].append(record.failure_type)
-            summary[phase][model]["last_failure"] = max(
-                summary[phase][model]["last_failure"], record.timestamp
-            )
+            summary[phase][model]["last_failure"] = max(summary[phase][model]["last_failure"], record.timestamp)
 
         return {
             "total_failures": len(self._records),
@@ -173,15 +167,11 @@ class PhaseFailureDatabase:
             ]
             # Also clear unsuitable status
             if phase_name in self._unsuitable:
-                self._unsuitable[phase_name] = [
-                    m for m in self._unsuitable[phase_name] if m != model_name
-                ]
+                self._unsuitable[phase_name] = [m for m in self._unsuitable[phase_name] if m != model_name]
         elif model_name:
             self._records = [r for r in self._records if r.model_name != model_name]
             for phase in self._unsuitable:
-                self._unsuitable[phase] = [
-                    m for m in self._unsuitable[phase] if m != model_name
-                ]
+                self._unsuitable[phase] = [m for m in self._unsuitable[phase] if m != model_name]
         elif phase_name:
             self._records = [r for r in self._records if r.phase_name != phase_name]
             self._unsuitable.pop(phase_name, None)

@@ -363,12 +363,14 @@ def radar_chart_data(model_name: str):
 
     dimensions = _extract_radar_dimensions(model_result)
 
-    return jsonify({
-        "status": "ok",
-        "model": model_name,
-        "dimensions": dimensions,
-        "max_value": 10,
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "model": model_name,
+            "dimensions": dimensions,
+            "max_value": 10,
+        }
+    )
 
 
 @benchmark_bp.route("/api/benchmark/optimal-pipeline")
@@ -453,10 +455,12 @@ def optimal_pipeline():
     # Total efficiency score
     total_efficiency = mean(p["affinity"] for p in pipeline.values()) if pipeline else 0.0
 
-    return jsonify({
-        "status": "ok",
-        "pipeline": pipeline,
-        "model_rankings": model_rankings,
-        "total_efficiency_score": round(total_efficiency, 2),
-        "efficiency_weight_used": efficiency_weight,
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "pipeline": pipeline,
+            "model_rankings": model_rankings,
+            "total_efficiency_score": round(total_efficiency, 2),
+            "efficiency_weight_used": efficiency_weight,
+        }
+    )

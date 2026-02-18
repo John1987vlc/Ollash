@@ -1147,9 +1147,11 @@ class TestRubricEvaluator:
 
         evaluator = RubricEvaluator(logger=_mock_logger())
         result = evaluator.evaluate(
-            model_name="m", task_name="t",
+            model_name="m",
+            task_name="t",
             response_content="No JSON here, just text.",
-            task_data={}, duration_sec=1.0,
+            task_data={},
+            duration_sec=1.0,
             dimensions=[RubricDimension.STRICT_JSON],
         )
         assert result.dimension_results[0].score == 0.5  # Neutral
@@ -1167,9 +1169,11 @@ class TestRubricEvaluator:
             "Therefore, we'll use dependency injection to resolve this."
         )
         result = evaluator.evaluate(
-            model_name="m", task_name="t",
+            model_name="m",
+            task_name="t",
             response_content=response,
-            task_data={}, duration_sec=5.0,
+            task_data={},
+            duration_sec=5.0,
             dimensions=[RubricDimension.REASONING_DEPTH],
         )
         score = result.dimension_results[0].score
@@ -1180,9 +1184,11 @@ class TestRubricEvaluator:
 
         evaluator = RubricEvaluator(logger=_mock_logger())
         result = evaluator.evaluate(
-            model_name="m", task_name="t",
+            model_name="m",
+            task_name="t",
             response_content="Here is the code.",
-            task_data={}, duration_sec=1.0,
+            task_data={},
+            duration_sec=1.0,
             dimensions=[RubricDimension.REASONING_DEPTH],
         )
         assert result.dimension_results[0].score < 0.3
@@ -1194,7 +1200,8 @@ class TestRubricEvaluator:
         ground_truth = "The application uses Flask with SQLAlchemy for database access"
         response = "This application uses Flask framework with SQLAlchemy ORM for database access and management"
         result = evaluator.evaluate(
-            model_name="m", task_name="t",
+            model_name="m",
+            task_name="t",
             response_content=response,
             task_data={"ground_truth_summary": ground_truth},
             duration_sec=2.0,
@@ -1209,7 +1216,8 @@ class TestRubricEvaluator:
 
         evaluator = RubricEvaluator(logger=_mock_logger())
         result = evaluator.evaluate(
-            model_name="m", task_name="t",
+            model_name="m",
+            task_name="t",
             response_content="A detailed response with many words about the project structure and implementation.",
             task_data={"description": "Build a web app"},
             duration_sec=2.0,
@@ -1222,7 +1230,8 @@ class TestRubricEvaluator:
 
         evaluator = RubricEvaluator(logger=_mock_logger())
         result = evaluator.evaluate(
-            model_name="m", task_name="t",
+            model_name="m",
+            task_name="t",
             response_content="output",
             task_data={"time_limit_minutes": 5},
             duration_sec=30.0,  # 30s out of 300s limit = 10% used
@@ -1235,7 +1244,8 @@ class TestRubricEvaluator:
 
         evaluator = RubricEvaluator(logger=_mock_logger())
         result = evaluator.evaluate(
-            model_name="m", task_name="t",
+            model_name="m",
+            task_name="t",
             response_content="output",
             task_data={"time_limit_minutes": 5},
             duration_sec=270.0,  # 270s out of 300s = 90% used
@@ -1287,15 +1297,19 @@ class TestAffinityMatrix:
                 "model_name": "model-a",
                 "task_type": "coder",
                 "phase_name": "LogicPlanningPhase",
-                "success_rate": 0.9, "quality_score": 8.5,
-                "avg_tokens": 500, "avg_time_ms": 5000,
+                "success_rate": 0.9,
+                "quality_score": 8.5,
+                "avg_tokens": 500,
+                "avg_time_ms": 5000,
             },
             {
                 "model_name": "model-b",
                 "task_type": "coder",
                 "phase_name": "LogicPlanningPhase",
-                "success_rate": 0.7, "quality_score": 6.0,
-                "avg_tokens": 300, "avg_time_ms": 3000,
+                "success_rate": 0.7,
+                "quality_score": 6.0,
+                "avg_tokens": 300,
+                "avg_time_ms": 3000,
             },
         ]
         for i, r in enumerate(results):
@@ -1386,15 +1400,21 @@ class TestCostEfficiencyCalculator:
             bench_dir = Path(td)
             results = [
                 {
-                    "model_name": "fast-small", "task_type": "coder",
-                    "success_rate": 0.8, "quality_score": 7.0,
-                    "avg_tokens": 300, "avg_time_ms": 2000,
+                    "model_name": "fast-small",
+                    "task_type": "coder",
+                    "success_rate": 0.8,
+                    "quality_score": 7.0,
+                    "avg_tokens": 300,
+                    "avg_time_ms": 2000,
                     "timestamp": datetime.datetime.now().isoformat(),
                 },
                 {
-                    "model_name": "slow-large", "task_type": "coder",
-                    "success_rate": 0.9, "quality_score": 8.0,
-                    "avg_tokens": 500, "avg_time_ms": 8000,
+                    "model_name": "slow-large",
+                    "task_type": "coder",
+                    "success_rate": 0.9,
+                    "quality_score": 8.0,
+                    "avg_tokens": 500,
+                    "avg_time_ms": 8000,
                     "timestamp": datetime.datetime.now().isoformat(),
                 },
             ]
@@ -1497,9 +1517,7 @@ class TestShadowEvaluator:
     def test_start_subscribes_to_events(self, mock_publisher, tmp_path):
         from backend.utils.core.shadow_evaluator import ShadowEvaluator
 
-        evaluator = ShadowEvaluator(
-            logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path
-        )
+        evaluator = ShadowEvaluator(logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path)
         evaluator.start()
         assert mock_publisher.subscribe.call_count == 2
         assert evaluator._active is True
@@ -1507,31 +1525,36 @@ class TestShadowEvaluator:
     def test_stop_unsubscribes_and_persists(self, mock_publisher, tmp_path):
         from backend.utils.core.shadow_evaluator import ShadowEvaluator, ShadowLog
 
-        evaluator = ShadowEvaluator(
-            logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path
-        )
+        evaluator = ShadowEvaluator(logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path)
         evaluator.start()
-        evaluator.record_shadow_log(ShadowLog(
-            timestamp=1.0, phase_name="TestPhase", model_name="m",
-            input_hash="abc", output_preview="test",
-        ))
+        evaluator.record_shadow_log(
+            ShadowLog(
+                timestamp=1.0,
+                phase_name="TestPhase",
+                model_name="m",
+                input_hash="abc",
+                output_preview="test",
+            )
+        )
         evaluator.stop()
         assert mock_publisher.unsubscribe.call_count == 2
         assert evaluator._active is False
         # Check file was persisted
         import glob as globmod
+
         log_files = globmod.glob(str(tmp_path / "shadow_logs_*.json"))
         assert len(log_files) == 1
 
     def test_record_shadow_log(self, mock_publisher, tmp_path):
         from backend.utils.core.shadow_evaluator import ShadowEvaluator, ShadowLog
 
-        evaluator = ShadowEvaluator(
-            logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path
-        )
+        evaluator = ShadowEvaluator(logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path)
         log = ShadowLog(
-            timestamp=1.0, phase_name="P1", model_name="model-a",
-            input_hash="h1", output_preview="output",
+            timestamp=1.0,
+            phase_name="P1",
+            model_name="model-a",
+            input_hash="h1",
+            output_preview="output",
         )
         evaluator.record_shadow_log(log)
         assert len(evaluator._logs) == 1
@@ -1539,18 +1562,27 @@ class TestShadowEvaluator:
     def test_correction_rate_calculation(self, mock_publisher, tmp_path):
         from backend.utils.core.shadow_evaluator import ShadowEvaluator, ShadowLog
 
-        evaluator = ShadowEvaluator(
-            logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path
-        )
+        evaluator = ShadowEvaluator(logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path)
         # 2 logs: 1 with correction, 1 without
-        evaluator.record_shadow_log(ShadowLog(
-            timestamp=1.0, phase_name="P1", model_name="model-a",
-            input_hash="h1", output_preview="out1", critic_correction="fix this",
-        ))
-        evaluator.record_shadow_log(ShadowLog(
-            timestamp=2.0, phase_name="P1", model_name="model-a",
-            input_hash="h2", output_preview="out2",
-        ))
+        evaluator.record_shadow_log(
+            ShadowLog(
+                timestamp=1.0,
+                phase_name="P1",
+                model_name="model-a",
+                input_hash="h1",
+                output_preview="out1",
+                critic_correction="fix this",
+            )
+        )
+        evaluator.record_shadow_log(
+            ShadowLog(
+                timestamp=2.0,
+                phase_name="P1",
+                model_name="model-a",
+                input_hash="h2",
+                output_preview="out2",
+            )
+        )
         rate = evaluator.get_correction_rate("model-a")
         assert rate == pytest.approx(0.5)
 
@@ -1558,34 +1590,50 @@ class TestShadowEvaluator:
         from backend.utils.core.shadow_evaluator import ShadowEvaluator, ShadowLog
 
         evaluator = ShadowEvaluator(
-            logger=_mock_logger(), event_publisher=mock_publisher,
-            log_dir=tmp_path, critic_threshold=0.3,
+            logger=_mock_logger(),
+            event_publisher=mock_publisher,
+            log_dir=tmp_path,
+            critic_threshold=0.3,
         )
         # All corrected
         for i in range(5):
-            evaluator.record_shadow_log(ShadowLog(
-                timestamp=float(i), phase_name="P1", model_name="bad-model",
-                input_hash=f"h{i}", output_preview=f"out{i}",
-                critic_correction="rewrite needed",
-            ))
+            evaluator.record_shadow_log(
+                ShadowLog(
+                    timestamp=float(i),
+                    phase_name="P1",
+                    model_name="bad-model",
+                    input_hash=f"h{i}",
+                    output_preview=f"out{i}",
+                    critic_correction="rewrite needed",
+                )
+            )
         assert evaluator.is_model_flagged("bad-model") is True
         assert evaluator.is_model_flagged("other-model") is False
 
     def test_performance_report_generation(self, mock_publisher, tmp_path):
         from backend.utils.core.shadow_evaluator import ShadowEvaluator, ShadowLog
 
-        evaluator = ShadowEvaluator(
-            logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path
+        evaluator = ShadowEvaluator(logger=_mock_logger(), event_publisher=mock_publisher, log_dir=tmp_path)
+        evaluator.record_shadow_log(
+            ShadowLog(
+                timestamp=1.0,
+                phase_name="P1",
+                model_name="m1",
+                input_hash="h1",
+                output_preview="out",
+                critic_correction="fix",
+                correction_severity=0.5,
+            )
         )
-        evaluator.record_shadow_log(ShadowLog(
-            timestamp=1.0, phase_name="P1", model_name="m1",
-            input_hash="h1", output_preview="out",
-            critic_correction="fix", correction_severity=0.5,
-        ))
-        evaluator.record_shadow_log(ShadowLog(
-            timestamp=2.0, phase_name="P2", model_name="m1",
-            input_hash="h2", output_preview="out",
-        ))
+        evaluator.record_shadow_log(
+            ShadowLog(
+                timestamp=2.0,
+                phase_name="P2",
+                model_name="m1",
+                input_hash="h2",
+                output_preview="out",
+            )
+        )
         report = evaluator.get_performance_report()
         assert report["total_logs"] == 2
         assert "m1" in report["models"]
@@ -1604,10 +1652,15 @@ class TestPhaseFailureDatabase:
         from backend.utils.core.phase_failure_db import PhaseFailureDatabase, PhaseFailureRecord
 
         db = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger())
-        db.record_failure(PhaseFailureRecord(
-            model_name="model-a", phase_name="SeniorReviewPhase",
-            failure_type="exception", timestamp=1.0, details="timeout",
-        ))
+        db.record_failure(
+            PhaseFailureRecord(
+                model_name="model-a",
+                phase_name="SeniorReviewPhase",
+                failure_type="exception",
+                timestamp=1.0,
+                details="timeout",
+            )
+        )
         assert db.get_failure_count("model-a", "SeniorReviewPhase") == 1
 
     def test_model_becomes_unsuitable_after_threshold(self, tmp_path):
@@ -1615,10 +1668,14 @@ class TestPhaseFailureDatabase:
 
         db = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger(), unsuitability_threshold=3)
         for i in range(3):
-            db.record_failure(PhaseFailureRecord(
-                model_name="bad-model", phase_name="LogicPlanningPhase",
-                failure_type="loop_detected", timestamp=float(i),
-            ))
+            db.record_failure(
+                PhaseFailureRecord(
+                    model_name="bad-model",
+                    phase_name="LogicPlanningPhase",
+                    failure_type="loop_detected",
+                    timestamp=float(i),
+                )
+            )
         assert db.is_model_suitable("bad-model", "LogicPlanningPhase") is False
         assert db.is_model_suitable("good-model", "LogicPlanningPhase") is True
 
@@ -1633,10 +1690,14 @@ class TestPhaseFailureDatabase:
 
         db = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger(), unsuitability_threshold=2)
         for i in range(2):
-            db.record_failure(PhaseFailureRecord(
-                model_name="m1", phase_name="P1",
-                failure_type="timeout", timestamp=float(i),
-            ))
+            db.record_failure(
+                PhaseFailureRecord(
+                    model_name="m1",
+                    phase_name="P1",
+                    failure_type="timeout",
+                    timestamp=float(i),
+                )
+            )
         assert db.is_model_suitable("m1", "P1") is False
 
     def test_load_and_save_persistence(self, tmp_path):
@@ -1644,14 +1705,22 @@ class TestPhaseFailureDatabase:
 
         # Create DB, add records, let it save
         db1 = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger(), unsuitability_threshold=2)
-        db1.record_failure(PhaseFailureRecord(
-            model_name="m1", phase_name="P1",
-            failure_type="exception", timestamp=1.0,
-        ))
-        db1.record_failure(PhaseFailureRecord(
-            model_name="m1", phase_name="P1",
-            failure_type="exception", timestamp=2.0,
-        ))
+        db1.record_failure(
+            PhaseFailureRecord(
+                model_name="m1",
+                phase_name="P1",
+                failure_type="exception",
+                timestamp=1.0,
+            )
+        )
+        db1.record_failure(
+            PhaseFailureRecord(
+                model_name="m1",
+                phase_name="P1",
+                failure_type="exception",
+                timestamp=2.0,
+            )
+        )
         # Create new DB instance from same dir - should load persisted data
         db2 = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger(), unsuitability_threshold=2)
         assert db2.get_failure_count("m1", "P1") == 2
@@ -1661,14 +1730,22 @@ class TestPhaseFailureDatabase:
         from backend.utils.core.phase_failure_db import PhaseFailureDatabase, PhaseFailureRecord
 
         db = PhaseFailureDatabase(db_dir=tmp_path, logger=_mock_logger())
-        db.record_failure(PhaseFailureRecord(
-            model_name="m1", phase_name="P1",
-            failure_type="exception", timestamp=1.0,
-        ))
-        db.record_failure(PhaseFailureRecord(
-            model_name="m2", phase_name="P1",
-            failure_type="loop_detected", timestamp=2.0,
-        ))
+        db.record_failure(
+            PhaseFailureRecord(
+                model_name="m1",
+                phase_name="P1",
+                failure_type="exception",
+                timestamp=1.0,
+            )
+        )
+        db.record_failure(
+            PhaseFailureRecord(
+                model_name="m2",
+                phase_name="P1",
+                failure_type="loop_detected",
+                timestamp=2.0,
+            )
+        )
         summary = db.get_failure_summary()
         assert summary["total_failures"] == 2
         assert "P1" in summary["phases"]

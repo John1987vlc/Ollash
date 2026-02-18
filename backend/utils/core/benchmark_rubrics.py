@@ -178,9 +178,7 @@ class RubricEvaluator:
         result.compute_overall()
         return result
 
-    def _evaluate_json_compliance(
-        self, response: str, task_data: Dict, duration: float
-    ) -> DimensionResult:
+    def _evaluate_json_compliance(self, response: str, task_data: Dict, duration: float) -> DimensionResult:
         """Evaluate JSON format compliance.
 
         Extracts ```json code blocks and standalone JSON objects,
@@ -226,9 +224,7 @@ class RubricEvaluator:
             },
         )
 
-    def _evaluate_reasoning_depth(
-        self, response: str, task_data: Dict, duration: float
-    ) -> DimensionResult:
+    def _evaluate_reasoning_depth(self, response: str, task_data: Dict, duration: float) -> DimensionResult:
         """Evaluate reasoning depth via keyword/pattern heuristics.
 
         Measures:
@@ -273,9 +269,7 @@ class RubricEvaluator:
             },
         )
 
-    def _evaluate_context_utilization(
-        self, response: str, task_data: Dict, duration: float
-    ) -> DimensionResult:
+    def _evaluate_context_utilization(self, response: str, task_data: Dict, duration: float) -> DimensionResult:
         """Evaluate context window utilization and summarization precision.
 
         If task_data has 'ground_truth_summary', compare response against it
@@ -342,9 +336,7 @@ class RubricEvaluator:
             },
         )
 
-    def _evaluate_creativity(
-        self, response: str, task_data: Dict, duration: float
-    ) -> DimensionResult:
+    def _evaluate_creativity(self, response: str, task_data: Dict, duration: float) -> DimensionResult:
         """Evaluate creativity and solution quality.
 
         Measures:
@@ -381,7 +373,9 @@ class RubricEvaluator:
         patterns_found = [p for p in self.DESIGN_PATTERNS if p in response_lower]
 
         # Check for non-boilerplate indicators
-        has_error_handling = any(kw in response_lower for kw in ["try:", "except", "catch", "error handling", "validation"])
+        has_error_handling = any(
+            kw in response_lower for kw in ["try:", "except", "catch", "error handling", "validation"]
+        )
         has_testing = any(kw in response_lower for kw in ["test_", "pytest", "unittest", "jest", "mocha"])
         has_documentation = any(kw in response_lower for kw in ["docstring", '"""', "readme", "documentation"])
 
@@ -406,9 +400,7 @@ class RubricEvaluator:
             },
         )
 
-    def _evaluate_speed(
-        self, response: str, task_data: Dict, duration: float
-    ) -> DimensionResult:
+    def _evaluate_speed(self, response: str, task_data: Dict, duration: float) -> DimensionResult:
         """Evaluate speed efficiency relative to time limit.
 
         Score = 1.0 - (actual_time / limit_time), clamped to [0, 1].

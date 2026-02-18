@@ -265,9 +265,7 @@ class ModelBenchmarker:
                         validation_type = task_data.get("validation")
                         validation_result = {}
                         if validation_type == "dependency_hallucination":
-                            validation_result = self._validate_dependency_hallucination(
-                                task_response_content
-                            )
+                            validation_result = self._validate_dependency_hallucination(task_response_content)
                         elif validation_type == "refactoring":
                             validation_result = self._validate_refactoring_quality(
                                 task_response_content,
@@ -651,9 +649,7 @@ class ModelBenchmarker:
 
         # Count target routes
         target_route_patterns = route_patterns.get(target_framework, [])
-        target_route_count = sum(
-            len(re.findall(p, response_content, re.IGNORECASE)) for p in target_route_patterns
-        )
+        target_route_count = sum(len(re.findall(p, response_content, re.IGNORECASE)) for p in target_route_patterns)
 
         # Estimate expected routes from description
         expected_routes = max(response_lower.count("endpoint"), 1)

@@ -301,9 +301,7 @@ class AffinityMatrix:
             for model in models:
                 score = self.benchmark_db.evaluate_model_performance(model, phase)
                 sample_results = [
-                    r
-                    for r in self.benchmark_db.results
-                    if r.model_name == model and r.phase_name == phase
+                    r for r in self.benchmark_db.results if r.model_name == model and r.phase_name == phase
                 ]
                 self._matrix[phase][model] = AffinityEntry(
                     phase_name=phase,
@@ -312,9 +310,7 @@ class AffinityMatrix:
                     sample_count=len(sample_results),
                 )
 
-        self.logger.info(
-            f"Affinity matrix built: {len(phases)} phases x {len(models)} models"
-        )
+        self.logger.info(f"Affinity matrix built: {len(phases)} phases x {len(models)} models")
 
     def get_best_model_for_phase(self, phase: str) -> Optional[str]:
         """Return model with highest affinity for a phase."""
@@ -337,9 +333,7 @@ class AffinityMatrix:
         """Serialize matrix for API/JSON output."""
         result: Dict[str, Dict[str, float]] = {}
         for phase, models in self._matrix.items():
-            result[phase] = {
-                model: round(entry.affinity_score, 2) for model, entry in models.items()
-            }
+            result[phase] = {model: round(entry.affinity_score, 2) for model, entry in models.items()}
         return result
 
     def get_pipeline_recommendation(self) -> Dict[str, Dict[str, Any]]:
@@ -420,9 +414,7 @@ class CostEfficiencyCalculator:
         denominator = max(normalized_time * size_factor, 0.01)
         return quality_score / denominator
 
-    def rank_models_by_efficiency(
-        self, benchmark_db: BenchmarkDatabase, task_type: str
-    ) -> List[Tuple[str, float]]:
+    def rank_models_by_efficiency(self, benchmark_db: BenchmarkDatabase, task_type: str) -> List[Tuple[str, float]]:
         """Rank all models by cost-efficiency for a task type.
 
         Args:
@@ -618,8 +610,7 @@ class AutoModelSelector:
                     efficiency_rankings[tt] = rankings
             if efficiency_rankings:
                 optimized["cost_efficiency_rankings"] = {
-                    tt: [{"model": m, "efficiency": e} for m, e in ranks]
-                    for tt, ranks in efficiency_rankings.items()
+                    tt: [{"model": m, "efficiency": e} for m, e in ranks] for tt, ranks in efficiency_rankings.items()
                 }
 
         # Filter out unsuitable models using phase failure database
