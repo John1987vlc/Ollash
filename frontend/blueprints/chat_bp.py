@@ -13,9 +13,10 @@ chat_bp = Blueprint("chat", __name__)
 _session_manager: ChatSessionManager = None
 
 
-def init_app(ollash_root_dir: Path, event_publisher):
+def init_app(app, event_publisher):
     """Initialize the ChatSessionManager for this blueprint."""
     global _session_manager
+    ollash_root_dir = app.config.get("ollash_root_dir")
     _session_manager = ChatSessionManager(ollash_root_dir, event_publisher)
 
 
@@ -29,7 +30,15 @@ def send_chat():
     Returns: { "session_id": "...", "status": "started" }
     """
     data = request.get_json(force=True)
-    message = data.get("message", "").strip()
+    message_raw = data.get("message", "")
+    
+    # F23: Ensure message is a string to avoid 'dict object has no attribute strip'
+    if isinstance(message_raw, dict):
+        # If it's a dict, try to extract 'text' or just stringify it
+        message = str(message_raw.get("text", message_raw)).strip()
+    else:
+        message = str(message_raw).strip()
+
     if not message:
         return jsonify({"status": "error", "message": "Message is required."}), 400
 

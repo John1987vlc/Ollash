@@ -25,7 +25,8 @@ chat_event_bridge = ChatEventBridge(event_publisher)  # ChatEventBridge subscrib
 
 def create_app(ollash_root_dir: Path = None) -> Flask:
     if ollash_root_dir is None:
-        ollash_root_dir = Path(__file__).resolve().parent.parent.parent  # repo root
+        # frontend/app.py -> frontend/ -> root
+        ollash_root_dir = Path(__file__).resolve().parent.parent  # repo root
 
     app = Flask(
         __name__,

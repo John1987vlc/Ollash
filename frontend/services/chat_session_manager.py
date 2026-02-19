@@ -38,8 +38,12 @@ class ChatSessionManager:
 
             session_id = uuid.uuid4().hex
             bridge = ChatEventBridge(self.event_publisher)
+            
+            # F17: Ensure project_root is valid, default to ollash_root_dir if none provided
+            actual_project_root = project_path if project_path else str(self.ollash_root_dir)
+            
             agent = DefaultAgent(
-                project_root=project_path,
+                project_root=actual_project_root,
                 auto_confirm=True,
                 base_path=self.ollash_root_dir,
                 event_bridge=bridge,
@@ -66,9 +70,20 @@ class ChatSessionManager:
             raise KeyError(f"Session '{session_id}' not found.")
 
         def _run():
+            import asyncio
             try:
-                response = session.agent.chat(message)
-                session.bridge.push_event("final_answer", {"content": response})
+                # F16: agent.chat is async, must be run in an event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(session.agent.chat(message))
+                
+                if isinstance(result, dict):
+                    session.bridge.push_event("final_answer", {
+                        "content": result.get("text", ""),
+                        "metrics": result.get("metrics", {})
+                    })
+                else:
+                    session.bridge.push_event("final_answer", {"content": str(result)})
             except Exception as e:
                 session.bridge.push_event("error", {"message": str(e)})
             finally:

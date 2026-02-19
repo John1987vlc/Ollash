@@ -3,8 +3,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import chromadb
-
+from backend.utils.core.chroma_manager import ChromaClientManager
 from backend.utils.core.ollama_client import OllamaClient
 from backend.utils.core.preference_manager import PreferenceManager
 
@@ -41,8 +40,8 @@ class MemoryManager:
         # Cumulative summary: persisted across summarization rounds
         self._cumulative_summary: str = self.get("cumulative_summary", "")
 
-        # Reasoning Cache (ChromaDB)
-        self.chroma_client = chromadb.Client()
+        # Reasoning Cache (ChromaDB) - Use central manager to avoid conflicts
+        self.chroma_client = ChromaClientManager.get_client(self.config, self.project_root)
         self.reasoning_cache_collection = self.chroma_client.get_or_create_collection(name="reasoning_cache")
 
         # Accept injected clients or create fallback instances

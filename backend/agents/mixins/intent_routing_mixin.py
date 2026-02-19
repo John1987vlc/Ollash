@@ -67,6 +67,10 @@ Classify the intent:""",
                         "writing",
                     ]
                     if classified_intent in valid_intents:
+                        # F25: If it's prototyping or code, ensure we use the coder role
+                        if classified_intent == "prototyping":
+                            classified_intent = "code"
+                        
                         self.logger.debug(f"Intent classified: {classified_intent} for prompt: {prompt[:50]}...")
                         return classified_intent
                     else:

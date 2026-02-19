@@ -5,6 +5,7 @@ their Ollama function schema definitions, enabling dynamic discovery
 without manual registration in all_tool_definitions.py or ToolRegistry.
 """
 
+import asyncio
 import functools
 from typing import Callable, Dict, List, Optional
 
@@ -23,34 +24,7 @@ def ollash_tool(
     required: Optional[List[str]] = None,
     is_async_safe: bool = False,
 ):
-    """Decorator that registers a method as an Ollash tool.
-
-    Usage on a tool class method::
-
-        @ollash_tool(
-            name="ping_host",
-            description="Sends ICMP echo requests to a target host.",
-            parameters={
-                "host": {"type": "string", "description": "Target host IP or hostname"},
-                "count": {"type": "integer", "description": "Number of pings"},
-            },
-            toolset_id="network_tools",
-            agent_types=["network"],
-            required=["host"],
-            is_async_safe=True
-        )
-        def ping_host(self, host: str, count: int = 4):
-            ...
-
-    Args:
-        name: Tool name as exposed to the LLM (must match function schema).
-        description: Human-readable description for the LLM.
-        parameters: Dict of parameter definitions in Ollama/OpenAI function schema format.
-        toolset_id: Identifier of the toolset class (e.g., "network_tools").
-        agent_types: List of agent types that should have access to this tool.
-        required: List of required parameter names.
-        is_async_safe: If True, the tool is eligible for parallel execution.
-    """
+    """Decorator that registers a method as an Ollash tool."""
 
     def decorator(func: Callable) -> Callable:
         tool_def = {
@@ -77,9 +51,14 @@ def ollash_tool(
         if is_async_safe:
             _ASYNC_ELIGIBLE_TOOLS.append(name)
 
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
+        if asyncio.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def wrapper(*args, **kwargs):
+                return await func(*args, **kwargs)
+        else:
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
 
         wrapper._ollash_tool_name = name
         return wrapper

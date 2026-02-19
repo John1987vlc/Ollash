@@ -75,6 +75,13 @@ class LoopDetector:
         if len(self.history) < self.threshold:
             return False
 
+        # F19: Don't trigger loop detection if the last tool was planning-related
+        # because agents often refine plans multiple times legitimately.
+        last_action = self.history[-1]
+        if last_action["tool_name"] in ["plan_actions", "ask_user"]:
+            self.logger.debug(f"Loop detection bypassed for tool: {last_action['tool_name']}")
+            return False
+
         # Semantic similarity loop detection
         recent_actions = self.history[-self.threshold :]
         recent_embeddings = [self._get_action_embedding(a) for a in recent_actions]

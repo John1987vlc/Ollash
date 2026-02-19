@@ -4,16 +4,16 @@ import json
 from pathlib import Path
 
 import requests
-from flask import Blueprint, jsonify, render_template
+from flask import Blueprint, jsonify, render_template, current_app
 
 common_bp = Blueprint("common", __name__)
 
 _ollash_root_dir: Path = None
 
 
-def init_app(ollash_root_dir: Path):
+def init_app(app):
     global _ollash_root_dir
-    _ollash_root_dir = ollash_root_dir
+    _ollash_root_dir = app.config.get("ollash_root_dir")
 
 
 @common_bp.route("/")
@@ -24,10 +24,8 @@ def index():
 @common_bp.route("/api/status")
 def status():
     """Health check — verifies Ollama connectivity."""
-    config_path = _ollash_root_dir / "config" / "settings.json"
     try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
+        config = current_app.config.get("config", {})
         import os
 
         ollama_url = os.environ.get(

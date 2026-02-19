@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 import requests
 
 # Use the new centralized config
-from backend.core.config import config as central_config
+from backend.core.config import get_config
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.benchmark_rubrics import MultidimensionalRubric, RubricEvaluator
 from backend.utils.core.file_validator import FileValidator
@@ -71,14 +71,17 @@ class ModelBenchmarker:
     ]
 
     def __init__(self):
+        # Ensure config is fresh from disk
+        config = get_config(reload=True)
+        
         # Use the centralized configuration
-        self.url = central_config.OLLAMA_URL
+        self.url = config.OLLAMA_URL
 
         # This config object is passed to OllamaClient, which expects a dictionary.
         self.config = {
-            **(central_config.TOOL_SETTINGS or {}),
-            **(central_config.LLM_MODELS or {}),
-            **(central_config.AGENT_FEATURES or {}),
+            **(config.TOOL_SETTINGS or {}),
+            **(config.LLM_MODELS or {}),
+            **(config.AGENT_FEATURES or {}),
         }
 
         log_file_path = Path("logs") / "auto_benchmark_debug.log"
@@ -89,7 +92,7 @@ class ModelBenchmarker:
         self.results: List[dict] = []
         self._model_sizes: Dict[str, int] = {}
 
-        embedding_model_name = central_config.LLM_MODELS.get("models", {}).get("embedding", "all-minilm:latest")
+        embedding_model_name = config.LLM_MODELS.get("models", {}).get("embedding", "all-minilm:latest")
         self.embedding_models = [embedding_model_name]
 
         self.test_tasks = self._load_tasks()
@@ -111,7 +114,7 @@ class ModelBenchmarker:
 
     def _load_tasks(self) -> list:
         """Load benchmark tasks from the central configuration."""
-        tasks = central_config.AUTO_BENCHMARK_TASKS
+        tasks = get_config().AUTO_BENCHMARK_TASKS
         if not tasks:
             self.logger.warning("Auto benchmark tasks not found in config. Using empty list.")
             return []
@@ -157,7 +160,14 @@ class ModelBenchmarker:
 
     def run_benchmark(self, models_to_test: List[str]):
         """Run benchmark across all specified models and tasks."""
+        # Filter out obvious embedding models that don't support chat
+        models_to_test = [m for m in models_to_test if "embed" not in m.lower()]
+        
         total_models = len(models_to_test)
+        if total_models == 0:
+            self.logger.warning("No suitable chat models found for benchmark.")
+            return
+
         total_tasks = len(self.test_tasks)
 
         for model_idx, model_name in enumerate(models_to_test, 1):
@@ -317,6 +327,9 @@ class ModelBenchmarker:
                     task_output["validation_result"] = validation_result
 
                 outputs.append(task_output)
+
+            # F13: Unload model from RAM after finishing all tasks for this model
+            client.unload_model()
 
             model_duration = time.time() - model_start_time
             model_mins, model_secs = divmod(int(model_duration), 60)
@@ -673,7 +686,7 @@ class ModelBenchmarker:
 
     def generate_summary(self, summary_model: str) -> str:
         """Use a designated model to create the final benchmark summary report."""
-        summary_timeout = central_config.DEFAULT_TIMEOUT
+        summary_timeout = get_config().DEFAULT_TIMEOUT
         llm_recorder = LLMRecorder(logger=self.logger)
         summary_client = OllamaClient(
             url=self.url,

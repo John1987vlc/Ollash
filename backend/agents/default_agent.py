@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -316,6 +317,10 @@ RULES:
 
     async def chat(self, instruction: str, auto_confirm: bool = False) -> str:
         correlation_id: Optional[str] = None
+        start_turn_time = time.time()
+        start_tokens = self.token_tracker.session_total_tokens
+        turn_metrics = {"models_used": []}
+        
         try:
             # Start interaction context with a correlation ID
             correlation_id = self.kernel.start_interaction_context()
@@ -337,13 +342,17 @@ RULES:
                 self.conversation.append({"role": "user", "content": english_instruction})
 
             # --- Intent Routing Mixin Usage ---
+            self.logger.thinking("Analyzing user instruction to determine intent...")
             intent_for_this_turn = await self._classify_intent(english_instruction)  # Use mixin method
             selected_model_client = self._select_model_for_intent(intent_for_this_turn)  # Use mixin method
 
             # Override default client for this turn, or use it for routing later
             # For now, let's assume the mixin returns the client directly, which DefaultAgent then uses.
             self.logger.info(
-                f"🧠 Current turn model selected based on intent '{intent_for_this_turn}': {selected_model_client.model}"
+                f"🧠 Phase: Intent Classification -> Result: '{intent_for_this_turn}'"
+            )
+            self.logger.info(
+                f"🧠 Routing: Using model {selected_model_client.model} for this turn."
             )
 
             messages = [
@@ -363,6 +372,7 @@ RULES:
                     self._event_bridge.push_event("iteration", {"current": iterations, "max": self.max_iterations})
 
                 # --- Context Summarizer Mixin Usage ---
+                self.logger.thinking("Managing context window and history...")
                 messages = await self._manage_context_window(messages)  # Use mixin method
                 self.conversation = [
                     msg for msg in messages if msg["role"] != "system"
@@ -375,16 +385,15 @@ RULES:
                     # self.logger.api_request(len(messages), len(self.tool_functions)) # REMOVED, LLMRecorder handles
 
                     # Directly use the selected_model_client (IModelProvider client)
-                    response, _ = await selected_model_client.achat(
+                    response, usage = await selected_model_client.achat(
                         messages=messages,
                         tools=self.tool_executor.get_tool_definitions(self.active_tool_names),
                     )
 
-                    # Track tokens from the chosen response
-                    chosen_usage = response.get("usage", {})
+                    # F20: Track tokens from the usage dictionary returned by the client
                     self.token_tracker.add_usage(
-                        chosen_usage.get("prompt_tokens", 0),
-                        chosen_usage.get("completion_tokens", 0),
+                        usage.get("prompt_tokens", 0),
+                        usage.get("completion_tokens", 0),
                     )
 
                     self.token_tracker.display_current()
@@ -392,6 +401,7 @@ RULES:
                     msg = response["message"]
 
                     if "tool_calls" not in msg:
+                        self.logger.thinking("Analyzing final answer from LLM...")
                         # self.logger.api_response(False) # REMOVED, LLMRecorder handles
                         final_response_en = msg.get("content", "")
 
@@ -405,13 +415,27 @@ RULES:
                         )
                         self.conversation.append({"role": "assistant", "content": final_response_en})
                         self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
-                        return final_response_translated
+                        
+                        # F20: Prepare detailed metrics for this turn
+                        elapsed = time.time() - start_turn_time
+                        token_delta = self.token_tracker.session_total_tokens - start_tokens
+                        
+                        turn_data = {
+                            "text": final_response_translated,
+                            "metrics": {
+                                "duration_sec": round(elapsed, 2),
+                                "total_tokens": token_delta,
+                                "iterations": iterations
+                            }
+                        }
+                        return turn_data
 
                     tool_calls = msg["tool_calls"]
                     # self.logger.api_response(True, len(tool_calls)) # REMOVED, LLMRecorder handles
                     self.conversation.append(msg)
 
                     # --- Tool Loop Mixin Usage ---
+                    self.logger.info(f"🧠 Phase: Executing {len(tool_calls)} Tool(s)")
                     tool_outputs = await self._execute_tool_loop(tool_calls, english_instruction)  # Use mixin method
 
                     for result in tool_outputs:
@@ -585,8 +609,13 @@ RULES:
                     continue
 
                 print(f"\n{Fore.MAGENTA}🤖 Agent:{Style.RESET_ALL}")
-                response = asyncio.run(self.chat(q, auto_confirm=self.auto_confirm))  # Pass auto_confirm to chat
-                print(f"\n{response}\n")
+                result = asyncio.run(self.chat(q, auto_confirm=self.auto_confirm))  # Pass auto_confirm to chat
+                if isinstance(result, dict):
+                    print(f"\n{result.get('text', '')}\n")
+                    metrics = result.get('metrics', {})
+                    print(f"{Fore.CYAN}[Time: {metrics.get('duration_sec')}s | Tokens: {metrics.get('total_tokens')}]{Style.RESET_ALL}")
+                else:
+                    print(f"\n{result}\n")
 
             except KeyboardInterrupt:
                 self.memory_manager.update_conversation_history(self.conversation)

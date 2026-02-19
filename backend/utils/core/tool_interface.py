@@ -34,5 +34,8 @@ class ToolExecutor(IToolExecutor):
             result = await tool_func(**kwargs)
         else:
             result = tool_func(**kwargs)
+            # F15: Extra safety check - if the result is a coroutine (async), await it
+            if asyncio.iscoroutine(result):
+                result = await result
 
         return result

@@ -18,9 +18,10 @@ _monitor_agents = None
 _event_publisher = None
 
 
-def init_app(ollash_root_dir: Path, event_publisher: EventPublisher):
+def init_app(app, event_publisher: EventPublisher):
     """Initialize monitors blueprint."""
     global _monitor_agents, _event_publisher
+    ollash_root_dir = app.config.get("ollash_root_dir")
     _event_publisher = event_publisher
     _monitor_agents = create_monitor_agents(ollash_root_dir, event_publisher)
 

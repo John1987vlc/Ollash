@@ -8,11 +8,12 @@ Usage:
 import argparse
 
 # Use the new centralized config
-from backend.core.config import config as central_config
+from backend.core.config import get_config
 from backend.agents.auto_benchmarker import ModelBenchmarker
 
 
 def main():
+    config = get_config()
     parser = argparse.ArgumentParser(
         description="Benchmark Ollama models on autonomous project generation."
     )
@@ -47,8 +48,8 @@ def main():
     log_path = benchmarker.save_logs()
 
     # Get summary model from the new centralized config
-    summary_model = (central_config.LLM_MODELS.get("models", {})
-                     .get("summarization", central_config.DEFAULT_MODEL))
+    summary_model = (config.LLM_MODELS.get("models", {})
+                     .get("summarization", config.DEFAULT_MODEL))
     
     print(f"\nGenerating summary with model: {summary_model}")
     report = benchmarker.generate_summary(summary_model)

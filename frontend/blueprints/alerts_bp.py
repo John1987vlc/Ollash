@@ -168,11 +168,10 @@ def clear_history():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-def init_app(ollash_root_dir: Path, event_publisher=None, alert_manager=None):
+def init_app(app, event_publisher=None, alert_manager=None):
     """Initialize alerts blueprint with required dependencies."""
     logger.info("Initializing alerts blueprint")
-
-    # This will be completed when registering the blueprint
+    ollash_root_dir = app.config.get("ollash_root_dir")
 
 
 __all__ = ["alerts_bp", "init_app"]

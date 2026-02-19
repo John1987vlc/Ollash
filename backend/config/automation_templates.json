@@ -1,0 +1,27 @@
+{
+  "example_triggers": [
+    {
+      "trigger_id": "cpu_usage_high",
+      "name": "High CPU Usage Alert",
+      "description": "Alert when CPU exceeds 80%",
+      "rule": {
+        "conditions": [
+          {
+            "metric": "system.cpu_usage",
+            "operator": ">",
+            "value": 80
+          }
+        ],
+        "logic": "AND"
+      },
+      "actions": [
+        {
+          "type": "send_notification",
+          "title": "High CPU Usage",
+          "message": "CPU usage has exceeded 80%.",
+          "severity": "warning"
+        }
+      ]
+    }
+  ]
+}

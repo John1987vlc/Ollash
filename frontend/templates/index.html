@@ -7,10 +7,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/artifact-renderer.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- General Libraries (Load these before Monaco to avoid AMD conflicts) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
     <!-- Monaco Editor assets -->
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.29.1/min/vs/editor/editor.main.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.29.1/min/vs/loader.min.js"></script>
-    <!-- Highlight.js for code highlighting -->
+    
+    <!-- Highlight.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
     <!-- Xterm.js assets -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/4.16.0/xterm.min.css" />
@@ -92,6 +98,17 @@
                         <div class="health-bar"><div class="health-bar-fill" id="health-ram"></div></div>
                         <span class="health-value" id="health-ram-val">--%</span>
                     </div>
+                    <div class="health-metric">
+                        <span class="health-label">DSK</span>
+                        <div class="health-bar"><div class="health-bar-fill" id="health-disk"></div></div>
+                        <span class="health-value" id="health-disk-val">--%</span>
+                    </div>
+                    <div class="health-metric" id="health-net-row">
+                        <span class="health-label">NET</span>
+                        <div class="health-bar" style="background: transparent; border: none; overflow: visible; display: flex; align-items: center;">
+                            <span class="health-value" id="health-net-val" style="width: 100%; text-align: left; white-space: nowrap; font-size: 0.6rem; color: var(--color-text-muted);">Sub: 0 MB | Baj: 0 MB</span>
+                        </div>
+                    </div>
                     <div class="health-metric" id="health-gpu-row" style="display:none;">
                         <span class="health-label">GPU</span>
                         <div class="health-bar"><div class="health-bar-fill" id="health-gpu"></div></div>
@@ -162,11 +179,18 @@
                         <div class="prompt-library-list" id="prompt-library-list"></div>
                     </div>
                     <div class="chat-input-area">
-                        <button class="btn-icon" id="toggle-prompt-library" title="Prompt Library">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                                <path d="M3 4H17M3 8H17M3 12H13M3 16H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                            </svg>
-                        </button>
+                        <div class="chat-input-actions">
+                            <button class="btn-icon" id="toggle-prompt-library" title="Prompt Library">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M3 4H17M3 8H17M3 12H13M3 16H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" id="clear-chat-btn" title="Clear Chat">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                        </div>
                         <textarea id="chat-input" placeholder="Ask Ollash anything..." rows="1"></textarea>
                         <button id="send-btn" class="btn-primary" title="Send">
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -222,7 +246,7 @@
                             </div>
                             <div class="wizard-nav">
                                 <div></div>
-                                <button type="button" class="btn-primary" id="wizard-next-1">Next: Configuration &rarr;</button>
+                                <button type="button" class="btn-primary wizard-next-btn" id="wizard-next-1">Next: Configuration &rarr;</button>
                             </div>
                         </div>
 
@@ -253,8 +277,8 @@
                                 </label>
                             </div>
                             <div class="wizard-nav">
-                                <button type="button" class="btn-secondary" id="wizard-prev-2">&larr; Back</button>
-                                <button type="button" class="btn-primary" id="wizard-next-2">Next: Description &rarr;</button>
+                                <button type="button" class="btn-secondary wizard-back-btn" id="wizard-prev-2">&larr; Back</button>
+                                <button type="button" class="btn-primary wizard-next-btn" id="wizard-next-2">Next: Description &rarr;</button>
                             </div>
                         </div>
 
@@ -266,7 +290,7 @@
                                           rows="8" placeholder="Describe what your project should do, what features it needs, and any specific requirements..." required></textarea>
                             </div>
                             <div class="wizard-nav">
-                                <button type="button" class="btn-secondary" id="wizard-prev-3">&larr; Back</button>
+                                <button type="button" class="btn-secondary wizard-back-btn" id="wizard-prev-3">&larr; Back</button>
                                 <button type="button" class="btn-primary" id="wizard-generate">
                                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                                         <path d="M10 2L18 6V14L10 18L2 14V6L10 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
@@ -566,12 +590,21 @@
                 <div class="view-header">
                     <h1>Task Automations</h1>
                     <p class="subtitle">Schedule and manage automated monitoring tasks</p>
-                    <button class="btn-primary btn-small" id="new-automation-btn" style="margin-top: var(--spacing-md);">
-                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                            <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        New Task
-                    </button>
+                    <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+                        <button class="btn-primary btn-small" id="new-automation-btn">
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            New Task
+                        </button>
+                        <button class="btn-secondary btn-small" id="automation-config-btn">
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 6V14M6 10H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Config Alert
+                        </button>
+                    </div>
                 </div>
 
                 <div class="automations-grid" id="automations-grid">
@@ -627,6 +660,40 @@
                             </div>
                         </form>
                     </div>
+                <!-- Modal for notification settings -->
+                <div class="modal" id="notification-config-modal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2>Notification Settings</h2>
+                            <button class="close-modal" onclick="closeNotificationModal()">&times;</button>
+                        </div>
+                        <form id="notification-config-form">
+                            <div class="form-group">
+                                <label for="config-smtp-server">SMTP Server</label>
+                                <input type="text" id="config-smtp-server" name="smtp_server" placeholder="smtp.gmail.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="config-smtp-port">SMTP Port</label>
+                                <input type="number" id="config-smtp-port" name="smtp_port" placeholder="587">
+                            </div>
+                            <div class="form-group">
+                                <label for="config-smtp-user">SMTP User (Email)</label>
+                                <input type="email" id="config-smtp-user" name="smtp_user" placeholder="your-email@gmail.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="config-smtp-pass">SMTP Password / App Password</label>
+                                <input type="password" id="config-smtp-pass" name="smtp_password" placeholder="••••••••">
+                            </div>
+                            <div class="form-group">
+                                <label for="config-notify-to">Default Recipient Email</label>
+                                <input type="email" id="config-notify-to" name="notify_to" placeholder="alerts@example.com">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn-primary">Save Settings</button>
+                                <button type="button" class="btn-secondary" onclick="closeNotificationModal()">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
             <!-- Floating Terminal (VS Code style) -->
@@ -672,8 +739,6 @@
     <script src="{{ url_for('static', filename='js/notification-service.js') }}"></script>
     <script src="{{ url_for('static', filename='js/artifact-renderer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/structure-editor.js') }}"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

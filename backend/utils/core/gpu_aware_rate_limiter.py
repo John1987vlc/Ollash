@@ -61,6 +61,36 @@ class GPUAwareRateLimiter:
                     self._lock.acquire()
             self._request_timestamps.append(time.monotonic())
 
+    async def a_wait_if_needed(self) -> None:
+        """Asynchronously waits until a request is allowed."""
+        import asyncio
+        # Note: We use a simplified check here since we don't want to hold the thread lock
+        # during long async sleeps. Real implementation would use an async lock.
+        now = time.monotonic()
+        
+        # Simple non-blocking check
+        with self._lock:
+            while self._request_timestamps and now - self._request_timestamps[0] > 60:
+                self._request_timestamps.popleft()
+            
+            if len(self._request_timestamps) < self.effective_rpm:
+                self._request_timestamps.append(time.monotonic())
+                return
+
+            sleep_time = 60 - (now - self._request_timestamps[0])
+
+        if sleep_time > 0:
+            if self.logger:
+                self.logger.debug(
+                    f"Rate limiter: async sleeping {sleep_time:.1f}s (effective_rpm={self.effective_rpm})"
+                )
+            await asyncio.sleep(sleep_time)
+            # Re-check after sleep (recursive call)
+            await self.a_wait_if_needed()
+        else:
+            with self._lock:
+                self._request_timestamps.append(time.monotonic())
+
     def record_response_time(self, elapsed_ms: float) -> None:
         """Records a response time and adjusts effective RPM."""
         with self._lock:

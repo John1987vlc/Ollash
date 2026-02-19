@@ -1,0 +1,34 @@
+{
+  "cross_reference": true,
+  "knowledge_graph": {
+    "auto_build": true,
+    "max_depth": 3,
+    "similarity_threshold": 0.6
+  },
+  "decision_memory": {
+    "auto_record": false,
+    "save_on_shutdown": true,
+    "retention_days": 365
+  },
+  "artifacts": {
+    "max_diagram_size": "1000x800",
+    "supported_types": [
+      "report",
+      "diagram",
+      "checklist",
+      "code",
+      "comparison"
+    ],
+    "mermaid_theme": "default"
+  },
+  "ocr": {
+    "model": "deepseek-ocr:3b",
+    "confidence_threshold": 0.7,
+    "enabled": false
+  },
+  "speech": {
+    "enabled": false,
+    "language": "es-ES",
+    "max_duration_seconds": 60
+  }
+}

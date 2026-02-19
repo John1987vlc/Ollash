@@ -28,13 +28,13 @@ _chat_event_bridge: ChatEventBridge = None
 
 
 def init_app(
-    ollash_root_dir: Path,
+    app,
     event_publisher: EventPublisher,
     chat_event_bridge: ChatEventBridge,
 ):
     """Initialize shared services for the blueprint and wire the DI container."""
     global _ollash_root_dir, _event_publisher, _chat_event_bridge
-    _ollash_root_dir = ollash_root_dir
+    _ollash_root_dir = app.config.get("ollash_root_dir")
     _event_publisher = event_publisher
     _chat_event_bridge = chat_event_bridge
 

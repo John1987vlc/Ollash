@@ -251,17 +251,30 @@ class AutoAgent(CoreAgent):
             )
         ]
 
-        # This method is often called from a sync context, so it needs to manage its own event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
+        # F27: Handle existing loops correctly
         try:
-            readme, structure = loop.run_until_complete(
+            loop = asyncio.get_running_loop()
+            # If we are in an async context, we need to call this differently
+            # but for backward compatibility, we keep this method synchronous.
+            # In a real async app, this method itself should be async.
+            self.logger.warning("Running generate_structure_only inside an existing loop. This might cause issues if not awaited correctly.")
+            # For the test, we'll try to use a thread if possible, but let's try a safer approach
+            import nest_asyncio
+            nest_asyncio.apply()
+            return loop.run_until_complete(
                 self._run_structure_phases_async(structure_phases, project_description, project_name)
             )
-            return readme, structure
-        finally:
-            loop.close()
+        except RuntimeError:
+            # No running loop, safe to create a new one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                readme, structure = loop.run_until_complete(
+                    self._run_structure_phases_async(structure_phases, project_description, project_name)
+                )
+                return readme, structure
+            finally:
+                loop.close()
 
     async def _run_structure_phases_async(
         self, phases: List[IAgentPhase], project_description: str, project_name: str

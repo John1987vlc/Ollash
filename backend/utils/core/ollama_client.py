@@ -95,6 +95,8 @@ class OllamaClient:
         # config will eventually be ToolSettingsConfig for these values
         rate_config = self.config.get("rate_limiting", {})
         gpu_config = self.config.get("gpu_rate_limiter", {})
+        self._gpu_limiter_enabled = gpu_config.get("enabled", True)
+        
         self._rate_limiter = GPUAwareRateLimiter(
             base_rpm=rate_config.get("requests_per_minute", 60),
             tokens_per_minute=rate_config.get("max_tokens_per_minute", 100000),
@@ -226,7 +228,8 @@ class OllamaClient:
         self._llm_recorder.record_request(self.model, messages, tools, default_options)  # NEW
 
         try:
-            await self._rate_limiter.a_wait_if_needed()
+            if self._gpu_limiter_enabled:
+                await self._rate_limiter.a_wait_if_needed()
 
             # self.logger.debug(f"Sending async request to {self.chat_url}") # Removed, recorder handles
             # tool_names = [t["function"]["name"] for t in tools]
@@ -315,7 +318,8 @@ class OllamaClient:
 
         try:
             # Rate limiting
-            self._rate_limiter.wait_if_needed()
+            if self._gpu_limiter_enabled:
+                self._rate_limiter.wait_if_needed()
 
             # self.logger.debug(f"Sending request to {self.chat_url}") # Removed, recorder handles
             # self.logger.debug(f"Model: {self.model}") # Removed, recorder handles
@@ -415,6 +419,24 @@ class OllamaClient:
             if self.model_health_monitor:
                 self.model_health_monitor.record_request(self.model, latency, success)
 
+    def unload_model(self, model_name: Optional[str] = None):
+        """
+        Explicitly unloads a model from memory in Ollama.
+        """
+        target_model = model_name or self.model
+        self.logger.info(f"Unloading model from RAM: {target_model}")
+        payload = {
+            "model": target_model,
+            "keep_alive": 0
+        }
+        try:
+            # We use /api/generate with keep_alive: 0 to unload
+            r = self.http_session.post(f"{self.base_url}/api/generate", json=payload, timeout=10)
+            r.raise_for_status()
+            self.logger.info(f"Model {target_model} successfully unloaded.")
+        except Exception as e:
+            self.logger.warning(f"Failed to unload model {target_model}: {e}")
+
     async def aget_embedding(self, text: str) -> List[float]:
         cached = self._embedding_cache.get(text)
         if cached is not None:
@@ -438,10 +460,17 @@ class OllamaClient:
             async with session.post(self.embed_url, json=payload, timeout=self.timeout) as response:
                 response.raise_for_status()
                 data = await response.json()
-                embeddings = data.get("embedding")
+                # F21: Handle both singular and plural keys
+                embeddings = data.get("embedding") or data.get("embeddings")
+                
                 if not embeddings:
-                    self.logger.error(f"Ollama embedding response structure: {data}")
-                    raise ValueError(f"No embedding found in Ollama API response. Full response: {data}")
+                    self.logger.error("Ollama async embedding response is missing data.")
+                    raise ValueError(f"No embedding found in Ollama API response for model {self.embedding_model}")
+
+                # If it's a list of lists, take the first
+                if isinstance(embeddings, list) and len(embeddings) > 0 and isinstance(embeddings[0], list):
+                    embeddings = embeddings[0]
+
                 self._embedding_cache.put(text, embeddings)
                 success = True
                 return embeddings
@@ -499,11 +528,16 @@ class OllamaClient:
             r.raise_for_status()
 
             data = r.json()
-            embeddings = data.get("embedding")
+            # F21: Handle both singular and plural keys from different Ollama versions
+            embeddings = data.get("embedding") or data.get("embeddings")
 
             if not embeddings:
-                self.logger.error(f"Ollama embedding response structure: {data}")
-                raise ValueError(f"No embedding found in Ollama API response. Full response: {data}")
+                self.logger.error("Ollama embedding response is missing data.")
+                raise ValueError(f"No embedding found in Ollama API response for model {self.embedding_model}. Check if the model is correct.")
+
+            # If it's a list of lists (new API), take the first one
+            if isinstance(embeddings, list) and len(embeddings) > 0 and isinstance(embeddings[0], list):
+                embeddings = embeddings[0]
 
             # Store in cache
             self._embedding_cache.put(text, embeddings)

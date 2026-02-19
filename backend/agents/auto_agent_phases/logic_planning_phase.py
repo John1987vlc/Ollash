@@ -45,11 +45,13 @@ class LogicPlanningPhase(IAgentPhase):
         files_by_category = self._categorize_files(file_paths)
 
         for category, files in files_by_category.items():
-            self.context.logger.info(f"  Planning {category}: {len(files)} files")
+            # F32: Limit planning to top 10 files per category to avoid LLM timeouts and over-complexity
+            files_to_plan = files[:10]
+            self.context.logger.info(f"  Planning {category}: {len(files_to_plan)} files (limited from {len(files)})")
 
             # Generate a plan for this category
             category_plan = await self._plan_category(
-                category, files, project_description, readme_content, initial_structure
+                category, files_to_plan, project_description, readme_content, initial_structure
             )
 
             for file_path, plan in category_plan.items():
@@ -145,7 +147,8 @@ Format the response as JSON with file paths as keys.
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": category_context},
                 ],
-                options_override={"temperature": 0.5},  # Correctly pass temperature
+                tools=[], # F30: Fixed missing tools parameter
+                options_override={"temperature": 0.5},
             )
 
             # Parse the response
@@ -176,6 +179,9 @@ Format the response as JSON with file paths as keys.
 
         for file_path in files:
             ext = Path(file_path).suffix
+            # F30: Initialize defaults
+            purpose = "Application logic"
+            exports = []
 
             # Basic plan based on file type
             if category == "config":

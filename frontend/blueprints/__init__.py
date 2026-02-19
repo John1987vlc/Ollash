@@ -78,24 +78,24 @@ def register_blueprints(
     # Each tuple contains: (blueprint_object, init_function, init_args)
     # Use a lambda to defer argument binding until the loop.
     blueprints = [
-        (common_bp, lambda: init_common(ollash_root_dir)),
+        (common_bp, lambda: init_common(app)),
         (
             auto_agent_bp,
-            lambda: init_auto_agent(ollash_root_dir, event_publisher, chat_event_bridge),
+            lambda: init_auto_agent(app, event_publisher, chat_event_bridge),
         ),
-        (chat_bp, lambda: init_chat(ollash_root_dir, event_publisher)),
-        (benchmark_bp, lambda: init_benchmark(ollash_root_dir)),
-        (automations_bp, lambda: init_automations(ollash_root_dir, event_publisher)),
-        (metrics_bp, lambda: init_metrics(ollash_root_dir)),
-        (monitors_bp, lambda: init_monitors(ollash_root_dir, event_publisher)),
+        (chat_bp, lambda: init_chat(app, event_publisher)),
+        (benchmark_bp, lambda: init_benchmark(app)),
+        (automations_bp, lambda: init_automations(app, event_publisher)),
+        (metrics_bp, lambda: init_metrics(app)),
+        (monitors_bp, lambda: init_monitors(app, event_publisher)),
         (triggers_bp, lambda: init_triggers()),
         (
             alerts_bp,
-            lambda: init_alerts(ollash_root_dir, event_publisher, alert_manager),
+            lambda: init_alerts(app, event_publisher, alert_manager),
         ),
         (
             automations_api_bp,
-            lambda: init_automations_api(ollash_root_dir, event_publisher),
+            lambda: init_automations_api(app, event_publisher),
         ),
         (analysis_bp, lambda: init_analysis(app)),
         (artifacts_bp, lambda: init_artifacts(app)),

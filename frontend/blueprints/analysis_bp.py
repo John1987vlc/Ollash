@@ -158,18 +158,21 @@ def find_gaps():
     Payload:
     {
         "theory_doc": "docs/network_manual.md",
-        "config_file": "config/settings.json"
+        "config_file": "config/llm_models.json"  // Use a valid JSON config file
     }
     """
     try:
         data = request.get_json()
 
-        if not data or "theory_doc" not in data or "config_file" not in data:
-            return jsonify({"error": "Missing theory_doc or config_file"}), 400
+        if not data or "theory_doc" not in data:
+            return jsonify({"error": "Missing theory_doc"}), 400
 
         project_root = current_app.config.get("ollash_root_dir", Path.cwd())
         theory_doc = project_root / data["theory_doc"]
-        config_file = project_root / data["config_file"]
+        
+        # Default to llm_models.json if not specified
+        config_file_rel = data.get("config_file", "backend/config/llm_models.json")
+        config_file = project_root / config_file_rel
 
         managers = get_analysis_managers()
         gaps = managers["cross_ref"].find_gaps_theory_vs_practice(theory_doc, config_file)

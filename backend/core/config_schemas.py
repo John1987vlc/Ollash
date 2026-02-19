@@ -1,6 +1,6 @@
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, HttpUrl, NonNegativeInt, PositiveInt
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, NonNegativeInt, PositiveInt
 
 
 # --- Embedding Cache Configuration Schema ---
@@ -192,6 +192,7 @@ class RateLimitingConfig(BaseModel):
 
 
 class GPUAwareRateLimiterConfig(BaseModel):
+    enabled: bool = Field(True, description="Whether to enable the GPU-aware adaptive rate limiter.")
     degradation_threshold_ms: float = 5000.0
     recovery_threshold_ms: float = 2000.0
     min_rpm: PositiveInt = 5

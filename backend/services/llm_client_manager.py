@@ -49,10 +49,11 @@ class LLMClientManager(IModelProvider):
         model_name = self.config.agent_roles.get(role)
 
         if not model_name:
-            self.logger.warning(
-                f"Role '{role}' not found in agent_roles config. "
-                f"Falling back to default model '{self.config.default_model}'."
-            )
+            if role != "default":
+                self.logger.warning(
+                    f"Role '{role}' not found in agent_roles config. "
+                    f"Falling back to default model '{self.config.default_model}'."
+                )
             model_name = self.config.default_model
 
         # If a client for this *model* already exists, return it.

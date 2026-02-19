@@ -98,6 +98,10 @@ class StructuredLogger:
         self._logger.setLevel(log_level.upper())
         self._logger.propagate = False  # Prevent logs from going to root logger
 
+        # F22: Prevent duplicate handlers if the logger instance is reused
+        if self._logger.hasHandlers():
+            return
+
         # Ensure log directory exists
         log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -112,8 +116,10 @@ class StructuredLogger:
         self._logger.addHandler(file_handler)
 
         # Console handler for development (optional, can be removed in production)
+        # F18: Use a simple human-readable formatter for the console
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(logging.Formatter("%(levelname)s - %(name)s - %(message)s"))
+        console_formatter = logging.Formatter("%(levelname)s - %(name)s - %(message)s")
+        console_handler.setFormatter(console_formatter)
         self._logger.addHandler(console_handler)
 
     def get_logger(self) -> logging.Logger:

@@ -544,18 +544,26 @@ class AutoModelSelector:
 
     def generate_optimized_config(
         self,
-        base_config: Dict,
+        base_config: Optional[Dict] = None,
     ) -> Dict:
         """Generate optimized model configuration based on benchmarks.
 
         NEW: Integrates weighted metrics and includes rescue model assignments.
 
         Args:
-            base_config: Base configuration from settings.json
+            base_config: Base configuration. If None, use backend centralized config.
 
         Returns:
             Updated config with optimized model assignments and rescue models
         """
+        if base_config is None:
+            from backend.core.config import config as backend_config
+            base_config = {
+                **(backend_config.TOOL_SETTINGS or {}),
+                **(backend_config.LLM_MODELS or {}),
+                **(backend_config.AGENT_FEATURES or {}),
+            }
+
         optimized = base_config.copy()
         models_section = optimized.get("models", {})
         rescue_models_section = {}
@@ -671,26 +679,22 @@ class AutoModelSelector:
 
 
 def integrate_benchmark_results(
-    settings_path: Path,
     benchmark_dir: Path,
     logger: AgentLogger,
     dry_run: bool = True,
+    base_config: Optional[Dict] = None,
 ) -> Dict:
     """High-level function to integrate benchmark results into configuration.
 
     Args:
-        settings_path: Path to settings.json
         benchmark_dir: Directory containing benchmark results
         logger: Logger instance
         dry_run: If True, don't save; just return optimized config
+        base_config: Base configuration to optimize. If None, use centralized backend config.
 
     Returns:
         Optimized configuration
     """
-    # Load base config
-    with open(settings_path) as f:
-        base_config = json.load(f)
-
     # Generate optimized config
     selector = AutoModelSelector(benchmark_dir, logger)
     optimized_config = selector.generate_optimized_config(base_config)
@@ -707,9 +711,11 @@ def integrate_benchmark_results(
 
     # Save if not dry run
     if not dry_run:
+        from backend.core.config import config as backend_config
+        output_path = backend_config.CONFIG_DIR / "llm_models_optimized.json"
         selector.save_optimized_config(
             optimized_config,
-            settings_path.parent / "settings_optimized.json",
+            output_path,
         )
 
     return optimized_config

@@ -15,7 +15,7 @@ from statistics import mean
 from typing import Any, Dict, List, Optional
 
 import requests
-from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask import Blueprint, Response, jsonify, request, stream_with_context, current_app
 
 from backend.agents.auto_benchmarker import ModelBenchmarker
 from frontend.middleware import rate_limit_benchmark, require_api_key
@@ -26,9 +26,9 @@ _ollash_root_dir: Path = None
 _active_run: dict = None  # {"thread": Thread, "queue": Queue, "benchmarker": ModelBenchmarker}
 
 
-def init_app(ollash_root_dir: Path):
+def init_app(app):
     global _ollash_root_dir
-    _ollash_root_dir = ollash_root_dir
+    _ollash_root_dir = app.config.get("ollash_root_dir")
 
 
 @benchmark_bp.route("/api/benchmark/models")
@@ -40,10 +40,8 @@ def list_models():
     ollama_url = request.args.get("url", "").strip()
 
     if not ollama_url:
-        config_path = _ollash_root_dir / "config" / "settings.json"
         try:
-            with open(config_path, "r") as f:
-                config = json.load(f)
+            config = current_app.config.get("config", {})
             ollama_url = os.environ.get(
                 "OLLASH_OLLAMA_URL",
                 config.get("ollama_url", "http://localhost:11434"),
@@ -59,11 +57,16 @@ def list_models():
         result = []
         for m in models_sorted:
             size_bytes = m.get("size", 0)
+            name = m["name"]
+            # Detect if it's likely an embedding model
+            is_embedding = "embed" in name.lower()
+            
             result.append(
                 {
-                    "name": m["name"],
+                    "name": name,
                     "size_bytes": size_bytes,
                     "size_human": ModelBenchmarker.format_size(size_bytes),
+                    "supports_chat": not is_embedding
                 }
             )
         return jsonify({"status": "ok", "ollama_url": ollama_url, "models": result})
@@ -108,11 +111,11 @@ def start_benchmark():
         )
 
     event_queue = queue.Queue()
-    config_path = str(_ollash_root_dir / "config" / "settings.json")
-
+    # F12: Use current_app.config for benchmarker or pass None to use default centralized config
     def _run():
         try:
-            benchmarker = ModelBenchmarker(config_path=config_path)
+            from backend.core.config import config as backend_config
+            benchmarker = ModelBenchmarker() # It will use central config by default
             if ollama_url:
                 benchmarker.url = ollama_url
             _active_run["benchmarker"] = benchmarker
@@ -128,6 +131,7 @@ def start_benchmark():
                 pass
 
             total_models = len(models)
+            all_results = []
 
             for model_idx, model_name in enumerate(models, 1):
                 event_queue.put(
@@ -142,11 +146,12 @@ def start_benchmark():
                 )
 
                 # Run benchmark for this single model
-                benchmarker.results = []
+                benchmarker.results = [] # Clear for this specific run
                 benchmarker.run_benchmark([model_name])
 
                 if benchmarker.results:
                     result = benchmarker.results[0]
+                    all_results.append(result)
                     event_queue.put(
                         json.dumps(
                             {
@@ -159,9 +164,22 @@ def start_benchmark():
                         )
                     )
 
-            # Save all results
-            benchmarker.results = []
-            benchmarker.run_benchmark(models)
+            # F14: Generate Summary after all models are done
+            summary_text = "No summary generated."
+            try:
+                from backend.core.config import get_config
+                config = get_config()
+                summary_model = config.LLM_MODELS.get("models", {}).get("summarization", config.DEFAULT_MODEL)
+                
+                event_queue.put(json.dumps({"type": "info", "message": f"Generating final report with {summary_model}..."}))
+                
+                # Update benchmarker with all results for summary generation
+                benchmarker.results = all_results
+                summary_text = benchmarker.generate_summary(summary_model)
+            except Exception as e:
+                summary_text = f"Error generating summary: {str(e)}"
+
+            # Save all results to disk
             log_path = benchmarker.save_logs()
 
             event_queue.put(
@@ -169,7 +187,8 @@ def start_benchmark():
                     {
                         "type": "benchmark_done",
                         "results_file": str(log_path),
-                        "results": benchmarker.results,
+                        "results": all_results,
+                        "summary": summary_text
                     }
                 )
             )

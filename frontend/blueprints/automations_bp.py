@@ -22,9 +22,10 @@ _scheduler = None
 _executor = None
 
 
-def init_app(ollash_root_dir: Path, event_publisher=None):
+def init_app(app, event_publisher=None):
     """Initialize the automations blueprint."""
     global _tasks_storage_file, _scheduler, _executor
+    ollash_root_dir = app.config.get("ollash_root_dir")
     _tasks_storage_file = ollash_root_dir / "config" / "scheduled_tasks.json"
     _tasks_storage_file.parent.mkdir(parents=True, exist_ok=True)
 

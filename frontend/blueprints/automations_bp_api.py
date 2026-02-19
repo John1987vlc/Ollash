@@ -195,11 +195,10 @@ def reload_automations():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-def init_app(ollash_root_dir: Path, event_publisher=None):
+def init_app(app, event_publisher=None):
     """Initialize automations blueprint with required dependencies."""
     logger.info("Initializing automations blueprint")
-
-    # This will be completed when registering the blueprint
+    ollash_root_dir = app.config.get("ollash_root_dir")
 
 
 __all__ = ["automations_api_bp", "init_app"]

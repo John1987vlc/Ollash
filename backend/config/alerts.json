@@ -1,0 +1,45 @@
+{
+  "description": "Default alert thresholds and configurations for Ollash",
+  "alerts": [
+    {
+      "alert_id": "high_cpu",
+      "name": "High CPU Usage",
+      "description": "System CPU usage is critically high",
+      "severity": "critical",
+      "entity": "cpu",
+      "threshold": 85,
+      "operator": ">",
+      "cooldown_seconds": 600,
+      "enabled": true,
+      "channels": [
+        "ui",
+        "email"
+      ],
+      "suggested_actions": [
+        "Review running processes",
+        "Check for resource leaks",
+        "Consider stopping non-essential services"
+      ]
+    },
+    {
+      "alert_id": "high_memory",
+      "name": "High Memory Usage",
+      "description": "System memory usage is critically high",
+      "severity": "critical",
+      "entity": "memory",
+      "threshold": 90,
+      "operator": ">",
+      "cooldown_seconds": 600,
+      "enabled": true,
+      "channels": [
+        "ui",
+        "email"
+      ],
+      "suggested_actions": [
+        "Identify memory-consuming processes",
+        "Clear cache if available",
+        "Restart heavy applications"
+      ]
+    }
+  ]
+}

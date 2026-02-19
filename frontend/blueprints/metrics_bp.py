@@ -15,9 +15,10 @@ metrics_bp = Blueprint("metrics", __name__)
 _metrics_db = None
 
 
-def init_app(ollash_root_dir: Path):
+def init_app(app):
     """Initialize metrics blueprint."""
     global _metrics_db
+    ollash_root_dir = app.config.get("ollash_root_dir")
     _metrics_db = get_metrics_database(ollash_root_dir)
 
 

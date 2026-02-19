@@ -59,8 +59,20 @@ class ChatEventBridge:
                 yield ": keepalive\n\n"
                 continue
 
-            payload = json.dumps({"type": event.event_type, **event.data})
-            yield f"data: {payload}\n\n"
+            # Handle non-serializable data (like coroutines) to avoid 500 errors
+            sanitized_data = {}
+            for k, v in event.data.items():
+                if hasattr(v, "__await__") or hasattr(v, "cr_code"): # Check if it's a coroutine
+                    sanitized_data[k] = f"[Pending Coroutine: {getattr(v, '__name__', 'unknown')}]"
+                else:
+                    sanitized_data[k] = v
+
+            try:
+                payload = json.dumps({"type": event.event_type, **sanitized_data})
+                yield f"data: {payload}\n\n"
+            except Exception as e:
+                # Fallback for complex objects that still fail
+                yield f'data: {{"type": "error", "message": "Serialization error: {str(e)}"}}\n\n'
 
             if event.event_type == "stream_end":
                 break

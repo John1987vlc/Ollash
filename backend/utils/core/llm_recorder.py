@@ -19,7 +19,7 @@ class LLMRecorder:
         Records an LLM request before it is sent.
         """
         prompt_hash = hash(json.dumps(messages))  # Use hash to avoid logging potentially very large prompts directly
-        self._logger.info(
+        self._logger.debug(
             f"LLM Request for {model}",
             extra={
                 "event_type": "llm_request",
@@ -46,7 +46,7 @@ class LLMRecorder:
         response_hash = hash(
             json.dumps(response_data)
         )  # Use hash to avoid logging potentially very large responses directly
-        self._logger.info(
+        self._logger.debug(
             f"LLM Response from {model}",
             extra={
                 "event_type": "llm_response",
@@ -64,7 +64,7 @@ class LLMRecorder:
         Records an embedding request before it is sent.
         """
         text_hash = hash(text)
-        self._logger.info(
+        self._logger.debug(
             f"Embedding Request for {model}",
             extra={
                 "event_type": "embedding_request",
@@ -85,7 +85,7 @@ class LLMRecorder:
         """
         Records an embedding response after it is received or an error occurs.
         """
-        self._logger.info(
+        self._logger.debug(
             f"Embedding Response from {model}",
             extra={
                 "event_type": "embedding_response",

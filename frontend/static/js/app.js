@@ -1,13 +1,28 @@
 document.addEventListener('DOMContentLoaded', function() {
     // ==================== DOM Elements ====================
+    // ==================== Utilities ====================
+    function safelySetAttribute(element, attr, value) {
+        if (element) element.setAttribute(attr, value);
+    }
+
+    function safelySetTextContent(element, value) {
+        if (element) element.textContent = value;
+    }
+
     // Projects
     const createProjectFormContainer = document.querySelector('.create-form-container'); // Parent of the form
     const createProjectForm = document.getElementById('create-project-form');
-    const generateStructureBtn = createProjectForm.querySelector('button[type="submit"]'); // Renamed submit button
-    generateStructureBtn.querySelector('span').textContent = 'Generate Structure'; // Update button text
-    generateStructureBtn.querySelector('svg path').setAttribute('d', 'M10 2L18 6V14L10 18L2 14V6L10 2Z'); // Reset icon if changed by previous replace
-    generateStructureBtn.querySelector('svg path').setAttribute('stroke', 'currentColor');
-    generateStructureBtn.querySelector('svg path').setAttribute('fill', 'none');
+    // F2: Use the wizard generate button instead of the hidden form submit button
+    const generateStructureBtn = document.getElementById('wizard-generate');
+    if (generateStructureBtn) {
+        safelySetTextContent(generateStructureBtn.querySelector('span'), 'Generate Structure');
+        const btnPath = generateStructureBtn.querySelector('svg path');
+        if (btnPath) {
+            safelySetAttribute(btnPath, 'd', 'M10 2L18 6V14L10 18L2 14V6L10 2Z');
+            safelySetAttribute(btnPath, 'stroke', 'currentColor');
+            safelySetAttribute(btnPath, 'fill', 'none');
+        }
+    }
 
     const statusMessage = document.getElementById('status-message');
     const existingProjectsSelect = document.getElementById('existing-projects');
@@ -37,30 +52,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const wizardIndicators = document.querySelectorAll('.wizard-step-indicator');
     const wizardNextBtns = document.querySelectorAll('.wizard-next-btn');
     const wizardBackBtns = document.querySelectorAll('.wizard-back-btn');
-    const wizardGenerateBtn = document.getElementById('wizard-generate-btn');
+    const wizardGenerateBtn = document.getElementById('wizard-generate'); // Consistent with F2 change
 
     // Floating terminal elements
     const floatingTerminal = document.getElementById('floating-terminal');
     const toggleTerminalBtn = document.getElementById('toggle-terminal-btn');
-    const terminalMinimizeBtn = document.getElementById('terminal-minimize-btn');
-    const terminalMaximizeBtn = document.getElementById('terminal-maximize-btn');
-    const terminalCloseBtn = document.getElementById('terminal-close-btn');
-    const floatingTerminalHeader = floatingTerminal ? floatingTerminal.querySelector('.floating-terminal-header') : null;
+    const terminalMinimizeBtn = document.getElementById('terminal-minimize'); // Fixed ID from index.html
+    const terminalMaximizeBtn = document.getElementById('terminal-maximize'); // Fixed ID from index.html
+    const terminalCloseBtn = document.getElementById('terminal-close'); // Fixed ID from index.html
+    const floatingTerminalHeader = document.getElementById('floating-terminal-header');
 
     // Log filter elements
     const logFilterBtns = document.querySelectorAll('.log-filter-btn');
 
-    // Health dashboard elements
-    const healthCpuBar = document.getElementById('health-cpu-bar');
-    const healthRamBar = document.getElementById('health-ram-bar');
-    const healthGpuBar = document.getElementById('health-gpu-bar');
+    // Health dashboard elements (Fixed IDs to match index.html)
+    const healthCpuBar = document.getElementById('health-cpu');
+    const healthRamBar = document.getElementById('health-ram');
+    const healthDiskBar = document.getElementById('health-disk');
+    const healthGpuBar = document.getElementById('health-gpu');
     const healthCpuVal = document.getElementById('health-cpu-val');
     const healthRamVal = document.getElementById('health-ram-val');
+    const healthDiskVal = document.getElementById('health-disk-val');
+    const healthNetVal = document.getElementById('health-net-val');
     const healthGpuVal = document.getElementById('health-gpu-val');
-    const healthGpuMetric = document.getElementById('health-gpu-metric');
+    const healthGpuMetric = document.getElementById('health-gpu-row');
 
     // Prompt library elements
-    const promptLibraryToggle = document.getElementById('prompt-library-toggle');
+    const promptLibraryToggle = document.getElementById('toggle-prompt-library'); // Fixed ID from index.html
     const promptLibraryPanel = document.getElementById('prompt-library-panel');
     const promptCatBtns = document.querySelectorAll('.prompt-cat-btn');
 
@@ -68,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const diffModal = document.getElementById('diff-modal');
     const diffEditorContainer = document.getElementById('diff-editor-container');
     const diffFilePath = document.getElementById('diff-file-path');
-    const diffApplyBtn = document.getElementById('diff-apply-btn');
+    const diffApplyBtn = document.getElementById('apply-diff-btn'); // Fixed ID from index.html
     const diffDiscardBtn = document.getElementById('diff-discard-btn');
 
     // Minimap elements
@@ -153,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let term;
     let fitAddon;
     let currentCommand = '';
-    const prompt = '\x1b[1;34m$ \x1b[0m'; // Blue dollar sign prompt
+    const termPrompt = '\x1b[1;34m$ \x1b[0m'; // Renamed to avoid conflict with window.prompt
 
     // Helper to update visibility of editor action buttons
     function updateEditorActionButtons() {
@@ -255,12 +273,6 @@ document.addEventListener('DOMContentLoaded', function() {
         agentLogs.scrollTop = agentLogs.scrollHeight;
     }
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
     clearLogsBtn.addEventListener('click', () => { agentLogs.innerHTML = ''; });
 
     // ==================== Template Selection ====================
@@ -309,13 +321,26 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    function appendChatMessage(role, content) {
+    function appendChatMessage(role, content, metrics = null) {
         const msg = document.createElement('div');
         msg.className = `chat-message ${role}`;
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble';
         bubble.innerHTML = content;
         msg.appendChild(bubble);
+
+        // F20: Add metrics footer for assistant messages
+        if (role === 'assistant' && metrics) {
+            const footer = document.createElement('div');
+            footer.className = 'chat-metrics-footer';
+            footer.innerHTML = `
+                <span class="metric-item">⏱️ ${metrics.duration_sec}s</span>
+                <span class="metric-item">🪙 ${metrics.total_tokens} tokens</span>
+                <button class="btn-detail-metrics" onclick="showUsageDetails(${JSON.stringify(metrics).replace(/"/g, '&quot;')})">Details</button>
+            `;
+            bubble.appendChild(footer);
+        }
+
         chatMessages.appendChild(msg);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         return bubble;
@@ -355,7 +380,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function sendChatMessage(messageContent = null, agentTypeOverride = null) {
-        const message = messageContent || chatInput.value.trim();
+        let message = messageContent || chatInput.value.trim();
+        
+        // Ensure message is a string if it came from an event or object
+        if (typeof message === 'object' && message !== null) {
+            message = message.text || JSON.stringify(message);
+        }
+        
         const agentToSendAs = agentTypeOverride || selectedAgentType;
 
         if (!message || isChatBusy) return;
@@ -397,6 +428,24 @@ document.addEventListener('DOMContentLoaded', function() {
             chatEventSource = new EventSource(`/api/chat/stream/${chatSessionId}`);
 
             let currentToolCard = null;
+            let thinkingBubble = null;
+
+            function updateThinking(msg) {
+                if (!thinkingBubble) {
+                    thinkingBubble = appendChatMessage('assistant', `<div class="thinking-loader"><span></span><span></span><span></span></div> <span class="thinking-text">${msg}</span>`);
+                    thinkingBubble.classList.add('thinking-bubble-wrapper');
+                } else {
+                    const textEl = thinkingBubble.querySelector('.thinking-text');
+                    if (textEl) textEl.textContent = msg;
+                }
+            }
+
+            function removeThinking() {
+                if (thinkingBubble) {
+                    thinkingBubble.closest('.chat-message').remove();
+                    thinkingBubble = null;
+                }
+            }
 
             chatEventSource.onmessage = function(event) {
                 let parsed;
@@ -404,9 +453,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 switch (parsed.type) {
                     case 'iteration':
+                        updateThinking(`Thinking (Iteration ${parsed.current}/${parsed.max})...`);
                         break;
 
                     case 'tool_call':
+                        removeThinking();
                         currentToolCard = appendToolCard(
                             parsed.name, parsed.args, parsed.index, parsed.total
                         );
@@ -417,10 +468,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             updateToolResult(currentToolCard, parsed.name, parsed.success, parsed.result || '');
                             currentToolCard = null;
                         }
+                        updateThinking(`Analyzing results...`);
                         break;
 
                     case 'final_answer':
-                        appendChatMessage('assistant', formatAnswer(parsed.content || ''));
+                        removeThinking();
+                        appendChatMessage('assistant', formatAnswer(parsed.content || ''), parsed.metrics);
                         break;
 
                     case 'error':
@@ -1302,6 +1355,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             benchModelList.innerHTML = '';
             data.models.forEach(m => {
+                if (m.supports_chat === false) return; // Skip embedding models in UI
+                
                 const label = document.createElement('label');
                 label.className = 'model-item';
                 label.innerHTML = `
@@ -1367,6 +1422,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     case 'benchmark_done':
                         appendBenchLog('Benchmark completed!', 'success');
+                        if (parsed.summary) {
+                            appendBenchSummary(parsed.summary);
+                        }
+                        if (parsed.results) {
+                            appendBenchAnalytics(parsed.results);
+                        }
                         benchEventSource.close();
                         benchEventSource = null;
                         benchStartBtn.disabled = false;
@@ -1446,6 +1507,145 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         benchOutput.appendChild(card);
         benchOutput.scrollTop = benchOutput.scrollHeight;
+    }
+
+    function appendBenchSummary(summary) {
+        const summaryCard = document.createElement('div');
+        summaryCard.className = 'bench-summary-card';
+        summaryCard.innerHTML = `
+            <div class="bench-summary-header">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="margin-right: 8px; vertical-align: middle;">
+                    <path d="M10 2L12.5 7H17.5L13.5 10.5L15 15.5L10 12.5L5 15.5L6.5 10.5L2.5 7H7.5L10 2Z" fill="var(--color-warning)"/>
+                </svg>
+                AI Intelligence Report
+            </div>
+            <div class="bench-summary-content">${formatAnswer(summary)}</div>
+        `;
+        benchOutput.appendChild(summaryCard);
+        benchOutput.scrollTop = benchOutput.scrollHeight;
+    }
+
+    function appendBenchAnalytics(results) {
+        if (!results || results.length === 0) return;
+
+        const analyticsContainer = document.createElement('div');
+        analyticsContainer.className = 'bench-analytics-container';
+        
+        // 1. Comparison Table
+        let tableHtml = `
+            <div class="bench-analytics-section">
+                <h4>Performance Comparison</h4>
+                <div class="bench-table-wrapper">
+                    <table class="bench-table">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Success Rate</th>
+                                <th>Avg Speed</th>
+                                <th>Duration</th>
+                                <th>Total Tokens</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        results.forEach(r => {
+            const successTasks = r.projects_results ? r.projects_results.filter(p => p.status === 'Success').length : 0;
+            const totalTasks = r.projects_results ? r.projects_results.length : 0;
+            const successRate = totalTasks > 0 ? ((successTasks / totalTasks) * 100).toFixed(1) : 0;
+            const duration = r.duration_sec ? `${(r.duration_sec / 60).toFixed(1)}m` : '-';
+            
+            tableHtml += `
+                <tr>
+                    <td><strong>${escapeHtml(r.model)}</strong></td>
+                    <td class="${successRate > 70 ? 'text-success' : successRate > 40 ? 'text-warning' : 'text-error'}">${successRate}%</td>
+                    <td>${r.tokens_per_second || 0} tok/s</td>
+                    <td>${duration}</td>
+                    <td>${r.total_tokens_session?.total || 0}</td>
+                </tr>
+            `;
+        });
+
+        tableHtml += `</tbody></table></div></div>`;
+        
+        // 2. Chart Canvas
+        const chartId = 'bench-chart-' + Date.now();
+        tableHtml += `
+            <div class="bench-analytics-section">
+                <h4>Speed vs Reliability (tok/s)</h4>
+                <div class="bench-chart-wrapper">
+                    <canvas id="${chartId}"></canvas>
+                </div>
+            </div>
+        `;
+
+        analyticsContainer.innerHTML = tableHtml;
+        benchOutput.appendChild(analyticsContainer);
+        benchOutput.scrollTop = benchOutput.scrollHeight;
+
+        // 3. Initialize Chart
+        setTimeout(() => {
+            const ctx = document.getElementById(chartId).getContext('2d');
+            const labels = results.map(r => r.model);
+            const speeds = results.map(r => r.tokens_per_second || 0);
+            const successRates = results.map(r => {
+                const ok = r.projects_results ? r.projects_results.filter(p => p.status === 'Success').length : 0;
+                return (ok / (r.projects_results?.length || 1)) * 100;
+            });
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Speed (tok/s)',
+                            data: speeds,
+                            backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                            borderColor: 'rgba(99, 102, 241, 1)',
+                            borderWidth: 1,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Success Rate (%)',
+                            data: successRates,
+                            type: 'line',
+                            borderColor: '#10b981',
+                            backgroundColor: '#10b981',
+                            fill: false,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Tokens per Second', color: '#a1a1aa' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#a1a1aa' }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            max: 100,
+                            position: 'right',
+                            title: { display: true, text: 'Success Rate (%)', color: '#10b981' },
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#10b981' }
+                        },
+                        x: {
+                            ticks: { color: '#a1a1aa' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#e4e4e7' } }
+                    }
+                }
+            });
+        }, 100);
     }
 
     async function loadBenchHistory() {
@@ -1838,14 +2038,14 @@ document.addEventListener('DOMContentLoaded', function() {
         fitAddon.fit();
         term.writeln('\x1b[1;32mOllash Terminal\x1b[0m');
         term.writeln('Type commands and press Enter.');
-        term.write(prompt);
+        term.write(termPrompt);
 
         term.onData(data => {
             if (data === '\r') {
                 term.writeln('');
                 if (currentCommand.trim()) executeTerminalCommand(currentCommand.trim());
                 currentCommand = '';
-                term.write(prompt);
+                term.write(termPrompt);
             } else if (data === '\x7f') {
                 if (currentCommand.length > 0) {
                     currentCommand = currentCommand.slice(0, -1);
@@ -1956,6 +2156,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 healthRamBar.className = 'health-bar-fill ' + getHealthColor(ram);
             }
             if (healthRamVal) healthRamVal.textContent = Math.round(ram) + '%';
+
+            if (healthDiskBar) {
+                const disk = data.disk_percent || 0;
+                healthDiskBar.style.width = disk + '%';
+                healthDiskBar.className = 'health-bar-fill ' + getHealthColor(disk);
+                if (healthDiskVal) healthDiskVal.textContent = Math.round(disk) + '%';
+            }
+
+            if (healthNetVal) {
+                const formatNet = (mb) => {
+                    if (mb >= 1024) {
+                        return (mb / 1024).toFixed(2) + ' GB';
+                    }
+                    return mb.toFixed(2) + ' MB';
+                };
+                const sent = data.net_sent_mb || 0;
+                const recv = data.net_recv_mb || 0;
+                healthNetVal.textContent = `Sub: ${formatNet(sent)} | Baj: ${formatNet(recv)}`;
+            }
 
             if (data.gpu && data.gpu.util_percent !== undefined) {
                 const gpu = data.gpu.util_percent;
@@ -2145,7 +2364,7 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
 
     function renderPromptLibrary(filter = 'all') {
-        const grid = document.getElementById('prompt-library-grid');
+        const grid = document.getElementById('prompt-library-list'); // Corrected ID
         if (!grid) return;
         grid.innerHTML = '';
         const filtered = filter === 'all' ? PROMPT_LIBRARY : PROMPT_LIBRARY.filter(p => p.category === filter);
@@ -2166,7 +2385,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     c.classList.toggle('selected', c.dataset.agent === p.agent);
                 });
                 // Close prompt library
-                if (promptLibraryPanel) promptLibraryPanel.classList.remove('visible');
+                if (promptLibraryPanel) {
+                    promptLibraryPanel.style.display = 'none';
+                    promptLibraryPanel.classList.remove('visible');
+                }
                 chatInput.focus();
             });
             grid.appendChild(card);
@@ -2176,9 +2398,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (promptLibraryToggle) {
         promptLibraryToggle.addEventListener('click', function() {
             if (!promptLibraryPanel) return;
-            promptLibraryPanel.classList.toggle('visible');
-            if (promptLibraryPanel.classList.contains('visible')) {
+            const isHidden = promptLibraryPanel.style.display === 'none';
+            promptLibraryPanel.style.display = isHidden ? 'block' : 'none';
+            if (isHidden) {
+                promptLibraryPanel.classList.add('visible');
                 renderPromptLibrary();
+            } else {
+                promptLibraryPanel.classList.remove('visible');
             }
         });
     }
@@ -2187,7 +2413,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             promptCatBtns.forEach(b => b.classList.remove('active'));
             this.classList.add('active');
-            renderPromptLibrary(this.dataset.category);
+            renderPromptLibrary(this.dataset.cat); // Corrected dataset property
         });
     });
 
@@ -2258,9 +2484,104 @@ document.addEventListener('DOMContentLoaded', function() {
         item.addEventListener('click', loadAutomations);
     });
 
+    const clearChatBtn = document.getElementById('clear-chat-btn');
+    if (clearChatBtn) {
+        clearChatBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear the chat history?')) {
+                chatMessages.innerHTML = `
+                    <div class="chat-welcome">
+                        <h2>Ollash Agent</h2>
+                        <p>Select a specialist or start typing to use the auto-routing orchestrator.</p>
+                    </div>
+                `;
+                localStorage.removeItem('ollash-chat-history');
+                chatSessionId = null;
+                if (chatEventSource) chatEventSource.close();
+                isChatBusy = false;
+                sendBtn.disabled = false;
+            }
+        });
+    }
+
     // Load automations on page load
     loadAutomations();
+
+    const automationConfigBtn = document.getElementById('automation-config-btn');
+    const notificationModal = document.getElementById('notification-config-modal');
+    const notificationForm = document.getElementById('notification-config-form');
+
+    if (automationConfigBtn) {
+        automationConfigBtn.addEventListener('click', () => {
+            loadNotificationSettings();
+            notificationModal.style.display = 'flex';
+        });
+    }
+
+    if (notificationForm) {
+        notificationForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            saveNotificationSettings();
+        });
+    }
 });
+
+/**
+ * Global helper to escape HTML
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showUsageDetails(metrics) {
+    if (!metrics) return;
+    
+    // Check if modal exists, if not create a simple one or use existing alert system
+    const details = `
+        <div style="text-align: left;">
+            <p><strong>Total Duration:</strong> ${metrics.duration_sec}s</p>
+            <p><strong>Total Tokens:</strong> ${metrics.total_tokens}</p>
+            <p><strong>Total Iterations:</strong> ${metrics.iterations}</p>
+            <hr style="opacity: 0.1; margin: 10px 0;">
+            <p style="font-size: 0.85rem; color: var(--color-text-muted);">
+                Detailed breakdown by phase and model is being integrated with the new structured logging system.
+            </p>
+        </div>
+    `;
+    
+    if (window.notificationService) {
+        // We can reuse the notification system or a simple alert for now
+        // But better to use a modal if we have one
+        const modal = document.getElementById('automation-modal'); // Reuse modal layout
+        if (modal) {
+            const content = modal.querySelector('.modal-content');
+            const originalHtml = content.innerHTML;
+            
+            content.innerHTML = `
+                <div class="modal-header">
+                    <h2>Usage Details</h2>
+                    <button class="close-modal" onclick="this.closest('.modal').style.display='none'">&times;</button>
+                </div>
+                <div style="padding: 20px 0;">${details}</div>
+                <div class="form-actions">
+                    <button class="btn-primary" onclick="this.closest('.modal').style.display='none'">Close</button>
+                </div>
+            `;
+            modal.style.display = 'flex';
+            
+            // Restore original content when closed (simple hack)
+            const closeBtn = content.querySelector('.close-modal');
+            const okBtn = content.querySelector('.btn-primary');
+            [closeBtn, okBtn].forEach(b => b.addEventListener('click', () => {
+                setTimeout(() => { content.innerHTML = originalHtml; }, 300);
+            }));
+        } else {
+            alert(`Duration: ${metrics.duration_sec}s\nTokens: ${metrics.total_tokens}\nIterations: ${metrics.iterations}`);
+        }
+    }
+}
 
 // Monaco Editor related global functions and styling
 // This CSS is for the line highlighting in Monaco Editor
@@ -2486,5 +2807,47 @@ async function deleteAutomation(taskId) {
         await loadAutomations();
     } catch (error) {
         notificationService.error(`Error deleting automation: ${error.message}`);
+    }
+}
+
+/**
+ * Close notification config modal
+ */
+function closeNotificationModal() {
+    const modal = document.getElementById('notification-config-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * Save notification settings to localStorage
+ */
+function saveNotificationSettings() {
+    const settings = {
+        smtp_server: document.getElementById('config-smtp-server').value,
+        smtp_port: document.getElementById('config-smtp-port').value,
+        smtp_user: document.getElementById('config-smtp-user').value,
+        smtp_pass: document.getElementById('config-smtp-pass').value,
+        notify_to: document.getElementById('config-notify-to').value
+    };
+
+    localStorage.setItem('ollash-notification-settings', JSON.stringify(settings));
+    notificationService.success('Notification settings saved locally!');
+    closeNotificationModal();
+}
+
+/**
+ * Load notification settings from localStorage
+ */
+function loadNotificationSettings() {
+    const saved = localStorage.getItem('ollash-notification-settings');
+    if (saved) {
+        const settings = JSON.parse(saved);
+        document.getElementById('config-smtp-server').value = settings.smtp_server || '';
+        document.getElementById('config-smtp-port').value = settings.smtp_port || '';
+        document.getElementById('config-smtp-user').value = settings.smtp_user || '';
+        document.getElementById('config-smtp-pass').value = settings.smtp_pass || '';
+        document.getElementById('config-notify-to').value = settings.notify_to || '';
     }
 }

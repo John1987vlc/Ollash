@@ -28,8 +28,9 @@ class AgentLogger:
     def _log_to_structured(self, level: int, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Helper to log to the underlying StructuredLogger, injecting correlation ID."""
         full_extra = extra if extra is not None else {}
-        # StructuredLogger's formatter already injects correlation_id, so no need to do it here again
-        self._logger.log(level, msg, extra=full_extra, **kwargs)
+        # Extract exc_info if present in kwargs to pass it correctly to logger.log
+        exc_info = kwargs.pop("exc_info", None)
+        self._logger.log(level, msg, extra=full_extra, exc_info=exc_info, **kwargs)
 
     def tool_call(self, tool_name: str, args: Dict):
         """Log tool call with details"""
@@ -49,16 +50,24 @@ class AgentLogger:
         """Log tool result"""
         status = "✅ SUCCESS" if success else "❌ FAILED"
         color = Fore.GREEN if success else Fore.RED
-        console_msg = f"{status}: {tool_name}"
+        
+        # F18: Simplified console message to avoid flooding
+        result_preview = str(result)[:100] + "..." if len(str(result)) > 100 else str(result)
+        console_msg = f"{status}: {tool_name} -> {result_preview}"
+        
         extra_data = {
             "type": "tool_result",
             "tool_name": tool_name,
-            "result": result,
+            "result": result, # Full result still goes to the file log
             "success": success,
         }
         if latency_ms is not None:
             extra_data["latency_ms"] = latency_ms
         self.info(f"{color}{console_msg}{Style.RESET_ALL}", extra=extra_data)
+
+    def thinking(self, message: str):
+        """Log a Chain of Thought / Thinking step."""
+        self.info(f"{Fore.MAGENTA}🧠 Thinking: {message}{Style.RESET_ALL}")
 
     def api_request(self, messages_count: int, tools_count: int):
         """Log API request"""

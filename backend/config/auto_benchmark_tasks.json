@@ -1,0 +1,58 @@
+[
+  {
+    "name": "project_planning_system",
+    "type": "logic_flow",
+    "difficulty": "intermediate",
+    "description": "Create a detailed technical plan for a microservices architecture that handles real-time stock trading. The plan must include: 1. Service breakdown (Auth, Trading, Wallet, Notification). 2. Data flow between services. 3. Choice of database for each service with justification. 4. API endpoints definition for the Trading service.",
+    "time_limit_minutes": 5,
+    "role_target": "planner"
+  },
+  {
+    "name": "code_implementation_auth",
+    "type": "code_structure",
+    "difficulty": "intermediate",
+    "description": "Implement a secure JWT-based authentication system in Python using FastAPI. Include: 1. User registration with hashed passwords (using passlib). 2. Login endpoint that returns a token. 3. A protected 'profile' endpoint that requires a valid token. 4. Proper error handling for invalid tokens or expired credentials.",
+    "time_limit_minutes": 7,
+    "role_target": "coder"
+  },
+  {
+    "name": "security_audit_code",
+    "type": "error_handling",
+    "difficulty": "advanced",
+    "description": "Analyze the following pseudo-code for security vulnerabilities and suggest fixes: 'def save_user(username, bio): query = \"INSERT INTO users (name, bio) VALUES ('\" + username + \"', '\" + bio + \"')\"; db.execute(query)'. Identify at least 3 vulnerabilities (including SQL Injection) and rewrite the code to be secure.",
+    "time_limit_minutes": 4,
+    "role_target": "senior_reviewer"
+  },
+  {
+    "name": "unit_test_generation",
+    "type": "functionality",
+    "difficulty": "basic",
+    "description": "Write a complete set of unit tests using pytest for a simple 'Calculator' class that has methods: add, subtract, multiply, and divide (with division by zero check). Ensure 100% branch coverage.",
+    "time_limit_minutes": 3,
+    "role_target": "test_generator"
+  },
+  {
+    "name": "data_analysis_script",
+    "type": "data_script",
+    "difficulty": "intermediate",
+    "description": "Create a Python script using pandas that: 1. Loads a CSV with columns 'date', 'sales', 'category'. 2. Groups sales by month and category. 3. Calculates the percentage growth of sales month-over-month. 4. Returns the top 3 categories by total revenue.",
+    "time_limit_minutes": 5,
+    "role_target": "analyst"
+  },
+  {
+    "name": "refactoring_legacy_code",
+    "type": "readability",
+    "difficulty": "advanced",
+    "description": "Refactor a monolithic 200-line function that handles order processing into a clean, SOLID-compliant set of classes. Focus on: Single Responsibility Principle and Dependency Injection. The original code handles validation, DB saving, and email notifications all in one 'process()' function.",
+    "time_limit_minutes": 8,
+    "role_target": "coder"
+  },
+  {
+    "name": "api_documentation_generation",
+    "type": "utility_tool",
+    "difficulty": "basic",
+    "description": "Generate professional OpenAPI 3.0 documentation in YAML format for a 'Task Manager' API with GET, POST, PUT, DELETE endpoints for tasks. Include schemas for Task and Error objects.",
+    "time_limit_minutes": 4,
+    "role_target": "writer"
+  }
+]

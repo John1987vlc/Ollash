@@ -72,23 +72,30 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def sub_structure_generation(structure: str, description: str) -> Tuple[str, str]:
+    def sub_structure_generation(
+        folder_path: str, readme_content: str, overall_structure: str, template_name: str
+    ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for sub-structure generation."""
         system = (
             "You are a software architect. Fill in details for the project structure, "
-            "specifying all necessary files and folders."
+            "specifying all necessary files and folders for a specific sub-directory."
         )
         user = (
-            f"Expand this project structure with all necessary files and folders:\n"
-            f"Structure:\n{structure}\n\nProject: {description}"
+            f"Expand the structure for the folder: '{folder_path}'\n"
+            f"Overall project structure so far:\n{overall_structure}\n\n"
+            f"Project README context:\n{readme_content[:1000]}\n\n"
+            f"Template being used: {template_name}\n\n"
+            f"Please respond with a JSON object containing 'folders' and 'files' for '{folder_path}'."
         )
         return system, user
 
     @staticmethod
-    def sub_structure_generation_simplified(structure: str) -> Tuple[str, str]:
+    def sub_structure_generation_simplified(
+        folder_path: str, readme_content: str, overall_structure: str, template_name: str
+    ) -> Tuple[str, str]:
         """Simplified version for sub-structure generation."""
-        system = "Expand the project structure with all files needed."
-        user = f"Structure:\n{structure}"
+        system = "You are a software architect. Expand the project structure with all files needed for this folder."
+        user = f"Folder: {folder_path}\nStructure so far: {overall_structure}\n\nProject: {readme_content[:500]}"
         return system, user
 
     @staticmethod

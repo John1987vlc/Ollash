@@ -327,7 +327,8 @@ class SecurityMonitorAgent:
 
             if not file_paths:
                 file_paths = [
-                    "config/settings.json",
+                    "backend/config/llm_models.json",
+                    "backend/config/tool_settings.json",
                     "requirements.txt",
                     "docker-compose.yml",
                 ]
