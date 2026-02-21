@@ -17,16 +17,25 @@ class AutoGenPrompts:
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for README generation."""
         system = (
-            "You are an expert technical writer. Create engaging, clear README.md files "
-            "that help users understand and use the project effectively."
+            "You are a Senior Technical Writer. Your goal is to produce professional, "
+            "comprehensive, and highly readable documentation. Focus on clarity, "
+            "visual hierarchy, and actionable instructions."
         )
-        docker_note = "\nInclude Docker setup instructions." if include_docker else ""
+        docker_note = "\n- Include a 'Docker' section with a Dockerfile example and run commands." if include_docker else ""
         user = (
-            f"Create a professional README.md for a project with the following details:\n"
-            f"Description: {project_description}\n"
-            f"Template: {template_name}\n"
-            f"Python Version: {python_version}\n"
-            f"License: {license_type}{docker_note}"
+            f"Generate a professional README.md for the following project:\n"
+            f"PROJECT DESCRIPTION: {project_description}\n"
+            f"CONSTRAINTS:\n"
+            f"- Template Style: {template_name}\n"
+            f"- Tech Stack: Python {python_version}\n"
+            f"- License: {license_type}{docker_note}\n\n"
+            "THE README MUST INCLUDE:\n"
+            "1. Project Overview & Value Proposition\n"
+            "2. Key Features (bulleted list)\n"
+            "3. Visual/Architecture overview (placeholder or description)\n"
+            "4. Quick Start (Dependencies, Installation, Execution)\n"
+            "5. Project Structure description\n\n"
+            "Output ONLY the markdown content."
         )
         return system, user
 
@@ -34,41 +43,21 @@ class AutoGenPrompts:
     def high_level_structure_generation(description: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for high-level project structure."""
         system = (
-            "You are a solution architect. Design a clean, scalable project structure "
-            "that follows industry best practices and the provided requirements.\n"
-            "Respond ONLY with a JSON object. The JSON should represent the file structure with 'path', 'folders', and 'files' keys.\n"
-            "Example format:\n"
-            "```json\n"
+            "You are a Senior Solution Architect. Design a scalable, modular project "
+            "structure following industry best practices (SOLID, Clean Architecture, etc.).\n"
+            "Respond ONLY with a valid JSON object. No preambles, no chat."
+        )
+        user = (
+            f"Design the high-level folder/file structure for this project:\n\n{description}\n\n"
+            "JSON SCHEMA:\n"
             "{\n"
             '  "path": "./",\n'
             '  "folders": [\n'
-            '    {"name": "src", "folders": [], "files": ["main.py"]}\n'
+            '    {"name": "folder_name", "folders": [], "files": ["file1.ext"]}\n'
             "  ],\n"
-            '  "files": ["README.md"]\n'
+            '  "files": ["README.md", "requirements.txt"]\n'
             "}\n"
-            "```"
         )
-        user = f"Create a high-level project structure for:\n\n{description}"
-        return system, user
-
-    @staticmethod
-    def high_level_structure_generation_simplified(description: str) -> Tuple[str, str]:
-        """Simplified version for high-level structure generation."""
-        system = (
-            "You are a solution architect. Design a simple project structure for this project.\n"
-            "Respond ONLY with a JSON object. The JSON should represent the file structure with 'path', 'folders', and 'files' keys.\n"
-            "Example format:\n"
-            "```json\n"
-            "{\n"
-            '  "path": "./",\n'
-            '  "folders": [\n'
-            '    {"name": "src", "folders": [], "files": ["main.py"]}\n'
-            "  ],\n"
-            '  "files": ["README.md"]\n'
-            "}\n"
-            "```"
-        )
-        user = f"Project: {description}"
         return system, user
 
     @staticmethod
@@ -77,25 +66,58 @@ class AutoGenPrompts:
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for sub-structure generation."""
         system = (
-            "You are a software architect. Fill in details for the project structure, "
-            "specifying all necessary files and folders for a specific sub-directory."
+            "You are a Software Architect. Your task is to expand a specific directory "
+            "within a project structure. Ensure consistency with existing files and architecture."
         )
         user = (
-            f"Expand the structure for the folder: '{folder_path}'\n"
-            f"Overall project structure so far:\n{overall_structure}\n\n"
-            f"Project README context:\n{readme_content[:1000]}\n\n"
-            f"Template being used: {template_name}\n\n"
-            f"Please respond with a JSON object containing 'folders' and 'files' for '{folder_path}'."
+            f"Expand the folder: '{folder_path}'\n\n"
+            f"PROJECT CONTEXT (README):\n{readme_content[:800]}\n\n"
+            f"OVERALL STRUCTURE (CONTEXT):\n{overall_structure}\n\n"
+            f"TEMPLATE: {template_name}\n\n"
+            "REQUIREMENT: Return ONLY a JSON object with 'folders' and 'files' for the target folder."
         )
         return system, user
 
     @staticmethod
-    def sub_structure_generation_simplified(
-        folder_path: str, readme_content: str, overall_structure: str, template_name: str
-    ) -> Tuple[str, str]:
-        """Simplified version for sub-structure generation."""
-        system = "You are a software architect. Expand the project structure with all files needed for this folder."
-        user = f"Folder: {folder_path}\nStructure so far: {overall_structure}\n\nProject: {readme_content[:500]}"
+    def file_content_generation(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for file content generation."""
+        system = (
+            "You are an Expert Software Engineer. Generate production-ready, complete, "
+            "and idiomatic code. CRITICAL: No TODOs, no 'implementation goes here' "
+            "placeholders, no empty functions. Every line must be functional."
+        )
+
+        file_ext = Path(file_path).suffix.lower()
+        
+        guidance = {
+            ".py": "- Use PEP 8, strict type hints, Google-style docstrings, and robust error handling.",
+            ".js": "- Use modern ES6+, async/await for I/O, and descriptive naming.",
+            ".ts": "- Define strict interfaces/types, avoid 'any', and use ES Modules.",
+            ".html": "- Use semantic HTML5, ARIA labels, and clean structure.",
+            ".css": "- Use modern CSS (Grid/Flexbox) and a logical ordering of properties."
+        }
+        type_guidance = guidance.get(file_ext, "- Follow language-specific best practices and idioms.")
+
+        user = (
+            f"Generate COMPLETE source code for: {file_path}\n\n"
+            f"CONTEXT (README):\n{readme[:1000]}\n\n"
+            f"TECHNICAL GUIDANCE:\n{type_guidance}\n\n"
+            f"STRICT RULES:\n"
+            "1. NO PLACEHOLDERS. NO TODOs.\n"
+            "2. EVERY function/method must be fully implemented.\n"
+            "3. Include ALL necessary imports/dependencies.\n"
+            "4. Return ONLY the code content."
+        )
+        return system, user
+
+    @staticmethod
+    def architecture_planning(description: str) -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for project architecture planning."""
+        system = (
+            "You are a Chief Architect. Create a high-level technical blueprint "
+            "specifying design patterns, tech stack justifications, and data flow."
+        )
+        user = f"Define the architectural strategy for:\n\n{description}"
         return system, user
 
     @staticmethod
@@ -187,78 +209,4 @@ class AutoGenPrompts:
             "Please review the following project summary and provide a brief, "
             f"high-level review of its overall status.\n\n{project_summary}"
         )
-        return system, user
-
-    @staticmethod
-    def file_content_generation(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
-        """Returns (system_prompt, user_prompt) for file content generation."""
-        system = (
-            "You are an expert software developer generating production-ready code. "
-            "IMPORTANT: Generate COMPLETE, working code with no TODOs or placeholders. "
-            "Every function must be fully implemented. Include all necessary imports. "
-            "Make code immediately usable."
-        )
-
-        file_ext = Path(file_path).suffix.lower() if "Path" in locals() else ""
-
-        # Specialized prompts by file type
-        type_guidance = ""
-        if file_ext in [".py", ".pyi"]:
-            type_guidance = (
-                "\n- Use Python best practices and PEP 8\n"
-                "- Include type hints for all functions\n"
-                "- Add docstrings\n"
-                "- Handle errors appropriately"
-            )
-        elif file_ext in [".js", ".jsx"]:
-            type_guidance = (
-                "\n- Use modern ES6+ syntax\n"
-                "- No async/await issues\n"
-                "- All functions must work immediately\n"
-                "- No console errors"
-            )
-        elif file_ext in [".ts", ".tsx"]:
-            type_guidance = (
-                "\n- Use proper TypeScript type annotations\n"
-                "- Interface definitions required\n"
-                "- Strict null checks\n"
-                "- No 'any' types unless necessary"
-            )
-        elif file_ext in [".html", ".vue"]:
-            type_guidance = (
-                "\n- Use semantic HTML5\n"
-                "- Proper accessibility attributes\n"
-                "- Include DOCTYPE and meta tags\n"
-                "- Valid markup structure"
-            )
-        elif file_ext in [".css", ".scss"]:
-            type_guidance = (
-                "\n- Modern CSS (flexbox, grid)\n"
-                "- Responsive design\n"
-                "- Organized selectors\n"
-                "- Comments for complex rules"
-            )
-
-        user = (
-            f"Generate the COMPLETE content for: {file_path}\n\n"
-            f"Project README:\n{readme[:800]}\n\n"
-            f"File to generate: {file_path}\n"
-            f"REQUIREMENTS:{type_guidance}\n\n"
-            f"CRITICAL:\n"
-            f"1. No TODO markers\n"
-            f"2. No empty functions\n"
-            f"3. All imports included\n"
-            f"4. Production-ready immediately\n"
-            f"5. Generate ONLY the file content, nothing else"
-        )
-        return system, user
-
-    @staticmethod
-    def architecture_planning(description: str) -> Tuple[str, str]:
-        """Returns (system_prompt, user_prompt) for project architecture planning."""
-        system = (
-            "You are a solution architect. Plan a well-structured project architecture "
-            "that addresses the requirements and follows industry best practices."
-        )
-        user = f"Create an architecture plan for the following project:\n\n{description}"
         return system, user

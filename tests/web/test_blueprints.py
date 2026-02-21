@@ -44,21 +44,12 @@ def app(tmp_path, monkeypatch):
     # Create a mock session manager instance that will be injected into chat_bp
     app.mock_session_manager_instance = MagicMock(spec=ChatSessionManager)
 
-    # Initialize all blueprints using the centralized register_blueprints function
-    # Patch the actual init_app functions within the blueprint modules themselves
-    # before calling register_blueprints. This ensures that the centralized
-    # function is tested, but the individual init_app logic is mocked.
-    for bp_module in [common_bp, benchmark_bp, auto_agent_bp]:
-        if hasattr(bp_module, "init_app"):
-            monkeypatch.setattr(bp_module, "init_app", lambda *args, **kwargs: None)
-
     register_blueprints(
         app=app,
         ollash_root_dir=tmp_path,
         event_publisher=mock_event_publisher,
         chat_event_bridge=mock_chat_event_bridge,
         alert_manager=mock_alert_manager,
-        # chat_bp is NOT passed as a keyword argument to register_blueprints
     )
 
     # AFTER register_blueprints runs and init_chat sets chat_bp._session_manager

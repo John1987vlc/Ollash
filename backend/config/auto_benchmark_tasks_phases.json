@@ -1,0 +1,149 @@
+[
+  {
+    "name": "phase_readme_game",
+    "phase": "ReadmeGenerationPhase",
+    "type": "documentation",
+    "description": "Create a README.md for a 2D Platformer game in Python using Pygame. Must include: Features, Installation (pip install), Controls, and a 'Future Improvements' section.",
+    "expected_sections": ["Features", "Installation", "Controls", "Future Improvements"]
+  },
+  {
+    "name": "phase_readme_api",
+    "phase": "ReadmeGenerationPhase",
+    "type": "documentation",
+    "description": "Create a README.md for a Task Management REST API using FastAPI. Must include: Endpoints table, Authentication details (JWT), and Environment variables (.env).",
+    "expected_sections": ["Endpoints", "Authentication", "Environment variables"]
+  },
+  {
+    "name": "phase_readme_cli",
+    "phase": "ReadmeGenerationPhase",
+    "type": "documentation",
+    "description": "Create a README.md for a CLI tool that compresses images. Must include: Usage examples, Supported formats, and a Troubleshooting section.",
+    "expected_sections": ["Usage", "Supported formats", "Troubleshooting"]
+  },
+  {
+    "name": "phase_readme_library",
+    "phase": "ReadmeGenerationPhase",
+    "type": "documentation",
+    "description": "Create a README.md for a Python library that interacts with the Ollama API. Must include: Getting Started, Code examples, and Contribution guidelines.",
+    "expected_sections": ["Getting Started", "Examples", "Contribution"]
+  },
+  {
+    "name": "phase_readme_webapp",
+    "phase": "ReadmeGenerationPhase",
+    "type": "documentation",
+    "description": "Create a README.md for a React-based Dashboard. Must include: Prerequisites, NPM commands (start, build, test), and Project structure description.",
+    "expected_sections": ["Prerequisites", "NPM commands", "Structure"]
+  },
+  {
+    "name": "phase_structure_ecommerce",
+    "phase": "StructureGenerationPhase",
+    "type": "architecture",
+    "description": "Design a project structure for a micro-services ecommerce platform. Services: Auth, Catalog, Cart, Order. Use a monorepo approach with a 'services/' folder.",
+    "expected_folders": ["services/auth", "services/catalog", "services/cart", "services/order", "common"]
+  },
+  {
+    "name": "phase_structure_data_pipeline",
+    "phase": "StructureGenerationPhase",
+    "type": "architecture",
+    "description": "Design a project structure for a data ingestion pipeline using Airflow. Include folders for dags, plugins, scripts, and tests.",
+    "expected_folders": ["dags", "plugins", "scripts", "tests"]
+  },
+  {
+    "name": "phase_structure_mobile_app",
+    "phase": "StructureGenerationPhase",
+    "type": "architecture",
+    "description": "Design a project structure for a Flutter mobile application using Clean Architecture. Include folders for data, domain, and presentation layers.",
+    "expected_folders": ["lib/data", "lib/domain", "lib/presentation", "assets"]
+  },
+  {
+    "name": "phase_structure_discord_bot",
+    "phase": "StructureGenerationPhase",
+    "type": "architecture",
+    "description": "Design a project structure for a Discord bot using discord.py. Include folders for cogs, utils, and data.",
+    "expected_folders": ["cogs", "utils", "data", "config"]
+  },
+  {
+    "name": "phase_structure_blog_engine",
+    "phase": "StructureGenerationPhase",
+    "type": "architecture",
+    "description": "Design a project structure for a static site generator in Go. Include folders for content, layouts, static assets, and themes.",
+    "expected_folders": ["content", "layouts", "static", "themes"]
+  },
+  {
+    "name": "phase_logic_poker",
+    "phase": "LogicPlanningPhase",
+    "type": "planning",
+    "description": "Create an implementation plan for a Poker game logic. Files: deck.py (shuffling, dealing), hand_evaluator.py (ranking hands), game_engine.py (turn management).",
+    "expected_files": ["deck.py", "hand_evaluator.py", "game_engine.py"]
+  },
+  {
+    "name": "phase_logic_auth_flow",
+    "phase": "LogicPlanningPhase",
+    "type": "planning",
+    "description": "Create an implementation plan for a user authentication flow. Files: models.py (User schema), auth_utils.py (JWT creation/validation), routes.py (login/register endpoints).",
+    "expected_files": ["models.py", "auth_utils.py", "routes.py"]
+  },
+  {
+    "name": "phase_logic_scraper",
+    "phase": "LogicPlanningPhase",
+    "type": "planning",
+    "description": "Create an implementation plan for a web scraper. Files: crawler.py (URL management), parser.py (HTML extraction), storage.py (JSON/CSV export).",
+    "expected_files": ["crawler.py", "parser.py", "storage.py"]
+  },
+  {
+    "name": "phase_logic_calculator",
+    "phase": "LogicPlanningPhase",
+    "type": "planning",
+    "description": "Create an implementation plan for a financial calculator. Files: interest.py (compound interest), mortgage.py (monthly payments), tax.py (income tax calculation).",
+    "expected_files": ["interest.py", "mortgage.py", "tax.py"]
+  },
+  {
+    "name": "phase_logic_inventory",
+    "phase": "LogicPlanningPhase",
+    "type": "planning",
+    "description": "Create an implementation plan for an inventory system. Files: products.py (CRUD), stock.py (alerts and updates), reports.py (exporting statistics).",
+    "expected_files": ["products.py", "stock.py", "reports.py"]
+  },
+  {
+    "name": "phase_content_binary_search",
+    "phase": "FileContentGenerationPhase",
+    "type": "coding",
+    "description": "Generate a Python implementation of a Binary Search algorithm. The function should be named 'binary_search', take a sorted list and a target, and return the index or -1. Include type hints and a docstring.",
+    "file_path": "utils/search.py"
+  },
+  {
+    "name": "phase_content_fastapi_user_model",
+    "phase": "FileContentGenerationPhase",
+    "type": "coding",
+    "description": "Generate a Pydantic model for a User in FastAPI. Fields: id (int), username (str), email (EmailStr), created_at (datetime). Use Pydantic v2.",
+    "file_path": "models/user.py"
+  },
+  {
+    "name": "phase_content_react_button",
+    "phase": "FileContentGenerationPhase",
+    "type": "coding",
+    "description": "Generate a React functional component for a Button. Props: label (string), onClick (function), variant ('primary' | 'secondary'). Use Tailwind CSS for styling.",
+    "file_path": "src/components/Button.jsx"
+  },
+  {
+    "name": "phase_content_sql_schema",
+    "phase": "FileContentGenerationPhase",
+    "type": "coding",
+    "description": "Generate a PostgreSQL schema for a 'Products' table. Columns: id (serial PK), name (varchar), price (decimal), category_id (int FK), stock_quantity (int).",
+    "file_path": "db/schema.sql"
+  },
+  {
+    "name": "phase_content_go_interface",
+    "phase": "FileContentGenerationPhase",
+    "type": "coding",
+    "description": "Generate a Go interface for a 'Storage' system. Methods: Save(id string, data []byte) error, Load(id string) ([]byte, error), Delete(id string) error.",
+    "file_path": "internal/storage/interface.go"
+  },
+  {
+    "name": "phase_review_code_quality",
+    "phase": "SeniorReviewPhase",
+    "type": "review",
+    "description": "Review a Python project summary that has no tests and multiple global variables. Provide 3 specific criticisms and 3 recommendations for improvement.",
+    "input_summary": "Project: Simple Script. Files: main.py (150 lines, 5 global variables, no functions). No tests directory. requirements.txt is empty."
+  }
+]

@@ -77,6 +77,10 @@ def register_blueprints(
     # List of blueprints and their initializers
     # Each tuple contains: (blueprint_object, init_function, init_args)
     # Use a lambda to defer argument binding until the loop.
+    
+    # Ensure ollash_root_dir is available in app.config for all initializers
+    app.config["ollash_root_dir"] = ollash_root_dir
+    
     blueprints = [
         (common_bp, lambda: init_common(app)),
         (

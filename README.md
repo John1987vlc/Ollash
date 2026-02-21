@@ -75,6 +75,8 @@
 | F33 | **Advanced File Ops** | Context-aware project management: rename, delete, and save files with built-in security traversal protection. | `frontend/blueprints/auto_agent_bp.py` |
 | F34 | **Health Mini-Charts** | Sparkline trend-lines in the sidebar for real-time visual tracking of CPU/RAM performance history. | `frontend/static/js/app.js`, `frontend/static/css/style.css` |
 | F35 | **Strict Logic Validation** | Enhanced LLM code generation with regex-based export verification and automated skeleton detection. | `backend/utils/domains/auto_generation/enhanced_file_content_generator.py` |
+| F36 | **Secure Git Integration** | Seamless GitHub integration with PAT support and branch management. View PR history directly in the UI. | `frontend/blueprints/auto_agent_bp.py`, `backend/utils/core/git_pr_tool.py` |
+| F37 | **Continuous Auto-Review** | Scheduled hourly maintenance tasks that analyze code, run tests, and generate automated PRs for improvements. | `backend/utils/core/autonomous_maintenance.py`, `backend/utils/core/task_scheduler.py` |
 
 ---
 

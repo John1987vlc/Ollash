@@ -45,8 +45,8 @@ class LogicPlanningPhase(IAgentPhase):
         files_by_category = self._categorize_files(file_paths)
 
         for category, files in files_by_category.items():
-            # F32: Limit planning to top 10 files per category to avoid LLM timeouts and over-complexity
-            files_to_plan = files[:10]
+            # F32: Increase limit to 15 files per category for better coverage
+            files_to_plan = files[:15]
             self.context.logger.info(f"  Planning {category}: {len(files_to_plan)} files (limited from {len(files)})")
 
             # Generate a plan for this category
@@ -118,27 +118,30 @@ class LogicPlanningPhase(IAgentPhase):
         """Create detailed plans for files in a category."""
 
         category_context = f"""
-## Project Context
-Description: {project_description}
+## ROLE: Architecture Planner
+## TASK: Create implementation plans for {category} files.
 
-## Files in this category:
+### PROJECT CONTEXT:
+{project_description}
+
+### FILES TO PLAN:
 {chr(10).join(f"- {f}" for f in files)}
 
-## Create detailed implementation plans for EACH file above.
-Specify for each file:
-1. PURPOSE: What this file should do
-2. EXPORTS: Key functions/classes/variables it should export
-3. IMPORTS: What dependencies it needs
-4. MAIN_LOGIC: Step-by-step implementation details
-5. VALIDATION: How to verify it works correctly
-6. DEPENDENCIES: Which other files it depends on
+### REQUIREMENTS FOR EACH PLAN:
+1. PURPOSE: Definitive role of the file.
+2. EXPORTS: Exact function/class names.
+3. IMPORTS: Critical internal and external dependencies.
+4. MAIN_LOGIC: Step-by-step algorithm or flow.
+5. VALIDATION: Specific tests to ensure correctness.
 
-Format the response as JSON with file paths as keys.
+### CONSTRAINT:
+Return ONLY a valid JSON object where keys are file paths.
 """
 
         system_prompt = (
-            "You are an expert architect. Create detailed, actionable implementation plans "
-            "for code files. Each plan should be specific enough that a developer can implement it step-by-step."
+            "You are a Senior Software Architect. Your plans are the source of truth "
+            "for developers. Be precise, avoid ambiguity, and ensure every file has "
+            "a clear, non-empty implementation strategy."
         )
 
         try:

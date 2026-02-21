@@ -101,6 +101,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const addPathInput = document.getElementById('add-path-input');
     const addPathBtn = document.getElementById('add-path-btn');
 
+    // GitHub integration elements
+    const toggleGitHubSettings = document.getElementById('toggle-github-settings');
+    const githubSettingsContent = document.getElementById('github-settings-content');
+    const gitRepoUrlInput = document.getElementById('git-repo-url');
+    const gitTokenInput = document.getElementById('git-token');
+    const gitBranchInput = document.getElementById('git-branch');
+    const autoImproveEnabledInput = document.getElementById('auto-improve-enabled');
+    const autoImproveGroup = document.getElementById('auto-improve-group');
+    const githubStatusWidget = document.getElementById('github-status-widget');
+    const gitStatusVal = document.getElementById('git-status-val');
+    const gitNextReview = document.getElementById('git-next-review');
+    const gitPrList = document.getElementById('git-pr-list');
+
 
     // Chat
     const chatMessages = document.getElementById('chat-messages');
@@ -146,11 +159,17 @@ document.addEventListener('DOMContentLoaded', function() {
     let monacoModel; // Current Monaco Editor model
     let monacoDecorations = []; // Decorations for highlighting lines
 
+    // Multi-tab state
+    let openTabs = []; // Array of {path, content, model, isDirty}
+    let activeTabId = null;
+
     // Wizard state
     let currentWizardStep = 1;
 
     // Floating terminal state
     let floatingTerminalState = 'hidden'; // hidden, normal, minimized, maximized
+    let commandHistory = [];
+    let historyIndex = -1;
 
     // Log filter state
     let activeLogFilter = 'all';
@@ -167,11 +186,305 @@ document.addEventListener('DOMContentLoaded', function() {
     // Minimap network instance
     let minimapNetwork = null;
 
+    // Health history for mini-charts
+    let healthHistory = { cpu: [], ram: [], disk: [] };
+
     // Xterm.js instance
     let term;
     let fitAddon;
     let currentCommand = '';
     const termPrompt = '\x1b[1;34m$ \x1b[0m'; // Renamed to avoid conflict with window.prompt
+
+    // ==================== Multi-tab System ====================
+    const tabsContainer = document.createElement('div');
+    tabsContainer.className = 'editor-tabs-container';
+    monacoEditorContainer.parentElement.insertBefore(tabsContainer, monacoEditorContainer);
+
+    function createTab(filePath) {
+        const existing = openTabs.find(t => t.path === filePath);
+        if (existing) {
+            switchTab(filePath);
+            return;
+        }
+
+        const tab = {
+            path: filePath,
+            content: '',
+            model: null,
+            isDirty: false
+        };
+        openTabs.push(tab);
+        renderTabs();
+        switchTab(filePath);
+    }
+
+    function renderTabs() {
+        tabsContainer.innerHTML = '';
+        openTabs.forEach(tab => {
+            const tabEl = document.createElement('div');
+            tabEl.className = `editor-tab ${tab.path === activeTabId ? 'active' : ''} ${tab.isDirty ? 'is-dirty' : ''}`;
+            tabEl.innerHTML = `
+                <span class="dirty-dot-small"></span>
+                <span class="tab-name">${tab.path.split('/').pop()}</span>
+                <span class="editor-tab-close">&times;</span>
+            `;
+            tabEl.title = tab.path;
+            tabEl.addEventListener('click', (e) => {
+                if (e.target.classList.contains('editor-tab-close')) {
+                    closeTab(tab.path);
+                } else {
+                    switchTab(tab.path);
+                }
+            });
+            tabsContainer.appendChild(tabEl);
+        });
+    }
+
+    async function switchTab(filePath) {
+        if (activeTabId === filePath) return;
+        
+        activeTabId = filePath;
+        const tab = openTabs.find(t => t.path === filePath);
+        
+        // Select in tree
+        const treeItem = document.querySelector(`.file-tree-item[data-path="${filePath}"]`);
+        if (treeItem) {
+            if (selectedFileElement) selectedFileElement.classList.remove('selected');
+            treeItem.classList.add('selected');
+            selectedFileElement = treeItem;
+        }
+
+        currentFilePath = filePath;
+        currentFileNameSpan.textContent = filePath;
+        
+        if (!tab.model) {
+            await loadFileDataToTab(tab);
+        } else {
+            monacoEditor.setModel(tab.model);
+            isEditorDirty = tab.isDirty;
+            currentFileContent = tab.content;
+            updateEditorActionButtons();
+            updateDirtyIndicator();
+        }
+        renderTabs();
+    }
+
+    async function closeTab(filePath) {
+        const index = openTabs.findIndex(t => t.path === filePath);
+        if (index === -1) return;
+
+        if (openTabs[index].isDirty) {
+            if (!confirm(`File ${filePath} has unsaved changes. Close anyway?`)) return;
+        }
+
+        const closedTab = openTabs.splice(index, 1)[0];
+        if (closedTab.model) closedTab.model.dispose();
+
+        if (activeTabId === filePath) {
+            if (openTabs.length > 0) {
+                switchTab(openTabs[Math.max(0, index - 1)].path);
+            } else {
+                activeTabId = null;
+                currentFilePath = null;
+                currentFileNameSpan.textContent = 'No file selected';
+                if (monacoEditor) monacoEditor.setModel(monaco.editor.createModel('', 'plaintext'));
+                updateEditorActionButtons();
+            }
+        }
+        renderTabs();
+    }
+
+    async function loadFileDataToTab(tab) {
+        try {
+            const response = await fetch(`/api/projects/${currentProject}/file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_path_relative: tab.path })
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                tab.content = data.content;
+                currentFileContent = data.content;
+                const ext = getFileExtension(tab.path);
+                tab.model = monaco.editor.createModel(data.content, ext);
+                
+                if (activeTabId === tab.path) {
+                    monacoEditor.setModel(tab.model);
+                    isEditorDirty = false;
+                    updateEditorActionButtons();
+                    updateDirtyIndicator();
+                }
+            }
+        } catch (error) {
+            console.error('Error loading file:', error);
+        }
+    }
+
+    function updateDirtyIndicator() {
+        const indicator = document.querySelector('.current-file-indicator');
+        if (indicator) {
+            if (isEditorDirty) indicator.classList.add('is-dirty');
+            else indicator.classList.remove('is-dirty');
+        }
+        
+        const activeTab = openTabs.find(t => t.path === activeTabId);
+        if (activeTab) {
+            activeTab.isDirty = isEditorDirty;
+            renderTabs();
+        }
+    }
+
+    // ==================== Context Menu ====================
+    let contextMenu = null;
+
+    function showContextMenu(e, path, type) {
+        e.preventDefault();
+        if (contextMenu) hideContextMenu();
+
+        contextMenu = document.createElement('div');
+        contextMenu.className = 'context-menu';
+        contextMenu.style.top = `${e.clientY}px`;
+        contextMenu.style.left = `${e.clientX}px`;
+
+        const actions = [
+            { label: 'Refactor with Agent', icon: '&#x1f4bb;', action: () => refactorWithAgent(path) },
+            { label: 'Rename', icon: '&#x270f;', action: () => renameItem(path) },
+            { label: 'Delete', icon: '&#x1f5d1;', action: () => deleteItem(path), danger: true }
+        ];
+
+        actions.forEach(item => {
+            const menuItem = document.createElement('div');
+            menuItem.className = `context-menu-item ${item.danger ? 'danger' : ''}`;
+            menuItem.innerHTML = `<span class="icon">${item.icon}</span> <span>${item.label}</span>`;
+            menuItem.onclick = () => { item.action(); hideContextMenu(); };
+            contextMenu.appendChild(menuItem);
+        });
+
+        document.body.appendChild(contextMenu);
+        document.addEventListener('click', hideContextMenu);
+    }
+
+    function hideContextMenu() {
+        if (contextMenu) {
+            contextMenu.remove();
+            contextMenu = null;
+            document.removeEventListener('click', hideContextMenu);
+        }
+    }
+
+    async function refactorWithAgent(path) {
+        selectedAgentType = 'code';
+        document.querySelector('[data-view="chat"]').click();
+        sendChatMessage(`Please review and refactor the file: ${path}. Suggest improvements for performance and readability.`, 'code');
+    }
+
+    async function deleteItem(path) {
+        if (confirm(`Are you sure you want to delete ${path}?`)) {
+            try {
+                const response = await fetch(`/api/projects/${currentProject}/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path })
+                });
+                if (response.ok) {
+                    showMessage('Item deleted.', 'success');
+                    fetchFileTree(currentProject);
+                    if (openTabs.find(t => t.path === path)) closeTab(path);
+                }
+            } catch (err) { showMessage('Delete failed.', 'error'); }
+        }
+    }
+
+    // ==================== Keyboard Shortcuts ====================
+    window.addEventListener('keydown', function(e) {
+        // Ctrl+S to save
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            if (isEditorDirty && currentFilePath) {
+                e.preventDefault();
+                saveFileBtn.click();
+            }
+        }
+        // Ctrl+` to toggle terminal
+        if (e.ctrlKey && e.key === '`') {
+            e.preventDefault();
+            toggleFloatingTerminal();
+        }
+    });
+
+    // ==================== Mermaid & Markdown ====================
+    function formatAnswer(text) {
+        let html = text;
+
+        // Mermaid diagrams support
+        html = html.replace(/```mermaid([\s\S]*?)```/g, (match, code) => {
+            return `<div class="mermaid">${code.trim()}</div>`;
+        });
+
+        // Standard markdown code blocks
+        html = html.replace(/```(\w+)?([\s\S]*?)```/g, (match, lang, code) => {
+            return `<pre class="chat-code-block"><code class="language-${lang || 'plaintext'}">${escapeHtml(code.trim())}</code></pre>`;
+        });
+
+        // Side-by-side refactor detection
+        html = html.replace(/\[REFACTOR:([^\]]+)\]/g, (match, path) => {
+            return `<div class="refactor-indicator" data-path="${path}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                Proposed changes for <strong>${path}</strong>
+                <button class="btn-sm btn-primary inline-diff-btn" data-path="${path}">View Changes</button>
+            </div>`;
+        });
+
+        html = html.replace(/\n/g, '<br>');
+        
+        // Render mermaid after a short delay
+        setTimeout(() => {
+            if (window.mermaid) mermaid.init(undefined, '.mermaid');
+        }, 100);
+
+        return html;
+    }
+
+    // ==================== Health Charts ====================
+    function updateHealthCharts(data) {
+        const metrics = ['cpu', 'ram', 'disk'];
+        metrics.forEach(m => {
+            healthHistory[m].push(data[m]);
+            if (healthHistory[m].length > 20) healthHistory[m].shift();
+            renderMiniChart(m);
+        });
+    }
+
+    function renderMiniChart(metric) {
+        const container = document.getElementById(`health-${metric}`).parentElement.parentElement;
+        let canvas = container.querySelector('.health-mini-chart');
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.className = 'health-mini-chart';
+            container.appendChild(canvas);
+        }
+        
+        const ctx = canvas.getContext('2d');
+        const values = healthHistory[metric];
+        const w = canvas.width;
+        const h = canvas.height;
+        
+        ctx.clearRect(0, 0, w, h);
+        ctx.beginPath();
+        ctx.strokeStyle = 'var(--color-primary)';
+        ctx.lineWidth = 2;
+        
+        const step = w / (values.length - 1);
+        values.forEach((v, i) => {
+            const x = i * step;
+            const y = h - (v / 100 * h);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+    }
 
     // Helper to update visibility of editor action buttons
     function updateEditorActionButtons() {
@@ -691,6 +1004,15 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('generated_structure', JSON.stringify(currentGeneratedStructure));
         formData.append('generated_readme', currentGeneratedReadme);
 
+        // GitHub Integration
+        const gitUrl = document.getElementById('git-repo-url')?.value.trim();
+        if (gitUrl) {
+            formData.append('git_url', gitUrl);
+            formData.append('git_token', document.getElementById('git-token')?.value.trim() || '');
+            formData.append('git_branch', document.getElementById('git-branch')?.value.trim() || 'main');
+            formData.append('enable_hourly_pr', document.getElementById('auto-improve-enabled')?.checked || false);
+        }
+
         confirmStructureBtn.disabled = true;
         editStructureBtn.disabled = true;
 
@@ -781,6 +1103,7 @@ document.addEventListener('DOMContentLoaded', function() {
         addLogLine(`Loading project: ${projectName}`, 'info');
         await fetchFileTree(projectName);
         startLogStream(projectName);
+        updateGitHubStatus(projectName);
     }
 
     // Function to reset phase timeline
@@ -1039,7 +1362,14 @@ document.addEventListener('DOMContentLoaded', function() {
             div.appendChild(icon);
             div.appendChild(name);
 
-            if (item.type === 'file') div.addEventListener('click', () => selectFile(div, item.path));
+            // Click to open in tab
+            if (item.type === 'file') {
+                div.addEventListener('click', () => createTab(item.path));
+            }
+            
+            // Context Menu (Right Click)
+            div.addEventListener('contextmenu', (e) => showContextMenu(e, item.path, item.type));
+
             parentElement.appendChild(div);
 
             if (item.type === 'directory' && Object.keys(item.children).length > 0) {
@@ -2004,6 +2334,63 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             handleGenerateStructureSubmit(null);
         });
+    }
+
+    // ==================== GitHub Integration Logic ====================
+    if (toggleGitHubSettings) {
+        toggleGitHubSettings.addEventListener('click', function() {
+            const isHidden = githubSettingsContent.style.display === 'none';
+            githubSettingsContent.style.display = isHidden ? 'block' : 'none';
+            this.parentElement.classList.toggle('expanded', isHidden);
+        });
+    }
+
+    if (gitRepoUrlInput) {
+        gitRepoUrlInput.addEventListener('input', function() {
+            const url = this.value.trim();
+            const isValid = url.startsWith('http') && url.includes('github.com');
+            
+            if (isValid) {
+                autoImproveGroup.style.opacity = '1';
+                autoImproveGroup.style.pointerEvents = 'auto';
+            } else {
+                autoImproveGroup.style.opacity = '0.5';
+                autoImproveGroup.style.pointerEvents = 'none';
+                autoImproveEnabledInput.checked = false;
+            }
+        });
+    }
+
+    async function updateGitHubStatus(projectName) {
+        if (!projectName) return;
+        
+        try {
+            const resp = await fetch(`/api/projects/${projectName}/git_status`);
+            const data = await resp.json();
+            
+            if (data.status === 'success' && data.git_enabled) {
+                githubStatusWidget.style.display = 'block';
+                gitStatusVal.textContent = data.sync_active ? 'Activa' : 'Inactiva';
+                gitStatusVal.className = 'value ' + (data.sync_active ? 'text-success' : 'text-muted');
+                gitNextReview.textContent = data.next_review || 'Pendiente';
+                
+                // Update PR list
+                gitPrList.innerHTML = '';
+                if (data.prs && data.prs.length > 0) {
+                    data.prs.forEach(pr => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<a href="${pr.url}" target="_blank">PR #${pr.number}: ${escapeHtml(pr.title)}</a>`;
+                        gitPrList.appendChild(li);
+                    });
+                } else {
+                    gitPrList.innerHTML = '<li class="empty-list">No hay PRs generadas aún</li>';
+                }
+            } else {
+                githubStatusWidget.style.display = 'none';
+            }
+        } catch (err) {
+            console.error('Error fetching git status:', err);
+        }
     }
 
     // ==================== F6: Floating Terminal ====================

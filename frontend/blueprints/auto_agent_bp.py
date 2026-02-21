@@ -19,6 +19,10 @@ from backend.utils.core.event_publisher import EventPublisher
 from frontend.middleware import rate_limit_api, require_api_key
 from frontend.services.chat_event_bridge import ChatEventBridge
 
+from backend.utils.core.git_manager import GitManager
+from backend.utils.core.git_pr_tool import GitPRTool
+from backend.utils.core.task_scheduler import get_scheduler
+
 auto_agent_bp = Blueprint("auto_agent", __name__)
 
 # Globals for shared services
@@ -138,6 +142,32 @@ def create_project():
             }
 
             project_root = agent.run(**run_kwargs)
+
+            # Schedule autonomous maintenance if requested
+            if request.form.get("enable_hourly_pr") == "true":
+                try:
+                    from backend.utils.core.autonomous_maintenance import AutonomousMaintenanceTask
+                    from backend.utils.core.agent_logger import AgentLogger
+                    
+                    maint_logger = AgentLogger(f"Maint-{project_name}")
+                    maint_task = AutonomousMaintenanceTask(
+                        project_root=project_root,
+                        agent_logger=maint_logger,
+                        event_publisher=_event_publisher
+                    )
+                    
+                    # Register the task with the scheduler
+                    # Note: AutonomousMaintenanceTask.register expects an automation_manager
+                    # but it seems it just needs something with a .scheduler property.
+                    # We can pass an object that has the scheduler.
+                    class SimpleAutomationManager:
+                        def __init__(self, scheduler):
+                            self.scheduler = scheduler
+                    
+                    maint_task.register(SimpleAutomationManager(get_scheduler().scheduler))
+                    agent.logger.info(f"[PROJECT_STATUS] Autonomous maintenance scheduled for '{project_name}'.")
+                except Exception as maint_err:
+                    agent.logger.error(f"Failed to schedule maintenance for '{project_name}': {maint_err}")
 
             agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' created at {project_root}")
             _chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' completed."})
@@ -546,3 +576,51 @@ def _parse_issue_markdown(markdown_content: str) -> List[Dict]:
             }
         )
     return issues
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/git_status")
+def get_project_git_status(project_name):
+    """Retrieve Git status and automated maintenance info for a project."""
+    project_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+
+    if not project_path.is_dir():
+        return jsonify({"status": "error", "message": "Project not found."}), 404
+
+    git_enabled = (project_path / ".git").is_dir()
+    
+    if not git_enabled:
+        return jsonify({"status": "success", "git_enabled": False})
+
+    try:
+        logger = main_container.core.logger()
+        git_tool = GitPRTool(str(project_path), logger)
+        
+        # Get open PRs
+        prs = git_tool.list_open_prs()
+        
+        # Check if auto-improvement is scheduled
+        scheduler = get_scheduler()
+        tasks = scheduler.list_all_tasks()
+        
+        # We look for a task that might be the maintenance task for this project
+        # In this simplified version, we just check if any maintenance task is active
+        sync_active = any(t.get("id") == "autonomous_maintenance_hourly" and not t.get("paused") for t in tasks)
+        next_review = None
+        
+        maint_task = next((t for t in tasks if t.get("id") == "autonomous_maintenance_hourly"), None)
+        if maint_task and maint_task.get("next_run_time"):
+            from datetime import datetime
+            next_run = datetime.fromisoformat(maint_task["next_run_time"])
+            diff = next_run - datetime.now()
+            minutes = int(diff.total_seconds() / 60)
+            next_review = f"{minutes} min" if minutes > 0 else "Pronto"
+
+        return jsonify({
+            "status": "success",
+            "git_enabled": True,
+            "sync_active": sync_active,
+            "next_review": next_review,
+            "prs": prs
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
