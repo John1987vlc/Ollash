@@ -72,7 +72,7 @@ class Config:
                     return json.load(f)
             except (json.JSONDecodeError, IOError) as e:
                 logger.error(f"Error loading JSON from file '{file_path}': {e}")
-        
+
         return self._load_json_from_env(env_var_name)
 
     def _load_json_from_env(self, env_var_name: str) -> dict | list | None:

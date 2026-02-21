@@ -1,7 +1,6 @@
 """Blueprint for system metrics dashboard and analytics."""
 
 import logging
-from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 

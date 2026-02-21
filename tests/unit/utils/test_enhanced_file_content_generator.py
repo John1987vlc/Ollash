@@ -1,6 +1,5 @@
 """Tests for EnhancedFileContentGenerator."""
 
-import json
 from unittest.mock import MagicMock
 import pytest
 from backend.utils.domains.auto_generation.enhanced_file_content_generator import EnhancedFileContentGenerator
@@ -9,9 +8,9 @@ from backend.utils.domains.auto_generation.enhanced_file_content_generator impor
 @pytest.fixture
 def mock_llm_client():
     client = MagicMock()
-    
+
     def mock_chat(messages, **kwargs):
-        # Return a simple code string without markdown backticks 
+        # Return a simple code string without markdown backticks
         # to ensure it doesn't get messed up by parser
         content = """
 import os
@@ -55,11 +54,11 @@ class TestEnhancedFileContentGenerator:
             "main_logic": ["Do math"],
             "validation": ["Check result"]
         }
-        
+
         content = generator.generate_file_with_plan(
             "test.py", plan, "desc", "# Readme", {}, {}
         )
-        
+
         # Verify it didn't fall back to skeleton
         # The skeleton would contain "pass" or "TODO"
         assert "def main():" in content

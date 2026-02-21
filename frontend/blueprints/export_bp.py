@@ -58,10 +58,10 @@ def generate_report(project_name):
     """Generate executive report for a project."""
     try:
         from backend.utils.core.activity_report_generator import ActivityReportGenerator
-        
+
         generator = ActivityReportGenerator(ollash_root_dir=_ollash_root)
         report_path = generator.generate_executive_report(project_name)
-        
+
         return jsonify({
             "status": "success",
             "project": project_name,
@@ -77,10 +77,10 @@ def download_report(project_name):
     """Download executive report."""
     reports_dir = _ollash_root / "reports"
     filename = f"{project_name}_executive_report.pdf"
-    
+
     if not (reports_dir / filename).exists():
         return jsonify({"error": "Report not found"}), 404
-        
+
     return send_from_directory(str(reports_dir), filename)
 
 

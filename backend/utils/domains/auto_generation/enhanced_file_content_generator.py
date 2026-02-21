@@ -169,7 +169,7 @@ Output ONLY the code content."""
         """Get language-specific system prompt."""
 
         base = "You are an expert developer. Generate COMPLETE, production-ready code with no placeholders or TODOs. Return ONLY the code."
-        
+
         prompts = {
             ".py": base + " Follow PEP 8, use type hints, and include docstrings.",
             ".js": base + " Use modern ES6+ syntax and follow best practices.",

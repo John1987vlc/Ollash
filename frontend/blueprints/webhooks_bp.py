@@ -27,15 +27,15 @@ def register_webhook():
     name = data.get("name")
     webhook_type_str = data.get("type", "custom").lower()
     url = data.get("url")
-    
+
     if not name or not url:
         return jsonify({"status": "error", "message": "Missing name or url"}), 400
-        
+
     try:
         wm = get_webhook_manager()
         webhook_type = WebhookType(webhook_type_str)
         success = wm.register_webhook(name=name, webhook_type=webhook_type, webhook_url=url)
-        
+
         if success:
             return jsonify({"status": "success", "message": f"Webhook '{name}' registered"})
         else:
@@ -49,10 +49,10 @@ async def test_webhook():
     """Send a test notification to a webhook."""
     data = request.json
     name = data.get("name")
-    
+
     if not name:
         return jsonify({"status": "error", "message": "Missing name"}), 400
-        
+
     try:
         wm = get_webhook_manager()
         success = await wm.send_to_webhook(
@@ -60,7 +60,7 @@ async def test_webhook():
             message="This is a test notification from Ollash Agent.",
             title="Ollash Connection Test"
         )
-        
+
         if success:
             return jsonify({"status": "success", "message": "Test message sent successfully"})
         else:

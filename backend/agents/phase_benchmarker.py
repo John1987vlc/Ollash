@@ -2,7 +2,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import requests
 
@@ -28,7 +28,7 @@ class PhaseBenchmarker:
         log_file_path = Path("logs") / "phase_benchmark_debug.log"
         structured_logger = StructuredLogger(log_file_path=log_file_path, logger_name="PhaseBenchmarkLogger")
         self.logger = AgentLogger(structured_logger=structured_logger, logger_name="PhaseBenchmark")
-        
+
         self.tasks_file = tasks_file
         self.test_tasks = self._load_tasks()
         self.results: List[dict] = []
@@ -78,15 +78,15 @@ class PhaseBenchmarker:
                 try:
                     prompt = self._build_prompt(task)
                     messages = [{"role": "user", "content": prompt}]
-                    
+
                     response, usage = client.chat(messages, tools=[])
-                    
+
                     elapsed = time.time() - start_time
                     content = response["message"]["content"]
-                    
+
                     # Basic automated scoring
                     score = self._evaluate_output(task, content)
-                    
+
                     model_results.append({
                         "task": name,
                         "phase": phase,
@@ -114,9 +114,9 @@ class PhaseBenchmarker:
                 if p not in phase_scores:
                     phase_scores[p] = []
                 phase_scores[p].append(res["score"])
-            
+
             avg_phase_scores = {p: round(sum(s)/len(s), 2) for p, s in phase_scores.items()}
-            
+
             self.results.append({
                 "model": model_name,
                 "phase_scores": avg_phase_scores,
@@ -126,7 +126,7 @@ class PhaseBenchmarker:
     def _build_prompt(self, task: dict) -> str:
         phase = task.get("phase")
         desc = task["description"]
-        
+
         if phase == "ReadmeGenerationPhase":
             return f"Act as a technical writer. Generate a README.md based on this description: {desc}. Output only the README content."
         elif phase == "StructureGenerationPhase":
@@ -144,24 +144,24 @@ class PhaseBenchmarker:
         """Strict heuristic evaluation of the output quality."""
         if not content or len(content.strip()) < 100:
             return 0.0
-        
+
         score = 0.2 # Base score for non-empty, minimum length output
-        
+
         # 1. HARD PENALTIES (Laziness)
         placeholders = ["TODO", "...", "FIXME", "implementation goes here", "add your logic"]
         for p in placeholders:
             if p.lower() in content.lower():
                 score -= 0.3
-        
+
         # 2. PHASE-SPECIFIC RIGOR
         phase = task.get("phase")
-        
+
         # README: check for markdown richness
         if phase == "ReadmeGenerationPhase":
             if content.count("#") >= 3: score += 0.2 # Good heading structure
             if "```" in content: score += 0.2 # Includes code examples
             if len(content) > 1000: score += 0.1 # Depth
-            
+
         # Structure/Logic: JSON richness
         elif phase in ["StructureGenerationPhase", "LogicPlanningPhase"]:
             try:
@@ -170,7 +170,7 @@ class PhaseBenchmarker:
                 if json_match:
                     data = json.loads(json_match.group())
                     score += 0.2 # It's valid JSON
-                    
+
                     if phase == "LogicPlanningPhase":
                         # Check if it actually planned multiple files and has depth
                         if len(data) >= 2: score += 0.2
@@ -201,7 +201,7 @@ class PhaseBenchmarker:
         if expected_sections:
             found = sum(1 for s in expected_sections if s.lower() in content.lower())
             score += (found / len(expected_sections)) * 0.2
-            
+
         expected_folders = task.get("expected_folders", [])
         if expected_folders:
             found = sum(1 for f in expected_folders if f.lower() in content.lower())
@@ -228,9 +228,9 @@ class PhaseBenchmarker:
         print("\n" + "="*70)
         print("   PHASE BENCHMARK: MODEL PROFILES & RECOMMENDATIONS")
         print("="*70)
-        
+
         self.phase_data = {} # Store for application
-        
+
         for model_res in self.results:
             model_name = model_res["model"]
             for res in model_res["detailed_results"]:
@@ -249,7 +249,7 @@ class PhaseBenchmarker:
         for phase in sorted(self.phase_data.keys()):
             models = self.phase_data[phase]
             print(f"\n--- PHASE: {phase} ---")
-            
+
             beast = max(models, key=lambda x: x["score"])
             fast_models = [m for m in models if m["score"] >= 0.4]
             flash = max(fast_models, key=lambda x: x["tps"]) if fast_models else beast
@@ -281,7 +281,7 @@ class PhaseBenchmarker:
             config_data = json.load(f)
 
         winners = self.winners_by_profile[profile_name]
-        
+
         # Map phases to roles in config
         role_map = {
             "ReadmeGenerationPhase": "writer",
@@ -301,5 +301,5 @@ class PhaseBenchmarker:
 
         with open(config_path, "w") as f:
             json.dump(config_data, f, indent=4)
-        
+
         print("\nConfig updated successfully! You can now run 'python run_web.py'.")

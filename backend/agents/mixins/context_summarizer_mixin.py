@@ -47,7 +47,7 @@ class ContextSummarizerMixin(ABC):
         self.logger.warning(
             f"⚠️ Context window capacity reached ({current_tokens}/{max_tokens} tokens). Summarizing..."
         )
-        
+
         self.event_publisher.publish(
             "context_management",
             {"status": "summarizing", "tokens_before": current_tokens},
@@ -58,10 +58,10 @@ class ContextSummarizerMixin(ABC):
             self.logger.error("Summarization LLM client not available.")
             return messages[-5:] # Aggressive fallback: just keep last 5 messages
 
-        # F24: Aggressive split: Keep only the System Prompt and the last 3 messages. 
+        # F24: Aggressive split: Keep only the System Prompt and the last 3 messages.
         # Summarize everything in between.
         system_prompt = messages[0] if messages and messages[0]["role"] == "system" else None
-        
+
         if system_prompt:
             messages_to_summarize = messages[1:-3]
             remaining_messages = messages[-3:]
@@ -91,7 +91,7 @@ class ContextSummarizerMixin(ABC):
             summarized_messages = []
             if system_prompt:
                 summarized_messages.append(system_prompt)
-                
+
             summarized_messages.append(
                 {
                     "role": "system",

@@ -21,7 +21,7 @@ def test_system_health_endpoint_structure(client):
     response = client.get("/api/system/health")
     assert response.status_code == 200
     data = response.get_json()
-    
+
     assert data["status"] == "ok"
     assert "cpu_percent" in data
     assert "ram_percent" in data
@@ -35,27 +35,27 @@ def test_system_health_logic_mocked(client):
     with patch("frontend.blueprints.system_health_bp.psutil") as mock_psutil:
         # psutil mock won't be None anymore
         mock_psutil.cpu_percent.return_value = 25.5
-        
+
         mock_mem = MagicMock()
         mock_mem.total = 16*1024**3
         mock_mem.used = 8*1024**3
         mock_mem.percent = 50.0
         mock_psutil.virtual_memory.return_value = mock_mem
-        
+
         mock_disk = MagicMock()
         mock_disk.total = 500*1024**3
         mock_disk.used = 100*1024**3
         mock_disk.percent = 20.0
         mock_psutil.disk_usage.return_value = mock_disk
-        
+
         mock_net = MagicMock()
         mock_net.bytes_sent = 100*1024**2
         mock_net.bytes_recv = 200*1024**2
         mock_psutil.net_io_counters.return_value = mock_net
-        
+
         response = client.get("/api/system/health")
         data = response.get_json()
-        
+
         assert data["cpu_percent"] == 25.5
         assert data["ram_percent"] == 50.0
         assert data["ram_total_gb"] == 16.0

@@ -3,7 +3,6 @@ Automations API Blueprint - Exposes automation task management endpoints
 """
 
 import logging
-from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request
 

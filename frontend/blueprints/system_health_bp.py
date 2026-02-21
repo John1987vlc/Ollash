@@ -8,7 +8,7 @@ import os
 import logging
 from pathlib import Path
 
-from flask import Blueprint, jsonify, current_app
+from flask import Blueprint, jsonify
 
 logger = logging.getLogger(__name__)
 
@@ -50,13 +50,13 @@ def system_health():
         try:
             # CPU: interval=None returns since last call, better for frequent polling
             result["cpu_percent"] = psutil.cpu_percent(interval=None)
-            
+
             # RAM
             mem = psutil.virtual_memory()
             result["ram_total_gb"] = round(mem.total / (1024**3), 1)
             result["ram_used_gb"] = round(mem.used / (1024**3), 1)
             result["ram_percent"] = mem.percent
-            
+
             # Disk: On Windows, use current drive letter
             try:
                 drive = os.path.splitdrive(os.getcwd())[0] or "C:"
@@ -74,7 +74,7 @@ def system_health():
                 result["net_recv_mb"] = round(net.bytes_recv / (1024**2), 2)
             except Exception:
                 pass
-                
+
         except Exception as e:
             print(f"Error gathering system health: {e}")
     else:

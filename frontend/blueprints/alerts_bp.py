@@ -5,7 +5,6 @@ Alerts API Blueprint - Exposes alert endpoints and SSE streams
 import json
 import logging
 import queue  # Import queue module
-from pathlib import Path
 
 from flask import Blueprint, Response, current_app, jsonify, request
 

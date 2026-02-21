@@ -1,9 +1,8 @@
 """Unit tests for project operations (delete, rename)."""
 
 import pytest
-from flask import Flask
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from frontend.app import create_app
 
 
@@ -26,7 +25,7 @@ class TestProjectOps:
     def test_delete_file_success(self, mock_remove, mock_isdir, mock_isfile, client):
         mock_isfile.return_value = True
         mock_isdir.return_value = False
-        
+
         # Patch the MODULE level global _ollash_root_dir in the BP module
         with patch("frontend.blueprints.auto_agent_bp._ollash_root_dir", Path("/tmp"), create=True):
             response = client.post(

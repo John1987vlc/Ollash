@@ -169,7 +169,7 @@ def find_gaps():
 
         project_root = current_app.config.get("ollash_root_dir", Path.cwd())
         theory_doc = project_root / data["theory_doc"]
-        
+
         # Default to llm_models.json if not specified
         config_file_rel = data.get("config_file", "backend/config/llm_models.json")
         config_file = project_root / config_file_rel

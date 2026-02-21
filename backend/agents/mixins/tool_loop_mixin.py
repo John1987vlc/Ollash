@@ -21,7 +21,7 @@ class ToolLoopMixin(ABC):
         and recording execution spans.
         """
         tool_outputs = []
-        
+
         # F26: Track consecutive planning calls to prevent infinite planning loops
         if not hasattr(self, "_consecutive_planning_count"):
             self._consecutive_planning_count = 0
@@ -29,19 +29,19 @@ class ToolLoopMixin(ABC):
         for tool_call in tool_calls:
             tool_name = tool_call["function"]["name"]
             tool_args = tool_call["function"]["arguments"]
-            
+
             # Update planning counter
             if tool_name in ["plan_actions", "analyze_project"]:
                 self._consecutive_planning_count += 1
             else:
                 self._consecutive_planning_count = 0
-                
+
             if self._consecutive_planning_count > 3:
                 self.logger.warning(f"⚠️ High repetition of {tool_name} detected. Forcing action phase.")
                 # We return a fake error to the agent to force it to stop planning and start doing
                 tool_outputs.append({
                     "tool_call_id": tool_call.get("id"),
-                    "output": f"Error: You have already planned multiple times. Do not plan again. Proceed IMMEDIATELY to implementation using write_file.",
+                    "output": "Error: You have already planned multiple times. Do not plan again. Proceed IMMEDIATELY to implementation using write_file.",
                     "ok": False,
                     "tool_name": tool_name
                 })
@@ -108,10 +108,10 @@ class ToolLoopMixin(ABC):
             try:
                 # F18: Better thinking log using the new method
                 self.logger.thinking(f"Executing {tool_name} to address: {user_input[:50]}...")
-                
+
                 # Execute the tool using the injected tool_executor
                 tool_execution_output = await self.tool_executor.execute_tool(tool_name, **tool_args)
-                
+
                 # F18: Detailed log for backend only
                 self.logger.debug(f"DEBUG - Tool '{tool_name}' output: {tool_execution_output}")
                 self.logger.info(f"✅ Tool '{tool_name}' executed successfully.")
@@ -144,10 +144,10 @@ class ToolLoopMixin(ABC):
                     "tool_name": tool_name
                 }
                 tool_outputs.append(result_output)
-                
+
                 if self._event_bridge:
                     self._event_bridge.push_event("error", {"message": friendly_error, "tool": tool_name})
-                
+
                 self.event_publisher.publish("tool_error", {"tool_name": tool_name, "error": str(e)})
             finally:
                 self.tool_span_manager.end_span(
@@ -170,7 +170,7 @@ class ToolLoopMixin(ABC):
                 # F19: Safe append to output regardless of type
                 current_output = tool_outputs[-1].get("output", "")
                 loop_msg = "\n[Loop detected. Aborting further tool execution.]"
-                
+
                 if isinstance(current_output, str):
                     tool_outputs[-1]["output"] = current_output + loop_msg
                 elif isinstance(current_output, dict):

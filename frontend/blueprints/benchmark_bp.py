@@ -60,7 +60,7 @@ def list_models():
             name = m["name"]
             # Detect if it's likely an embedding model
             is_embedding = "embed" in name.lower()
-            
+
             result.append(
                 {
                     "name": name,
@@ -114,7 +114,6 @@ def start_benchmark():
     # F12: Use current_app.config for benchmarker or pass None to use default centralized config
     def _run():
         try:
-            from backend.core.config import config as backend_config
             benchmarker = ModelBenchmarker() # It will use central config by default
             if ollama_url:
                 benchmarker.url = ollama_url
@@ -170,9 +169,9 @@ def start_benchmark():
                 from backend.core.config import get_config
                 config = get_config()
                 summary_model = config.LLM_MODELS.get("models", {}).get("summarization", config.DEFAULT_MODEL)
-                
+
                 event_queue.put(json.dumps({"type": "info", "message": f"Generating final report with {summary_model}..."}))
-                
+
                 # Update benchmarker with all results for summary generation
                 benchmarker.results = all_results
                 summary_text = benchmarker.generate_summary(summary_model)

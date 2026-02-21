@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List
 
 from backend.utils.core.agent_logger import AgentLogger
 from backend.utils.core.llm_response_parser import LLMResponseParser
@@ -30,7 +30,7 @@ class StructureGenerator:
         self.logger = logger
         self.parser = response_parser
         self.options = options or self.DEFAULT_OPTIONS.copy()
-        
+
         # F29: Get max_depth from config if available, default to 2 for speed
         from backend.core.config import get_config
         config = get_config()
@@ -116,7 +116,7 @@ class StructureGenerator:
         current_depth: int = 1
     ) -> dict:
         """Recursively generates detailed structure for folders with depth limit."""
-        
+
         if current_depth > self.max_depth:
             self.logger.info(f"    Max depth ({self.max_depth}) reached at {parent_path}. Stopping.")
             return current_structure
@@ -259,6 +259,6 @@ class StructureGenerator:
         include_docker: bool = False,
     ) -> dict:
         """Create a basic fallback project structure when generation fails."""
-        # Simple static fallbacks omitted for brevity in response, 
+        # Simple static fallbacks omitted for brevity in response,
         # but logic remains the same as previous version
         return {"path": "./", "folders": [{"name": "src", "folders": [], "files": ["main.py"]}], "files": ["README.md"]}

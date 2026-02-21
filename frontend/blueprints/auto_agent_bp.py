@@ -19,7 +19,6 @@ from backend.utils.core.event_publisher import EventPublisher
 from frontend.middleware import rate_limit_api, require_api_key
 from frontend.services.chat_event_bridge import ChatEventBridge
 
-from backend.utils.core.git_manager import GitManager
 from backend.utils.core.git_pr_tool import GitPRTool
 from backend.utils.core.task_scheduler import get_scheduler
 
@@ -148,14 +147,14 @@ def create_project():
                 try:
                     from backend.utils.core.autonomous_maintenance import AutonomousMaintenanceTask
                     from backend.utils.core.agent_logger import AgentLogger
-                    
+
                     maint_logger = AgentLogger(f"Maint-{project_name}")
                     maint_task = AutonomousMaintenanceTask(
                         project_root=project_root,
                         agent_logger=maint_logger,
                         event_publisher=_event_publisher
                     )
-                    
+
                     # Register the task with the scheduler
                     # Note: AutonomousMaintenanceTask.register expects an automation_manager
                     # but it seems it just needs something with a .scheduler property.
@@ -163,7 +162,7 @@ def create_project():
                     class SimpleAutomationManager:
                         def __init__(self, scheduler):
                             self.scheduler = scheduler
-                    
+
                     maint_task.register(SimpleAutomationManager(get_scheduler().scheduler))
                     agent.logger.info(f"[PROJECT_STATUS] Autonomous maintenance scheduled for '{project_name}'.")
                 except Exception as maint_err:
@@ -549,10 +548,10 @@ def get_project_compliance(project_name):
     try:
         from backend.utils.core.deep_license_scanner import DeepLicenseScanner
         from backend.utils.core.agent_logger import AgentLogger
-        
+
         logger = AgentLogger(f"Compliance-{project_name}")
         scanner = DeepLicenseScanner(logger)
-        
+
         # Collect relevant files for scanning
         generated_files = {}
         for root, _, files in os.walk(project_path):
@@ -564,7 +563,7 @@ def get_project_compliance(project_name):
                             generated_files[rel_path] = file.read()
                     except Exception:
                         pass
-        
+
         # Assume project license is MIT if not found (or read from LICENSE file)
         project_license = "MIT"
         license_file = project_path / "LICENSE"
@@ -644,7 +643,7 @@ def delete_project_item(project_name):
             shutil.rmtree(full_path)
         else:
             return jsonify({"status": "error", "message": "Item not found."}), 404
-        
+
         return jsonify({"status": "success", "message": "Item deleted successfully."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -656,7 +655,7 @@ def rename_project_item(project_name):
     """Rename a file or folder within a project."""
     old_path_rel = request.json.get("old_path")
     new_path_rel = request.json.get("new_path")
-    
+
     if not old_path_rel or not new_path_rel:
         return jsonify({"status": "error", "message": "Old and new paths are required."}), 400
 
@@ -707,26 +706,26 @@ def get_project_git_status(project_name):
         return jsonify({"status": "error", "message": "Project not found."}), 404
 
     git_enabled = (project_path / ".git").is_dir()
-    
+
     if not git_enabled:
         return jsonify({"status": "success", "git_enabled": False})
 
     try:
         logger = main_container.core.logger()
         git_tool = GitPRTool(str(project_path), logger)
-        
+
         # Get open PRs
         prs = git_tool.list_open_prs()
-        
+
         # Check if auto-improvement is scheduled
         scheduler = get_scheduler()
         tasks = scheduler.list_all_tasks()
-        
+
         # We look for a task that might be the maintenance task for this project
         # In this simplified version, we just check if any maintenance task is active
         sync_active = any(t.get("id") == "autonomous_maintenance_hourly" and not t.get("paused") for t in tasks)
         next_review = None
-        
+
         maint_task = next((t for t in tasks if t.get("id") == "autonomous_maintenance_hourly"), None)
         if maint_task and maint_task.get("next_run_time"):
             from datetime import datetime

@@ -440,27 +440,27 @@ def upload_file():
     try:
         if "file" not in request.files:
             return jsonify({"error": "No file part"}), 400
-        
+
         file = request.files["file"]
         if file.filename == "":
             return jsonify({"error": "No selected file"}), 400
-        
+
         if file:
             filename = secure_filename(file.filename)
             ollash_root_dir = Path(request.environ.get("ollash_root_dir", "."))
             upload_path = ollash_root_dir / UPLOAD_FOLDER
             file_path = upload_path / filename
             file.save(str(file_path))
-            
+
             logger.info(f"File uploaded successfully: {filename}")
-            
+
             return jsonify({
                 "status": "success",
                 "filename": filename,
                 "local_path": str(file_path),
                 "relative_path": str(Path(UPLOAD_FOLDER) / filename)
             }), 200
-            
+
     except Exception as e:
         logger.error(f"Upload error: {e}")
         return jsonify({"error": f"Upload failed: {str(e)}"}), 500

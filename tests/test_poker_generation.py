@@ -1,7 +1,6 @@
 
 import sys
 import shutil
-import json
 from pathlib import Path
 
 # Añadir el raíz del proyecto al path
@@ -13,11 +12,11 @@ from backend.core.containers import main_container
 
 def test_poker_project_generation():
     print("=== INICIANDO TEST: GENERACIÓN DE PROYECTO POKER (REACT + ASCII) ===")
-    
+
     # Nombre y descripción del proyecto
     project_name = "poker_ascii_game"
     description = "Juego de pocker sin usar imagenes solo con el codigo ascii html,js y css. Usar React para la interfaz."
-    
+
     # Limpiar carpeta de test anterior si existe
     test_projects_dir = project_root / "generated_projects" / "auto_agent_projects"
     target_dir = test_projects_dir / project_name
@@ -27,14 +26,14 @@ def test_poker_project_generation():
 
     # Inicializar el contenedor de dependencias
     main_container.wire(modules=[__name__, "backend.agents.auto_agent"])
-    
+
     try:
         # Obtener una instancia del AutoAgent a través del contenedor
         agent: AutoAgent = main_container.auto_agent_module.auto_agent()
-        
+
         print(f"\n[MISSION]: {description}")
-        print(f"[TEMPLATE]: react-frontend")
-        
+        print("[TEMPLATE]: react-frontend")
+
         # Llamada síncrona: el método gestiona su propio loop internamente
         print("\n--- PASO 1: GENERANDO README Y ESTRUCTURA ---")
         readme, structure = agent.generate_structure_only(
@@ -45,9 +44,9 @@ def test_poker_project_generation():
             license_type="MIT",
             include_docker=False
         )
-        
+
         print("\n✅ ESTRUCTURA GENERADA CON ÉXITO")
-        
+
         # Verificar que el README mencione ASCII
         if "ascii" in readme.lower():
             print("🎯 El agente ha captado el requisito de usar código ASCII.")

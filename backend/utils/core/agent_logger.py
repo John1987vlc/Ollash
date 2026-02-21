@@ -50,11 +50,11 @@ class AgentLogger:
         """Log tool result"""
         status = "✅ SUCCESS" if success else "❌ FAILED"
         color = Fore.GREEN if success else Fore.RED
-        
+
         # F18: Simplified console message to avoid flooding
         result_preview = str(result)[:100] + "..." if len(str(result)) > 100 else str(result)
         console_msg = f"{status}: {tool_name} -> {result_preview}"
-        
+
         extra_data = {
             "type": "tool_result",
             "tool_name": tool_name,

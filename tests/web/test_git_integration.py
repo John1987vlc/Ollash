@@ -1,7 +1,5 @@
-import json
 import importlib
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import pytest
 from flask import Flask
 
@@ -15,10 +13,10 @@ def app(tmp_path):
     app = Flask(__name__)
     app.config["TESTING"] = True
     app.config["ollash_root_dir"] = tmp_path
-    
+
     mock_event_publisher = MagicMock()
     mock_chat_event_bridge = MagicMock()
-    
+
     init_app(app, mock_event_publisher, mock_chat_event_bridge)
     app.register_blueprint(auto_agent_bp)
     return app
@@ -35,7 +33,7 @@ def test_git_status_no_git(client, tmp_path):
     project_name = "test_no_git"
     project_dir = tmp_path / "generated_projects" / "auto_agent_projects" / project_name
     project_dir.mkdir(parents=True)
-    
+
     resp = client.get(f"/api/projects/{project_name}/git_status")
     assert resp.status_code == 200
     data = resp.get_json()
@@ -46,7 +44,7 @@ def test_git_status_enabled(client, tmp_path, monkeypatch):
     project_dir = tmp_path / "generated_projects" / "auto_agent_projects" / project_name
     project_dir.mkdir(parents=True)
     (project_dir / ".git").mkdir()
-    
+
     # Mock GitPRTool
     mock_git_pr_tool_class = MagicMock()
     monkeypatch.setattr(aabp_module, "GitPRTool", mock_git_pr_tool_class)
@@ -54,7 +52,7 @@ def test_git_status_enabled(client, tmp_path, monkeypatch):
     mock_git.list_open_prs.return_value = [
         {"number": 1, "title": "Test PR", "url": "http://github.com/test/pr/1"}
     ]
-    
+
     # Mock Scheduler
     mock_get_scheduler = MagicMock()
     monkeypatch.setattr(aabp_module, "get_scheduler", mock_get_scheduler)
@@ -67,7 +65,7 @@ def test_git_status_enabled(client, tmp_path, monkeypatch):
             "paused": False
         }
     ]
-    
+
     resp = client.get(f"/api/projects/{project_name}/git_status")
     assert resp.status_code == 200
     data = resp.get_json()
@@ -82,26 +80,26 @@ def test_create_project_with_git(client, tmp_path, monkeypatch):
     monkeypatch.setattr(aabp_module, "AutoAgent", mock_agent_class)
     mock_agent_instance = mock_agent_class.return_value
     mock_agent_instance.run.return_value = tmp_path / "generated_projects" / "auto_agent_projects" / "test_project"
-    
+
     # Mock scheduler
     mock_get_scheduler = MagicMock()
     monkeypatch.setattr(aabp_module, "get_scheduler", mock_get_scheduler)
     mock_scheduler_instance = mock_get_scheduler.return_value
     mock_scheduler_instance.scheduler = MagicMock()
-    
+
     # Mock project root path
     project_root = tmp_path / "generated_projects" / "auto_agent_projects" / "test_project"
     project_root.mkdir(parents=True)
-    
+
     # Bypass require_api_key
     monkeypatch.setattr("frontend.middleware.require_api_key", lambda x: x)
-    
+
     resp = client.post("/api/projects/create", data={
         "project_name": "test_project",
         "project_description": "test description",
         "git_url": "https://github.com/user/repo.git",
         "enable_hourly_pr": "true"
     })
-    
+
     assert resp.status_code == 200
     assert resp.get_json()["status"] == "started"

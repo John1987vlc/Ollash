@@ -3,7 +3,6 @@ Blueprint for managing Ollash plugins.
 """
 
 import logging
-from pathlib import Path
 from flask import Blueprint, jsonify, request, current_app
 from backend.utils.core.plugin_manager import PluginManager
 
@@ -40,17 +39,17 @@ def toggle_plugin():
     data = request.json
     plugin_id = data.get("plugin_id")
     enabled = data.get("enabled", True)
-    
+
     if not plugin_id:
         return jsonify({"status": "error", "message": "Missing plugin_id"}), 400
-        
+
     try:
         pm = get_plugin_manager()
         if enabled:
             pm.load_plugin(plugin_id)
         else:
             pm.unload_plugin(plugin_id)
-            
+
         return jsonify({"status": "success", "plugin_id": plugin_id, "enabled": enabled})
     except Exception as e:
         logger.error(f"Error toggling plugin {plugin_id}: {e}")

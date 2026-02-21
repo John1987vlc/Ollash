@@ -73,7 +73,7 @@ class ModelBenchmarker:
     def __init__(self):
         # Ensure config is fresh from disk
         config = get_config(reload=True)
-        
+
         # Use the centralized configuration
         self.url = config.OLLAMA_URL
 
@@ -162,7 +162,7 @@ class ModelBenchmarker:
         """Run benchmark across all specified models and tasks."""
         # Filter out obvious embedding models that don't support chat
         models_to_test = [m for m in models_to_test if "embed" not in m.lower()]
-        
+
         total_models = len(models_to_test)
         if total_models == 0:
             self.logger.warning("No suitable chat models found for benchmark.")

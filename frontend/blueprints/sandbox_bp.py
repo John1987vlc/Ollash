@@ -36,19 +36,19 @@ def execute_code():
         code = data.get("code")
         language = data.get("language", "python")
         project_name = data.get("project_name")
-        
+
         if not code:
             return jsonify({"error": "No code provided"}), 400
-            
+
         # Create a temporary file for the code
         with tempfile.TemporaryDirectory(prefix="ollash_exec_") as tmpdir:
             tmp_path = Path(tmpdir)
-            
+
             # Simple extension mapping
             ext = ".py" if language == "python" else ".js" if language == "javascript" else ".txt"
             script_file = tmp_path / f"script{ext}"
             script_file.write_text(code)
-            
+
             # Command to run
             if language == "python":
                 cmd = f"python {script_file.name}"
@@ -56,10 +56,10 @@ def execute_code():
                 cmd = f"node {script_file.name}"
             else:
                 return jsonify({"error": f"Language {language} not supported for direct execution"}), 400
-                
+
             # Attempt execution - Prioritize Docker, then WASM, then Subprocess (via WasmSandbox fallback)
             result = None
-            
+
             if docker_sandbox.is_available:
                 result = docker_sandbox.execute_in_container(cmd, tmp_path)
             else:
@@ -87,7 +87,7 @@ def execute_code():
                     )
                 finally:
                     wasm_sandbox.destroy_sandbox(instance)
-            
+
             if result:
                 return jsonify({
                     "status": "success",
@@ -97,7 +97,7 @@ def execute_code():
                 }), 200
             else:
                 return jsonify({"error": "Execution failed to start"}), 500
-                
+
     except Exception as e:
         logger.error(f"Sandbox execution error: {e}")
         return jsonify({"error": str(e)}), 500

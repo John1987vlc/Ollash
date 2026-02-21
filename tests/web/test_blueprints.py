@@ -8,9 +8,6 @@ from flask import Flask
 
 # Import blueprints to be tested
 from frontend.blueprints import (  # Import the new registration function
-    auto_agent_bp,
-    benchmark_bp,
-    common_bp,
     register_blueprints,
 )
 from frontend.services.chat_session_manager import (

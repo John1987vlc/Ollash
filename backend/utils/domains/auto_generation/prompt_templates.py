@@ -88,7 +88,7 @@ class AutoGenPrompts:
         )
 
         file_ext = Path(file_path).suffix.lower()
-        
+
         guidance = {
             ".py": "- Use PEP 8, strict type hints, Google-style docstrings, and robust error handling.",
             ".js": "- Use modern ES6+, async/await for I/O, and descriptive naming.",

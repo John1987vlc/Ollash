@@ -320,7 +320,7 @@ RULES:
         start_turn_time = time.time()
         start_tokens = self.token_tracker.session_total_tokens
         turn_metrics = {"models_used": []}
-        
+
         try:
             # Start interaction context with a correlation ID
             correlation_id = self.kernel.start_interaction_context()
@@ -415,11 +415,11 @@ RULES:
                         )
                         self.conversation.append({"role": "assistant", "content": final_response_en})
                         self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
-                        
+
                         # F20: Prepare detailed metrics for this turn
                         elapsed = time.time() - start_turn_time
                         token_delta = self.token_tracker.session_total_tokens - start_tokens
-                        
+
                         turn_data = {
                             "text": final_response_translated,
                             "metrics": {

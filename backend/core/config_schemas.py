@@ -1,6 +1,6 @@
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, NonNegativeInt, PositiveInt
+from pydantic import BaseModel, Field, HttpUrl, NonNegativeInt, PositiveInt
 
 
 # --- Embedding Cache Configuration Schema ---

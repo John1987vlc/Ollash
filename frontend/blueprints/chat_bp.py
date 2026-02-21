@@ -1,6 +1,5 @@
 """Blueprint for DefaultAgent interactive chat routes."""
 
-from pathlib import Path
 
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 
@@ -31,7 +30,7 @@ def send_chat():
     """
     data = request.get_json(force=True)
     message_raw = data.get("message", "")
-    
+
     # F23: Ensure message is a string to avoid 'dict object has no attribute strip'
     if isinstance(message_raw, dict):
         # If it's a dict, try to extract 'text' or just stringify it

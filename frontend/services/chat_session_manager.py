@@ -38,10 +38,10 @@ class ChatSessionManager:
 
             session_id = uuid.uuid4().hex
             bridge = ChatEventBridge(self.event_publisher)
-            
+
             # F17: Ensure project_root is valid, default to ollash_root_dir if none provided
             actual_project_root = project_path if project_path else str(self.ollash_root_dir)
-            
+
             agent = DefaultAgent(
                 project_root=actual_project_root,
                 auto_confirm=True,
@@ -76,7 +76,7 @@ class ChatSessionManager:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 result = loop.run_until_complete(session.agent.chat(message))
-                
+
                 if isinstance(result, dict):
                     session.bridge.push_event("final_answer", {
                         "content": result.get("text", ""),

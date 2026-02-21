@@ -96,7 +96,7 @@ class OllamaClient:
         rate_config = self.config.get("rate_limiting", {})
         gpu_config = self.config.get("gpu_rate_limiter", {})
         self._gpu_limiter_enabled = gpu_config.get("enabled", True)
-        
+
         self._rate_limiter = GPUAwareRateLimiter(
             base_rpm=rate_config.get("requests_per_minute", 60),
             tokens_per_minute=rate_config.get("max_tokens_per_minute", 100000),
@@ -462,7 +462,7 @@ class OllamaClient:
                 data = await response.json()
                 # F21: Handle both singular and plural keys
                 embeddings = data.get("embedding") or data.get("embeddings")
-                
+
                 if not embeddings:
                     self.logger.error("Ollama async embedding response is missing data.")
                     raise ValueError(f"No embedding found in Ollama API response for model {self.embedding_model}")

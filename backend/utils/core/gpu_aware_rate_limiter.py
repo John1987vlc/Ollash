@@ -67,12 +67,12 @@ class GPUAwareRateLimiter:
         # Note: We use a simplified check here since we don't want to hold the thread lock
         # during long async sleeps. Real implementation would use an async lock.
         now = time.monotonic()
-        
+
         # Simple non-blocking check
         with self._lock:
             while self._request_timestamps and now - self._request_timestamps[0] > 60:
                 self._request_timestamps.popleft()
-            
+
             if len(self._request_timestamps) < self.effective_rpm:
                 self._request_timestamps.append(time.monotonic())
                 return
