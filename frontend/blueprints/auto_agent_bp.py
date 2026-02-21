@@ -472,6 +472,59 @@ def get_project_issues(project_name):
     return jsonify({"status": "success", "issues": all_issues})
 
 
+@auto_agent_bp.route("/api/projects/<project_name>/delete", methods=["POST"])
+@require_api_key
+def delete_project_item(project_name):
+    """Delete a file or folder within a project."""
+    import shutil
+    path_relative = request.json.get("path")
+    if not path_relative:
+        return jsonify({"status": "error", "message": "Path is required."}), 400
+
+    project_base_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+    full_path = os.path.normpath(os.path.join(project_base_path, path_relative))
+
+    if not str(full_path).startswith(str(project_base_path)):
+        return jsonify({"status": "error", "message": "Invalid path."}), 400
+
+    try:
+        if os.path.isfile(full_path):
+            os.remove(full_path)
+        elif os.path.isdir(full_path):
+            shutil.rmtree(full_path)
+        else:
+            return jsonify({"status": "error", "message": "Item not found."}), 404
+        
+        return jsonify({"status": "success", "message": "Item deleted successfully."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/rename", methods=["POST"])
+@require_api_key
+def rename_project_item(project_name):
+    """Rename a file or folder within a project."""
+    old_path_rel = request.json.get("old_path")
+    new_path_rel = request.json.get("new_path")
+    
+    if not old_path_rel or not new_path_rel:
+        return jsonify({"status": "error", "message": "Old and new paths are required."}), 400
+
+    project_base_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+    old_full_path = os.path.normpath(os.path.join(project_base_path, old_path_rel))
+    new_full_path = os.path.normpath(os.path.join(project_base_path, new_path_rel))
+
+    if not str(old_full_path).startswith(str(project_base_path)) or \
+       not str(new_full_path).startswith(str(project_base_path)):
+        return jsonify({"status": "error", "message": "Invalid path."}), 400
+
+    try:
+        os.rename(old_full_path, new_full_path)
+        return jsonify({"status": "success", "message": "Item renamed successfully."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 def _parse_issue_markdown(markdown_content: str) -> List[Dict]:
     """Parses the Markdown content of a SENIOR_REVIEW_ISSUES_ATTEMPT_X.md file into a list of dictionaries."""
     issues = []

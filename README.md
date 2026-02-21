@@ -66,6 +66,16 @@
 | F30 | **Logic Plan Capping** | Limit file planning to top 10 files per category to prevent LLM timeouts and logic fragmentation. | `backend/agents/auto_agent_phases/logic_planning_phase.py` |
 | F18 | **Sanitized Chat Logging** | Human-readable console logs with "Thinking" indicators; raw Ollama data and large embeddings kept in file logs only. | `backend/utils/core/agent_logger.py`, `backend/utils/core/structured_logger.py` |
 
+### Group F — Modern IDE & Visualization
+
+| # | Feature | Description | Key Files |
+|---|---------|-------------|-----------|
+| F31 | **Multi-Tab IDE Interface** | Professional IDE with multi-tab Monaco editor support, dirty-state indicators, and persistent state syncing. | `frontend/static/js/app.js` |
+| F32 | **Mermaid.js Flowcharts** | Real-time rendering of technical diagrams and flowcharts directly within chat bubbles using Mermaid syntax. | `frontend/templates/index.html` |
+| F33 | **Advanced File Ops** | Context-aware project management: rename, delete, and save files with built-in security traversal protection. | `frontend/blueprints/auto_agent_bp.py` |
+| F34 | **Health Mini-Charts** | Sparkline trend-lines in the sidebar for real-time visual tracking of CPU/RAM performance history. | `frontend/static/js/app.js`, `frontend/static/css/style.css` |
+| F35 | **Strict Logic Validation** | Enhanced LLM code generation with regex-based export verification and automated skeleton detection. | `backend/utils/domains/auto_generation/enhanced_file_content_generator.py` |
+
 ---
 
 ## 6 Integrated Pipeline Features
