@@ -112,6 +112,7 @@ def create_automation():
         "schedule": data["schedule"],
         "cron": data.get("cron"),
         "notifyEmail": data.get("notifyEmail", False),
+        "meta": data.get("meta", {}),
         "status": "active",
         "createdAt": datetime.now().isoformat(),
         "lastRun": None,

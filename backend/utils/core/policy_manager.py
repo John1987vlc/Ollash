@@ -1,9 +1,10 @@
 import json
-import os  # Added for os.path.realpath
+import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List
 
+from backend.utils.core.db.sqlite_manager import DatabaseManager
 from backend.utils.core.license_checker import LicenseChecker
 
 
@@ -12,82 +13,82 @@ class PolicyManager:
         self.project_root = project_root
         self.logger = logger
         self.config = config
-        self.policy_file = (
-            self.project_root / "config" / "security_policies.json"
-        )  # This policy file path is problematic.
-        # It should be relative to the agent's base path, not the project root.
-        # I will address this during "Task 7: Tool Scalability (Lazy Loading)"
-        # where I will refactor the agent's __init__ to separate these paths.
-        # For now, I will assume it correctly loads policies from the agent's own config dir.
+        
+        # Initialize SQLite DB
+        db_path = self.project_root / ".ollash" / "system.db"
+        self.db = DatabaseManager(db_path)
+        self._init_db()
+        
         self.policies: Dict[str, Any] = {}
         self._load_policies()
         self.license_checker = LicenseChecker(self.logger, self.config)
 
+    def _init_db(self):
+        """Initialize the policies table."""
+        with self.db.get_connection() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS policies (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+
     def _load_policies(self):
-        """Loads security policies from the security_policies.json file."""
-        # This path needs to be resolved relative to the agent's base_path, not project_root
-        # For now, assuming policy_file is correctly pointing to the agent's config.
-        if self.policy_file.exists():
-            try:
-                with open(self.policy_file, "r", encoding="utf-8") as f:
-                    self.policies = json.load(f)
-                self.logger.info(f"Security policies loaded from {self.policy_file}")
-            except json.JSONDecodeError as e:
-                self.logger.error(f"Error decoding policy file {self.policy_file}: {e}")
-                self.policies = {}  # Reset policies on error
-            except Exception as e:
-                self.logger.error(f"Unexpected error loading policies from {self.policy_file}: {e}")
-                self.policies = {}
-        else:
-            self.logger.warning(
-                f"No existing security policy file found at {self.policy_file}, using default empty policies."
-            )
-            # Optionally, create a default policy file or use hardcoded defaults
-            self.policies = {
-                "allowed_commands": [
-                    "ls",
-                    "dir",
-                    "cat",
-                    "more",
-                    "head",
-                    "tail",
-                    "grep",
-                    "find",
-                    "git",
-                    "pytest",
-                    "ruff",
-                    "mypy",
-                ],
-                "restricted_commands": {
-                    "python": ["-m", "pytest", "-c"],
-                    "pip": ["install", "list", "show", "freeze"],
-                    "npm": ["install", "list", "run", "test"],
-                    "node": [],
-                },
-                "disallowed_patterns": [";", "&&", "||", "`", "$(", ">>", "&"],
-                "critical_paths": [
-                    ".env",
-                    "settings.json",
-                    "package.json",
-                    "requirements.txt",
-                    ".git/",
-                    ".github/",
-                ],
-                "path_traversal_regex": r"(\.\./|\.\.\)",
-            }
-            # Consider saving this default policy if it's the first run
-            self._save_policies()
+        """Loads security policies from the database."""
+        try:
+            rows = self.db.fetch_all("SELECT key, value FROM policies")
+            if rows:
+                for row in rows:
+                    try:
+                        self.policies[row["key"]] = json.loads(row["value"])
+                    except json.JSONDecodeError:
+                        self.logger.warning(f"Failed to decode policy {row['key']}")
+                self.logger.info(f"Security policies loaded from system.db")
+            else:
+                self.logger.warning("No existing security policies found in DB, using defaults.")
+                self._set_defaults()
+                self._save_policies()
+        except Exception as e:
+            self.logger.error(f"Error loading policies from DB: {e}")
+            self._set_defaults()
+
+    def _set_defaults(self):
+        """Sets default policies."""
+        self.policies = {
+            "allowed_commands": [
+                "ls", "dir", "cat", "more", "head", "tail", "grep", "find", 
+                "git", "pytest", "ruff", "mypy"
+            ],
+            "restricted_commands": {
+                "python": ["-m", "pytest", "-c"],
+                "pip": ["install", "list", "show", "freeze"],
+                "npm": ["install", "list", "run", "test"],
+                "node": [],
+            },
+            "disallowed_patterns": [";", "&&", "||", "`", "$(", ">>", "&"],
+            "critical_paths": [
+                ".env", "settings.json", "package.json", "requirements.txt", 
+                ".git/", ".github/"
+            ],
+            "path_traversal_regex": r"(\.\./|\.\.\)",
+        }
 
     def _save_policies(self):
-        """Saves current policies to the security_policies.json file."""
+        """Saves current policies to the database."""
         try:
-            # Ensure the config directory exists
-            self.policy_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.policy_file, "w", encoding="utf-8") as f:
-                json.dump(self.policies, f, indent=2)
-            self.logger.info(f"Security policies saved to {self.policy_file}")
+            from datetime import datetime
+            now = datetime.now().isoformat()
+            
+            for key, value in self.policies.items():
+                self.db.upsert(
+                    "policies", 
+                    {"key": key, "value": json.dumps(value), "updated_at": now}, 
+                    ["key"]
+                )
+            self.logger.info("Security policies saved to system.db")
         except Exception as e:
-            self.logger.error(f"Error saving policies to {self.policy_file}: {e}")
+            self.logger.error(f"Error saving policies to DB: {e}")
 
     def is_license_compliant(self, file_path: Path) -> bool:
         """Checks if the license of a file is compliant."""
@@ -111,8 +112,6 @@ class PolicyManager:
                 return False
 
         # 2. Path Traversal & Symlink Validation (before other checks)
-        # Apply to all arguments, as distinguishing between data and path arguments is hard heuristic-ally.
-        # If an argument contains path separators, treat it as a potential path.
         for arg in args:
             if "/" in arg or "\\" in arg or arg.startswith("..") or arg.startswith("./"):
                 try:

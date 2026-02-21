@@ -1,0 +1,54 @@
+{
+  "allowed_commands": [
+    "ls",
+    "dir",
+    "cat",
+    "more",
+    "head",
+    "tail",
+    "grep",
+    "find",
+    "git",
+    "pytest",
+    "ruff",
+    "mypy"
+  ],
+  "restricted_commands": {
+    "python": [
+      "-m",
+      "pytest",
+      "-c"
+    ],
+    "pip": [
+      "install",
+      "list",
+      "show",
+      "freeze"
+    ],
+    "npm": [
+      "install",
+      "list",
+      "run",
+      "test"
+    ],
+    "node": []
+  },
+  "disallowed_patterns": [
+    ";",
+    "&&",
+    "||",
+    "`",
+    "$(",
+    ">>",
+    "&"
+  ],
+  "critical_paths": [
+    ".env",
+    "settings.json",
+    "package.json",
+    "requirements.txt",
+    ".git/",
+    ".github/"
+  ],
+  "path_traversal_regex": "(\\.\\./|\\.\\.\\)"
+}

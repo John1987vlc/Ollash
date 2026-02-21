@@ -101,6 +101,27 @@
 | F49 | **Coworking Mode** | Multi-agent chat sessions with distinct visual identities and specialized routing between agent types. | `frontend/static/js/app.js`, `backend/utils/domains/bonus/cowork_impl.py` |
 | F50 | **Real-time Benchmark** | Modal-based model comparison. Benchmarking multiple Ollama models simultaneously with live metrics. | `frontend/blueprints/benchmark_bp.py`, `frontend/templates/index.html` |
 
+### Group I — Centralized Persistence & Governance
+
+| # | Feature | Description | Key Files |
+|---|---------|-------------|-----------|
+| F51 | **SQLite Persistence** | Centralized data storage using independent SQLite databases (`system`, `memory`, `knowledge`, `logs`) with WAL mode for high concurrency. | `backend/utils/core/db/sqlite_manager.py` |
+| F52 | **Prompt Studio** | Role-based prompt engineering with version control, instant activation, and rollback capabilities. | `frontend/blueprints/prompt_studio_bp.py`, `backend/utils/core/prompt_repository.py` |
+| F53 | **Governance Panel** | Visual management of execution guardrails, allowed command sets, and critical path protection. | `frontend/blueprints/policies_bp.py`, `backend/utils/core/policy_manager.py` |
+| F54 | **LLM Audit Trail** | High-performance SQL-based logging of all model interactions for compliance and debugging. | `backend/utils/core/structured_logger.py`, `frontend/blueprints/audit_bp.py` |
+| F55 | **HIL Approval Gate** | Human-in-the-loop validation for sensitive agent decisions with real-time UI feedback. | `frontend/blueprints/hil_bp.py`, `backend/utils/core/notification_manager.py` |
+
+---
+
+## Centralized Persistence Architecture
+
+Ollash has transitioned from fragmented JSON storage to a robust SQLite-first architecture. This ensures ACID compliance, high performance under concurrent access, and simplified system state management.
+
+- **`system.db`**: Stores configuration, security policies, automation triggers, and user preferences.
+- **`memory.db`**: Long-term episodic memory, decision logs, and chat history.
+- **`knowledge.db`**: Prompt library, reusable code fragments, and RAG document metadata.
+- **`logs.db`**: Centralized structured logging and LLM interaction audit trail.
+
 ---
 
 ## 6 Integrated Pipeline Features

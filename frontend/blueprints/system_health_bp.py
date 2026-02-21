@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 
 from flask import Blueprint, jsonify
+from backend.core.containers import main_container
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ def init_app(app):
 
 @system_health_bp.route("/api/system/health")
 def system_health():
-    """Return CPU, RAM, disk, and optional GPU metrics with Windows support."""
+    """Return CPU, RAM, disk, GPU, Rate Limiter, and LLM Latency metrics."""
     global psutil
     result = {
         "status": "ok",
@@ -44,11 +45,16 @@ def system_health():
         "net_sent_mb": 0.0,
         "net_recv_mb": 0.0,
         "gpu": None,
+        "llm_health": {
+            "rate_limiter": {"rpm": 0, "status": "unknown"},
+            "latency": {"avg_ms": 0, "status": "unknown"}
+        }
     }
 
+    # --- System Metrics (psutil) ---
     if psutil:
         try:
-            # CPU: interval=None returns since last call, better for frequent polling
+            # CPU
             result["cpu_percent"] = psutil.cpu_percent(interval=None)
 
             # RAM
@@ -57,7 +63,7 @@ def system_health():
             result["ram_used_gb"] = round(mem.used / (1024**3), 1)
             result["ram_percent"] = mem.percent
 
-            # Disk: On Windows, use current drive letter
+            # Disk
             try:
                 drive = os.path.splitdrive(os.getcwd())[0] or "C:"
                 disk = psutil.disk_usage(drive)
@@ -67,7 +73,7 @@ def system_health():
             except Exception:
                 pass
 
-            # Network I/O
+            # Network
             try:
                 net = psutil.net_io_counters()
                 result["net_sent_mb"] = round(net.bytes_sent / (1024**2), 2)
@@ -78,14 +84,13 @@ def system_health():
         except Exception as e:
             print(f"Error gathering system health: {e}")
     else:
-        # Retry import in case it was a transient path issue
         try:
             import psutil as ps
             psutil = ps
         except ImportError:
             pass
 
-    # Try nvidia-smi for GPU info
+    # --- GPU Metrics (nvidia-smi) ---
     try:
         out = (
             subprocess.check_output(
@@ -109,5 +114,43 @@ def system_health():
             }
     except Exception:
         pass
+
+    # --- LLM Health & Rate Limiter Metrics ---
+    try:
+        llm_manager = main_container.auto_agent_module.llm_client_manager()
+        clients = llm_manager.get_all_clients()
+        
+        # Aggregate metrics from all active clients
+        total_rpm = 0
+        latencies = []
+        statuses = []
+        
+        for client in clients.values():
+            if hasattr(client, "_rate_limiter"):
+                metrics = client._rate_limiter.get_health_metrics()
+                total_rpm = max(total_rpm, metrics.get("effective_rpm", 0)) # Use max to show busiest
+                latencies.append(metrics.get("ema_response_time_ms", 0))
+                statuses.append(metrics.get("status", "unknown"))
+        
+        avg_latency = sum(latencies) / len(latencies) if latencies else 0
+        overall_status = "normal"
+        if "throttled" in statuses:
+            overall_status = "throttled"
+        elif "degraded" in statuses:
+            overall_status = "degraded"
+
+        result["llm_health"] = {
+            "rate_limiter": {
+                "effective_rpm": total_rpm,
+                "status": overall_status
+            },
+            "latency": {
+                "avg_ms": round(avg_latency, 1),
+                "status": "high" if avg_latency > 5000 else "normal"
+            }
+        }
+            
+    except Exception as e:
+        logger.warning(f"Failed to gather LLM health metrics: {e}")
 
     return jsonify(result)

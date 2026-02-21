@@ -129,6 +129,35 @@
                     </svg>
                     <span>Plugins</span>
                 </button>
+                <button class="nav-item" data-view="prompts">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                        <path d="M18 13l-1.5-7.5L2 2l5.5 14.5L13 18l5-5z"></path>
+                        <path d="M2 2l7.5 1.5"></path>
+                        <path d="M7.5 16.5L11 22"></path>
+                    </svg>
+                    <span>Prompt Studio</span>
+                </button>
+                <button class="nav-item" data-view="audit">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                        <line x1="8" y1="21" x2="16" y2="21"></line>
+                        <line x1="12" y1="17" x2="12" y2="21"></line>
+                    </svg>
+                    <span>LLM Audit</span>
+                </button>
+                <button class="nav-item" data-view="knowledge">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span>Knowledge Base</span>
+                </button>
+                <button class="nav-item" data-view="tuning">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 20v-6M6 20V10M18 20V4"></path>
+                    </svg>
+                    <span>Tuning Studio</span>
+                </button>
                 <button class="nav-item" data-view="settings">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3"></circle>
@@ -172,6 +201,17 @@
                         <span class="health-label">GPU</span>
                         <div class="health-bar"><div class="health-bar-fill" id="health-gpu"></div></div>
                         <span class="health-value" id="health-gpu-val">--%</span>
+                    </div>
+                    <!-- New Metrics -->
+                    <div class="health-metric" id="health-llm-rpm-row" style="display:none;">
+                        <span class="health-label" title="Rate Limiter RPM">RPM</span>
+                        <div class="health-bar"><div class="health-bar-fill" id="health-llm-rpm"></div></div>
+                        <span class="health-value" id="health-llm-rpm-val">--</span>
+                    </div>
+                    <div class="health-metric" id="health-llm-lat-row" style="display:none;">
+                        <span class="health-label" title="LLM Latency (ms)">LAT</span>
+                        <div class="health-bar"><div class="health-bar-fill" id="health-llm-lat"></div></div>
+                        <span class="health-value" id="health-llm-lat-val">--ms</span>
                     </div>
                 </div>
                 <button class="theme-toggle" id="theme-toggle">
@@ -948,6 +988,12 @@
                             </svg>
                             New Task
                         </button>
+                        <button class="btn-secondary btn-small" id="visual-builder-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                            </svg>
+                            Visual Builder
+                        </button>
                         <button class="btn-secondary btn-small" id="automation-config-btn">
                             <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                                 <path d="M10 6V14M6 10H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -961,6 +1007,45 @@
                 <div class="automations-grid" id="automations-grid">
                     <div style="grid-column: 1/-1; text-align: center; padding: var(--spacing-xl); color: var(--color-text-muted);">
                         <p>No automations yet. Create one to get started!</p>
+                    </div>
+                </div>
+
+                <!-- Visual Builder Container -->
+                <div id="visual-builder-container" style="display: none;">
+                    <div class="vb-header">
+                        <h3><span class="vb-step">1</span> Trigger</h3>
+                        <div class="vb-connector"></div>
+                        <h3><span class="vb-step">2</span> Action</h3>
+                    </div>
+                    <div class="vb-canvas">
+                        <div class="vb-card" id="vb-trigger-card">
+                            <h4>Select Trigger</h4>
+                            <select id="vb-trigger-select" class="form-control">
+                                <option value="">Choose Event...</option>
+                                <option value="test_failure">Test Failure</option>
+                                <option value="high_vulnerability">High Vulnerability Found</option>
+                                <option value="code_committed">Code Committed</option>
+                                <option value="schedule">Schedule (Cron)</option>
+                            </select>
+                        </div>
+                        <div class="vb-arrow">➜</div>
+                        <div class="vb-card" id="vb-action-card">
+                            <h4>Select Action</h4>
+                            <select id="vb-action-select" class="form-control">
+                                <option value="">Choose Action...</option>
+                                <option value="run_agent">Run Agent Task</option>
+                                <option value="notify_webhook">Notify Webhook</option>
+                                <option value="cicd_heal">Attempt Auto-Heal</option>
+                                <option value="pause_pipeline">Pause Pipeline</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="vb-config-panel" id="vb-config-panel" style="display:none;">
+                        <!-- Dynamic config fields will be injected here -->
+                    </div>
+                    <div class="vb-actions">
+                        <button class="btn-secondary" id="vb-cancel-btn">Cancel</button>
+                        <button class="btn-primary" id="vb-save-btn">Save Automation</button>
                     </div>
                 </div>
 
@@ -1174,6 +1259,166 @@
                 </div>
             </div>
 
+            <!-- Prompt Studio View -->
+            <div class="view" id="prompts-view">
+                <div class="view-header">
+                    <h1>Prompt Engineering Studio</h1>
+                    <p class="subtitle">Edit system prompts with version control and instant hot-reload</p>
+                </div>
+                <div class="prompt-studio-container">
+                    <div class="prompt-sidebar">
+                        <h3>Agent Roles</h3>
+                        <div id="prompt-role-list" class="role-list"></div>
+                        <h3 style="margin-top: var(--spacing-lg)">Version History</h3>
+                        <div id="prompt-version-list" class="version-list">
+                            <p class="placeholder">Select a role to see history</p>
+                        </div>
+                    </div>
+                    <div class="prompt-editor-area">
+                        <div id="prompt-monaco-container" style="width: 100%; height: 500px; border-radius: var(--border-radius-sm);"></div>
+                        <div class="form-actions">
+                            <button id="migrate-prompts-btn" class="btn-secondary">Migrate JSONs</button>
+                            <button id="save-prompt-btn" class="btn-primary">Save & Activate</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LLM Audit View -->
+            <div class="view" id="audit-view">
+                <div class="view-header">
+                    <h1>LLM Interaction Audit</h1>
+                    <p class="subtitle">Transparent logs of every prompt sent and response received</p>
+                    <div style="margin-top: var(--spacing-md)">
+                        <button id="refresh-audit-btn" class="btn-secondary btn-small">Refresh Logs</button>
+                        <a href="/api/audit/download/llm_logs.json" class="btn-primary btn-small">Download Raw Logs</a>
+                    </div>
+                </div>
+                <div class="audit-container">
+                    <table class="audit-table" id="audit-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Type</th>
+                                <th>Model</th>
+                                <th>Status</th>
+                                <th>Latency</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Knowledge Base View (RAG) -->
+            <div class="view" id="knowledge-view">
+                <div class="view-header">
+                    <h1>Vector Knowledge Base</h1>
+                    <p class="subtitle">Manage documents indexed in ChromaDB for RAG context</p>
+                </div>
+                <div class="knowledge-container">
+                    <div class="upload-zone" id="kb-upload-zone">
+                        <input type="file" id="kb-file-input" multiple hidden>
+                        <div class="upload-icon">&#x2139;</div>
+                        <p>Drag & drop documents here or <span>browse</span></p>
+                        <small>Supports PDF, MD, TXT (Max 50MB)</small>
+                    </div>
+                    <div class="kb-document-list">
+                        <h3>Indexed Documents</h3>
+                        <div id="kb-doc-grid" class="kb-grid">
+                            <p class="placeholder">Loading knowledge base...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tuning Studio View -->
+            <div class="view" id="tuning-view">
+                <div class="view-header">
+                    <h1>Tuning & Shadow Eval</h1>
+                    <p class="subtitle">Fine-tune agent behavior and evaluate experimental prompts</p>
+                </div>
+                <div class="tuning-grid">
+                    <div class="tuning-card">
+                        <h3>Behavioral Controls</h3>
+                        <div class="form-group">
+                            <label>Creativity vs. Precision</label>
+                            <input type="range" min="0" max="100" value="30" class="slider-modern">
+                            <div class="slider-labels"><span>Deterministic</span><span>Creative</span></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Strictness Level</label>
+                            <input type="range" min="0" max="100" value="80" class="slider-modern">
+                            <div class="slider-labels"><span>Permissive</span><span>Military Grade</span></div>
+                        </div>
+                    </div>
+                    <div class="tuning-card">
+                        <h3>Shadow Evaluation Results</h3>
+                        <div id="shadow-eval-table">
+                            <table class="simple-table">
+                                <thead><tr><th>Prompt ID</th><th>Success Rate</th><th>Avg. Tokens</th></tr></thead>
+                                <tbody>
+                                    <tr><td>V1.2-Stable</td><td>94%</td><td>1.2k</td></tr>
+                                    <tr><td>V1.3-Exp</td><td>88%</td><td>0.9k</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Policies View -->
+            <div class="view" id="policies-view">
+                <div class="view-header">
+                    <h1>Governance & Policies</h1>
+                    <p class="subtitle">Define execution guardrails and security constraints</p>
+                </div>
+                <div class="policies-container">
+                    <div class="policy-section">
+                        <h3>Allowed Commands</h3>
+                        <div id="policy-commands-list" class="tag-cloud"></div>
+                        <div class="input-group">
+                            <input type="text" id="new-command-input" placeholder="e.g., terraform">
+                            <button class="btn-secondary" onclick="addPolicyCommand()">Add</button>
+                        </div>
+                    </div>
+                    <div class="policy-section">
+                        <h3>Critical Paths</h3>
+                        <div id="policy-paths-list" class="tag-cloud"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fragments View -->
+            <div class="view" id="fragments-view">
+                <div class="view-header">
+                    <h1>Code Snippet Library</h1>
+                    <p class="subtitle">Reusable fragments cached from previous generations</p>
+                </div>
+                <div id="fragments-grid" class="fragments-grid">
+                    <p class="placeholder">Loading fragment cache...</p>
+                </div>
+            </div>
+
+            <!-- Swarm Activity Modal -->
+            <div class="modal" id="swarm-modal" style="display: none;">
+                <div class="modal-content modal-wide">
+                    <div class="modal-header">
+                        <h2>Swarm Activity Monitor</h2>
+                        <button class="close-modal" onclick="document.getElementById('swarm-modal').style.display='none'">&times;</button>
+                    </div>
+                    <div id="swarm-canvas-container" style="height: 400px; position: relative;">
+                        <div class="orchestrator-node main-node">Orchestrator</div>
+                        <div id="swarm-nodes-container"></div>
+                    </div>
+                    <div class="swarm-legend">
+                        <div class="legend-item"><span class="dot active"></span> Active Specialist</div>
+                        <div class="legend-item"><span class="dot idle"></span> Idle</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Model Benchmark Modal -->
             <div class="modal" id="benchmark-modal" style="display: none;">
                 <div class="modal-content modal-wide">
@@ -1202,6 +1447,48 @@
     <script src="{{ url_for('static', filename='js/notification-service.js') }}"></script>
     <script src="{{ url_for('static', filename='js/artifact-renderer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/structure-editor.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/automations.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/prompts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/audit.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/swarm.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/knowledge.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tuning.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/decisions.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/translator.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <!-- Human-in-the-loop Approval Modal -->
+    <div class="modal" id="hil-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Agent Needs Approval</h2>
+                <button class="close-modal" onclick="document.getElementById('hil-modal').style.display='none'">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="hil-prompt">The agent is about to take an action...</p>
+                <input type="hidden" id="hil-request-id">
+                <textarea id="hil-feedback" class="form-control" rows="3" placeholder="Optional feedback or corrections..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn-primary" onclick="respondHIL('approve')">Approve</button>
+                <button class="btn-secondary" onclick="respondHIL('reject')">Reject</button>
+                <button class="btn-secondary" onclick="respondHIL('correct')">Correct</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function respondHIL(response) {
+            const requestId = document.getElementById('hil-request-id').value;
+            const feedback = document.getElementById('hil-feedback').value;
+            await fetch('/api/hil/respond', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ request_id: requestId, response, feedback })
+            });
+            document.getElementById('hil-modal').style.display = 'none';
+        }
+    </script>
 </body>
 </html>

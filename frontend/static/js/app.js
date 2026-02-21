@@ -2944,6 +2944,51 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 if (healthGpuMetric) healthGpuMetric.style.display = 'none';
             }
+
+            // LLM Health (Rate Limiter & Latency)
+            if (data.llm_health) {
+                const rpmRow = document.getElementById('health-llm-rpm-row');
+                const latRow = document.getElementById('health-llm-lat-row');
+                const rpmBar = document.getElementById('health-llm-rpm');
+                const latBar = document.getElementById('health-llm-lat');
+                const rpmVal = document.getElementById('health-llm-rpm-val');
+                const latVal = document.getElementById('health-llm-lat-val');
+
+                if (rpmRow) rpmRow.style.display = 'flex';
+                if (latRow) latRow.style.display = 'flex';
+
+                if (rpmBar && rpmVal) {
+                    const rpm = data.llm_health.rate_limiter.effective_rpm;
+                    // Max RPM visual scale 60
+                    const rpmPercent = Math.min((rpm / 60) * 100, 100);
+                    rpmBar.style.width = `${rpmPercent}%`;
+                    rpmVal.textContent = `${rpm} RPM`;
+                    
+                    if (data.llm_health.rate_limiter.status === 'throttled') {
+                        rpmBar.style.backgroundColor = 'var(--color-error)';
+                    } else if (data.llm_health.rate_limiter.status === 'degraded') {
+                        rpmBar.style.backgroundColor = 'var(--color-warning)';
+                    } else {
+                        rpmBar.style.backgroundColor = 'var(--color-success)';
+                    }
+                }
+
+                if (latBar && latVal) {
+                    const lat = data.llm_health.latency.avg_ms;
+                    // Scale: 0-5000ms
+                    const latPercent = Math.min((lat / 5000) * 100, 100);
+                    latBar.style.width = `${latPercent}%`;
+                    latVal.textContent = `${lat}ms`;
+
+                    if (data.llm_health.latency.status === 'high') {
+                        latBar.style.backgroundColor = 'var(--color-warning)';
+                    } else {
+                        latBar.style.backgroundColor = 'var(--color-primary)';
+                    }
+                }
+            }
+
+            updateHealthCharts(data);
         } catch {
             // Silently fail - health dashboard is optional
         }

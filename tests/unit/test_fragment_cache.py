@@ -1,5 +1,5 @@
 """
-Unit tests for FragmentCache system.
+Unit tests for FragmentCache system (SQLite version).
 """
 
 import json
@@ -11,9 +11,9 @@ from backend.utils.core.fragment_cache import FragmentCache
 
 
 @pytest.fixture
-def temp_cache_dir(tmp_path):
-    """Create a temporary cache directory."""
-    return tmp_path / "cache"
+def temp_db_path(tmp_path):
+    """Create a temporary DB path."""
+    return tmp_path / "knowledge.db"
 
 
 @pytest.fixture
@@ -23,9 +23,9 @@ def logger_mock():
 
 
 @pytest.fixture
-def fragment_cache(temp_cache_dir, logger_mock):
+def fragment_cache(temp_db_path, logger_mock):
     """Create a FragmentCache instance."""
-    return FragmentCache(temp_cache_dir, logger_mock, enable_persistence=True)
+    return FragmentCache(temp_db_path, logger_mock)
 
 
 class TestFragmentCacheBasics:
@@ -103,27 +103,22 @@ class TestFragmentCacheValidation:
 class TestFragmentCachePersistence:
     """Test persistence to disk."""
 
-    def test_cache_persistence_save(self, temp_cache_dir, logger_mock):
+    def test_cache_persistence_save(self, temp_db_path, logger_mock):
         """Test saving cache to disk."""
-        cache1 = FragmentCache(temp_cache_dir, logger_mock, enable_persistence=True)
+        cache1 = FragmentCache(temp_db_path, logger_mock)
         cache1.set("license", "python", "MIT License")
 
-        # Create new cache instance (should load from disk)
-        cache2 = FragmentCache(temp_cache_dir, logger_mock, enable_persistence=True)
+        # Create new cache instance (should load from DB)
+        cache2 = FragmentCache(temp_db_path, logger_mock)
         result = cache2.get("license", "python")
 
         assert result == "MIT License"
 
-    def test_cache_file_exists(self, fragment_cache):
+    def test_cache_file_exists(self, fragment_cache, temp_db_path):
         """Test that cache file is created."""
         fragment_cache.set("fragment", "python", "content")
 
-        assert fragment_cache.cache_file.exists()
-
-        # Verify JSON is valid
-        with open(fragment_cache.cache_file) as f:
-            data = json.load(f)
-            assert "fragment:python" in data or len(data) > 0
+        assert temp_db_path.exists()
 
 
 class TestFragmentCacheByPattern:
@@ -146,7 +141,7 @@ class TestFragmentCacheByPattern:
         fragment_cache.clear()
         # Verify cache is cleared and stats returns dict
         stats = fragment_cache.stats()
-        assert isinstance(stats, dict)
+        assert stats["total_fragments"] == 0
 
 
 class TestFragmentCacheStats:
@@ -157,6 +152,7 @@ class TestFragmentCacheStats:
         stats = fragment_cache.stats()
         # Verify stats returns a dictionary
         assert isinstance(stats, dict)
+        assert stats.get("total_fragments", 0) == 0
 
     def test_stats_populated_cache(self, fragment_cache):
         """Test stats on populated cache."""

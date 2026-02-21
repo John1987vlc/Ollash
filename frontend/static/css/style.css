@@ -2967,3 +2967,74 @@ input:checked + .slider:before {
     box-shadow: 0 0 40px rgba(0,0,0,0.5);
 }
 
+\
+
+/* ==================== Visual Builder (F18) ==================== */
+#visual-builder-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: var(--spacing-lg);
+}
+.vb-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+}
+.vb-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px; height: 24px;
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    margin-right: 8px;
+    font-size: 0.8rem;
+}
+.vb-canvas {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+.vb-card {
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    width: 250px;
+    box-shadow: var(--shadow-md);
+    transition: border-color 0.2s;
+}
+.vb-card:hover {
+    border-color: var(--color-primary);
+}
+.vb-arrow {
+    font-size: 1.5rem;
+    color: var(--color-text-muted);
+}
+.vb-config-panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+.vb-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+}
+
+/* ==================== LLM Health Metrics ==================== */
+#health-llm-rpm-row .health-bar-fill {
+    transition: background-color 0.3s ease;
+}
+#health-llm-lat-row .health-bar-fill {
+    transition: background-color 0.3s ease;
+}
+\
