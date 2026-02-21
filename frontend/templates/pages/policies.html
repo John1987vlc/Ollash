@@ -1,0 +1,29 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/policies.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/policies.js') }}"></script>
+{% endblock %}
+
+            <!-- Policies View -->
+            <div class="view" id="policies-view">
+                <div class="view-header">
+                    <h1>Governance & Policies</h1>
+                    <p class="subtitle">Define execution guardrails and security constraints</p>
+                </div>
+                <div class="policies-container">
+                    <div class="policy-section">
+                        <h3>Allowed Commands</h3>
+                        <div id="policy-commands-list" class="tag-cloud"></div>
+                        <div class="input-group">
+                            <input type="text" id="new-command-input" placeholder="e.g., terraform">
+                            <button class="btn-secondary" onclick="addPolicyCommand()">Add</button>
+                        </div>
+                    </div>
+                    <div class="policy-section">
+                        <h3>Critical Paths</h3>
+                        <div id="policy-paths-list" class="tag-cloud"></div>
+                    </div>
+                </div>
+            </div>

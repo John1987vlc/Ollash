@@ -17,7 +17,7 @@ def init_app(app):
     """Initialize export blueprint."""
     global _export_manager, _ollash_root
     try:
-        from backend.utils.core.export_manager import ExportManager
+        from backend.utils.core.io.export_manager import ExportManager
 
         _ollash_root = app.config.get("ollash_root_dir", Path("."))
         from backend.core.containers import main_container
@@ -57,16 +57,14 @@ def export_zip():
 def generate_report(project_name):
     """Generate executive report for a project."""
     try:
-        from backend.utils.core.activity_report_generator import ActivityReportGenerator
+        from backend.utils.core.feedback.activity_report_generator import ActivityReportGenerator
 
         generator = ActivityReportGenerator(ollash_root_dir=_ollash_root)
-        report_path = generator.generate_executive_report(project_name)
+        generator.generate_executive_report(project_name)
 
-        return jsonify({
-            "status": "success",
-            "project": project_name,
-            "report_url": f"/api/export/report/{project_name}.pdf"
-        }), 200
+        return jsonify(
+            {"status": "success", "project": project_name, "report_url": f"/api/export/report/{project_name}.pdf"}
+        ), 200
     except Exception as e:
         logger.error(f"Report generation error: {e}")
         return jsonify({"error": str(e)}), 500

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
-from backend.utils.core.git_manager import GitManager
+from backend.utils.core.io.git_manager import GitManager
 
 
 class FinalReviewPhase(IAgentPhase):

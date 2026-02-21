@@ -1,0 +1,47 @@
+            <!-- Benchmark View -->
+            <div class="view" id="benchmark-view">
+                <div class="view-header">
+                    <h1>Model Benchmark</h1>
+                    <p class="subtitle">Benchmark Ollama models on autonomous project generation tasks</p>
+                </div>
+
+                <div class="benchmark-container">
+                    <!-- Config panel -->
+                    <div class="benchmark-config">
+                        <div class="form-group">
+                            <label for="bench-ollama-url">Ollama Server URL</label>
+                            <div class="input-with-btn">
+                                <input type="text" id="bench-ollama-url" placeholder="http://localhost:11434">
+                                <button class="btn-secondary" id="bench-fetch-models">Fetch Models</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Select Models</label>
+                            <div class="model-list" id="bench-model-list">
+                                <div class="model-list-empty">Click "Fetch Models" to load available models</div>
+                            </div>
+                        </div>
+
+                        <button class="btn-primary" id="bench-start-btn" disabled>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <polygon points="6,4 16,10 6,16" fill="currentColor"/>
+                            </svg>
+                            <span>Start Benchmark</span>
+                        </button>
+                    </div>
+
+                    <!-- Progress / Results -->
+                    <div class="benchmark-output" id="bench-output">
+                        <div class="bench-placeholder">
+                            <p>Configure and start a benchmark to see results here.</p>
+                        </div>
+                    </div>
+
+                    <!-- Past Results -->
+                    <div class="benchmark-history">
+                        <h3>Past Results</h3>
+                        <div id="bench-history-list" class="bench-history-list"></div>
+                    </div>
+                </div>
+            </div>

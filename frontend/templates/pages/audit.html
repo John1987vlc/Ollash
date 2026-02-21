@@ -1,0 +1,34 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/audit.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/audit.js') }}"></script>
+{% endblock %}
+
+            <!-- LLM Audit View -->
+            <div class="view" id="audit-view">
+                <div class="view-header">
+                    <h1>LLM Interaction Audit</h1>
+                    <p class="subtitle">Transparent logs of every prompt sent and response received</p>
+                    <div style="margin-top: var(--spacing-md)">
+                        <button id="refresh-audit-btn" class="btn-secondary btn-small">Refresh Logs</button>
+                        <a href="/api/audit/download/llm_logs.json" class="btn-primary btn-small">Download Raw Logs</a>
+                    </div>
+                </div>
+                <div class="audit-container">
+                    <table class="audit-table" id="audit-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Type</th>
+                                <th>Model</th>
+                                <th>Status</th>
+                                <th>Latency</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-tbody"></tbody>
+                    </table>
+                </div>
+            </div>

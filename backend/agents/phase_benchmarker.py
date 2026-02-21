@@ -7,11 +7,10 @@ from typing import Dict, List
 import requests
 
 from backend.core.config import get_config
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.core.structured_logger import StructuredLogger
-from backend.utils.core.token_tracker import TokenTracker
-from backend.utils.core.llm_recorder import LLMRecorder
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.llm.ollama_client import OllamaClient
+from backend.utils.core.system.structured_logger import StructuredLogger
+from backend.utils.core.llm.llm_recorder import LLMRecorder
 
 
 class PhaseBenchmarker:
@@ -57,7 +56,6 @@ class PhaseBenchmarker:
 
         for model_idx, model_name in enumerate(models_to_test, 1):
             print(f"\n[{model_idx}/{total_models}] Testing model: {model_name}")
-            tracker = TokenTracker()
             llm_recorder = LLMRecorder(logger=self.logger)
             client = OllamaClient(
                 url=self.url,
@@ -87,25 +85,22 @@ class PhaseBenchmarker:
                     # Basic automated scoring
                     score = self._evaluate_output(task, content)
 
-                    model_results.append({
-                        "task": name,
-                        "phase": phase,
-                        "score": score,
-                        "duration": round(elapsed, 2),
-                        "tokens": usage.get("total_tokens", 0),
-                        "success": score > 0.5
-                    })
+                    model_results.append(
+                        {
+                            "task": name,
+                            "phase": phase,
+                            "score": score,
+                            "duration": round(elapsed, 2),
+                            "tokens": usage.get("total_tokens", 0),
+                            "success": score > 0.5,
+                        }
+                    )
                     print(f" Done ({round(elapsed, 1)}s, Score: {score})")
                 except Exception as e:
                     print(f" Failed: {e}")
-                    model_results.append({
-                        "task": name,
-                        "phase": phase,
-                        "score": 0,
-                        "duration": 0,
-                        "success": False,
-                        "error": str(e)
-                    })
+                    model_results.append(
+                        {"task": name, "phase": phase, "score": 0, "duration": 0, "success": False, "error": str(e)}
+                    )
 
             # Aggregate results for this model
             phase_scores = {}
@@ -115,13 +110,11 @@ class PhaseBenchmarker:
                     phase_scores[p] = []
                 phase_scores[p].append(res["score"])
 
-            avg_phase_scores = {p: round(sum(s)/len(s), 2) for p, s in phase_scores.items()}
+            avg_phase_scores = {p: round(sum(s) / len(s), 2) for p, s in phase_scores.items()}
 
-            self.results.append({
-                "model": model_name,
-                "phase_scores": avg_phase_scores,
-                "detailed_results": model_results
-            })
+            self.results.append(
+                {"model": model_name, "phase_scores": avg_phase_scores, "detailed_results": model_results}
+            )
 
     def _build_prompt(self, task: dict) -> str:
         phase = task.get("phase")
@@ -145,7 +138,7 @@ class PhaseBenchmarker:
         if not content or len(content.strip()) < 100:
             return 0.0
 
-        score = 0.2 # Base score for non-empty, minimum length output
+        score = 0.2  # Base score for non-empty, minimum length output
 
         # 1. HARD PENALTIES (Laziness)
         placeholders = ["TODO", "...", "FIXME", "implementation goes here", "add your logic"]
@@ -158,29 +151,34 @@ class PhaseBenchmarker:
 
         # README: check for markdown richness
         if phase == "ReadmeGenerationPhase":
-            if content.count("#") >= 3: score += 0.2 # Good heading structure
-            if "```" in content: score += 0.2 # Includes code examples
-            if len(content) > 1000: score += 0.1 # Depth
+            if content.count("#") >= 3:
+                score += 0.2  # Good heading structure
+            if "```" in content:
+                score += 0.2  # Includes code examples
+            if len(content) > 1000:
+                score += 0.1  # Depth
 
         # Structure/Logic: JSON richness
         elif phase in ["StructureGenerationPhase", "LogicPlanningPhase"]:
             try:
                 import re
+
                 json_match = re.search(r"\{[\s\S]*\}", content)
                 if json_match:
                     data = json.loads(json_match.group())
-                    score += 0.2 # It's valid JSON
+                    score += 0.2  # It's valid JSON
 
                     if phase == "LogicPlanningPhase":
                         # Check if it actually planned multiple files and has depth
-                        if len(data) >= 2: score += 0.2
+                        if len(data) >= 2:
+                            score += 0.2
                         # Check for mandatory fields in the first item
                         first_item = list(data.values())[0]
                         if isinstance(first_item, dict):
                             required = ["purpose", "exports", "main_logic"]
                             if all(k in first_item for k in required):
                                 score += 0.2
-                    else: # Structure
+                    else:  # Structure
                         if len(data.get("folders", [])) + len(data.get("files", [])) > 3:
                             score += 0.2
                 else:
@@ -193,8 +191,9 @@ class PhaseBenchmarker:
             if any(x in content for x in ["def ", "class ", "import ", "function ", "const "]):
                 score += 0.3
             if '"""' in content or "/*" in content or "//" in content:
-                score += 0.2 # Documented
-            if len(content) > 500: score += 0.1 # Non-trivial
+                score += 0.2  # Documented
+            if len(content) > 500:
+                score += 0.1  # Non-trivial
 
         # 3. TASK-SPECIFIC KEYWORDS
         expected_sections = task.get("expected_sections", [])
@@ -225,23 +224,26 @@ class PhaseBenchmarker:
             print("No results to analyze.")
             return
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("   PHASE BENCHMARK: MODEL PROFILES & RECOMMENDATIONS")
-        print("="*70)
+        print("=" * 70)
 
-        self.phase_data = {} # Store for application
+        self.phase_data = {}  # Store for application
 
         for model_res in self.results:
             model_name = model_res["model"]
             for res in model_res["detailed_results"]:
                 p = res["phase"]
-                if p not in self.phase_data: self.phase_data[p] = []
-                self.phase_data[p].append({
-                    "model": model_name,
-                    "score": res["score"],
-                    "duration": res["duration"],
-                    "tps": res["tokens"] / res["duration"] if res["duration"] > 0 else 0
-                })
+                if p not in self.phase_data:
+                    self.phase_data[p] = []
+                self.phase_data[p].append(
+                    {
+                        "model": model_name,
+                        "score": res["score"],
+                        "duration": res["duration"],
+                        "tps": res["tokens"] / res["duration"] if res["duration"] > 0 else 0,
+                    }
+                )
 
         self.profiles = {"1": "POTENCIA", "2": "EQUILIBRIO", "3": "VELOCIDAD"}
         self.winners_by_profile = {"POTENCIA": {}, "EQUILIBRIO": {}, "VELOCIDAD": {}}
@@ -253,7 +255,7 @@ class PhaseBenchmarker:
             beast = max(models, key=lambda x: x["score"])
             fast_models = [m for m in models if m["score"] >= 0.4]
             flash = max(fast_models, key=lambda x: x["tps"]) if fast_models else beast
-            balanced = max(models, key=lambda x: (x["score"] * 0.7 + (x["tps"]/100) * 0.3))
+            balanced = max(models, key=lambda x: x["score"] * 0.7 + (x["tps"] / 100) * 0.3)
 
             self.winners_by_profile["POTENCIA"][phase] = beast["model"]
             self.winners_by_profile["EQUILIBRIO"][phase] = balanced["model"]
@@ -263,7 +265,7 @@ class PhaseBenchmarker:
             print(f"  [2] EQUILIBRIO Winner: {balanced['model']:.<30} Score: {balanced['score']:.2f}")
             print(f"  [3] VELOCIDAD  Winner: {flash['model']:.<30} TPS: {flash['tps']:.1f}")
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
 
     def apply_profile(self, profile_key: str):
         """Update backend/config/llm_models.json with the winners of a profile."""
@@ -288,7 +290,7 @@ class PhaseBenchmarker:
             "StructureGenerationPhase": "prototyper",
             "LogicPlanningPhase": "planner",
             "FileContentGenerationPhase": "coder",
-            "SeniorReviewPhase": "senior_reviewer"
+            "SeniorReviewPhase": "senior_reviewer",
         }
 
         print(f"\nApplying profile [{profile_name}] to {config_path}...")

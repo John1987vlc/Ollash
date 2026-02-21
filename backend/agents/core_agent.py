@@ -6,20 +6,20 @@ from typing import Dict, List
 
 from backend.core.kernel import AgentKernel
 from backend.services.llm_client_manager import LLMClientManager
-from backend.utils.core.automatic_learning import AutomaticLearningSystem
-from backend.utils.core.benchmark_model_selector import AutoModelSelector
+from backend.utils.core.memory.automatic_learning import AutomaticLearningSystem
+from backend.utils.core.llm.benchmark_model_selector import AutoModelSelector
 from backend.utils.core.command_executor import CommandExecutor
-from backend.utils.core.concurrent_rate_limiter import ConcurrentGPUAwareRateLimiter, SessionResourceManager
-from backend.utils.core.cross_reference_analyzer import CrossReferenceAnalyzer  # NEW
-from backend.utils.core.documentation_manager import DocumentationManager
-from backend.utils.core.event_publisher import EventPublisher
-from backend.utils.core.file_validator import FileValidator
-from backend.utils.core.llm_recorder import LLMRecorder
-from backend.utils.core.llm_response_parser import LLMResponseParser
-from backend.utils.core.permission_profiles import PermissionProfileManager, PolicyEnforcer
-from backend.utils.core.scanners.dependency_scanner import DependencyScanner
-from backend.utils.core.scanners.rag_context_selector import RAGContextSelector
-from backend.utils.core.token_tracker import TokenTracker
+from backend.utils.core.system.concurrent_rate_limiter import ConcurrentGPUAwareRateLimiter, SessionResourceManager
+from backend.utils.core.memory.cross_reference_analyzer import CrossReferenceAnalyzer  # NEW
+from backend.utils.core.io.documentation_manager import DocumentationManager
+from backend.utils.core.system.event_publisher import EventPublisher
+from backend.utils.core.analysis.file_validator import FileValidator
+from backend.utils.core.llm.llm_recorder import LLMRecorder
+from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+from backend.utils.core.system.permission_profiles import PermissionProfileManager, PolicyEnforcer
+from backend.utils.core.analysis.scanners.dependency_scanner import DependencyScanner
+from backend.utils.core.analysis.scanners.rag_context_selector import RAGContextSelector
+from backend.utils.core.llm.token_tracker import TokenTracker
 
 
 class CoreAgent(ABC):

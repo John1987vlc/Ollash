@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
-from backend.utils.core.git_pr_tool import GitPRTool
+from backend.utils.core.tools.git_pr_tool import GitPRTool
 
 
 class SeniorReviewPhase(IAgentPhase):

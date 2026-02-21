@@ -45,10 +45,7 @@ def system_health():
         "net_sent_mb": 0.0,
         "net_recv_mb": 0.0,
         "gpu": None,
-        "llm_health": {
-            "rate_limiter": {"rpm": 0, "status": "unknown"},
-            "latency": {"avg_ms": 0, "status": "unknown"}
-        }
+        "llm_health": {"rate_limiter": {"rpm": 0, "status": "unknown"}, "latency": {"avg_ms": 0, "status": "unknown"}},
     }
 
     # --- System Metrics (psutil) ---
@@ -86,6 +83,7 @@ def system_health():
     else:
         try:
             import psutil as ps
+
             psutil = ps
         except ImportError:
             pass
@@ -119,19 +117,19 @@ def system_health():
     try:
         llm_manager = main_container.auto_agent_module.llm_client_manager()
         clients = llm_manager.get_all_clients()
-        
+
         # Aggregate metrics from all active clients
         total_rpm = 0
         latencies = []
         statuses = []
-        
+
         for client in clients.values():
             if hasattr(client, "_rate_limiter"):
                 metrics = client._rate_limiter.get_health_metrics()
-                total_rpm = max(total_rpm, metrics.get("effective_rpm", 0)) # Use max to show busiest
+                total_rpm = max(total_rpm, metrics.get("effective_rpm", 0))  # Use max to show busiest
                 latencies.append(metrics.get("ema_response_time_ms", 0))
                 statuses.append(metrics.get("status", "unknown"))
-        
+
         avg_latency = sum(latencies) / len(latencies) if latencies else 0
         overall_status = "normal"
         if "throttled" in statuses:
@@ -140,16 +138,10 @@ def system_health():
             overall_status = "degraded"
 
         result["llm_health"] = {
-            "rate_limiter": {
-                "effective_rpm": total_rpm,
-                "status": overall_status
-            },
-            "latency": {
-                "avg_ms": round(avg_latency, 1),
-                "status": "high" if avg_latency > 5000 else "normal"
-            }
+            "rate_limiter": {"effective_rpm": total_rpm, "status": overall_status},
+            "latency": {"avg_ms": round(avg_latency, 1), "status": "high" if avg_latency > 5000 else "normal"},
         }
-            
+
     except Exception as e:
         logger.warning(f"Failed to gather LLM health metrics: {e}")
 

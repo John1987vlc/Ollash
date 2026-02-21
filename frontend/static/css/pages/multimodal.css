@@ -1,0 +1,61 @@
+/* ==================== Multimodal & Assets ==================== */
+.chat-attachment-preview {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--color-surface-elevated);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.attachment-thumbnail {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    position: relative;
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+}
+
+.attachment-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-attachment {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--color-error);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+/* Image Studio Styles */
+#image-editor-container {
+    background: #1a1a1a;
+    border-radius: var(--radius-md);
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+    max-height: 60vh;
+    overflow: auto;
+}
+
+#image-canvas {
+    max-width: 100%;
+    height: auto;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+}

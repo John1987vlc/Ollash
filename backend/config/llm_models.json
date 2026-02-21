@@ -5,17 +5,17 @@
     "default_temperature": 0.5,
     "embedding": "qwen3-embedding:4b",
     "agent_roles": {
-        "planner": "qwen3-coder:30b",
-        "prototyper": "qwen3-coder:30b",
-        "coder": "qwen3-coder:30b",
+        "planner": "gpt-oss:20b",
+        "prototyper": "gpt-oss:20b",
+        "coder": "gpt-oss:20b",
         "generalist": "qwen3:latest",
         "suggester": "qwen3:latest",
         "improvement_planner": "qwen3-coder:30b",
-        "senior_reviewer": "qwen3-coder:30b",
+        "senior_reviewer": "gpt-oss:20b",
         "test_generator": "qwen3-coder:30b",
         "orchestration": "qwen3-coder-next:latest",
         "analyst": "qwen3-coder:30b",
-        "writer": "qwen3:latest",
+        "writer": "gpt-oss:20b",
         "self_correction": "qwen3-coder:30b"
     }
 }

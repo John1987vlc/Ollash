@@ -1,0 +1,14 @@
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/fragments.js') }}"></script>
+{% endblock %}
+
+            <!-- Fragments View -->
+            <div class="view" id="fragments-view">
+                <div class="view-header">
+                    <h1>Code Snippet Library</h1>
+                    <p class="subtitle">Reusable fragments cached from previous generations</p>
+                </div>
+                <div id="fragments-grid" class="fragments-grid">
+                    <p class="placeholder">Loading fragment cache...</p>
+                </div>
+            </div>

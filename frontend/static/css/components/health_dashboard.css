@@ -1,0 +1,56 @@
+/* ==================== System Health Dashboard Component ==================== */
+.health-dashboard {
+    padding: var(--spacing-md) 0;
+    border-top: 1px solid var(--color-border);
+    margin-top: var(--spacing-md);
+}
+
+.health-dashboard-title {
+    font-size: 0.75rem;
+    color: var(--color-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--spacing-sm);
+}
+
+.health-metric {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    font-size: 0.8rem;
+}
+
+.health-label {
+    width: 28px;
+    color: var(--color-text-subtle);
+    font-weight: 600;
+    font-size: 0.7rem;
+}
+
+.health-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--color-surface-elevated);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.health-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease, background-color 0.3s ease;
+    width: 0%;
+}
+
+.health-bar-fill.green { background: var(--color-success); }
+.health-bar-fill.yellow { background: var(--color-warning); }
+.health-bar-fill.red { background: var(--color-error); }
+
+.health-value {
+    width: 32px;
+    text-align: right;
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+}

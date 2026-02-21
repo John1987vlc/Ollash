@@ -1,12 +1,17 @@
 """Blueprint for DefaultAgent interactive chat routes."""
 
-
-from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask import Blueprint, Response, jsonify, request, stream_with_context, render_template
 
 from frontend.middleware import rate_limit_chat, require_api_key
 from frontend.services.chat_session_manager import ChatSessionManager
 
 chat_bp = Blueprint("chat", __name__)
+
+
+@chat_bp.route("/chat")
+def chat_page():
+    return render_template("pages/chat.html")
+
 
 # Initialized lazily via init_app()
 _session_manager: ChatSessionManager = None

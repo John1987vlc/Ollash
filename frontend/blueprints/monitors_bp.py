@@ -6,7 +6,7 @@ import logging
 from flask import Blueprint, jsonify, request
 
 from backend.agents.monitor_agents import create_monitor_agents
-from backend.utils.core.event_publisher import EventPublisher
+from backend.utils.core.system.event_publisher import EventPublisher
 from frontend.middleware import require_api_key
 
 logger = logging.getLogger(__name__)

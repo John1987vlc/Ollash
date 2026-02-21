@@ -1,0 +1,58 @@
+/* ==================== Floating Terminal Component ==================== */
+.floating-terminal {
+    position: fixed;
+    bottom: 0;
+    left: 260px;
+    right: 0;
+    height: 300px;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    display: none;
+    flex-direction: column;
+    z-index: 100;
+    transition: height 0.2s ease;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.floating-terminal.visible { display: flex; }
+.floating-terminal.minimized { height: 40px; }
+.floating-terminal.minimized .floating-terminal-body { display: none; }
+.floating-terminal.maximized { height: 50vh; }
+
+.floating-terminal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-surface-elevated);
+    border-bottom: 1px solid var(--color-border);
+    cursor: ns-resize;
+    flex-shrink: 0;
+}
+
+.floating-terminal-header h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.floating-terminal-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.floating-terminal-body {
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Xterm.js Container */
+#terminal-container {
+    padding: var(--spacing-sm);
+    background: #000;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    height: 100%;
+}

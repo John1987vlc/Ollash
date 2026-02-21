@@ -4,15 +4,21 @@ import json
 import logging
 from datetime import datetime
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template
 
-from backend.utils.core.automation_executor import get_task_executor
-from backend.utils.core.task_scheduler import get_scheduler
+from backend.utils.core.system.automation_executor import get_task_executor
+from backend.utils.core.system.task_scheduler import get_scheduler
 from frontend.middleware import require_api_key
 
 logger = logging.getLogger(__name__)
 
 automations_bp = Blueprint("automations", __name__)
+
+
+@automations_bp.route("/automations")
+def automations_page():
+    return render_template("pages/automations.html")
+
 
 # Storage path for tasks
 _tasks_storage_file = None
@@ -243,7 +249,7 @@ async def _execute_scheduled_task(task_id: str, task_data: dict):
     if task_data.get("notifyEmail"):
         # TODO: Get user's configured email addresses
         # For now, we'll just use the manager's subscribed emails
-        from backend.utils.core.notification_manager import get_notification_manager
+        from backend.utils.core.system.notification_manager import get_notification_manager
 
         nm = get_notification_manager()
         recipient_emails = list(nm.subscribed_emails) if nm.subscribed_emails else None

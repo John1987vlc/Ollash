@@ -23,7 +23,7 @@ def init_app(app):
     global _cost_analyzer
     try:
         from backend.core.containers import main_container
-        from backend.utils.core.cost_analyzer import CostAnalyzer
+        from backend.utils.core.analysis.cost_analyzer import CostAnalyzer
 
         _cost_analyzer = CostAnalyzer(
             token_tracker=None,

@@ -5,6 +5,7 @@ Usage:
     python auto_benchmark.py
     python auto_benchmark.py --models model1 model2
 """
+
 import argparse
 
 # Use the new centralized config
@@ -14,11 +15,10 @@ from backend.agents.auto_benchmarker import ModelBenchmarker
 
 def main():
     config = get_config()
-    parser = argparse.ArgumentParser(
-        description="Benchmark Ollama models on autonomous project generation."
-    )
+    parser = argparse.ArgumentParser(description="Benchmark Ollama models on autonomous project generation.")
     parser.add_argument(
-        "--models", nargs="*",
+        "--models",
+        nargs="*",
         help="Models to benchmark. If not provided, all local models are used.",
     )
     args = parser.parse_args()
@@ -34,7 +34,7 @@ def main():
         if not all_local_models:
             print("No local Ollama models found. Pull some first (e.g., 'ollama pull llama2').")
             return
-        
+
         chat_models = [m for m in all_local_models if m not in benchmarker.embedding_models and "embed" not in m]
         excluded_models = [m for m in all_local_models if m not in chat_models]
 
@@ -48,9 +48,8 @@ def main():
     log_path = benchmarker.save_logs()
 
     # Get summary model from the new centralized config
-    summary_model = (config.LLM_MODELS.get("models", {})
-                     .get("summarization", config.DEFAULT_MODEL))
-    
+    summary_model = config.LLM_MODELS.get("models", {}).get("summarization", config.DEFAULT_MODEL)
+
     print(f"\nGenerating summary with model: {summary_model}")
     report = benchmarker.generate_summary(summary_model)
 

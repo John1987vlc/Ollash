@@ -7,9 +7,9 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from backend.utils.core.feedback_refinement_manager import FeedbackRefinementManager
-from backend.utils.core.refinement_orchestrator import RefinementOrchestrator
-from backend.utils.core.source_validator import SourceValidator
+from backend.utils.core.feedback.feedback_refinement_manager import FeedbackRefinementManager
+from backend.utils.core.feedback.refinement_orchestrator import RefinementOrchestrator
+from backend.utils.core.analysis.source_validator import SourceValidator
 
 # Initialize managers
 refinement_manager = None

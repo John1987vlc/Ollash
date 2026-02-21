@@ -1,0 +1,160 @@
+/* ==================== Security View ==================== */
+.security-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.security-panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    min-height: 250px;
+    display: flex;
+    flex-direction: column;
+}
+
+.quarantine-list, .security-reports {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 300px;
+}
+
+.badge {
+    background: var(--color-surface-elevated);
+    color: var(--color-text-muted);
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.quarantine-item {
+    background: rgba(239, 68, 68, 0.05);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.quarantine-item:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: var(--color-error);
+}
+
+.quarantine-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.quarantine-file {
+    font-size: 0.85rem;
+    font-family: var(--font-mono);
+    color: var(--color-error);
+    font-weight: 600;
+}
+
+.quarantine-reason {
+    font-size: 0.7rem;
+    color: var(--color-text-subtle);
+}
+
+/* Intervention Cards */
+.interventions-area {
+    margin-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--spacing-lg);
+}
+
+.intervention-card {
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    animation: slideInUp 0.3s ease-out;
+}
+
+.intervention-card.healing {
+    border-left: 4px solid var(--color-warning);
+}
+
+.intervention-card.resolved {
+    border-left: 4px solid var(--color-success);
+}
+
+.intervention-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.intervention-icon { font-size: 1.2rem; }
+.intervention-title { font-weight: 600; flex: 1; }
+.intervention-time { font-size: 0.75rem; color: var(--color-text-subtle); }
+
+.intervention-msg { font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: var(--spacing-sm); }
+
+.progress-bar-animated {
+    height: 4px;
+    background: var(--color-border);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar-animated::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0; width: 30%;
+    background: var(--gradient-primary);
+    animation: progress-slide 1.5s infinite linear;
+}
+
+@keyframes progress-slide {
+    0% { left: -30%; }
+    100% { left: 100%; }
+}
+
+/* ==================== Compliance View ==================== */
+.compliance-view {
+    padding: var(--spacing-md);
+}
+
+.dependency-badge {
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    padding: 4px 12px;
+    border-radius: var(--radius-xl);
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.dependency-badge.incompatible {
+    border-color: var(--color-error);
+    background: rgba(239, 68, 68, 0.05);
+    color: var(--color-error);
+}
+
+.compliance-summary-card {
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.compliance-summary-card.compliant { border-top: 4px solid var(--color-success); }
+.compliance-summary-card.non-compliant { border-top: 4px solid var(--color-error); }

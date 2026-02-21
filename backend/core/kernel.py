@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from backend.core.config_schemas import AgentFeaturesConfig, LLMModelsConfig, ToolSettingsConfig
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.structured_logger import StructuredLogger, set_correlation_id
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.system.structured_logger import StructuredLogger, set_correlation_id
 
 # Import the newly separated ConfigLoader
 from .config_loader import ConfigLoader

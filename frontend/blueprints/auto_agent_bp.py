@@ -15,12 +15,12 @@ from backend.agents.auto_agent import AutoAgent
 
 # DI Container and Agent
 from backend.core.containers import main_container
-from backend.utils.core.event_publisher import EventPublisher
+from backend.utils.core.system.event_publisher import EventPublisher
 from frontend.middleware import rate_limit_api, require_api_key
 from frontend.services.chat_event_bridge import ChatEventBridge
 
-from backend.utils.core.git_pr_tool import GitPRTool
-from backend.utils.core.task_scheduler import get_scheduler
+from backend.utils.core.tools.git_pr_tool import GitPRTool
+from backend.utils.core.system.task_scheduler import get_scheduler
 
 auto_agent_bp = Blueprint("auto_agent", __name__)
 
@@ -145,14 +145,12 @@ def create_project():
             # Schedule autonomous maintenance if requested
             if request.form.get("enable_hourly_pr") == "true":
                 try:
-                    from backend.utils.core.autonomous_maintenance import AutonomousMaintenanceTask
-                    from backend.utils.core.agent_logger import AgentLogger
+                    from backend.utils.core.system.autonomous_maintenance import AutonomousMaintenanceTask
+                    from backend.utils.core.system.agent_logger import AgentLogger
 
                     maint_logger = AgentLogger(f"Maint-{project_name}")
                     maint_task = AutonomousMaintenanceTask(
-                        project_root=project_root,
-                        agent_logger=maint_logger,
-                        event_publisher=_event_publisher
+                        project_root=project_root, agent_logger=maint_logger, event_publisher=_event_publisher
                     )
 
                     # Register the task with the scheduler
@@ -395,7 +393,7 @@ def export_project_zip(project_name):
 @rate_limit_api
 def clone_project():
     """Clone an existing git repository into the generated_projects directory."""
-    from backend.utils.core.input_validators import validate_git_url, validate_project_name
+    from backend.utils.core.analysis.input_validators import validate_git_url, validate_project_name
 
     git_url = request.form.get("git_url", "").strip()
 
@@ -490,13 +488,15 @@ def get_project_quarantine(project_name):
             if f_path.is_file():
                 # Try to find why it was quarantined (from vulnerability scan report if exists)
                 reason = "Deemed unsafe by security scanner"
-                files.append({
-                    "name": f,
-                    "path": str(f_path),
-                    "reason": reason,
-                    "size": f_path.stat().st_size,
-                    "modified": f_path.stat().st_mtime
-                })
+                files.append(
+                    {
+                        "name": f,
+                        "path": str(f_path),
+                        "reason": reason,
+                        "size": f_path.stat().st_size,
+                        "modified": f_path.stat().st_mtime,
+                    }
+                )
         return jsonify({"status": "success", "files": sorted(files, key=lambda x: x["modified"], reverse=True)})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -514,6 +514,7 @@ def approve_quarantine_file(project_name, filename):
 
     try:
         import shutil
+
         shutil.move(str(quarantine_path), str(dest_path))
         return jsonify({"status": "success", "message": f"File {filename} approved and restored."})
     except Exception as e:
@@ -546,8 +547,8 @@ def get_project_compliance(project_name):
         return jsonify({"status": "error", "message": "Project not found."}), 404
 
     try:
-        from backend.utils.core.deep_license_scanner import DeepLicenseScanner
-        from backend.utils.core.agent_logger import AgentLogger
+        from backend.utils.core.analysis.deep_license_scanner import DeepLicenseScanner
+        from backend.utils.core.system.agent_logger import AgentLogger
 
         logger = AgentLogger(f"Compliance-{project_name}")
         scanner = DeepLicenseScanner(logger)
@@ -569,8 +570,10 @@ def get_project_compliance(project_name):
         license_file = project_path / "LICENSE"
         if license_file.is_file():
             content = license_file.read_text().upper()
-            if "APACHE" in content: project_license = "Apache-2.0"
-            elif "GPL" in content: project_license = "GPL-3.0-only"
+            if "APACHE" in content:
+                project_license = "Apache-2.0"
+            elif "GPL" in content:
+                project_license = "GPL-3.0-only"
 
         report = scanner.scan_project(generated_files, project_license)
         return jsonify({"status": "success", "report": report.to_dict()})
@@ -626,6 +629,7 @@ def get_project_issues(project_name):
 def delete_project_item(project_name):
     """Delete a file or folder within a project."""
     import shutil
+
     path_relative = request.json.get("path")
     if not path_relative:
         return jsonify({"status": "error", "message": "Path is required."}), 400
@@ -663,8 +667,9 @@ def rename_project_item(project_name):
     old_full_path = os.path.normpath(os.path.join(project_base_path, old_path_rel))
     new_full_path = os.path.normpath(os.path.join(project_base_path, new_path_rel))
 
-    if not str(old_full_path).startswith(str(project_base_path)) or \
-       not str(new_full_path).startswith(str(project_base_path)):
+    if not str(old_full_path).startswith(str(project_base_path)) or not str(new_full_path).startswith(
+        str(project_base_path)
+    ):
         return jsonify({"status": "error", "message": "Invalid path."}), 400
 
     try:
@@ -729,17 +734,20 @@ def get_project_git_status(project_name):
         maint_task = next((t for t in tasks if t.get("id") == "autonomous_maintenance_hourly"), None)
         if maint_task and maint_task.get("next_run_time"):
             from datetime import datetime
+
             next_run = datetime.fromisoformat(maint_task["next_run_time"])
             diff = next_run - datetime.now()
             minutes = int(diff.total_seconds() / 60)
             next_review = f"{minutes} min" if minutes > 0 else "Pronto"
 
-        return jsonify({
-            "status": "success",
-            "git_enabled": True,
-            "sync_active": sync_active,
-            "next_review": next_review,
-            "prs": prs
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "git_enabled": True,
+                "sync_active": sync_active,
+                "next_review": next_review,
+                "prs": prs,
+            }
+        )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

@@ -4,7 +4,7 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
-from backend.utils.core.trigger_manager import get_trigger_manager
+from backend.utils.core.system.trigger_manager import get_trigger_manager
 from frontend.middleware import require_api_key
 
 logger = logging.getLogger(__name__)

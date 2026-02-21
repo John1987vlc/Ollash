@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ollash - Local IT Agent{% endblock %}</title>
+    
+    <!-- Global CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/artifact-renderer.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Global Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
+    <!-- Monaco Editor -->
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.29.1/min/vs/editor/editor.main.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.29.1/min/vs/loader.min.js"></script>
+    
+    <!-- Highlight.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    
+    <!-- Mermaid.js -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'dark' });</script>
+    
+    <!-- Xterm.js assets -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/4.16.0/xterm.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/4.16.0/xterm.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm-addon-fit/0.5.0/xterm-addon-fit.min.js"></script>
+    
+    <!-- Marked.js -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    {% block styles %}{% endblock %}
+</head>
+<body>
+    <!-- Background Effects -->
+    <div class="bg-gradient"></div>
+    <div class="noise-overlay"></div>
+
+    <div class="app-container">
+        {% include 'layouts/partials/sidebar.html' %}
+
+        <!-- Main Content -->
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Global Modals & Components -->
+    {% include 'layouts/partials/modals.html' %}
+
+    <!-- Global Core Scripts -->
+    <script src="{{ url_for('static', filename='js/core/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/alert-handler.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/notification-service.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/chat-module.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/artifact-renderer.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/structure-editor.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/translator.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/health.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/terminal.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/benchmark.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/projects.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/wizard.js') }}"></script>
+    
+    <!-- Main Orchestrator -->
+    {% block scripts %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

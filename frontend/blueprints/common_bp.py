@@ -20,6 +20,91 @@ def index():
     return render_template("index.html")
 
 
+@common_bp.route("/chat")
+def chat_page():
+    return render_template("pages/chat.html")
+
+
+@common_bp.route("/architecture")
+def architecture_page():
+    return render_template("pages/architecture.html")
+
+
+@common_bp.route("/docs")
+def docs_page():
+    return render_template("pages/docs.html")
+
+
+@common_bp.route("/costs")
+def costs_page():
+    return render_template("pages/costs.html")
+
+
+@common_bp.route("/create")
+def create_page():
+    return render_template("pages/create_project.html")
+
+
+@common_bp.route("/projects")
+def projects_page():
+    return render_template("pages/projects.html")
+
+
+@common_bp.route("/benchmark")
+def benchmark_page():
+    return render_template("pages/benchmark.html")
+
+
+@common_bp.route("/automations")
+def automations_page():
+    return render_template("pages/automations.html")
+
+
+@common_bp.route("/brain")
+def brain_page():
+    return render_template("pages/brain.html")
+
+
+@common_bp.route("/plugins")
+def plugins_page():
+    return render_template("pages/plugins.html")
+
+
+@common_bp.route("/settings")
+def settings_page():
+    return render_template("pages/settings.html")
+
+
+@common_bp.route("/prompts")
+def prompts_page():
+    return render_template("pages/prompts.html")
+
+
+@common_bp.route("/audit")
+def audit_page():
+    return render_template("pages/audit.html")
+
+
+@common_bp.route("/knowledge")
+def knowledge_page():
+    return render_template("pages/knowledge.html")
+
+
+@common_bp.route("/tuning")
+def tuning_page():
+    return render_template("pages/tuning.html")
+
+
+@common_bp.route("/policies")
+def policies_page():
+    return render_template("pages/policies.html")
+
+
+@common_bp.route("/fragments")
+def fragments_page():
+    return render_template("pages/fragments.html")
+
+
 @common_bp.route("/api/status")
 def status():
     """Health check — verifies Ollama connectivity."""

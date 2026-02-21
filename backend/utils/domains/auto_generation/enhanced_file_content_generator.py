@@ -3,9 +3,9 @@
 from pathlib import Path
 from typing import Any, Dict, List
 
-from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.llm.ollama_client import OllamaClient
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
 
 class EnhancedFileContentGenerator:
@@ -113,14 +113,14 @@ class EnhancedFileContentGenerator:
 Purpose: {purpose}
 
 ### Requirements
-Exports: {', '.join(exports)}
-Imports: {', '.join(imports) if imports else "Standard only"}
+Exports: {", ".join(exports)}
+Imports: {", ".join(imports) if imports else "Standard only"}
 Logic:
 {chr(10).join(f"- {logic}" for logic in main_logic)}
 
 ### Context
 Structure: {list(structure.keys()) if isinstance(structure, dict) else "Provided"}
-Related files: {', '.join(related_files.keys()) if related_files else "None"}
+Related files: {", ".join(related_files.keys()) if related_files else "None"}
 
 ### Validation
 {chr(10).join(f"- {v}" for v in validation)}
@@ -158,7 +158,7 @@ Output ONLY the code content."""
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            options_override={"temperature": 0.2}, # More deterministic
+            options_override={"temperature": 0.2},  # More deterministic
         )
 
         content = response_data["message"]["content"]
@@ -194,7 +194,7 @@ Output ONLY the code content."""
         for export in exports:
             clean_export = export.replace("()", "").strip()
             # Search for the export name as a whole word (e.g., not matching 'main' inside 'main_logic')
-            if not re.search(r'\b' + re.escape(clean_export) + r'\b', content):
+            if not re.search(r"\b" + re.escape(clean_export) + r"\b", content):
                 self.logger.warning(f"  Missing export '{clean_export}' in {file_path}")
                 return False
 
@@ -305,7 +305,7 @@ TODO: Implement {file_path}
             Updated file content
         """
 
-        self.logger.info(f"📝 Editing existing {file_path} using {edit_strategy} strategy...")
+        self.logger.info(f"ðŸ“ Editing existing {file_path} using {edit_strategy} strategy...")
 
         if not current_content:
             return ""
@@ -328,7 +328,7 @@ TODO: Implement {file_path}
         Apply targeted fixes to specific sections of a file without full rewrite.
         """
 
-        self.logger.info(f"  🎯 Applying {len(issues_to_fix)} targeted edits...")
+        self.logger.info(f"  ðŸŽ¯ Applying {len(issues_to_fix)} targeted edits...")
 
         edited_content = current_content
 
@@ -346,7 +346,7 @@ TODO: Implement {file_path}
 
                 if fix and fix != problem_section:
                     edited_content = edited_content.replace(problem_section, fix, 1)
-                    self.logger.info(f"    ✅ Fixed: {issue_desc[:40]}...")
+                    self.logger.info(f"    âœ… Fixed: {issue_desc[:40]}...")
 
         return edited_content
 
@@ -356,7 +356,7 @@ TODO: Implement {file_path}
         Preserves custom modifications while applying improvements.
         """
 
-        self.logger.info("  🔀 Merging improvements with existing content...")
+        self.logger.info("  ðŸ”€ Merging improvements with existing content...")
 
         # Generate improved version
         improved_prompt = f"""Improve this {file_path} while keeping all existing logic:
@@ -524,7 +524,8 @@ Generate ONLY the fixed code (same language), no explanations."""
             clean_export = export.replace("()", "").strip()
             # F35: More strict check for export presence (look for word boundary)
             import re
-            if not re.search(r'\b' + re.escape(clean_export) + r'\b', content):
+
+            if not re.search(r"\b" + re.escape(clean_export) + r"\b", content):
                 self.logger.warning(f"  Missing export '{clean_export}' in {file_path}")
                 return False
 
@@ -610,228 +611,3 @@ TODO: Implement {file_path}
 """
 
         return skeleton
-
-    def edit_existing_file(
-        self,
-        file_path: str,
-        current_content: str,
-        readme: str,
-        issues_to_fix: List[Dict] = None,
-        edit_strategy: str = "partial",
-    ) -> str:
-        """
-        Edit an existing file with targeted improvements instead of full rewrite.
-
-        Args:
-            file_path: Path to the file to edit
-            current_content: Current content of the file
-            readme: Project README for context
-            issues_to_fix: Specific issues to address
-            edit_strategy: "partial" for selective edits, "merge" to merge with full rewrite
-
-        Returns:
-            Updated file content
-        """
-
-        self.logger.info(f"📝 Editing existing {file_path} using {edit_strategy} strategy...")
-
-        if not current_content:
-            return ""
-
-        if edit_strategy == "partial" and issues_to_fix:
-            return self._apply_partial_edits(file_path, current_content, readme, issues_to_fix)
-        elif edit_strategy == "merge":
-            return self._merge_original_with_improvements(file_path, current_content, readme)
-        else:
-            return current_content
-
-    def _apply_partial_edits(
-        self,
-        file_path: str,
-        current_content: str,
-        readme: str,
-        issues_to_fix: List[Dict],
-    ) -> str:
-        """
-        Apply targeted fixes to specific sections of a file without full rewrite.
-        """
-
-        self.logger.info(f"  🎯 Applying {len(issues_to_fix)} targeted edits...")
-
-        edited_content = current_content
-
-        for issue in issues_to_fix[:5]:  # Limit to 5 issues per pass
-            issue_desc = issue.get("description", "")
-
-            # Find the problematic section
-            problem_section = self._find_problem_section(issue_desc, edited_content)
-
-            if problem_section:
-                self.logger.info(f"    Found: {issue_desc[:40]}...")
-
-                # Generate fix for this section
-                fix = self._generate_section_fix(file_path, problem_section, issue_desc, readme)
-
-                if fix and fix != problem_section:
-                    edited_content = edited_content.replace(problem_section, fix, 1)
-                    self.logger.info(f"    ✅ Fixed: {issue_desc[:40]}...")
-
-        return edited_content
-
-    def _merge_original_with_improvements(self, file_path: str, current_content: str, readme: str) -> str:
-        """
-        Generate an improved version and intelligently merge it with the original.
-        Preserves custom modifications while applying improvements.
-        """
-
-        self.logger.info("  🔀 Merging improvements with existing content...")
-
-        # Generate improved version
-        improved_prompt = f"""Improve this {file_path} while keeping all existing logic:
-
-CURRENT CODE:
-```
-{current_content}
-```
-
-PROJECT CONTEXT:
-{readme[:300]}
-
-Improvements to make:
-- Better error handling
-- Improved clarity and organization
-- More complete implementation
-- Better following of conventions
-
-Output the improved version only, no explanations."""
-
-        try:
-            response_data, _ = self.llm_client.chat(
-                messages=[
-                    {"role": "system", "content": "You are a code improvement expert."},
-                    {"role": "user", "content": improved_prompt},
-                ],
-                temperature=0.2,
-            )
-
-            improved_content = response_data.get("content", "")
-
-            # Intelligently merge: use improved version but preserve custom sections
-            return self._smart_merge(current_content, improved_content)
-
-        except Exception as e:
-            self.logger.warning(f"Merge failed: {e}")
-            return current_content
-
-    def _smart_merge(self, original: str, improved: str) -> str:
-        """
-        Intelligently merge original and improved versions.
-        Keeps original structure but uses improved implementations.
-        """
-
-        # If improved is substantially larger, it's likely better
-        if len(improved) > len(original) * 0.8 and len(improved) < len(original) * 1.5:
-            return improved
-
-        # Otherwise keep original but look for specific improvements
-        lines_orig = original.split("\n")
-        lines_improved = improved.split("\n")
-
-        result_lines = []
-
-        for i, orig_line in enumerate(lines_orig):
-            if i < len(lines_improved):
-                improved_line = lines_improved[i]
-                # Use improved line if it's a meaningful improvement
-                if self._is_better_line(orig_line, improved_line):
-                    result_lines.append(improved_line)
-                else:
-                    result_lines.append(orig_line)
-            else:
-                result_lines.append(orig_line)
-
-        # Append any additional lines from improved version
-        if len(lines_improved) > len(lines_orig):
-            result_lines.extend(lines_improved[len(lines_orig) :])
-
-        return "\n".join(result_lines)
-
-    def _find_problem_section(self, issue_desc: str, content: str) -> str:
-        """Find the section of code that matches the problem description."""
-
-        # Extract keywords from issue
-        keywords = issue_desc.lower().split()[:3]
-
-        lines = content.split("\n")
-
-        # Find line(s) containing keywords
-        for i, line in enumerate(lines):
-            for keyword in keywords:
-                if keyword in line.lower():
-                    # Return a small context around the problem
-                    start = max(0, i - 1)
-                    end = min(len(lines), i + 3)
-                    return "\n".join(lines[start:end])
-
-        return ""
-
-    def _generate_section_fix(self, file_path: str, problem_section: str, issue_desc: str, readme: str) -> str:
-        """Generate a fix for a specific section."""
-
-        fix_prompt = f"""Fix this specific issue in {file_path}:
-
-ISSUE: {issue_desc}
-
-PROBLEMATIC CODE:
-```
-{problem_section}
-```
-
-PROJECT CONTEXT:
-{readme[:200]}
-
-Generate ONLY the fixed code (same language), no explanations."""
-
-        try:
-            response_data, _ = self.llm_client.chat(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a code fixer. Fix issues precisely.",
-                    },
-                    {"role": "user", "content": fix_prompt},
-                ],
-                temperature=0.15,
-            )
-
-            fixed = response_data.get("content", "")
-            return fixed.strip()
-
-        except Exception as e:
-            self.logger.warning(f"Could not generate fix: {e}")
-            return problem_section
-
-    def _is_better_line(self, orig: str, improved: str) -> bool:
-        """Determine if the improved line is actually better."""
-
-        if not improved or not orig:
-            return False
-
-        # Improved line is better if it's longer and has more substance
-        if len(improved) > len(orig) and improved.count("{") + improved.count("(") > orig.count("{") + orig.count("("):
-            return True
-
-        # Or if it has less "TODO" markers
-        orig_todos = orig.lower().count("todo")
-        improved_todos = improved.lower().count("todo")
-
-        if improved_todos < orig_todos:
-            return True
-
-        # Or if it has more comments/documentation
-        if improved.count("#") + improved.count("//") + improved.count('"""') > orig.count("#") + orig.count(
-            "//"
-        ) + orig.count('"""'):
-            return True
-
-        return False

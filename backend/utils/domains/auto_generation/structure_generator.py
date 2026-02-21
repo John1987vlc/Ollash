@@ -2,9 +2,9 @@ import json
 from pathlib import Path
 from typing import List
 
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.llm_response_parser import LLMResponseParser
-from backend.utils.core.ollama_client import OllamaClient
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+from backend.utils.core.llm.ollama_client import OllamaClient
 
 from .prompt_templates import AutoGenPrompts
 
@@ -33,8 +33,9 @@ class StructureGenerator:
 
         # F29: Get max_depth from config if available, default to 2 for speed
         from backend.core.config import get_config
+
         config = get_config()
-        self.max_depth = getattr(config.TOOL_SETTINGS, 'max_depth', 2)
+        self.max_depth = getattr(config.TOOL_SETTINGS, "max_depth", 2)
 
     def generate(
         self,
@@ -55,11 +56,7 @@ class StructureGenerator:
 
         # Phase 2: Recursively generate sub-structures only for key folders with DEPTH LIMIT
         final_structure = self._recursively_generate_sub_structure(
-            base_structure,
-            readme_content,
-            max_retries,
-            template_name=template_name,
-            current_depth=1
+            base_structure, readme_content, max_retries, template_name=template_name, current_depth=1
         )
 
         file_count = len(self.extract_file_paths(final_structure))
@@ -113,7 +110,7 @@ class StructureGenerator:
         max_retries: int,
         parent_path: str = "",
         template_name: str = "default",
-        current_depth: int = 1
+        current_depth: int = 1,
     ) -> dict:
         """Recursively generates detailed structure for folders with depth limit."""
 
@@ -134,7 +131,9 @@ class StructureGenerator:
 
             if folder_name:
                 full_folder_path = str(Path(parent_path) / folder_name)
-                self.logger.info(f"    Generating sub-structure for folder: {full_folder_path} (Depth: {current_depth})")
+                self.logger.info(
+                    f"    Generating sub-structure for folder: {full_folder_path} (Depth: {current_depth})"
+                )
 
                 sub_structure_content = self._generate_folder_sub_structure(
                     full_folder_path,
@@ -148,12 +147,7 @@ class StructureGenerator:
                     folder_data["folders"] = sub_structure_content.get("folders", [])
                     folder_data["files"] = sub_structure_content.get("files", [])
                     detailed_structure["folders"][i] = self._recursively_generate_sub_structure(
-                        folder_data,
-                        context_text,
-                        max_retries,
-                        full_folder_path,
-                        template_name,
-                        current_depth + 1
+                        folder_data, context_text, max_retries, full_folder_path, template_name, current_depth + 1
                     )
 
         return detailed_structure

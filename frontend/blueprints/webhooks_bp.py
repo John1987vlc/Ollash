@@ -4,10 +4,11 @@ Blueprint for managing external webhooks and notifications.
 
 import logging
 from flask import Blueprint, jsonify, request
-from backend.utils.core.webhook_manager import get_webhook_manager, WebhookType
+from backend.utils.core.system.webhook_manager import get_webhook_manager, WebhookType
 
 webhooks_bp = Blueprint("webhooks", __name__, url_prefix="/api/webhooks")
 logger = logging.getLogger(__name__)
+
 
 @webhooks_bp.route("/", methods=["GET"])
 def list_webhooks():
@@ -19,6 +20,7 @@ def list_webhooks():
     except Exception as e:
         logger.error(f"Error listing webhooks: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @webhooks_bp.route("/register", methods=["POST"])
 def register_webhook():
@@ -44,6 +46,7 @@ def register_webhook():
         logger.error(f"Error registering webhook: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @webhooks_bp.route("/test", methods=["POST"])
 async def test_webhook():
     """Send a test notification to a webhook."""
@@ -56,9 +59,7 @@ async def test_webhook():
     try:
         wm = get_webhook_manager()
         success = await wm.send_to_webhook(
-            webhook_name=name,
-            message="This is a test notification from Ollash Agent.",
-            title="Ollash Connection Test"
+            webhook_name=name, message="This is a test notification from Ollash Agent.", title="Ollash Connection Test"
         )
 
         if success:
@@ -68,6 +69,7 @@ async def test_webhook():
     except Exception as e:
         logger.error(f"Error testing webhook: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 def init_app(app):
     """Initialize webhooks."""

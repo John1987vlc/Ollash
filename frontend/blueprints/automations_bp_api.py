@@ -197,7 +197,6 @@ def reload_automations():
 def init_app(app, event_publisher=None):
     """Initialize automations blueprint with required dependencies."""
     logger.info("Initializing automations blueprint")
-    ollash_root_dir = app.config.get("ollash_root_dir")
 
 
 __all__ = ["automations_api_bp", "init_app"]

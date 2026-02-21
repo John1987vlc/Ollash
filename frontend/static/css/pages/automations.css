@@ -1,0 +1,171 @@
+/* ==================== Automations View ==================== */
+.automations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+}
+
+.automation-card {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.automation-card:hover {
+    border-color: rgba(139, 92, 246, 0.6);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
+}
+
+.automation-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-md);
+    gap: var(--spacing-md);
+}
+
+.automation-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.automation-status.active {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--color-success);
+}
+
+.automation-status.inactive {
+    background: rgba(107, 114, 128, 0.15);
+    color: var(--color-text-muted);
+}
+
+.automation-status::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.automation-card-meta {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.automation-card-meta-item {
+    margin-bottom: 0.5rem;
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: space-between;
+}
+
+.automation-card-meta-label {
+    color: var(--color-text-subtle);
+}
+
+.automation-card-meta-value {
+    color: var(--color-text);
+    font-weight: 500;
+    font-family: var(--font-mono);
+}
+
+.automation-card-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
+.automation-card-actions button {
+    flex: 1;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-elevated);
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.automation-card-actions button:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+/* ==================== Visual Builder (F18) ==================== */
+#visual-builder-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: var(--spacing-lg);
+}
+.vb-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+}
+.vb-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px; height: 24px;
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    margin-right: 8px;
+    font-size: 0.8rem;
+}
+.vb-canvas {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+.vb-card {
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    width: 250px;
+    box-shadow: var(--shadow-md);
+    transition: border-color 0.2s;
+}
+.vb-card:hover {
+    border-color: var(--color-primary);
+}
+.vb-arrow {
+    font-size: 1.5rem;
+    color: var(--color-text-muted);
+}
+.vb-config-panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+.vb-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+}

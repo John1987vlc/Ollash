@@ -1,0 +1,66 @@
+/* ==================== Architecture (Knowledge Graph) ==================== */
+.architecture-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 200px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+.architecture-toolbar {
+    padding: var(--spacing-md);
+    background: var(--color-surface-elevated);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+    z-index: 10;
+}
+
+#knowledge-graph-container {
+    flex: 1;
+    cursor: grab;
+}
+
+#knowledge-graph-container:active { cursor: grabbing; }
+
+.node-details-panel {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    width: 300px;
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 20;
+    display: none;
+    flex-direction: column;
+}
+
+.node-details-panel.active { display: flex; }
+
+.node-details-panel .panel-header {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.node-details-panel .panel-body {
+    padding: var(--spacing-md);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.close-panel {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 1.2rem;
+}

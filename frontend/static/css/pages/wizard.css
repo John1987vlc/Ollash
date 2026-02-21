@@ -1,0 +1,148 @@
+/* ==================== Create Form / Wizard ==================== */
+.create-form-container { max-width: 700px; margin: 0 auto; }
+
+.template-selector { margin-bottom: var(--spacing-xl); }
+.template-selector h2 {
+    font-size: 1.5rem; font-weight: 600; color: var(--color-text);
+    margin-bottom: var(--spacing-lg); text-align: center;
+}
+.template-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--spacing-md);
+}
+.template-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    justify-content: center;
+    min-height: 120px;
+    color: var(--color-text-muted);
+}
+.template-card:hover {
+    border-color: var(--color-primary);
+    background: var(--color-surface-elevated);
+    color: var(--color-text);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+.template-card.active {
+    border-color: var(--color-primary);
+    background: rgba(99,102,241,0.1);
+    color: var(--color-primary);
+    box-shadow: 0 0 15px rgba(99,102,241,0.3);
+    transform: translateY(-2px);
+}
+.template-card h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-xs);
+    color: inherit;
+}
+.template-card p {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: inherit;
+}
+
+/* Wizard Mode */
+.wizard-container {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.wizard-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-lg) 0;
+}
+
+.wizard-step-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    position: relative;
+}
+
+.wizard-step-indicator .step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    background: var(--color-surface-elevated);
+    border: 2px solid var(--color-border);
+    color: var(--color-text-muted);
+    transition: all 0.3s ease;
+}
+
+.wizard-step-indicator.active .step-number {
+    background: var(--gradient-primary);
+    border-color: var(--color-primary);
+    color: white;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+}
+
+.wizard-step-indicator.completed .step-number {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    color: white;
+}
+
+.wizard-step-indicator .step-label {
+    font-size: 0.8rem;
+    color: var(--color-text-subtle);
+    font-weight: 500;
+}
+
+.wizard-step-indicator.active .step-label {
+    color: var(--color-primary);
+}
+
+.wizard-step-indicator.completed .step-label {
+    color: var(--color-success);
+}
+
+.wizard-step-indicator:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: calc(50% + 25px);
+    width: 60px;
+    height: 2px;
+    background: var(--color-border);
+}
+
+.wizard-step-indicator.completed:not(:last-child)::after {
+    background: var(--color-success);
+}
+
+.wizard-step {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.wizard-step.active {
+    display: block;
+}
+
+.wizard-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+}

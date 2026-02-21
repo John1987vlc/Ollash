@@ -15,7 +15,7 @@ def init_app(app):
     """Initialize CI/CD blueprint."""
     global _healer
     try:
-        from backend.utils.core.cicd_healer import CICDHealer
+        from backend.utils.core.system.cicd_healer import CICDHealer
         from backend.core.containers import main_container
 
         _healer = CICDHealer(

@@ -8,7 +8,7 @@ anomalies.
 from pathlib import Path
 from typing import Any, Dict
 
-from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.system.agent_logger import AgentLogger
 
 
 class LogAnalyzer:

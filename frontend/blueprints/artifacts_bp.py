@@ -9,8 +9,8 @@ from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request
 
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.artifact_manager import ArtifactManager
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.io.artifact_manager import ArtifactManager
 
 artifacts_bp = Blueprint("artifacts", __name__, url_prefix="/api/artifacts")
 

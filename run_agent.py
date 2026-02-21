@@ -20,8 +20,8 @@ import sys
 project_root = Path(__file__).resolve().parent
 sys.path.insert(0, str(project_root))
 
-from backend.core.containers import main_container
-from backend.agents.auto_agent import AutoAgent
+from backend.core.containers import main_container  # noqa: E402
+from backend.agents.auto_agent import AutoAgent  # noqa: E402
 
 
 def main():
@@ -43,7 +43,9 @@ def main():
     parser.add_argument("--path", type=str, help="Ruta al directorio del proyecto (ej: ./sandbox/ventas)")
     parser.add_argument("--auto-create", action="store_true", help="Modo creacion autonoma de proyectos")
     parser.add_argument("--project-description", type=str, help="Descripcion del proyecto (para --auto-create)")
-    parser.add_argument("--project-name", type=str, default="auto_project", help="Nombre del proyecto (para --auto-create)")
+    parser.add_argument(
+        "--project-name", type=str, default="auto_project", help="Nombre del proyecto (para --auto-create)"
+    )
     parser.add_argument("instruction", nargs="?", help="Instrucción directa")
     args = parser.parse_args()
 
@@ -54,7 +56,7 @@ def main():
             if not description:
                 print("No description provided. Exiting.")
                 return
-        
+
         try:
             # Instantiate AutoAgent via the DI container
             auto_agent: AutoAgent = main_container.auto_agent_module.auto_agent()
@@ -94,7 +96,7 @@ def main():
     else:
         # If no other mode is specified, print help
         if not args.auto_create:
-             parser.print_help()
+            parser.print_help()
 
 
 if __name__ == "__main__":

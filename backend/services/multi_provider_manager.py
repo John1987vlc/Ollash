@@ -10,7 +10,7 @@ from backend.core.config_schemas import LLMModelsConfig, ToolSettingsConfig
 from backend.interfaces.imodel_provider import IModelProvider
 from backend.services.providers.ollama_provider import OllamaProvider
 from backend.services.providers.openai_compatible_provider import OpenAICompatibleProvider
-from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.exceptions import ProviderConnectionError
 
 
@@ -168,7 +168,7 @@ class MultiProviderManager(IModelProvider):
 
         if ollama_provider:
             # Get or create an OllamaClient via the Ollama provider pattern
-            from backend.utils.core.ollama_client import OllamaClient
+            from backend.utils.core.llm.ollama_client import OllamaClient
 
             if model_name not in self._client_cache:
                 client = OllamaClient(

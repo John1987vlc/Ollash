@@ -170,7 +170,6 @@ def clear_history():
 def init_app(app, event_publisher=None, alert_manager=None):
     """Initialize alerts blueprint with required dependencies."""
     logger.info("Initializing alerts blueprint")
-    ollash_root_dir = app.config.get("ollash_root_dir")
 
 
 __all__ = ["alerts_bp", "init_app"]

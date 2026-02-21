@@ -16,7 +16,7 @@ def init_app(app):
     """Initialize knowledge graph blueprint with app context."""
     global _kg_builder
     try:
-        from backend.utils.core.knowledge_graph_builder import KnowledgeGraphBuilder
+        from backend.utils.core.memory.knowledge_graph_builder import KnowledgeGraphBuilder
 
         root = app.config.get("ollash_root_dir")
         if root:

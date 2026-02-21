@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """CLI wrapper for AutoAgent autonomous project creation."""
+
 import argparse
 import sys
 from pathlib import Path
@@ -8,22 +9,23 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent
 sys.path.insert(0, str(project_root))
 
-from backend.core.containers import main_container
-from backend.agents.auto_agent import AutoAgent
+from backend.core.containers import main_container  # noqa: E402
+from backend.agents.auto_agent import AutoAgent  # noqa: E402
+
 
 def main():
     # Wire the container to the modules that need injection
     main_container.wire(modules=[__name__, "backend.agents.auto_agent"])
-    
-    parser = argparse.ArgumentParser(
-        description="Autonomous project creation with specialized LLMs."
-    )
+
+    parser = argparse.ArgumentParser(description="Autonomous project creation with specialized LLMs.")
     parser.add_argument(
-        "--description", required=True,
+        "--description",
+        required=True,
         help="Detailed description of the project to create.",
     )
     parser.add_argument(
-        "--name", default="auto_generated_project",
+        "--name",
+        default="auto_generated_project",
         help="Name of the project directory.",
     )
     # Add other relevant arguments from the AutoAgent's run method
@@ -32,13 +34,13 @@ def main():
     parser.add_argument("--python-version", type=str, default="3.11")
     parser.add_argument("--license-type", type=str, default="MIT")
     parser.add_argument("--include-docker", action="store_true")
-    
+
     args = parser.parse_args()
 
     # Instantiate AutoAgent via the DI container
     try:
         agent: AutoAgent = main_container.auto_agent_module.auto_agent()
-        
+
         # Prepare kwargs for the run method
         run_kwargs = {
             "project_description": args.description,
@@ -49,11 +51,11 @@ def main():
             "license_type": args.license_type,
             "include_docker": args.include_docker,
         }
-        
+
         path = agent.run(**run_kwargs)
 
         print(f"\n{'=' * 60}")
-        print(f"Autonomous project creation finished")
+        print("Autonomous project creation finished")
         print(f"Project saved at: {path}")
         print(f"{'=' * 60}")
 

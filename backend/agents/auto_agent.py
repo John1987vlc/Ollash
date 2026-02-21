@@ -23,10 +23,10 @@ from backend.core.kernel import AgentKernel
 # Agent Phases & Context
 from backend.interfaces.iagent_phase import IAgentPhase
 from backend.interfaces.imodel_provider import IModelProvider
-from backend.utils.core.execution_plan import ExecutionPlan
+from backend.utils.core.system.execution_plan import ExecutionPlan
 
 # Core utilities
-from backend.utils.core.llm_recorder import LLMRecorder
+from backend.utils.core.llm.llm_recorder import LLMRecorder
 
 
 class AutoAgent(CoreAgent):
@@ -257,9 +257,12 @@ class AutoAgent(CoreAgent):
             # If we are in an async context, we need to call this differently
             # but for backward compatibility, we keep this method synchronous.
             # In a real async app, this method itself should be async.
-            self.logger.warning("Running generate_structure_only inside an existing loop. This might cause issues if not awaited correctly.")
+            self.logger.warning(
+                "Running generate_structure_only inside an existing loop. This might cause issues if not awaited correctly."
+            )
             # For the test, we'll try to use a thread if possible, but let's try a safer approach
             import nest_asyncio
+
             nest_asyncio.apply()
             return loop.run_until_complete(
                 self._run_structure_phases_async(structure_phases, project_description, project_name)

@@ -10,10 +10,10 @@ from typing import Optional
 from flask import Blueprint, jsonify, request
 
 from backend.core.kernel import AgentKernel  # Import AgentKernel
-from backend.utils.core.agent_logger import AgentLogger  # For type hinting
-from backend.utils.core.multimedia_ingester import MultimediaIngester
-from backend.utils.core.ocr_processor import OCRProcessor, PDFOCRProcessor
-from backend.utils.core.speech_transcriber import SpeechTranscriber
+from backend.utils.core.system.agent_logger import AgentLogger  # For type hinting
+from backend.utils.core.io.multimedia_ingester import MultimediaIngester
+from backend.utils.core.io.ocr_processor import OCRProcessor, PDFOCRProcessor
+from backend.utils.core.io.speech_transcriber import SpeechTranscriber
 
 from werkzeug.utils import secure_filename
 
@@ -386,7 +386,7 @@ def ingest_normalize():
 
         doc_data = multimedia_ingester.parsed_documents[document_id]
         # Reconstruct document object - need to handle dataclass conversion
-        from backend.utils.core.multimedia_ingester import ContentBlock, ParsedDocument
+        from backend.utils.core.io.multimedia_ingester import ContentBlock, ParsedDocument
 
         blocks = [ContentBlock(**b) for b in doc_data.get("blocks", [])]
         document = ParsedDocument(
@@ -454,12 +454,14 @@ def upload_file():
 
             logger.info(f"File uploaded successfully: {filename}")
 
-            return jsonify({
-                "status": "success",
-                "filename": filename,
-                "local_path": str(file_path),
-                "relative_path": str(Path(UPLOAD_FOLDER) / filename)
-            }), 200
+            return jsonify(
+                {
+                    "status": "success",
+                    "filename": filename,
+                    "local_path": str(file_path),
+                    "relative_path": str(Path(UPLOAD_FOLDER) / filename),
+                }
+            ), 200
 
     except Exception as e:
         logger.error(f"Upload error: {e}")
@@ -615,7 +617,7 @@ def analyze_confidence():
             return jsonify({"error": "Transcription not found"}), 404
 
         trans_data = speech_transcriber.transcriptions[audio_id]
-        from backend.utils.core.speech_transcriber import ConfidenceSegment, TranscriptionResult
+        from backend.utils.core.io.speech_transcriber import ConfidenceSegment, TranscriptionResult
 
         segments = [ConfidenceSegment(**s) for s in trans_data.get("segments", [])]
         result = TranscriptionResult(
@@ -655,7 +657,7 @@ def speech_summary():
             return jsonify({"error": "Transcription not found"}), 404
 
         trans_data = speech_transcriber.transcriptions[audio_id]
-        from backend.utils.core.speech_transcriber import ConfidenceSegment, TranscriptionResult
+        from backend.utils.core.io.speech_transcriber import ConfidenceSegment, TranscriptionResult
 
         segments = [ConfidenceSegment(**s) for s in trans_data.get("segments", [])]
         result = TranscriptionResult(

@@ -15,12 +15,18 @@ from statistics import mean
 from typing import Any, Dict, List, Optional
 
 import requests
-from flask import Blueprint, Response, jsonify, request, stream_with_context, current_app
+from flask import Blueprint, Response, jsonify, request, stream_with_context, current_app, render_template
 
 from backend.agents.auto_benchmarker import ModelBenchmarker
 from frontend.middleware import rate_limit_benchmark, require_api_key
 
 benchmark_bp = Blueprint("benchmark", __name__)
+
+
+@benchmark_bp.route("/benchmark")
+def benchmark_page():
+    return render_template("pages/benchmark.html")
+
 
 _ollash_root_dir: Path = None
 _active_run: dict = None  # {"thread": Thread, "queue": Queue, "benchmarker": ModelBenchmarker}
@@ -66,7 +72,7 @@ def list_models():
                     "name": name,
                     "size_bytes": size_bytes,
                     "size_human": ModelBenchmarker.format_size(size_bytes),
-                    "supports_chat": not is_embedding
+                    "supports_chat": not is_embedding,
                 }
             )
         return jsonify({"status": "ok", "ollama_url": ollama_url, "models": result})
@@ -111,10 +117,11 @@ def start_benchmark():
         )
 
     event_queue = queue.Queue()
+
     # F12: Use current_app.config for benchmarker or pass None to use default centralized config
     def _run():
         try:
-            benchmarker = ModelBenchmarker() # It will use central config by default
+            benchmarker = ModelBenchmarker()  # It will use central config by default
             if ollama_url:
                 benchmarker.url = ollama_url
             _active_run["benchmarker"] = benchmarker
@@ -145,7 +152,7 @@ def start_benchmark():
                 )
 
                 # Run benchmark for this single model
-                benchmarker.results = [] # Clear for this specific run
+                benchmarker.results = []  # Clear for this specific run
                 benchmarker.run_benchmark([model_name])
 
                 if benchmarker.results:
@@ -167,10 +174,13 @@ def start_benchmark():
             summary_text = "No summary generated."
             try:
                 from backend.core.config import get_config
+
                 config = get_config()
                 summary_model = config.LLM_MODELS.get("models", {}).get("summarization", config.DEFAULT_MODEL)
 
-                event_queue.put(json.dumps({"type": "info", "message": f"Generating final report with {summary_model}..."}))
+                event_queue.put(
+                    json.dumps({"type": "info", "message": f"Generating final report with {summary_model}..."})
+                )
 
                 # Update benchmarker with all results for summary generation
                 benchmarker.results = all_results
@@ -187,7 +197,7 @@ def start_benchmark():
                         "type": "benchmark_done",
                         "results_file": str(log_path),
                         "results": all_results,
-                        "summary": summary_text
+                        "summary": summary_text,
                     }
                 )
             )

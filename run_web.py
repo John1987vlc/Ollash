@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Ollash Web UI entry point."""
+
 import os
 import sys
 from pathlib import Path

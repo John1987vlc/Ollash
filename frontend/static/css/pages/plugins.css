@@ -1,0 +1,41 @@
+/* ==================== Plugins View ==================== */
+.plugins-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-lg);
+}
+.plugin-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    transition: transform 0.2s;
+}
+.plugin-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--color-primary);
+}
+.plugin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.plugin-icon {
+    font-size: 2rem;
+}
+.plugin-info h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+.plugin-version {
+    font-size: 0.75rem;
+    color: var(--color-text-subtle);
+}
+.plugin-desc {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    flex: 1;
+}

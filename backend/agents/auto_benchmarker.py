@@ -9,15 +9,15 @@ import requests
 
 # Use the new centralized config
 from backend.core.config import get_config
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.benchmark_rubrics import MultidimensionalRubric, RubricEvaluator
-from backend.utils.core.file_validator import FileValidator
-from backend.utils.core.heartbeat import Heartbeat
-from backend.utils.core.llm_recorder import LLMRecorder
-from backend.utils.core.llm_response_parser import LLMResponseParser
-from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.core.structured_logger import StructuredLogger
-from backend.utils.core.token_tracker import TokenTracker
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.llm.benchmark_rubrics import MultidimensionalRubric, RubricEvaluator
+from backend.utils.core.analysis.file_validator import FileValidator
+from backend.utils.core.system.heartbeat import Heartbeat
+from backend.utils.core.llm.llm_recorder import LLMRecorder
+from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+from backend.utils.core.llm.ollama_client import OllamaClient
+from backend.utils.core.system.structured_logger import StructuredLogger
+from backend.utils.core.llm.token_tracker import TokenTracker
 
 
 class ModelBenchmarker:

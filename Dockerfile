@@ -1,42 +1,59 @@
-FROM python:3.11-slim-bookworm
+# Stage 1: Builder
+FROM python:3.11-slim-bookworm AS builder
 
 WORKDIR /app
 
-ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=1
-ENV PYTHONPATH=/app
-
+# Install system build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
     build-essential \
-    curl \
-    iputils-ping \
-    net-tools \
-    nmap \
-    ca-certificates \
-    sqlite3 \
     libsqlite3-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 COPY requirements-dev.txt .
 
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt \
-    && pip install -r requirements-dev.txt
+# Install dependencies into a virtual environment or specific path
+# This keeps the final image cleaner
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements-dev.txt
 
-# Copy only the necessary files and directories
+# Stage 2: Runtime
+FROM python:3.11-slim-bookworm AS runtime
+
+WORKDIR /app
+
+# Install only necessary runtime system tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    iputils-ping \
+    nmap \
+    ca-certificates \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Copy application code
+# Ordered from least to most likely to change
+COPY prompts /app/prompts
 COPY backend /app/backend
 COPY frontend /app/frontend
-COPY prompts /app/prompts
-COPY auto_agent.py .
-COPY auto_benchmark.py .
-COPY benchmark.py .
-COPY run_agent.py .
-COPY run_web.py .
-COPY .env.example .
+COPY *.py /app/
+COPY .env.example /app/.env.example
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import backend; print('ok')" || exit 1
+# Expose the Flask port
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:5000/health || python -c "import backend; print('ok')"
 
 CMD ["python", "run_web.py"]

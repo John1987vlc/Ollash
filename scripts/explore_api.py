@@ -2,14 +2,15 @@
 """
 Investigar cómo obtener las imágenes de la cola
 """
+
 import requests
 import json
 
 API_BASE = "http://192.168.1.217:9090"
 
-print("="*80)
+print("=" * 80)
 print("Explorando endpoints de imágenes")
-print("="*80)
+print("=" * 80)
 
 # 1. Listar imágenes disponibles
 print("\n1. Intentando listar imágenes (GET /api/v1/images/)")
@@ -25,13 +26,13 @@ try:
                 images = data["images"]
                 print(f"   Total imágenes: {len(images)}")
                 if len(images) > 0:
-                    print(f"\n   Primeras 3 imágenes:")
+                    print("\n   Primeras 3 imágenes:")
                     for img in images[:3]:
                         print(f"     - {img}")
         elif isinstance(data, list):
             print(f"   Total imágenes: {len(data)}")
             if len(data) > 0:
-                print(f"\n   Primeras 3 imágenes:")
+                print("\n   Primeras 3 imágenes:")
                 for img in data[:3]:
                     print(f"     - {img}")
 except Exception as e:
@@ -55,7 +56,7 @@ for endpoint in endpoints:
         if resp.status_code == 200:
             data = resp.json()
             print(f"      [SUCCESS] Keys: {list(data.keys())[:5]}...")
-            
+
             # Print first level structure
             if isinstance(data, dict) and len(data) < 20:
                 print(f"      Data: {json.dumps(data, indent=8)[:500]}")
@@ -68,8 +69,8 @@ try:
     resp = requests.get(f"{API_BASE}/openapi.json", timeout=10)
     if resp.status_code == 200:
         data = resp.json()
-        print(f"   OpenAPI encontrado!")
-        print(f"   Paths disponibles (primeras 20):")
+        print("   OpenAPI encontrado!")
+        print("   Paths disponibles (primeras 20):")
         paths = list(data.get("paths", {}).keys())[:20]
         for path in paths:
             print(f"     - {path}")
@@ -83,9 +84,8 @@ try:
     if resp.status_code == 200:
         data = resp.json()
         paths = data.get("paths", {})
-        queue_paths = [p for p in paths.keys() if 'queue' in p]
+        queue_paths = [p for p in paths.keys() if "queue" in p]
         for path in sorted(queue_paths):
             print(f"     - {path}")
 except:
     pass
-

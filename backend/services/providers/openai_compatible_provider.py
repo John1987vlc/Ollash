@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
-from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.exceptions import ProviderAuthenticationError, ProviderConnectionError
 
 

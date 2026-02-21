@@ -9,7 +9,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from backend.utils.core.wasm_sandbox import WasmSandbox, DockerSandbox, TestResult
+from backend.utils.core.tools.wasm_sandbox import WasmSandbox, DockerSandbox, TestResult
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +19,12 @@ sandbox_bp = Blueprint("sandbox", __name__, url_prefix="/api/sandbox")
 wasm_sandbox = WasmSandbox(logger=logger)
 docker_sandbox = DockerSandbox(logger=logger)
 
+
 @sandbox_bp.route("/execute", methods=["POST"])
 def execute_code():
     """
     Execute a code block in the sandbox
-    
+
     Request body:
     {
         "code": "print('hello')",
@@ -35,7 +36,6 @@ def execute_code():
         data = request.get_json() or {}
         code = data.get("code")
         language = data.get("language", "python")
-        project_name = data.get("project_name")
 
         if not code:
             return jsonify({"error": "No code provided"}), 400
@@ -69,38 +69,37 @@ def execute_code():
                     # Manually run in subprocess for direct execution (WasmSandbox is geared for tests)
                     import subprocess
                     import time
+
                     start = time.time()
                     process = subprocess.run(
-                        cmd,
-                        shell=True,
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                        cwd=str(tmp_path)
+                        cmd, shell=True, capture_output=True, text=True, timeout=30, cwd=str(tmp_path)
                     )
                     result = TestResult(
                         success=process.returncode == 0,
                         exit_code=process.returncode,
                         stdout=process.stdout,
                         stderr=process.stderr,
-                        duration_seconds=time.time() - start
+                        duration_seconds=time.time() - start,
                     )
                 finally:
                     wasm_sandbox.destroy_sandbox(instance)
 
             if result:
-                return jsonify({
-                    "status": "success",
-                    "output": result.stdout + result.stderr,
-                    "exit_code": result.exit_code,
-                    "duration": result.duration_seconds
-                }), 200
+                return jsonify(
+                    {
+                        "status": "success",
+                        "output": result.stdout + result.stderr,
+                        "exit_code": result.exit_code,
+                        "duration": result.duration_seconds,
+                    }
+                ), 200
             else:
                 return jsonify({"error": "Execution failed to start"}), 500
 
     except Exception as e:
         logger.error(f"Sandbox execution error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 def init_app(app):
     """Register functions if needed"""

@@ -47,7 +47,9 @@ class Config:
         self.ALERTS = self._load_json("alerts.json", "ALERTS_JSON")
         self.AUTO_BENCHMARK_TASKS = self._load_json("auto_benchmark_tasks.json", "AUTO_BENCHMARK_TASKS_JSON")
         self.AUTOMATION_TEMPLATES = self._load_json("automation_templates.json", "AUTOMATION_TEMPLATES_JSON")
-        self.BENCHMARK_TASKS_EXTENDED = self._load_json("benchmark_tasks_extended.json", "BENCHMARK_TASKS_EXTENDED_JSON")
+        self.BENCHMARK_TASKS_EXTENDED = self._load_json(
+            "benchmark_tasks_extended.json", "BENCHMARK_TASKS_EXTENDED_JSON"
+        )
         self.BENCHMARK_TASKS = self._load_json("benchmark_tasks.json", "BENCHMARK_TASKS_JSON")
         self.LLM_MODELS = self._load_json("llm_models.json", "LLM_MODELS_JSON")
         self.TASKS = self._load_json("tasks.json", "TASKS_JSON")

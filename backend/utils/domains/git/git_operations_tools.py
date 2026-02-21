@@ -1,8 +1,8 @@
 import re  # Added
 from typing import Any
 
-from backend.utils.core.confirmation_manager import ConfirmationManager
-from backend.utils.core.git_manager import GitManager
+from backend.utils.core.system.confirmation_manager import ConfirmationManager
+from backend.utils.core.io.git_manager import GitManager
 
 
 class GitOperationsTools:

@@ -7,8 +7,8 @@ project requirements detected from README and structure.
 
 from typing import Any, Dict
 
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.llm_response_parser import LLMResponseParser
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
 
 class InfraGenerator:

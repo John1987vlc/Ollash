@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
-from backend.utils.core.parallel_generator import GenerationTask
+from backend.utils.core.llm.parallel_generator import GenerationTask
 
 
 class FileContentGenerationPhase(IAgentPhase):

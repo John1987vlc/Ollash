@@ -21,7 +21,9 @@ class AutoGenPrompts:
             "comprehensive, and highly readable documentation. Focus on clarity, "
             "visual hierarchy, and actionable instructions."
         )
-        docker_note = "\n- Include a 'Docker' section with a Dockerfile example and run commands." if include_docker else ""
+        docker_note = (
+            "\n- Include a 'Docker' section with a Dockerfile example and run commands." if include_docker else ""
+        )
         user = (
             f"Generate a professional README.md for the following project:\n"
             f"PROJECT DESCRIPTION: {project_description}\n"
@@ -94,7 +96,7 @@ class AutoGenPrompts:
             ".js": "- Use modern ES6+, async/await for I/O, and descriptive naming.",
             ".ts": "- Define strict interfaces/types, avoid 'any', and use ES Modules.",
             ".html": "- Use semantic HTML5, ARIA labels, and clean structure.",
-            ".css": "- Use modern CSS (Grid/Flexbox) and a logical ordering of properties."
+            ".css": "- Use modern CSS (Grid/Flexbox) and a logical ordering of properties.",
         }
         type_guidance = guidance.get(file_ext, "- Follow language-specific best practices and idioms.")
 

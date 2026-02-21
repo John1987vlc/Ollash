@@ -1,0 +1,42 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/settings.css') }}">
+{% endblock %}
+
+            <!-- Settings View (Webhooks) -->
+            <div class="view" id="settings-view">
+                <div class="view-header">
+                    <h1>Settings</h1>
+                    <p class="subtitle">External notifications and global agent configuration</p>
+                </div>
+                <div class="settings-container">
+                    <section class="settings-section">
+                        <h3>External Notifications (Webhooks)</h3>
+                        <p class="help-text">Add URLs for Slack, Discord, or custom webhooks to receive real-time alerts.</p>
+                        
+                        <div id="webhooks-list" class="webhooks-list">
+                            <!-- Registered webhooks will appear here -->
+                        </div>
+
+                        <form id="add-webhook-form" class="inline-form">
+                            <div class="form-group">
+                                <label for="webhook-name">Name</label>
+                                <input type="text" id="webhook-name" placeholder="e.g., Slack Alert">
+                            </div>
+                            <div class="form-group">
+                                <label for="webhook-type">Type</label>
+                                <select id="webhook-type">
+                                    <option value="slack">Slack</option>
+                                    <option value="discord">Discord</option>
+                                    <option value="teams">MS Teams</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 2;">
+                                <label for="webhook-url">URL</label>
+                                <input type="url" id="webhook-url" placeholder="https://hooks.slack.com/services/...">
+                            </div>
+                            <button type="submit" class="btn-primary">Add</button>
+                        </form>
+                    </section>
+                </div>
+            </div>

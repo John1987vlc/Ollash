@@ -1,0 +1,14 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/plugins.css') }}">
+{% endblock %}
+
+            <!-- Plugins View -->
+            <div class="view" id="plugins-view">
+                <div class="view-header">
+                    <h1>Plugins Marketplace</h1>
+                    <p class="subtitle">Extend agent capabilities with community and custom plugins</p>
+                </div>
+                <div class="plugins-grid" id="plugins-grid">
+                    <p class="placeholder">Loading plugins...</p>
+                </div>
+            </div>

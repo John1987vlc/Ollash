@@ -3,8 +3,8 @@ import platform
 from typing import Any, Optional
 
 from backend.utils.core.command_executor import CommandExecutor
-from backend.utils.core.file_manager import FileManager
-from backend.utils.core.tool_decorator import ollash_tool
+from backend.utils.core.io.file_manager import FileManager
+from backend.utils.core.tools.tool_decorator import ollash_tool
 from backend.utils.domains.system.log_analyzer import LogAnalyzer
 
 

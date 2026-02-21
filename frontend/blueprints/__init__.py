@@ -1,9 +1,10 @@
 """Overwritten frontend/blueprints/__init__.py with all needed blueprints."""
+
 from pathlib import Path
 from flask import Flask
-from backend.utils.core.alert_manager import AlertManager
-from backend.utils.core.automation_manager import AutomationManager
-from backend.utils.core.event_publisher import EventPublisher
+from backend.utils.core.system.alert_manager import AlertManager
+from backend.utils.core.system.automation_manager import AutomationManager
+from backend.utils.core.system.event_publisher import EventPublisher
 from frontend.services.chat_event_bridge import ChatEventBridge
 
 from .alerts_bp import alerts_bp, init_app as init_alerts
@@ -44,7 +45,14 @@ from .router_bp import router_bp
 from .refactor_bp import refactor_bp, init_app as init_refactor
 from .system_health_bp import system_health_bp, init_app as init_system_health
 
-def register_blueprints(app: Flask, ollash_root_dir: Path, event_publisher: EventPublisher, chat_event_bridge: ChatEventBridge, alert_manager: AlertManager):
+
+def register_blueprints(
+    app: Flask,
+    ollash_root_dir: Path,
+    event_publisher: EventPublisher,
+    chat_event_bridge: ChatEventBridge,
+    alert_manager: AlertManager,
+):
     app.config["ollash_root_dir"] = ollash_root_dir
     blueprints = [
         (common_bp, lambda: init_common(app)),

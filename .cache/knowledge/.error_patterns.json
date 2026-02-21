@@ -1,5 +1,5 @@
 {
-  "saved_at": "2026-02-12T21:43:05.363400",
+  "saved_at": "2026-02-21T12:49:45.185744",
   "patterns": {
     "486535486817": {
       "pattern_id": "486535486817",
@@ -94,6 +94,70 @@
       "frequency": 4,
       "severity": "medium",
       "last_encountered": "2026-02-12T21:43:05.362633",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "7de57bb1aa9f": {
+      "pattern_id": "7de57bb1aa9f",
+      "error_type": "generation_failure",
+      "affected_file_type": ".ico",
+      "description": "Error in src/assets/favicon.ico: No content generated for src/assets/favicon.ico",
+      "example_error": "No content generated for src/assets/favicon.ico",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T12:48:40.401442",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "08e0869c9d9f": {
+      "pattern_id": "08e0869c9d9f",
+      "error_type": "generation_failure",
+      "affected_file_type": ".png",
+      "description": "Error in src/assets/images/card_back.png: No content generated for src/assets/images/card_back.png",
+      "example_error": "No content generated for src/assets/images/card_back.png",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T12:49:06.003163",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "19584faba146": {
+      "pattern_id": "19584faba146",
+      "error_type": "generation_failure",
+      "affected_file_type": ".png",
+      "description": "Error in src/assets/images/card_front.png: No content generated for src/assets/images/card_front.png",
+      "example_error": "No content generated for src/assets/images/card_front.png",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T12:49:25.586804",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "236fb24a9c3e": {
+      "pattern_id": "236fb24a9c3e",
+      "error_type": "generation_failure",
+      "affected_file_type": ".ttf",
+      "description": "Error in src/assets/fonts/OpenSans-Regular.ttf: No content generated for src/assets/fonts/OpenSans-Regular.ttf",
+      "example_error": "No content generated for src/assets/fonts/OpenSans-Regular.ttf",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T12:49:45.173148",
       "tags": [
         "generation_failure"
       ]

@@ -1,0 +1,723 @@
+"""Automatic model selection based on benchmark results.
+
+This module reads benchmark data and dynamically reconfigures CoreAgent's
+model assignments based on empirically measured performance.
+
+Design: Decoupled from CoreAgent; pulls results from auto_benchmark.py.
+Benefit: Self-tuning configuration without manual settings.json edits.
+"""
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from statistics import mean, median
+from typing import Any, Dict, List, Optional, Tuple
+
+from backend.utils.core.system.agent_logger import AgentLogger
+
+
+@dataclass
+class ModelBenchmarkResult:
+    """Stores a benchmark result for a model on a specific task."""
+
+    model_name: str
+    task_type: str  # "refinement", "coder", "planner", "generalist", etc.
+    success_rate: float  # 0.0 to 1.0
+    avg_tokens: float
+    avg_time_ms: float
+    quality_score: float  # 1-10
+
+    # NEW: Metrics for advanced phase evaluation
+    hallucination_ratio: float = 0.0  # LogicPlanningPhase: plan_vs_implementation mismatch
+    repair_efficiency: float = 0.0  # ExhaustiveReviewRepairPhase: errors_fixed_in_one_pass / total_errors
+    rag_context_effectiveness: float = 0.0  # DependencyReconciliationPhase: relevant_files_retrieved / total_relevant
+    logic_plan_coverage: float = 0.0  # Percentage of logic plan items implemented
+    circular_dep_resolution_rate: float = 0.0  # StructurePreReviewPhase: successfully resolved circular deps
+    code_smell_detection_rate: float = 0.0  # SeniorReviewPhase: subtle errors detected / total injected
+
+    timestamp: Optional[str] = None
+    phase_name: Optional[str] = None  # Phase that was benchmarked
+
+
+class BenchmarkDatabase:
+    """Manages reading and querying benchmark results."""
+
+    def __init__(self, benchmark_dir: Path, logger: AgentLogger):
+        self.benchmark_dir = benchmark_dir
+        self.logger = logger
+        self.results: List[ModelBenchmarkResult] = []
+        self._load_results()
+
+    def _load_results(self):
+        """Load all benchmark results from the benchmark directory."""
+        if not self.benchmark_dir.exists():
+            self.logger.warning(f"Benchmark directory not found: {self.benchmark_dir}")
+            return
+
+        for result_file in self.benchmark_dir.glob("*.json"):
+            try:
+                with open(result_file) as f:
+                    data = json.load(f)
+                    result = ModelBenchmarkResult(
+                        model_name=data["model_name"],
+                        task_type=data["task_type"],
+                        success_rate=data["success_rate"],
+                        avg_tokens=data["avg_tokens"],
+                        avg_time_ms=data["avg_time_ms"],
+                        quality_score=data["quality_score"],
+                        hallucination_ratio=data.get("hallucination_ratio", 0.0),
+                        repair_efficiency=data.get("repair_efficiency", 0.0),
+                        rag_context_effectiveness=data.get("rag_context_effectiveness", 0.0),
+                        logic_plan_coverage=data.get("logic_plan_coverage", 0.0),
+                        circular_dep_resolution_rate=data.get("circular_dep_resolution_rate", 0.0),
+                        code_smell_detection_rate=data.get("code_smell_detection_rate", 0.0),
+                        timestamp=data.get("timestamp"),
+                        phase_name=data.get("phase_name"),
+                    )
+                    self.results.append(result)
+            except (json.JSONDecodeError, KeyError) as e:
+                self.logger.warning(f"Failed to load benchmark result {result_file}: {e}")
+
+    def get_best_model(
+        self,
+        task_type: str,
+        metric: str = "success_rate",
+    ) -> Optional[ModelBenchmarkResult]:  # Changed return type hint
+        """Get the best-performing model for a task.
+
+        Args:
+            task_type: Task category (refinement, coder, planner, etc.)
+            metric: Ranking metric (success_rate, quality_score, avg_time_ms) # Updated metric comment
+
+        Returns:
+            Best model name or None if no data available
+        """
+        relevant_results = [r for r in self.results if r.task_type == task_type]
+        if not relevant_results:
+            return None
+
+        if metric == "success_rate":
+            best = max(relevant_results, key=lambda r: r.success_rate)
+        elif metric == "quality_score":
+            best = max(relevant_results, key=lambda r: r.quality_score)
+        elif metric == "avg_time_ms":  # Changed to avg_time_ms
+            best = min(relevant_results, key=lambda r: r.avg_time_ms)  # Changed to avg_time_ms
+        else:
+            return None
+
+        return best  # Return the full object
+
+    def get_model_rank(self, task_type: str) -> List[Tuple[str, float]]:
+        """Get all models ranked by success rate for a task."""
+        relevant = [r for r in self.results if r.task_type == task_type]
+        grouped = {}
+        for r in relevant:
+            if r.model_name not in grouped:
+                grouped[r.model_name] = []
+            grouped[r.model_name].append(r.success_rate)
+
+        # Average success rate per model
+        model_scores = {model: mean(scores) for model, scores in grouped.items()}
+
+        return sorted(model_scores.items(), key=lambda x: x[1], reverse=True)
+
+    def get_stats_for_model(self, model_name: str, task_type: str) -> Optional[Dict]:
+        """Get aggregated statistics for a model on a task."""
+        relevant = [r for r in self.results if r.model_name == model_name and r.task_type == task_type]
+
+        if not relevant:
+            return None
+
+        return {
+            "model": model_name,
+            "task": task_type,
+            "samples": len(relevant),
+            "avg_success_rate": mean(r.success_rate for r in relevant),
+            "median_quality": median(r.quality_score for r in relevant),
+            "avg_time_ms": mean(r.avg_time_ms for r in relevant),
+            "avg_tokens": mean(r.avg_tokens for r in relevant),
+        }
+
+    def evaluate_model_performance(
+        self,
+        model_name: str,
+        phase_name: str,
+        weights: Optional[Dict[str, float]] = None,
+    ) -> float:
+        """
+        Evaluate model performance on a specific phase with weighted metrics.
+
+        NEW METRICS INTEGRATION:
+        - Hallucination Ratio: LogicPlanningPhase metric (lower is better)
+        - Repair Efficiency: ExhaustiveReviewRepairPhase (higher is better)
+        - RAG Context Effectiveness: DependencyReconciliationPhase (higher is better)
+        - Code Smell Detection: SeniorReviewPhase (higher is better)
+
+        Args:
+            model_name: Model to evaluate
+            phase_name: Phase being evaluated
+            weights: Custom weights for different metrics. Default:
+                {
+                    "success_rate": 0.25,
+                    "quality_score": 0.20,
+                    "response_time": -0.10,  # Negative = lower is better
+                    "hallucination_ratio": -0.15,
+                    "repair_efficiency": 0.15,
+                    "rag_context_effectiveness": 0.15,
+                    "code_smell_detection": 0.10,
+                }
+
+        Returns:
+            Weighted performance score (0-10)
+        """
+        if weights is None:
+            weights = {
+                "success_rate": 0.25,
+                "quality_score": 0.20,
+                "response_time": -0.10,  # Negative = prefer faster
+                "hallucination_ratio": -0.15,  # Negative = prefer lower hallucination
+                "repair_efficiency": 0.15,
+                "rag_context_effectiveness": 0.15,
+                "code_smell_detection": 0.10,
+            }
+
+        # Get relevant results for this model and phase
+        relevant = [r for r in self.results if r.model_name == model_name and r.phase_name == phase_name]
+
+        if not relevant:
+            return 0.0
+
+        # Calculate average metrics
+        avg_success = mean(r.success_rate for r in relevant)
+        avg_quality = mean(r.quality_score for r in relevant) / 10.0  # Normalize to 0-1
+        avg_time = mean(r.avg_time_ms for r in relevant)
+        max_time = max((r.avg_time_ms for r in relevant), default=1000)
+        time_efficiency = 1.0 - min(avg_time / max_time, 1.0)  # Normalize: faster = higher
+
+        avg_hallucination = mean(r.hallucination_ratio for r in relevant)
+        avg_repair_efficiency = mean(r.repair_efficiency for r in relevant)
+        avg_rag_effectiveness = mean(r.rag_context_effectiveness for r in relevant)
+        avg_code_smell_detection = mean(r.code_smell_detection_rate for r in relevant)
+
+        # Calculate weighted score
+        score = 0.0
+        score += weights.get("success_rate", 0.0) * avg_success * 10
+        score += weights.get("quality_score", 0.0) * avg_quality * 10
+        score += weights.get("response_time", 0.0) * time_efficiency * 10
+        score += weights.get("hallucination_ratio", 0.0) * (1.0 - avg_hallucination) * 10
+        score += weights.get("repair_efficiency", 0.0) * avg_repair_efficiency * 10
+        score += weights.get("rag_context_effectiveness", 0.0) * avg_rag_effectiveness * 10
+        score += weights.get("code_smell_detection", 0.0) * avg_code_smell_detection * 10
+
+        # Normalize to 0-10 range
+        return max(0.0, min(score, 10.0))
+
+    def weighted_phase_loss(
+        self,
+        model_name: str,
+        phase_results: Dict[str, float],
+        phase_weights: Optional[Dict[str, float]] = None,
+    ) -> float:
+        """Compute weighted loss where critical phases carry higher penalty.
+
+        Final Review / Senior Review errors are weighted much higher than
+        Readme Generation errors, since their impact on software quality
+        is far greater.
+
+        Args:
+            model_name: Model being evaluated.
+            phase_results: Dict mapping phase_name -> score (0-1).
+            phase_weights: Custom weights per phase. Default:
+                SeniorReviewPhase: 3.0, LogicPlanningPhase: 2.0,
+                FileContentGenerationPhase: 1.5, ReadmeGenerationPhase: 0.5, etc.
+
+        Returns:
+            Weighted loss (0.0 = perfect, higher = worse). Lower is better.
+        """
+        if phase_weights is None:
+            phase_weights = {
+                "SeniorReviewPhase": 3.0,
+                "ExhaustiveReviewRepairPhase": 2.5,
+                "LogicPlanningPhase": 2.0,
+                "FileContentGenerationPhase": 1.5,
+                "StructurePreReviewPhase": 1.5,
+                "StructureGenerationPhase": 1.0,
+                "TestGenerationExecutionPhase": 1.0,
+                "ReadmeGenerationPhase": 0.5,
+                "DocumentationDeployPhase": 0.5,
+            }
+
+        total_weight = 0.0
+        weighted_loss = 0.0
+
+        for phase_name, score in phase_results.items():
+            weight = phase_weights.get(phase_name, 1.0)
+            total_weight += weight
+            weighted_loss += weight * (1.0 - max(0.0, min(score, 1.0)))
+
+        if total_weight == 0:
+            return 0.0
+
+        return weighted_loss / total_weight
+
+
+@dataclass
+class AffinityEntry:
+    """Single entry in the phase-model affinity matrix."""
+
+    phase_name: str
+    model_name: str
+    affinity_score: float  # 0-10
+    sample_count: int = 0
+    last_updated: Optional[str] = None
+
+
+class AffinityMatrix:
+    """Phase-Model affinity matrix built from benchmark data.
+
+    Maps (phase, model) pairs to affinity scores derived from
+    evaluate_model_performance() results.
+    """
+
+    def __init__(self, benchmark_db: BenchmarkDatabase, logger: AgentLogger):
+        self.benchmark_db = benchmark_db
+        self.logger = logger
+        self._matrix: Dict[str, Dict[str, AffinityEntry]] = {}
+
+    def build(self, phases: Optional[List[str]] = None, models: Optional[List[str]] = None) -> None:
+        """Build affinity matrix from benchmark data for all phase-model pairs.
+
+        Args:
+            phases: List of phase names. If None, discovered from benchmark data.
+            models: List of model names. If None, discovered from benchmark data.
+        """
+        if phases is None:
+            phases = list(set(r.phase_name for r in self.benchmark_db.results if r.phase_name))
+        if models is None:
+            models = list(set(r.model_name for r in self.benchmark_db.results))
+
+        for phase in phases:
+            self._matrix[phase] = {}
+            for model in models:
+                score = self.benchmark_db.evaluate_model_performance(model, phase)
+                sample_results = [
+                    r for r in self.benchmark_db.results if r.model_name == model and r.phase_name == phase
+                ]
+                self._matrix[phase][model] = AffinityEntry(
+                    phase_name=phase,
+                    model_name=model,
+                    affinity_score=score,
+                    sample_count=len(sample_results),
+                )
+
+        self.logger.info(f"Affinity matrix built: {len(phases)} phases x {len(models)} models")
+
+    def get_best_model_for_phase(self, phase: str) -> Optional[str]:
+        """Return model with highest affinity for a phase."""
+        phase_entries = self._matrix.get(phase, {})
+        if not phase_entries:
+            return None
+
+        best_entry = max(phase_entries.values(), key=lambda e: e.affinity_score)
+        if best_entry.affinity_score <= 0:
+            return None
+        return best_entry.model_name
+
+    def get_affinity(self, phase: str, model: str) -> float:
+        """Get affinity score for a specific phase-model pair."""
+        phase_entries = self._matrix.get(phase, {})
+        entry = phase_entries.get(model)
+        return entry.affinity_score if entry else 0.0
+
+    def to_dict(self) -> Dict[str, Dict[str, float]]:
+        """Serialize matrix for API/JSON output."""
+        result: Dict[str, Dict[str, float]] = {}
+        for phase, models in self._matrix.items():
+            result[phase] = {model: round(entry.affinity_score, 2) for model, entry in models.items()}
+        return result
+
+    def get_pipeline_recommendation(self) -> Dict[str, Dict[str, Any]]:
+        """Get recommended model for each phase with scores."""
+        pipeline: Dict[str, Dict[str, Any]] = {}
+        for phase in self._matrix:
+            best_model = self.get_best_model_for_phase(phase)
+            if best_model:
+                pipeline[phase] = {
+                    "model": best_model,
+                    "affinity": round(self.get_affinity(phase, best_model), 2),
+                }
+        return pipeline
+
+
+class CostEfficiencyCalculator:
+    """Calculates cost-efficiency ratios factoring in model size and speed.
+
+    Formula: efficiency = quality_score / (normalized_time * size_factor)
+    If a small model achieves 8/10 quality and is 10x faster,
+    it will have a much higher efficiency ratio.
+    """
+
+    SIZE_FACTORS = {
+        "small": 0.5,
+        "medium": 1.0,
+        "large": 2.0,
+        "xlarge": 4.0,
+    }
+
+    # Size tier thresholds in GB (matching ModelBenchmarker.SIZE_TIERS)
+    SIZE_THRESHOLDS = [
+        (10, "small"),
+        (30, "medium"),
+        (70, "large"),
+        (float("inf"), "xlarge"),
+    ]
+
+    def __init__(self, model_sizes: Dict[str, int], logger: AgentLogger):
+        """
+        Args:
+            model_sizes: Dict mapping model_name -> size_bytes
+            logger: Logger instance
+        """
+        self.model_sizes = model_sizes
+        self.logger = logger
+
+    def _get_size_tier(self, model_name: str) -> str:
+        """Determine size tier from model bytes."""
+        gb = self.model_sizes.get(model_name, 0) / 1_073_741_824
+        for max_gb, tier in self.SIZE_THRESHOLDS:
+            if gb < max_gb:
+                return tier
+        return "xlarge"
+
+    def compute_efficiency(
+        self,
+        model_name: str,
+        quality_score: float,
+        avg_time_ms: float,
+        max_time_ms: float,
+    ) -> float:
+        """Compute cost-efficiency ratio.
+
+        Higher = better value for the quality/speed/size tradeoff.
+
+        Args:
+            model_name: Model to evaluate.
+            quality_score: Quality score (0-10).
+            avg_time_ms: Average response time in milliseconds.
+            max_time_ms: Maximum response time across all models (for normalization).
+
+        Returns:
+            Cost-efficiency ratio (higher is better).
+        """
+        size_factor = self.SIZE_FACTORS.get(self._get_size_tier(model_name), 1.0)
+        normalized_time = avg_time_ms / max(max_time_ms, 1.0)
+        denominator = max(normalized_time * size_factor, 0.01)
+        return quality_score / denominator
+
+    def rank_models_by_efficiency(self, benchmark_db: BenchmarkDatabase, task_type: str) -> List[Tuple[str, float]]:
+        """Rank all models by cost-efficiency for a task type.
+
+        Args:
+            benchmark_db: Benchmark database with results.
+            task_type: Task type to rank for.
+
+        Returns:
+            List of (model_name, efficiency_score) tuples, sorted descending.
+        """
+        relevant = [r for r in benchmark_db.results if r.task_type == task_type]
+        if not relevant:
+            return []
+
+        # Find max time for normalization
+        max_time = max(r.avg_time_ms for r in relevant)
+
+        # Group by model and compute average metrics
+        model_metrics: Dict[str, Dict[str, List[float]]] = {}
+        for r in relevant:
+            if r.model_name not in model_metrics:
+                model_metrics[r.model_name] = {"quality": [], "time": []}
+            model_metrics[r.model_name]["quality"].append(r.quality_score)
+            model_metrics[r.model_name]["time"].append(r.avg_time_ms)
+
+        rankings = []
+        for model_name, metrics in model_metrics.items():
+            avg_quality = mean(metrics["quality"])
+            avg_time = mean(metrics["time"])
+            efficiency = self.compute_efficiency(model_name, avg_quality, avg_time, max_time)
+            rankings.append((model_name, round(efficiency, 4)))
+
+        return sorted(rankings, key=lambda x: x[1], reverse=True)
+
+
+class AutoModelSelector:
+    """Automatically selects model assignments based on benchmark data."""
+
+    # Task type to model role mapping
+    TASK_TO_ROLE = {
+        "refinement": "coder",
+        "coder": "coder",
+        "planner": "planner",
+        "prototyper": "prototyper",
+        "generalist": "generalist",
+        "suggester": "suggester",
+        "improvement_planner": "improvement_planner",
+        "test_generator": "test_generator",
+        "senior_reviewer": "senior_reviewer",
+        "orchestration": "orchestration",
+        "self_correction": "self_correction",
+    }
+
+    # Fallback models for critical phases (rescue models)
+    RESCUE_MODELS = {
+        "senior_reviewer": ["gpt-oss:70b", "api:gpt-4", "api:claude-3"],
+        "coder": ["gpt-oss:70b", "qwen3-coder-max", "api:gpt-4"],
+        "planner": ["gpt-oss:70b", "api:claude-3"],
+        "prototyper": ["gpt-oss:70b", "api:gpt-4"],
+    }
+
+    def __init__(
+        self,
+        benchmark_dir: Path,
+        logger: AgentLogger,
+        confidence_threshold: float = 0.7,
+        model_sizes: Optional[Dict[str, int]] = None,
+        phase_failure_db: Optional[Any] = None,
+    ):
+        self.logger = logger
+        self.benchmark_db = BenchmarkDatabase(benchmark_dir, logger)
+        self.confidence_threshold = confidence_threshold
+        self.model_sizes = model_sizes or {}
+        self.phase_failure_db = phase_failure_db
+
+    def get_rescue_model(self, role: str, failed_model: str) -> Optional[str]:
+        """
+        NEW: Get a rescue model for a failed role.
+
+        If a model fails in a critical phase (senior_reviewer, coder, planner),
+        activate a higher-capacity rescue model.
+
+        Args:
+            role: The role that failed (e.g., "senior_reviewer")
+            failed_model: The model that failed
+
+        Returns:
+            Rescue model name or None if no rescue available
+        """
+        rescue_candidates = self.RESCUE_MODELS.get(role, [])
+
+        if not rescue_candidates:
+            return None
+
+        # Filter out the failed model itself
+        available = [m for m in rescue_candidates if m != failed_model]
+
+        if available:
+            self.logger.warning(
+                f"🚨 RESCUE ACTIVATION: {failed_model} failed for {role}. Activating rescue model: {available[0]}"
+            )
+            return available[0]
+
+        return None
+
+    def evaluate_phase_criticality(self, phase_name: str) -> float:
+        """
+        NEW: Evaluate the criticality level of a phase (0.0-1.0).
+
+        Critical phases (senior_reviewer, logic planning) warrant rescue models
+        if the primary model fails.
+
+        Args:
+            phase_name: Name of the phase
+
+        Returns:
+            Criticality score (0.0 = low, 1.0 = critical)
+        """
+        critical_phases = {
+            "SeniorReviewPhase": 1.0,
+            "LogicPlanningPhase": 0.9,
+            "ExhaustiveReviewRepairPhase": 0.8,
+            "FileContentGenerationPhase": 0.7,
+            "StructurePreReviewPhase": 0.8,
+        }
+
+        return critical_phases.get(phase_name, 0.5)
+
+    def generate_optimized_config(
+        self,
+        base_config: Optional[Dict] = None,
+    ) -> Dict:
+        """Generate optimized model configuration based on benchmarks.
+
+        NEW: Integrates weighted metrics and includes rescue model assignments.
+
+        Args:
+            base_config: Base configuration. If None, use backend centralized config.
+
+        Returns:
+            Updated config with optimized model assignments and rescue models
+        """
+        if base_config is None:
+            from backend.core.config import config as backend_config
+
+            base_config = {
+                **(backend_config.TOOL_SETTINGS or {}),
+                **(backend_config.LLM_MODELS or {}),
+                **(backend_config.AGENT_FEATURES or {}),
+            }
+
+        optimized = base_config.copy()
+        models_section = optimized.get("models", {})
+        rescue_models_section = {}
+
+        self.logger.info("🧪 Optimizing model assignments based on benchmarks...")
+
+        for task_type, role in self.TASK_TO_ROLE.items():
+            best_model = self.benchmark_db.get_best_model(
+                task_type=task_type,
+                metric="success_rate",
+            )
+
+            if best_model:
+                # Get statistics to ensure confidence
+                stats = self.benchmark_db.get_stats_for_model(best_model.model_name, task_type)
+                if stats and stats["avg_success_rate"] >= self.confidence_threshold:
+                    old_model = models_section.get(role, "unknown")
+                    models_section[role] = best_model.model_name
+
+                    success_pct = stats["avg_success_rate"] * 100
+                    self.logger.info(
+                        f"  📊 {role}: {old_model} → {best_model.model_name} ({success_pct:.1f}% success rate)"
+                    )
+
+                    # Assign rescue model if this is a critical role
+                    rescue = self.get_rescue_model(role, best_model.model_name)
+                    if rescue:
+                        rescue_models_section[role] = rescue
+                        self.logger.info(f"  🚨 {role} rescue model: {rescue}")
+
+        optimized["models"] = models_section
+        if rescue_models_section:
+            optimized["rescue_models"] = rescue_models_section
+
+        # Build affinity matrix from benchmark data
+        all_phases = list(set(r.phase_name for r in self.benchmark_db.results if r.phase_name))
+        all_models = list(set(r.model_name for r in self.benchmark_db.results))
+        if all_phases and all_models:
+            affinity = AffinityMatrix(self.benchmark_db, self.logger)
+            affinity.build(all_phases, all_models)
+            optimized["affinity_matrix"] = affinity.to_dict()
+            optimized["pipeline_recommendation"] = affinity.get_pipeline_recommendation()
+
+        # Cost-efficiency analysis
+        if self.model_sizes:
+            efficiency_calc = CostEfficiencyCalculator(self.model_sizes, self.logger)
+            efficiency_rankings: Dict[str, List[Tuple[str, float]]] = {}
+            task_types = set(r.task_type for r in self.benchmark_db.results)
+            for tt in task_types:
+                rankings = efficiency_calc.rank_models_by_efficiency(self.benchmark_db, tt)
+                if rankings:
+                    efficiency_rankings[tt] = rankings
+            if efficiency_rankings:
+                optimized["cost_efficiency_rankings"] = {
+                    tt: [{"model": m, "efficiency": e} for m, e in ranks] for tt, ranks in efficiency_rankings.items()
+                }
+
+        # Filter out unsuitable models using phase failure database
+        if self.phase_failure_db:
+            unsuitable_report: Dict[str, List[str]] = {}
+            for phase in all_phases:
+                unsuitable = self.phase_failure_db.get_unsuitable_models(phase)
+                if unsuitable:
+                    unsuitable_report[phase] = unsuitable
+            if unsuitable_report:
+                optimized["unsuitable_models"] = unsuitable_report
+
+        optimized["benchmark_optimized"] = True
+        optimized["optimization_timestamp"] = __import__("datetime").datetime.now().isoformat()
+
+        return optimized
+
+    def suggest_model_improvements(self) -> List[Dict]:
+        """Suggest model improvements based on benchmark data.
+
+        Returns:
+            List of improvement suggestions
+        """
+        suggestions = []
+
+        for task_type, role in self.TASK_TO_ROLE.items():
+            ranking = self.benchmark_db.get_model_rank(task_type)
+
+            if len(ranking) >= 2:
+                best, best_score = ranking[0]
+                second, second_score = ranking[1] if len(ranking) > 1 else (None, 0)
+
+                improvement_margin = (best_score - second_score) * 100 if second else 0
+
+                if improvement_margin > 10:  # >10% improvement
+                    suggestions.append(
+                        {
+                            "role": role,
+                            "current_recommendation": best,
+                            "alternative": second,
+                            "improvement_percent": improvement_margin,
+                            "confidence": best_score,
+                        }
+                    )
+
+        return suggestions
+
+    def save_optimized_config(
+        self,
+        optimized_config: Dict,
+        output_path: Path,
+    ):
+        """Save optimized configuration to file."""
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            json.dump(optimized_config, f, indent=2)
+        self.logger.info(f"✅ Saved optimized config to {output_path}")
+
+
+def integrate_benchmark_results(
+    benchmark_dir: Path,
+    logger: AgentLogger,
+    dry_run: bool = True,
+    base_config: Optional[Dict] = None,
+) -> Dict:
+    """High-level function to integrate benchmark results into configuration.
+
+    Args:
+        benchmark_dir: Directory containing benchmark results
+        logger: Logger instance
+        dry_run: If True, don't save; just return optimized config
+        base_config: Base configuration to optimize. If None, use centralized backend config.
+
+    Returns:
+        Optimized configuration
+    """
+    # Generate optimized config
+    selector = AutoModelSelector(benchmark_dir, logger)
+    optimized_config = selector.generate_optimized_config(base_config)
+
+    # Log suggestions
+    suggestions = selector.suggest_model_improvements()
+    if suggestions:
+        logger.info(f"💡 {len(suggestions)} improvement suggestions available:")
+        for sugg in suggestions:
+            logger.info(
+                f"    - {sugg['role']}: {sugg['current_recommendation']} "
+                f"(+{sugg['improvement_percent']:.1f}% vs {sugg['alternative']})"
+            )
+
+    # Save if not dry run
+    if not dry_run:
+        from backend.core.config import config as backend_config
+
+        output_path = backend_config.CONFIG_DIR / "llm_models_optimized.json"
+        selector.save_optimized_config(
+            optimized_config,
+            output_path,
+        )
+
+    return optimized_config

@@ -1,0 +1,32 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/prompts.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/prompts.js') }}"></script>
+{% endblock %}
+
+            <!-- Prompt Studio View -->
+            <div class="view" id="prompts-view">
+                <div class="view-header">
+                    <h1>Prompt Engineering Studio</h1>
+                    <p class="subtitle">Edit system prompts with version control and instant hot-reload</p>
+                </div>
+                <div class="prompt-studio-container">
+                    <div class="prompt-sidebar">
+                        <h3>Agent Roles</h3>
+                        <div id="prompt-role-list" class="role-list"></div>
+                        <h3 style="margin-top: var(--spacing-lg)">Version History</h3>
+                        <div id="prompt-version-list" class="version-list">
+                            <p class="placeholder">Select a role to see history</p>
+                        </div>
+                    </div>
+                    <div class="prompt-editor-area">
+                        <div id="prompt-monaco-container" style="width: 100%; height: 500px; border-radius: var(--border-radius-sm);"></div>
+                        <div class="form-actions">
+                            <button id="migrate-prompts-btn" class="btn-secondary">Migrate JSONs</button>
+                            <button id="save-prompt-btn" class="btn-primary">Save & Activate</button>
+                        </div>
+                    </div>
+                </div>
+            </div>

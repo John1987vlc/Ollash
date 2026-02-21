@@ -150,7 +150,7 @@ Return ONLY a valid JSON object where keys are file paths.
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": category_context},
                 ],
-                tools=[], # F30: Fixed missing tools parameter
+                tools=[],  # F30: Fixed missing tools parameter
                 options_override={"temperature": 0.5},
             )
 

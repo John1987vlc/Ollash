@@ -1,0 +1,22 @@
+/* ==================== Tuning View ==================== */
+.tuning-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-lg);
+}
+.tuning-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+}
+.slider-modern {
+    width: 100%;
+    margin: var(--spacing-md) 0;
+}
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--color-text-subtle);
+}

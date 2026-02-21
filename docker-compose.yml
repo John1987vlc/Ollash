@@ -18,7 +18,9 @@ services:
       start_period: 15s
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: ollash_app
     depends_on:
       ollama:
@@ -29,13 +31,14 @@ services:
       - .:/app
       - ./logs:/app/logs
       - ./generated_projects:/app/generated_projects
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - FLASK_ENV=development
     env_file:
       - .env
-    # The default command is now `python run_web.py` from the Dockerfile.
-    # To run the CLI agent, use:
-    # docker-compose run --rm app python run_agent.py --chat
     stdin_open: true
     tty: true
+    restart: unless-stopped
 
 volumes:
   ollama_data:

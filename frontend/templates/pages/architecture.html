@@ -1,0 +1,35 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/architecture.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/knowledge-graph.js') }}"></script>
+{% endblock %}
+
+            <!-- Architecture View (Knowledge Graph) -->
+            <div class="view" id="architecture-view">
+                <div class="view-header">
+                    <h1>System Architecture</h1>
+                    <p class="subtitle">Interactive visualization of project components and dependencies</p>
+                </div>
+                <div class="architecture-container">
+                    <div class="architecture-toolbar">
+                        <div class="search-box">
+                            <input type="text" id="kg-search-input" placeholder="Search components...">
+                            <div id="kg-search-results" class="search-results"></div>
+                        </div>
+                        <button class="btn-secondary" id="kg-reset-btn">Reset View</button>
+                        <button class="btn-primary" id="kg-refresh-btn">Refresh Graph</button>
+                    </div>
+                    <div id="knowledge-graph-container"></div>
+                    <div id="kg-node-details" class="node-details-panel">
+                        <div class="panel-header">
+                            <h4 id="kg-details-title">Component Details</h4>
+                            <button class="close-panel">&times;</button>
+                        </div>
+                        <div id="kg-details-content" class="panel-body">
+                            <p class="placeholder">Select a node to view its relationships and metadata.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>

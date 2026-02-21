@@ -1,0 +1,55 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/costs.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/cost-dashboard.js') }}"></script>
+{% endblock %}
+
+            <!-- Costs View -->
+            <div class="view" id="costs-view">
+                <div class="view-header">
+                    <h1>Costs & Usage</h1>
+                    <p class="subtitle">Real-time tracking of token consumption and estimated spend</p>
+                </div>
+                
+                <div class="costs-dashboard">
+                    <div class="costs-summary-grid">
+                        <div class="cost-card">
+                            <div class="cost-card-label">Total Estimated Cost</div>
+                            <div class="cost-card-value" id="total-cost-val">$0.00</div>
+                            <div class="cost-card-trend" id="cost-trend">0% vs last period</div>
+                        </div>
+                        <div class="cost-card">
+                            <div class="cost-card-label">Total Tokens</div>
+                            <div class="cost-card-value" id="total-tokens-val">0</div>
+                            <div class="cost-card-sub" id="tokens-split">Prompt: 0 | Comp: 0</div>
+                        </div>
+                        <div class="cost-card">
+                            <div class="cost-card-label">Avg. Efficiency</div>
+                            <div class="cost-card-value" id="avg-efficiency-val">0%</div>
+                            <div class="cost-card-progress">
+                                <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="costs-charts-grid">
+                        <div class="chart-container-large">
+                            <h3>Cost Distribution by Agent</h3>
+                            <canvas id="cost-agent-chart"></canvas>
+                        </div>
+                        <div class="chart-container-large">
+                            <h3>Daily Token Usage</h3>
+                            <canvas id="token-history-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="costs-breakdown-section">
+                        <h3>Optimization Suggestions</h3>
+                        <div id="cost-suggestions-list" class="suggestions-grid">
+                            <!-- Suggestions will be injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>

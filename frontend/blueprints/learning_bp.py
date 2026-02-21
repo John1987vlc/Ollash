@@ -18,8 +18,8 @@ from typing import Tuple
 
 from flask import Blueprint, jsonify, request
 
-from backend.utils.core.behavior_tuner import BehaviorTuner, TuningParameter
-from backend.utils.core.pattern_analyzer import PatternAnalyzer, SentimentType
+from backend.utils.core.memory.behavior_tuner import BehaviorTuner, TuningParameter
+from backend.utils.core.analysis.pattern_analyzer import PatternAnalyzer, SentimentType
 from backend.utils.core.preference_manager_extended import (
     CommunicationStyle,
     ComplexityLevel,

@@ -52,7 +52,31 @@ agent.log
 *.bak
 benchmark_results_*.json
 generated_projects/
+generated_images/
 flask_venv/
 sandbox/
 .claude/
+
+# Local State and Agent Data
+.ollash/
+knowledge_workspace/
+.cache/
+.quarantine/
+.lint_temp/
+.ruff_cache/
+
+# Metrics and Reports
+metrics/
+reports/
+
+# Temporary Test Dirs
+temp_chess_test/
+test_root/
+test_root_*/
+test_results_*.txt
+all_tests_results.txt
+test_rag_results.txt
+test_results_final.txt
+test_results.txt
+test_summary.txt
 

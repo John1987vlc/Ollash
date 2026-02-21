@@ -4,7 +4,7 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
-from backend.utils.core.metrics_database import get_metrics_database
+from backend.utils.core.system.metrics_database import get_metrics_database
 from frontend.middleware import require_api_key
 
 logger = logging.getLogger(__name__)

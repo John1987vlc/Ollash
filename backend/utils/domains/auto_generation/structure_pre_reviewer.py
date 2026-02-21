@@ -9,9 +9,9 @@ import json
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.llm_response_parser import LLMResponseParser
-from backend.utils.core.ollama_client import OllamaClient
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+from backend.utils.core.llm.ollama_client import OllamaClient
 
 
 @dataclass

@@ -6,9 +6,9 @@ from typing import Dict, Optional
 
 from backend.core.config_schemas import LLMModelsConfig, ToolSettingsConfig
 from backend.interfaces.imodel_provider import IModelProvider
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.llm_recorder import LLMRecorder
-from backend.utils.core.ollama_client import OllamaClient
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.llm.llm_recorder import LLMRecorder
+from backend.utils.core.llm.ollama_client import OllamaClient
 
 
 class LLMClientManager(IModelProvider):

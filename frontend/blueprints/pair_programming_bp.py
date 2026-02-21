@@ -27,7 +27,7 @@ def create_session():
         return jsonify({"error": "Event publisher not available"}), 503
 
     try:
-        from backend.utils.core.pair_programming_session import PairProgrammingSession
+        from backend.utils.core.feedback.pair_programming_session import PairProgrammingSession
         from backend.core.containers import main_container
 
         import uuid

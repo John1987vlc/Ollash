@@ -1,0 +1,81 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/automations.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/automations.js') }}"></script>
+{% endblock %}
+
+            <!-- Automations View -->
+            <div class="view" id="automations-view">
+                <div class="view-header">
+                    <h1>Task Automations</h1>
+                    <p class="subtitle">Schedule and manage automated monitoring tasks</p>
+                    <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+                        <button class="btn-primary btn-small" id="new-automation-btn">
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            New Task
+                        </button>
+                        <button class="btn-secondary btn-small" id="visual-builder-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                            </svg>
+                            Visual Builder
+                        </button>
+                        <button class="btn-secondary btn-small" id="automation-config-btn">
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 6V14M6 10H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Config Alert
+                        </button>
+                    </div>
+                </div>
+
+                <div class="automations-grid" id="automations-grid">
+                    <div style="grid-column: 1/-1; text-align: center; padding: var(--spacing-xl); color: var(--color-text-muted);">
+                        <p>No automations yet. Create one to get started!</p>
+                    </div>
+                </div>
+
+                <!-- Visual Builder Container -->
+                <div id="visual-builder-container" style="display: none;">
+                    <div class="vb-header">
+                        <h3><span class="vb-step">1</span> Trigger</h3>
+                        <div class="vb-connector"></div>
+                        <h3><span class="vb-step">2</span> Action</h3>
+                    </div>
+                    <div class="vb-canvas">
+                        <div class="vb-card" id="vb-trigger-card">
+                            <h4>Select Trigger</h4>
+                            <select id="vb-trigger-select" class="form-control">
+                                <option value="">Choose Event...</option>
+                                <option value="test_failure">Test Failure</option>
+                                <option value="high_vulnerability">High Vulnerability Found</option>
+                                <option value="code_committed">Code Committed</option>
+                                <option value="schedule">Schedule (Cron)</option>
+                            </select>
+                        </div>
+                        <div class="vb-arrow">➜</div>
+                        <div class="vb-card" id="vb-action-card">
+                            <h4>Select Action</h4>
+                            <select id="vb-action-select" class="form-control">
+                                <option value="">Choose Action...</option>
+                                <option value="run_agent">Run Agent Task</option>
+                                <option value="notify_webhook">Notify Webhook</option>
+                                <option value="cicd_heal">Attempt Auto-Heal</option>
+                                <option value="pause_pipeline">Pause Pipeline</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="vb-config-panel" id="vb-config-panel" style="display:none;">
+                        <!-- Dynamic config fields will be injected here -->
+                    </div>
+                    <div class="vb-actions">
+                        <button class="btn-secondary" id="vb-cancel-btn">Cancel</button>
+                        <button class="btn-primary" id="vb-save-btn">Save Automation</button>
+                    </div>
+                </div>
+            </div>

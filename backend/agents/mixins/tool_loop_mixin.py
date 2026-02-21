@@ -39,12 +39,14 @@ class ToolLoopMixin(ABC):
             if self._consecutive_planning_count > 3:
                 self.logger.warning(f"⚠️ High repetition of {tool_name} detected. Forcing action phase.")
                 # We return a fake error to the agent to force it to stop planning and start doing
-                tool_outputs.append({
-                    "tool_call_id": tool_call.get("id"),
-                    "output": "Error: You have already planned multiple times. Do not plan again. Proceed IMMEDIATELY to implementation using write_file.",
-                    "ok": False,
-                    "tool_name": tool_name
-                })
+                tool_outputs.append(
+                    {
+                        "tool_call_id": tool_call.get("id"),
+                        "output": "Error: You have already planned multiple times. Do not plan again. Proceed IMMEDIATELY to implementation using write_file.",
+                        "ok": False,
+                        "tool_name": tool_name,
+                    }
+                )
                 self._consecutive_planning_count = 0
                 break
 
@@ -120,7 +122,7 @@ class ToolLoopMixin(ABC):
                     "tool_call_id": tool_call_id,
                     "output": tool_execution_output,
                     "ok": True,
-                    "tool_name": tool_name
+                    "tool_name": tool_name,
                 }
                 tool_outputs.append(result_output)
                 self.event_publisher.publish(
@@ -132,6 +134,7 @@ class ToolLoopMixin(ABC):
                 # F18: Detailed error for backend diagnostics
                 error_message = f"Error executing tool '{tool_name}': {str(e)}"
                 import traceback
+
                 self.logger.error(f"❌ {error_message}")
                 self.logger.error(f"Traceback: {traceback.format_exc()}")
 
@@ -141,7 +144,7 @@ class ToolLoopMixin(ABC):
                     "tool_call_id": tool_call_id,
                     "output": f"Error: {friendly_error}",
                     "ok": False,
-                    "tool_name": tool_name
+                    "tool_name": tool_name,
                 }
                 tool_outputs.append(result_output)
 

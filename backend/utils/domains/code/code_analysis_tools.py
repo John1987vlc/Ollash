@@ -2,9 +2,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from backend.utils.core.code_analyzer import CodeAnalyzer
+from backend.utils.core.analysis.code_analyzer import CodeAnalyzer
 from backend.utils.core.command_executor import CommandExecutor
-from backend.utils.core.tool_decorator import ollash_tool
+from backend.utils.core.tools.tool_decorator import ollash_tool
 
 
 class CodeAnalysisTools:

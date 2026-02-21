@@ -10,15 +10,15 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_file
 
-from backend.utils.core.activity_report_generator import get_activity_report_generator
+from backend.utils.core.feedback.activity_report_generator import get_activity_report_generator
 
 # Import Phase 6 components
-from backend.utils.core.adaptive_notification_ui import get_adaptive_notification_ui
-from backend.utils.core.advanced_trigger_manager import LogicOperator, get_advanced_trigger_manager
-from backend.utils.core.feedback_cycle_manager import FeedbackType, get_feedback_cycle_manager
-from backend.utils.core.memory_of_decisions import DecisionDomain, MemoryOfDecisions
-from backend.utils.core.voice_command_processor import get_voice_command_processor
-from backend.utils.core.webhook_manager import MessagePriority, WebhookType, get_webhook_manager
+from backend.utils.core.feedback.adaptive_notification_ui import get_adaptive_notification_ui
+from backend.utils.core.system.advanced_trigger_manager import LogicOperator, get_advanced_trigger_manager
+from backend.utils.core.feedback.feedback_cycle_manager import FeedbackType, get_feedback_cycle_manager
+from backend.utils.core.memory.memory_of_decisions import DecisionDomain, MemoryOfDecisions
+from backend.utils.core.io.voice_command_processor import get_voice_command_processor
+from backend.utils.core.system.webhook_manager import MessagePriority, WebhookType, get_webhook_manager
 
 # Create blueprint
 phase6_bp = Blueprint("phase6_api", __name__, url_prefix="/api/v1")
@@ -495,7 +495,7 @@ def register_trigger():
     except ValueError:
         operator = LogicOperator.AND
 
-    from backend.utils.core.advanced_trigger_manager import CompositeTriggerCondition
+    from backend.utils.core.system.advanced_trigger_manager import CompositeTriggerCondition
 
     condition = CompositeTriggerCondition(
         id=f"cond_{data.get('id', 'default')}",

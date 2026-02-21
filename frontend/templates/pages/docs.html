@@ -1,0 +1,26 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/docs.css') }}">
+{% endblock %}
+
+            <!-- Documentation View -->
+            <div class="view" id="docs-view">
+                <div class="docs-layout">
+                    <aside class="docs-sidebar">
+                        <div class="docs-sidebar-header">
+                            <h3>Index</h3>
+                        </div>
+                        <nav class="docs-nav" id="docs-nav">
+                            <button class="docs-nav-item active" data-doc="getting-started">Getting Started</button>
+                            <button class="docs-nav-item" data-doc="multi-agent-flow">Multi-Agent Flow</button>
+                            <button class="docs-nav-item" data-doc="git-integration">Git Integration</button>
+                            <button class="docs-nav-item" data-doc="quarantine-mode">Quarantine & Security</button>
+                            <button class="docs-nav-item" data-doc="api-reference">API Reference</button>
+                        </nav>
+                    </aside>
+                    <div class="docs-main">
+                        <div id="docs-content" class="markdown-body">
+                            <!-- Markdown content will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+            </div>

@@ -71,6 +71,7 @@ class ChatSessionManager:
 
         def _run():
             import asyncio
+
             try:
                 # F16: agent.chat is async, must be run in an event loop
                 loop = asyncio.new_event_loop()
@@ -78,10 +79,9 @@ class ChatSessionManager:
                 result = loop.run_until_complete(session.agent.chat(message))
 
                 if isinstance(result, dict):
-                    session.bridge.push_event("final_answer", {
-                        "content": result.get("text", ""),
-                        "metrics": result.get("metrics", {})
-                    })
+                    session.bridge.push_event(
+                        "final_answer", {"content": result.get("text", ""), "metrics": result.get("metrics", {})}
+                    )
                 else:
                     session.bridge.push_event("final_answer", {"content": str(result)})
             except Exception as e:

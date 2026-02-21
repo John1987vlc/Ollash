@@ -2,11 +2,11 @@ import json
 from pathlib import Path  # Added for Path.suffix
 from typing import Dict
 
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.documentation_manager import DocumentationManager  # ADDED IMPORT
-from backend.utils.core.fragment_cache import FragmentCache  # CACHE SUPPORT
-from backend.utils.core.llm_response_parser import LLMResponseParser
-from backend.utils.core.ollama_client import OllamaClient
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.io.documentation_manager import DocumentationManager  # ADDED IMPORT
+from backend.utils.core.memory.fragment_cache import FragmentCache  # CACHE SUPPORT
+from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+from backend.utils.core.llm.ollama_client import OllamaClient
 
 from .prompt_templates import AutoGenPrompts
 
@@ -84,9 +84,8 @@ class FileContentGenerator:
             )
 
         for attempt in range(max_retries):
-            system_prompt, user_prompt = AutoGenPrompts.file_content_generation(
-                file_path, readme_content, json_structure, related_files
-            )
+            # F30: Fixed incorrect arguments (removed json_structure and related_files which prompt doesn't take)
+            system_prompt, user_prompt = AutoGenPrompts.file_content_generation(file_path, readme_content)
             # Append documentation context to the user prompt
             user_prompt += documentation_context
 

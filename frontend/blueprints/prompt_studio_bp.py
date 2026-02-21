@@ -1,10 +1,10 @@
 from flask import Blueprint, jsonify, request
 from backend.core.containers import main_container
-from backend.utils.core.prompt_repository import PromptRepository
-from pathlib import Path
+from backend.utils.core.llm.prompt_repository import PromptRepository
 
 prompt_studio_bp = Blueprint("prompt_studio", __name__)
 _repo: PromptRepository = None
+
 
 def get_repo():
     global _repo
@@ -14,15 +14,18 @@ def get_repo():
         _repo = PromptRepository(db_path)
     return _repo
 
+
 @prompt_studio_bp.route("/api/prompts/roles", methods=["GET"])
 def get_roles():
     roles = ["orchestrator", "code", "network", "system", "cybersecurity", "planner", "prototyper"]
     return jsonify({"roles": roles})
 
+
 @prompt_studio_bp.route("/api/prompts/<role>/history", methods=["GET"])
 def get_prompt_history(role):
     history = get_repo().get_history(role)
     return jsonify({"history": history})
+
 
 @prompt_studio_bp.route("/api/prompts/<role>", methods=["POST"])
 def save_prompt(role):
@@ -33,10 +36,12 @@ def save_prompt(role):
     prompt_id = get_repo().save_prompt(role, text, is_active=True)
     return jsonify({"status": "success", "id": prompt_id})
 
+
 @prompt_studio_bp.route("/api/prompts/rollback/<int:prompt_id>", methods=["POST"])
 def rollback_prompt(prompt_id):
     get_repo().rollback(prompt_id)
     return jsonify({"status": "success"})
+
 
 @prompt_studio_bp.route("/api/prompts/migrate", methods=["POST"])
 def migrate():

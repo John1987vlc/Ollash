@@ -1,7 +1,7 @@
 from typing import Any, Optional
 
 from backend.utils.core.command_executor import CommandExecutor
-from backend.utils.core.tool_decorator import ollash_tool
+from backend.utils.core.tools.tool_decorator import ollash_tool
 
 
 class CommandLineTools:

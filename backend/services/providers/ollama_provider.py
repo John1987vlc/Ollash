@@ -5,7 +5,7 @@ Wraps the existing OllamaClient to conform to the ILLMProvider interface.
 
 from typing import Any, Dict, List, Optional
 
-from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.system.agent_logger import AgentLogger
 
 
 class OllamaProvider:
@@ -32,7 +32,7 @@ class OllamaProvider:
     def _get_client(self) -> Any:
         """Lazy-initialize the OllamaClient."""
         if self._client is None:
-            from backend.utils.core.ollama_client import OllamaClient
+            from backend.utils.core.llm.ollama_client import OllamaClient
 
             self._client = OllamaClient(
                 url=self.base_url,

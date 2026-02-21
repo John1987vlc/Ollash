@@ -5,9 +5,9 @@ from typing import Any, Dict, List
 
 from colorama import Fore, Style
 
-from backend.utils.core.confirmation_manager import ConfirmationManager
-from backend.utils.core.file_manager import FileManager
-from backend.utils.core.tool_decorator import ollash_tool
+from backend.utils.core.system.confirmation_manager import ConfirmationManager
+from backend.utils.core.io.file_manager import FileManager
+from backend.utils.core.tools.tool_decorator import ollash_tool
 
 
 class FileSystemTools:

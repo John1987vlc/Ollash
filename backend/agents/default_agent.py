@@ -23,23 +23,23 @@ from backend.core.kernel import AgentKernel  # Import AgentKernel
 # Interfaces (for type hinting, if needed for clarity on injected components)
 from backend.interfaces.imodel_provider import IModelProvider
 from backend.interfaces.itool_executor import IToolExecutor
-from backend.utils.core.async_tool_executor import AsyncToolExecutor  # Still used for parallel execution
-from backend.utils.core.code_analyzer import CodeAnalyzer
+from backend.utils.core.tools.async_tool_executor import AsyncToolExecutor  # Still used for parallel execution
+from backend.utils.core.analysis.code_analyzer import CodeAnalyzer
 from backend.utils.core.command_executor import CommandExecutor, SandboxLevel
-from backend.utils.core.confirmation_manager import ConfirmationManager  # New: For confirmation gates
+from backend.utils.core.system.confirmation_manager import ConfirmationManager  # New: For confirmation gates
 
 # Utils from Core
-from backend.utils.core.file_manager import FileManager
-from backend.utils.core.git_manager import GitManager
-from backend.utils.core.llm_recorder import LLMRecorder  # NEW
-from backend.utils.core.loop_detector import LoopDetector
-from backend.utils.core.memory_manager import MemoryManager
-from backend.utils.core.permission_profiles import PolicyEnforcer  # Used for confirmation gates policies
+from backend.utils.core.io.file_manager import FileManager
+from backend.utils.core.io.git_manager import GitManager
+from backend.utils.core.llm.llm_recorder import LLMRecorder  # NEW
+from backend.utils.core.system.loop_detector import LoopDetector
+from backend.utils.core.memory.memory_manager import MemoryManager
+from backend.utils.core.system.permission_profiles import PolicyEnforcer  # Used for confirmation gates policies
 
 # Tool implementations (still needed for ToolRegistry)
-from backend.utils.core.tool_interface import ToolExecutor  # Concrete ToolExecutor
-from backend.utils.core.tool_registry import ToolRegistry
-from backend.utils.core.tool_span_manager import ToolSpanManager  # NEW
+from backend.utils.core.tools.tool_interface import ToolExecutor  # Concrete ToolExecutor
+from backend.utils.core.tools.tool_registry import ToolRegistry
+from backend.utils.core.tools.tool_span_manager import ToolSpanManager  # NEW
 
 # Initialize colorama
 init(autoreset=True)
@@ -319,7 +319,6 @@ RULES:
         correlation_id: Optional[str] = None
         start_turn_time = time.time()
         start_tokens = self.token_tracker.session_total_tokens
-        turn_metrics = {"models_used": []}
 
         try:
             # Start interaction context with a correlation ID
@@ -348,12 +347,8 @@ RULES:
 
             # Override default client for this turn, or use it for routing later
             # For now, let's assume the mixin returns the client directly, which DefaultAgent then uses.
-            self.logger.info(
-                f"🧠 Phase: Intent Classification -> Result: '{intent_for_this_turn}'"
-            )
-            self.logger.info(
-                f"🧠 Routing: Using model {selected_model_client.model} for this turn."
-            )
+            self.logger.info(f"🧠 Phase: Intent Classification -> Result: '{intent_for_this_turn}'")
+            self.logger.info(f"🧠 Routing: Using model {selected_model_client.model} for this turn.")
 
             messages = [
                 {"role": "system", "content": self.system_prompt},
@@ -425,8 +420,8 @@ RULES:
                             "metrics": {
                                 "duration_sec": round(elapsed, 2),
                                 "total_tokens": token_delta,
-                                "iterations": iterations
-                            }
+                                "iterations": iterations,
+                            },
                         }
                         return turn_data
 
@@ -612,8 +607,10 @@ RULES:
                 result = asyncio.run(self.chat(q, auto_confirm=self.auto_confirm))  # Pass auto_confirm to chat
                 if isinstance(result, dict):
                     print(f"\n{result.get('text', '')}\n")
-                    metrics = result.get('metrics', {})
-                    print(f"{Fore.CYAN}[Time: {metrics.get('duration_sec')}s | Tokens: {metrics.get('total_tokens')}]{Style.RESET_ALL}")
+                    metrics = result.get("metrics", {})
+                    print(
+                        f"{Fore.CYAN}[Time: {metrics.get('duration_sec')}s | Tokens: {metrics.get('total_tokens')}]{Style.RESET_ALL}"
+                    )
                 else:
                     print(f"\n{result}\n")
 

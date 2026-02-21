@@ -1,0 +1,29 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/knowledge.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/knowledge.js') }}"></script>
+{% endblock %}
+
+            <!-- Knowledge Base View (RAG) -->
+            <div class="view" id="knowledge-view">
+                <div class="view-header">
+                    <h1>Vector Knowledge Base</h1>
+                    <p class="subtitle">Manage documents indexed in ChromaDB for RAG context</p>
+                </div>
+                <div class="knowledge-container">
+                    <div class="upload-zone" id="kb-upload-zone">
+                        <input type="file" id="kb-file-input" multiple hidden>
+                        <div class="upload-icon">&#x2139;</div>
+                        <p>Drag & drop documents here or <span>browse</span></p>
+                        <small>Supports PDF, MD, TXT (Max 50MB)</small>
+                    </div>
+                    <div class="kb-document-list">
+                        <h3>Indexed Documents</h3>
+                        <div id="kb-doc-grid" class="kb-grid">
+                            <p class="placeholder">Loading knowledge base...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>

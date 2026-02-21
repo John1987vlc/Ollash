@@ -1,5 +1,4 @@
 import json
-import os
 import time
 import threading
 import requests
@@ -9,14 +8,16 @@ from datetime import datetime
 # Use the new centralized config
 from backend.core.config import config as central_config
 
-from backend.utils.core.ollama_client import OllamaClient
-from backend.utils.core.token_tracker import TokenTracker
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.structured_logger import StructuredLogger
-from backend.utils.core.llm_recorder import LLMRecorder
+from backend.utils.core.llm.ollama_client import OllamaClient
+from backend.utils.core.llm.token_tracker import TokenTracker
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.system.structured_logger import StructuredLogger
+from backend.utils.core.llm.llm_recorder import LLMRecorder
+
 
 class _Heartbeat:
     """Background thread that prints elapsed time periodically while waiting for a slow model response."""
+
     def __init__(self, model_name, task_label, interval=30):
         self.model_name = model_name
         self.task_label = task_label
@@ -44,24 +45,23 @@ class ModelBenchmarker:
     def __init__(self):
         # Use the centralized configuration
         self.url = central_config.OLLAMA_URL
-        
+
         # This config object is passed to OllamaClient, which expects a dictionary.
         # We merge the relevant config parts into one dictionary.
         self.config = {
             **(central_config.TOOL_SETTINGS or {}),
             **(central_config.LLM_MODELS or {}),
-            **(central_config.AGENT_FEATURES or {})
+            **(central_config.AGENT_FEATURES or {}),
         }
 
         log_file_path = Path("logs") / "benchmark_debug.log"
         structured_logger = StructuredLogger(log_file_path=log_file_path, logger_name="BenchmarkLogger")
         self.logger = AgentLogger(structured_logger=structured_logger, logger_name="Benchmark")
         self.results = []
-        
+
         # Get embedding models from config, with a fallback
-        embedding_model_name = (central_config.LLM_MODELS.get("models", {})
-                                .get("embedding", "all-minilm:latest"))
-        self.embedding_models = [embedding_model_name, "qwen3-embedding:4b"] # Keep a second for comparison if needed
+        embedding_model_name = central_config.LLM_MODELS.get("models", {}).get("embedding", "all-minilm:latest")
+        self.embedding_models = [embedding_model_name, "qwen3-embedding:4b"]  # Keep a second for comparison if needed
 
         # Load test tasks from the centralized config
         self.test_tasks = central_config.BENCHMARK_TASKS
@@ -71,8 +71,14 @@ class ModelBenchmarker:
         # Define thematic categories and their mapping to task types
         self.thematic_categories = {
             "Inteligencia de Seguridad": ["security_sandbox"],
-            "Capacidad de Coding": ["code_generation", "code_analysis", "tool_integration", "technical_content_generation", "architecture_design"],
-            "Fiabilidad Autónoma": ["reasoning", "reasoning_architecture", "logic_edge_cases", "autonomous_flow"]
+            "Capacidad de Coding": [
+                "code_generation",
+                "code_analysis",
+                "tool_integration",
+                "technical_content_generation",
+                "architecture_design",
+            ],
+            "Fiabilidad Autónoma": ["reasoning", "reasoning_architecture", "logic_edge_cases", "autonomous_flow"],
         }
 
     def get_local_models(self):
@@ -138,13 +144,15 @@ class ModelBenchmarker:
         total_tasks = len(self.test_tasks)
 
         for model_idx, model_name in enumerate(models_to_test, 1):
-            model_size = getattr(self, '_model_sizes', {}).get(model_name, 0)
+            model_size = getattr(self, "_model_sizes", {}).get(model_name, 0)
             model_options, model_timeout, size_tier = self._compute_model_options(model_size)
             size_str = f" ({self._format_size(model_size)})" if model_size else ""
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"🚀 [{model_idx}/{total_models}] Probando modelo: {model_name}{size_str}")
-            print(f"   Tier: {size_tier} | num_ctx: {model_options['num_ctx']} | num_predict: {model_options['num_predict']} | timeout: {model_timeout}s")
-            print(f"{'='*60}", flush=True)
+            print(
+                f"   Tier: {size_tier} | num_ctx: {model_options['num_ctx']} | num_predict: {model_options['num_predict']} | timeout: {model_timeout}s"
+            )
+            print(f"{'=' * 60}", flush=True)
             tracker = TokenTracker()
             llm_recorder = LLMRecorder(logger=self.logger)
             client = OllamaClient(
@@ -153,16 +161,16 @@ class ModelBenchmarker:
                 timeout=model_timeout,
                 logger=self.logger,
                 config=self.config,
-                llm_recorder=llm_recorder
+                llm_recorder=llm_recorder,
             )
 
             model_start_time = time.time()
             model_overall_status = "Success"
             outputs = []
 
-            for task_idx, task_data in enumerate(self.test_tasks, 1): # Iterate over task dictionaries
+            for task_idx, task_data in enumerate(self.test_tasks, 1):  # Iterate over task dictionaries
                 task_content = task_data["task"]
-                task_type = task_data["type"] # Extract task type
+                task_type = task_data["type"]  # Extract task type
                 task_difficulty = task_data.get("difficulty", "unknown")
                 difficulty_icons = {"basic": "🟢", "intermediate": "🟡", "advanced": "🟠", "extreme": "🔴"}
                 diff_icon = difficulty_icons.get(task_difficulty, "⚪")
@@ -178,7 +186,7 @@ class ModelBenchmarker:
                 heartbeat.start()
 
                 try:
-                    messages = [{"role": "user", "content": task_content}] # Use task_content
+                    messages = [{"role": "user", "content": task_content}]  # Use task_content
                     # Se envían sin herramientas para probar razonamiento puro y evitar daños
                     response, usage = client.chat(messages, tools=[], options_override=model_options)
 
@@ -190,81 +198,100 @@ class ModelBenchmarker:
 
                 except Exception as e:
                     task_status = f"Failed: {str(e)}"
-                    model_overall_status = "Failed (some tasks failed)" # Update overall model status
-                    self.logger.error(f"Error en tarea para modelo {model_name} (Tipo: {task_type}): {e}") # Log task type
+                    model_overall_status = "Failed (some tasks failed)"  # Update overall model status
+                    self.logger.error(
+                        f"Error en tarea para modelo {model_name} (Tipo: {task_type}): {e}"
+                    )  # Log task type
                 finally:
                     heartbeat.stop()
 
                 task_elapsed = time.time() - task_start
                 task_mins, task_secs = divmod(int(task_elapsed), 60)
                 status_icon = "✅" if task_status == "Success" else "❌"
-                print(f"  {status_icon} {task_label} — {task_mins}m {task_secs}s | tokens: {task_tokens_prompt}+{task_tokens_completion}", flush=True)
+                print(
+                    f"  {status_icon} {task_label} — {task_mins}m {task_secs}s | tokens: {task_tokens_prompt}+{task_tokens_completion}",
+                    flush=True,
+                )
 
-                outputs.append({
-                    "task": task_content,
-                    "type": task_type, # Include task type in results
-                    "status": task_status,
-                    "response": task_response_content,
-                    "tokens_prompt": task_tokens_prompt,
-                    "tokens_completion": task_tokens_completion
-                })
-            
+                outputs.append(
+                    {
+                        "task": task_content,
+                        "type": task_type,  # Include task type in results
+                        "status": task_status,
+                        "response": task_response_content,
+                        "tokens_prompt": task_tokens_prompt,
+                        "tokens_completion": task_tokens_completion,
+                    }
+                )
+
             model_duration = time.time() - model_start_time
             model_mins, model_secs = divmod(int(model_duration), 60)
             successful_tasks = sum(1 for o in outputs if o["status"] == "Success")
-            print(f"\n  📊 Modelo {model_name} completado: {successful_tasks}/{total_tasks} tareas OK en {model_mins}m {model_secs}s", flush=True)
+            print(
+                f"\n  📊 Modelo {model_name} completado: {successful_tasks}/{total_tasks} tareas OK en {model_mins}m {model_secs}s",
+                flush=True,
+            )
 
             # Calculate thematic scores
             thematic_scores = {theme: {"score": 0, "tasks_count": 0} for theme in self.thematic_categories}
-            
+
             for output in outputs:
                 for theme, task_types in self.thematic_categories.items():
                     if output["type"] in task_types:
                         thematic_scores[theme]["tasks_count"] += 1
                         if output["status"] == "Success":
                             thematic_scores[theme]["score"] += 1
-            
+
             # Convert sums to averages
             final_thematic_scores = {}
             for theme, data in thematic_scores.items():
                 if data["tasks_count"] > 0:
                     final_thematic_scores[theme] = round(data["score"] / data["tasks_count"], 2)
                 else:
-                    final_thematic_scores[theme] = 0.0 # No tasks for this theme
+                    final_thematic_scores[theme] = 0.0  # No tasks for this theme
 
             tokens_generated = tracker.session_total_tokens
             tokens_per_second = round(tokens_generated / model_duration, 2) if model_duration > 0 else 0.0
 
-            self.results.append({
-                "model": model_name,
-                "model_size_bytes": model_size,
-                "model_size_human": self._format_size(model_size) if model_size else "unknown",
-                "size_tier": size_tier,
-                "options_used": {
-                    "num_ctx": model_options["num_ctx"],
-                    "num_predict": model_options["num_predict"],
-                    "timeout": model_timeout
-                },
-                "overall_status": model_overall_status,
-                "duration_sec": round(model_duration, 2),
-                "tokens_per_second": tokens_per_second, # New Metascore
-                "total_tokens_session": {
-                    "prompt": tracker.session_prompt_tokens,
-                    "completion": tracker.session_completion_tokens,
-                    "total": tokens_generated
-                },
-                "thematic_scores": final_thematic_scores, # Added thematic scores
-                "tasks_results": outputs
-            })
+            self.results.append(
+                {
+                    "model": model_name,
+                    "model_size_bytes": model_size,
+                    "model_size_human": self._format_size(model_size) if model_size else "unknown",
+                    "size_tier": size_tier,
+                    "options_used": {
+                        "num_ctx": model_options["num_ctx"],
+                        "num_predict": model_options["num_predict"],
+                        "timeout": model_timeout,
+                    },
+                    "overall_status": model_overall_status,
+                    "duration_sec": round(model_duration, 2),
+                    "tokens_per_second": tokens_per_second,  # New Metascore
+                    "total_tokens_session": {
+                        "prompt": tracker.session_prompt_tokens,
+                        "completion": tracker.session_completion_tokens,
+                        "total": tokens_generated,
+                    },
+                    "thematic_scores": final_thematic_scores,  # Added thematic scores
+                    "tasks_results": outputs,
+                }
+            )
 
     def generate_summary(self, summary_model):
         """Usa el modelo designado para crear el informe final."""
         summary_timeout = central_config.DEFAULT_TIMEOUT
         llm_recorder = LLMRecorder(logger=self.logger)
-        summary_client = OllamaClient(url=self.url, model=summary_model, timeout=summary_timeout, logger=self.logger, config=self.config, llm_recorder=llm_recorder)
-        
+        summary_client = OllamaClient(
+            url=self.url,
+            model=summary_model,
+            timeout=summary_timeout,
+            logger=self.logger,
+            config=self.config,
+            llm_recorder=llm_recorder,
+        )
+
         report_data = json.dumps(self.results, indent=2)
-        
+
         # Enhanced prompt to include thematic scores
         prompt = f"""Based on the following benchmark data, generate an executive summary comparing the performance, speed, token efficiency, and thematic scores (Inteligencia de Seguridad, Capacidad de Coding, Fiabilidad Autónoma) of each model.
 
@@ -282,21 +309,26 @@ Provide insights into which models excel in specific thematic areas and overall.
 
     def save_logs(self):
         log_dir = Path("logs")
-        log_dir.mkdir(exist_ok=True) # Ensure the logs directory exists
+        log_dir.mkdir(exist_ok=True)  # Ensure the logs directory exists
         output_file = log_dir / f"benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         with open(output_file, "w") as f:
             json.dump(self.results, f, indent=2)
         return output_file
 
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Run benchmarks on Ollama models.")
-    parser.add_argument("--models", nargs='*', help="List of model names to benchmark. If not provided, all local models will be benchmarked.")
+    parser.add_argument(
+        "--models",
+        nargs="*",
+        help="List of model names to benchmark. If not provided, all local models will be benchmarked.",
+    )
     args = parser.parse_args()
 
     benchmarker = ModelBenchmarker()
-    
+
     models_to_run = []
     if args.models:
         models_to_run = args.models
@@ -304,9 +336,11 @@ if __name__ == "__main__":
     else:
         all_local_models = benchmarker.get_local_models()
         if not all_local_models:
-            print("No local Ollama models found to benchmark. Please pull some models first (e.g., 'ollama pull llama2').")
+            print(
+                "No local Ollama models found to benchmark. Please pull some models first (e.g., 'ollama pull llama2')."
+            )
             exit(1)
-        
+
         chat_models = [m for m in all_local_models if m not in benchmarker.embedding_models and "embed" not in m]
         excluded_models = [m for m in all_local_models if m not in chat_models]
 
@@ -314,29 +348,30 @@ if __name__ == "__main__":
             print(f"\nExcluding embedding models: {', '.join(excluded_models)}")
 
         models_to_run = chat_models
-        print(f"\nModelos ordenados por tamaño (menor a mayor):")
+        print("\nModelos ordenados por tamaño (menor a mayor):")
         print(f"  {'#':<4} {'Modelo':<35} {'Tamaño':>8}  {'Tier':<7} {'ctx':>5} {'pred':>5} {'tout':>5}")
-        print(f"  {'─'*4} {'─'*35} {'─'*8}  {'─'*7} {'─'*5} {'─'*5} {'─'*5}")
+        print(f"  {'─' * 4} {'─' * 35} {'─' * 8}  {'─' * 7} {'─' * 5} {'─' * 5} {'─' * 5}")
         for i, name in enumerate(models_to_run, 1):
             size = benchmarker._model_sizes.get(name, 0)
             opts, tout, tier = benchmarker._compute_model_options(size)
-            print(f"  {i:<4} {name:<35} {benchmarker._format_size(size):>8}  {tier:<7} {opts['num_ctx']:>5} {opts['num_predict']:>5} {tout:>5}s")
+            print(
+                f"  {i:<4} {name:<35} {benchmarker._format_size(size):>8}  {tier:<7} {opts['num_ctx']:>5} {opts['num_predict']:>5} {tout:>5}s"
+            )
         print(f"\n  Total: {len(models_to_run)} modelos, {len(benchmarker.test_tasks)} tareas por modelo")
 
     if models_to_run:
         benchmarker.run_benchmark(models_to_run)
         log_path = benchmarker.save_logs()
-        
+
         # Get summary model from the new centralized config
-        summary_model = (central_config.LLM_MODELS.get("models", {})
-                         .get("summarization", central_config.DEFAULT_MODEL))
-        
+        summary_model = central_config.LLM_MODELS.get("models", {}).get("summarization", central_config.DEFAULT_MODEL)
+
         print(f"\nGenerando resumen con el modelo: {summary_model}")
         final_report = benchmarker.generate_summary(summary_model)
-        
-        print("\n" + "="*50)
+
+        print("\n" + "=" * 50)
         print("REPORTE FINAL DE BENCHMARK")
-        print("="*50)
+        print("=" * 50)
         print(final_report)
         print(f"\nDetalles guardados en: {log_path}")
     else:

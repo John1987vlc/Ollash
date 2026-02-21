@@ -1,0 +1,213 @@
+<!-- Modals & Floating Components -->
+
+<!-- Automation Modal -->
+<div class="modal" id="automation-modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Schedule New Task</h2>
+            <button class="close-modal" onclick="closeAutomationModal()">&times;</button>
+        </div>
+        <form id="automation-form">
+            <div class="form-group">
+                <label for="task-name">Task Name</label>
+                <input type="text" id="task-name" name="task-name" required placeholder="e.g., Disk Space Check">
+            </div>
+            <div class="form-group">
+                <label for="task-agent">Agent Type</label>
+                <select id="task-agent" name="task-agent" required>
+                    <option value="system">System Monitor</option>
+                    <option value="network">Network Monitor</option>
+                    <option value="cybersecurity">Security Audit</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="task-prompt">Prompt / Command</label>
+                <textarea id="task-prompt" name="task-prompt" required placeholder="e.g., Check disk space and alert if below 20%"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="task-schedule">Schedule</label>
+                <select id="task-schedule" name="task-schedule" required onchange="handleScheduleChange(this.value)">
+                    <option value="hourly">Every Hour</option>
+                    <option value="daily">Daily at 8:00 AM</option>
+                    <option value="weekly">Weekly (Monday)</option>
+                    <option value="custom">Custom (Cron Expression)</option>
+                </select>
+            </div>
+            <div class="form-group" id="cron-group" style="display: none;">
+                <label for="task-cron">Cron Expression</label>
+                <input type="text" id="task-cron" name="task-cron" placeholder="0 8 * * * (cron format)">
+            </div>
+            <div class="form-group checkbox">
+                <input type="checkbox" id="task-notify-email" name="task-notify-email">
+                <label for="task-notify-email">Notify via Email</label>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Save Task</button>
+                <button type="button" class="btn-secondary" onclick="closeAutomationModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Notification Config Modal -->
+<div class="modal" id="notification-config-modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Notification Settings</h2>
+            <button class="close-modal" onclick="closeNotificationModal()">&times;</button>
+        </div>
+        <form id="notification-config-form">
+            <div class="form-group">
+                <label for="config-smtp-server">SMTP Server</label>
+                <input type="text" id="config-smtp-server" name="smtp_server" placeholder="smtp.gmail.com">
+            </div>
+            <div class="form-group">
+                <label for="config-smtp-port">SMTP Port</label>
+                <input type="number" id="config-smtp-port" name="smtp_port" placeholder="587">
+            </div>
+            <div class="form-group">
+                <label for="config-smtp-user">SMTP User (Email)</label>
+                <input type="email" id="config-smtp-user" name="smtp_user" placeholder="your-email@gmail.com">
+            </div>
+            <div class="form-group">
+                <label for="config-smtp-pass">SMTP Password / App Password</label>
+                <input type="password" id="config-smtp-pass" name="smtp_password" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+                <label for="config-notify-to">Default Recipient Email</label>
+                <input type="email" id="config-notify-to" name="notify_to" placeholder="alerts@example.com">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Save Settings</button>
+                <button type="button" class="btn-secondary" onclick="closeNotificationModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Image Editor Modal -->
+<div class="modal" id="image-editor-modal" style="display: none;">
+    <div class="modal-content modal-wide">
+        <div class="modal-header">
+            <h2>Image Asset Editor</h2>
+            <button class="close-modal" onclick="document.getElementById('image-editor-modal').style.display='none'">&times;</button>
+        </div>
+        <div id="image-editor-container">
+            <canvas id="image-canvas"></canvas>
+        </div>
+        <div class="form-actions">
+            <button class="btn-primary" id="save-asset-btn">Save Asset</button>
+            <button class="btn-secondary" id="img2img-variation-btn">Request Variation (img2img)</button>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Terminal (VS Code style) -->
+<div class="floating-terminal" id="floating-terminal" style="display: none;">
+    <div class="floating-terminal-header" id="floating-terminal-header">
+        <div class="floating-terminal-title">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 3L14 3L14 13L2 13L2 3Z"/>
+                <polyline points="5 6 8 9 5 12"/>
+            </svg>
+            Terminal
+        </div>
+        <div class="floating-terminal-actions">
+            <button class="btn-icon" id="terminal-minimize" title="Minimize">&#x2012;</button>
+            <button class="btn-icon" id="terminal-maximize" title="Maximize">&#x25A1;</button>
+            <button class="btn-icon" id="terminal-close" title="Close">&times;</button>
+        </div>
+    </div>
+    <div id="floating-terminal-body">
+        <div id="terminal-container" style="width: 100%; height: 100%; background: #000; color: #fff;"></div>
+    </div>
+</div>
+
+<!-- Diff Modal for Refactoring -->
+<div class="modal" id="diff-modal" style="display: none;">
+    <div class="modal-content modal-wide">
+        <div class="modal-header">
+            <h2>Review Changes</h2>
+            <span id="diff-file-path" class="diff-file-path"></span>
+            <button class="close-modal" onclick="closeDiffModal()">&times;</button>
+        </div>
+        <div id="diff-editor-container" style="width: 100%; height: 500px;"></div>
+        <div class="form-actions">
+            <button class="btn-primary" id="apply-diff-btn">Apply Changes</button>
+            <button class="btn-secondary" onclick="closeDiffModal()">Discard</button>
+        </div>
+    </div>
+</div>
+
+<!-- Swarm Activity Modal -->
+<div class="modal" id="swarm-modal" style="display: none;">
+    <div class="modal-content modal-wide">
+        <div class="modal-header">
+            <h2>Swarm Activity Monitor</h2>
+            <button class="close-modal" onclick="document.getElementById('swarm-modal').style.display='none'">&times;</button>
+        </div>
+        <div id="swarm-canvas-container" style="height: 400px; position: relative;">
+            <div class="orchestrator-node main-node">Orchestrator</div>
+            <div id="swarm-nodes-container"></div>
+        </div>
+        <div class="swarm-legend">
+            <div class="legend-item"><span class="dot active"></span> Active Specialist</div>
+            <div class="legend-item"><span class="dot idle"></span> Idle</div>
+        </div>
+    </div>
+</div>
+
+<!-- Model Benchmark Modal -->
+<div class="modal" id="benchmark-modal" style="display: none;">
+    <div class="modal-content modal-wide">
+        <div class="modal-header">
+            <h2>Model Benchmark Comparison</h2>
+            <button class="close-modal" onclick="document.getElementById('benchmark-modal').style.display='none'">&times;</button>
+        </div>
+        <div class="benchmark-modal-body">
+            <div class="benchmark-config-inline">
+                <div class="form-group">
+                    <label>Target Models (Select 2+)</label>
+                    <div id="modal-bench-model-list" class="model-list-horizontal"></div>
+                </div>
+                <button class="btn-primary" id="modal-bench-start-btn">Run Comparison</button>
+            </div>
+            <div id="modal-bench-results" class="modal-bench-results">
+                <div class="bench-placeholder">Results will appear here in real-time.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Human-in-the-loop Approval Modal -->
+<div class="modal" id="hil-modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Agent Needs Approval</h2>
+            <button class="close-modal" onclick="document.getElementById('hil-modal').style.display='none'">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="hil-prompt">The agent is about to take an action...</p>
+            <input type="hidden" id="hil-request-id">
+            <textarea id="hil-feedback" class="form-control" rows="3" placeholder="Optional feedback or corrections..."></textarea>
+        </div>
+        <div class="form-actions">
+            <button class="btn-primary" onclick="respondHIL('approve')">Approve</button>
+            <button class="btn-secondary" onclick="respondHIL('reject')">Reject</button>
+            <button class="btn-secondary" onclick="respondHIL('correct')">Correct</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function respondHIL(response) {
+        const requestId = document.getElementById('hil-request-id').value;
+        const feedback = document.getElementById('hil-feedback').value;
+        await fetch('/api/hil/respond', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ request_id: requestId, response, feedback })
+        });
+        document.getElementById('hil-modal').style.display = 'none';
+    }
+</script>

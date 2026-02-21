@@ -10,7 +10,7 @@ import pkgutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.plugin_interface import OllashPlugin
 
 

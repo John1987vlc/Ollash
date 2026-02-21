@@ -6,8 +6,8 @@ Splits text into chunks, summarizes each individually, then creates a master sum
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.ollama_client import OllamaClient
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.llm.ollama_client import OllamaClient
 
 
 class CascadeSummarizer:

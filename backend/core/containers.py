@@ -35,27 +35,27 @@ from backend.agents.auto_agent_phases.verification_phase import VerificationPhas
 from backend.core.config import config
 from backend.core.kernel import AgentKernel
 from backend.services.llm_client_manager import LLMClientManager
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.cicd_healer import CICDHealer
-from backend.utils.core.code_quarantine import CodeQuarantine
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.system.cicd_healer import CICDHealer
+from backend.utils.core.analysis.code_quarantine import CodeQuarantine
 from backend.utils.core.command_executor import CommandExecutor
-from backend.utils.core.dependency_graph import DependencyGraph
-from backend.utils.core.documentation_manager import DocumentationManager
-from backend.utils.core.error_knowledge_base import ErrorKnowledgeBase
-from backend.utils.core.event_publisher import EventPublisher
-from backend.utils.core.export_manager import ExportManager
-from backend.utils.core.file_manager import FileManager
-from backend.utils.core.file_validator import FileValidator
-from backend.utils.core.fragment_cache import FragmentCache
-from backend.utils.core.llm_recorder import LLMRecorder
-from backend.utils.core.llm_response_parser import LLMResponseParser
-from backend.utils.core.parallel_generator import ParallelFileGenerator
-from backend.utils.core.permission_profiles import PermissionProfileManager, PolicyEnforcer
-from backend.utils.core.scanners.rag_context_selector import RAGContextSelector
-from backend.utils.core.vulnerability_scanner import VulnerabilityScanner
+from backend.utils.core.analysis.dependency_graph import DependencyGraph
+from backend.utils.core.io.documentation_manager import DocumentationManager
+from backend.utils.core.memory.error_knowledge_base import ErrorKnowledgeBase
+from backend.utils.core.system.event_publisher import EventPublisher
+from backend.utils.core.io.export_manager import ExportManager
+from backend.utils.core.io.file_manager import FileManager
+from backend.utils.core.analysis.file_validator import FileValidator
+from backend.utils.core.memory.fragment_cache import FragmentCache
+from backend.utils.core.llm.llm_recorder import LLMRecorder
+from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+from backend.utils.core.llm.parallel_generator import ParallelFileGenerator
+from backend.utils.core.system.permission_profiles import PermissionProfileManager, PolicyEnforcer
+from backend.utils.core.analysis.scanners.rag_context_selector import RAGContextSelector
+from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScanner
 
 # Core Utilities
-from backend.utils.core.structured_logger import StructuredLogger
+from backend.utils.core.system.structured_logger import StructuredLogger
 from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
 from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
 from backend.utils.domains.auto_generation.file_content_generator import FileContentGenerator

@@ -1,0 +1,111 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/chat.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/voice-commands.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/pair-programming.js') }}"></script>
+{% endblock %}
+
+            <!-- Chat View -->
+            <div class="view active" id="chat-view">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="chat-welcome">
+                            <h2>Ollash Agent</h2>
+                            <p>Select a specialist or start typing to use the auto-routing orchestrator.</p>
+                            <div class="agent-cards">
+                                <button class="agent-card" data-agent="orchestrator">
+                                    <div class="agent-card-icon">&#x1f3af;</div>
+                                    <div class="agent-card-title">Orchestrator</div>
+                                    <div class="agent-card-desc">Planning, compliance, governance, risk analysis</div>
+                                </button>
+                                <button class="agent-card" data-agent="code">
+                                    <div class="agent-card-icon">&#x1f4bb;</div>
+                                    <div class="agent-card-title">Code</div>
+                                    <div class="agent-card-desc">File I/O, analysis, git, refactoring</div>
+                                </button>
+                                <button class="agent-card" data-agent="network">
+                                    <div class="agent-card-icon">&#x1f310;</div>
+                                    <div class="agent-card-title">Network</div>
+                                    <div class="agent-card-desc">Diagnostics, latency, host discovery</div>
+                                </button>
+                                <button class="agent-card" data-agent="system">
+                                    <div class="agent-card-icon">&#x2699;&#xfe0f;</div>
+                                    <div class="agent-card-title">System</div>
+                                    <div class="agent-card-desc">Resources, processes, logs, packages</div>
+                                </button>
+                                <button class="agent-card" data-agent="cybersecurity">
+                                    <div class="agent-card-icon">&#x1f6e1;&#xfe0f;</div>
+                                    <div class="agent-card-title">Cybersecurity</div>
+                                    <div class="agent-card-desc">Port scanning, IOC, permissions, hardening</div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Prompt Library Panel -->
+                    <div class="prompt-library-panel" id="prompt-library-panel" style="display: none;">
+                        <div class="prompt-library-header">
+                            <h4>Quick Prompts</h4>
+                            <div class="prompt-library-categories">
+                                <button class="prompt-cat-btn active" data-cat="all">All</button>
+                                <button class="prompt-cat-btn" data-cat="system">System</button>
+                                <button class="prompt-cat-btn" data-cat="network">Network</button>
+                                <button class="prompt-cat-btn" data-cat="security">Security</button>
+                                <button class="prompt-cat-btn" data-cat="code">Code</button>
+                            </div>
+                        </div>
+                        <div class="prompt-library-list" id="prompt-library-list"></div>
+                    </div>
+                    <div class="chat-input-area">
+                        <div id="chat-attachment-preview" class="chat-attachment-preview" style="display: none;"></div>
+                        <div class="chat-input-actions">
+                            <button class="btn-icon" id="toggle-prompt-library" title="Prompt Library">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M3 4H17M3 8H17M3 12H13M3 16H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" id="attach-file-btn" title="Attach File (Image/PDF)">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                </svg>
+                            </button>
+                            <input type="file" id="chat-file-input" style="display: none;" accept="image/*,application/pdf">
+                            <button class="btn-icon" id="generate-assets-btn" title="Generate Assets (Images/Icons)">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" id="add-collaborator-btn" title="Add Collaborator (Multi-Agent)">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="8.5" cy="7" r="4"></circle>
+                                    <line x1="20" y1="8" x2="20" y2="14"></line>
+                                    <line x1="23" y1="11" x2="17" y2="11"></line>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" id="voice-input-btn" title="Voice Input">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" id="clear-chat-btn" title="Clear Chat">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <textarea id="chat-input" placeholder="Ask Ollash anything..." rows="1"></textarea>
+                        <button id="send-btn" class="btn-primary" title="Send">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 10L17 3L10 17L9 11L3 10Z" fill="currentColor"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>

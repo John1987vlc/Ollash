@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 _plugin_manager = None
 
+
 def get_plugin_manager():
     global _plugin_manager
     if _plugin_manager is None:
@@ -19,6 +20,7 @@ def get_plugin_manager():
         _plugin_manager = PluginManager(plugins_dir, logger)
         _plugin_manager.discover()
     return _plugin_manager
+
 
 @plugins_bp.route("/", methods=["GET"])
 def list_plugins():
@@ -32,6 +34,7 @@ def list_plugins():
     except Exception as e:
         logger.error(f"Error listing plugins: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @plugins_bp.route("/toggle", methods=["POST"])
 def toggle_plugin():
@@ -54,6 +57,7 @@ def toggle_plugin():
     except Exception as e:
         logger.error(f"Error toggling plugin {plugin_id}: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 def init_app(app):
     """Initialize the plugin manager for the app."""

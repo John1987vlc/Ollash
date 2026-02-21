@@ -1,0 +1,25 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/brain.css') }}">
+{% endblock %}
+
+            <!-- Brain View (Knowledge Base) -->
+            <div class="view" id="brain-view">
+                <div class="view-header">
+                    <h1>Agent Brain</h1>
+                    <p class="subtitle">Lessons learned, error patterns avoided, and learned preferences</p>
+                </div>
+                <div class="brain-container">
+                    <div class="brain-tabs">
+                        <button class="brain-tab-btn active" data-brain-tab="errors">Error Patterns</button>
+                        <button class="brain-tab-btn" data-brain-tab="preferences">Learned Preferences</button>
+                    </div>
+                    <div class="brain-content">
+                        <div id="brain-errors-list" class="brain-list">
+                            <p class="placeholder">Loading learned patterns...</p>
+                        </div>
+                        <div id="brain-preferences-list" class="brain-list" style="display: none;">
+                            <p class="placeholder">Loading preferences...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>

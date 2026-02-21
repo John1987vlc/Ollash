@@ -11,10 +11,10 @@ from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request
 
-from backend.utils.core.agent_logger import AgentLogger
-from backend.utils.core.cross_reference_analyzer import CrossReferenceAnalyzer
-from backend.utils.core.decision_context_manager import DecisionContextManager
-from backend.utils.core.knowledge_graph_builder import KnowledgeGraphBuilder
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.memory.cross_reference_analyzer import CrossReferenceAnalyzer
+from backend.utils.core.memory.decision_context_manager import DecisionContextManager
+from backend.utils.core.memory.knowledge_graph_builder import KnowledgeGraphBuilder
 
 analysis_bp = Blueprint("analysis", __name__, url_prefix="/api/analysis")
 

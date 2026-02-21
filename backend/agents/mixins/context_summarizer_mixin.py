@@ -19,7 +19,8 @@ class ContextSummarizerMixin(ABC):
     # Placeholder for a simple token counter. In a real system, this would be more robust.
     def _count_tokens(self, text: str) -> int:
         """Counts tokens in a given text using a basic heuristic or a proper tokenizer."""
-        if not text: return 0
+        if not text:
+            return 0
         try:
             # Attempt to use tiktoken if available and configured
             encoding_name = self.config.get("token_encoding_name", "cl100k_base")
@@ -44,9 +45,7 @@ class ContextSummarizerMixin(ABC):
         if current_tokens < max_tokens * summarize_threshold:
             return messages  # No summarization needed yet
 
-        self.logger.warning(
-            f"⚠️ Context window capacity reached ({current_tokens}/{max_tokens} tokens). Summarizing..."
-        )
+        self.logger.warning(f"⚠️ Context window capacity reached ({current_tokens}/{max_tokens} tokens). Summarizing...")
 
         self.event_publisher.publish(
             "context_management",
@@ -56,7 +55,7 @@ class ContextSummarizerMixin(ABC):
         summarizer_client = self.llm_manager.get_client("writer")
         if not summarizer_client:
             self.logger.error("Summarization LLM client not available.")
-            return messages[-5:] # Aggressive fallback: just keep last 5 messages
+            return messages[-5:]  # Aggressive fallback: just keep last 5 messages
 
         # F24: Aggressive split: Keep only the System Prompt and the last 3 messages.
         # Summarize everything in between.

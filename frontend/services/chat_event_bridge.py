@@ -3,7 +3,7 @@ import queue
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from backend.utils.core.event_publisher import EventPublisher  # ADDED IMPORT
+from backend.utils.core.system.event_publisher import EventPublisher  # ADDED IMPORT
 
 
 @dataclass
@@ -62,7 +62,7 @@ class ChatEventBridge:
             # Handle non-serializable data (like coroutines) to avoid 500 errors
             sanitized_data = {}
             for k, v in event.data.items():
-                if hasattr(v, "__await__") or hasattr(v, "cr_code"): # Check if it's a coroutine
+                if hasattr(v, "__await__") or hasattr(v, "cr_code"):  # Check if it's a coroutine
                     sanitized_data[k] = f"[Pending Coroutine: {getattr(v, '__name__', 'unknown')}]"
                 else:
                     sanitized_data[k] = v

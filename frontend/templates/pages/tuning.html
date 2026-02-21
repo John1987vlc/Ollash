@@ -1,0 +1,42 @@
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/tuning.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/tuning.js') }}"></script>
+{% endblock %}
+
+            <!-- Tuning Studio View -->
+            <div class="view" id="tuning-view">
+                <div class="view-header">
+                    <h1>Tuning & Shadow Eval</h1>
+                    <p class="subtitle">Fine-tune agent behavior and evaluate experimental prompts</p>
+                </div>
+                <div class="tuning-grid">
+                    <div class="tuning-card">
+                        <h3>Behavioral Controls</h3>
+                        <div class="form-group">
+                            <label>Creativity vs. Precision</label>
+                            <input type="range" min="0" max="100" value="30" class="slider-modern">
+                            <div class="slider-labels"><span>Deterministic</span><span>Creative</span></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Strictness Level</label>
+                            <input type="range" min="0" max="100" value="80" class="slider-modern">
+                            <div class="slider-labels"><span>Permissive</span><span>Military Grade</span></div>
+                        </div>
+                    </div>
+                    <div class="tuning-card">
+                        <h3>Shadow Evaluation Results</h3>
+                        <div id="shadow-eval-table">
+                            <table class="simple-table">
+                                <thead><tr><th>Prompt ID</th><th>Success Rate</th><th>Avg. Tokens</th></tr></thead>
+                                <tbody>
+                                    <tr><td>V1.2-Stable</td><td>94%</td><td>1.2k</td></tr>
+                                    <tr><td>V1.3-Exp</td><td>88%</td><td>0.9k</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>

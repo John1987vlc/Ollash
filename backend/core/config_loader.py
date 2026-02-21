@@ -9,7 +9,7 @@ from pydantic import BaseModel, ValidationError
 # Centralized config object and schemas
 from backend.core.config import get_config
 from backend.core.config_schemas import AgentFeaturesConfig, LLMModelsConfig, ToolSettingsConfig
-from backend.utils.core.agent_logger import AgentLogger
+from backend.utils.core.system.agent_logger import AgentLogger
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -30,7 +30,13 @@ class ConfigLoader:
             "agent_features": AgentFeaturesConfig,
             "tool_settings": ToolSettingsConfig,
         }
-        self._load_and_validate_all_configs()
+        try:
+            self._load_and_validate_all_configs()
+        except (ValidationError, Exception) as e:
+            # Re-raise as RuntimeError but the function already logged it
+            if not isinstance(e, RuntimeError):
+                raise RuntimeError(f"Configuration error: {e}")
+            raise e
 
     def _load_and_validate_all_configs(self):
         """Loads data from the central config and validates it."""
