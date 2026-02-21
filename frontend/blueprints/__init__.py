@@ -37,9 +37,15 @@ from .monitors_bp import init_app as init_monitors
 from .monitors_bp import monitors_bp
 from .multimodal_bp import init_app as init_multimodal
 from .multimodal_bp import multimodal_bp
+from .plugins_bp import init_app as init_plugins
+from .plugins_bp import plugins_bp
 from .refinement_bp import init_refinement, refinement_bp
+from .sandbox_bp import init_app as init_sandbox
+from .sandbox_bp import sandbox_bp
 from .triggers_bp import init_app as init_triggers
 from .triggers_bp import triggers_bp
+from .webhooks_bp import init_app as init_webhooks
+from .webhooks_bp import webhooks_bp
 
 # New blueprints (F7, F8, F11, F12, F15)
 from .cicd_bp import cicd_bp
@@ -106,6 +112,9 @@ def register_blueprints(
         (learning_bp, lambda: init_learning(app)),
         (refinement_bp, lambda: init_refinement(app)),
         (multimodal_bp, lambda: init_multimodal(app, ollash_root_dir)),
+        (plugins_bp, lambda: init_plugins(app)),
+        (webhooks_bp, lambda: init_webhooks(app)),
+        (sandbox_bp, lambda: init_sandbox(app)),
         # New blueprints (F7, F8, F11, F12, F15)
         (cicd_bp, lambda: init_cicd(app)),
         (cost_bp, lambda: init_cost(app)),

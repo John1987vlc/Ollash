@@ -116,6 +116,32 @@
                     </svg>
                     <span>Automations</span>
                 </button>
+                <button class="nav-item" data-view="brain">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.54-2.44V4.5A2.5 2.5 0 0 1 7 2h2.5z"></path>
+                        <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.54-2.44V4.5A2.5 2.5 0 0 0 17 2h-2.5z"></path>
+                    </svg>
+                    <span>Brain</span>
+                </button>
+                <button class="nav-item" data-view="plugins">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                    </svg>
+                    <span>Plugins</span>
+                </button>
+                <button class="nav-item" data-view="settings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    <span>Settings</span>
+                </button>
+                <button class="nav-item special" id="open-benchmark-modal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                    </svg>
+                    <span>Model Benchmark</span>
+                </button>
             </nav>
 
             <div class="sidebar-footer">
@@ -212,10 +238,32 @@
                         <div class="prompt-library-list" id="prompt-library-list"></div>
                     </div>
                     <div class="chat-input-area">
+                        <div id="chat-attachment-preview" class="chat-attachment-preview" style="display: none;"></div>
                         <div class="chat-input-actions">
                             <button class="btn-icon" id="toggle-prompt-library" title="Prompt Library">
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                                     <path d="M3 4H17M3 8H17M3 12H13M3 16H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" id="attach-file-btn" title="Attach File (Image/PDF)">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                </svg>
+                            </button>
+                            <input type="file" id="chat-file-input" style="display: none;" accept="image/*,application/pdf">
+                            <button class="btn-icon" id="generate-assets-btn" title="Generate Assets (Images/Icons)">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" id="add-collaborator-btn" title="Add Collaborator (Multi-Agent)">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="8.5" cy="7" r="4"></circle>
+                                    <line x1="20" y1="8" x2="20" y2="14"></line>
+                                    <line x1="23" y1="11" x2="17" y2="11"></line>
                                 </svg>
                             </button>
                             <button class="btn-icon" id="voice-input-btn" title="Voice Input">
@@ -542,6 +590,16 @@
                             </svg>
                             Export ZIP
                         </button>
+                        <button class="btn-export" id="download-report-btn" style="display:none" title="Download Executive Report">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                            Executive Report
+                        </button>
                         <button class="btn-export" id="clone-project-btn" title="Clone a Git repository">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                 <path d="M6 3H3V13H13V10M9 3H13V7M13 3L7 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -702,6 +760,12 @@
                             <div class="tab-content" id="code-tab">
                                 <div id="monaco-editor-container" style="width: 100%; height: 100%; border-radius: var(--border-radius-sm);"></div>
                                 <div class="editor-actions">
+                                    <button id="run-sandbox-btn" class="btn-primary">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                        </svg>
+                                        Run (Sandbox)
+                                    </button>
                                     <button id="save-file-btn" class="btn-primary" style="display: none;">
                                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M13 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
@@ -716,6 +780,13 @@
                                         </svg>
                                         Ask Agent
                                     </button>
+                                </div>
+                                <div id="sandbox-console" class="sandbox-console" style="display: none;">
+                                    <div class="console-header">
+                                        <span>Sandbox Output</span>
+                                        <button class="close-console">&times;</button>
+                                    </div>
+                                    <pre id="sandbox-output"></pre>
                                 </div>
                             </div>
 
@@ -976,6 +1047,96 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Brain View (Knowledge Base) -->
+            <div class="view" id="brain-view">
+                <div class="view-header">
+                    <h1>Agent Brain</h1>
+                    <p class="subtitle">Lessons learned, error patterns avoided, and learned preferences</p>
+                </div>
+                <div class="brain-container">
+                    <div class="brain-tabs">
+                        <button class="brain-tab-btn active" data-brain-tab="errors">Error Patterns</button>
+                        <button class="brain-tab-btn" data-brain-tab="preferences">Learned Preferences</button>
+                    </div>
+                    <div class="brain-content">
+                        <div id="brain-errors-list" class="brain-list">
+                            <p class="placeholder">Loading learned patterns...</p>
+                        </div>
+                        <div id="brain-preferences-list" class="brain-list" style="display: none;">
+                            <p class="placeholder">Loading preferences...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plugins View -->
+            <div class="view" id="plugins-view">
+                <div class="view-header">
+                    <h1>Plugins Marketplace</h1>
+                    <p class="subtitle">Extend agent capabilities with community and custom plugins</p>
+                </div>
+                <div class="plugins-grid" id="plugins-grid">
+                    <p class="placeholder">Loading plugins...</p>
+                </div>
+            </div>
+
+            <!-- Settings View (Webhooks) -->
+            <div class="view" id="settings-view">
+                <div class="view-header">
+                    <h1>Settings</h1>
+                    <p class="subtitle">External notifications and global agent configuration</p>
+                </div>
+                <div class="settings-container">
+                    <section class="settings-section">
+                        <h3>External Notifications (Webhooks)</h3>
+                        <p class="help-text">Add URLs for Slack, Discord, or custom webhooks to receive real-time alerts.</p>
+                        
+                        <div id="webhooks-list" class="webhooks-list">
+                            <!-- Registered webhooks will appear here -->
+                        </div>
+
+                        <form id="add-webhook-form" class="inline-form">
+                            <div class="form-group">
+                                <label for="webhook-name">Name</label>
+                                <input type="text" id="webhook-name" placeholder="e.g., Slack Alert">
+                            </div>
+                            <div class="form-group">
+                                <label for="webhook-type">Type</label>
+                                <select id="webhook-type">
+                                    <option value="slack">Slack</option>
+                                    <option value="discord">Discord</option>
+                                    <option value="teams">MS Teams</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 2;">
+                                <label for="webhook-url">URL</label>
+                                <input type="url" id="webhook-url" placeholder="https://hooks.slack.com/services/...">
+                            </div>
+                            <button type="submit" class="btn-primary">Add</button>
+                        </form>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Image Editor Modal -->
+            <div class="modal" id="image-editor-modal" style="display: none;">
+                <div class="modal-content modal-wide">
+                    <div class="modal-header">
+                        <h2>Image Asset Editor</h2>
+                        <button class="close-modal" onclick="document.getElementById('image-editor-modal').style.display='none'">&times;</button>
+                    </div>
+                    <div id="image-editor-container">
+                        <canvas id="image-canvas"></canvas>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn-primary" id="save-asset-btn">Save Asset</button>
+                        <button class="btn-secondary" id="img2img-variation-btn">Request Variation (img2img)</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Floating Terminal (VS Code style) -->
             <div class="floating-terminal" id="floating-terminal" style="display: none;">
                 <div class="floating-terminal-header" id="floating-terminal-header">
@@ -1009,6 +1170,28 @@
                     <div class="form-actions">
                         <button class="btn-primary" id="apply-diff-btn">Apply Changes</button>
                         <button class="btn-secondary" onclick="closeDiffModal()">Discard</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Benchmark Modal -->
+            <div class="modal" id="benchmark-modal" style="display: none;">
+                <div class="modal-content modal-wide">
+                    <div class="modal-header">
+                        <h2>Model Benchmark Comparison</h2>
+                        <button class="close-modal" onclick="document.getElementById('benchmark-modal').style.display='none'">&times;</button>
+                    </div>
+                    <div class="benchmark-modal-body">
+                        <div class="benchmark-config-inline">
+                            <div class="form-group">
+                                <label>Target Models (Select 2+)</label>
+                                <div id="modal-bench-model-list" class="model-list-horizontal"></div>
+                            </div>
+                            <button class="btn-primary" id="modal-bench-start-btn">Run Comparison</button>
+                        </div>
+                        <div id="modal-bench-results" class="modal-bench-results">
+                            <div class="bench-placeholder">Results will appear here in real-time.</div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_from_directory
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,37 @@ def export_zip():
         return jsonify({"success": True, "path": str(output_path)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@export_bp.route("/report/<project_name>", methods=["POST"])
+def generate_report(project_name):
+    """Generate executive report for a project."""
+    try:
+        from backend.utils.core.activity_report_generator import ActivityReportGenerator
+        
+        generator = ActivityReportGenerator(ollash_root_dir=_ollash_root)
+        report_path = generator.generate_executive_report(project_name)
+        
+        return jsonify({
+            "status": "success",
+            "project": project_name,
+            "report_url": f"/api/export/report/{project_name}.pdf"
+        }), 200
+    except Exception as e:
+        logger.error(f"Report generation error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@export_bp.route("/report/<project_name>.pdf", methods=["GET"])
+def download_report(project_name):
+    """Download executive report."""
+    reports_dir = _ollash_root / "reports"
+    filename = f"{project_name}_executive_report.pdf"
+    
+    if not (reports_dir / filename).exists():
+        return jsonify({"error": "Report not found"}), 404
+        
+    return send_from_directory(str(reports_dir), filename)
 
 
 @export_bp.route("/github", methods=["POST"])

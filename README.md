@@ -88,6 +88,19 @@
 | F41 | **Voice Input** | Browser-based speech recognition for voice commands and dictation directly into the chat. | `frontend/static/js/app.js`, `frontend/static/css/style.css` |
 | F42 | **Pair Programming Mode** | Split-screen layout allowing side-by-side chat and project workspace interaction. | `frontend/static/css/style.css`, `frontend/static/js/app.js` |
 
+### Group H — Phase 5 & Advanced UI Integration
+
+| # | Feature | Description | Key Files |
+|---|---------|-------------|-----------|
+| F43 | **Multimodal Interface** | Full support for Drag & Drop and file attachments (Images/PDFs) in the chat. Real-time thumbnail previews and backend ingestion. | `frontend/blueprints/multimodal_bp.py`, `frontend/static/js/app.js` |
+| F44 | **WASM/Docker Sandbox** | Isolated execution environment for Python/JS code blocks with an integrated console in the code viewer. | `frontend/blueprints/sandbox_bp.py`, `backend/utils/core/wasm_sandbox.py` |
+| F45 | **Executive Reports** | One-click generation of technical executive summaries with static, predictable download URLs. | `frontend/blueprints/export_bp.py`, `backend/utils/core/activity_report_generator.py` |
+| F46 | **AI Image Studio** | Interactive Canvas-based editor for AI-generated images. Supports manual tweaks and img2img variation requests. | `frontend/static/js/image-editor.js`, `backend/utils/domains/image_generation_tools.py` |
+| F47 | **Agent Memory (Brain)** | Visual knowledge base browser. View learned patterns and manually "unlearn" incorrect agent logic. | `frontend/blueprints/learning_bp.py`, `backend/utils/core/automatic_learning.py` |
+| F48 | **Webhook Ecosystem** | Enterprise-grade notifications for Slack, Discord, and Teams with customizable event subscriptions. | `frontend/blueprints/webhooks_bp.py`, `backend/utils/core/webhook_manager.py` |
+| F49 | **Coworking Mode** | Multi-agent chat sessions with distinct visual identities and specialized routing between agent types. | `frontend/static/js/app.js`, `backend/utils/domains/bonus/cowork_impl.py` |
+| F50 | **Real-time Benchmark** | Modal-based model comparison. Benchmarking multiple Ollama models simultaneously with live metrics. | `frontend/blueprints/benchmark_bp.py`, `frontend/templates/index.html` |
+
 ---
 
 ## 6 Integrated Pipeline Features

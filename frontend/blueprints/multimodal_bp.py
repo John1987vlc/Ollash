@@ -15,6 +15,8 @@ from backend.utils.core.multimedia_ingester import MultimediaIngester
 from backend.utils.core.ocr_processor import OCRProcessor, PDFOCRProcessor
 from backend.utils.core.speech_transcriber import SpeechTranscriber
 
+from werkzeug.utils import secure_filename
+
 # Create blueprint
 multimodal_bp = Blueprint("multimodal", __name__, url_prefix="/api/multimodal")
 
@@ -23,11 +25,18 @@ ocr_processor: Optional[OCRProcessor] = None
 multimedia_ingester: Optional[MultimediaIngester] = None
 speech_transcriber: Optional[SpeechTranscriber] = None
 logger: Optional[AgentLogger] = None  # Declare global logger with correct type
+UPLOAD_FOLDER = "knowledge_workspace/ingest/uploads"
 
 
 def init_app(app, ollash_root_dir: Path):
     """Initialize multimodal managers"""
     global ocr_processor, multimedia_ingester, speech_transcriber, logger
+
+    # Ensure upload folder exists
+    upload_path = ollash_root_dir / UPLOAD_FOLDER
+    upload_path.mkdir(parents=True, exist_ok=True)
+
+    # Get logger from AgentKernel, ensuring consistency
 
     # Get logger from AgentKernel, ensuring consistency
     _kernel = AgentKernel(ollash_root_dir=ollash_root_dir)
@@ -421,6 +430,40 @@ def ingest_stats():
 # ========================
 # Speech Transcription Endpoints
 # ========================
+
+
+@multimodal_bp.route("/upload", methods=["POST"])
+def upload_file():
+    """
+    Upload a file for multimodal processing
+    """
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file part"}), 400
+        
+        file = request.files["file"]
+        if file.filename == "":
+            return jsonify({"error": "No selected file"}), 400
+        
+        if file:
+            filename = secure_filename(file.filename)
+            ollash_root_dir = Path(request.environ.get("ollash_root_dir", "."))
+            upload_path = ollash_root_dir / UPLOAD_FOLDER
+            file_path = upload_path / filename
+            file.save(str(file_path))
+            
+            logger.info(f"File uploaded successfully: {filename}")
+            
+            return jsonify({
+                "status": "success",
+                "filename": filename,
+                "local_path": str(file_path),
+                "relative_path": str(Path(UPLOAD_FOLDER) / filename)
+            }), 200
+            
+    except Exception as e:
+        logger.error(f"Upload error: {e}")
+        return jsonify({"error": f"Upload failed: {str(e)}"}), 500
 
 
 @multimodal_bp.route("/speech/transcribe", methods=["POST"])

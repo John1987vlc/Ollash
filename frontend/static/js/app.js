@@ -47,6 +47,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const terminalTabContent = document.getElementById('terminal-tab');
     const terminalContainer = document.getElementById('terminal-container');
 
+    // Multimodal elements
+    const attachFileBtn = document.getElementById('attach-file-btn');
+    const chatFileInput = document.getElementById('chat-file-input');
+    const chatAttachmentPreview = document.getElementById('chat-attachment-preview');
+    let selectedAttachments = [];
+
+    // Sandbox elements
+    const runSandboxBtn = document.getElementById('run-sandbox-btn');
+    const sandboxConsole = document.getElementById('sandbox-console');
+    const sandboxOutput = document.getElementById('sandbox-output');
+
+    // Brain View elements
+    const brainErrorsList = document.getElementById('brain-errors-list');
+    const brainPreferencesList = document.getElementById('brain-preferences-list');
+    const brainTabBtns = document.querySelectorAll('.brain-tab-btn');
+
+    // Plugins elements
+    const pluginsGrid = document.getElementById('plugins-grid');
+
+    // Report elements
+    const downloadReportBtn = document.getElementById('download-report-btn');
+
     // Pipeline Stepper
     const pipelineStepper = document.getElementById('pipeline-stepper');
     const pipelineOverallStatus = document.getElementById('pipeline-overall-status');
@@ -3152,6 +3174,665 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // ==================== Multimodal Logic ====================
+    let selectedAttachments = [];
+
+    if (attachFileBtn && chatFileInput) {
+        attachFileBtn.addEventListener('click', () => chatFileInput.click());
+        chatFileInput.addEventListener('change', handleFileSelect);
+    }
+
+    async function handleFileSelect(e) {
+        const files = Array.from(e.target.files);
+        for (const file of files) {
+            if (selectedAttachments.length >= 5) {
+                notificationService.warning('Maximum 5 attachments allowed');
+                break;
+            }
+            
+            // Upload to backend immediately or keep in state? 
+            // User requested: "Al enviar, el archivo debe enviarse al endpoint multimodal"
+            // So we just keep in state for now and upload on send
+            selectedAttachments.push(file);
+        }
+        renderAttachments();
+        chatFileInput.value = ''; // Reset input
+    }
+
+    function renderAttachments() {
+        if (selectedAttachments.length > 0) {
+            chatAttachmentPreview.style.display = 'flex';
+            chatAttachmentPreview.innerHTML = '';
+            selectedAttachments.forEach((file, index) => {
+                const thumb = document.createElement('div');
+                thumb.className = 'attachment-thumbnail';
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    thumb.appendChild(img);
+                } else {
+                    thumb.innerHTML = '<div style="font-size:20px;display:flex;align-items:center;justify-content:center;height:100%;">\uD83D\uDCC4</div>';
+                }
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-attachment';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    selectedAttachments.splice(index, 1);
+                    renderAttachments();
+                };
+                thumb.appendChild(removeBtn);
+                chatAttachmentPreview.appendChild(thumb);
+            });
+        } else {
+            chatAttachmentPreview.style.display = 'none';
+        }
+    }
+
+    // Drag & Drop Support
+    const chatArea = document.querySelector('.chat-container');
+    if (chatArea) {
+        chatArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            chatArea.classList.add('drag-over');
+        });
+        chatArea.addEventListener('dragleave', () => chatArea.classList.remove('drag-over'));
+        chatArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            chatArea.classList.remove('drag-over');
+            const files = Array.from(e.dataTransfer.files);
+            files.forEach(file => {
+                if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+                    if (selectedAttachments.length < 5) {
+                        selectedAttachments.push(file);
+                    }
+                }
+            });
+            renderAttachments();
+        });
+    }
+
+    // ==================== Sandbox Execution ====================
+    if (runSandboxBtn) {
+        runSandboxBtn.addEventListener('click', async () => {
+            const code = monacoEditor ? monacoEditor.getValue() : '';
+            if (!code) {
+                showMessage('No code to run.', 'warning');
+                return;
+            }
+            
+            runSandboxBtn.disabled = true;
+            const originalText = runSandboxBtn.innerHTML;
+            runSandboxBtn.innerHTML = '<span>\u23F3 Running...</span>';
+            
+            sandboxConsole.style.display = 'block';
+            sandboxOutput.textContent = 'Initializing sandbox...\n';
+
+            try {
+                const resp = await fetch('/api/sandbox/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        code: code,
+                        language: currentFilePath ? getFileExtension(currentFilePath) : 'python',
+                        project_name: currentProject
+                    })
+                });
+                const data = await resp.json();
+                if (data.status === 'success') {
+                    sandboxOutput.textContent = data.output || 'Execution finished (no output).';
+                    if (data.exit_code !== 0) {
+                        sandboxOutput.innerHTML += `\n\n<span style="color:var(--color-error)">Process exited with code ${data.exit_code}</span>`;
+                    }
+                } else {
+                    sandboxOutput.textContent = 'Error: ' + (data.error || data.message || 'Sandbox failed');
+                }
+            } catch (err) {
+                sandboxOutput.textContent = 'Network error: ' + err.message;
+            } finally {
+                runSandboxBtn.disabled = false;
+                runSandboxBtn.innerHTML = originalText;
+            }
+        });
+    }
+
+    const closeConsoleBtn = document.querySelector('.close-console');
+    if (closeConsoleBtn) {
+        closeConsoleBtn.addEventListener('click', () => {
+            sandboxConsole.style.display = 'none';
+        });
+    }
+
+    // ==================== Executive Reports ====================
+    if (downloadReportBtn) {
+        downloadReportBtn.addEventListener('click', async () => {
+            if (!currentProject) {
+                showMessage('Please select a project first.', 'warning');
+                return;
+            }
+            
+            downloadReportBtn.disabled = true;
+            notificationService.info('Generating executive report...');
+            
+            try {
+                const resp = await fetch(`/api/export/report/${currentProject}`, { method: 'POST' });
+                const data = await resp.json();
+                
+                if (data.status === 'success') {
+                    // Static, predictable URL as requested
+                    const reportUrl = `/api/export/report/${currentProject}.pdf`;
+                    // Check if file exists or just try to open
+                    window.open(reportUrl, '_blank');
+                    notificationService.success('Report downloaded successfully');
+                } else {
+                    notificationService.error(data.message || 'Report generation failed');
+                }
+            } catch (err) {
+                notificationService.error('Export error: ' + err.message);
+            } finally {
+                downloadReportBtn.disabled = false;
+            }
+        });
+    }
+
+    // ==================== Brain View (Knowledge Base) ====================
+    async function loadBrainData(tab = 'errors') {
+        const list = tab === 'errors' ? brainErrorsList : brainPreferencesList;
+        list.innerHTML = '<p class="placeholder">Querying agent memory...</p>';
+
+        try {
+            const resp = await fetch(`/api/learning/knowledge?type=${tab}`);
+            const data = await resp.json();
+            if (data.status === 'success') {
+                renderBrainItems(data.items, list, tab);
+            } else {
+                list.innerHTML = '<p class="placeholder">No memory items found.</p>';
+            }
+        } catch (err) {
+            list.innerHTML = '<p class="placeholder text-error">Memory access error</p>';
+        }
+    }
+
+    function renderBrainItems(items, container, type) {
+        if (!items || items.length === 0) {
+            container.innerHTML = '<p class="placeholder">Nothing learned here yet.</p>';
+            return;
+        }
+        container.innerHTML = items.map(item => `
+            <div class="brain-item" data-id="${item.id}">
+                <div class="brain-item-content">
+                    <div style="font-weight:600; margin-bottom:4px;">${escapeHtml(item.title || item.pattern || 'Memory Item')}</div>
+                    <div style="font-size:0.85rem; opacity:0.8;">${escapeHtml(item.description || item.solution || '')}</div>
+                    <div class="brain-item-meta">Learned: ${new Date(item.timestamp * 1000).toLocaleDateString()} | Confidence: ${Math.round(item.confidence * 100)}%</div>
+                </div>
+                <button class="btn-icon" onclick="unlearnItem('${item.id}', '${type}')" title="Unlearn this rule">&times;</button>
+            </div>
+        `).join('');
+    }
+
+    window.unlearnItem = async function(id, type) {
+        if (!confirm('Forget this learned pattern?')) return;
+        try {
+            const resp = await fetch(`/api/learning/unlearn`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, type })
+            });
+            if (resp.ok) {
+                notificationService.info('Memory cleared');
+                loadBrainData(type);
+            }
+        } catch (err) { console.error(err); }
+    };
+
+    brainTabBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            brainTabBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const tab = this.dataset.brainTab;
+            brainErrorsList.style.display = tab === 'errors' ? 'flex' : 'none';
+            brainPreferencesList.style.display = tab === 'preferences' ? 'flex' : 'none';
+            loadBrainData(tab);
+        });
+    });
+
+    // ==================== Plugins Marketplace ====================
+    async function loadPlugins() {
+        if (!pluginsGrid) return;
+        pluginsGrid.innerHTML = '<p class="placeholder">Scanning plugins directory...</p>';
+
+        try {
+            const resp = await fetch('/api/plugins/');
+            const data = await resp.json();
+            if (data.status === 'success') {
+                renderPlugins(data.plugins);
+            }
+        } catch (err) {
+            pluginsGrid.innerHTML = '<p class="placeholder text-error">Failed to load plugins</p>';
+        }
+    }
+
+    function renderPlugins(plugins) {
+        if (!plugins || plugins.length === 0) {
+            pluginsGrid.innerHTML = '<p class="placeholder">No plugins discovered.</p>';
+            return;
+        }
+        pluginsGrid.innerHTML = plugins.map(p => `
+            <div class="plugin-card">
+                <div class="plugin-header">
+                    <div class="plugin-icon">${p.icon || '\uD83D\uDCE6'}</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="togglePlugin('${p.id}', this.checked)">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="plugin-info">
+                    <h3>${escapeHtml(p.name)}</h3>
+                    <div class="plugin-version">v${escapeHtml(p.version)} by ${escapeHtml(p.author)}</div>
+                </div>
+                <div class="plugin-desc">${escapeHtml(p.description)}</div>
+            </div>
+        `).join('');
+    }
+
+    window.togglePlugin = async function(id, enabled) {
+        try {
+            const resp = await fetch('/api/plugins/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plugin_id: id, enabled })
+            });
+            const data = await resp.json();
+            if (data.status === 'success') {
+                notificationService.success(`Plugin ${enabled ? 'enabled' : 'disabled'}`);
+            }
+        } catch (err) { console.error(err); }
+    };
+
+    // Update sendChatMessage to handle attachments
+    const originalSendChatMessage = sendChatMessage;
+    sendChatMessage = async function(messageContent = null, agentTypeOverride = null) {
+        const message = messageContent || chatInput.value.trim();
+        if (!message && selectedAttachments.length === 0) return;
+
+        if (selectedAttachments.length > 0) {
+            // Multimodal flow
+            await sendMultimodalMessage(message, agentTypeOverride);
+        } else {
+            await originalSendChatMessage(messageContent, agentTypeOverride);
+        }
+    };
+
+    async function sendMultimodalMessage(message, agentType) {
+        isChatBusy = true;
+        sendBtn.disabled = true;
+        chatInput.value = '';
+        
+        appendChatMessage('user', `${escapeHtml(message)} <br> ${selectedAttachments.length} attachments sent.`);
+        
+        const formData = new FormData();
+        formData.append('message', message);
+        formData.append('agent_type', agentType || selectedAgentType || 'orchestrator');
+        selectedAttachments.forEach(file => formData.append('files', file));
+
+        try {
+            const resp = await fetch('/api/multimodal/process', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            
+            selectedAttachments = [];
+            renderAttachments();
+
+            if (data.status === 'success') {
+                appendChatMessage('assistant', formatAnswer(data.response));
+            } else {
+                appendChatMessage('assistant', `<span class="chat-error">${escapeHtml(data.message)}</span>`);
+            }
+        } catch (err) {
+            appendChatMessage('assistant', `<span class="chat-error">Multimodal error: ${err.message}</span>`);
+        } finally {
+            isChatBusy = false;
+            sendBtn.disabled = false;
+        }
+    }
+
+    // ==================== Multimodal Logic ====================
+    if (attachFileBtn && chatFileInput) {
+        attachFileBtn.addEventListener('click', () => chatFileInput.click());
+        chatFileInput.addEventListener('change', handleFileSelect);
+    }
+
+    function handleFileSelect(e) {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+            if (selectedAttachments.length >= 5) {
+                notificationService.warning('Maximum 5 attachments allowed');
+                return;
+            }
+            selectedAttachments.push(file);
+            renderAttachments();
+        });
+        chatFileInput.value = ''; // Reset input
+    }
+
+    function renderAttachments() {
+        if (selectedAttachments.length > 0) {
+            chatAttachmentPreview.style.display = 'flex';
+            chatAttachmentPreview.innerHTML = '';
+            selectedAttachments.forEach((file, index) => {
+                const thumb = document.createElement('div');
+                thumb.className = 'attachment-thumbnail';
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    thumb.appendChild(img);
+                } else {
+                    thumb.innerHTML = '<div style="font-size:20px;display:flex;align-items:center;justify-content:center;height:100%;">\uD83D\uDCC4</div>';
+                }
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-attachment';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.onclick = () => {
+                    selectedAttachments.splice(index, 1);
+                    renderAttachments();
+                };
+                thumb.appendChild(removeBtn);
+                chatAttachmentPreview.appendChild(thumb);
+            });
+        } else {
+            chatAttachmentPreview.style.display = 'none';
+        }
+    }
+
+    // Drag & Drop Support
+    const chatArea = document.querySelector('.chat-container');
+    if (chatArea) {
+        chatArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            chatArea.classList.add('drag-over');
+        });
+        chatArea.addEventListener('dragleave', () => chatArea.classList.remove('drag-over'));
+        chatArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            chatArea.classList.remove('drag-over');
+            const files = Array.from(e.dataTransfer.files);
+            files.forEach(file => {
+                if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+                    selectedAttachments.push(file);
+                }
+            });
+            renderAttachments();
+        });
+    }
+
+    // ==================== Studio de Generación y Edición de Imágenes ====================
+    const generateAssetsBtn = document.getElementById('generate-assets-btn');
+    const imageEditorModal = document.getElementById('image-editor-modal');
+    const saveAssetBtn = document.getElementById('save-asset-btn');
+    const img2imgBtn = document.getElementById('img2img-variation-btn');
+    let activeImageEditor = null;
+
+    if (generateAssetsBtn) {
+        generateAssetsBtn.addEventListener('click', () => {
+            const prompt = prompt('Describe the asset you want to generate (e.g., modern app icon, system diagram):');
+            if (prompt) {
+                sendChatMessage(`/generate_image ${prompt}`, 'orchestrator');
+            }
+        });
+    }
+
+    // Intercept clicks on images in chat to open editor
+    chatMessages.addEventListener('click', (e) => {
+        if (e.target.tagName === 'IMG' && e.target.closest('.chat-bubble')) {
+            openImageInEditor(e.target.src);
+        }
+    });
+
+    async function openImageInEditor(src) {
+        if (!imageEditorModal) return;
+        imageEditorModal.style.display = 'flex';
+        
+        if (typeof ImageEditor !== 'undefined') {
+            activeImageEditor = new ImageEditor('image-canvas', src);
+            await activeImageEditor.loadImage(src);
+        }
+    }
+
+    if (saveAssetBtn) {
+        saveAssetBtn.addEventListener('click', async () => {
+            if (!activeImageEditor || !currentProject) return;
+            const blob = await activeImageEditor.save();
+            const formData = new FormData();
+            formData.append('file', blob, 'generated_asset.png');
+            formData.append('project_name', currentProject);
+
+            try {
+                const resp = await fetch('/api/multimodal/upload', { method: 'POST', body: formData });
+                const data = await resp.json();
+                if (data.status === 'success') {
+                    notificationService.success('Asset saved to project!');
+                    imageEditorModal.style.display = 'none';
+                    fetchFileTree(currentProject);
+                }
+            } catch (err) { notificationService.error('Save failed'); }
+        });
+    }
+
+    if (img2imgBtn) {
+        img2imgBtn.addEventListener('click', () => {
+            if (!activeImageEditor) return;
+            const promptStr = prompt('Describe the variation you want based on this image:');
+            if (promptStr) {
+                const dataUrl = activeImageEditor.getDataURL();
+                // Send to multimodal endpoint for variation
+                sendMultimodalVariation(dataUrl, promptStr);
+                imageEditorModal.style.display = 'none';
+            }
+        });
+    }
+
+    async function sendMultimodalVariation(dataUrl, promptStr) {
+        // Implementation for img2img
+        appendChatMessage('user', `Requesting variation: ${promptStr}`);
+        // Convert dataUrl to blob
+        const blob = await (await fetch(dataUrl)).blob();
+        selectedAttachments = [new File([blob], "input_image.png", { type: "image/png" })];
+        sendMultimodalMessage(`Generate a variation of this image: ${promptStr}`);
+    }
+
+    // ==================== Plugins & Webhooks Logic ====================
+    async function loadWebhooks() {
+        const list = document.getElementById('webhooks-list');
+        if (!list) return;
+        try {
+            const resp = await fetch('/api/webhooks/');
+            const data = await resp.json();
+            if (data.status === 'success') {
+                renderWebhooks(data.webhooks);
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    function renderWebhooks(webhooks) {
+        const list = document.getElementById('webhooks-list');
+        if (webhooks.length === 0) {
+            list.innerHTML = '<p class="placeholder">No webhooks configured.</p>';
+            return;
+        }
+        list.innerHTML = webhooks.map(w => `
+            <div class="webhook-item">
+                <div class="webhook-info">
+                    <span class="webhook-name">${escapeHtml(w.name)}</span>
+                    <span class="webhook-url-preview">${escapeHtml(w.url.substring(0, 30))}...</span>
+                </div>
+                <button class="btn-icon danger" onclick="deleteWebhook('${w.id}')">&times;</button>
+            </div>
+        `).join('');
+    }
+
+    const addWebhookForm = document.getElementById('add-webhook-form');
+    if (addWebhookForm) {
+        addWebhookForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('webhook-name').value;
+            const url = document.getElementById('webhook-url').value;
+            const type = document.getElementById('webhook-type').value;
+
+            try {
+                const resp = await fetch('/api/webhooks/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, url, type })
+                });
+                if (resp.ok) {
+                    notificationService.success('Webhook added');
+                    addWebhookForm.reset();
+                    loadWebhooks();
+                }
+            } catch (err) { console.error(err); }
+        });
+    }
+
+    window.deleteWebhook = async (id) => {
+        if (!confirm('Delete this webhook?')) return;
+        try {
+            const resp = await fetch(`/api/webhooks/${id}`, { method: 'DELETE' });
+            if (resp.ok) {
+                notificationService.info('Webhook removed');
+                loadWebhooks();
+            }
+        } catch (err) { console.error(err); }
+    };
+
+    // ==================== Chat Multi-Agente (Coworking) ====================
+    const addCollaboratorBtn = document.getElementById('add-collaborator-btn');
+    if (addCollaboratorBtn) {
+        addCollaboratorBtn.addEventListener('click', () => {
+            const agentType = prompt('Enter agent type to add (code, network, system, cybersecurity):');
+            if (agentType) {
+                sendChatMessage(`/add_collaborator ${agentType}`, 'orchestrator');
+                notificationService.info(`Adding ${agentType} to the session...`);
+            }
+        });
+    }
+
+    // Enhance appendChatMessage to handle agent identity
+    const originalAppendChatMessage = appendChatMessage;
+    appendChatMessage = function(role, content, metrics = null, agentName = null) {
+        const bubble = originalAppendChatMessage(role, content, metrics);
+        const msgDiv = bubble.closest('.chat-message');
+        
+        if (role === 'assistant') {
+            const name = agentName || selectedAgentType || 'orchestrator';
+            msgDiv.setAttribute('data-agent', name);
+            
+            // Add avatar label if not present
+            if (!msgDiv.querySelector('.agent-label')) {
+                const label = document.createElement('div');
+                label.className = 'agent-label';
+                label.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+                msgDiv.insertBefore(label, bubble);
+            }
+        }
+        return bubble;
+    };
+
+    // Initialize these on nav click
+    navItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const viewId = this.dataset.view;
+            if (viewId === 'settings') loadWebhooks();
+        });
+    });
+
+    // ==================== Model Benchmark Modal Logic ====================
+    const openBenchmarkModalBtn = document.getElementById('open-benchmark-modal');
+    const benchmarkModal = document.getElementById('benchmark-modal');
+    const modalBenchModelList = document.getElementById('modal-bench-model-list');
+    const modalBenchStartBtn = document.getElementById('modal-bench-start-btn');
+    const modalBenchResults = document.getElementById('modal-bench-results');
+
+    if (openBenchmarkModalBtn) {
+        openBenchmarkModalBtn.addEventListener('click', () => {
+            benchmarkModal.style.display = 'flex';
+            loadModelsIntoModal();
+        });
+    }
+
+    async function loadModelsIntoModal() {
+        if (!modalBenchModelList) return;
+        modalBenchModelList.innerHTML = 'Loading models...';
+        try {
+            const resp = await fetch('/api/benchmark/models');
+            const data = await resp.json();
+            if (data.status === 'ok') {
+                modalBenchModelList.innerHTML = data.models.map(m => `
+                    <label class="model-pill">
+                        <input type="checkbox" value="${m.name}">
+                        <span>${m.name}</span>
+                    </label>
+                `).join('');
+            }
+        } catch (err) { modalBenchModelList.innerHTML = 'Error loading models'; }
+    }
+
+    if (modalBenchStartBtn) {
+        modalBenchStartBtn.addEventListener('click', async () => {
+            const selectedModels = Array.from(modalBenchModelList.querySelectorAll('input:checked')).map(i => i.value);
+            if (selectedModels.length < 2) {
+                notificationService.warning('Select at least 2 models for comparison');
+                return;
+            }
+
+            modalBenchResults.innerHTML = '<div class="bench-loader">Running benchmark comparison...</div>';
+            modalBenchStartBtn.disabled = true;
+
+            try {
+                const resp = await fetch('/api/benchmark/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ models: selectedModels })
+                });
+                const data = await resp.json();
+                
+                if (data.status === 'started') {
+                    // Reuse the existing SSE benchmark stream but update the modal
+                    const source = new EventSource('/api/benchmark/stream');
+                    source.onmessage = (event) => {
+                        const parsed = JSON.parse(event.data);
+                        updateModalBenchUI(parsed);
+                        if (parsed.type === 'benchmark_done') {
+                            source.close();
+                            modalBenchStartBtn.disabled = false;
+                        }
+                    };
+                }
+            } catch (err) {
+                modalBenchResults.innerHTML = 'Benchmark failed: ' + err.message;
+                modalBenchStartBtn.disabled = false;
+            }
+        });
+    }
+
+    function updateModalBenchUI(data) {
+        if (data.type === 'model_done' && data.result) {
+            const res = data.result;
+            const card = document.createElement('div');
+            card.className = 'modal-bench-card';
+            card.innerHTML = `
+                <h4>${res.model}</h4>
+                <div class="bench-metric">Speed: <strong>${res.tokens_per_second} tok/s</strong></div>
+                <div class="bench-metric">Success: <strong>${res.projects_results ? res.projects_results.filter(p=>p.status==='Success').length : 0} tasks</strong></div>
+            `;
+            if (modalBenchResults.querySelector('.bench-placeholder') || modalBenchResults.querySelector('.bench-loader')) {
+                modalBenchResults.innerHTML = '';
+            }
+            modalBenchResults.appendChild(card);
+        }
+    }
+
     // ==================== Init ====================
     restoreChatHistory();
     populateExistingProjects();
@@ -3571,6 +4252,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (viewId === 'docs') loadDocs();
             if (viewId === 'costs') updateCostsDashboard();
             if (viewId === 'architecture') initKnowledgeGraph();
+            if (viewId === 'brain') loadBrainData();
+            if (viewId === 'plugins') loadPlugins();
         });
     });
 
