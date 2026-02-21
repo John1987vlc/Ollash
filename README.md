@@ -78,6 +78,16 @@
 | F36 | **Secure Git Integration** | Seamless GitHub integration with PAT support and branch management. View PR history directly in the UI. | `frontend/blueprints/auto_agent_bp.py`, `backend/utils/core/git_pr_tool.py` |
 | F37 | **Continuous Auto-Review** | Scheduled hourly maintenance tasks that analyze code, run tests, and generate automated PRs for improvements. | `backend/utils/core/autonomous_maintenance.py`, `backend/utils/core/task_scheduler.py` |
 
+### Group G — Advanced UI Features
+
+| # | Feature | Description | Key Files |
+|---|---------|-------------|-----------|
+| F38 | **Documentation Center** | Integrated documentation viewer with Markdown rendering and sidebar navigation. | `frontend/templates/index.html`, `frontend/static/js/app.js` |
+| F39 | **Costs Dashboard** | Real-time dashboard tracking token usage, estimated costs, and efficiency metrics with charts. | `frontend/blueprints/cost_bp.py`, `frontend/static/js/app.js` |
+| F40 | **Architecture Graph** | Interactive visualization of project components and dependencies using vis.js. | `frontend/blueprints/knowledge_graph_bp.py`, `frontend/static/js/app.js` |
+| F41 | **Voice Input** | Browser-based speech recognition for voice commands and dictation directly into the chat. | `frontend/static/js/app.js`, `frontend/static/css/style.css` |
+| F42 | **Pair Programming Mode** | Split-screen layout allowing side-by-side chat and project workspace interaction. | `frontend/static/css/style.css`, `frontend/static/js/app.js` |
+
 ---
 
 ## 6 Integrated Pipeline Features

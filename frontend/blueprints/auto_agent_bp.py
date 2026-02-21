@@ -475,6 +475,126 @@ def clone_project():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@auto_agent_bp.route("/api/projects/<project_name>/quarantine")
+def get_project_quarantine(project_name):
+    """List files currently in quarantine for a project."""
+    project_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+    quarantine_dir = project_path / ".quarantine"
+
+    if not quarantine_dir.is_dir():
+        return jsonify({"status": "success", "files": []})
+
+    try:
+        files = []
+        for f in os.listdir(quarantine_dir):
+            f_path = quarantine_dir / f
+            if f_path.is_file():
+                # Try to find why it was quarantined (from vulnerability scan report if exists)
+                reason = "Deemed unsafe by security scanner"
+                files.append({
+                    "name": f,
+                    "path": str(f_path),
+                    "reason": reason,
+                    "size": f_path.stat().st_size,
+                    "modified": f_path.stat().st_mtime
+                })
+        return jsonify({"status": "success", "files": sorted(files, key=lambda x: x["modified"], reverse=True)})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/quarantine/<filename>/approve", methods=["POST"])
+def approve_quarantine_file(project_name, filename):
+    """Move a file from quarantine back to the project root."""
+    project_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+    quarantine_path = project_path / ".quarantine" / filename
+    dest_path = project_path / filename
+
+    if not quarantine_path.is_file():
+        return jsonify({"status": "error", "message": "File not found in quarantine."}), 404
+
+    try:
+        import shutil
+        shutil.move(str(quarantine_path), str(dest_path))
+        return jsonify({"status": "success", "message": f"File {filename} approved and restored."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/quarantine/<filename>/reject", methods=["POST"])
+def reject_quarantine_file(project_name, filename):
+    """Delete a file from quarantine and request re-generation (simulated)."""
+    project_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+    quarantine_path = project_path / ".quarantine" / filename
+
+    if not quarantine_path.is_file():
+        return jsonify({"status": "error", "message": "File not found in quarantine."}), 404
+
+    try:
+        os.remove(quarantine_path)
+        # In a real scenario, we might trigger a re-generation task here
+        return jsonify({"status": "success", "message": f"File {filename} rejected and removed from quarantine."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/compliance")
+def get_project_compliance(project_name):
+    """Perform a deep license and dependency scan on the project."""
+    project_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+
+    if not project_path.is_dir():
+        return jsonify({"status": "error", "message": "Project not found."}), 404
+
+    try:
+        from backend.utils.core.deep_license_scanner import DeepLicenseScanner
+        from backend.utils.core.agent_logger import AgentLogger
+        
+        logger = AgentLogger(f"Compliance-{project_name}")
+        scanner = DeepLicenseScanner(logger)
+        
+        # Collect relevant files for scanning
+        generated_files = {}
+        for root, _, files in os.walk(project_path):
+            for f in files:
+                if f in ("requirements.txt", "package.json", "pyproject.toml"):
+                    rel_path = os.path.relpath(os.path.join(root, f), project_path)
+                    try:
+                        with open(os.path.join(root, f), "r", encoding="utf-8") as file:
+                            generated_files[rel_path] = file.read()
+                    except Exception:
+                        pass
+        
+        # Assume project license is MIT if not found (or read from LICENSE file)
+        project_license = "MIT"
+        license_file = project_path / "LICENSE"
+        if license_file.is_file():
+            content = license_file.read_text().upper()
+            if "APACHE" in content: project_license = "Apache-2.0"
+            elif "GPL" in content: project_license = "GPL-3.0-only"
+
+        report = scanner.scan_project(generated_files, project_license)
+        return jsonify({"status": "success", "report": report.to_dict()})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/security-report")
+def get_project_security_report(project_name):
+    """Retrieve the latest security scan report for a project."""
+    project_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+    report_path = project_path / "SECURITY_SCAN_REPORT.md"
+
+    if not report_path.is_file():
+        return jsonify({"status": "error", "message": "Security report not found. Run a security scan first."}), 404
+
+    try:
+        content = report_path.read_text(encoding="utf-8")
+        return jsonify({"status": "success", "report_markdown": content})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @auto_agent_bp.route("/api/projects/<project_name>/issues")
 def get_project_issues(project_name):
     """Retrieve structured issues from senior review markdown files for a given project."""

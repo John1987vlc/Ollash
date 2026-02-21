@@ -47,6 +47,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const terminalTabContent = document.getElementById('terminal-tab');
     const terminalContainer = document.getElementById('terminal-container');
 
+    // Pipeline Stepper
+    const pipelineStepper = document.getElementById('pipeline-stepper');
+    const pipelineOverallStatus = document.getElementById('pipeline-overall-status');
+
+    // Security & Compliance
+    const securityTabContent = document.getElementById('security-tab');
+    const complianceTabContent = document.getElementById('compliance-tab');
+    const quarantineList = document.getElementById('quarantine-list');
+    const quarantineCount = document.getElementById('quarantine-count');
+    const autonomousInterventions = document.getElementById('autonomous-interventions');
+    const projectDependencyList = document.getElementById('project-dependency-list');
+    const licenseAuditSummary = document.getElementById('license-audit-summary');
+
     // Wizard elements
     const wizardSteps = document.querySelectorAll('.wizard-step');
     const wizardIndicators = document.querySelectorAll('.wizard-step-indicator');
@@ -114,6 +127,30 @@ document.addEventListener('DOMContentLoaded', function() {
     const gitNextReview = document.getElementById('git-next-review');
     const gitPrList = document.getElementById('git-pr-list');
 
+    // Documentation View
+    const docsNav = document.getElementById('docs-nav');
+    const docsContent = document.getElementById('docs-content');
+
+    // Costs View
+    const totalCostVal = document.getElementById('total-cost-val');
+    const totalTokensVal = document.getElementById('total-tokens-val');
+    const tokensSplit = document.getElementById('tokens-split');
+    const avgEfficiencyVal = document.getElementById('avg-efficiency-val');
+    const costSuggestionsList = document.getElementById('cost-suggestions-list');
+
+    // Architecture (Knowledge Graph)
+    const kgContainer = document.getElementById('knowledge-graph-container');
+    const kgSearchInput = document.getElementById('kg-search-input');
+    const kgRefreshBtn = document.getElementById('kg-refresh-btn');
+    const kgResetBtn = document.getElementById('kg-reset-btn');
+    const kgDetailsPanel = document.getElementById('kg-node-details');
+    const kgDetailsContent = document.getElementById('kg-details-content');
+    const kgDetailsTitle = document.getElementById('kg-details-title');
+
+    // Voice & Pair Mode
+    const voiceInputBtn = document.getElementById('voice-input-btn');
+    const togglePairModeBtn = document.getElementById('toggle-pair-mode');
+    const appContainer = document.querySelector('.app-container');
 
     // Chat
     const chatMessages = document.getElementById('chat-messages');
@@ -153,6 +190,22 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentPythonVersion = null;
     let currentLicenseType = null;
     let currentIncludeDocker = null;
+
+    // Costs & Usage state
+    let costAgentChart = null;
+    let tokenHistoryChart = null;
+
+    // Knowledge Graph state
+    let kgNetwork = null;
+    let kgNodes = null;
+    let kgEdges = null;
+
+    // Voice state
+    let isRecording = false;
+    let recognition = null;
+
+    // Pair Programming state
+    let isPairMode = false;
 
     let isEditorDirty = false; // Tracks if the current file in Monaco has unsaved changes
     let monacoEditor; // Global Monaco Editor instance
@@ -529,6 +582,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 previewTab.classList.remove('active');
                 codeTab.classList.remove('active');
                 issuesTabContent.classList.remove('active');
+                if (securityTabContent) securityTabContent.classList.remove('active');
+                if (complianceTabContent) complianceTabContent.classList.remove('active');
                 if (minimapTab) minimapTab.classList.add('active');
                 loadProjectMinimap();
                 return;
@@ -544,17 +599,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 previewTab.classList.add('active');
                 codeTab.classList.remove('active');
                 issuesTabContent.classList.remove('active');
+                if (securityTabContent) securityTabContent.classList.remove('active');
+                if (complianceTabContent) complianceTabContent.classList.remove('active');
                 updatePreview();
             } else if (tabId === 'code') {
                 previewTab.classList.remove('active');
                 codeTab.classList.add('active');
                 issuesTabContent.classList.remove('active');
+                if (securityTabContent) securityTabContent.classList.remove('active');
+                if (complianceTabContent) complianceTabContent.classList.remove('active');
                 if (monacoEditor) monacoEditor.layout();
             } else if (tabId === 'issues') {
                 previewTab.classList.remove('active');
                 codeTab.classList.remove('active');
                 issuesTabContent.classList.add('active');
+                if (securityTabContent) securityTabContent.classList.remove('active');
+                if (complianceTabContent) complianceTabContent.classList.remove('active');
                 loadProjectIssues(currentProject);
+            } else if (tabId === 'security') {
+                previewTab.classList.remove('active');
+                codeTab.classList.remove('active');
+                issuesTabContent.classList.remove('active');
+                if (securityTabContent) securityTabContent.classList.add('active');
+                if (complianceTabContent) complianceTabContent.classList.remove('active');
+                loadQuarantineList(currentProject);
+            } else if (tabId === 'compliance') {
+                previewTab.classList.remove('active');
+                codeTab.classList.remove('active');
+                issuesTabContent.classList.remove('active');
+                if (securityTabContent) securityTabContent.classList.remove('active');
+                if (complianceTabContent) complianceTabContent.classList.add('active');
+                loadComplianceData(currentProject);
             }
         });
     });
@@ -1235,9 +1310,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (parsedEvent.error) outputMsg += ` (Error: ${parsedEvent.error})`;
                     if (parsedEvent.failures) outputMsg += ` (Failures: ${parsedEvent.failures.length})`;
                     addLogLine(outputMsg, toolStatus);
+
+                    // F21: Handle CI/CD healing interventions
+                    if (parsedEvent.tool_name === 'cicd_healing_analysis') {
+                        addAutonomousIntervention({
+                            message: `Analizando fallo en ${parsedEvent.workflow_name || 'CI'}: ${parsedEvent.root_cause}. Categoría: ${parsedEvent.category}.`
+                        });
+                    }
                     break;
                 case 'tool_end':
-                    // addLogLine(`  TOOL: ${parsedEvent.tool_name} ended.`, 'info'); // Might be too verbose
+                    if (parsedEvent.tool_name === 'cicd_healing') {
+                        resolveAutonomousIntervention({
+                            message: `Parche aplicado con éxito (Intento ${parsedEvent.attempt}). Se han corregido ${parsedEvent.fixes_applied} archivos.`,
+                            patch: parsedEvent.patch // If available
+                        });
+                    }
                     break;
                 case 'project_complete':
                     addLogLine(`PROJECT COMPLETED: ${parsedEvent.project_name}!`, 'success');
@@ -1285,20 +1372,281 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to update the visual state of the phase timeline
     function updatePhaseTimeline(phase, status) {
+        // Map backend statuses to UI classes
+        const statusMap = {
+            'current': 'running',
+            'completed': 'success',
+            'success': 'success',
+            'error': 'failed',
+            'failed': 'failed',
+            'pending': 'pending'
+        };
+        const uiStatus = statusMap[status] || status;
+
         phaseSteps.forEach(step => {
             const stepPhase = parseInt(step.dataset.phase);
-            step.classList.remove('current', 'completed', 'error');
+            step.classList.remove('pending', 'running', 'success', 'failed');
 
             if (stepPhase < phase) {
-                step.classList.add('completed');
+                step.classList.add('success');
             } else if (stepPhase === phase) {
-                step.classList.add(status);
+                step.classList.add(uiStatus);
+                // If failed, add a log button if not present
+                if (uiStatus === 'failed' && !step.querySelector('.btn-view-log')) {
+                    const logBtn = document.createElement('button');
+                    logBtn.className = 'btn-view-log';
+                    logBtn.innerHTML = '&#x1f4d6;';
+                    logBtn.title = 'View error log';
+                    logBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        document.querySelector('[data-tab="terminal"]').click();
+                    };
+                    step.appendChild(logBtn);
+                }
             } else {
                 step.classList.add('pending');
             }
         });
-        if (phaseSteps[phase -1]) {
-            phaseTimelineContainer.scrollLeft = phaseSteps[phase -1].offsetLeft - (phaseTimelineContainer.offsetWidth / 2) + (phaseSteps[phase -1].offsetWidth / 2);
+        
+        // Update overall status text
+        if (pipelineOverallStatus) {
+            pipelineOverallStatus.textContent = uiStatus.charAt(0).toUpperCase() + uiStatus.slice(1);
+            pipelineOverallStatus.className = 'pipeline-status ' + uiStatus;
+        }
+
+        if (phaseSteps[phase - 1]) {
+            const container = document.getElementById('pipeline-stepper').parentElement;
+            container.scrollLeft = phaseSteps[phase - 1].offsetLeft - (container.offsetWidth / 2) + (phaseSteps[phase - 1].offsetWidth / 2);
+        }
+    }
+
+    // ==================== Quarantine & Security ====================
+    async function loadQuarantineList(projectName) {
+        if (!projectName) return;
+        quarantineList.innerHTML = '<p class="placeholder">Loading quarantine data...</p>';
+
+        try {
+            const response = await fetch(`/api/projects/${projectName}/quarantine`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                renderQuarantineList(data.files, projectName);
+                quarantineCount.textContent = data.files.length;
+            } else {
+                quarantineList.innerHTML = `<p class="placeholder text-error">Error: ${escapeHtml(data.message)}</p>`;
+            }
+        } catch (error) {
+            console.error('Error loading quarantine list:', error);
+            quarantineList.innerHTML = '<p class="placeholder text-error">Failed to load quarantine data.</p>';
+        }
+        
+        // Also load security report
+        loadSecurityReport(projectName);
+    }
+
+    function renderQuarantineList(files, projectName) {
+        if (files.length === 0) {
+            quarantineList.innerHTML = '<p class="placeholder">No files in quarantine.</p>';
+            return;
+        }
+
+        quarantineList.innerHTML = '';
+        files.forEach(file => {
+            const item = document.createElement('div');
+            item.className = 'quarantine-item';
+            item.innerHTML = `
+                <div class="quarantine-info">
+                    <span class="quarantine-file">${escapeHtml(file.name)}</span>
+                    <span class="quarantine-reason">${escapeHtml(file.reason)}</span>
+                </div>
+                <div class="quarantine-actions">
+                    <button class="btn-sm btn-success" onclick="approveQuarantineFile('${projectName}', '${file.name}')">Approve</button>
+                    <button class="btn-sm btn-danger" onclick="rejectQuarantineFile('${projectName}', '${file.name}')">Reject</button>
+                </div>
+            `;
+            item.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'BUTTON') {
+                    // Open in diff view if possible (comparing with empty or previous)
+                    showDiffModal(file.name, "// Quarantined file content..."); 
+                }
+            });
+            quarantineList.appendChild(item);
+        });
+    }
+
+    window.approveQuarantineFile = async function(projectName, filename) {
+        if (!confirm(`Are you sure you want to approve and restore ${filename}?`)) return;
+        try {
+            const resp = await fetch(`/api/projects/${projectName}/quarantine/${filename}/approve`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.status === 'success') {
+                notificationService.success(data.message);
+                loadQuarantineList(projectName);
+                fetchFileTree(projectName);
+            } else {
+                notificationService.error(data.message);
+            }
+        } catch (err) {
+            notificationService.error("Operation failed");
+        }
+    };
+
+    window.rejectQuarantineFile = async function(projectName, filename) {
+        if (!confirm(`Are you sure you want to reject and delete ${filename}?`)) return;
+        try {
+            const resp = await fetch(`/api/projects/${projectName}/quarantine/${filename}/reject`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.status === 'success') {
+                notificationService.warning(data.message);
+                loadQuarantineList(projectName);
+            } else {
+                notificationService.error(data.message);
+            }
+        } catch (err) {
+            notificationService.error("Operation failed");
+        }
+    };
+
+    async function loadSecurityReport(projectName) {
+        const reportList = document.getElementById('security-reports-list');
+        if (!reportList) return;
+
+        try {
+            const resp = await fetch(`/api/projects/${projectName}/security-report`);
+            const data = await resp.json();
+            if (data.status === 'success') {
+                reportList.innerHTML = `<div class="security-report-markdown">${formatAnswer(data.report_markdown)}</div>`;
+            } else {
+                reportList.innerHTML = '<p class="placeholder">No security report found yet.</p>';
+            }
+        } catch (err) {
+            reportList.innerHTML = '<p class="placeholder text-error">Error loading report.</p>';
+        }
+    }
+
+    // ==================== Compliance & Dependencies ====================
+    async function loadComplianceData(projectName) {
+        if (!projectName) return;
+        projectDependencyList.innerHTML = '<p class="placeholder">Scanning dependencies...</p>';
+        licenseAuditSummary.innerHTML = '<p class="placeholder">Auditing licenses...</p>';
+
+        try {
+            const response = await fetch(`/api/projects/${projectName}/compliance`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                renderComplianceData(data.report);
+            } else {
+                projectDependencyList.innerHTML = `<p class="placeholder text-error">Error: ${escapeHtml(data.message)}</p>`;
+            }
+        } catch (error) {
+            console.error('Error loading compliance data:', error);
+            projectDependencyList.innerHTML = '<p class="placeholder text-error">Failed to load compliance data.</p>';
+        }
+    }
+
+    function renderComplianceData(report) {
+        // Render Dependencies
+        if (report.dependencies.length === 0) {
+            projectDependencyList.innerHTML = '<p class="placeholder">No dependencies detected.</p>';
+        } else {
+            projectDependencyList.innerHTML = '';
+            report.dependencies.forEach(dep => {
+                const badge = document.createElement('div');
+                const isIncompatible = report.conflicts.some(c => c.package === dep.package && c.severity === 'blocking');
+                badge.className = `dependency-badge ${isIncompatible ? 'incompatible' : ''}`;
+                badge.innerHTML = `
+                    <span class="dep-name">${escapeHtml(dep.package)}</span>
+                    <span class="dep-ver">${escapeHtml(dep.version)}</span>
+                    <span class="dep-lic badge ${isIncompatible ? 'badge-danger' : 'badge-info'}">${escapeHtml(dep.license)}</span>
+                    ${isIncompatible ? '<span class="lic-warning" title="License Conflict!">&#x26a0;&#xfe0f;</span>' : ''}
+                `;
+                projectDependencyList.appendChild(badge);
+            });
+        }
+
+        // Render License Summary
+        licenseAuditSummary.innerHTML = `
+            <div class="compliance-summary-card ${report.is_compliant ? 'compliant' : 'non-compliant'}">
+                <div class="summary-header">
+                    <span class="status-icon">${report.is_compliant ? '&#x2705;' : '&#x274c;'}</span>
+                    <span class="status-text">${report.is_compliant ? 'License Compliant' : 'License Conflicts Detected'}</span>
+                </div>
+                <div class="summary-details">
+                    <p><strong>Project License:</strong> ${escapeHtml(report.project_license)}</p>
+                    <p><strong>Total Dependencies:</strong> ${report.total_dependencies}</p>
+                    <div class="stats-row">
+                        <span class="stat text-success">Compatible: ${report.compatible}</span>
+                        <span class="stat text-error">Incompatible: ${report.incompatible}</span>
+                        <span class="stat text-muted">Unknown: ${report.unknown}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (report.conflicts.length > 0) {
+            const conflictList = document.createElement('div');
+            conflictList.className = 'conflict-list';
+            conflictList.innerHTML = '<h5>Conflicts & Warnings</h5>';
+            report.conflicts.forEach(c => {
+                const item = document.createElement('div');
+                item.className = `conflict-item ${c.severity}`;
+                item.innerHTML = `<strong>${escapeHtml(c.package)}</strong> (${escapeHtml(c.license)}): ${escapeHtml(c.reason)}`;
+                conflictList.appendChild(item);
+            });
+            licenseAuditSummary.appendChild(conflictList);
+        }
+    }
+
+    // ==================== Autonomous Interventions ====================
+    function addAutonomousIntervention(data) {
+        if (!autonomousInterventions) return;
+        
+        const card = document.createElement('div');
+        card.className = 'intervention-card healing';
+        const timestamp = new Date().toLocaleTimeString();
+        
+        card.innerHTML = `
+            <div class="intervention-header">
+                <span class="intervention-icon">🔥</span>
+                <span class="intervention-title">CI/CD Auto-Healing Active</span>
+                <span class="intervention-time">${timestamp}</span>
+            </div>
+            <div class="intervention-body">
+                <p class="intervention-msg">${escapeHtml(data.message || 'Fallo detectado en CI/CD. El agente sanador está generando un parche...')}</p>
+                <div class="intervention-progress">
+                    <div class="progress-bar-animated"></div>
+                </div>
+            </div>
+        `;
+        
+        // Prepend to show latest first
+        if (autonomousInterventions.firstChild && autonomousInterventions.firstChild.className === 'placeholder') {
+            autonomousInterventions.innerHTML = '';
+        }
+        autonomousInterventions.insertBefore(card, autonomousInterventions.firstChild);
+        
+        // Switch to security tab to show it
+        document.querySelector('[data-tab="security"]').click();
+    }
+
+    function resolveAutonomousIntervention(data) {
+        const firstCard = autonomousInterventions.querySelector('.intervention-card.healing');
+        if (firstCard) {
+            firstCard.classList.remove('healing');
+            firstCard.classList.add('resolved');
+            firstCard.querySelector('.intervention-icon').innerHTML = '✅';
+            firstCard.querySelector('.intervention-title').textContent = 'CI/CD Issue Resolved';
+            firstCard.querySelector('.intervention-msg').textContent = data.message || 'Patch applied successfully.';
+            firstCard.querySelector('.intervention-progress').remove();
+            
+            if (data.patch) {
+                const viewPatchBtn = document.createElement('button');
+                viewPatchBtn.className = 'btn-sm btn-secondary';
+                viewPatchBtn.textContent = 'View Patch';
+                viewPatchBtn.onclick = () => showDiffModal(data.file || 'patched_file', data.patch);
+                firstCard.querySelector('.intervention-body').appendChild(viewPatchBtn);
+            }
         }
     }
 
@@ -2910,7 +3258,321 @@ document.addEventListener('DOMContentLoaded', function() {
             saveNotificationSettings();
         });
     }
-});
+
+    // ==================== F13: Documentation Center ====================
+    async function loadDocs(docId = 'getting-started') {
+        if (!docsContent) return;
+        docsContent.innerHTML = '<p class="placeholder">Loading documentation...</p>';
+
+        try {
+            // In a real scenario, we'd fetch from an API or static files
+            // For now, we'll use hardcoded content for the most common ones
+            const docs = {
+                'getting-started': '# Getting Started\n\nWelcome to **Ollash**, your local IT agent powered by Ollama. Ollash is designed to help you automate complex IT tasks, generate projects, and maintain system health using specialized AI agents.\n\n### Key Features\n- **Autonomous Project Generation**: From idea to code in minutes.\n- **Multi-Agent Collaboration**: Specialist agents for code, network, system, and security.\n- **Live Monitoring**: Real-time visibility into agent thoughts and tool usage.\n- **Self-Healing**: Automatic correction of CI/CD and build failures.',
+                'multi-agent-flow': '# The Multi-Agent Pipeline\n\nOllash uses a structured 8-phase pipeline for project generation:\n\n1. **Analysis**: Understanding requirements and identifying tech stack.\n2. **Planning**: Creating a step-by-step implementation roadmap.\n3. **Scaffolding**: Generating the initial folder structure.\n4. **Generation**: Writing the actual source code.\n5. **Refinement**: Self-review and optimization.\n6. **Testing**: Running unit tests and verifying functionality.\n7. **Security**: Vulnerability scanning and quarantine.\n8. **Integration**: Git commits, Docker setup, and final wrap-up.',
+                'git-integration': '# Git & GitHub Integration\n\nOllash can automatically synchronize your generated code with GitHub.\n\n### How to enable it:\n1. Provide your **Git Repository URL** in the creation wizard.\n2. Add a **Personal Access Token (PAT)** with repo permissions.\n3. (Optional) Enable **Auto-Review** to let the agent periodically scan for bugs and suggest improvements via Pull Requests.',
+                'quarantine-mode': '# Code Quarantine & Security\n\nSecurity is a top priority. Ollash includes a specialized **Quarantine Zone**:\n\n- Files that contain suspicious patterns (e.g., hardcoded secrets, dangerous commands) are moved to `.quarantine/`.\n- You must manually review and **Approve** these files before they are restored to your project.\n- The **Vulnerability Scanner** runs during Phase 7 to identify risks like SQL Injection or insecure dependencies.',
+                'api-reference': '# API Reference\n\nOllash exposes a REST API for integration with other tools:\n\n- `GET /api/projects/list`: List all projects.\n- `POST /api/chat`: Send a message to the orchestrator.\n- `GET /api/system/health`: Get real-time system metrics.\n- `GET /api/costs/report`: Get token consumption statistics.'
+            };
+
+            const markdown = docs[docId] || '# Documentation\nComing soon...';
+            
+            // Use marked.js if available, otherwise fallback to simple formatting
+            if (typeof marked !== 'undefined') {
+                docsContent.innerHTML = marked.parse(markdown);
+            } else {
+                docsContent.innerHTML = formatAnswer(markdown);
+            }
+
+            // Update active state in nav
+            docsNav.querySelectorAll('.docs-nav-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.doc === docId);
+            });
+        } catch (err) {
+            docsContent.innerHTML = '<p class="placeholder text-error">Failed to load documentation.</p>';
+        }
+    }
+
+    if (docsNav) {
+        docsNav.addEventListener('click', (e) => {
+            const item = e.target.closest('.docs-nav-item');
+            if (item) loadDocs(item.dataset.doc);
+        });
+    }
+
+    // ==================== F14: Token & Cost Dashboard ====================
+    async function updateCostsDashboard() {
+        if (!totalCostVal) return;
+
+        try {
+            const resp = await fetch('/api/costs/report');
+            const data = await resp.json();
+            const report = data.report || {};
+
+            safelySetTextContent(totalCostVal, `$${(report.total_cost || 0).toFixed(4)}`);
+            safelySetTextContent(totalTokensVal, (report.total_tokens || 0).toLocaleString());
+            safelySetTextContent(tokensSplit, `Prompt: ${(report.prompt_tokens || 0).toLocaleString()} | Comp: ${(report.completion_tokens || 0).toLocaleString()}`);
+            
+            const efficiency = report.efficiency_score || 0;
+            safelySetTextContent(avgEfficiencyVal, `${Math.round(efficiency * 100)}%`);
+            const progressFill = document.querySelector('.progress-fill');
+            if (progressFill) progressFill.style.width = `${efficiency * 100}%`;
+
+            // Update Charts
+            renderCostCharts(report);
+            
+            // Update Suggestions
+            renderCostSuggestions(report.suggestions || []);
+        } catch (err) {
+            console.error('Error updating costs:', err);
+        }
+    }
+
+    function renderCostCharts(report) {
+        // 1. Cost by Agent (Pie Chart)
+        const agentCtx = document.getElementById('cost-agent-chart')?.getContext('2d');
+        if (agentCtx) {
+            if (costAgentChart) costAgentChart.destroy();
+            const byAgent = report.by_agent || {};
+            const labels = Object.keys(byAgent);
+            const values = Object.values(byAgent);
+
+            costAgentChart = new Chart(agentCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { color: '#a1a1aa' } } }
+                }
+            });
+        }
+
+        // 2. Token History (Line Chart)
+        const historyCtx = document.getElementById('token-history-chart')?.getContext('2d');
+        if (historyCtx) {
+            if (tokenHistoryChart) tokenHistoryChart.destroy();
+            const history = report.history || [];
+            const labels = history.map(h => h.date);
+            const values = history.map(h => h.tokens);
+
+            tokenHistoryChart = new Chart(historyCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Tokens per Day',
+                        data: values,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a1a1aa' } },
+                        x: { grid: { display: false }, ticks: { color: '#a1a1aa' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    }
+
+    function renderCostSuggestions(suggestions) {
+        if (!costSuggestionsList) return;
+        if (suggestions.length === 0) {
+            costSuggestionsList.innerHTML = '<p class="placeholder">Your token usage is optimized. No suggestions at this time.</p>';
+            return;
+        }
+
+        costSuggestionsList.innerHTML = suggestions.map(s => `
+            <div class="suggestion-card">
+                <div class="suggestion-icon">💡</div>
+                <div class="suggestion-text">
+                    <h4>${escapeHtml(s.title)}</h4>
+                    <p>${escapeHtml(s.description)}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ==================== F15: Interactive Architecture Graph ====================
+    async function initKnowledgeGraph() {
+        if (!kgContainer) return;
+        kgContainer.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--color-text-muted)">Generating architecture graph...</div>';
+
+        try {
+            const resp = await fetch('/api/knowledge-graph/data');
+            const data = await resp.json();
+
+            if (data.nodes.length === 0) {
+                kgContainer.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--color-text-muted)">No architecture data available for this project.</div>';
+                return;
+            }
+
+            kgContainer.innerHTML = '';
+            kgNodes = new vis.DataSet(data.nodes);
+            kgEdges = new vis.DataSet(data.edges);
+
+            const options = {
+                nodes: {
+                    shape: 'dot',
+                    size: 16,
+                    font: { size: 12, color: '#e4e4e7' },
+                    borderWidth: 2,
+                    shadow: true
+                },
+                edges: {
+                    arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+                    color: { color: '#2a2a35', highlight: '#6366f1' },
+                    font: { size: 10, align: 'middle', color: '#a1a1aa' },
+                    smooth: { type: 'continuous' }
+                },
+                physics: {
+                    forceAtlas2Based: { gravitationalConstant: -50, centralGravity: 0.01, springLength: 100 },
+                    solver: 'forceAtlas2Based',
+                    stabilization: { iterations: 150 }
+                },
+                groups: {
+                    concept: { color: { background: '#6366f1', border: '#4f46e5' } },
+                    file: { color: { background: '#10b981', border: '#059669' } },
+                    class: { color: { background: '#f59e0b', border: '#d97706' } },
+                    function: { color: { background: '#8b5cf6', border: '#7c3aed' } }
+                }
+            };
+
+            if (kgNetwork) kgNetwork.destroy();
+            kgNetwork = new vis.Network(kgContainer, { nodes: kgNodes, edges: kgEdges }, options);
+
+            kgNetwork.on('selectNode', function(params) {
+                const nodeId = params.nodes[0];
+                const node = kgNodes.get(nodeId);
+                showNodeDetails(node);
+            });
+
+            kgNetwork.on('deselectNode', function() {
+                kgDetailsPanel.classList.remove('active');
+            });
+
+        } catch (err) {
+            console.error('Error loading KG:', err);
+            kgContainer.innerHTML = '<p class="placeholder text-error">Failed to load graph.</p>';
+        }
+    }
+
+    function showNodeDetails(node) {
+        if (!kgDetailsPanel) return;
+        kgDetailsTitle.textContent = node.label;
+        kgDetailsContent.innerHTML = `
+            <div class="detail-item"><strong>Type:</strong> ${node.group}</div>
+            <div class="detail-item"><strong>ID:</strong> ${node.id}</div>
+            <div class="detail-item" style="margin-top:10px;"><strong>Metadata:</strong></div>
+            <pre style="font-size:0.75rem; background:rgba(0,0,0,0.2); padding:5px; border-radius:4px; margin-top:5px;">${node.title}</pre>
+        `;
+        kgDetailsPanel.classList.add('active');
+    }
+
+    if (kgRefreshBtn) kgRefreshBtn.addEventListener('click', initKnowledgeGraph);
+    if (kgResetBtn) kgResetBtn.addEventListener('click', () => { if (kgNetwork) kgNetwork.fit(); });
+    const closeKgPanel = kgDetailsPanel?.querySelector('.close-panel');
+    if (closeKgPanel) closeKgPanel.addEventListener('click', () => kgDetailsPanel.classList.remove('active'));
+
+    // ==================== F16: Voice Input Integration ====================
+    function initVoiceCommands() {
+        if (!voiceInputBtn) return;
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            voiceInputBtn.style.display = 'none';
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+            isRecording = true;
+            voiceInputBtn.classList.add('recording');
+            notificationService.info('Listening...', 2000);
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            chatInput.value += (chatInput.value ? ' ' : '') + transcript;
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            stopRecording();
+        };
+
+        recognition.onend = () => {
+            stopRecording();
+        };
+
+        voiceInputBtn.addEventListener('click', () => {
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        });
+    }
+
+    function stopRecording() {
+        isRecording = false;
+        if (voiceInputBtn) voiceInputBtn.classList.remove('recording');
+    }
+
+    initVoiceCommands();
+
+    // ==================== F17: Pair Programming Mode ====================
+    function togglePairMode() {
+        isPairMode = !isPairMode;
+        appContainer.classList.toggle('pair-mode', isPairMode);
+        togglePairModeBtn.classList.toggle('active', isPairMode);
+
+        if (isPairMode) {
+            notificationService.info('Pair Programming Mode Active');
+            // Ensure projects view is visible but in split mode
+            document.querySelector('[data-view="chat"]').click(); 
+            // The CSS handles showing #projects-view fixed on the right
+        } else {
+            notificationService.info('Returned to standard layout');
+        }
+        
+        // Relayout Monaco
+        setTimeout(() => { if (monacoEditor) monacoEditor.layout(); }, 300);
+    }
+
+    if (togglePairModeBtn) {
+        togglePairModeBtn.addEventListener('click', togglePairMode);
+    }
+
+    // Update Navigation to handle new views loading
+    navItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const viewId = this.dataset.view;
+            if (viewId === 'docs') loadDocs();
+            if (viewId === 'costs') updateCostsDashboard();
+            if (viewId === 'architecture') initKnowledgeGraph();
+        });
+    });
 
 /**
  * Global helper to escape HTML

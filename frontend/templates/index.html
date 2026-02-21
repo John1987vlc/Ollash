@@ -25,6 +25,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/4.16.0/xterm.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/4.16.0/xterm.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm-addon-fit/0.5.0/xterm-addon-fit.min.js"></script>
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <!-- Background Effects -->
@@ -49,6 +51,14 @@
                     </svg>
                     <span>Ollash</span>
                 </div>
+                <button class="btn-icon" id="toggle-pair-mode" title="Toggle Pair Programming Mode">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </button>
             </div>
 
             <nav class="sidebar-nav">
@@ -70,6 +80,26 @@
                         <path d="M7 8H13M7 12H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                     <span>Projects</span>
+                </button>
+                <button class="nav-item" data-view="architecture">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                    <span>Architecture</span>
+                </button>
+                <button class="nav-item" data-view="docs">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                    </svg>
+                    <span>Documentation</span>
+                </button>
+                <button class="nav-item" data-view="costs">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    <span>Costs & Usage</span>
                 </button>
                 <button class="nav-item" data-view="benchmark">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -188,6 +218,14 @@
                                     <path d="M3 4H17M3 8H17M3 12H13M3 16H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                                 </svg>
                             </button>
+                            <button class="btn-icon" id="voice-input-btn" title="Voice Input">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                                </svg>
+                            </button>
                             <button class="btn-icon" id="clear-chat-btn" title="Clear Chat">
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                                     <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -200,6 +238,105 @@
                                 <path d="M3 10L17 3L10 17L9 11L3 10Z" fill="currentColor"/>
                             </svg>
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Architecture View (Knowledge Graph) -->
+            <div class="view" id="architecture-view">
+                <div class="view-header">
+                    <h1>System Architecture</h1>
+                    <p class="subtitle">Interactive visualization of project components and dependencies</p>
+                </div>
+                <div class="architecture-container">
+                    <div class="architecture-toolbar">
+                        <div class="search-box">
+                            <input type="text" id="kg-search-input" placeholder="Search components...">
+                            <div id="kg-search-results" class="search-results"></div>
+                        </div>
+                        <button class="btn-secondary" id="kg-reset-btn">Reset View</button>
+                        <button class="btn-primary" id="kg-refresh-btn">Refresh Graph</button>
+                    </div>
+                    <div id="knowledge-graph-container"></div>
+                    <div id="kg-node-details" class="node-details-panel">
+                        <div class="panel-header">
+                            <h4 id="kg-details-title">Component Details</h4>
+                            <button class="close-panel">&times;</button>
+                        </div>
+                        <div id="kg-details-content" class="panel-body">
+                            <p class="placeholder">Select a node to view its relationships and metadata.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documentation View -->
+            <div class="view" id="docs-view">
+                <div class="docs-layout">
+                    <aside class="docs-sidebar">
+                        <div class="docs-sidebar-header">
+                            <h3>Index</h3>
+                        </div>
+                        <nav class="docs-nav" id="docs-nav">
+                            <button class="docs-nav-item active" data-doc="getting-started">Getting Started</button>
+                            <button class="docs-nav-item" data-doc="multi-agent-flow">Multi-Agent Flow</button>
+                            <button class="docs-nav-item" data-doc="git-integration">Git Integration</button>
+                            <button class="docs-nav-item" data-doc="quarantine-mode">Quarantine & Security</button>
+                            <button class="docs-nav-item" data-doc="api-reference">API Reference</button>
+                        </nav>
+                    </aside>
+                    <div class="docs-main">
+                        <div id="docs-content" class="markdown-body">
+                            <!-- Markdown content will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Costs View -->
+            <div class="view" id="costs-view">
+                <div class="view-header">
+                    <h1>Costs & Usage</h1>
+                    <p class="subtitle">Real-time tracking of token consumption and estimated spend</p>
+                </div>
+                
+                <div class="costs-dashboard">
+                    <div class="costs-summary-grid">
+                        <div class="cost-card">
+                            <div class="cost-card-label">Total Estimated Cost</div>
+                            <div class="cost-card-value" id="total-cost-val">$0.00</div>
+                            <div class="cost-card-trend" id="cost-trend">0% vs last period</div>
+                        </div>
+                        <div class="cost-card">
+                            <div class="cost-card-label">Total Tokens</div>
+                            <div class="cost-card-value" id="total-tokens-val">0</div>
+                            <div class="cost-card-sub" id="tokens-split">Prompt: 0 | Comp: 0</div>
+                        </div>
+                        <div class="cost-card">
+                            <div class="cost-card-label">Avg. Efficiency</div>
+                            <div class="cost-card-value" id="avg-efficiency-val">0%</div>
+                            <div class="cost-card-progress">
+                                <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="costs-charts-grid">
+                        <div class="chart-container-large">
+                            <h3>Cost Distribution by Agent</h3>
+                            <canvas id="cost-agent-chart"></canvas>
+                        </div>
+                        <div class="chart-container-large">
+                            <h3>Daily Token Usage</h3>
+                            <canvas id="token-history-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="costs-breakdown-section">
+                        <h3>Optimization Suggestions</h3>
+                        <div id="cost-suggestions-list" class="suggestions-grid">
+                            <!-- Suggestions will be injected here -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -415,41 +552,49 @@
                 </div>
 
                 <div class="project-workspace" id="project-workspace" style="display: none;">
-                    <div class="phase-timeline-container" id="phase-timeline-container" style="display: none;">
-                        <!-- Phase elements will be rendered here by JavaScript -->
-                        <div class="phase-step current" data-phase="1">
-                            <div class="phase-circle">1</div>
-                            <div class="phase-label">Planning</div>
+                    <!-- Agent Pipeline Stepper -->
+                    <div class="pipeline-container">
+                        <div class="pipeline-header">
+                            <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Agent Pipeline</h3>
+                            <div class="pipeline-status" id="pipeline-overall-status">Idle</div>
                         </div>
-                        <div class="phase-step" data-phase="2">
-                            <div class="phase-circle">2</div>
-                            <div class="phase-label">Structure</div>
-                        </div>
-                        <div class="phase-step" data-phase="3">
-                            <div class="phase-circle">3</div>
-                            <div class="phase-label">Develop</div>
-                        </div>
-                        <div class="phase-step" data-phase="4">
-                            <div class="phase-circle">4</div>
-                            <div class="phase-label">Test</div>
-                        </div>
-                        <div class="phase-step" data-phase="5">
-                            <div class="phase-circle">5</div>
-                            <div class="phase-label">Review</div>
-                        </div>
-                        <div class="phase-step" data-phase="6">
-                            <div class="phase-circle">6</div>
-                            <div class="phase-label">Refine</div>
-                        </div>
-                        <div class="phase-step" data-phase="7">
-                            <div class="phase-circle">7</div>
-                            <div class="phase-label">Integrate</div>
-                        </div>
-                        <div class="phase-step" data-phase="8">
-                            <div class="phase-circle">8</div>
-                            <div class="phase-label">Deliver</div>
+                        <div class="pipeline-stepper" id="pipeline-stepper">
+                            <!-- Phases generated by JS -->
+                            <div class="pipeline-step pending" data-phase="1">
+                                <div class="step-icon">1</div>
+                                <div class="step-label">Analysis</div>
+                            </div>
+                            <div class="pipeline-step pending" data-phase="2">
+                                <div class="step-icon">2</div>
+                                <div class="step-label">Planning</div>
+                            </div>
+                            <div class="pipeline-step pending" data-phase="3">
+                                <div class="step-icon">3</div>
+                                <div class="step-label">Scaffolding</div>
+                            </div>
+                            <div class="pipeline-step pending" data-phase="4">
+                                <div class="step-icon">4</div>
+                                <div class="step-label">Generation</div>
+                            </div>
+                            <div class="pipeline-step pending" data-phase="5">
+                                <div class="step-icon">5</div>
+                                <div class="step-label">Refinement</div>
+                            </div>
+                            <div class="pipeline-step pending" data-phase="6">
+                                <div class="step-icon">6</div>
+                                <div class="step-label">Testing</div>
+                            </div>
+                            <div class="pipeline-step pending" data-phase="7">
+                                <div class="step-icon">7</div>
+                                <div class="step-label">Security</div>
+                            </div>
+                            <div class="pipeline-step pending" data-phase="8">
+                                <div class="step-icon">8</div>
+                                <div class="step-label">Integration</div>
+                            </div>
                         </div>
                     </div>
+
                     <div class="workspace-grid">
                         <!-- File Explorer -->
                         <div class="file-explorer">
@@ -517,6 +662,18 @@
                                     </svg>
                                     Issues
                                 </button>
+                                <button class="tab-btn" data-tab="security">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M8 2L3 4V7C3 10.55 5.14 13.84 8 15C10.86 13.84 13 10.55 13 7V4L8 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Security
+                                </button>
+                                <button class="tab-btn" data-tab="compliance">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M7 3H3V13H13V9M13 3L7 9M10 3H13V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Compliance
+                                </button>
                                 <button class="tab-btn" data-tab="terminal" id="toggle-terminal-btn">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M2 3L14 3L14 13L2 13L2 3Z"/>
@@ -571,6 +728,57 @@
 
                             <!-- Terminal Tab Content (kept for compat, terminal is now floating) -->
                             <div class="tab-content" id="terminal-tab" style="display:none;"></div>
+
+                            <!-- Compliance Tab Content -->
+                            <div class="tab-content" id="compliance-tab">
+                                <div class="compliance-view">
+                                    <div class="view-section">
+                                        <h4>Project Dependencies</h4>
+                                        <div class="dependency-list" id="project-dependency-list">
+                                            <p class="placeholder">Select a project to view dependencies.</p>
+                                        </div>
+                                    </div>
+                                    <div class="view-section">
+                                        <h4>License Audit</h4>
+                                        <div id="license-audit-summary">
+                                            <p class="placeholder">No license audit data available.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Security Tab Content -->
+                            <div class="tab-content" id="security-tab">
+                                <div class="security-view">
+                                    <div class="security-grid">
+                                        <!-- Quarantine Area -->
+                                        <div class="security-panel quarantine-panel">
+                                            <div class="panel-header">
+                                                <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></svg> Quarantine Zone</h4>
+                                                <span class="badge" id="quarantine-count">0</span>
+                                            </div>
+                                            <div class="quarantine-list" id="quarantine-list">
+                                                <p class="placeholder">No files in quarantine.</p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Security Reports -->
+                                        <div class="security-panel reports-panel">
+                                            <div class="panel-header">
+                                                <h4>Vulnerability Scan</h4>
+                                            </div>
+                                            <div class="security-reports" id="security-reports-list">
+                                                <p class="placeholder">No security reports found.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Autonomous Interventions Area (Healer activity) -->
+                                    <div class="interventions-area" id="autonomous-interventions">
+                                        <!-- Cards for CI/CD healing will be injected here -->
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Graph (Mini-map) Tab Content -->
                             <div class="tab-content" id="minimap-tab">
