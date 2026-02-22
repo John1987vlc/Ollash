@@ -9,25 +9,24 @@ class LLMResponseParser:
 
     @staticmethod
     def remove_think_blocks(response: str) -> tuple[str, str]:
-        """Removes reasoning blocks wrapped in <think> tags.
+        """Removes reasoning blocks wrapped in <think> or <thinking_process> tags.
         
         Returns a tuple: (cleaned_response, think_content).
-        Supports unclosed <think> blocks by assuming the rest of the text is reasoning.
+        Supports unclosed blocks by assuming the rest of the text is reasoning.
         """
         if not response:
             return "", ""
 
-        # Case 1: Closed <think> block
-        # Case 2: Open <think> block that never closed (due to token limits)
+        # Check for both <think> and <thinking_process>
         # re.DOTALL is crucial to match across newlines
-        think_match = re.search(r"<think>([\s\S]*?)(?:</think>|$)", response)
+        think_match = re.search(r"<(?:think|thinking_process)>([\s\S]*?)(?:</(?:think|thinking_process)>|$)", response, re.IGNORECASE)
         
         if not think_match:
             return response, ""
         
         think_content = think_match.group(1).strip()
-        # Remove the block. If </think> exists, remove up to it. Otherwise, remove to the end.
-        cleaned_response = re.sub(r"<think>[\s\S]*?(?:</think>|$)", "", response).strip()
+        # Remove the block.
+        cleaned_response = re.sub(r"<(?:think|thinking_process)>[\s\S]*?(?:</(?:think|thinking_process)>|$)", "", response, flags=re.IGNORECASE).strip()
         
         return cleaned_response, think_content
 
@@ -79,41 +78,68 @@ class LLMResponseParser:
         return cleaned.strip()
 
     @staticmethod
-    def extract_json(response: str) -> Optional[dict]:
-        """Extracts JSON from an LLM response with multiple fallback strategies.
+    def extract_json(response: str) -> Optional[dict | list]:
+        """Extracts JSON from an LLM response with specialized XML tag support and fallback strategies."""
+        if not response:
+            return None
 
-        Returns the parsed dict or None if all strategies fail.
-        """
+        # Strategy 0: Look for specialized tags first (highest precision)
+        # We search for <plan_json>, <backlog_json>, <code_created>, <senior_review_json> etc.
+        tag_pattern = re.compile(r"<(?:plan_json|backlog_json|code_created|senior_review_json)>([\s\S]*?)(?:</(?:plan_json|backlog_json|code_created|senior_review_json)>|$)", re.IGNORECASE)
+        tag_match = tag_pattern.search(response)
+        if tag_match:
+            content = tag_match.group(1).strip()
+            # Clean potential markdown from inside tags
+            content = re.sub(r"^```(?:json)?\s*", "", content)
+            content = re.sub(r"\s*```$", "", content)
+            try:
+                return json.loads(content.strip())
+            except json.JSONDecodeError:
+                # If direct parse fails, proceed to general extraction on the tag content
+                response = content
+
         # Step 1: Standardize by removing reasoning blocks
         cleaned_response, _ = LLMResponseParser.remove_think_blocks(response)
         
+        # Step 2: Clean potential markdown markers from the start/end
         stripped = cleaned_response.strip()
+        stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
+        stripped = re.sub(r"\s*```$", "", stripped)
+        stripped = stripped.strip()
 
-        # Strategy 1: direct parse
+        # Strategy 1: Direct parse
         try:
             return json.loads(stripped)
         except json.JSONDecodeError:
             pass
 
-        # Strategy 2: extract from code block
-        # Note: LLMResponseParser.extract_single_code_block also calls remove_think_blocks
-        code_content = LLMResponseParser.extract_single_code_block(cleaned_response)
-        try:
-            return json.loads(code_content)
-        except json.JSONDecodeError:
-            pass
-
-        # Strategy 3: find first { to last }
-        if "{" in code_content:
-            json_str = code_content[code_content.index("{") :]
-            if "}" in json_str:
-                json_str = json_str[: json_str.rindex("}") + 1]
-                # Try fixing common issues
-                json_str = LLMResponseParser.fix_incomplete_json(json_str)
+        # Strategy 2: Find the FIRST '[' or '{' and LAST ']' or '}'
+        # This is more robust against leading/trailing text like markdown blocks or comments
+        # We search from the end for the last closer to handle trailing noise
+        first_bracket = stripped.find('[')
+        first_brace = stripped.find('{')
+        
+        start_idx = -1
+        if first_bracket != -1 and (first_brace == -1 or first_bracket < first_brace):
+            start_idx = first_bracket
+            closer = ']'
+        elif first_brace != -1:
+            start_idx = first_brace
+            closer = '}'
+            
+        if start_idx != -1:
+            last_idx = stripped.rfind(closer)
+            if last_idx > start_idx:
+                json_str = stripped[start_idx:last_idx + 1]
                 try:
                     return json.loads(json_str)
                 except json.JSONDecodeError:
-                    pass
+                    # Try fixing common issues
+                    fixed = LLMResponseParser.fix_incomplete_json(json_str)
+                    try:
+                        return json.loads(fixed)
+                    except json.JSONDecodeError:
+                        pass
 
         return None
 

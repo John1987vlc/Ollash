@@ -62,7 +62,14 @@ class MemoryManager:
         if embedding_client is not None:
             self.embedding_client = embedding_client
         else:
-            # Create a consolidated config dictionary for OllamaClient
+            # Support nested config {"llm_models": {...}} and flat config for backward compat
+            llm_cfg = self.config.get("llm_models", {})
+            embedding_model = (
+                llm_cfg.get("embedding")
+                or self.config.get("embedding")
+                or "all-minilm"
+            )
+            ollama_timeout = llm_cfg.get("default_timeout") or self.config.get("timeout", 300)
             ollama_client_config_dict = {
                 "ollama_max_retries": self.config.get("ollama_max_retries", 5),
                 "ollama_backoff_factor": self.config.get("ollama_backoff_factor", 1.0),
@@ -70,14 +77,13 @@ class MemoryManager:
                     "ollama_retry_status_forcelist", [429, 500, 502, 503, 504]
                 ),
                 "embedding_cache": self.config.get("embedding_cache", {}),
-                "project_root": str(self.project_root),  # Pass project_root as string
-                "ollama_embedding_model": self.config.get("ollama_embedding_model", "all-minilm"),
+                "project_root": str(self.project_root),
+                "ollama_embedding_model": embedding_model,
             }
-            ollama_timeout = self.config.get("timeout", 300)  # Extract timeout here
             self.embedding_client = OllamaClient(
                 url=ollama_url,
-                model=self.config.get("embedding", "all-minilm"),  # Use specific model or default
-                timeout=ollama_timeout,  # Pass as positional argument
+                model=embedding_model,
+                timeout=ollama_timeout,
                 logger=self.logger,
                 config=ollama_client_config_dict,
                 llm_recorder=self.llm_recorder,

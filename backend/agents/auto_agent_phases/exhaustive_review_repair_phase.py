@@ -181,21 +181,28 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
         predicted_errors = []
 
         # Get common error patterns from knowledge base
-        common_patterns = self.context.error_knowledge_base.get_common_error_patterns()
-
+        # F35: Fix missing method by querying similar errors for the language
         for file_path, content in generated_files.items():
             if content and len(content) > 50:  # Only check substantial files
+                language = self.context.error_knowledge_base._detect_language(file_path)
+                common_patterns = self.context.error_knowledge_base.query_similar_errors(
+                    file_path=file_path, 
+                    language=language,
+                    max_results=5
+                )
+
                 # Check for known problematic patterns
                 for pattern in common_patterns:
-                    if pattern.get("pattern") in content:
+                    # pattern is an ErrorPattern object
+                    if pattern.example_error and pattern.example_error in content:
                         predicted_errors.append(
                             {
                                 "type": "pattern_match",
-                                "severity": pattern.get("severity", "warning"),
+                                "severity": pattern.severity,
                                 "file": file_path,
-                                "description": f"Detected problematic pattern: {pattern.get('description', 'Unknown')}",
-                                "recommendation": pattern.get("fix", "Review and update manually"),
-                                "pattern": pattern.get("pattern"),
+                                "description": f"Detected problematic pattern: {pattern.description}",
+                                "recommendation": pattern.prevention_tip,
+                                "pattern": pattern.example_error,
                             }
                         )
 
@@ -438,17 +445,21 @@ during Phase 5.75 to ensure code quality before Senior Review.
         return set()
 
     def _extract_required_files_from_structure(self, structure: Dict[str, Any]) -> set:
-        """Extracts required files from initial structure."""
-        required = set()
+        """Extracts required file paths from the initial structure (Fix 5)."""
+        required: set = set()
 
-        def traverse(obj, parent_path=""):
-            if isinstance(obj, dict):
-                for key, value in obj.items():
-                    if key != "type" and isinstance(value, dict):
-                        traverse(value, parent_path + key + "/")
-            elif isinstance(obj, list):
-                for item in obj:
-                    traverse(item, parent_path)
+        def traverse(obj: Dict[str, Any], parent_path: str = "") -> None:
+            if not isinstance(obj, dict):
+                return
+            for key, value in obj.items():
+                if key == "type":
+                    continue
+                full_path = f"{parent_path}/{key}" if parent_path else key
+                if isinstance(value, dict):
+                    if value.get("type") == "file":
+                        required.add(full_path)
+                    else:
+                        traverse(value, full_path)
 
         traverse(structure)
         return required
@@ -469,9 +480,65 @@ during Phase 5.75 to ensure code quality before Senior Review.
     def _check_import_coherence(
         self, generated_files: Dict[str, str], structure: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """Checks for import and circular dependency issues."""
-        issues = []
-        # Implementation would parse imports and check for coherence
+        """Checks Python import coherence: verifies that symbols imported from
+        generated files are actually defined there (Fix 4).
+
+        Only analyses .py files; silently skips non-Python and files with no content.
+        """
+        import re
+
+        issues: List[Dict[str, Any]] = []
+
+        # Build a map: module_stem -> set of defined names (class X / def X)
+        defined_names: Dict[str, set] = {}
+        for file_path, content in generated_files.items():
+            if not file_path.endswith(".py") or not content:
+                continue
+            stem = Path(file_path).stem
+            defs = set(re.findall(r"^(?:class|def)\s+(\w+)", content, re.MULTILINE))
+            defined_names[stem] = defs
+
+        # For each Python file, check its "from X import Y, Z" statements
+        for file_path, content in generated_files.items():
+            if not file_path.endswith(".py") or not content:
+                continue
+
+            for match in re.finditer(
+                r"^from\s+([\w.]+)\s+import\s+(.+)$", content, re.MULTILINE
+            ):
+                module_ref = match.group(1)
+                # Get the last segment (e.g. "game.rules" → "rules")
+                module_stem = module_ref.split(".")[-1]
+
+                if module_stem not in defined_names:
+                    # Module not in generated files — could be stdlib/external, skip
+                    continue
+
+                imported_symbols = [
+                    s.strip().split(" as ")[0].strip()
+                    for s in match.group(2).split(",")
+                ]
+                available = defined_names[module_stem]
+
+                for symbol in imported_symbols:
+                    if symbol and symbol not in available:
+                        issues.append(
+                            {
+                                "type": "import_mismatch",
+                                "severity": "high",
+                                "file": file_path,
+                                "description": (
+                                    f"Imports '{symbol}' from '{module_ref}' but "
+                                    f"'{module_stem}.py' does not define it. "
+                                    f"Available: {sorted(available) or '(none)'}"
+                                ),
+                                "recommendation": (
+                                    f"Either add '{symbol}' to '{module_stem}.py' "
+                                    f"or fix the import in '{file_path}'."
+                                ),
+                            }
+                        )
+
         return issues
 
     def _validate_config_files(self, generated_files: Dict[str, str], readme_content: str) -> List[Dict[str, Any]]:

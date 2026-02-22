@@ -36,7 +36,20 @@ class DocumentationManager:
         self.documentation_collection = self.chroma_client.get_or_create_collection(name="documentation_store")
 
         # Embedding client - reuse or create new
-        # Create a consolidated config dictionary for OllamaClient
+        # The full config dict is nested: {"llm_models": {...}, "agent_features": {...}}
+        # Support both the nested shape and a flat shape for backward compatibility.
+        llm_cfg = self.config.get("llm_models", {})
+        embedding_model = (
+            llm_cfg.get("embedding")
+            or self.config.get("embedding")
+            or "all-minilm"
+        )
+        ollama_url = os.environ.get(
+            "OLLASH_OLLAMA_URL",
+            llm_cfg.get("ollama_url") or self.config.get("ollama_url", "http://localhost:11434"),
+        )
+        ollama_timeout = llm_cfg.get("default_timeout") or self.config.get("timeout", 300)
+
         ollama_client_config_dict = {
             "ollama_max_retries": self.config.get("ollama_max_retries", 5),
             "ollama_backoff_factor": self.config.get("ollama_backoff_factor", 1.0),
@@ -44,18 +57,16 @@ class DocumentationManager:
                 "ollama_retry_status_forcelist", [429, 500, 502, 503, 504]
             ),
             "embedding_cache": self.config.get("embedding_cache", {}),
-            "project_root": str(self.project_root),  # Pass project_root as string
-            "ollama_embedding_model": self.config.get("ollama_embedding_model", "all-minilm"),
+            "project_root": str(self.project_root),
+            "ollama_embedding_model": embedding_model,
         }
-        ollama_url = os.environ.get("OLLASH_OLLAMA_URL", self.config.get("ollama_url", "http://localhost:11434"))
-        ollama_timeout = self.config.get("timeout", 300)  # Extract timeout here
         self.embedding_client = OllamaClient(
             url=ollama_url,
-            model=self.config.get("embedding", "all-minilm"),  # Get embedding model from config
-            timeout=ollama_timeout,  # Pass as positional argument
+            model=embedding_model,
+            timeout=ollama_timeout,
             logger=self.logger,
             config=ollama_client_config_dict,
-            llm_recorder=self.llm_recorder,  # Pass llm_recorder here
+            llm_recorder=self.llm_recorder,
         )
 
         # Multi-format ingester
@@ -132,7 +143,7 @@ class DocumentationManager:
 
         return chunks
 
-    def query_documentation(self, query: str, n_results: int = 3, min_distance: float = 0.5) -> List[Dict]:
+    def query_documentation(self, query: str, n_results: int = 3, min_distance: float = 0.1) -> List[Dict]:
         """
         Queries the indexed documentation for relevant snippets.
         Returns a list of dictionaries, each with 'document', 'source', 'chunk_index'.

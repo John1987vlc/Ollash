@@ -206,10 +206,11 @@ class OllamaClient:
     ) -> tuple[Dict, Dict]:
         default_options = {
             "temperature": 0.1,
-            "num_predict": 4096,
-            "num_ctx": 16384,
+            "num_predict": 8192, # F34: Increased to allow longer JSON/Code outputs
+            "num_ctx": 32768,    # F34: Increased context window
             "repeat_penalty": 1.15,
             "keep_alive": "5m",
+            "thinking": False, # F33: Disable reasoning tokens for better prompt following
         }
         if options_override:
             default_options.update(options_override)
@@ -246,15 +247,21 @@ class OllamaClient:
                 response.raise_for_status()
                 data = await response.json()
 
+            # F27: Standardize return format for all agents
+            message_content = data.get("message", {}).get("content", "")
+            
             prompt_chars = sum(len(json.dumps(m)) for m in messages)
-            completion_chars = len(json.dumps(data.get("message", {})))
+            completion_chars = len(message_content)
             usage = {
                 "prompt_tokens": prompt_chars // 4,
                 "completion_tokens": completion_chars // 4,
                 "total_tokens": (prompt_chars + completion_chars) // 4,
             }
             success = True
-            return data, usage
+            # Return a flattened dict that many phases expect (with 'content')
+            result = data.copy()
+            result["content"] = message_content
+            return result, usage
 
         except aiohttp.ClientResponseError as e:
             error_message = f"Ollama API Error (Status {e.status}): {e.message}"
@@ -296,9 +303,10 @@ class OllamaClient:
         """
         default_options = {
             "temperature": 0.1,
-            "num_predict": 4096,
-            "num_ctx": 16384,
+            "num_predict": 8192,
+            "num_ctx": 32768,
             "repeat_penalty": 1.15,
+            "thinking": False, # F33: Disable reasoning tokens for better prompt following
         }
         if options_override:
             default_options.update(options_override)
@@ -324,31 +332,23 @@ class OllamaClient:
             if self._gpu_limiter_enabled:
                 self._rate_limiter.wait_if_needed()
 
-            # self.logger.debug(f"Sending request to {self.chat_url}") # Removed, recorder handles
-            # self.logger.debug(f"Model: {self.model}") # Removed, recorder handles
-            # self.logger.debug(f"Messages count: {len(messages)}") # Removed, recorder handles
-            # self.logger.debug(f"Tools count: {len(tools)}") # Removed, recorder handles
-
-            # Log tool names for debugging (can be moved to recorder or removed)
-            # tool_names = [t["function"]["name"] for t in tools]
-            # self.logger.debug(f"Available tools: {', '.join(tool_names)}") # Removed, recorder handles
-
             # Make request using session with retry logic (timed for GPU-aware rate limiter)
             _request_start = time.monotonic()
             r = self.http_session.post(self.chat_url, json=payload, timeout=self.timeout)
             _elapsed_ms = (time.monotonic() - _request_start) * 1000
             self._rate_limiter.record_response_time(_elapsed_ms)
 
-            # self.logger.debug(f"Response status: {r.status_code} ({_elapsed_ms:.0f}ms)") # Removed, recorder handles
-
             # Check for errors
             r.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
 
             data = r.json()
+            
+            # F27: Standardize return format for all agents
+            message_content = data.get("message", {}).get("content", "")
 
             # Estimate tokens (rough approximation: 1 token ≈ 4 chars)
             prompt_chars = sum(len(json.dumps(m)) for m in messages)
-            completion_chars = len(json.dumps(data.get("message", {})))
+            completion_chars = len(message_content)
 
             usage = {
                 "prompt_tokens": prompt_chars // 4,
@@ -356,7 +356,11 @@ class OllamaClient:
                 "total_tokens": (prompt_chars + completion_chars) // 4,
             }
             success = True
-            return data, usage
+            
+            # Return a flattened dict that many phases expect (with 'content')
+            result = data.copy()
+            result["content"] = message_content
+            return result, usage
 
         except requests.exceptions.Timeout:
             error_message = f"Request timeout after {self.timeout}s"
@@ -495,11 +499,29 @@ class OllamaClient:
                 error_message,
             )  # NEW
 
-    def get_embedding(self, text: str) -> List[float]:
+    # Maximum characters sent to the embedding model.
+    # qwen3-embedding:4b supports ~8192 tokens; 32000 chars ≈ 8000 tokens (safe ceiling).
+    # Override via config key "embedding_max_chars" if needed.
+    _EMBEDDING_MAX_CHARS_DEFAULT: int = 32_000
+
+    def get_embedding(self, text: str, max_chars: int = None) -> List[float]:
         """
         Generates embeddings for a given text using Ollama's /api/embed endpoint.
         Uses local cache to avoid redundant API calls for identical text.
+
+        Args:
+            text: Text to embed.
+            max_chars: Hard character limit before sending to the model.
+                       Defaults to the config value ``embedding_max_chars``
+                       (fallback: 32 000 chars ≈ 8 000 tokens for qwen3-embedding:4b).
         """
+        limit = max_chars or self.config.get("embedding_max_chars", self._EMBEDDING_MAX_CHARS_DEFAULT)
+        if len(text) > limit:
+            self.logger.debug(
+                f"Embedding input truncated from {len(text)} to {limit} chars"
+            )
+            text = text[:limit]
+
         # Check cache first
         cached = self._embedding_cache.get(text)
         if cached is not None:

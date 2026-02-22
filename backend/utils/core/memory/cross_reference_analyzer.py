@@ -91,7 +91,18 @@ class CrossReferenceAnalyzer:
         self.analysis_dir.mkdir(parents=True, exist_ok=True)
 
         # Embedding client
-        # Create a consolidated config dictionary for OllamaClient
+        # Support nested config {"llm_models": {...}} and flat config for backward compat
+        llm_cfg = self.config.get("llm_models", {})
+        embedding_model = (
+            llm_cfg.get("embedding")
+            or self.config.get("embedding")
+            or "all-minilm"
+        )
+        ollama_url = (
+            llm_cfg.get("ollama_url")
+            or self.config.get("ollama_url", "http://localhost:11434")
+        )
+        ollama_timeout = llm_cfg.get("default_timeout") or self.config.get("timeout", 300)
         ollama_client_config_dict = {
             "ollama_max_retries": self.config.get("ollama_max_retries", 5),
             "ollama_backoff_factor": self.config.get("ollama_backoff_factor", 1.0),
@@ -100,14 +111,12 @@ class CrossReferenceAnalyzer:
             ),
             "embedding_cache": self.config.get("embedding_cache", {}),
             "project_root": str(self.project_root),
-            "ollama_embedding_model": self.config.get("ollama_embedding_model", "all-minilm"),
+            "ollama_embedding_model": embedding_model,
         }
-        ollama_url = self.config.get("ollama_url", "http://localhost:11434")
-        ollama_timeout = self.config.get("timeout", 300)  # Extract timeout here
         self.embedding_client = OllamaClient(
             url=ollama_url,
-            model=self.config.get("embedding", "all-minilm"),
-            timeout=ollama_timeout,  # Pass as positional argument
+            model=embedding_model,
+            timeout=ollama_timeout,
             logger=self.logger,
             config=ollama_client_config_dict,
             llm_recorder=self.llm_recorder,

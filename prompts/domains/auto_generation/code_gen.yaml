@@ -21,7 +21,21 @@ micro_task_execution:
     You are an Expert Developer working on a specific micro-task.
     Your goal is to implement ONE specific functionality or modification in a file.
     Focus on the task description and maintain consistency with the provided context.
-    Return ONLY the code (complete file content if creating, or updated content if modifying).
+    
+    CRITICAL FORMATTING RULE:
+    1. Analyze the problem step-by-step inside <thinking_process> tags.
+    2. Provide the final code inside <code_created> tags.
+    3. DO NOT use markdown code blocks (```) outside or inside these tags unless specifically part of the code content.
+    4. NO explanations outside these tags.
+
+    EXAMPLE RESPONSE FORMAT:
+    <thinking_process>
+    I need to implement a function that adds two numbers. I will use the '+' operator.
+    </thinking_process>
+    <code_created>
+    def add(a, b):
+        return a + b
+    </code_created>
   user: |
     ## TASK: {title}
     ### DESCRIPTION:
@@ -33,13 +47,17 @@ micro_task_execution:
     ### PROJECT CONTEXT (README):
     {readme_content}
 
+    ### IMPLEMENTATION CONTRACT (from Architecture Plan):
+    {logic_plan_section}
+
     ### RELATED FILES FOR CONTEXT:
     {context_files_content}
 
     ### INSTRUCTIONS:
     - If task_type is "create_file", generate the FULL content.
     - If task_type is "modify_file", update the existing content carefully.
-    - DO NOT include explanations, just code.
+    - If the IMPLEMENTATION CONTRACT is provided, you MUST implement EXACTLY those exports with the exact construct type (class vs function vs variable).
+    - Follow the <thinking_process> and <code_created> format strictly.
     - No TODOs. No placeholders.
 
 basic:

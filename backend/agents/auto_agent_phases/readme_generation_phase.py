@@ -42,7 +42,14 @@ class ReadmeGenerationPhase(IAgentPhase):
 
         readme_file_path = "README.md"
         generated_files[readme_file_path] = readme
-        self.context.file_manager.write_file(project_root / readme_file_path, readme)  # Use file_manager
+        full_readme_path = project_root / readme_file_path
+        self.context.file_manager.write_file(full_readme_path, readme)  # Use file_manager
+
+        # F36: Index README for RAG support
+        try:
+            self.context.documentation_manager.index_documentation(full_readme_path)
+        except Exception as e:
+            self.context.logger.warning(f"Failed to index README for RAG: {e}")
 
         self.context.event_publisher.publish("phase_complete", phase="1", message="README generated")
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1 complete.")

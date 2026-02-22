@@ -45,18 +45,25 @@ class LogicPlanningPhase(IAgentPhase):
         # Group files by type/purpose
         files_by_category = self._categorize_files(file_paths)
 
+        # Accumulate exports from already-planned categories so later categories
+        # can see the API contracts and stay consistent (Fix 2)
+        already_planned_contracts: Dict[str, List[str]] = {}
+
         for category, files in files_by_category.items():
             # F32: Increase limit to 15 files per category for better coverage
             files_to_plan = files[:15]
             self.context.logger.info(f"  Planning {category}: {len(files_to_plan)} files (limited from {len(files)})")
 
-            # Generate a plan for this category
+            # Generate a plan for this category, passing already-planned contracts
             category_plan = await self._plan_category(
-                category, files_to_plan, project_description, readme_content, initial_structure
+                category, files_to_plan, project_description, readme_content,
+                initial_structure, already_planned_contracts
             )
 
             for file_path, plan in category_plan.items():
                 logic_plan[file_path] = plan
+                # Register this file's exports so subsequent categories see them
+                already_planned_contracts[file_path] = plan.get("exports", [])
 
         # Save plan to disk
         plan_file = project_root / "IMPLEMENTATION_PLAN.json"
@@ -98,36 +105,65 @@ class LogicPlanningPhase(IAgentPhase):
     async def _generate_backlog(
         self, project_description: str, readme_content: str, initial_structure: Dict
     ) -> List[Dict]:
-        """Generates a list of micro-tasks from project context."""
+        """Generates a list of micro-tasks from project context with retries and robust parsing."""
+        from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
         system_prompt, user_prompt = AutoGenPrompts.agile_backlog_planning(
             project_description=project_description,
             initial_structure=json.dumps(initial_structure, indent=2),
             readme_content=readme_content[:2000]
         )
 
-        try:
-            response_data, _ = self.context.llm_manager.get_client("planner").chat(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                tools=[],
-                options_override={"temperature": 0.2},
-            )
+        attempts = 0
+        max_attempts = 3
+        last_error = ""
 
-            response_text = response_data.get("content", "")
-            
-            import re
-            json_match = re.search(r"\[[\s\S]*\]", response_text)
-            if json_match:
-                backlog = json.loads(json_match.group())
-                return backlog
-            else:
-                self.context.logger.warning("Could not find JSON array in backlog response. Using fallback.")
-                return self._create_fallback_backlog(initial_structure)
-        except Exception as e:
-            self.context.logger.error(f"Error generating backlog: {e}")
-            return self._create_fallback_backlog(initial_structure)
+        while attempts < max_attempts:
+            attempts += 1
+            try:
+                current_user_prompt = user_prompt
+                if last_error:
+                    current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}\nPlease fix the JSON format. Ensure it is a valid JSON array of objects."
+
+                response_data, _ = self.context.llm_manager.get_client("planner").chat(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": current_user_prompt},
+                    ],
+                    tools=[],
+                    options_override={"temperature": 0.2},
+                )
+
+                response_text = response_data.get("content", "")
+                
+                # Use robust parser
+                backlog = LLMResponseParser.extract_json(response_text)
+                
+                if not backlog:
+                    import re
+                    # Try to extract from tags specifically
+                    tag_match = re.search(r"<backlog_json>([\s\S]*?)(?:</backlog_json>|$)", response_text, re.IGNORECASE)
+                    if tag_match:
+                        backlog = LLMResponseParser.extract_json(tag_match.group(1))
+
+                if isinstance(backlog, list):
+                    return backlog
+                else:
+                    # Log failed response for debugging
+                    import uuid
+                    fail_id = uuid.uuid4().hex[:6]
+                    fail_log = self.context.generated_projects_dir / f"FAILED_BACKLOG_{fail_id}_ATTEMPT_{attempts}.txt"
+                    self.context.file_manager.write_file(fail_log, response_text)
+                    raise ValueError(f"Response is not a JSON list. Raw response saved to {fail_log.name}")
+
+            except Exception as e:
+                last_error = str(e)
+                self.context.logger.warning(f"  ⚠ Attempt {attempts} failed to generate backlog: {e}")
+                if attempts == max_attempts:
+                    self.context.logger.error("  ✖ Backlog generation failed after max attempts. Using fallback.")
+                    return self._create_fallback_backlog(initial_structure)
+
+        return self._create_fallback_backlog(initial_structure)
 
     def _create_fallback_backlog(self, initial_structure: Dict) -> List[Dict]:
         """Creates a basic backlog based on file structure if LLM fails."""
@@ -194,45 +230,75 @@ class LogicPlanningPhase(IAgentPhase):
         project_description: str,
         readme_content: str,
         initial_structure: Dict[str, Any],
+        already_planned_contracts: Dict[str, List[str]] = None,
     ) -> Dict[str, Dict]:
-        """Create detailed plans for files in a category using DB/YAML prompts."""
-        
+        """Create detailed plans for files in a category with robust parsing."""
+        from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
         files_list = "\n".join(f"- {f}" for f in files)
+
+        # Serialize already-planned contracts for the prompt (Fix 2)
+        contracts_text = ""
+        if already_planned_contracts:
+            lines = []
+            for fp, exports in already_planned_contracts.items():
+                exports_str = ", ".join(exports) if exports else "(none)"
+                lines.append(f"  {fp}: exports [{exports_str}]")
+            contracts_text = "\n".join(lines)
+
         system_prompt, user_prompt = AutoGenPrompts.architecture_planning_detailed(
             category=category,
             files_list=files_list,
-            project_description=project_description
+            project_description=project_description,
+            already_planned_contracts=contracts_text,
         )
 
-        try:
-            response_data, _ = self.context.llm_manager.get_client("planner").chat(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                tools=[],
-                options_override={"temperature": 0.4},
-            )
+        attempts = 0
+        max_attempts = 3
+        last_error = ""
 
-            response_text = response_data.get("content", "")
+        while attempts < max_attempts:
+            attempts += 1
+            try:
+                current_user_prompt = user_prompt
+                if last_error:
+                    current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}\nPlease ensure your output is a valid JSON object."
 
-            import json
-            import re
+                response_data, _ = self.context.llm_manager.get_client("planner").chat(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": current_user_prompt},
+                    ],
+                    tools=[],
+                    options_override={"temperature": 0.3},
+                )
 
-            json_match = re.search(r"\{[\s\S]*\}", response_text)
-            if json_match:
-                plans = json.loads(json_match.group())
-                # Validation: Ensure plans are not empty and contain requested files
-                if not plans or not any(f in plans for f in files):
-                    raise ValueError("LLM returned empty or irrelevant planning JSON")
-            else:
-                plans = self._create_basic_plans(files, category, project_description)
+                response_text = response_data.get("content", "")
 
-            return plans
+                plans = LLMResponseParser.extract_json(response_text)
+                
+                if not plans:
+                    import re
+                    tag_match = re.search(r"<plan_json>([\s\S]*?)(?:</plan_json>|$)", response_text, re.IGNORECASE)
+                    if tag_match:
+                        plans = LLMResponseParser.extract_json(tag_match.group(1))
 
-        except Exception as e:
-            self.context.logger.error(f"Error planning category {category}: {e}")
-            return self._create_basic_plans(files, category, project_description)
+                if isinstance(plans, dict) and any(f in plans for f in files):
+                    return plans
+                else:
+                    # Log failed response for debugging
+                    fail_log = self.context.generated_projects_dir / f"FAILED_PLAN_{category}_{attempts}.txt"
+                    self.context.file_manager.write_file(fail_log, response_text)
+                    raise ValueError(f"LLM returned invalid planning JSON. Raw response saved to {fail_log.name}")
+
+            except Exception as e:
+                last_error = str(e)
+                self.context.logger.warning(f"  ⚠ Attempt {attempts} failed to plan category {category}: {e}")
+                if attempts == max_attempts:
+                    self.context.logger.error(f"  ✖ Planning for category {category} failed after max attempts. Using basic plans.")
+                    return self._create_basic_plans(files, category, project_description)
+
+        return self._create_basic_plans(files, category, project_description)
 
     def _create_basic_plans(self, files: List[str], category: str, project_description: str) -> Dict[str, Dict]:
         """Create basic fallback plans anchored to the original project description."""

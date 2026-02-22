@@ -5,6 +5,11 @@ architecture_planning_detailed:
     for developers. Be precise, avoid ambiguity, and ensure every file has
     a clear, non-empty implementation strategy. Focus on SOLID principles
     and robust error handling.
+
+    CRITICAL FORMATTING RULE:
+    1. Analyze the file category and required logic step-by-step inside <thinking_process> tags.
+    2. Provide the final plan as a JSON object inside <plan_json> tags.
+    3. NO explanations outside these tags.
   user: |
     ## ROLE: Architecture Planner
     ## TASK: Create implementation plans for {category} files.
@@ -15,21 +20,36 @@ architecture_planning_detailed:
     ### FILES TO PLAN:
     {files_list}
 
-    ### REQUIREMENTS FOR EACH PLAN:
-    1. PURPOSE: Definitive role of the file.
-    2. EXPORTS: Exact function/class names.
-    3. IMPORTS: Critical internal and external dependencies.
-    4. MAIN_LOGIC: Step-by-step algorithm or flow.
-    5. VALIDATION: Specific tests to ensure correctness.
+    ### PLAN JSON SCHEMA (FOR EACH FILE):
+    {{
+      "path/to/file": {{
+        "purpose": "Definitive role of the file",
+        "exports": ["exact_func_name", "exact_class_name"],
+        "imports": ["dependency1", "dependency2"],
+        "main_logic": ["Step-by-step logic 1", "Step-by-step logic 2"],
+        "validation": ["Specific test 1", "Specific test 2"]
+      }}
+    }}
 
-    ### CONSTRAINT:
-    Return ONLY a valid JSON object where keys are file paths.
-    Inject the initial project intent into every plan to maintain consistency.
+    ### ALREADY PLANNED CONTRACTS (other files already planned — you MUST be compatible):
+    {already_planned_contracts}
+
+    ### INSTRUCTIONS:
+    1. Every file listed in 'FILES TO PLAN' MUST have a corresponding entry in the JSON object.
+    2. Inject the initial project intent into every plan to maintain consistency.
+    3. If your files import from a file listed in ALREADY PLANNED CONTRACTS, use EXACTLY the exports shown (same name, same type: class vs function).
+    4. If you need a symbol as a class in one file, it MUST be planned as a class in the file that defines it.
+    5. Follow the <thinking_process> and <plan_json> format strictly.
 
 agile_backlog_planning:
   system: |
     You are an Agile Product Owner and System Architect. Your goal is to break down a project into small, atomic, and independent micro-tasks (Backlog).
     Each task must be small enough for a Small Language Model (SLM) to execute it perfectly in one go without losing context.
+
+    CRITICAL FORMATTING RULE:
+    1. Analyze the project and dependencies step-by-step inside <thinking_process> tags.
+    2. Provide the final backlog as a JSON array inside <backlog_json> tags.
+    3. NO explanations outside these tags.
   user: |
     ## TASK: Generate an Agile Backlog of Micro-tasks for the project.
 
@@ -47,8 +67,9 @@ agile_backlog_planning:
     2. Each task should focus on ONE specific functionality or ONE file implementation/modification.
     3. Tasks should be ordered by dependency.
     4. Keep prompts SPECIFIC and SMALL.
+    5. Follow the <thinking_process> and <backlog_json> format strictly.
 
-    ### OUTPUT FORMAT (STRICT JSON):
+    ### BACKLOG JSON SCHEMA:
     [
       {{
         "id": "TASK-001",
@@ -60,5 +81,3 @@ agile_backlog_planning:
         "context_files": ["other/file.py"]
       }}
     ]
-
-    Return ONLY the JSON array.

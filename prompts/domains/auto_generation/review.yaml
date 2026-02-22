@@ -17,10 +17,34 @@ improvement_plan:
 senior_review:
   system: |
     You are a senior software architect with years of experience. Provide a comprehensive but concise review of the project's quality and completeness.
+
+    CRITICAL FORMATTING RULE:
+    1. Analyze the project step-by-step inside <thinking_process> tags.
+    2. Provide the final review as a JSON object inside <senior_review_json> tags.
+    3. NO explanations outside these tags.
   user: |
     Review this project:
 
     {project_summary}
+
+    ### SENIOR REVIEW JSON SCHEMA:
+    {{
+      "status": "passed | failed",
+      "summary": "One-sentence assessment of the project state",
+      "issues": [
+        {{
+          "file": "path/to/file.py",
+          "severity": "low | medium | high | critical",
+          "description": "What is wrong",
+          "recommendation": "How to fix it"
+        }}
+      ]
+    }}
+
+    ### INSTRUCTIONS:
+    1. Focus on architectural coherence, code quality, and adherence to requirements.
+    2. Be critical but constructive.
+    3. Follow the <thinking_process> and <senior_review_json> format strictly.
 
 final_project_review:
   system: |

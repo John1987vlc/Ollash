@@ -63,17 +63,21 @@ class AutoGenPrompts:
                content.get("user", content.get("user_prompt", ""))
 
     @staticmethod
-    def architecture_planning_detailed(category: str, files_list: str, project_description: str) -> Tuple[str, str]:
+    def architecture_planning_detailed(
+        category: str, files_list: str, project_description: str,
+        already_planned_contracts: str = ""
+    ) -> Tuple[str, str]:
         """Returns (system, user) for Phase 2.5 Planning."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "architecture_planning_detailed", 
+            "architecture_planning_detailed",
             "domains/auto_generation/planning.yaml",
             "architecture_planning_detailed"
         )
         user = user_template.format(
             category=category,
             files_list=files_list,
-            project_description=project_description
+            project_description=project_description,
+            already_planned_contracts=already_planned_contracts or "(This is the first category — no prior contracts)",
         )
         return system, user
 
@@ -94,11 +98,12 @@ class AutoGenPrompts:
 
     @staticmethod
     def micro_task_execution(
-        title: str, description: str, file_path: str, task_type: str, readme_content: str, context_files_content: str
+        title: str, description: str, file_path: str, task_type: str, readme_content: str,
+        context_files_content: str, logic_plan_section: str = ""
     ) -> Tuple[str, str]:
         """Returns (system, user) for a single micro-task execution."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "micro_task_execution", 
+            "micro_task_execution",
             "domains/auto_generation/code_gen.yaml",
             "micro_task_execution"
         )
@@ -108,7 +113,8 @@ class AutoGenPrompts:
             file_path=file_path,
             task_type=task_type,
             readme_content=readme_content,
-            context_files_content=context_files_content
+            context_files_content=context_files_content,
+            logic_plan_section=logic_plan_section,
         )
         return system, user
 
