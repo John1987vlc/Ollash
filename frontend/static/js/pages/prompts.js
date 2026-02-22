@@ -1,27 +1,162 @@
-// Prompt Studio with Validator
+// Prompt Studio with Monaco Editor and Repository Integration
 
 const PromptStudio = {
-    init: function() {
-        this.input = document.getElementById('prompt-editor');
-        this.output = document.getElementById('validation-output');
-        this.debounceTimer = null;
+    editor: null,
+    currentRole: null,
+    
+    init: async function() {
+        console.log("Initializing Prompt Studio...");
+        this.setupMonaco();
+        this.setupEventListeners();
+        await this.loadRoles();
+    },
+    
+    setupMonaco: function() {
+        if (!window.monaco) {
+            console.error("Monaco Editor not loaded.");
+            return;
+        }
         
-        if(this.input) {
-            this.input.addEventListener('input', () => this.handleInput());
+        this.editor = monaco.editor.create(document.getElementById('prompt-monaco-container'), {
+            value: "",
+            language: 'yaml',
+            theme: 'vs-dark',
+            automaticLayout: true,
+            minimap: { enabled: false },
+            fontSize: 14,
+            lineNumbers: 'on',
+            scrollBeyondLastLine: false,
+            wordWrap: 'on'
+        });
+        
+        this.editor.onDidChangeModelContent(() => {
+            this.handleInput();
+        });
+    },
+    
+    setupEventListeners: function() {
+        const saveBtn = document.getElementById('save-prompt-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.savePrompt());
+        }
+        
+        const migrateBtn = document.getElementById('migrate-prompts-btn');
+        if (migrateBtn) {
+            migrateBtn.addEventListener('click', () => this.migratePrompts());
+        }
+    },
+    
+    loadRoles: async function() {
+        try {
+            const res = await fetch('/prompts/api/roles');
+            const data = await res.json();
+            const list = document.getElementById('prompt-role-list');
+            list.innerHTML = '';
+            
+            data.roles.forEach(role => {
+                const item = document.createElement('div');
+                item.className = 'role-item';
+                item.textContent = role;
+                item.onclick = () => this.selectRole(role);
+                list.appendChild(item);
+            });
+        } catch (e) {
+            console.error("Failed to load roles", e);
+        }
+    },
+    
+    selectRole: async function(role) {
+        this.currentRole = role;
+        
+        // Update active class
+        document.querySelectorAll('.role-item').forEach(el => {
+            el.classList.toggle('active', el.textContent === role);
+        });
+        
+        try {
+            const res = await fetch(`/prompts/api/load/${role}`);
+            const data = await res.json();
+            
+            if (data.prompt) {
+                this.editor.setValue(data.prompt);
+                // Update language based on source or content
+                const lang = data.prompt.trim().startsWith('{') ? 'json' : 'yaml';
+                monaco.editor.setModelLanguage(this.editor.getModel(), lang);
+            }
+            
+            await this.loadHistory(role);
+        } catch (e) {
+            console.error("Failed to load prompt for " + role, e);
+        }
+    },
+    
+    loadHistory: async function(role) {
+        try {
+            const res = await fetch(`/prompts/api/history/${role}`);
+            const data = await res.json();
+            const list = document.getElementById('prompt-version-list');
+            list.innerHTML = '';
+            
+            if (data.history.length === 0) {
+                list.innerHTML = '<p class="placeholder">No history found in DB.</p>';
+                return;
+            }
+            
+            data.history.forEach(v => {
+                const item = document.createElement('div');
+                item.className = `history-item ${v.is_active ? 'active' : ''}`;
+                item.innerHTML = `
+                    <span class="version">v${v.version}</span>
+                    <span class="date">${new Date(v.created_at).toLocaleString()}</span>
+                `;
+                item.onclick = () => this.editor.setValue(v.prompt_text);
+                list.appendChild(item);
+            });
+        } catch (e) {
+            console.error("Failed to load history", e);
+        }
+    },
+    
+    savePrompt: async function() {
+        if (!this.currentRole) {
+            alert("Please select a role first.");
+            return;
+        }
+        
+        const promptText = this.editor.getValue();
+        
+        try {
+            const res = await fetch('/prompts/api/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    role: this.currentRole,
+                    prompt: promptText
+                })
+            });
+            
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                await this.loadHistory(this.currentRole);
+            } else {
+                alert("Error: " + data.error);
+            }
+        } catch (e) {
+            console.error("Save failed", e);
+            alert("Fatal error during save.");
         }
     },
     
     handleInput: function() {
+        // Debounced validation
         clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(() => this.validate(), 800);
     },
     
     validate: async function() {
-        const text = this.input.value;
-        if (!text) {
-            this.output.innerHTML = '';
-            return;
-        }
+        const text = this.editor.getValue();
+        if (!text) return;
         
         try {
             const res = await fetch('/prompts/api/validate', {
@@ -30,41 +165,14 @@ const PromptStudio = {
                 body: JSON.stringify({ prompt: text })
             });
             const data = await res.json();
-            this.renderWarnings(data.warnings);
-        } catch (e) {
-            console.error(e);
-        }
-    },
-    
-    renderWarnings: function(warnings) {
-        this.output.innerHTML = '';
-        if (warnings.length === 0) {
-            this.output.innerHTML = '<div class="alert-success">✓ Prompt looks good!</div>';
-            return;
-        }
-        
-        warnings.forEach(w => {
-            const div = document.createElement('div');
-            div.className = `alert-item ${w.severity}`;
-            div.style.padding = '8px';
-            div.style.marginTop = '5px';
-            div.style.borderRadius = '4px';
-            
-            if (w.severity === 'critical') {
-                div.style.background = 'rgba(239, 68, 68, 0.2)';
-                div.style.color = '#ef4444';
-            } else if (w.severity === 'warning') {
-                div.style.background = 'rgba(245, 158, 11, 0.2)';
-                div.style.color = '#f59e0b';
-            } else {
-                div.style.background = 'rgba(99, 102, 241, 0.1)';
-                div.style.color = '#6366f1';
-            }
-            
-            div.textContent = `⚠️ ${w.message}`;
-            this.output.appendChild(div);
-        });
+            // Optional: Render validation UI if present in templates
+        } catch (e) {}
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => PromptStudio.init());
+// Initialize if view is present
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('prompt-monaco-container')) {
+        PromptStudio.init();
+    }
+});

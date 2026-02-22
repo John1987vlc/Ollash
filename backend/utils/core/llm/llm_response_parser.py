@@ -8,13 +8,40 @@ class LLMResponseParser:
     """Parses LLM responses: code block extraction, JSON extraction, raw content cleanup."""
 
     @staticmethod
+    def remove_think_blocks(response: str) -> tuple[str, str]:
+        """Removes reasoning blocks wrapped in <think> tags.
+        
+        Returns a tuple: (cleaned_response, think_content).
+        Supports unclosed <think> blocks by assuming the rest of the text is reasoning.
+        """
+        if not response:
+            return "", ""
+
+        # Case 1: Closed <think> block
+        # Case 2: Open <think> block that never closed (due to token limits)
+        # re.DOTALL is crucial to match across newlines
+        think_match = re.search(r"<think>([\s\S]*?)(?:</think>|$)", response)
+        
+        if not think_match:
+            return response, ""
+        
+        think_content = think_match.group(1).strip()
+        # Remove the block. If </think> exists, remove up to it. Otherwise, remove to the end.
+        cleaned_response = re.sub(r"<think>[\s\S]*?(?:</think>|$)", "", response).strip()
+        
+        return cleaned_response, think_content
+
+    @staticmethod
     def extract_raw_content(response: str) -> str:
         """Primary method: extracts raw file content from an LLM response.
 
         If the response contains markdown fences, strips them.
         If it doesn't, returns the content as-is (trimmed).
         """
-        stripped = response.strip()
+        # Step 1: Standardize by removing reasoning blocks
+        cleaned_response, _ = LLMResponseParser.remove_think_blocks(response)
+        
+        stripped = cleaned_response.strip()
         if not stripped:
             return ""
 
@@ -30,12 +57,15 @@ class LLMResponseParser:
 
         Falls back to stripping leading/trailing ``` markers.
         """
-        code_block_match = re.search(r"```(?:\w+)?\n([\s\S]*?)\n```", response)
+        # Step 1: Standardize by removing reasoning blocks
+        cleaned_response, _ = LLMResponseParser.remove_think_blocks(response)
+        
+        code_block_match = re.search(r"```(?:\w+)?\n([\s\S]*?)\n```", cleaned_response)
         if code_block_match:
             return code_block_match.group(1).strip()
 
         # Fallback: strip markers manually
-        cleaned = response.strip()
+        cleaned = cleaned_response.strip()
         if cleaned.startswith("```"):
             lines = cleaned.splitlines()
             if len(lines) > 0:
@@ -54,7 +84,10 @@ class LLMResponseParser:
 
         Returns the parsed dict or None if all strategies fail.
         """
-        stripped = response.strip()
+        # Step 1: Standardize by removing reasoning blocks
+        cleaned_response, _ = LLMResponseParser.remove_think_blocks(response)
+        
+        stripped = cleaned_response.strip()
 
         # Strategy 1: direct parse
         try:
@@ -63,7 +96,8 @@ class LLMResponseParser:
             pass
 
         # Strategy 2: extract from code block
-        code_content = LLMResponseParser.extract_single_code_block(stripped)
+        # Note: LLMResponseParser.extract_single_code_block also calls remove_think_blocks
+        code_content = LLMResponseParser.extract_single_code_block(cleaned_response)
         try:
             return json.loads(code_content)
         except json.JSONDecodeError:
@@ -136,8 +170,11 @@ class LLMResponseParser:
 
         Returns {relative_path: content} dict.
         """
+        # Step 1: Standardize by removing reasoning blocks
+        cleaned_response, _ = LLMResponseParser.remove_think_blocks(response)
+        
         files = {}
-        lines = response.splitlines()
+        lines = cleaned_response.splitlines()
         current_file_content: List[str] = []
         current_filename: Optional[str] = None
         in_code_block = False

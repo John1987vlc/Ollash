@@ -21,13 +21,10 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
         pip install playwright
-    - name: Install System Dependencies (Ubuntu 24.04 fixes)
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libasound2t64
-        sudo ln -sf /usr/lib/x86_64-linux-gnu/libasound.so.2.0.0 /usr/lib/x86_64-linux-gnu/libasound.so.2
     - name: Install Playwright Browsers
-      run: playwright install --with-deps chromium
+      run: |
+        playwright install chromium
+        npx playwright install-deps chromium
     - name: Run Backend Tests
       run: |
         pytest tests/unit tests/integration --cov=backend --cov-report=term-missing

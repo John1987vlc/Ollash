@@ -79,6 +79,18 @@ class AutoAgent(CoreAgent):
 
     def run(self, project_description: str, project_name: str = "new_project", **kwargs) -> Path:
         """Orchestrates the full project creation pipeline through distinct phases."""
+        self.logger.info(f"[PROJECT_NAME:{project_name}] Standardizing input and starting pipeline.")
+        
+        # 1. Language Standardization
+        try:
+            from backend.services.language_manager import LanguageManager
+            lang_manager = LanguageManager(self.llm_manager)
+            # Run in loop since run() is called in a loop usually
+            loop = asyncio.get_event_loop()
+            project_description, _ = loop.run_until_complete(lang_manager.ensure_english_input(project_description))
+        except Exception as e:
+            self.logger.warning(f"Language standardization failed in AutoAgent: {e}")
+
         self.logger.info(f"[PROJECT_NAME:{project_name}] Starting full generation for '{project_name}'.")
 
         project_root = self.generated_projects_dir / project_name

@@ -54,7 +54,7 @@ Ollash is optimized for high-end local execution while remaining accessible. To 
   - **CRITICAL:** Change `num_ctx: 4096` in your `.env` to avoid **Out of Memory (OOM)** errors.
   - Performance will be slower, but micro-task execution will remain functional.
 
-> **Note:** The system uses structural XML prompting (`<pensamiento>` and `<codigo>`) and AST-based self-correction to ensure code quality regardless of the hardware tier.
+> **Note:** The system uses structural XML prompting (`<thinking_process>` and `<code_created>`) and AST-based self-correction to ensure code quality regardless of the hardware tier.
 
 ## 🛠️ Installation
 

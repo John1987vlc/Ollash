@@ -11,7 +11,7 @@
 - **High-End Hardware Tuning:** Optimized defaults for high-end GPUs (RTX 5080/4090):
   - Context window increased to **16,384 tokens**.
   - Precision tuning: Temperature `0.1`, Repeat Penalty `1.15`.
-- **Structural XML Prompting:** Rigid response format using `<pensamiento>` (Chain of Thought) and `<codigo>` tags to ensure reliable code extraction.
+- **Structural XML Prompting:** Rigid response format using `<thinking_process>` (Chain of Thought) and `<code_created>` tags to ensure reliable code extraction.
 - **AST Self-Correction Loop:** 3-attempt iterative loop with native Python syntax validation. The agent now receives tracebacks and self-corrects code before saving.
 - **Model Standardization:** Standardized on `qwen3-coder:30b` as the primary coding engine across all configurations.
 

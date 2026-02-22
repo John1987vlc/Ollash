@@ -48,7 +48,8 @@ window.TerminalModule = (function() {
         term.write(termPrompt);
 
         term.onData(data => {
-            if (data === '') {
+            if (data === '
+') {
                 term.writeln('');
                 if (currentCommand.trim()) executeCommand(currentCommand.trim());
                 currentCommand = '';

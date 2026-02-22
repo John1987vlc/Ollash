@@ -41,6 +41,8 @@ from backend.utils.core.tools.tool_interface import ToolExecutor  # Concrete Too
 from backend.utils.core.tools.tool_registry import ToolRegistry
 from backend.utils.core.tools.tool_span_manager import ToolSpanManager  # NEW
 
+from backend.services.language_manager import LanguageManager
+
 # Initialize colorama
 init(autoreset=True)
 
@@ -87,6 +89,9 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
             llm_manager=llm_manager,
             llm_recorder=self.llm_recorder,
         )
+
+        # Language standardization
+        self.language_manager = LanguageManager(self.llm_manager)
 
         # Access config and logger from Kernel (they are set by CoreAgent's __init__)
         # No need to re-assign self.logger, self.config here as CoreAgent does it
@@ -332,10 +337,18 @@ RULES:
 
             self.loop_detector.reset()
 
-            # 1. Pre-processing Phase (Input)
-            english_instruction, original_lang = await self._preprocess_instruction(instruction)
+            # 1. Language Standardization Phase (Input)
+            english_instruction, original_lang = await self.language_manager.ensure_english_input(instruction)
             self.logger.info(f"Original Instruction: {instruction}")
-            self.logger.info(f"Refined Instruction (EN): {english_instruction}")
+            if original_lang != "en":
+                self.logger.info(f"Standardized Instruction (EN): {english_instruction}")
+
+            # 2. Ensure System Prompt is English
+            self.system_prompt = await self.language_manager.standardize_prompt(self.system_prompt)
+            # Mandatory rule for English output
+            english_rule = "\n\nMANDATORY RULE: All internal reasoning, thinking process, and final answers MUST be in English. Reasoning must be inside <thinking_process> tags. Code must be inside <code_created> tags."
+            if english_rule not in self.system_prompt:
+                self.system_prompt += english_rule
 
             if not self.conversation or self.conversation[-1]["role"] != "user":
                 self.conversation.append({"role": "user", "content": english_instruction})
@@ -377,8 +390,6 @@ RULES:
                 )
 
                 try:
-                    # self.logger.api_request(len(messages), len(self.tool_functions)) # REMOVED, LLMRecorder handles
-
                     # Directly use the selected_model_client (IModelProvider client)
                     response, usage = await selected_model_client.achat(
                         messages=messages,
@@ -397,17 +408,16 @@ RULES:
 
                     if "tool_calls" not in msg:
                         self.logger.thinking("Analyzing final answer from LLM...")
-                        # self.logger.api_response(False) # REMOVED, LLMRecorder handles
                         final_response_en = msg.get("content", "")
 
                         if last_error_context:
-                            # Assuming memory_manager now exists on self (from CoreAgent or injected)
                             self.memory_manager.add_to_reasoning_cache(last_error_context["error"], final_response_en)
                             last_error_context = None
 
-                        final_response_translated = await self._translate_to_user_language(
-                            final_response_en, original_lang
-                        )
+                        # REQUIREMENT: Output must be in English unless explicitly requested otherwise.
+                        # We don't translate back automatically anymore.
+                        final_response = final_response_en 
+
                         self.conversation.append({"role": "assistant", "content": final_response_en})
                         self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
 
@@ -416,7 +426,7 @@ RULES:
                         token_delta = self.token_tracker.session_total_tokens - start_tokens
 
                         turn_data = {
-                            "text": final_response_translated,
+                            "text": final_response,
                             "metrics": {
                                 "duration_sec": round(elapsed, 2),
                                 "total_tokens": token_delta,

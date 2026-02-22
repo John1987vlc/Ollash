@@ -100,7 +100,7 @@ def index(): return 'hi'""" + "#" * 100
         # Mock LLM for the non-binary file
         mock_client = MagicMock()
         mock_client.chat.return_value = (
-            {"content": "<pensamiento>Análisis</pensamiento><codigo>print('ok')</codigo>"}, 
+            {"content": "<thinking_process>Análisis</thinking_process><code_created>print('ok')</code_created>"}, 
             {"prompt_tokens": 10, "completion_tokens": 10}
         )
         mock_context.llm_manager.get_client.return_value = mock_client

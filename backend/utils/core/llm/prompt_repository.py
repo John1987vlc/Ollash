@@ -28,7 +28,7 @@ class PromptRepository:
             conn.commit()
 
     def migrate_from_json(self, prompts_dir: Path):
-        """Migra los prompts existentes de archivos JSON a SQLite."""
+        """Migrate existing prompts from JSON files to SQLite."""
         for json_file in prompts_dir.glob("**/*.json"):
             try:
                 role = json_file.stem
@@ -38,11 +38,11 @@ class PromptRepository:
                     if text:
                         self.save_prompt(role, text, is_active=True)
             except Exception as e:
-                logger.error(f"Error migrando {json_file}: {e}")
+                logger.error(f"Error migrating {json_file}: {e}")
 
     def save_prompt(self, role: str, text: str, is_active: bool = False) -> int:
         with sqlite3.connect(self.db_path) as conn:
-            # Obtener última versión
+            # Get latest version
             cursor = conn.execute("SELECT MAX(version) FROM prompts WHERE agent_role = ?", (role,))
             row = cursor.fetchone()
             next_version = (row[0] or 0) + 1

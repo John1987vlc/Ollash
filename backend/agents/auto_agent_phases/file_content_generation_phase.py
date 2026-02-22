@@ -30,9 +30,9 @@ class FileContentGenerationPhase(IAgentPhase):
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         file_paths = kwargs.get("file_paths", [])
 
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4: Ejecutando Backlog Agile con Auto-Reflexión...")
+        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4: Executing Agile Backlog with Self-Reflection...")
         self.context.event_publisher.publish(
-            "phase_start", phase="4", message="Iniciando ejecución iterativa de micro-tareas con validación XML/AST"
+            "phase_start", phase="4", message="Starting iterative micro-task execution with XML/AST validation"
         )
 
         backlog = getattr(self.context, "backlog", [])
@@ -40,8 +40,8 @@ class FileContentGenerationPhase(IAgentPhase):
              for i, (path, plan) in enumerate(self.context.logic_plan.items()):
                  backlog.append({
                      "id": f"TASK-{i:03d}",
-                     "title": f"Implementar {path}",
-                     "description": plan.get("purpose", f"Generar {path}"),
+                     "title": f"Implement {path}",
+                     "description": plan.get("purpose", f"Generate {path}"),
                      "file_path": path,
                      "task_type": "create_file",
                      "dependencies": [],
@@ -53,11 +53,11 @@ class FileContentGenerationPhase(IAgentPhase):
 
         for task in backlog:
             task_id = task.get("id", "UNKNOWN")
-            title = task.get("title", "Sin Título")
+            title = task.get("title", "Untitled")
             file_path = task.get("file_path", "")
             task_type = task.get("task_type", "create_file")
 
-            self.context.logger.info(f"  [Tarea {completed_tasks+1}/{total_tasks}] {task_id}: {title}")
+            self.context.logger.info(f"  [Task {completed_tasks+1}/{total_tasks}] {task_id}: {title}")
             
             # CRITICAL: Binary Guard - Skip LLM call for binary files
             if self._is_binary_file(file_path):
@@ -68,15 +68,15 @@ class FileContentGenerationPhase(IAgentPhase):
                 completed_tasks += 1
                 continue
 
-            # Notificar progreso al Tablero Kanban
+            # Notify progress to Kanban Board
             self.context.event_publisher.publish("agent_board_update", action="move_task", task_id=task_id, new_status="in_progress")
 
             try:
-                # 1. Preparación de Contexto Destilado
+                # 1. Distilled Context Preparation
                 raw_context_files = self.context.select_related_files(file_path, generated_files)
                 context_files_content = ContextDistiller.distill_batch(raw_context_files)
 
-                # 2. Construcción del Sniper Prompt con requisitos XML
+                # 2. Construct Sniper Prompt with XML requirements
                 base_system, base_user = AutoGenPrompts.micro_task_execution(
                     title=title,
                     description=task.get("description", ""),
@@ -86,7 +86,7 @@ class FileContentGenerationPhase(IAgentPhase):
                     context_files_content=context_files_content[:4000]
                 )
                 
-                system_prompt = base_system + "\n\nREGLA CRÍTICA: Analiza el problema paso a paso dentro de <pensamiento>. Luego, proporciona ÚNICAMENTE el código final dentro de <codigo>. No uses markdown de bloques de código fuera de estas etiquetas."
+                system_prompt = base_system + "\n\nCRITICAL RULE: Analyze the problem step-by-step inside <thinking_process>. Then, provide ONLY the final code inside <code_created>. Do not use markdown code blocks outside these tags."
                 user_prompt = base_user
 
                 content = ""
@@ -94,12 +94,12 @@ class FileContentGenerationPhase(IAgentPhase):
                 max_attempts = 3
                 last_error = ""
 
-                # 3. Bucle de Auto-Reflexión y Corrección
+                # 3. Self-Reflection and Correction Loop
                 while attempts < max_attempts:
                     attempts += 1
                     current_user_prompt = user_prompt
                     if last_error:
-                        current_user_prompt += f"\n\nREINTENTO POR ERROR PREVIO:\n{last_error}\nPor favor, corrige el error y responde siguiendo estrictamente el formato <pensamiento> y <codigo>."
+                        current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}\nPlease fix the error and respond strictly following the <thinking_process> and <code_created> format."
 
                     # 3. LLM Call
                     response_data, _ = self.context.llm_manager.get_client("coder").chat(
@@ -113,42 +113,42 @@ class FileContentGenerationPhase(IAgentPhase):
 
                     raw_response = response_data.get("content", "").strip()
                     
-                    # 4. Extracción XML vía Regex
+                    # 4. XML Extraction via Regex
                     import re
-                    codigo_match = re.search(r"<codigo>([\s\S]*?)</codigo>", raw_response)
+                    codigo_match = re.search(r"<code_created>([\s\S]*?)</code_created>", raw_response)
 
                     if not codigo_match:
-                        last_error = "FALLO DE FORMATO: No has incluido la etiqueta <codigo> en tu respuesta."
-                        self.context.logger.warning(f"    ⚠ Intento {attempts}: Etiquetas XML faltantes.")
+                        last_error = "FORMAT FAILURE: You have not included the <code_created> tag in your response."
+                        self.context.logger.warning(f"    ⚠ Attempt {attempts}: Missing XML tags.")
                         continue
 
                     content = codigo_match.group(1).strip()
-                    # Limpieza de markdown residual si el SLM lo incluyó dentro de las etiquetas
+                    # Clean residual markdown if the SLM included it inside tags
                     content = re.sub(r"```(?:\w+)?\n?", "", content).replace("```", "").strip()
 
                     # 5. AST/Syntax Validation
                     validation_result = self.context.files_ctx.validator.validate(file_path, content)
                     
                     if validation_result.status.name == "VALID":
-                        self.context.logger.info(f"    ✓ {file_path} validado sintácticamente (Intento {attempts})")
+                        self.context.logger.info(f"    ✓ {file_path} syntactically validated (Attempt {attempts})")
                         break
                     else:
-                        last_error = f"ERROR DE SINTAXIS: {validation_result.message}"
-                        self.context.logger.warning(f"    ⚠ Intento {attempts} falló validación: {validation_result.message}")
+                        last_error = f"SYNTAX ERROR: {validation_result.message}"
+                        self.context.logger.warning(f"    ⚠ Attempt {attempts} failed validation: {validation_result.message}")
                         if attempts < max_attempts:
-                            content = "" # Reset para forzar reintento
+                            content = "" # Reset to force retry
 
-                # 6. Guardado Final y Notificación
+                # 6. Final Save and Notification
                 if content:
                     generated_files[file_path] = content
                     self.context.file_manager.write_file(project_root / file_path, content)
                     completed_tasks += 1
                     self.context.event_publisher.publish("agent_board_update", action="move_task", task_id=task_id, new_status="done")
                 else:
-                    self.context.logger.error(f"    ✖ La tarea {task_id} falló después de {max_attempts} intentos.")
+                    self.context.logger.error(f"    ✖ Task {task_id} failed after {max_attempts} attempts.")
 
             except Exception as e:
-                self.context.logger.error(f"Error fatal en tarea {task_id}: {e}")
+                self.context.logger.error(f"Fatal error in task {task_id}: {e}")
                 # Record error in knowledge base
                 self.context.error_knowledge_base.record_error(
                     file_path, "micro_task_failure", str(e), task_id, title
@@ -157,7 +157,7 @@ class FileContentGenerationPhase(IAgentPhase):
         self.context.event_publisher.publish(
             "phase_complete",
             phase="4",
-            message=f"Ejecución Agile finalizada: {completed_tasks}/{total_tasks} tareas completadas",
+            message=f"Agile execution finished: {completed_tasks}/{total_tasks} tasks completed",
         )
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4 complete.")
 

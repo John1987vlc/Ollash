@@ -33,7 +33,7 @@ async def test_execution_loop_with_retries():
     mock_client.chat.side_effect = [
         ({"content": "Fail 1"}, {}),
         ({"content": "Fail 2"}, {}),
-        ({"content": "<pensamiento>Fixed</pensamiento><codigo>print('hello')</codigo>"}, {})
+        ({"content": "<thinking_process>Fixed</thinking_process><code_created>print('hello')</code_created>"}, {})
     ]
     # Use side_effect to return the same client every time get_client is called
     mock_context.llm_manager.get_client.side_effect = lambda role: mock_client
