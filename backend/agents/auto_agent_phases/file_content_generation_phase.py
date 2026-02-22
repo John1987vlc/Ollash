@@ -77,7 +77,7 @@ class FileContentGenerationPhase(IAgentPhase):
                 context_files_content = ContextDistiller.distill_batch(raw_context_files)
 
                 # 2. Construct Sniper Prompt with XML requirements
-                base_system, base_user = AutoGenPrompts.micro_task_execution(
+                system_prompt, user_prompt = AutoGenPrompts.micro_task_execution(
                     title=title,
                     description=task.get("description", ""),
                     file_path=file_path,
@@ -86,9 +86,6 @@ class FileContentGenerationPhase(IAgentPhase):
                     context_files_content=context_files_content[:4000]
                 )
                 
-                system_prompt = base_system + "\n\nCRITICAL RULE: Analyze the problem step-by-step inside <thinking_process>. Then, provide ONLY the final code inside <code_created>. Do not use markdown code blocks outside these tags."
-                user_prompt = base_user
-
                 content = ""
                 attempts = 0
                 max_attempts = 3
@@ -113,16 +110,28 @@ class FileContentGenerationPhase(IAgentPhase):
 
                     raw_response = response_data.get("content", "").strip()
                     
-                    # 4. XML Extraction via Regex
+                    # 4. XML Extraction via Regex (Case-insensitive and robust to whitespace)
                     import re
-                    codigo_match = re.search(r"<code_created>([\s\S]*?)</code_created>", raw_response)
+                    codigo_match = re.search(r"<code_created>([\s\S]*?)(?:</code_created>|$)", raw_response, re.IGNORECASE)
 
                     if not codigo_match:
-                        last_error = "FORMAT FAILURE: You have not included the <code_created> tag in your response."
-                        self.context.logger.warning(f"    ⚠ Attempt {attempts}: Missing XML tags.")
-                        continue
-
-                    content = codigo_match.group(1).strip()
+                        # FALLBACK: If the model failed tags but used markdown blocks, try to rescue it
+                        if "```" in raw_response:
+                            from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+                            content = LLMResponseParser.extract_single_code_block(raw_response)
+                            if content:
+                                self.context.logger.info(f"    ⚠ Attempt {attempts}: Rescued code from markdown block (Missing XML tags).")
+                                # We continue to validation
+                            else:
+                                last_error = "FORMAT FAILURE: Missing <code_created> tags and no valid code block found."
+                                self.context.logger.warning(f"    ⚠ Attempt {attempts}: {last_error}")
+                                continue
+                        else:
+                            last_error = "FORMAT FAILURE: You MUST include the <code_created> tag in your response."
+                            self.context.logger.warning(f"    ⚠ Attempt {attempts}: Missing XML tags.")
+                            continue
+                    else:
+                        content = codigo_match.group(1).strip()
                     # Clean residual markdown if the SLM included it inside tags
                     content = re.sub(r"```(?:\w+)?\n?", "", content).replace("```", "").strip()
 
@@ -220,12 +229,13 @@ class FileContentGenerationPhase(IAgentPhase):
                     return False
 
         # 3. Plan compliance: Check for required exports
-        exports = plan.get("exports", [])
-        for export in exports:
-            if export and export not in content:
-                self.context.logger.warning(f"    Missing expected export: {export}")
-                # We enforce strictness here
-                return False 
+        # Skip for entry-point files (main.py, app.py, etc.) which don't export symbols
+        if not is_main_file:
+            exports = plan.get("exports", [])
+            for export in exports:
+                if export and export not in content:
+                    self.context.logger.warning(f"    Missing expected export: {export}")
+                    return False
 
         # 4. TODO density check
         if "TODO" in content and content.count("TODO") > 5:
