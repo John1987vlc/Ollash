@@ -182,6 +182,7 @@ class ProjectAnalysisPhase(IAgentPhase):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
+                tools=[],
                 options_override={"temperature": 0.2},
             )
 

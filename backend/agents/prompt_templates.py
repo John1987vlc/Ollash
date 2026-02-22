@@ -1,6 +1,6 @@
 """
 Refactored RolePromptTemplates to use centralized YAML prompts.
-Maintains the same interface while loading text from /backend/prompts/roles/*.yaml.
+Maintains the same interface while loading text from /prompts/roles/*.yaml.
 """
 
 import logging
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class classproperty(object):
     """
-    Decorator that converts a method with a single cls argument 
+    Decorator that converts a method with a single cls argument
     into a property that can be accessed directly from the class.
     """
     def __init__(self, f):

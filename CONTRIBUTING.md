@@ -54,9 +54,9 @@ Si deseas contribuir con código, sigue estos pasos:
     pip install -r requirements-dev.txt
     ```
 4.  **Configura Ollama:**
-    Asegúrate de tener [Ollama](https://ollama.ai/) instalado y en funcionamiento. Descarga el modelo `qwen3-coder-next` (o el que uses para desarrollo):
+    Asegúrate de tener [Ollama](https://ollama.ai/) instalado y en funcionamiento. Descarga el modelo `qwen3-coder:30b` (o el que uses para desarrollo):
     ```bash
-    ollama pull qwen3-coder-next
+    ollama pull qwen3-coder:30b
     ```
 
 ### 2. Crea una Nueva Rama

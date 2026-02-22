@@ -69,7 +69,7 @@ class TestMultimodalBlueprint:
 
 class TestSandboxBlueprint:
     def test_execute_no_code(self, client):
-        resp = client.post("/api/sandbox/execute", json={})
+        resp = client.post("/sandbox/execute", json={})
         assert resp.status_code == 400
         assert "No code provided" in resp.get_json()["error"]
 
@@ -85,7 +85,7 @@ class TestSandboxBlueprint:
                 mock_run.return_value.stdout = "Hello World\n"
                 mock_run.return_value.stderr = ""
 
-                resp = client.post("/api/sandbox/execute", json={"code": code, "language": "python"})
+                resp = client.post("/sandbox/execute", json={"code": code, "language": "python"})
 
                 assert resp.status_code == 200
                 data = resp.get_json()
@@ -93,7 +93,7 @@ class TestSandboxBlueprint:
                 assert "Hello World" in data["output"]
 
     def test_execute_unsupported_language(self, client):
-        resp = client.post("/api/sandbox/execute", json={"code": "some code", "language": "cobol"})
+        resp = client.post("/sandbox/execute", json={"code": "some code", "language": "cobol"})
         assert resp.status_code == 400
         assert "not supported" in resp.get_json()["error"]
 

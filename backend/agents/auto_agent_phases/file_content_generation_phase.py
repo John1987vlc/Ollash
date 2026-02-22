@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Tuple
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
 from backend.utils.core.llm.parallel_generator import GenerationTask
+from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
+from backend.utils.core.analysis.context_distiller import ContextDistiller
 
 
 class FileContentGenerationPhase(IAgentPhase):
@@ -23,146 +25,139 @@ class FileContentGenerationPhase(IAgentPhase):
         project_root: Path,
         readme_content: str,
         initial_structure: Dict[str, Any],
-        generated_files: Dict[str, str],  # This will be populated here
+        generated_files: Dict[str, str],
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
+        file_paths = kwargs.get("file_paths", [])
 
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4: Generating file contents with logic plans...")
+        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4: Ejecutando Backlog Agile con Auto-Reflexión...")
         self.context.event_publisher.publish(
-            "phase_start", phase="4", message="Starting intelligent content generation"
+            "phase_start", phase="4", message="Iniciando ejecución iterativa de micro-tareas con validación XML/AST"
         )
 
-        self.context.dependency_graph.build_from_structure(initial_structure, readme_content)
-        generation_order = self.context.dependency_graph.get_generation_order()
+        backlog = getattr(self.context, "backlog", [])
+        if not backlog and hasattr(self.context, "logic_plan"):
+             for i, (path, plan) in enumerate(self.context.logic_plan.items()):
+                 backlog.append({
+                     "id": f"TASK-{i:03d}",
+                     "title": f"Implementar {path}",
+                     "description": plan.get("purpose", f"Generar {path}"),
+                     "file_path": path,
+                     "task_type": "create_file",
+                     "dependencies": [],
+                     "context_files": []
+                 })
 
-        # NEW: Get logic plans from context (generated in LogicPlanningPhase)
-        logic_plan = getattr(self.context, "logic_plan", {})
+        total_tasks = len(backlog)
+        completed_tasks = 0
 
-        generation_tasks = []
-        for file_path in generation_order:
-            context_files = self.context.dependency_graph.get_context_for_file(file_path, max_depth=2)
-            context_data = {
-                "readme": readme_content,
-                "structure": initial_structure,
-                "dependencies": context_files,
-                "readme_excerpt": readme_content[:1000],
-                "logic_plan": logic_plan.get(file_path, {}),  # NEW: Include file's logic plan
-            }
+        for task in backlog:
+            task_id = task.get("id", "UNKNOWN")
+            title = task.get("title", "Sin Título")
+            file_path = task.get("file_path", "")
+            task_type = task.get("task_type", "create_file")
 
-            language = self._infer_language(file_path)
+            self.context.logger.info(f"  [Tarea {completed_tasks+1}/{total_tasks}] {task_id}: {title}")
             
             # CRITICAL: Binary Guard - Skip LLM call for binary files
             if self._is_binary_file(file_path):
-                self.context.logger.info(f"  Skipped: Binary file generation not supported by text LLM ({file_path})")
-                generated_files[file_path] = "" # Placeholder for binary
+                self.context.logger.info(f"    Skipped: Binary file detected ({file_path})")
+                generated_files[file_path] = ""
+                # Move to done in Kanban anyway
+                self.context.event_publisher.publish("agent_board_update", action="move_task", task_id=task_id, new_status="done")
+                completed_tasks += 1
                 continue
 
-            prevention_warnings = self.context.error_knowledge_base.get_prevention_warnings(
-                file_path, project_name, language
-            )
-            context_data["error_warnings"] = prevention_warnings
+            # Notificar progreso al Tablero Kanban
+            self.context.event_publisher.publish("agent_board_update", action="move_task", task_id=task_id, new_status="in_progress")
 
-            task = GenerationTask(
-                file_path=file_path,
-                context=context_data,
-                priority=10 if any(x in file_path for x in ["__init__", "config", "utils"]) else 5,
-            )
-            generation_tasks.append(task)
+            try:
+                # 1. Preparación de Contexto Destilado
+                raw_context_files = self.context.select_related_files(file_path, generated_files)
+                context_files_content = ContextDistiller.distill_batch(raw_context_files)
 
-        async def async_generate_wrapper():
-            """Wrapper to call sync generation function asynchronously."""
+                # 2. Construcción del Sniper Prompt con requisitos XML
+                base_system, base_user = AutoGenPrompts.micro_task_execution(
+                    title=title,
+                    description=task.get("description", ""),
+                    file_path=file_path,
+                    task_type=task_type,
+                    readme_content=readme_content[:1000],
+                    context_files_content=context_files_content[:4000]
+                )
+                
+                system_prompt = base_system + "\n\nREGLA CRÍTICA: Analiza el problema paso a paso dentro de <pensamiento>. Luego, proporciona ÚNICAMENTE el código final dentro de <codigo>. No uses markdown de bloques de código fuera de estas etiquetas."
+                user_prompt = base_user
 
-            async def gen_file_async(file_path: str, context_for_file: Dict) -> Tuple[str, bool, str]:
-                try:
-                    # Get related files for context
-                    related = self.context.select_related_files(file_path, generated_files)
+                content = ""
+                attempts = 0
+                max_attempts = 3
+                last_error = ""
 
-                    # NEW: Use logic plan if available
-                    file_logic_plan = context_for_file.get("logic_plan", {})
+                # 3. Bucle de Auto-Reflexión y Corrección
+                while attempts < max_attempts:
+                    attempts += 1
+                    current_user_prompt = user_prompt
+                    if last_error:
+                        current_user_prompt += f"\n\nREINTENTO POR ERROR PREVIO:\n{last_error}\nPor favor, corrige el error y responde siguiendo estrictamente el formato <pensamiento> y <codigo>."
 
-                    if file_logic_plan:
-                        # Use enhanced generator with detailed plan
-                        self.context.logger.info(f"  Generating {file_path} using detailed logic plan")
-                        # We'll need to get EnhancedFileContentGenerator from context if available
-                        # For now, try to use it if available, otherwise fall back to regular generator
-                        content = await self._generate_with_plan(
-                            file_path,
-                            file_logic_plan,
-                            related,
-                            context_for_file["readme"],
-                            context_for_file["structure"],
-                        )
-                    else:
-                        # Fallback to regular generation
-                        content = self.context.file_content_generator.generate_file(
-                            file_path,
-                            context_for_file["readme"],
-                            context_for_file["structure"],
-                            related,
-                        )
-
-                    # NEW: Validate content before saving
-                    if content and self._validate_file_content(file_path, content, file_logic_plan):
-                        generated_files[file_path] = content
-                        self.context.file_manager.write_file(project_root / file_path, content)
-                        self.context.logger.info(f"  ✓ {file_path} generated and validated")
-                        return (content, True, "")
-                    else:
-                        # Content validation failed
-                        self.context.logger.warning(f"  ⚠ {file_path} content validation failed, attempting retry...")
-                        # Could implement retry logic here
-                        if content:
-                            generated_files[file_path] = content
-                            self.context.file_manager.write_file(project_root / file_path, content)
-                            return (content, False, "Content validation warning")
-                        else:
-                            raise ValueError(f"No content generated for {file_path}")
-
-                except Exception as e:
-                    self.context.logger.error(f"Error generating {file_path}: {e}")
-                    generated_files[file_path] = ""
-                    self.context.error_knowledge_base.record_error(
-                        file_path,
-                        "generation_failure",
-                        str(e),
-                        "",
-                        context_for_file.get("readme_excerpt", ""),
+                    # 3. LLM Call
+                    response_data, _ = self.context.llm_manager.get_client("coder").chat(
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": current_user_prompt},
+                        ],
+                        tools=[],
+                        options_override={"temperature": 0.1},
                     )
-                    return ("", False, str(e))
 
-            results = await self.context.parallel_generator.generate_files(
-                generation_tasks,
-                gen_file_async,
-                progress_callback=lambda fp, completed, total: self.context.event_publisher.publish(
-                    "tool_output",
-                    tool_name="content_generation",
-                    file=fp,
-                    progress=f"{completed}/{total}",
-                    status="success",
-                ),
-                dependency_order=generation_order,
-            )
-            return results
+                    raw_response = response_data.get("content", "").strip()
+                    
+                    # 4. Extracción XML vía Regex
+                    import re
+                    codigo_match = re.search(r"<codigo>([\s\S]*?)</codigo>", raw_response)
 
-        try:
-            await async_generate_wrapper()
-            stats = self.context.parallel_generator.get_statistics()
-            self.context.logger.info(
-                f"Phase 4 content generation: {stats['success']}/{stats['total']} files, "
-                f"avg time: {stats['avg_time_per_file']:.2f}s"
-            )
-        except Exception as e:
-            self.context.logger.error(f"Error in parallel generation: {e}. Falling back to sequential...")
-            # Implement sequential fallback if needed
-            for file_path in generation_order:
-                if file_path not in generated_files or not generated_files[file_path]:
-                    self.context.logger.info(f"Sequential generation for {file_path}")
+                    if not codigo_match:
+                        last_error = "FALLO DE FORMATO: No has incluido la etiqueta <codigo> en tu respuesta."
+                        self.context.logger.warning(f"    ⚠ Intento {attempts}: Etiquetas XML faltantes.")
+                        continue
+
+                    content = codigo_match.group(1).strip()
+                    # Limpieza de markdown residual si el SLM lo incluyó dentro de las etiquetas
+                    content = re.sub(r"```(?:\w+)?\n?", "", content).replace("```", "").strip()
+
+                    # 5. AST/Syntax Validation
+                    validation_result = self.context.files_ctx.validator.validate(file_path, content)
+                    
+                    if validation_result.status.name == "VALID":
+                        self.context.logger.info(f"    ✓ {file_path} validado sintácticamente (Intento {attempts})")
+                        break
+                    else:
+                        last_error = f"ERROR DE SINTAXIS: {validation_result.message}"
+                        self.context.logger.warning(f"    ⚠ Intento {attempts} falló validación: {validation_result.message}")
+                        if attempts < max_attempts:
+                            content = "" # Reset para forzar reintento
+
+                # 6. Guardado Final y Notificación
+                if content:
+                    generated_files[file_path] = content
+                    self.context.file_manager.write_file(project_root / file_path, content)
+                    completed_tasks += 1
+                    self.context.event_publisher.publish("agent_board_update", action="move_task", task_id=task_id, new_status="done")
+                else:
+                    self.context.logger.error(f"    ✖ La tarea {task_id} falló después de {max_attempts} intentos.")
+
+            except Exception as e:
+                self.context.logger.error(f"Error fatal en tarea {task_id}: {e}")
+                # Record error in knowledge base
+                self.context.error_knowledge_base.record_error(
+                    file_path, "micro_task_failure", str(e), task_id, title
+                )
 
         self.context.event_publisher.publish(
             "phase_complete",
             phase="4",
-            message=f"Content generated for {len(generated_files)} files",
+            message=f"Ejecución Agile finalizada: {completed_tasks}/{total_tasks} tareas completadas",
         )
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4 complete.")
 

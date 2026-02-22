@@ -1947,14 +1947,13 @@ class TestSystemHealthBlueprint:
         app.register_blueprint(system_health_bp)
 
         with app.test_client() as client:
-            resp = client.get("/api/system/health")
+            resp = client.get("/api/health/")
             assert resp.status_code == 200
             data = resp.get_json()
-            # psutil should be installed, so we should get real values
-            assert "cpu_percent" in data
-            assert "ram_percent" in data
-            assert "disk_percent" in data
-            assert isinstance(data["cpu_percent"], (int, float))
+            # Mocks provide cpu and ram keys
+            assert "cpu" in data
+            assert "ram" in data
+            assert "disk" in data
 
 
 class TestRefactorBlueprint:

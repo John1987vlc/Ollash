@@ -50,7 +50,7 @@ def test_api_status_check(client, mock_ollama):
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    mock_resp.json.return_value = {"models": [{"name": "qwen3-coder-next"}]}
+    mock_resp.json.return_value = {"models": [{"name": "qwen3-coder:30b"}]}
 
     with patch("requests.get", return_value=mock_resp):
         response = client.get("/api/status")
@@ -60,4 +60,4 @@ def test_api_status_check(client, mock_ollama):
         assert "models" in data
         # Flexibility for :latest suffix
         model_names = [m.split(":")[0] for m in data["models"]]
-        assert "qwen3-coder-next" in model_names
+        assert "qwen3-coder" in model_names

@@ -61,7 +61,7 @@ def get_shadow_report():
     if not report["models"]:
         # Provide some example data if none exists so the UI doesn't look empty
         report["models"] = {
-            "qwen3-coder-next": {
+            "qwen3-coder:30b": {
                 "total_evaluations": 45,
                 "correction_rate": 0.12,
                 "avg_severity": 0.15,

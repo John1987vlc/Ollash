@@ -52,6 +52,8 @@ from backend.utils.core.analysis.shadow_evaluator import ShadowEvaluator
 from backend.utils.core.llm.llm_recorder import LLMRecorder
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 from backend.utils.core.llm.parallel_generator import ParallelFileGenerator
+from backend.utils.core.llm.prompt_repository import PromptRepository
+from backend.utils.core.llm.prompt_loader import PromptLoader
 from backend.utils.core.system.permission_profiles import PermissionProfileManager, PolicyEnforcer
 from backend.utils.core.analysis.scanners.rag_context_selector import RAGContextSelector
 from backend.utils.core.analysis.scanners.dependency_scanner import DependencyScanner
@@ -118,6 +120,17 @@ class CoreContainer(containers.DeclarativeContainer):
     file_manager = providers.Singleton(FileManager, root_path=ollash_root_dir.provided)
     response_parser = providers.Singleton(LLMResponseParser)
     file_validator = providers.Singleton(FileValidator, logger=logger, command_executor=command_executor)
+
+    prompt_loader = providers.Singleton(
+        PromptLoader,
+        prompts_dir=providers.Factory(lambda root: root / "prompts", ollash_root_dir),
+    )
+
+    prompt_db_path = providers.Factory(lambda root: root / ".ollash" / "prompt_history.db", ollash_root_dir)
+    prompt_repository = providers.Singleton(
+        PromptRepository,
+        db_path=prompt_db_path,
+    )
 
     llm_recorder = providers.Singleton(LLMRecorder, logger=logger)
     documentation_manager = providers.Singleton(

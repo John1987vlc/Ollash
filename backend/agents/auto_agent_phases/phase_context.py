@@ -222,7 +222,8 @@ class PhaseContext:
         self.current_project_structure: Dict[str, Any] = {}
         self.current_file_paths: List[str] = []
         self.current_readme_content: str = ""
-        self.logic_plan: Dict[str, Dict[str, Any]] = {}  # NEW: Store implementation plans
+        self.logic_plan: Dict[str, Dict[str, Any]] = {}  # Store implementation plans
+        self.backlog: List[Dict[str, Any]] = []  # NEW: Agile backlog of micro-tasks
 
         # Sub-contexts for grouped access
         self.llm = LLMSubContext(llm_manager, response_parser)

@@ -1,5 +1,5 @@
 {
-  "saved_at": "2026-02-22T09:53:28.549839",
+  "saved_at": "2026-02-22T13:16:08.619185",
   "patterns": {
     "486535486817": {
       "pattern_id": "486535486817",
@@ -318,6 +318,38 @@
       "frequency": 1,
       "severity": "medium",
       "last_encountered": "2026-02-22T09:53:28.530786",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "bb1d5e5f631a": {
+      "pattern_id": "bb1d5e5f631a",
+      "error_type": "generation_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/js/config.js: No content generated for src/js/config.js",
+      "example_error": "No content generated for src/js/config.js",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-22T13:13:53.619181",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "8b126131088d": {
+      "pattern_id": "8b126131088d",
+      "error_type": "generation_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/tests/test_ai.js: No content generated for src/tests/test_ai.js",
+      "example_error": "No content generated for src/tests/test_ai.js",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-22T13:16:08.597427",
       "tags": [
         "generation_failure"
       ]

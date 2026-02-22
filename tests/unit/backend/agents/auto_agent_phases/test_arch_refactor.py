@@ -17,6 +17,12 @@ def mock_context():
     ctx.llm_manager = MagicMock()
     ctx.response_parser = MagicMock()
     ctx.file_content_generator = MagicMock()
+    
+    # Files sub-context
+    ctx.files_ctx = MagicMock()
+    ctx.files_ctx.validator = MagicMock()
+    ctx.files_ctx.validator.validate.return_value = MagicMock(status=MagicMock(name="VALID"))
+    
     # Mocks for ProjectAnalysisPhase/LogicPlanningPhase
     ctx.group_files_by_language = MagicMock(return_value={"python": ["main.py"]})
     ctx.infer_language = MagicMock(return_value="python")
@@ -85,16 +91,26 @@ def index(): return 'hi'""" + "#" * 100
         """Test that Phase 4 actually skips binary files during execution."""
         phase = FileContentGenerationPhase(mock_context)
         
-        mock_context.dependency_graph.get_generation_order.return_value = ["logo.png", "main.py"]
-        mock_context.dependency_graph.get_context_for_file.return_value = {}
-        mock_context.logic_plan = {"main.py": {"exports": ["main"]}}
+        # Binary guard is now at the start of the loop
+        mock_context.backlog = [
+            {"id": "T1", "title": "Logo", "file_path": "logo.png", "task_type": "create_file"},
+            {"id": "T2", "title": "Main", "file_path": "main.py", "task_type": "create_file"}
+        ]
         
-        generated_files = {}
-        # We don't need to mock parallel_generator if we are just testing the skip logic in the task loop
-        # But execute() calls generate_files, so we mock it to avoid real generation
-        mock_context.parallel_generator.generate_files = AsyncMock(return_value={})
-        mock_context.parallel_generator.get_statistics.return_value = {"success": 1, "total": 2, "avg_time_per_file": 0}
+        # Mock LLM for the non-binary file
+        mock_client = MagicMock()
+        mock_client.chat.return_value = (
+            {"content": "<pensamiento>Análisis</pensamiento><codigo>print('ok')</codigo>"}, 
+            {"prompt_tokens": 10, "completion_tokens": 10}
+        )
+        mock_context.llm_manager.get_client.return_value = mock_client
+        
+        # Mock Validator
+        mock_validator = MagicMock()
+        mock_validator.validate.return_value = MagicMock(status=MagicMock(name="VALID"))
+        mock_context.files_ctx.validator = mock_validator
 
+        generated_files = {}
         await phase.execute(
             project_description="desc",
             project_name="name",
@@ -108,8 +124,7 @@ def index(): return 'hi'""" + "#" * 100
         # logo.png should be in generated_files as empty string (skipped)
         assert "logo.png" in generated_files
         assert generated_files["logo.png"] == ""
-        # The parallel generator should only have been called for main.py
-        args, _ = mock_context.parallel_generator.generate_files.call_args
-        tasks = args[0]
-        assert len(tasks) == 1
-        assert tasks[0].file_path == "main.py"
+        
+        # main.py should be generated
+        assert "main.py" in generated_files
+        assert "print('ok')" in generated_files["main.py"]

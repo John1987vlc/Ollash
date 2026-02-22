@@ -22,7 +22,7 @@ This document provides an overview of the `local-it-agent-ollash` project, inten
 **Main Technologies:**
 *   **Python 3:** Core programming language.
 *   **Ollama:** Local large language model (LLM) serving platform.
-*   **`qwen3-coder-next`:** Specific LLM used by the agent for code-related tasks.
+*   **`qwen3-coder:30b`:** Specific LLM used by the agent for code-related tasks.
 *   **`requests`:** Python library for making HTTP requests.
 *   **`pytest`:** Python testing framework.
 *   **Flask:** Web framework for the new UI.
@@ -64,9 +64,9 @@ The project is structured around a central `DefaultAgent` (orchestrator) that ma
     Open the `.env` file and modify the variables, especially `OLLAMA_URL`, to match your setup.
 
 5.  **Configure Ollama:**
-    Ensure [Ollama](https://ollama.ai/) is installed, running, and accessible at the URL specified in your `.env` file. Then, download the necessary models (e.g., `qwen3-coder-next`):
+    Ensure [Ollama](https://ollama.ai/) is installed, running, and accessible at the URL specified in your `.env` file. Then, download the necessary models (e.g., `qwen3-coder:30b`):
     ```bash
-    ollama pull qwen3-coder-next
+    ollama pull qwen3-coder:30b
     ```
 
 ### Running the Core Agent

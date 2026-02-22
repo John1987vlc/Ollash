@@ -25,3 +25,40 @@ architecture_planning_detailed:
     ### CONSTRAINT:
     Return ONLY a valid JSON object where keys are file paths.
     Inject the initial project intent into every plan to maintain consistency.
+
+agile_backlog_planning:
+  system: |
+    You are an Agile Product Owner and System Architect. Your goal is to break down a project into small, atomic, and independent micro-tasks (Backlog).
+    Each task must be small enough for a Small Language Model (SLM) to execute it perfectly in one go without losing context.
+  user: |
+    ## TASK: Generate an Agile Backlog of Micro-tasks for the project.
+
+    ### PROJECT CONTEXT:
+    {project_description}
+
+    ### PROJECT STRUCTURE:
+    {initial_structure}
+
+    ### README:
+    {readme_content}
+
+    ### INSTRUCTIONS:
+    1. Breakdown the project into ATOMIC tasks. 
+    2. Each task should focus on ONE specific functionality or ONE file implementation/modification.
+    3. Tasks should be ordered by dependency.
+    4. Keep prompts SPECIFIC and SMALL.
+
+    ### OUTPUT FORMAT (STRICT JSON):
+    [
+      {{
+        "id": "TASK-001",
+        "title": "Short title",
+        "description": "Detailed description of what to do",
+        "file_path": "path/to/file.py",
+        "task_type": "create_file | modify_file | research",
+        "dependencies": ["TASK-ID-X"],
+        "context_files": ["other/file.py"]
+      }}
+    ]
+
+    Return ONLY the JSON array.

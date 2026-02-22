@@ -105,7 +105,12 @@ class AutoAgent(CoreAgent):
 
         active_phases = self.phases
         if project_exists:
-            analysis_phase = self.project_analysis_phase_factory()
+            # Handle both factory and direct instance injection
+            if callable(self.project_analysis_phase_factory):
+                analysis_phase = self.project_analysis_phase_factory()
+            else:
+                analysis_phase = self.project_analysis_phase_factory
+            
             try:
                 logic_phase_index = next(i for i, p in enumerate(self.phases) if isinstance(p, LogicPlanningPhase))
                 active_phases = [analysis_phase] + self.phases[logic_phase_index:]

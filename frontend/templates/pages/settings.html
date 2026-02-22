@@ -3,57 +3,59 @@
 {% block title %}Settings - Ollash{% endblock %}
 
 {% block content %}
-<div class="view-header">
-    <h1>Settings</h1>
-    <p class="subtitle">Configuration, Model Management, and System Preferences.</p>
-</div>
-
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: var(--spacing-xl);">
-
-    <!-- Model Health & Routing Card -->
-    <div class="card-panel" style="grid-column: 1 / -1;">
-        <h3>Model Health & Routing</h3>
-        <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: var(--spacing-md);">
-            Real-time latency monitoring and fallback strategies.
-        </p>
-        
-        <div id="model-health-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
-            <!-- Injected via JS -->
-            <div class="skeleton-pulse" style="height: 100px;"></div>
-            <div class="skeleton-pulse" style="height: 100px;"></div>
-        </div>
+<div class="view" id="settings-view">
+    <div class="view-header">
+        <h1>Settings</h1>
+        <p class="subtitle">Configuration, Model Management, and System Preferences.</p>
     </div>
 
-    <!-- General Settings -->
-    <div class="card-panel">
-        <h3>General Configuration</h3>
-        <div class="form-group">
-            <label>Agent Name</label>
-            <input type="text" class="form-input" value="Ollash Default Agent">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: var(--spacing-xl);">
+        <!-- ... existing content ... -->
+        <!-- Model Health & Routing Card -->
+        <div class="card-panel" style="grid-column: 1 / -1;">
+            <h3>Model Health & Routing</h3>
+            <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: var(--spacing-md);">
+                Real-time latency monitoring and fallback strategies.
+            </p>
             
-            <label>Workspace Root</label>
-            <input type="text" class="form-input" value="./projects" disabled>
-            
-            <div style="display: flex; align-items: center; margin-top: 10px;">
-                <input type="checkbox" id="auto-update" checked>
-                <label for="auto-update" style="margin-left: 8px;">Auto-update Core</label>
+            <div id="model-health-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
+                <!-- Injected via JS -->
+                <div class="skeleton-pulse" style="height: 100px;"></div>
+                <div class="skeleton-pulse" style="height: 100px;"></div>
             </div>
         </div>
-    </div>
 
-    <!-- Advanced LLM Settings -->
-    <div class="card-panel">
-        <h3>LLM Parameters</h3>
-        <div class="form-group">
-            <label>Temperature (Creativity)</label>
-            <input type="range" min="0" max="1" step="0.1" value="0.7">
-            
-            <label>Context Window</label>
-            <select class="form-input">
-                <option>4096 Tokens</option>
-                <option selected>8192 Tokens</option>
-                <option>16384 Tokens</option>
-            </select>
+        <!-- General Settings -->
+        <div class="card-panel">
+            <h3>General Configuration</h3>
+            <div class="form-group">
+                <label>Agent Name</label>
+                <input type="text" class="form-input" value="Ollash Default Agent">
+                
+                <label>Workspace Root</label>
+                <input type="text" class="form-input" value="./projects" disabled>
+                
+                <div style="display: flex; align-items: center; margin-top: 10px;">
+                    <input type="checkbox" id="auto-update" checked>
+                    <label for="auto-update" style="margin-left: 8px;">Auto-update Core</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced LLM Settings -->
+        <div class="card-panel">
+            <h3>LLM Parameters</h3>
+            <div class="form-group">
+                <label>Temperature (Creativity)</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.7">
+                
+                <label>Context Window</label>
+                <select class="form-input">
+                    <option>4096 Tokens</option>
+                    <option selected>8192 Tokens</option>
+                    <option>16384 Tokens</option>
+                </select>
+            </div>
         </div>
     </div>
 </div>

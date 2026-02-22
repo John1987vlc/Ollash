@@ -205,9 +205,11 @@ class OllamaClient:
         options_override: Dict | None = None,
     ) -> tuple[Dict, Dict]:
         default_options = {
-            "temperature": 0.1,  # This will come from llm_models_config eventually
+            "temperature": 0.1,
             "num_predict": 4096,
-            "keep_alive": "0s",
+            "num_ctx": 16384,
+            "repeat_penalty": 1.15,
+            "keep_alive": "5m",
         }
         if options_override:
             default_options.update(options_override)
@@ -293,9 +295,10 @@ class OllamaClient:
                           Use this to control num_ctx, num_predict, temperature, etc.
         """
         default_options = {
-            "temperature": 0.1,  # This will come from llm_models_config eventually
+            "temperature": 0.1,
             "num_predict": 4096,
-            "keep_alive": "0s",
+            "num_ctx": 16384,
+            "repeat_penalty": 1.15,
         }
         if options_override:
             default_options.update(options_override)

@@ -22,14 +22,14 @@ def get_system_health():
             "temperature": random.randint(40, 75)
         },
         "llm": {
-            "current_model": "qwen2.5-coder:14b",
+            "current_model": "qwen3-coder:30b",
             "latency_ms": random.randint(50, 200),
             "requests_per_minute": random.randint(0, 15),
             "queue_depth": random.randint(0, 2),
             "status": "healthy" if random.random() > 0.1 else "degraded"
         },
         "models": [
-            {"name": "qwen2.5-coder:14b", "status": "online", "latency": 120, "fallback": "qwen2.5-coder:7b"},
+            {"name": "qwen3-coder:30b", "status": "online", "latency": 120, "fallback": "qwen3-coder:14b"},
             {"name": "llama3:8b", "status": "online", "latency": 85, "fallback": None},
             {"name": "mistral:7b", "status": "offline", "latency": 0, "fallback": "llama3:8b"}
         ]

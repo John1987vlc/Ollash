@@ -194,6 +194,14 @@ window.WizardModule = (function() {
                 });
                 const step = document.getElementById(`phase-${phaseId}`);
                 if (step) step.classList.add('active');
+            } else if (type === 'agent_board_update') {
+                if (window.KanbanBoard) {
+                    if (data.action === 'init_backlog') {
+                        window.KanbanBoard.initBacklog(data.tasks);
+                    } else if (data.action === 'move_task') {
+                        window.KanbanBoard.moveTask(data.task_id, data.new_status);
+                    }
+                }
             } else if (type === 'project_complete' || type === 'stream_end') {
                 document.querySelectorAll('.phase-step.active').forEach(s => {
                     s.classList.remove('active');

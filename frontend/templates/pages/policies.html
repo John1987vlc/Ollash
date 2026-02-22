@@ -73,33 +73,34 @@
 {% endblock %}
 
 {% block content %}
-<div class="view-header">
-    <h1>Agent Governance (RBAC)</h1>
-    <p class="subtitle">Control access permissions for autonomous agents.</p>
-</div>
-
-<div class="card-panel">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h3>Permission Matrix</h3>
-        <button class="btn-primary" onclick="savePolicies()">Save Changes</button>
+<div class="view" id="policies-view">
+    <div class="view-header">
+        <h1>Agent Governance (RBAC)</h1>
+        <p class="subtitle">Control access permissions for autonomous agents.</p>
     </div>
-    
-    <table class="policy-matrix" id="rbac-table">
-        <thead>
-            <tr>
-                <th>Agent Role</th>
-                <th>File System</th>
-                <th>Network / API</th>
-                <th>CLI / Shell</th>
-                <th>Cybersecurity</th>
-            </tr>
-        </thead>
-        <tbody id="rbac-body">
-            <!-- Populated via JS -->
-        </tbody>
-    </table>
-</div>
 
+    <div class="card-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>Permission Matrix</h3>
+            <button class="btn-primary" onclick="savePolicies()">Save Changes</button>
+        </div>
+        
+        <table class="policy-matrix" id="rbac-table">
+            <thead>
+                <tr>
+                    <th>Agent Role</th>
+                    <th>File System</th>
+                    <th>Network / API</th>
+                    <th>CLI / Shell</th>
+                    <th>Cybersecurity</th>
+                </tr>
+            </thead>
+            <tbody id="rbac-body">
+                <!-- Populated via JS -->
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}

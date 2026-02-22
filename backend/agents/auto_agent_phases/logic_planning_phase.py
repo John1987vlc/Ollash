@@ -63,19 +63,98 @@ class LogicPlanningPhase(IAgentPhase):
         self.context.file_manager.write_file(plan_file, json.dumps(logic_plan, indent=2))
         generated_files["IMPLEMENTATION_PLAN.json"] = json.dumps(logic_plan, indent=2)
 
+        # NEW: Generate Agile Backlog
+        self.context.logger.info("  Generating Agile Backlog of micro-tasks...")
+        backlog = await self._generate_backlog(
+            project_description, readme_content, initial_structure
+        )
+        
+        backlog_file = project_root / "BACKLOG.json"
+        self.context.file_manager.write_file(backlog_file, json.dumps(backlog, indent=2))
+        generated_files["BACKLOG.json"] = json.dumps(backlog, indent=2)
+
         # Store in context for FileContentGenerationPhase to use
         self.context.logic_plan = logic_plan
+        self.context.backlog = backlog
+
+        # Publish event for UI Kanban initialization
+        self.context.event_publisher.publish(
+            "agent_board_update",
+            action="init_backlog",
+            tasks=backlog
+        )
 
         self.context.event_publisher.publish(
             "phase_complete",
             phase="2.5",
-            message=f"Logic plan created for {len(logic_plan)} files",
+            message=f"Logic plan and Backlog ({len(backlog)} tasks) created",
         )
         self.context.logger.info(
-            f"[PROJECT_NAME:{project_name}] PHASE 2.5 complete: Plans created for {len(logic_plan)} files"
+            f"[PROJECT_NAME:{project_name}] PHASE 2.5 complete: Plans and Backlog created."
         )
 
         return generated_files, initial_structure, file_paths
+
+    async def _generate_backlog(
+        self, project_description: str, readme_content: str, initial_structure: Dict
+    ) -> List[Dict]:
+        """Generates a list of micro-tasks from project context."""
+        system_prompt, user_prompt = AutoGenPrompts.agile_backlog_planning(
+            project_description=project_description,
+            initial_structure=json.dumps(initial_structure, indent=2),
+            readme_content=readme_content[:2000]
+        )
+
+        try:
+            response_data, _ = self.context.llm_manager.get_client("planner").chat(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                tools=[],
+                options_override={"temperature": 0.2},
+            )
+
+            response_text = response_data.get("content", "")
+            
+            import re
+            json_match = re.search(r"\[[\s\S]*\]", response_text)
+            if json_match:
+                backlog = json.loads(json_match.group())
+                return backlog
+            else:
+                self.context.logger.warning("Could not find JSON array in backlog response. Using fallback.")
+                return self._create_fallback_backlog(initial_structure)
+        except Exception as e:
+            self.context.logger.error(f"Error generating backlog: {e}")
+            return self._create_fallback_backlog(initial_structure)
+
+    def _create_fallback_backlog(self, initial_structure: Dict) -> List[Dict]:
+        """Creates a basic backlog based on file structure if LLM fails."""
+        backlog = []
+        # Flatten structure to get file paths
+        def get_files(struct, prefix=""):
+            files = []
+            for name, content in struct.items():
+                path = f"{prefix}/{name}" if prefix else name
+                if isinstance(content, dict) and content.get("type") == "file":
+                    files.append(path)
+                elif isinstance(content, dict):
+                    files.extend(get_files(content, path))
+            return files
+
+        files = get_files(initial_structure)
+        for i, file_path in enumerate(files):
+            backlog.append({
+                "id": f"TASK-{i+1:03d}",
+                "title": f"Implement {file_path}",
+                "description": f"Create the content for {file_path}",
+                "file_path": file_path,
+                "task_type": "create_file",
+                "dependencies": [],
+                "context_files": []
+            })
+        return backlog
 
     def _categorize_files(self, file_paths: List[str]) -> Dict[str, List[str]]:
         """Group files by their category (config, main logic, utilities, tests, etc)."""

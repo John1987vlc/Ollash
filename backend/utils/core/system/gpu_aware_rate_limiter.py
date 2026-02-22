@@ -18,13 +18,13 @@ class GPUAwareRateLimiter:
     """
 
     def __init__(
-        self,
-        base_rpm: int = 60,
-        tokens_per_minute: int = 100000,
+       self,
+        base_rpm: int = 120,               # Sube las peticiones base por minuto
+        tokens_per_minute: int = 500000,   
         response_time_window: int = 10,
-        degradation_threshold_ms: float = 5000.0,
-        recovery_threshold_ms: float = 2000.0,
-        min_rpm: int = 5,
+        degradation_threshold_ms: float = 18000.0,  # Sube a 15-20 segundos antes de considerar que hay cuello de botella
+        recovery_threshold_ms: float = 5000.0,      # Recupera velocidad más rápido
+        min_rpm: int = 30,                 # Evita que el mínimo caiga hasta 5
         ema_alpha: float = 0.3,
         logger=None,
     ):

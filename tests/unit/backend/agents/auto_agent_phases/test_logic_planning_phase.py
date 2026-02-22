@@ -51,7 +51,8 @@ class TestLogicPlanningPhase:
 
         # Verify it was stored in context
         assert mock_context.logic_plan == plan
-        mock_context.file_manager.write_file.assert_called_once()
+        # Now we write IMPLEMENTATION_PLAN.json and BACKLOG.json
+        assert mock_context.file_manager.write_file.call_count == 2
 
     def test_categorize_files(self, mock_context):
         phase = LogicPlanningPhase(mock_context)
@@ -80,4 +81,4 @@ class TestLogicPlanningPhase:
         # Should use basic plan fallback
         assert "unknown.py" in plan
         assert "purpose" in plan["unknown.py"]
-        assert plan["unknown.py"]["purpose"] == "Core functionality"
+        assert "Implementation of other logic for: desc..." in plan["unknown.py"]["purpose"]

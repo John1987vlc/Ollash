@@ -274,7 +274,15 @@ class ParallelFileGenerator:
     def get_statistics(self) -> Dict[str, Any]:
         """Get generation statistics."""
         if not self.results:
-            return {"total": 0, "success": 0, "failed": 0}
+            return {
+                "total": 0,
+                "success": 0,
+                "failed": 0,
+                "success_rate": 0.0,
+                "total_duration_seconds": 0.0,
+                "avg_time_per_file": 0.0,
+                "failed_files": [],
+            }
 
         successful = [r for r in self.results.values() if r.success]
         failed = [r for r in self.results.values() if not r.success]
@@ -284,9 +292,9 @@ class ParallelFileGenerator:
             "total": len(self.results),
             "success": len(successful),
             "failed": len(failed),
-            "success_rate": len(successful) / len(self.results) if self.results else 0,
+            "success_rate": len(successful) / len(self.results),
             "total_duration_seconds": total_duration,
-            "avg_time_per_file": total_duration / len(self.results) if self.results else 0,
+            "avg_time_per_file": total_duration / len(self.results),
             "failed_files": self.failed_files,
         }
 

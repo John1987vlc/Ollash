@@ -37,9 +37,11 @@ class Config:
 
         # --- Load simple key-value settings ---
         self.OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-        self.DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "llama3:8b")
-        self.DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", 300))
-        self.DEFAULT_TEMPERATURE = float(os.getenv("DEFAULT_TEMPERATURE", 0.5))
+        self.DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen3-coder:30b")
+        self.DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", 600))
+        self.DEFAULT_TEMPERATURE = float(os.getenv("DEFAULT_TEMPERATURE", 0.1))
+        self.DEFAULT_NUM_CTX = int(os.getenv("DEFAULT_NUM_CTX", 16384))
+        self.DEFAULT_REPEAT_PENALTY = float(os.getenv("DEFAULT_REPEAT_PENALTY", 1.15))
         self.BENCHMARK_ENABLED = os.getenv("BENCHMARK_ENABLED", "true").lower() == "true"
 
         # --- Load complex settings (JSON Files preferred, then ENV) ---

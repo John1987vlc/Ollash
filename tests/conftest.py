@@ -59,7 +59,7 @@ def block_ollama_globally():
         mock_instance.chat.side_effect = lambda messages, **kwargs: ({"message": {"content": "Mocked sync response"}}, {"prompt_tokens": 5, "completion_tokens": 5})
         mock_instance.generate.side_effect = lambda prompt, **kwargs: ({"response": "Mocked sync response"}, {"prompt_tokens": 5, "completion_tokens": 5})
         mock_instance.get_embedding.return_value = [0.1] * 384
-        mock_instance.list_models.return_value = {"models": [{"name": "qwen3-coder-next"}]}
+        mock_instance.list_models.return_value = {"models": [{"name": "qwen3-coder:30b"}]}
 
         yield mock_client
 
@@ -98,9 +98,9 @@ def mock_kernel(tmp_path_factory):
 
     mock_llm_config = MagicMock()
     mock_llm_config.ollama_url = "http://localhost:11434"
-    mock_llm_config.default_model = "qwen3-coder-next"
+    mock_llm_config.default_model = "qwen3-coder:30b"
     mock_llm_config.default_timeout = 30
-    mock_llm_config.agent_roles = {"orchestrator": "qwen3-coder-next"}
+    mock_llm_config.agent_roles = {"orchestrator": "qwen3-coder:30b"}
     kernel.get_llm_models_config.return_value = mock_llm_config
 
     return kernel

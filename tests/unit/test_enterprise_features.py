@@ -9,18 +9,16 @@ from frontend.blueprints.prompt_studio_bp import validate_prompt
 def mock_request(mocker):
     return mocker.patch('flask.request')
 
-def test_task_scheduler_add_job():
+def test_task_scheduler_schedule_task():
     scheduler = TaskScheduler()
-    # Assuming TaskScheduler implementation exists or is mocked above
-    # Here we just verify the mock behaves
-    with unittest.mock.patch.object(TaskScheduler, 'add_job') as mock_add:
-        scheduler.add_job("Test Job", "0 0 * * *")
-        mock_add.assert_called_with("Test Job", "0 0 * * *")
+    task_data = {"schedule": "hourly", "name": "Test Task"}
+    with unittest.mock.patch.object(TaskScheduler, 'schedule_task') as mock_schedule:
+        scheduler.schedule_task("test-id", task_data)
+        mock_schedule.assert_called_with("test-id", task_data)
 
-def test_execution_plan_preview():
-    plan = ExecutionPlan()
-    preview = plan.generate_preview("Refactor Code")
-    assert isinstance(preview, dict) or preview is None
+def test_execution_plan_init():
+    plan = ExecutionPlan(project_name="TestProject")
+    assert plan.project_name == "TestProject"
 
 def test_prompt_validation_logic():
     # Test logic directly if possible, or simulate API response

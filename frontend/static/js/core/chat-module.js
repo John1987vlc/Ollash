@@ -122,6 +122,15 @@ const ChatModule = (function() {
                 }
                 scrollToBottom();
             } 
+            else if (data.event === 'agent_board_update') {
+                if (window.KanbanBoard) {
+                    if (data.action === 'init_backlog') {
+                        window.KanbanBoard.initBacklog(data.tasks);
+                    } else if (data.action === 'move_task') {
+                        window.KanbanBoard.moveTask(data.task_id, data.new_status);
+                    }
+                }
+            }
             else if (data.event === 'done') {
                 source.close();
                 finalizeResponse(agentBubble, data.metrics);

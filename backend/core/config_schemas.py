@@ -223,7 +223,7 @@ class ToolSettingsConfig(BaseModel):
         description="Logging format string.",
     )
     default_system_prompt_path: str = Field(
-        "backend/prompts/orchestrator/default_orchestrator.json",
+        "prompts/orchestrator/default_orchestrator.json",
         description="Path to the default system prompt.",
     )
     use_docker_sandbox: bool = Field(False, description="Whether to use Docker for sandbox execution.")

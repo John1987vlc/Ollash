@@ -204,6 +204,34 @@
                         </div>
                     </div>
 
+                    <!-- Agile Kanban Board (Hidden by default) -->
+                    <div id="kanban-board" class="kanban-board" style="display: none; margin-top: 30px;">
+                        <style>
+                            .kanban-board { display: flex; gap: 15px; margin-bottom: 25px; height: 350px; }
+                            .kanban-column { flex: 1; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+                            .kanban-header { padding: 10px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; }
+                            .kanban-header h3 { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; margin: 0; }
+                            .kanban-tasks { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+                            .kanban-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-left: 3px solid #64748b; border-radius: 4px; padding: 10px; font-size: 0.8rem; transition: all 0.3s ease; }
+                            .kanban-card.in_progress { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
+                            .kanban-card.done { border-left-color: #10b981; opacity: 0.6; }
+                            .kanban-card h4 { margin: 0 0 5px 0; font-size: 0.8rem; color: #f8fafc; }
+                            .kanban-card p { margin: 0; font-size: 0.7rem; color: #94a3b8; }
+                        </style>
+                        <div class="kanban-column" id="col-todo">
+                            <div class="kanban-header"><h3>Todo <span id="count-todo">(0)</span></h3></div>
+                            <div class="kanban-tasks" id="tasks-todo"></div>
+                        </div>
+                        <div class="kanban-column" id="col-in_progress">
+                            <div class="kanban-header"><h3>In Progress <span id="count-in_progress">(0)</span></h3></div>
+                            <div class="kanban-tasks" id="tasks-in_progress"></div>
+                        </div>
+                        <div class="kanban-column" id="col-done">
+                            <div class="kanban-header"><h3>Done <span id="count-done">(0)</span></h3></div>
+                            <div class="kanban-tasks" id="tasks-done"></div>
+                        </div>
+                    </div>
+
                     <!-- Pipeline Visual Section -->
                     <div id="phase-pipeline-view" class="phase-pipeline">
                         <h3>Agent Intelligence Pipeline</h3>
@@ -264,4 +292,38 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pages/wizard.js') }}"></script>
+<script>
+    window.KanbanBoard = (function() {
+        function updateCounters() {
+            ['todo', 'in_progress', 'done'].forEach(s => {
+                const count = document.getElementById(`tasks-${s}`).children.length;
+                document.getElementById(`count-${s}`).textContent = `(${count})`;
+            });
+        }
+        return {
+            initBacklog: (tasks) => {
+                const board = document.getElementById('kanban-board');
+                if (board) board.style.display = 'flex';
+                ['todo', 'in_progress', 'done'].forEach(s => document.getElementById(`tasks-${s}`).innerHTML = '');
+                tasks.forEach(t => {
+                    const card = document.createElement('div');
+                    card.className = `kanban-card todo`;
+                    card.id = `task-card-${t.id}`;
+                    card.innerHTML = `<h4>${t.title}</h4><p>${t.description || ''}</p>`;
+                    document.getElementById('tasks-todo').appendChild(card);
+                });
+                updateCounters();
+            },
+            moveTask: (id, status) => {
+                const card = document.getElementById(`task-card-${id}`);
+                const dest = document.getElementById(`tasks-${status}`);
+                if (card && dest) {
+                    card.className = `kanban-card ${status}`;
+                    dest.appendChild(card);
+                    updateCounters();
+                }
+            }
+        };
+    })();
+</script>
 {% endblock %}

@@ -107,21 +107,31 @@ class CostReport:
 
 # Model tiers for cost estimation (relative cost multiplier)
 MODEL_COST_TIERS: Dict[str, float] = {
-    "ministral-3:8b": 0.1,
-    "ministral": 0.1,
-    "llama3.2:3b": 0.1,
-    "gemma2:2b": 0.1,
-    "phi3:mini": 0.15,
-    "llama3.2:8b": 0.2,
-    "mistral:latest": 0.3,
-    "llama3:8b": 0.3,
-    "codellama:7b": 0.3,
-    "qwen2.5-coder:7b": 0.3,
-    "mixtral:8x7b": 0.6,
-    "llama3:70b": 0.8,
-    "qwen3-coder:30b": 0.7,
-    "deepseek-coder-v2:16b": 0.5,
-    "codestral:latest": 0.6,
+    # Modelos de Embedding y Utilidad (Muy bajo coste computacional)
+    "all-minilm:latest": 0.01,         # 45 MB
+    "qwen3-embedding:4b": 0.05,        # 2.5 GB
+    
+    # Modelos Pequeños (3B - 8B)
+    "qwen3-coder:30b": 0.7,             # Actualizado
+    "ministral-3:8b": 0.1,             # 6.0 GB
+    "qwen3-vl:8b": 0.1,                # 6.1 GB
+    "deepseek-ocr:3b": 0.1,            # 6.7 GB
+    
+    # Modelos Medianos (12B - 14B)
+    "gemma3:12b": 0.2,                 # 8.1 GB
+    "ministral-3:14b": 0.25,           # 9.1 GB
+    "phi4-reasoning:14b": 0.3,         # 11 GB
+    
+    # Modelos de Imagen y Especializados de tamaño medio
+    "x/z-image-turbo:latest": 0.35,    # 12 GB
+    
+    # Modelos Grandes (20B - 30B)
+    "gpt-oss:20b": 0.4,                # 13 GB
+    "gemma3:27b": 0.5,                 # 17 GB
+    
+    # Modelos Masivos (70B+ y MoE - Alto coste computacional)
+    "gpt-oss:120b": 1.0,               # 65 GB
+    "llama4:16x17b": 1.2,              # 67 GB (MoE pesado)
 }
 
 # Phases that typically don't need heavy models

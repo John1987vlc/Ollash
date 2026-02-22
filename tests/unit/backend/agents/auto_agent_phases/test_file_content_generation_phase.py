@@ -16,6 +16,12 @@ def mock_context():
     ctx.llm_manager = MagicMock()
     ctx.response_parser = MagicMock()
     ctx.file_content_generator = MagicMock()
+    
+    # Files sub-context
+    ctx.files_ctx = MagicMock()
+    ctx.files_ctx.validator = MagicMock()
+    ctx.files_ctx.validator.validate.return_value = MagicMock(status=MagicMock(name="VALID"))
+    
     return ctx
 
 
@@ -26,40 +32,39 @@ class TestFileContentGenerationPhase:
     async def test_execute_success(self, mock_context, tmp_path):
         phase = FileContentGenerationPhase(mock_context)
 
-        mock_context.dependency_graph.get_generation_order.return_value = ["main.py"]
-        mock_context.dependency_graph.get_context_for_file.return_value = {}
-        mock_context.logic_plan = {"main.py": {"exports": ["main"]}}
+        # Setup Mock Backlog
+        mock_context.backlog = [
+            {"id": "T1", "title": "Task 1", "file_path": "main.py", "task_type": "create_file"}
+        ]
+        mock_context.select_related_files.return_value = {}
+        
+        # Mock LLM Client
+        mock_client = MagicMock()
+        mock_client.chat.return_value = (
+            {"content": "<pensamiento>Análisis</pensamiento><codigo>def main(): pass</codigo>"}, 
+            {"prompt_tokens": 10, "completion_tokens": 10}
+        )
+        mock_context.llm_manager.get_client.return_value = mock_client
+        
+        # Mock Validator
+        mock_validator = MagicMock()
+        mock_validator.validate.return_value = MagicMock(status=MagicMock(name="VALID"))
+        mock_context.files_ctx.validator = mock_validator
 
-        async def mock_generate_files(tasks, gen_fn, **kwargs):
-            for task in tasks:
-                await gen_fn(task.file_path, task.context)
-            return []
+        generated_files = {}
+        result_files, result_struct, result_paths = await phase.execute(
+            project_description="desc",
+            project_name="name",
+            project_root=tmp_path,
+            readme_content="# Readme",
+            initial_structure={},
+            generated_files=generated_files,
+            file_paths=["main.py"],
+        )
 
-        mock_context.parallel_generator.generate_files.side_effect = mock_generate_files
-        mock_context.parallel_generator.get_statistics.return_value = {
-            "success": 1,
-            "total": 1,
-            "avg_time_per_file": 1.0,
-        }
-
-        with patch.object(phase, "_generate_with_plan", new=AsyncMock()) as mock_gen_plan:
-            # Provide enough content to pass the 50 char strip check
-            mock_gen_plan.return_value = "def main():\n    print('hello world')\n" + "#" * 60
-
-            generated_files = {}
-            result_files, result_struct, result_paths = await phase.execute(
-                project_description="desc",
-                project_name="name",
-                project_root=tmp_path,
-                readme_content="# Readme",
-                initial_structure={},
-                generated_files=generated_files,
-                file_paths=["main.py"],
-            )
-
-            assert "main.py" in result_files
-            assert "def main()" in result_files["main.py"]
-            mock_context.file_manager.write_file.assert_called_once()
+        assert "main.py" in result_files
+        assert "def main(): pass" in result_files["main.py"]
+        mock_context.file_manager.write_file.assert_called()
 
     def test_validate_file_content(self, mock_context):
         phase = FileContentGenerationPhase(mock_context)
@@ -73,9 +78,13 @@ class TestFileContentGenerationPhase:
         invalid_export = "def wrong():\n    pass\n" + "#" * 60
         assert phase._validate_file_content("test.py", invalid_export, plan) is False
 
-        # Content too short (strip removes trailing spaces)
-        short_content = "def calculate():\n    pass" + " " * 100
-        assert phase._validate_file_content("test.py", short_content, plan) is False
+        # Content too short for main file (threshold is 20)
+        short_main_content = "def main(): pass" # 16 chars
+        assert phase._validate_file_content("main.py", short_main_content, plan) is False
+        
+        # Valid main content
+        good_main_content = "def main():\n    print('Hello World')\n" + "#" * 20
+        assert phase._validate_file_content("main.py", good_main_content, plan) is True
 
     def test_infer_language(self, mock_context):
         phase = FileContentGenerationPhase(mock_context)

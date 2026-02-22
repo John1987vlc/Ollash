@@ -12,7 +12,7 @@ def get_router_config():
         {
             "phase_mapping": config.get("phase_model_mapping", {}),
             "available_models": config.get("llm_models", []),
-            "senior_reviewer": config.get("senior_reviewer_model", "qwen3-coder-next"),
+            "senior_reviewer": config.get("senior_reviewer_model", "qwen3-coder:30b"),
         }
     )
 

@@ -53,11 +53,12 @@ def test_blueprint_registration(app):
 
 
 def test_prompt_studio_api(client):
-    """Test Prompt Studio roles endpoint."""
-    response = client.get("/api/prompts/roles")
+    """Test Prompt Studio validation endpoint."""
+    payload = {"prompt": "Short prompt"}
+    response = client.post("/prompts/api/validate", json=payload)
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert "roles" in data
+    assert "warnings" in data
 
 
 def test_audit_llm_api(client):

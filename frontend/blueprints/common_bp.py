@@ -26,6 +26,11 @@ def chat_page():
     return render_template("pages/chat.html")
 
 
+@common_bp.route("/auto_agent")
+def auto_agent_page():
+    return render_template("pages/auto_agent.html")
+
+
 @common_bp.route("/architecture")
 def architecture_page():
     return render_template("pages/architecture.html")

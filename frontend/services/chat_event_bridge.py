@@ -33,6 +33,8 @@ class ChatEventBridge:
         self.event_publisher.subscribe("tool_output", self.push_event)
         self.event_publisher.subscribe("tool_end", self.push_event)
         self.event_publisher.subscribe("project_complete", self.push_event)
+        self.event_publisher.subscribe("execution_plan_initialized", self.push_event)  # NEW
+        self.event_publisher.subscribe("agent_board_update", self.push_event)  # NEW
         self.event_publisher.subscribe("iteration_start", self.push_event)
         self.event_publisher.subscribe("iteration_end", self.push_event)
         self.event_publisher.subscribe("error", self.push_event)

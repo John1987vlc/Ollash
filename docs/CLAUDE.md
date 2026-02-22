@@ -123,7 +123,7 @@ State-modifying tools (`write_file`, `delete_file`, `git_commit`, etc.) require 
 ### Hybrid Model Selection
 
 Different Ollama models are selected based on the `LLM_MODELS_JSON` environment variable in the `.env` file. This JSON object maps roles to specific model names:
-- `models.coding` — code tasks (default: `qwen3-coder-next`)
+- `models.coding` — code tasks (default: `qwen3-coder:30b`)
 - `models.reasoning` — complex reasoning (default: `gpt-oss:20b`)
 - `models.orchestration` / `models.summarization` — lightweight tasks (default: `ministral-3:8b`)
 - `models.embedding` — semantic similarity (default: `all-minilm`)

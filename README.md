@@ -29,6 +29,33 @@
 - **Activity Reports:** Weekly productivity summaries (Lines of Code, Time Saved, Error Rates).
 - **GPU/Hardware Monitor:** Real-time tracking of GPU load and memory usage to prevent OOM errors.
 
+## 💻 Hardware Requirements & Performance Tuning
+
+Ollash is optimized for high-end local execution while remaining accessible. To maximize the performance of Small Language Models (SLMs) like **Qwen3-Coder:30b**, we recommend the following configurations:
+
+### 🚀 High-End Optimization (Target: RTX 5080 / 64GB RAM)
+- **GPU:** 16GB+ VRAM (e.g., RTX 5080, 4090, 3090)
+- **RAM:** 64GB
+- **Default Configuration (Active):** 
+  - `num_ctx: 16384` (16k token window for massive code context)
+  - `temperature: 0.1` (Strict precision for logic tasks)
+  - `repeat_penalty: 1.15` (Prevents model loops)
+
+### ⚖️ Balanced / Mid-Range
+- **GPU:** 8GB - 12GB VRAM (e.g., RTX 4070, 3060)
+- **RAM:** 16GB - 32GB
+- **Optimization:** 
+  - Set `num_ctx: 8192` in your `.env` file to balance context and speed.
+
+### 🐢 Minimum / Low-Power
+- **GPU:** Integrated Graphics or CPU-only
+- **RAM:** 8GB
+- **Survival Mode:** 
+  - **CRITICAL:** Change `num_ctx: 4096` in your `.env` to avoid **Out of Memory (OOM)** errors.
+  - Performance will be slower, but micro-task execution will remain functional.
+
+> **Note:** The system uses structural XML prompting (`<pensamiento>` and `<codigo>`) and AST-based self-correction to ensure code quality regardless of the hardware tier.
+
 ## 🛠️ Installation
 
 1.  **Clone the Repository:**

@@ -58,7 +58,7 @@ class TestBenchmarkBlueprint:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
-            "models": [{"name": "qwen3:latest", "size": 5000000000}, {"name": "nomic-embed-text", "size": 200000000}]
+            "models": [{"name": "qwen3-coder:30b", "size": 5000000000}, {"name": "nomic-embed-text", "size": 200000000}]
         }
 
         with patch("requests.get", return_value=mock_resp):

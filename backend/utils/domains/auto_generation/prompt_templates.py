@@ -1,6 +1,6 @@
 """
 Refactored AutoGenPrompts to use centralized YAML prompts.
-Maintains the same interface while loading text from /backend/prompts/domains/auto_generation/*.yaml.
+Maintains the same interface while loading text from /prompts/domains/auto_generation/*.yaml.
 """
 
 import logging
@@ -24,7 +24,16 @@ class AutoGenPrompts:
         if cls._repository is None:
             try:
                 from backend.core.containers import main_container
-                cls._repository = main_container.core.prompt_repository()
+                # Try multiple ways to access the prompt_repository provider
+                if hasattr(main_container, "core"):
+                    core = main_container.core
+                    if hasattr(core, "prompt_repository"):
+                        cls._repository = core.prompt_repository()
+                    else:
+                        # If core is the provider itself and hasn't delegated attributes
+                        cls._repository = core().prompt_repository()
+                elif hasattr(main_container, "prompt_repository"):
+                    cls._repository = main_container.prompt_repository()
             except Exception as e:
                 logger.warning(f"Could not initialize PromptRepository in AutoGenPrompts: {e}")
         return cls._repository
@@ -65,6 +74,41 @@ class AutoGenPrompts:
             category=category,
             files_list=files_list,
             project_description=project_description
+        )
+        return system, user
+
+    @staticmethod
+    def agile_backlog_planning(project_description: str, initial_structure: str, readme_content: str) -> Tuple[str, str]:
+        """Returns (system, user) for Agile Backlog generation."""
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "agile_backlog_planning", 
+            "domains/auto_generation/planning.yaml",
+            "agile_backlog_planning"
+        )
+        user = user_template.format(
+            project_description=project_description,
+            initial_structure=initial_structure,
+            readme_content=readme_content
+        )
+        return system, user
+
+    @staticmethod
+    def micro_task_execution(
+        title: str, description: str, file_path: str, task_type: str, readme_content: str, context_files_content: str
+    ) -> Tuple[str, str]:
+        """Returns (system, user) for a single micro-task execution."""
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "micro_task_execution", 
+            "domains/auto_generation/code_gen.yaml",
+            "micro_task_execution"
+        )
+        user = user_template.format(
+            title=title,
+            description=description,
+            file_path=file_path,
+            task_type=task_type,
+            readme_content=readme_content,
+            context_files_content=context_files_content
         )
         return system, user
 
@@ -123,6 +167,15 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
+    def high_level_structure_generation_simplified(description: str) -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for simplified high-level structure."""
+        content = AutoGenPrompts._loader.load_prompt("domains/auto_generation/structure.yaml")
+        high_level = content.get("high_level_simplified", content.get("high_level", {}))
+        system = high_level.get("system", "")
+        user = high_level.get("user", "").format(description=description)
+        return system, user
+
+    @staticmethod
     def sub_structure_generation(
         folder_path: str, readme_content: str, overall_structure: str, template_name: str
     ) -> Tuple[str, str]:
@@ -135,6 +188,23 @@ class AutoGenPrompts:
         user = sub_structure.get("user", "").format(
             folder_path=folder_path,
             readme_content=readme_content[:800],
+            overall_structure=overall_structure,
+            template_name=template_name
+        )
+        return system, user
+
+    @staticmethod
+    def sub_structure_generation_simplified(
+        folder_path: str, readme_content: str, overall_structure: str, template_name: str
+    ) -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for simplified sub-structure generation."""
+        content = AutoGenPrompts._loader.load_prompt("domains/auto_generation/structure.yaml")
+        sub_structure = content.get("sub_structure_simplified", content.get("sub_structure", {}))
+        system = sub_structure.get("system", "")
+
+        user = sub_structure.get("user", "").format(
+            folder_path=folder_path,
+            readme_content=readme_content[:400], # Less context for simplified
             overall_structure=overall_structure,
             template_name=template_name
         )

@@ -1,6 +1,6 @@
 {
     "ollama_url": "http://192.168.1.217:11434",
-    "default_model": "qwen3:latest",
+    "default_model": "qwen3-coder:30b",
     "default_timeout": 360,
     "default_temperature": 0.5,
     "embedding": "qwen3-embedding:4b",
@@ -8,12 +8,12 @@
         "planner": "gpt-oss:20b",
         "prototyper": "gpt-oss:20b",
         "coder": "gpt-oss:20b",
-        "generalist": "qwen3:latest",
-        "suggester": "qwen3:latest",
+        "generalist": "qwen3-coder:30b",
+        "suggester": "qwen3-coder:30b",
         "improvement_planner": "qwen3-coder:30b",
         "senior_reviewer": "gpt-oss:20b",
         "test_generator": "qwen3-coder:30b",
-        "orchestration": "qwen3-coder-next:latest",
+        "orchestration": "qwen3-coder:30b",
         "analyst": "qwen3-coder:30b",
         "writer": "gpt-oss:20b",
         "self_correction": "qwen3-coder:30b"

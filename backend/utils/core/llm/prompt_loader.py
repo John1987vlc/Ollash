@@ -27,12 +27,13 @@ class PromptLoader:
     def load_prompt(self, relative_path: str) -> Dict[str, Any]:
         """
         Loads a prompt file from the prompts directory.
-        Caches the result for performance.
+                Caches the result for performance.
         
-        Args:
-            relative_path: Path relative to the prompts directory (e.g., 'roles/analyst.yaml')
-            
-        Returns:
+                Args:
+                    relative_path: Path relative to the prompts directory (e.g., 'roles/analyst.yaml')
+        
+                Returns:
+        
             Dictionary containing the parsed YAML content.
         """
         if relative_path in self._cache:

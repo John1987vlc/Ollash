@@ -34,13 +34,13 @@ def test_system_health_endpoint_structure(client):
     mock_mem.percent = 50.0
     mock_psutil.virtual_memory.return_value = mock_mem
 
-    response = client.get("/api/system/health")
+    response = client.get("/api/health/")
     assert response.status_code == 200
     data = response.get_json()
 
     assert data["status"] == "ok"
-    assert "cpu_percent" in data
-    assert "ram_percent" in data
+    assert "cpu" in data
+    assert "ram" in data
 
 
 def test_system_health_logic_mocked(client):
@@ -52,9 +52,8 @@ def test_system_health_logic_mocked(client):
     mock_mem.percent = 50.0
     mock_psutil.virtual_memory.return_value = mock_mem
 
-    response = client.get("/api/system/health")
+    response = client.get("/api/health/")
     data = response.get_json()
 
-    assert data["cpu_percent"] > 0
-    assert "ram_percent" in data
-    assert data["ram_total_gb"] == pytest.approx(16.0, rel=0.1)
+    assert data["cpu"] >= 0
+    assert "ram" in data

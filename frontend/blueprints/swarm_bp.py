@@ -35,7 +35,7 @@ def get_swarm_managers():
         ollama_url = os.environ.get("OLLASH_OLLAMA_URL", config.get("ollama_url", "http://localhost:11434"))
         ollama_client = OllamaClient(
             url=ollama_url,
-            model=config.get("model", "qwen3-coder-next"),
+            model=config.get("model", "qwen3-coder:30b"),
             timeout=config.get("timeout", 300),
             logger=agent_logger,
             config=config,
