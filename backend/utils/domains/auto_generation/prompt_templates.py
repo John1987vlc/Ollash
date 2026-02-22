@@ -1,6 +1,6 @@
 """
 Refactored AutoGenPrompts to use centralized YAML prompts.
-Maintains the same interface while loading text from /prompts/domains/auto_generation/*.yaml.
+Maintains the same interface while loading text from /backend/prompts/domains/auto_generation/*.yaml.
 """
 
 import logging

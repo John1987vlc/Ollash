@@ -22,7 +22,7 @@ class DocumentationManager:
         self.llm_recorder = llm_recorder  # Store llm_recorder
 
         # Knowledge workspace paths
-        self.knowledge_workspace = project_root / "knowledge_workspace"
+        self.knowledge_workspace = project_root / ".ollash" / "knowledge_workspace"
         self.references_dir = self.knowledge_workspace / "references"
         self.summaries_dir = self.knowledge_workspace / "summaries"
         self.indexed_cache = self.knowledge_workspace / "indexed_cache"

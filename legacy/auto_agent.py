@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """CLI wrapper for AutoAgent autonomous project creation."""
 
-import argparse
-import sys
-from pathlib import Path
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Ensure the backend is in the Python path
-project_root = Path(__file__).resolve().parent
-sys.path.insert(0, str(project_root))
+import argparse
+from pathlib import Path
 
 from backend.core.containers import main_container  # noqa: E402
 from backend.agents.auto_agent import AutoAgent  # noqa: E402

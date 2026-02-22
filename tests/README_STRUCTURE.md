@@ -44,11 +44,18 @@ tests/
 
 ## Cómo ejecutar los tests
 
-### Ejecutar todos los tests
+### Desde la raíz del proyecto
 ```bash
-pytest tests/ -v                          # Todos los tests con verbose
-pytest tests/ -q                          # Todos los tests (quiet mode)
-pytest tests/test_main.py -v              # Via el archivo principal
+python -m pytest tests/ -v
+```
+
+### Usando los scripts de automatización (ahora en tests/)
+```bash
+# En Linux/macOS
+bash tests/run_tests.sh
+
+# En Windows
+tests\run_tests.bat
 ```
 
 ### Ejecutar tests por módulo

@@ -11,14 +11,10 @@ Uso:
     python run_agent.py --auto-create --project-description "Flask REST API" --project-name myapi
 """
 
-from backend.agents.default_agent import DefaultAgent
-from colorama import Fore, Style, init
-from pathlib import Path
-import sys
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Ensure the backend is in the Python path
-project_root = Path(__file__).resolve().parent
-sys.path.insert(0, str(project_root))
+from backend.agents.default_agent import DefaultAgent
 
 from backend.core.containers import main_container  # noqa: E402
 from backend.agents.auto_agent import AutoAgent  # noqa: E402

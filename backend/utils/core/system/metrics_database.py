@@ -237,6 +237,7 @@ def get_metrics_database(db_path: Optional[Path] = None) -> MetricsDatabase:
     global _metrics_db
     if _metrics_db is None:
         if db_path is None:
-            db_path = Path.cwd()
+            # Centralize in .ollash root directory
+            db_path = Path.cwd() / ".ollash"
         _metrics_db = MetricsDatabase(db_path)
     return _metrics_db

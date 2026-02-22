@@ -1,6 +1,9 @@
 @echo off
 REM Run comprehensive test suite for Ollash Cowork improvements
 
+REM Ensure we're running from the project root
+cd /d "%~dp0\.."
+
 cls
 echo.
 echo ==========================================

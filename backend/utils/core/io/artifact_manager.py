@@ -75,7 +75,7 @@ class ArtifactManager:
         self.config = config or {}
 
         # Storage
-        self.artifacts_dir = project_root / "knowledge_workspace" / "artifacts"
+        self.artifacts_dir = project_root / ".ollash" / "knowledge_workspace" / "artifacts"
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
 
         self.artifacts: Dict[str, Artifact] = {}

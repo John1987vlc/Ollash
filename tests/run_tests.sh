@@ -1,6 +1,9 @@
 #!/bin/bash
 # Run comprehensive test suite for Ollash Cowork improvements
 
+# Ensure we're running from the project root
+cd "$(dirname "$0")/.."
+
 echo "=========================================="
 echo "Ollash Test Suite - Cowork Improvements"
 echo "=========================================="

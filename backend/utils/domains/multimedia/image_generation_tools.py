@@ -513,6 +513,11 @@ class ImageGeneratorTools:
                 self.logger.error("❌ Image name is empty or None")
                 return False
 
+            # Optimization: check if file already exists with content
+            if output_path.exists() and output_path.stat().st_size > 0:
+                self.logger.info(f"✅ Image already exists locally: {output_path}. Skipping download.")
+                return True
+
             # Get image URL
             image_url = f"{self.images_url}/i/{image_name}/full"
             self.logger.info(f"📍 Attempting to download from: {image_url}")

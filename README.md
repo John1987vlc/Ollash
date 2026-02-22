@@ -1,5 +1,7 @@
 # Ollash - Enterprise Local IT Agent
 
+![Ollash Logo](Ollash.jpg)
+
 **Ollash** is an advanced, autonomous AI agent platform designed for local infrastructure management, code generation, and DevOps orchestration. It combines the power of local LLMs (Ollama) with a robust, modular frontend to deliver a secure and intelligent IT assistant.
 
 ## 🚀 Key Features
@@ -10,6 +12,7 @@
 - **WASM Sandbox:** Execute generated code in a secure, isolated WebAssembly environment before applying it to your project.
 
 ### ⚙️ Operations & Automation
+- **Enterprise CLI:** A powerful command-line interface for terminal-based automation and CI/CD integration.
 - **Operations Center:** Built-in Task Scheduler (Cron) for automating maintenance scripts.
 - **Execution DAG Visualizer:** Preview complex multi-step plans as Directed Acyclic Graphs before execution.
 - **Git Integration:** Full version control management directly from the UI (Status, Diff, Commit, Log).
@@ -40,10 +43,28 @@
     ```
 
 3.  **Run the Application:**
-    ```bash
-    python run_web.py
-    ```
-    Access the UI at `http://localhost:5000`.
+    - **Web UI:** `python run_web.py` - Full visual experience for monitoring and interaction.
+    - **Enterprise CLI:** `python ollash_cli.py --help` - Command-line power for developers and automation.
+    - Access the UI at `http://localhost:5000`.
+
+Check the [CLI Reference Guide](docs/CLI_REFERENCE.md) for detailed documentation of all commands.
+
+## 📂 Project Structure
+
+```text
+Ollash/
+├── backend/          # Core logic, agents, and system utilities
+├── frontend/         # Flask web application and UI assets
+├── legacy/           # Relocated legacy scripts and wrappers
+├── tests/            # Comprehensive test suite (unit, integration, e2e)
+├── docs/             # Technical documentation and CLI reference
+├── .ollash/          # Hidden directory for logs, DBs, and vector stores
+├── plugins/          # Extensible plugin system for custom tools
+├── .github/          # CI/CD workflows and GitHub templates
+├── requirements.txt  # Project dependencies
+├── run_web.py        # Main entry point for the Web UI
+└── ollash_cli.py     # Main entry point for the Enterprise CLI
+```
 
 ## 🧪 Testing
 

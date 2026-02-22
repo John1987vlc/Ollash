@@ -11,6 +11,8 @@ This document defines the architectural rules and technical conventions for AI a
     - `backend/core/`: Essential kernel, configuration loader, and type definitions. NO business logic.
     - `backend/utils/core/`: Foundation services (FileManager, CommandExecutor).
     - `backend/utils/domains/`: Domain-specific tools. Avoid creating "God Directories".
+- **Legacy (Relocated)**: Legacy scripts and wrappers in `legacy/`.
+- **Data & Logs**: Centralized storage in `.ollash/`.
 - **Tests (Mirrored)**: `tests/unit/` and `tests/integration/` MUST exactly mirror the `backend/` and `frontend/` directory structure.
 
 ## 💻 Technical Stack

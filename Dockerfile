@@ -44,11 +44,16 @@ ENV PYTHONUNBUFFERED=1
 
 # Copy application code
 # Ordered from least to most likely to change
-COPY prompts /app/prompts
 COPY backend /app/backend
 COPY frontend /app/frontend
+COPY legacy /app/legacy
+COPY docs /app/docs
 COPY *.py /app/
 COPY .env.example /app/.env.example
+COPY Makefile /app/Makefile
+
+# Create persistent storage directory
+RUN mkdir -p /app/.ollash && chmod 777 /app/.ollash
 
 # Expose the Flask port
 EXPOSE 5000

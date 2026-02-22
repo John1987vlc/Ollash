@@ -23,7 +23,7 @@ def get_swarm_managers():
         config = current_app.config.get("config", {})
 
         # Setup Logger
-        log_path = project_root / "logs" / "swarm.log"
+        log_path = project_root / ".ollash" / "logs" / "swarm.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         structured_logger = StructuredLogger(log_path, "swarm")
         agent_logger = AgentLogger(structured_logger, "SwarmAgent")
@@ -46,7 +46,7 @@ def get_swarm_managers():
         doc_manager = DocumentationManager(project_root, agent_logger, llm_recorder, config)
 
         # Cowork Tools
-        workspace_path = project_root / "knowledge_workspace"
+        workspace_path = project_root / ".ollash" / "knowledge_workspace"
         cowork_tools = CoworkTools(doc_manager, ollama_client, agent_logger, workspace_path)
 
         current_app._swarm_managers = {

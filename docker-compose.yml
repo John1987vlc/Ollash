@@ -8,8 +8,13 @@ services:
       - ollama_data:/root/.ollama
     deploy:
       resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
         limits:
-          memory: 8G
+          memory: 12G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s
@@ -29,16 +34,24 @@ services:
       - "5000:5000"
     volumes:
       - .:/app
-      - ./logs:/app/logs
+      - ollash_storage:/app/.ollash
       - ./generated_projects:/app/generated_projects
     environment:
       - OLLAMA_URL=http://ollama:11434
       - FLASK_ENV=development
     env_file:
       - .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     stdin_open: true
     tty: true
     restart: unless-stopped
 
 volumes:
   ollama_data:
+  ollash_storage:

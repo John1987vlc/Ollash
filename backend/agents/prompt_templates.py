@@ -1,6 +1,6 @@
 """
 Refactored RolePromptTemplates to use centralized YAML prompts.
-Maintains the same interface while loading text from /prompts/roles/*.yaml.
+Maintains the same interface while loading text from /backend/prompts/roles/*.yaml.
 """
 
 import logging
