@@ -1,5 +1,27 @@
 # Changelog - Ollash
 
+## [1.2.0] - 2026-02-22 (Architecture Cleanup & Code Quality)
+
+### 🏗️ Refactoring & Code Quality
+- **Eliminated Merge Artifacts:** Removed duplicate `_validate_content` and `_generate_fallback_skeleton` methods from `EnhancedFileContentGenerator` (left over from a bad Git merge). Moved `import re` to module level.
+- **SRP Enforcement:** Extracted all code patching and merging logic into a new dedicated `CodePatcher` class (`backend/utils/domains/auto_generation/code_patcher.py`), leaving `EnhancedFileContentGenerator` focused solely on creating files from plans.
+- **Safe Code Merging:** Replaced dangerous length-ratio and brace-counting heuristics in `_smart_merge` and `_is_better_line` with `difflib.SequenceMatcher` for structural comparison. Code with < 30% similarity to the original is rejected; code with > 70% similarity is accepted directly; intermediate cases use opcode-level line merging.
+- **Unified AI Strategy:** Added optional `documentation_manager` (RAG) parameter to `EnhancedFileContentGenerator`. When provided, it queries the knowledge base for relevant code examples and injects them into the generation context alongside the structured `logic_plan`.
+
+### 🗄️ Preference System
+- **Deprecated `PreferenceManager`:** Added `DeprecationWarning` to `PreferenceManager.__init__` pointing users to `PreferenceManagerExtended`.
+- **Migration Utility:** Added `migrate_preferences(project_root, logger, user_id)` function to port legacy `.ollash_preferences.json` flat key-value data into `PreferenceManagerExtended` profile format.
+
+### 🛡️ CI/CD
+- **Fixed deploy condition:** Corrected `deploy` job trigger condition from `refs/heads/main` to `refs/heads/master`, aligning with the actual default branch.
+
+### ✅ Tests
+- New `test_enhanced_file_content_generator.py`: regression tests for duplicate methods, RAG injection, and delegation pattern.
+- New `test_code_patcher.py`: structural tests for `_smart_merge` (difflib) and `_is_better_line` (no brace counting).
+- New `test_preference_manager_deprecation.py`: deprecation warning and migration utility tests.
+
+---
+
 ## [1.1.0] - 2026-02-22 (Agile Refactor & SLM Optimization)
 
 ### 🏗️ Agile & Iterative Engine

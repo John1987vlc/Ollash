@@ -1,7 +1,8 @@
 """Enhanced File Content Generator that uses logic plans for better implementation."""
 
+import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from backend.utils.core.llm.ollama_client import OllamaClient
 from backend.utils.core.system.agent_logger import AgentLogger
@@ -15,6 +16,7 @@ class EnhancedFileContentGenerator:
     2. Validates content incrementally
     3. Handles partial/incomplete file generation with retry
     4. Breaks large functions into smaller chunks
+    5. Optionally queries DocumentationManager (RAG) for relevant examples
     """
 
     def __init__(
@@ -22,11 +24,20 @@ class EnhancedFileContentGenerator:
         llm_client: OllamaClient,
         logger: AgentLogger,
         response_parser: LLMResponseParser = None,
+        documentation_manager=None,
+        code_patcher=None,
     ):
         self.llm_client = llm_client
         self.logger = logger
         self.response_parser = response_parser or LLMResponseParser()
+        self.documentation_manager = documentation_manager
         self.max_retries = 3
+        # Lazy import to avoid circular dependency; CodePatcher lives in the same package
+        if code_patcher is not None:
+            self._code_patcher = code_patcher
+        else:
+            from backend.utils.domains.auto_generation.code_patcher import CodePatcher
+            self._code_patcher = CodePatcher(llm_client, logger, self.response_parser)
 
     def generate_file_with_plan(
         self,
@@ -106,7 +117,7 @@ class EnhancedFileContentGenerator:
         readme: str,
         structure: Dict[str, Any],
     ) -> str:
-        """Build detailed context for file generation."""
+        """Build detailed context for file generation, including optional RAG snippets."""
 
         context = f"""
 ## File: {file_path}
@@ -125,7 +136,26 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
 ### Validation
 {chr(10).join(f"- {v}" for v in validation)}
 """
+        # Append RAG documentation snippets when available
+        doc_snippets = self._get_documentation_snippets(file_path, purpose)
+        if doc_snippets:
+            context += doc_snippets
+
         return context
+
+    def _get_documentation_snippets(self, file_path: str, purpose: str) -> str:
+        """Query documentation manager for relevant code examples (RAG)."""
+        if not self.documentation_manager:
+            return ""
+        try:
+            query = f"How to implement {file_path}: {purpose[:200]}"
+            docs = self.documentation_manager.query_documentation(query, n_results=2)
+            if docs:
+                snippets = "\n---\n".join(d["document"] for d in docs)
+                return f"\n\n### Relevant Documentation:\n{snippets}"
+        except Exception as e:
+            self.logger.warning(f"RAG lookup failed: {e}")
+        return ""
 
     def _generate_with_prompt(
         self,
@@ -189,12 +219,10 @@ Output ONLY the code content."""
             return False
 
         file_ext = Path(file_path).suffix
-        import re
 
-        # Check for required exports with word boundaries to avoid false positives in comments/docstrings
+        # Check for required exports with word boundaries to avoid false positives
         for export in exports:
             clean_export = export.replace("()", "").strip()
-            # Search for the export name as a whole word (e.g., not matching 'main' inside 'main_logic')
             if not re.search(r"\b" + re.escape(clean_export) + r"\b", content):
                 self.logger.warning(f"  Missing export '{clean_export}' in {file_path}")
                 return False
@@ -212,11 +240,10 @@ Output ONLY the code content."""
             if content.count("(") != content.count(")"):
                 self.logger.warning(f"  Unmatched parentheses in {file_path}")
                 return False
-            # Check for skeleton characteristics
-            lines = content.strip().split("\n")
-            pass_count = content.count("pass")
-            if pass_count > len(exports) and len(lines) < 10:
-                self.logger.warning(f"  Skeleton detected (too many pass statements) for {file_path}")
+            # Detect skeletons: many 'pass' or '...' and very short
+            skeleton_count = content.count("pass") + content.count("...")
+            if skeleton_count > len(exports) and len(content.strip().split("\n")) < 10:
+                self.logger.warning(f"  Skeleton detected for {file_path}")
                 return False
 
         return True
@@ -293,7 +320,7 @@ TODO: Implement {file_path}
         edit_strategy: str = "partial",
     ) -> str:
         """
-        Edit an existing file with targeted improvements instead of full rewrite.
+        Edit an existing file with targeted improvements. Delegates to CodePatcher.
 
         Args:
             file_path: Path to the file to edit
@@ -305,312 +332,6 @@ TODO: Implement {file_path}
         Returns:
             Updated file content
         """
-
-        self.logger.info(f"ðŸ“ Editing existing {file_path} using {edit_strategy} strategy...")
-
-        if not current_content:
-            return ""
-
-        if edit_strategy == "partial" and issues_to_fix:
-            return self._apply_partial_edits(file_path, current_content, readme, issues_to_fix)
-        elif edit_strategy == "merge":
-            return self._merge_original_with_improvements(file_path, current_content, readme)
-        else:
-            return current_content
-
-    def _apply_partial_edits(
-        self,
-        file_path: str,
-        current_content: str,
-        readme: str,
-        issues_to_fix: List[Dict],
-    ) -> str:
-        """
-        Apply targeted fixes to specific sections of a file without full rewrite.
-        """
-
-        self.logger.info(f"  ðŸŽ¯ Applying {len(issues_to_fix)} targeted edits...")
-
-        edited_content = current_content
-
-        for issue in issues_to_fix[:5]:  # Limit to 5 issues per pass
-            issue_desc = issue.get("description", "")
-
-            # Find the problematic section
-            problem_section = self._find_problem_section(issue_desc, edited_content)
-
-            if problem_section:
-                self.logger.info(f"    Found: {issue_desc[:40]}...")
-
-                # Generate fix for this section
-                fix = self._generate_section_fix(file_path, problem_section, issue_desc, readme)
-
-                if fix and fix != problem_section:
-                    edited_content = edited_content.replace(problem_section, fix, 1)
-                    self.logger.info(f"    âœ… Fixed: {issue_desc[:40]}...")
-
-        return edited_content
-
-    def _merge_original_with_improvements(self, file_path: str, current_content: str, readme: str) -> str:
-        """
-        Generate an improved version and intelligently merge it with the original.
-        Preserves custom modifications while applying improvements.
-        """
-
-        self.logger.info("  ðŸ”€ Merging improvements with existing content...")
-
-        # Generate improved version
-        improved_prompt = f"""Improve this {file_path} while keeping all existing logic:
-
-CURRENT CODE:
-```
-{current_content}
-```
-
-PROJECT CONTEXT:
-{readme[:300]}
-
-Improvements to make:
-- Better error handling
-- Improved clarity and organization
-- More complete implementation
-- Better following of conventions
-
-Output the improved version only, no explanations."""
-
-        try:
-            response_data, _ = self.llm_client.chat(
-                messages=[
-                    {"role": "system", "content": "You are a code improvement expert."},
-                    {"role": "user", "content": improved_prompt},
-                ],
-                tools=[],
-                options_override={"temperature": 0.2},
-            )
-
-            improved_content = response_data.get("content", "")
-
-            # Intelligently merge: use improved version but preserve custom sections
-            return self._smart_merge(current_content, improved_content)
-
-        except Exception as e:
-            self.logger.warning(f"Merge failed: {e}")
-            return current_content
-
-    def _smart_merge(self, original: str, improved: str) -> str:
-        """
-        Intelligently merge original and improved versions.
-        Keeps original structure but uses improved implementations.
-        """
-
-        # If improved is substantially larger, it's likely better
-        if len(improved) > len(original) * 0.8 and len(improved) < len(original) * 1.5:
-            return improved
-
-        # Otherwise keep original but look for specific improvements
-        lines_orig = original.split("\n")
-        lines_improved = improved.split("\n")
-
-        result_lines = []
-
-        for i, orig_line in enumerate(lines_orig):
-            if i < len(lines_improved):
-                improved_line = lines_improved[i]
-                # Use improved line if it's a meaningful improvement
-                if self._is_better_line(orig_line, improved_line):
-                    result_lines.append(improved_line)
-                else:
-                    result_lines.append(orig_line)
-            else:
-                result_lines.append(orig_line)
-
-        # Append any additional lines from improved version
-        if len(lines_improved) > len(lines_orig):
-            result_lines.extend(lines_improved[len(lines_orig) :])
-
-        return "\n".join(result_lines)
-
-    def _find_problem_section(self, issue_desc: str, content: str) -> str:
-        """Find the section of code that matches the problem description."""
-
-        # Extract keywords from issue
-        keywords = issue_desc.lower().split()[:3]
-
-        lines = content.split("\n")
-
-        # Find line(s) containing keywords
-        for i, line in enumerate(lines):
-            for keyword in keywords:
-                if keyword in line.lower():
-                    # Return a small context around the problem
-                    start = max(0, i - 1)
-                    end = min(len(lines), i + 3)
-                    return "\n".join(lines[start:end])
-
-        return ""
-
-    def _generate_section_fix(self, file_path: str, problem_section: str, issue_desc: str, readme: str) -> str:
-        """Generate a fix for a specific section."""
-
-        fix_prompt = f"""Fix this specific issue in {file_path}:
-
-ISSUE: {issue_desc}
-
-PROBLEMATIC CODE:
-```
-{problem_section}
-```
-
-PROJECT CONTEXT:
-{readme[:200]}
-
-Generate ONLY the fixed code (same language), no explanations."""
-
-        try:
-            response_data, _ = self.llm_client.chat(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a code fixer. Fix issues precisely.",
-                    },
-                    {"role": "user", "content": fix_prompt},
-                ],
-                tools=[],
-                options_override={"temperature": 0.15},
-            )
-
-            fixed = response_data.get("content", "")
-            return fixed.strip()
-
-        except Exception as e:
-            self.logger.warning(f"Could not generate fix: {e}")
-            return problem_section
-
-    def _is_better_line(self, orig: str, improved: str) -> bool:
-        """Determine if the improved line is actually better."""
-
-        if not improved or not orig:
-            return False
-
-        # Improved line is better if it's longer and has more substance
-        if len(improved) > len(orig) and improved.count("{") + improved.count("(") > orig.count("{") + orig.count("("):
-            return True
-
-        # Or if it has less "TODO" markers
-        orig_todos = orig.lower().count("todo")
-        improved_todos = improved.lower().count("todo")
-
-        if improved_todos < orig_todos:
-            return True
-
-        # Or if it has more comments/documentation
-        if improved.count("#") + improved.count("//") + improved.count('"""') > orig.count("#") + orig.count(
-            "//"
-        ) + orig.count('"""'):
-            return True
-
-        return False
-
-    def _validate_content(self, content: str, file_path: str, exports: List[str], validation: List[str]) -> bool:
-        """Validate that generated content meets requirements."""
-
-        if not content or len(content.strip()) < 20:
-            self.logger.warning(f"  Content too short for {file_path}")
-            return False
-
-        file_ext = Path(file_path).suffix
-
-        # Check for required exports
-        for export in exports:
-            # Simple heuristic: check if export name appears in content
-            # Remove parentheses if it's a function call in the plan
-            clean_export = export.replace("()", "").strip()
-            # F35: More strict check for export presence (look for word boundary)
-            import re
-
-            if not re.search(r"\b" + re.escape(clean_export) + r"\b", content):
-                self.logger.warning(f"  Missing export '{clean_export}' in {file_path}")
-                return False
-
-        # Check that code doesn't have obvious placeholder markers
-        placeholders = ["TODO", "FIXME", "XXX", "implementation goes here", "add your logic"]
-        for p in placeholders:
-            if p.lower() in content.lower():
-                self.logger.warning(f"  Placeholder found: '{p}' in {file_path}")
-                return False
-
-        # Language-specific validation
-        if file_ext == ".py":
-            # Check for unmatched brackets
-            if content.count("(") != content.count(")"):
-                self.logger.warning(f"  Unmatched parentheses in {file_path}")
-                return False
-            # Detect skeletons: many 'pass' or '...' and very short
-            if (content.count("pass") + content.count("...")) > len(exports) and len(content.strip().split("\n")) < 10:
-                self.logger.warning(f"  Skeleton detected for {file_path}")
-                return False
-
-        return True
-
-    def _generate_fallback_skeleton(self, file_path: str, purpose: str, exports: List[str], imports: List[str]) -> str:
-        """Generate a basic skeleton when full generation fails."""
-
-        file_ext = Path(file_path).suffix
-
-        if file_ext == ".py":
-            imports_str = "\n".join("from ... import ..." for _ in imports) if imports else ""
-            exports_parts = []
-            for e in exports:
-                if "()" in e:
-                    func_name = e.replace("()", "")
-                    exports_parts.append(f'def {func_name}():\n    """Implement {e}."""\n    pass')
-                else:
-                    exports_parts.append(f'class {e}:\n    """Implement {e}."""\n    pass')
-            exports_str = "\n\n".join(exports_parts)
-            skeleton = f'''"""
-{purpose}
-"""
-{imports_str}
-
-{exports_str}
-'''
-        elif file_ext == ".js" or file_ext == ".ts":
-            imports_str = "\n".join('import { ... } from "...";' for _ in imports) if imports else ""
-            exports_parts = []
-            for e in exports:
-                if "()" in e:
-                    exports_parts.append(f"function {e} {{\n  // TODO: Implement\n}}\n")
-                else:
-                    exports_parts.append(f"class {e} {{\n  // TODO: Implement\n}}\n")
-            exports_str = "\n".join(exports_parts)
-            skeleton = f"""/**
- * {purpose}
- */
-
-{imports_str}
-
-{exports_str}
-"""
-        elif file_ext == ".html":
-            skeleton = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>{purpose}</title>
-</head>
-<body>
-  <!-- {purpose} -->
-</body>
-</html>
-"""
-        elif file_ext == ".css":
-            skeleton = f"""/* {purpose} */
-
-/* TODO: Add styles */
-"""
-        else:
-            skeleton = f"""/* {purpose} */
-TODO: Implement {file_path}
-"""
-
-        return skeleton
+        return self._code_patcher.edit_existing_file(
+            file_path, current_content, readme, issues_to_fix, edit_strategy
+        )

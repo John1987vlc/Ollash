@@ -96,6 +96,19 @@ Ollash/
 └── ollash_cli.py     # Main entry point for the Enterprise CLI
 ```
 
+## 🏗️ Code Generation Architecture
+
+The autonomous code generation pipeline follows a clean separation of concerns:
+
+| Component | Responsibility |
+|---|---|
+| `LogicPlanningPhase` | Generates a structured `logic_plan` per file (purpose, exports, imports, logic) |
+| `EnhancedFileContentGenerator` | Creates files from plans; optionally queries `DocumentationManager` for RAG context |
+| `CodePatcher` | Handles targeted edits and intelligent merging of **existing** files using `difflib` |
+| `PreferenceManagerExtended` | Profile-based, per-user preferences stored in `knowledge_workspace/preferences/` |
+
+> **Note:** `PreferenceManager` (flat `.ollash_preferences.json`) is **deprecated**. Run `migrate_preferences()` from `backend.utils.core.preference_manager` to port data to `PreferenceManagerExtended`.
+
 ## 🧪 Testing
 
 We use **Pytest** for backend logic and **Playwright** for frontend E2E tests.
@@ -104,8 +117,17 @@ We use **Pytest** for backend logic and **Playwright** for frontend E2E tests.
 # Run Unit Tests
 pytest tests/unit
 
-# Run E2E UI Tests
-pytest tests/e2e
+# Run Integration Tests
+pytest tests/integration
+
+# Run all tests with coverage
+pytest tests/unit tests/integration --cov=backend --cov-report=term-missing
+
+# Run a single test file
+pytest tests/unit/backend/utils/domains/auto_generation/test_code_patcher.py -v
+
+# Run E2E UI Tests (requires running server)
+pytest tests/e2e -m e2e
 ```
 
 ## 🤝 Contributing
