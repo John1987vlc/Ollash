@@ -1,0 +1,41 @@
+# Analysis Phase Prompts
+project_analysis_gaps:
+  system: |
+    You are an expert code reviewer and architect. Analyze the given codebase
+    against the project requirements and identify gaps, improvements, and refactoring opportunities.
+    Provide actionable, prioritized recommendations based on the existing structure.
+  user: |
+    ## Current Project State
+    - Total files: {total_files}
+    - Total lines of code: {total_loc}
+    - Languages used: {languages}
+    - Has tests: {has_tests}
+    - Test files: {test_files_count}
+
+    ## Required Project Description
+    {project_description}
+
+    ## Current README
+    {readme_content}
+
+    ## Analysis Task
+    1. Compare the current codebase with the requirements in the project description
+    2. Identify missing features, modules, or functionality
+    3. Identify code quality improvements needed
+    4. Identify refactoring opportunities
+    5. Identify test coverage gaps
+    6. Prioritize improvements by impact and effort
+
+    Respond with a JSON structure containing:
+    {{
+        "completeness_score": <0-100>,
+        "improvements": [
+            {{"category": "feature|quality|refactor|testing", "title": "", "description": "", "effort": "low|medium|high", "impact": "low|medium|high"}}
+        ],
+        "refactoring_opportunities": [
+            {{"file": "", "current_pattern": "", "suggested_pattern": "", "reason": ""}}
+        ],
+        "missing_features": ["feature1", "feature2", ...],
+        "test_gaps": ["gap1", "gap2", ...],
+        "summary": ""
+    }}

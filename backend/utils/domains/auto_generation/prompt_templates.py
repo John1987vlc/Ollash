@@ -5,15 +5,87 @@ Maintains the same interface while loading text from /backend/prompts/domains/au
 
 import logging
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Optional, Dict, Any
 from backend.utils.core.llm.prompt_loader import PromptLoader
 
 logger = logging.getLogger(__name__)
 
 class AutoGenPrompts:
-    """Static methods for generating prompts for various auto-generation phases."""
+    """Static methods for generating prompts for various auto-generation phases.
+    Now integrated with PromptRepository for dynamic editing and versioning.
+    """
 
     _loader = PromptLoader()
+    _repository = None
+
+    @classmethod
+    def _get_repository(cls):
+        """Lazy load PromptRepository from main container."""
+        if cls._repository is None:
+            try:
+                from backend.core.containers import main_container
+                cls._repository = main_container.core.prompt_repository()
+            except Exception as e:
+                logger.warning(f"Could not initialize PromptRepository in AutoGenPrompts: {e}")
+        return cls._repository
+
+    @classmethod
+    def _get_prompt_pair(cls, role: str, yaml_path: str, section: str = None) -> Tuple[str, str]:
+        """Helper to get prompt from Repository (active version) or Fallback to YAML."""
+        repo = cls._get_repository()
+        if repo:
+            active_prompt = repo.get_active_prompt(role)
+            if active_prompt:
+                # If stored as JSON in DB, parse it
+                try:
+                    data = eval(active_prompt) # Caution: only if we trust our DB storage format
+                    if isinstance(data, dict):
+                        return data.get("system", ""), data.get("user", "")
+                except:
+                    # If it's just a string, it might be the system prompt or combined
+                    return active_prompt, ""
+
+        # Fallback to YAML
+        content = cls._loader.load_prompt(yaml_path)
+        if section:
+            content = content.get(section, {})
+        
+        return content.get("system", content.get("system_prompt", "")), \
+               content.get("user", content.get("user_prompt", ""))
+
+    @staticmethod
+    def architecture_planning_detailed(category: str, files_list: str, project_description: str) -> Tuple[str, str]:
+        """Returns (system, user) for Phase 2.5 Planning."""
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "architecture_planning_detailed", 
+            "domains/auto_generation/planning.yaml",
+            "architecture_planning_detailed"
+        )
+        user = user_template.format(
+            category=category,
+            files_list=files_list,
+            project_description=project_description
+        )
+        return system, user
+
+    @staticmethod
+    def project_analysis_gaps(total_files: int, total_loc: int, languages: str, has_tests: bool, test_files_count: int, project_description: str, readme_content: str) -> Tuple[str, str]:
+        """Returns (system, user) for Phase 0.5 Analysis."""
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "project_analysis_gaps",
+            "domains/auto_generation/analysis.yaml",
+            "project_analysis_gaps"
+        )
+        user = user_template.format(
+            total_files=total_files,
+            total_loc=total_loc,
+            languages=languages,
+            has_tests=has_tests,
+            test_files_count=test_files_count,
+            project_description=project_description,
+            readme_content=readme_content[:1000]
+        )
+        return system, user
 
     @staticmethod
     def readme_generation(

@@ -1,100 +1,83 @@
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                        <rect width="32" height="32" rx="8" fill="url(#logo-gradient)"/>
-                        <path d="M16 8L22 12V20L16 24L10 20V12L16 8Z" stroke="white" stroke-width="2" fill="none"/>
-                        <circle cx="16" cy="16" r="3" fill="white"/>
-                        <defs>
-                            <linearGradient id="logo-gradient" x1="0" y1="0" x2="32" y2="32">
-                                <stop offset="0%" stop-color="#6366f1"/>
-                                <stop offset="100%" stop-color="#8b5cf6"/>
-                            </linearGradient>
-                        </defs>
+<!-- Sidebar -->
+<aside class="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <rect width="32" height="32" rx="8" fill="url(#logo-gradient)"/>
+                <path d="M16 8L22 12V20L16 24L10 20V12L16 8Z" stroke="white" stroke-width="2" fill="none"/>
+                <circle cx="16" cy="16" r="3" fill="white"/>
+                <defs>
+                    <linearGradient id="logo-gradient" x1="0" y1="0" x2="32" y2="32">
+                        <stop offset="0%" stop-color="#6366f1"/>
+                        <stop offset="100%" stop-color="#8b5cf6"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            <span>Ollash</span>
+        </div>
+        <button class="btn-icon" id="toggle-pair-mode" title="Toggle Pair Programming Mode">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav">
+        <!-- Operaciones Group -->
+        <div class="nav-group expanded">
+            <button class="nav-group-header">
+                <span>Operaciones</span>
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
+            <div class="nav-group-content">
+                <button class="nav-item active" data-view="chat">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                     </svg>
-                    <span>Ollash</span>
-                </div>
-                <button class="btn-icon" id="toggle-pair-mode" title="Toggle Pair Programming Mode">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <span>Chat Principal</span>
+                </button>
+                <button class="nav-item" data-view="create">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"></path>
+                    </svg>
+                    <span>Nuevo Proyecto</span>
+                </button>
+                <button class="nav-item" data-view="projects">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span>Proyectos</span>
+                </button>
+                <button class="nav-item" data-view="pair-programming">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                         <circle cx="9" cy="7" r="4"></circle>
                         <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                         <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                     </svg>
+                    <span>Pair Programming</span>
                 </button>
-            </div>
-
-            <nav class="sidebar-nav">
-                <button class="nav-item active" data-view="chat">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M4 4H16V13H7L4 16V4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <button class="nav-item" data-view="swarm">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
                     </svg>
-                    <span>Chat</span>
-                </button>
-                <button class="nav-item" data-view="create">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    <span>New Project</span>
-                </button>
-                <button class="nav-item" data-view="projects">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M3 4H17V16H3V4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        <path d="M7 8H13M7 12H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    <span>Projects</span>
-                </button>
-                <button class="nav-item" data-view="architecture">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-                    </svg>
-                    <span>Architecture</span>
-                </button>
-                <button class="nav-item" data-view="docs">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                    </svg>
-                    <span>Documentation</span>
-                </button>
-                <button class="nav-item" data-view="costs">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="1" x2="12" y2="23"></line>
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                    </svg>
-                    <span>Costs & Usage</span>
-                </button>
-                <button class="nav-item" data-view="security">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                    </svg>
-                    <span>Cybersecurity</span>
-                </button>
-                <button class="nav-item" data-view="benchmark">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <rect x="3" y="12" width="3" height="6" rx="0.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
-                        <rect x="8.5" y="7" width="3" height="11" rx="0.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
-                        <rect x="14" y="2" width="3" height="16" rx="0.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
-                    </svg>
-                    <span>Benchmark</span>
-                </button>
-                <button class="nav-item" data-view="automations">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
-                        <path d="M10 6V10L13 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    <span>Automations</span>
+                    <span>Swarm Intelligence</span>
                 </button>
                 <a href="/operations" class="nav-item">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="10"></circle>
                         <polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
-                    <span>Operations Center</span>
+                    <span>Ops Center</span>
                 </a>
                 <a href="/git" class="nav-item">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="6" y1="3" x2="6" y2="15"></line>
                         <circle cx="18" cy="6" r="3"></circle>
                         <circle cx="6" cy="18" r="3"></circle>
@@ -102,151 +85,255 @@
                     </svg>
                     <span>Git Control</span>
                 </a>
-                <button class="nav-item" data-view="brain">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.54-2.44V4.5A2.5 2.5 0 0 1 7 2h2.5z"></path>
-                        <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.54-2.44V4.5A2.5 2.5 0 0 0 17 2h-2.5z"></path>
+            </div>
+        </div>
+
+        <!-- Memoria y Checkpoints Group -->
+        <div class="nav-group">
+            <button class="nav-group-header">
+                <span>Memoria y Checkpoints</span>
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
+            <div class="nav-group-content">
+                <button class="nav-item" data-view="checkpoints">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <span>Brain</span>
+                    <span>Checkpoints</span>
                 </button>
-                <button class="nav-item" data-view="swarm">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
+                <button class="nav-item" data-view="decisions">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3zM6 3a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3 3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"></path>
                     </svg>
-                    <span>Swarm</span>
-                </button>
-                <button class="nav-item" data-view="plugins">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
-                    </svg>
-                    <span>Plugins</span>
-                </button>
-                <button class="nav-item" data-view="prompts">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
-                        <path d="M18 13l-1.5-7.5L2 2l5.5 14.5L13 18l5-5z"></path>
-                        <path d="M2 2l7.5 1.5"></path>
-                        <path d="M7.5 16.5L11 22"></path>
-                    </svg>
-                    <span>Prompt Studio</span>
-                </button>
-                <button class="nav-item" data-view="audit">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                        <line x1="8" y1="21" x2="16" y2="21"></line>
-                        <line x1="12" y1="17" x2="12" y2="21"></line>
-                    </svg>
-                    <span>LLM Audit</span>
+                    <span>Decisiones</span>
                 </button>
                 <button class="nav-item" data-view="knowledge">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
                     </svg>
                     <span>Knowledge Base</span>
                 </button>
-                <a href="/resilience" class="nav-item">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                        <polyline points="8 11 12 15 16 11"></polyline>
+                <button class="nav-item" data-view="brain">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.54-2.44V4.5A2.5 2.5 0 0 1 7 2h2.5z"></path>
+                        <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.54-2.44V4.5A2.5 2.5 0 0 0 17 2h-2.5z"></path>
                     </svg>
-                    <span>Resilience Monitor</span>
-                </a>
+                    <span>Brain State</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Sistema e Integraciones Group -->
+        <div class="nav-group">
+            <button class="nav-group-header">
+                <span>Sistema e Integraciones</span>
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
+            <div class="nav-group-content">
+                <button class="nav-item" data-view="cicd">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                    </svg>
+                    <span>CI/CD & Healer</span>
+                </button>
+                <button class="nav-item" data-view="integrations">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                    </svg>
+                    <span>Triggers & Hooks</span>
+                </button>
+                <button class="nav-item" data-view="automations">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="7"></circle>
+                        <polyline points="12 9 12 12 13.5 13.5"></polyline>
+                        <path d="M16.51 7.35l-.35-3.35c0-1.1-.9-2-2-2h-4.32c-1.1 0-2 .9-2 2l-.35 3.35"></path>
+                    </svg>
+                    <span>Automations</span>
+                </button>
+                <button class="nav-item" data-view="architecture">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                    <span>Architecture</span>
+                </button>
+                <button class="nav-item" data-view="docs">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                    </svg>
+                    <span>Documentation</span>
+                </button>
+                <button class="nav-item" data-view="costs">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    <span>Costs & Usage</span>
+                </button>
                 <a href="/insights" class="nav-item">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
                         <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
                     </svg>
                     <span>Insights & Reports</span>
                 </a>
-                <a href="/sandbox" class="nav-item">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                        <line x1="7" y1="2" x2="7" y2="22"></line>
-                        <line x1="17" y1="2" x2="17" y2="22"></line>
-                        <line x1="2" y1="12" x2="22" y2="12"></line>
-                        <line x1="2" y1="7" x2="7" y2="7"></line>
-                        <line x1="2" y1="17" x2="7" y2="17"></line>
-                        <line x1="17" y1="17" x2="22" y2="17"></line>
-                        <line x1="17" y1="7" x2="22" y2="7"></line>
+                <a href="/resilience" class="nav-item">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        <polyline points="8 11 12 15 16 11"></polyline>
                     </svg>
-                    <span>WASM Sandbox</span>
+                    <span>Resilience Monitor</span>
+                </a>
+                <a href="/sandbox" class="nav-item">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
+                        <line x1="12" y1="18" x2="12" y2="18"></line>
+                        <line x1="12" y1="6" x2="12" y2="10"></line>
+                    </svg>
+                    <span>Sandbox</span>
                 </a>
                 <button class="nav-item" data-view="tuning">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 20v-6M6 20V10M18 20V4"></path>
                     </svg>
                     <span>Tuning Studio</span>
                 </button>
-                <button class="nav-item" data-view="settings">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                <button class="nav-item" data-view="plugins">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
                     </svg>
-                    <span>Settings</span>
+                    <span>Plugins</span>
                 </button>
-                <button class="nav-item special" id="open-benchmark-modal">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                <button class="nav-item" data-view="prompts">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                        <path d="M18 13l-1.5-7.5L2 2l5.5 14.5L13 18l5-5z"></path>
                     </svg>
-                    <span>Model Benchmark</span>
+                    <span>Prompt Studio</span>
                 </button>
-            </nav>
+            </div>
+        </div>
 
-            <div class="sidebar-footer">
-                <!-- System Health Dashboard -->
-                <div class="health-dashboard" id="health-dashboard">
-                    <div class="health-metric">
-                        <span class="health-label">CPU</span>
-                        <div class="health-bar"><div class="health-bar-fill" id="health-cpu"></div></div>
-                        <span class="health-value" id="health-cpu-val">--%</span>
-                    </div>
-                    <div class="health-metric">
-                        <span class="health-label">RAM</span>
-                        <div class="health-bar"><div class="health-bar-fill" id="health-ram"></div></div>
-                        <span class="health-value" id="health-ram-val">--%</span>
-                    </div>
-                    <div class="health-metric">
-                        <span class="health-label">DSK</span>
-                        <div class="health-bar"><div class="health-bar-fill" id="health-disk"></div></div>
-                        <span class="health-value" id="health-disk-val">--%</span>
-                    </div>
-                    <div class="health-metric" id="health-net-row">
-                        <span class="health-label">NET</span>
-                        <div class="health-bar" style="background: transparent; border: none; overflow: visible; display: flex; align-items: center;">
-                            <span class="health-value" id="health-net-val" style="width: 100%; text-align: left; white-space: nowrap; font-size: 0.6rem; color: var(--color-text-muted);">Sub: 0 MB | Baj: 0 MB</span>
-                        </div>
-                    </div>
-                    <!-- GPU Widget -->
-                    <div class="health-metric">
-                        <span class="health-label" style="color:var(--color-accent);">GPU</span>
-                        <div class="health-bar"><div class="health-bar-fill" id="health-gpu-bar" style="background:var(--color-accent);"></div></div>
-                        <span class="health-value" id="health-gpu-val">--%</span>
-                    </div>
-                    <div class="health-metric" id="health-gpu-row" style="display:none;">
-                        <span class="health-label">GPU</span>
-                        <div class="health-bar"><div class="health-bar-fill" id="health-gpu"></div></div>
-                        <span class="health-value" id="health-gpu-val">--%</span>
-                    </div>
-                    <!-- New Metrics -->
-                    <div class="health-metric" id="health-llm-rpm-row" style="display:none;">
-                        <span class="health-label" title="Rate Limiter RPM">RPM</span>
-                        <div class="health-bar"><div class="health-bar-fill" id="health-llm-rpm"></div></div>
-                        <span class="health-value" id="health-llm-rpm-val">--</span>
-                    </div>
-                    <div class="health-metric" id="health-llm-lat-row" style="display:none;">
-                        <span class="health-label" title="LLM Latency (ms)">LAT</span>
-                        <div class="health-bar"><div class="health-bar-fill" id="health-llm-lat"></div></div>
-                        <span class="health-value" id="health-llm-lat-val">--ms</span>
-                    </div>
-                </div>
-                <button class="theme-toggle" id="theme-toggle">
-                    <span id="theme-icon">&#x2600;&#xfe0f;</span>
-                    <span id="theme-label">Light Mode</span>
+        <!-- Seguridad Group -->
+        <div class="nav-group">
+            <button class="nav-group-header">
+                <span>Seguridad</span>
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
+            <div class="nav-group-content">
+                <button class="nav-item" data-view="security">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    <span>Cybersecurity</span>
                 </button>
-                <div class="status-indicator">
-                    <div class="status-dot"></div>
-                    <span>Ready</span>
+                <button class="nav-item" data-view="audit">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        <path d="M9 12l2 2 4-4"></path>
+                    </svg>
+                    <span>LLM Audit</span>
+                </button>
+                <button class="nav-item" data-view="policies">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>Policies</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Aprobaciones Group -->
+        <div class="nav-group">
+            <button class="nav-group-header">
+                <span>Aprobaciones</span>
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
+            <div class="nav-group-content">
+                <button class="nav-item" data-view="hil">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <span>Human In The Loop</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Global / Misc -->
+        <div class="nav-divider" style="height: 1px; background: var(--color-border); margin: var(--spacing-sm) var(--spacing-md); opacity: 0.5;"></div>
+        
+        <button class="nav-item" data-view="benchmark">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span>Model Benchmarker</span>
+        </button>
+        <button class="nav-item" data-view="settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Settings</span>
+        </button>
+        <button class="nav-item special" id="open-benchmark-modal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            <span>Quick Benchmark</span>
+        </button>
+    </nav>
+
+    <div class="sidebar-footer">
+        <!-- System Health Dashboard -->
+        <div class="health-dashboard" id="health-dashboard">
+            <div class="health-metric">
+                <span class="health-label">CPU</span>
+                <div class="health-bar"><div class="health-bar-fill" id="health-cpu"></div></div>
+                <span class="health-value" id="health-cpu-val">--%</span>
+            </div>
+            <div class="health-metric">
+                <span class="health-label">RAM</span>
+                <div class="health-bar"><div class="health-bar-fill" id="health-ram"></div></div>
+                <span class="health-value" id="health-ram-val">--%</span>
+            </div>
+            <div class="health-metric">
+                <span class="health-label">DSK</span>
+                <div class="health-bar"><div class="health-bar-fill" id="health-disk"></div></div>
+                <span class="health-value" id="health-disk-val">--%</span>
+            </div>
+            <div class="health-metric" id="health-net-row">
+                <div class="health-bar" style="background: transparent; border: none; overflow: visible; display: flex; align-items: center; padding: 0;">
+                    <span class="health-value" id="health-net-val" style="width: 100%; text-align: left; white-space: nowrap; font-size: 0.65rem; color: var(--color-text-subtle);">Net: 0 MB/s</span>
                 </div>
             </div>
-        </aside>
+        </div>
+        <button class="theme-toggle" id="theme-toggle">
+            <span id="theme-icon">&#x2600;&#xfe0f;</span>
+            <span id="theme-label">Light Mode</span>
+        </button>
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <span>Ready</span>
+        </div>
+    </div>
+</aside>

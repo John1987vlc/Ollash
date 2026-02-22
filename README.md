@@ -7,6 +7,8 @@
 ## 🚀 Key Features
 
 ### 🛡️ Enterprise Governance & Resilience
+- **Binary Guard:** Strict detection and skipping of binary files (images, audio, etc.) during code generation to prevent LLM corruption and save tokens.
+- **Context Anchor:** Robust fallback planning that preserves the original project description intent even during LLM logic planning failures.
 - **Resilience Monitor:** Real-time loop detection and contingency planning. Automatically detects stuck agents and proposes alternative execution paths.
 - **RBAC Policies:** Granular permission matrix to control agent access to File System, Network, CLI, and Security tools.
 - **WASM Sandbox:** Execute generated code in a secure, isolated WebAssembly environment before applying it to your project.
@@ -18,6 +20,7 @@
 - **Git Integration:** Full version control management directly from the UI (Status, Diff, Commit, Log).
 
 ### 🧠 Intelligence & Knowledge
+- **Prompts v2 (SQLite + YAML Seed):** Prompts are versioned in SQLite for real-time editing via Prompt Studio, with YAML fallbacks for high reliability.
 - **Knowledge Base with OCR:** Drag-and-drop ingestion of PDFs and Images with automatic text extraction.
 - **Prompt Studio:** Real-time prompt engineering with integrated linter and security validation.
 - **Model Health Routing:** Latency monitoring with automatic fallback strategies for high-availability LLM access.

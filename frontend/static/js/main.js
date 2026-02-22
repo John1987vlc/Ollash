@@ -85,6 +85,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // CI/CD & Maintenance
+    if (typeof CICDModule !== 'undefined') {
+        CICDModule.init();
+    }
+
+    // HIL Approval Center
+    if (typeof HILModule !== 'undefined') {
+        HILModule.init();
+    }
+
     // Benchmark Module
     if (typeof BenchmarkModule !== 'undefined') {
         BenchmarkModule.init({
@@ -152,6 +162,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ==================== Sidebar Accordion ====================
+    const navGroups = document.querySelectorAll('.nav-group');
+    
+    navGroups.forEach(group => {
+        const header = group.querySelector('.nav-group-header');
+        header.addEventListener('click', (e) => {
+            // Collapse others? Optional, but let's keep it simple for now (manual toggle)
+            group.classList.toggle('expanded');
+        });
+
+        // Auto-expand if it contains the active item
+        if (group.querySelector('.nav-item.active')) {
+            group.classList.add('expanded');
+        }
+    });
+
     // ==================== SPA Router ====================
     navItems.forEach(item => {
         item.addEventListener('click', function() {
@@ -179,6 +205,8 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'architecture': if (window.ArchitectureModule) window.ArchitectureModule.loadArchitecture(); break;
             case 'brain': if (typeof loadBrainData !== 'undefined') loadBrainData(); break;
             case 'plugins': if (typeof loadPlugins !== 'undefined') loadPlugins(); break;
+            case 'cicd': if (window.CICDModule) window.CICDModule.loadHistory(); break;
+            case 'hil': if (window.HILModule) window.HILModule.refresh(); break;
         }
     }
 

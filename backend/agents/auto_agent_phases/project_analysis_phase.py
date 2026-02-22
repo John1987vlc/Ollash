@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
+from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 
 
 class ProjectAnalysisPhase(IAgentPhase):
@@ -161,64 +162,27 @@ class ProjectAnalysisPhase(IAgentPhase):
     ) -> Dict[str, Any]:
         """
         Compares the existing codebase with the project description
-        to identify gaps and missing features.
-
-        Returns:
-            Dictionary with identified gaps, missing features, and improvement opportunities
+        to identify gaps using DB/YAML prompts.
         """
         self.context.logger.info("  Identifying gaps between current state and requirements...")
 
-        # Prepare context for LLM
-        analysis_context = f"""
-## Current Project State
-- Total files: {len(codebase_analysis["file_details"])}
-- Total lines of code: {codebase_analysis["total_lines_of_code"]}
-- Languages used: {", ".join(codebase_analysis["files_by_type"].keys())}
-- Has tests: {codebase_analysis["test_coverage"]["has_tests"]}
-- Test files: {len(codebase_analysis["test_coverage"]["test_files"])}
-
-## Required Project Description
-{project_description}
-
-## Current README
-{readme_content[:1000] if readme_content else "No README found"}
-
-## Analysis Task
-1. Compare the current codebase with the requirements in the project description
-2. Identify missing features, modules, or functionality
-3. Identify code quality improvements needed
-4. Identify refactoring opportunities
-5. Identify test coverage gaps
-6. Prioritize improvements by impact and effort
-
-Respond with a JSON structure containing:
-{{
-    "completeness_score": <0-100>,
-    "improvements": [
-        {{"category": "feature|quality|refactor|testing", "title": "", "description": "", "effort": "low|medium|high", "impact": "low|medium|high"}}
-    ],
-    "refactoring_opportunities": [
-        {{"file": "", "current_pattern": "", "suggested_pattern": "", "reason": ""}}
-    ],
-    "missing_features": ["feature1", "feature2", ...],
-    "test_gaps": ["gap1", "gap2", ...],
-    "summary": ""
-}}
-"""
-
-        system_prompt = (
-            "You are an expert code reviewer and architect. Analyze the given codebase "
-            "against the project requirements and identify gaps, improvements, and refactoring opportunities. "
-            "Provide actionable, prioritized recommendations."
+        system_prompt, user_prompt = AutoGenPrompts.project_analysis_gaps(
+            total_files=len(codebase_analysis["file_details"]),
+            total_loc=codebase_analysis["total_lines_of_code"],
+            languages=", ".join(codebase_analysis["files_by_type"].keys()),
+            has_tests=codebase_analysis["test_coverage"]["has_tests"],
+            test_files_count=len(codebase_analysis["test_coverage"]["test_files"]),
+            project_description=project_description,
+            readme_content=readme_content or "No README found"
         )
 
         try:
             response_data, _ = self.context.llm_manager.get_client("generalist").chat(
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": analysis_context},
+                    {"role": "user", "content": user_prompt},
                 ],
-                options_override={"temperature": 0.3},
+                options_override={"temperature": 0.2},
             )
 
             response_text = response_data.get("content", "")

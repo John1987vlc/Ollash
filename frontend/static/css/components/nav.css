@@ -1,17 +1,78 @@
 /* Navigation Components */
 
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    overflow-y: auto;
+    flex: 1;
+}
+
 .nav-item {
     display: flex; align-items: center; gap: var(--spacing-md);
-    padding: var(--spacing-md) var(--spacing-lg); background: transparent;
-    border: none; border-radius: var(--radius-lg); color: var(--color-text-muted);
-    font-size: 0.95rem; font-weight: 500; cursor: pointer;
+    padding: var(--spacing-sm) var(--spacing-md); background: transparent;
+    border: none; border-radius: var(--radius-md); color: var(--color-text-muted);
+    font-size: 0.9rem; font-weight: 500; cursor: pointer;
     transition: all 0.2s ease; position: relative; overflow: hidden;
     width: 100%; text-decoration: none;
+    margin-bottom: 2px;
 }
 .nav-item::before { content: ''; position: absolute; inset: 0; background: var(--gradient-primary); opacity: 0; transition: opacity 0.2s ease; }
 .nav-item span, .nav-item svg { position: relative; z-index: 1; }
 .nav-item:hover { color: var(--color-text); background: var(--color-surface-elevated); }
 .nav-item.active { color: white; }
 .nav-item.active::before { opacity: 1; }
+
+/* Accordion Styles */
+.nav-group {
+    margin-bottom: var(--spacing-xs);
+}
+
+.nav-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: transparent;
+    border: none;
+    color: var(--color-text-subtle);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.nav-group-header:hover {
+    color: var(--color-text-muted);
+}
+
+.nav-group-header svg.chevron {
+    transition: transform 0.3s ease;
+    opacity: 0.5;
+}
+
+.nav-group.expanded .nav-group-header svg.chevron {
+    transform: rotate(90deg);
+}
+
+.nav-group-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease;
+    opacity: 0;
+    display: flex;
+    flex-direction: column;
+    padding-left: var(--spacing-sm);
+}
+
+.nav-group.expanded .nav-group-content {
+    max-height: 1000px;
+    opacity: 1;
+    margin-top: 4px;
+}
 
 .sidebar-footer { border-top: 1px solid var(--color-border); padding-top: var(--spacing-lg); }

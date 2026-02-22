@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
+from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 
 
 class LogicPlanningPhase(IAgentPhase):
@@ -115,110 +116,71 @@ class LogicPlanningPhase(IAgentPhase):
         readme_content: str,
         initial_structure: Dict[str, Any],
     ) -> Dict[str, Dict]:
-        """Create detailed plans for files in a category."""
-
-        category_context = f"""
-## ROLE: Architecture Planner
-## TASK: Create implementation plans for {category} files.
-
-### PROJECT CONTEXT:
-{project_description}
-
-### FILES TO PLAN:
-{chr(10).join(f"- {f}" for f in files)}
-
-### REQUIREMENTS FOR EACH PLAN:
-1. PURPOSE: Definitive role of the file.
-2. EXPORTS: Exact function/class names.
-3. IMPORTS: Critical internal and external dependencies.
-4. MAIN_LOGIC: Step-by-step algorithm or flow.
-5. VALIDATION: Specific tests to ensure correctness.
-
-### CONSTRAINT:
-Return ONLY a valid JSON object where keys are file paths.
-"""
-
-        system_prompt = (
-            "You are a Senior Software Architect. Your plans are the source of truth "
-            "for developers. Be precise, avoid ambiguity, and ensure every file has "
-            "a clear, non-empty implementation strategy."
+        """Create detailed plans for files in a category using DB/YAML prompts."""
+        
+        files_list = "\n".join(f"- {f}" for f in files)
+        system_prompt, user_prompt = AutoGenPrompts.architecture_planning_detailed(
+            category=category,
+            files_list=files_list,
+            project_description=project_description
         )
 
         try:
             response_data, _ = self.context.llm_manager.get_client("planner").chat(
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": category_context},
+                    {"role": "user", "content": user_prompt},
                 ],
-                tools=[],  # F30: Fixed missing tools parameter
-                options_override={"temperature": 0.5},
+                tools=[],
+                options_override={"temperature": 0.4},
             )
 
-            # Parse the response
             response_text = response_data.get("content", "")
 
-            # Try to extract JSON from response
             import json
             import re
 
-            # Look for JSON block
             json_match = re.search(r"\{[\s\S]*\}", response_text)
             if json_match:
                 plans = json.loads(json_match.group())
+                # Validation: Ensure plans are not empty and contain requested files
+                if not plans or not any(f in plans for f in files):
+                    raise ValueError("LLM returned empty or irrelevant planning JSON")
             else:
-                # Fallback: create basic plans for each file
-                plans = self._create_basic_plans(files, category)
+                plans = self._create_basic_plans(files, category, project_description)
 
             return plans
 
         except Exception as e:
             self.context.logger.error(f"Error planning category {category}: {e}")
-            # Return basic plans as fallback
-            return self._create_basic_plans(files, category)
+            return self._create_basic_plans(files, category, project_description)
 
-    def _create_basic_plans(self, files: List[str], category: str) -> Dict[str, Dict]:
-        """Create basic fallback plans when LLM planning fails."""
+    def _create_basic_plans(self, files: List[str], category: str, project_description: str) -> Dict[str, Dict]:
+        """Create basic fallback plans anchored to the original project description."""
         plans = {}
+        
+        # Validation: If project_description is too short, we might be losing intent
+        if len(project_description) < 10:
+             self.context.logger.warning("Project description is critically short for fallback planning.")
 
         for file_path in files:
             ext = Path(file_path).suffix
-            # F30: Initialize defaults
-            purpose = "Application logic"
+            purpose = f"Implementation of {category} logic for: {project_description[:100]}..."
             exports = []
 
-            # Basic plan based on file type
             if category == "config":
-                purpose = "Configuration and settings"
-                exports = ["Configuration object", "get_config()"]
+                purpose = "System configuration and environment settings."
+                exports = ["Config", "get_config"]
             elif category == "main":
-                purpose = "Main application entry point"
-                exports = ["main()", "Application class"]
-            elif category == "utils":
-                purpose = "Utility functions and helpers"
-                exports = ["Helper functions for common tasks"]
-            elif category == "tests":
-                purpose = "Unit tests for corresponding module"
-                exports = ["Test functions"]
-            elif category == "web":
-                if ext == ".js":
-                    purpose = "JavaScript logic and interactivity"
-                    exports = ["Functions", "Classes"]
-                elif ext == ".css":
-                    purpose = "Styling and layout"
-                    exports = ["CSS classes", "Responsive design"]
-                elif ext == ".html":
-                    purpose = "HTML page structure"
-                    exports = ["Semantic HTML"]
-            else:
-                purpose = "Core functionality"
-                exports = ["Main functions/classes"]
-
+                purpose = f"Main entry point for {project_description[:50]}"
+                exports = ["main", "app"]
+            
             plans[file_path] = {
                 "purpose": purpose,
                 "exports": exports,
                 "imports": [],
-                "main_logic": ["Implement core functionality as designed"],
-                "validation": ["Code should execute without errors"],
+                "main_logic": [f"Develop core {category} logic aligned with: {project_description}"],
+                "validation": ["Verify alignment with initial project intent", "Execute unit tests"],
                 "dependencies": [],
             }
 
