@@ -1,103 +1,70 @@
-// Prompt Studio logic
-document.addEventListener('DOMContentLoaded', () => {
-    let promptEditor = null;
-    let currentRole = null;
+// Prompt Studio with Validator
 
-    // Initialize Monaco Editor
-    if (typeof monaco !== 'undefined') {
-        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.29.1/min/vs' } });
-        require(['vs/editor/editor.main'], function () {
-            promptEditor = monaco.editor.create(document.getElementById('prompt-monaco-container'), {
-                value: '',
-                language: 'markdown',
-                theme: 'vs-dark',
-                automaticLayout: true,
-                minimap: { enabled: false }
+const PromptStudio = {
+    init: function() {
+        this.input = document.getElementById('prompt-editor');
+        this.output = document.getElementById('validation-output');
+        this.debounceTimer = null;
+        
+        if(this.input) {
+            this.input.addEventListener('input', () => this.handleInput());
+        }
+    },
+    
+    handleInput: function() {
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(() => this.validate(), 800);
+    },
+    
+    validate: async function() {
+        const text = this.input.value;
+        if (!text) {
+            this.output.innerHTML = '';
+            return;
+        }
+        
+        try {
+            const res = await fetch('/prompts/api/validate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ prompt: text })
             });
-        });
-    }
-
-    async function loadRoles() {
-        const resp = await fetch('/api/prompts/roles');
-        const data = await resp.json();
-        const list = document.getElementById('prompt-role-list');
-        list.innerHTML = '';
-        data.roles.forEach(role => {
-            const btn = document.createElement('button');
-            btn.className = 'role-item';
-            btn.textContent = role;
-            btn.onclick = () => selectRole(role, btn);
-            list.appendChild(btn);
-        });
-    }
-
-    async function selectRole(role, btn) {
-        currentRole = role;
-        document.querySelectorAll('.role-item').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        
-        const resp = await fetch(`/api/prompts/${role}/history`);
-        const data = await resp.json();
-        renderHistory(data.history);
-        
-        // Set editor value to active prompt
-        const active = data.history.find(h => h.is_active);
-        if (active && promptEditor) {
-            promptEditor.setValue(active.prompt_text);
+            const data = await res.json();
+            this.renderWarnings(data.warnings);
+        } catch (e) {
+            console.error(e);
         }
-    }
-
-    function renderHistory(history) {
-        const list = document.getElementById('prompt-version-list');
-        list.innerHTML = '';
-        history.forEach(item => {
+    },
+    
+    renderWarnings: function(warnings) {
+        this.output.innerHTML = '';
+        if (warnings.length === 0) {
+            this.output.innerHTML = '<div class="alert-success">✓ Prompt looks good!</div>';
+            return;
+        }
+        
+        warnings.forEach(w => {
             const div = document.createElement('div');
-            div.className = `version-item ${item.is_active ? 'active' : ''}`;
-            div.innerHTML = `
-                <span>V${item.version} - ${new Date(item.created_at).toLocaleString()}</span>
-                <button class="btn-icon" title="Rollback" onclick="rollbackPrompt(${item.id})">↺</button>
-            `;
-            div.onclick = () => {
-                if (promptEditor) promptEditor.setValue(item.prompt_text);
-            };
-            list.appendChild(div);
+            div.className = `alert-item ${w.severity}`;
+            div.style.padding = '8px';
+            div.style.marginTop = '5px';
+            div.style.borderRadius = '4px';
+            
+            if (w.severity === 'critical') {
+                div.style.background = 'rgba(239, 68, 68, 0.2)';
+                div.style.color = '#ef4444';
+            } else if (w.severity === 'warning') {
+                div.style.background = 'rgba(245, 158, 11, 0.2)';
+                div.style.color = '#f59e0b';
+            } else {
+                div.style.background = 'rgba(99, 102, 241, 0.1)';
+                div.style.color = '#6366f1';
+            }
+            
+            div.textContent = `⚠️ ${w.message}`;
+            this.output.appendChild(div);
         });
     }
+};
 
-    window.rollbackPrompt = async (id) => {
-        if (confirm('Rollback to this version?')) {
-            await fetch(`/api/prompts/rollback/${id}`, { method: 'POST' });
-            if (currentRole) {
-                const activeBtn = Array.from(document.querySelectorAll('.role-item')).find(b => b.textContent === currentRole);
-                selectRole(currentRole, activeBtn);
-            }
-        }
-    };
-
-    document.getElementById('save-prompt-btn').onclick = async () => {
-        if (!currentRole) return alert('Select a role first');
-        const text = promptEditor.getValue();
-        const resp = await fetch(`/api/prompts/${currentRole}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt_text: text })
-        });
-        const data = await resp.json();
-        if (data.status === 'success') {
-            alert('Prompt saved and activated');
-            const activeBtn = Array.from(document.querySelectorAll('.role-item')).find(b => b.textContent === currentRole);
-            selectRole(currentRole, activeBtn);
-        }
-    };
-
-    document.getElementById('migrate-prompts-btn').onclick = async () => {
-        const resp = await fetch('/api/prompts/migrate', { method: 'POST' });
-        alert('Migration started');
-        loadRoles();
-    };
-
-    // Load roles on init if view is active
-    document.addEventListener('viewChanged', (e) => {
-        if (e.detail.view === 'prompts') loadRoles();
-    });
-});
+document.addEventListener('DOMContentLoaded', () => PromptStudio.init());

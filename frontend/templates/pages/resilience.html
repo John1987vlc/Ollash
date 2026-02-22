@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block title %}Resilience Monitor - Ollash{% endblock %}
+
+{% block styles %}
+<style>
+    .resilience-dashboard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: var(--spacing-xl);
+        margin-top: var(--spacing-xl);
+    }
+
+    .metric-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-xl);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg), var(--shadow-glow);
+    }
+
+    .metric-value {
+        font-size: 3rem;
+        font-weight: 700;
+        margin: var(--spacing-md) 0;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .metric-label {
+        font-size: 1rem;
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .resilience-logs {
+        grid-column: 1 / -1;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-xl);
+        margin-top: var(--spacing-xl);
+    }
+
+    .log-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: var(--spacing-md);
+    }
+
+    .log-table th {
+        text-align: left;
+        padding: var(--spacing-md);
+        border-bottom: 2px solid var(--color-border);
+        color: var(--color-text-muted);
+        font-size: 0.85rem;
+    }
+
+    .log-table td {
+        padding: var(--spacing-md);
+        border-bottom: 1px solid var(--color-border);
+        font-family: var(--font-mono);
+        font-size: 0.9rem;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-warning { background: rgba(245, 158, 11, 0.1); color: var(--color-warning); border: 1px solid var(--color-warning); }
+    .status-success { background: rgba(16, 185, 129, 0.1); color: var(--color-success); border: 1px solid var(--color-success); }
+    .status-error { background: rgba(239, 68, 68, 0.1); color: var(--color-error); border: 1px solid var(--color-error); }
+
+    .health-chart-container {
+        height: 200px;
+        width: 100%;
+        margin-top: var(--spacing-md);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="view-header">
+    <h1>Resilience Monitor</h1>
+    <p class="subtitle">Real-time loop detection and contingency planning oversight.</p>
+</div>
+
+<div class="resilience-dashboard">
+    <div class="metric-card skeleton-pulse" id="loops-card">
+        <div class="metric-label">Loops Detected (24h)</div>
+        <div class="metric-value" id="loops-count">--</div>
+        <div class="progress-bar-container" style="width: 100%; height: 8px; background: var(--color-border); border-radius: 4px; overflow: hidden;">
+            <div id="loops-progress" style="width: 0%; height: 100%; background: var(--color-warning); transition: width 1s ease;"></div>
+        </div>
+    </div>
+
+    <div class="metric-card skeleton-pulse" id="plans-card">
+        <div class="metric-label">Contingency Plans (24h)</div>
+        <div class="metric-value" id="plans-count">--</div>
+        <div class="progress-bar-container" style="width: 100%; height: 8px; background: var(--color-border); border-radius: 4px; overflow: hidden;">
+            <div id="plans-progress" style="width: 0%; height: 100%; background: var(--color-primary); transition: width 1s ease;"></div>
+        </div>
+    </div>
+
+    <div class="metric-card skeleton-pulse" id="health-card">
+        <div class="metric-label">System Health Score</div>
+        <div class="metric-value" id="health-score">--%</div>
+        <div class="health-chart-container">
+            <canvas id="healthChart"></canvas>
+        </div>
+    </div>
+
+    <div class="resilience-logs">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+            <h2 style="font-size: 1.25rem;">Resilience Event Logs</h2>
+            <button class="btn-secondary" onclick="refreshResilienceData()" style="padding: 6px 12px; font-size: 0.8rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                    <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Event Type</th>
+                    <th>Detail / Reason</th>
+                    <th>Action Taken</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="resilience-log-body">
+                <!-- Data will be populated by JS -->
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function refreshResilienceData() {
+        try {
+            const [statusRes, logsRes] = await Promise.all([
+                fetch('/api/resilience/status'),
+                fetch('/api/resilience/logs')
+            ]);
+
+            const status = await statusRes.json();
+            const logs = await logsRes.json();
+
+            // Update Metrics
+            document.getElementById('loops-count').textContent = status.loops_detected;
+            document.getElementById('plans-count').textContent = status.contingency_plans_executed;
+            document.getElementById('health-score').textContent = status.system_health_score.toFixed(1) + '%';
+            
+            // Remove skeleton pulses
+            document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('skeleton-pulse'));
+
+            // Update Progress Bars
+            document.getElementById('loops-progress').style.width = Math.min(status.loops_detected * 10, 100) + '%';
+            document.getElementById('plans-progress').style.width = Math.min(status.contingency_plans_executed * 20, 100) + '%';
+
+            // Populate Logs
+            const logBody = document.getElementById('resilience-log-body');
+            logBody.innerHTML = '';
+            logs.forEach(log => {
+                const row = document.createElement('tr');
+                const statusClass = log.event.includes('Loop') ? 'status-warning' : (log.status === 'Success' ? 'status-success' : 'status-error');
+                
+                row.innerHTML = `
+                    <td>${log.time}</td>
+                    <td><span class="status-badge ${statusClass}">${log.event}</span></td>
+                    <td>${log.tool || log.reason || '--'}</td>
+                    <td>${log.action || '--'}</td>
+                    <td>${log.status || 'Active'}</td>
+                `;
+                logBody.appendChild(row);
+            });
+
+            // Update Health Chart (simple representation)
+            updateHealthChart(status.system_health_score);
+
+        } catch (error) {
+            console.error('Error fetching resilience data:', error);
+        }
+    }
+
+    let healthChart;
+    function updateHealthChart(score) {
+        const ctx = document.getElementById('healthChart').getContext('2d');
+        if (healthChart) healthChart.destroy();
+        
+        healthChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [score, 100 - score],
+                    backgroundColor: ['#6366f1', '#2a2a35'],
+                    borderWidth: 0,
+                    circumference: 180,
+                    rotation: 270,
+                }]
+            },
+            options: {
+                cutout: '80%',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } }
+            }
+        });
+    }
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', refreshResilienceData);
+</script>
+{% endblock %}

@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+
+{% block title %}Operations Center - Ollash{% endblock %}
+
+{% block styles %}
+<style>
+    .ops-grid {
+        display: grid;
+        grid-template-columns: 1fr 350px;
+        gap: var(--spacing-xl);
+        margin-top: var(--spacing-xl);
+        height: calc(100vh - 180px);
+    }
+
+    .card-panel {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-lg);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .job-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--spacing-md);
+        border-bottom: 1px solid var(--color-border);
+        transition: background 0.2s;
+    }
+
+    .job-item:hover {
+        background: var(--color-surface-elevated);
+    }
+
+    .dag-container {
+        flex: 1;
+        background: var(--color-bg);
+        border-radius: var(--radius-md);
+        position: relative;
+        overflow: hidden;
+        border: 1px dashed var(--color-border);
+    }
+
+    .dag-node {
+        position: absolute;
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-primary);
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.3s;
+    }
+
+    .dag-node.thinking { border-color: var(--color-accent); color: var(--color-accent); }
+    .dag-node.action { border-color: var(--color-success); color: var(--color-success); }
+    .dag-node.validation { border-color: var(--color-warning); color: var(--color-warning); }
+
+    .dag-line {
+        position: absolute;
+        height: 2px;
+        background: var(--color-border);
+        transform-origin: 0 50%;
+        z-index: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="view-header">
+    <h1>Operations Center</h1>
+    <p class="subtitle">Orchestrate automated tasks and visualize execution plans.</p>
+</div>
+
+<div class="ops-grid">
+    <!-- Left: Task Scheduler -->
+    <div class="card-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+            <h2>Scheduled Tasks</h2>
+            <button class="btn-primary" onclick="openNewJobModal()">+ New Job</button>
+        </div>
+        
+        <div id="job-list" style="overflow-y: auto;">
+            <!-- Jobs injected via JS -->
+            <div class="skeleton-pulse" style="height: 60px; margin-bottom: 10px; border-radius: 8px;"></div>
+            <div class="skeleton-pulse" style="height: 60px; margin-bottom: 10px; border-radius: 8px;"></div>
+        </div>
+    </div>
+
+    <!-- Right: DAG Visualizer -->
+    <div class="card-panel">
+        <h2>Execution Plan Preview</h2>
+        <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: var(--spacing-md);">
+            Visualizing logic flow for complex tasks.
+        </p>
+        
+        <div class="dag-container" id="dag-viz">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--color-text-subtle);">
+                <p>No active plan</p>
+                <button class="btn-secondary" style="margin-top: 10px;" onclick="simulateDAG()">Simulate Plan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Simple Modal for New Job -->
+<div id="new-job-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Create Scheduled Task</h3>
+            <button class="btn-icon" onclick="closeNewJobModal()">✕</button>
+        </div>
+        <div class="form-group">
+            <label>Task Name</label>
+            <input type="text" id="job-name" class="form-input" placeholder="e.g. Daily Backup">
+            
+            <label>Cron Expression</label>
+            <input type="text" id="job-cron" class="form-input" placeholder="* * * * *">
+            
+            <label>Command / Script</label>
+            <textarea class="form-input" rows="3" placeholder="python scripts/backup.py"></textarea>
+        </div>
+        <div class="form-actions">
+            <button class="btn-secondary" onclick="closeNewJobModal()">Cancel</button>
+            <button class="btn-primary" onclick="createJob()">Create Task</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadJobs() {
+        const res = await fetch('/operations/api/jobs');
+        const jobs = await res.json();
+        const list = document.getElementById('job-list');
+        list.innerHTML = '';
+        
+        jobs.forEach(job => {
+            const div = document.createElement('div');
+            div.className = 'job-item';
+            div.innerHTML = `
+                <div>
+                    <div style="font-weight: 600;">${job.name}</div>
+                    <div style="font-size: 0.8rem; color: var(--color-text-muted);">
+                        ${job.cron} • Next: ${new Date(job.next_run).toLocaleString()}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <span class="status-badge ${job.status === 'active' ? 'status-success' : 'status-warning'}">${job.status}</span>
+                    <button class="btn-icon" onclick="deleteJob('${job.id}')">🗑️</button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    async function createJob() {
+        const name = document.getElementById('job-name').value;
+        const cron = document.getElementById('job-cron').value;
+        
+        await fetch('/operations/api/jobs', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name, cron })
+        });
+        
+        closeNewJobModal();
+        loadJobs();
+    }
+
+    async function deleteJob(id) {
+        if(confirm('Delete this task?')) {
+            await fetch(`/operations/api/jobs/${id}`, { method: 'DELETE' });
+            loadJobs();
+        }
+    }
+
+    // DAG Simulation Logic
+    async function simulateDAG() {
+        const viz = document.getElementById('dag-viz');
+        viz.innerHTML = '<div class="skeleton-pulse" style="width:100%; height:100%;"></div>';
+        
+        const res = await fetch('/operations/api/dag/preview', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ task: "Simulated Task" })
+        });
+        const data = await res.json();
+        
+        viz.innerHTML = ''; // Clear skeleton
+        
+        // Simple Layout Algorithm (Vertical Stack)
+        const startX = viz.clientWidth / 2;
+        let currentY = 40;
+        
+        data.nodes.forEach((node, index) => {
+            const el = document.createElement('div');
+            el.className = `dag-node ${node.type}`;
+            el.textContent = node.label;
+            el.style.left = `${startX - 60}px`; // Centered roughly
+            el.style.top = `${currentY}px`;
+            viz.appendChild(el);
+            
+            if (index < data.nodes.length - 1) {
+                // Draw line to next
+                const line = document.createElement('div');
+                line.className = 'dag-line';
+                line.style.left = `${startX}px`;
+                line.style.top = `${currentY + 30}px`;
+                line.style.width = '2px';
+                line.style.height = '30px';
+                viz.appendChild(line);
+            }
+            
+            currentY += 60;
+        });
+    }
+
+    function openNewJobModal() { document.getElementById('new-job-modal').style.display = 'flex'; }
+    function closeNewJobModal() { document.getElementById('new-job-modal').style.display = 'none'; }
+
+    document.addEventListener('DOMContentLoaded', loadJobs);
+</script>
+{% endblock %}

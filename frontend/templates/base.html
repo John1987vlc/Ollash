@@ -6,6 +6,14 @@
     <title>{% block title %}Ollash - Local IT Agent{% endblock %}</title>
     
     <!-- Global CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base/variables.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base/reset.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/layout/grid.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/buttons.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/modals.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/animations/loaders.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/animations/transitions.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/artifact-renderer.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -82,6 +90,7 @@
 
     <!-- Global Core Scripts -->
     <script src="{{ url_for('static', filename='js/core/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/ui-animations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/alert-handler.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/notification-service.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/chat-module.js') }}"></script>

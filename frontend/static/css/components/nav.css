@@ -1,0 +1,17 @@
+/* Navigation Components */
+
+.nav-item {
+    display: flex; align-items: center; gap: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg); background: transparent;
+    border: none; border-radius: var(--radius-lg); color: var(--color-text-muted);
+    font-size: 0.95rem; font-weight: 500; cursor: pointer;
+    transition: all 0.2s ease; position: relative; overflow: hidden;
+    width: 100%; text-decoration: none;
+}
+.nav-item::before { content: ''; position: absolute; inset: 0; background: var(--gradient-primary); opacity: 0; transition: opacity 0.2s ease; }
+.nav-item span, .nav-item svg { position: relative; z-index: 1; }
+.nav-item:hover { color: var(--color-text); background: var(--color-surface-elevated); }
+.nav-item.active { color: white; }
+.nav-item.active::before { opacity: 1; }
+
+.sidebar-footer { border-top: 1px solid var(--color-border); padding-top: var(--spacing-lg); }

@@ -1,0 +1,82 @@
+/* UI Loaders & Thinking States */
+
+/* Skeleton Loader */
+.skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--color-surface-elevated);
+    border-radius: var(--radius-md);
+}
+
+.skeleton::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    animation: skeleton-shimmer 2s infinite;
+}
+
+@keyframes skeleton-shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.skeleton-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Thinking Console Animation */
+.thinking-line {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(4px);
+    animation: rise-and-fade 1.5s ease-out forwards;
+    margin-bottom: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--color-primary);
+}
+
+@keyframes rise-and-fade {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+        filter: blur(4px);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+    100% {
+        opacity: 0.7;
+        transform: translateY(-5px);
+        filter: blur(1px);
+    }
+}
+
+.thinking-terminal {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    max-height: 200px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: var(--shadow-glow);
+}

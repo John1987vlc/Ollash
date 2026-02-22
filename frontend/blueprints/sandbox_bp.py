@@ -7,17 +7,23 @@ import logging
 import tempfile
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template
 
 from backend.utils.core.tools.wasm_sandbox import WasmSandbox, DockerSandbox, TestResult
 
 logger = logging.getLogger(__name__)
 
-sandbox_bp = Blueprint("sandbox", __name__, url_prefix="/api/sandbox")
+sandbox_bp = Blueprint("sandbox", __name__, url_prefix="/sandbox")
 
 # Initialize managers
 wasm_sandbox = WasmSandbox(logger=logger)
 docker_sandbox = DockerSandbox(logger=logger)
+
+
+@sandbox_bp.route("/")
+def sandbox_playground():
+    """Render the sandbox playground UI."""
+    return render_template("pages/sandbox.html")
 
 
 @sandbox_bp.route("/execute", methods=["POST"])

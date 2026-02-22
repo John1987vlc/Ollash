@@ -1,29 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}Governance & Policies - Ollash{% endblock %}
+
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/policies.css') }}">
+<style>
+    .policy-matrix {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: var(--spacing-xl);
+    }
+    
+    .policy-matrix th, .policy-matrix td {
+        padding: var(--spacing-md);
+        text-align: center;
+        border-bottom: 1px solid var(--color-border);
+    }
+    
+    .policy-matrix th {
+        background: var(--color-surface-elevated);
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        font-size: 0.85rem;
+    }
+    
+    .agent-row td:first-child {
+        text-align: left;
+        font-weight: 600;
+        color: var(--color-primary);
+    }
+    
+    /* Toggle Switch */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 40px;
+        height: 20px;
+    }
+    
+    .switch input { opacity: 0; width: 0; height: 0; }
+    
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: var(--color-surface-elevated);
+        transition: .4s;
+        border-radius: 20px;
+        border: 1px solid var(--color-border);
+    }
+    
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 14px;
+        width: 14px;
+        left: 3px;
+        bottom: 2px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+        background-color: var(--color-success);
+        border-color: var(--color-success);
+    }
+    
+    input:checked + .slider:before {
+        transform: translateX(18px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="view-header">
+    <h1>Agent Governance (RBAC)</h1>
+    <p class="subtitle">Control access permissions for autonomous agents.</p>
+</div>
+
+<div class="card-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Permission Matrix</h3>
+        <button class="btn-primary" onclick="savePolicies()">Save Changes</button>
+    </div>
+    
+    <table class="policy-matrix" id="rbac-table">
+        <thead>
+            <tr>
+                <th>Agent Role</th>
+                <th>File System</th>
+                <th>Network / API</th>
+                <th>CLI / Shell</th>
+                <th>Cybersecurity</th>
+            </tr>
+        </thead>
+        <tbody id="rbac-body">
+            <!-- Populated via JS -->
+        </tbody>
+    </table>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pages/policies.js') }}"></script>
 {% endblock %}
-
-            <!-- Policies View -->
-            <div class="view" id="policies-view">
-                <div class="view-header">
-                    <h1>Governance & Policies</h1>
-                    <p class="subtitle">Define execution guardrails and security constraints</p>
-                </div>
-                <div class="policies-container">
-                    <div class="policy-section">
-                        <h3>Allowed Commands</h3>
-                        <div id="policy-commands-list" class="tag-cloud"></div>
-                        <div class="input-group">
-                            <input type="text" id="new-command-input" placeholder="e.g., terraform">
-                            <button class="btn-secondary" onclick="addPolicyCommand()">Add</button>
-                        </div>
-                    </div>
-                    <div class="policy-section">
-                        <h3>Critical Paths</h3>
-                        <div id="policy-paths-list" class="tag-cloud"></div>
-                    </div>
-                </div>
-            </div>

@@ -1,5 +1,5 @@
 {
-  "saved_at": "2026-02-21T12:49:45.185744",
+  "saved_at": "2026-02-21T14:58:09.323098",
   "patterns": {
     "486535486817": {
       "pattern_id": "486535486817",
@@ -158,6 +158,118 @@
       "frequency": 1,
       "severity": "medium",
       "last_encountered": "2026-02-21T12:49:45.173148",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "f9c9f6bd86b5": {
+      "pattern_id": "f9c9f6bd86b5",
+      "error_type": "generation_failure",
+      "affected_file_type": ".css",
+      "description": "Error in src/css/variables.css: No content generated for src/css/variables.css",
+      "example_error": "No content generated for src/css/variables.css",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T14:31:09.286138",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "076d970d5e71": {
+      "pattern_id": "076d970d5e71",
+      "error_type": "generation_failure",
+      "affected_file_type": ".css",
+      "description": "Error in src/css/cards.css: No content generated for src/css/cards.css",
+      "example_error": "No content generated for src/css/cards.css",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T14:31:35.946770",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "fad47f6cee47": {
+      "pattern_id": "fad47f6cee47",
+      "error_type": "generation_failure",
+      "affected_file_type": ".css",
+      "description": "Error in src/css/responsive.css: No content generated for src/css/responsive.css",
+      "example_error": "No content generated for src/css/responsive.css",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T14:32:36.000396",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "b0cdcea9d002": {
+      "pattern_id": "b0cdcea9d002",
+      "error_type": "generation_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/js/index.js: No content generated for src/js/index.js",
+      "example_error": "No content generated for src/js/index.js",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T14:33:09.803022",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "d2e40bea227e": {
+      "pattern_id": "d2e40bea227e",
+      "error_type": "generation_failure",
+      "affected_file_type": ".mp3",
+      "description": "Error in src/assets/sounds/deal.mp3: No content generated for src/assets/sounds/deal.mp3",
+      "example_error": "No content generated for src/assets/sounds/deal.mp3",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T14:57:29.100035",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "4a9f872ea47b": {
+      "pattern_id": "4a9f872ea47b",
+      "error_type": "generation_failure",
+      "affected_file_type": ".wav",
+      "description": "Error in src/assets/sounds/bet.wav: No content generated for src/assets/sounds/bet.wav",
+      "example_error": "No content generated for src/assets/sounds/bet.wav",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T14:57:49.142570",
+      "tags": [
+        "generation_failure"
+      ]
+    },
+    "2ea6c40d9b0e": {
+      "pattern_id": "2ea6c40d9b0e",
+      "error_type": "generation_failure",
+      "affected_file_type": ".wav",
+      "description": "Error in src/assets/sounds/fold.wav: No content generated for src/assets/sounds/fold.wav",
+      "example_error": "No content generated for src/assets/sounds/fold.wav",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "unknown",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-02-21T14:58:09.310197",
       "tags": [
         "generation_failure"
       ]

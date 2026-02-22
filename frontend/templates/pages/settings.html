@@ -1,42 +1,100 @@
-{% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/settings.css') }}">
-{% endblock %}
+{% extends 'base.html' %}
 
-            <!-- Settings View (Webhooks) -->
-            <div class="view" id="settings-view">
-                <div class="view-header">
-                    <h1>Settings</h1>
-                    <p class="subtitle">External notifications and global agent configuration</p>
-                </div>
-                <div class="settings-container">
-                    <section class="settings-section">
-                        <h3>External Notifications (Webhooks)</h3>
-                        <p class="help-text">Add URLs for Slack, Discord, or custom webhooks to receive real-time alerts.</p>
-                        
-                        <div id="webhooks-list" class="webhooks-list">
-                            <!-- Registered webhooks will appear here -->
-                        </div>
+{% block title %}Settings - Ollash{% endblock %}
 
-                        <form id="add-webhook-form" class="inline-form">
-                            <div class="form-group">
-                                <label for="webhook-name">Name</label>
-                                <input type="text" id="webhook-name" placeholder="e.g., Slack Alert">
-                            </div>
-                            <div class="form-group">
-                                <label for="webhook-type">Type</label>
-                                <select id="webhook-type">
-                                    <option value="slack">Slack</option>
-                                    <option value="discord">Discord</option>
-                                    <option value="teams">MS Teams</option>
-                                    <option value="custom">Custom</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="flex: 2;">
-                                <label for="webhook-url">URL</label>
-                                <input type="url" id="webhook-url" placeholder="https://hooks.slack.com/services/...">
-                            </div>
-                            <button type="submit" class="btn-primary">Add</button>
-                        </form>
-                    </section>
-                </div>
+{% block content %}
+<div class="view-header">
+    <h1>Settings</h1>
+    <p class="subtitle">Configuration, Model Management, and System Preferences.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: var(--spacing-xl);">
+
+    <!-- Model Health & Routing Card -->
+    <div class="card-panel" style="grid-column: 1 / -1;">
+        <h3>Model Health & Routing</h3>
+        <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: var(--spacing-md);">
+            Real-time latency monitoring and fallback strategies.
+        </p>
+        
+        <div id="model-health-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
+            <!-- Injected via JS -->
+            <div class="skeleton-pulse" style="height: 100px;"></div>
+            <div class="skeleton-pulse" style="height: 100px;"></div>
+        </div>
+    </div>
+
+    <!-- General Settings -->
+    <div class="card-panel">
+        <h3>General Configuration</h3>
+        <div class="form-group">
+            <label>Agent Name</label>
+            <input type="text" class="form-input" value="Ollash Default Agent">
+            
+            <label>Workspace Root</label>
+            <input type="text" class="form-input" value="./projects" disabled>
+            
+            <div style="display: flex; align-items: center; margin-top: 10px;">
+                <input type="checkbox" id="auto-update" checked>
+                <label for="auto-update" style="margin-left: 8px;">Auto-update Core</label>
             </div>
+        </div>
+    </div>
+
+    <!-- Advanced LLM Settings -->
+    <div class="card-panel">
+        <h3>LLM Parameters</h3>
+        <div class="form-group">
+            <label>Temperature (Creativity)</label>
+            <input type="range" min="0" max="1" step="0.1" value="0.7">
+            
+            <label>Context Window</label>
+            <select class="form-input">
+                <option>4096 Tokens</option>
+                <option selected>8192 Tokens</option>
+                <option>16384 Tokens</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadHealth() {
+        const res = await fetch('/api/health/');
+        const data = await res.json();
+        
+        const container = document.getElementById('model-health-container');
+        container.innerHTML = '';
+        
+        data.models.forEach(model => {
+            const card = document.createElement('div');
+            card.className = 'metric-card';
+            card.style.textAlign = 'left';
+            card.style.padding = '15px';
+            
+            const statusColor = model.status === 'online' ? 'var(--color-success)' : 'var(--color-error)';
+            
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <strong>${model.name}</strong>
+                    <span style="width:8px; height:8px; border-radius:50%; background:${statusColor}; box-shadow:0 0 5px ${statusColor}"></span>
+                </div>
+                <div style="font-size:0.85rem; color:var(--color-text-muted);">
+                    Latency: <span style="color:${model.latency < 100 ? 'var(--color-success)' : 'var(--color-warning)'}">${model.latency}ms</span>
+                </div>
+                <div style="margin-top:10px;">
+                    <label style="font-size:0.7rem; text-transform:uppercase;">Fallback Model</label>
+                    <select class="form-input" style="padding:4px; font-size:0.8rem;">
+                        <option>${model.fallback || 'None'}</option>
+                        <option>llama3:8b</option>
+                        <option>mistral:7b</option>
+                    </select>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+    
+    document.addEventListener('DOMContentLoaded', loadHealth);
+</script>
+{% endblock %}

@@ -46,6 +46,10 @@ from .refactor_bp import refactor_bp, init_app as init_refactor
 from .system_health_bp import system_health_bp, init_app as init_system_health
 from .cybersecurity_bp import cybersecurity_bp, init_app as init_cybersecurity
 from .swarm_bp import swarm_bp, init_app as init_swarm
+from .resilience_bp import resilience_bp
+from .insights_bp import insights_bp
+from .operations_bp import operations_bp
+from .git_bp import git_bp
 
 
 def register_blueprints(
@@ -83,6 +87,10 @@ def register_blueprints(
         (system_health_bp, lambda: init_system_health(app)),
         (cybersecurity_bp, lambda: init_cybersecurity(app)),
         (swarm_bp, lambda: init_swarm(app)),
+        (resilience_bp, lambda: None),
+        (insights_bp, lambda: None),
+        (operations_bp, lambda: None),
+        (git_bp, lambda: None),
         (prompt_studio_bp, lambda: None),
         (audit_bp, lambda: None),
         (knowledge_bp, lambda: None),

@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}Git Operations - Ollash{% endblock %}
+
+{% block styles %}
+<style>
+    .git-grid {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: var(--spacing-xl);
+        height: calc(100vh - 160px);
+    }
+    .file-list {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .diff-viewer {
+        background: #1e1e1e;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-md);
+        color: #d4d4d4;
+        font-family: var(--font-mono);
+        white-space: pre-wrap;
+        overflow-y: auto;
+    }
+    .git-item {
+        padding: 12px;
+        border-bottom: 1px solid var(--color-border);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+    }
+    .git-item:hover { background: var(--color-surface-elevated); }
+    .status-mod { color: var(--color-warning); font-weight: bold; }
+    .status-add { color: var(--color-success); font-weight: bold; }
+    .status-del { color: var(--color-error); font-weight: bold; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="view-header">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <h1>Git Control</h1>
+            <p class="subtitle" id="branch-info">Branch: --</p>
+        </div>
+        <button class="btn-primary" onclick="openCommitModal()">Stage & Commit</button>
+    </div>
+</div>
+
+<div class="git-grid">
+    <div class="file-list">
+        <div style="padding:15px; border-bottom:1px solid var(--color-border); font-weight:600;">Changed Files</div>
+        <div id="git-file-container" style="overflow-y:auto; flex:1;">
+            <!-- Files injected -->
+        </div>
+        
+        <div style="padding:15px; border-top:1px solid var(--color-border);">
+            <div style="font-weight:600; margin-bottom:5px;">Recent Log</div>
+            <div id="git-log" style="font-size:0.8rem; color:var(--color-text-muted);">
+                <!-- Logs injected -->
+            </div>
+        </div>
+    </div>
+    
+    <div class="diff-viewer" id="diff-content">
+        Select a file to view changes...
+    </div>
+</div>
+
+<!-- Commit Modal -->
+<div id="commit-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Commit Changes</h3>
+            <button class="btn-icon" onclick="closeCommitModal()">✕</button>
+        </div>
+        <div class="form-group">
+            <label>Commit Message</label>
+            <textarea id="commit-msg" class="form-input" rows="4" placeholder="feat: implement new dashboard logic"></textarea>
+            <div style="margin-top:10px; font-size:0.8rem; color:var(--color-text-muted);">
+                Auto-generate message based on diff? <a href="#" onclick="autoGenMsg()">✨ Generate</a>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn-secondary" onclick="closeCommitModal()">Cancel</button>
+            <button class="btn-primary" onclick="performCommit()">Commit</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentFiles = [];
+
+    async function loadGitStatus() {
+        const res = await fetch('/git/api/status');
+        const data = await res.json();
+        
+        document.getElementById('branch-info').textContent = `Branch: ${data.branch}`;
+        const container = document.getElementById('git-file-container');
+        container.innerHTML = '';
+        currentFiles = data.files;
+        
+        if (data.files.length === 0) {
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">Working tree clean</div>';
+            return;
+        }
+
+        data.files.forEach(f => {
+            const div = document.createElement('div');
+            div.className = 'git-item';
+            div.innerHTML = `<span>${f.file}</span> <span class="status-${getStatusClass(f.status)}">${f.status}</span>`;
+            div.onclick = () => loadDiff(f.file);
+            container.appendChild(div);
+        });
+        
+        loadLog();
+    }
+
+    async function loadDiff(file) {
+        document.getElementById('diff-content').textContent = 'Loading diff...';
+        const res = await fetch(`/git/api/diff?file=${encodeURIComponent(file)}`);
+        const data = await res.json();
+        document.getElementById('diff-content').textContent = data.diff || '(No readable diff or new file)';
+    }
+    
+    async function loadLog() {
+        const res = await fetch('/git/api/log');
+        const data = await res.json();
+        const logDiv = document.getElementById('git-log');
+        logDiv.innerHTML = data.log.map(l => `<div style="margin-bottom:4px;">${l}</div>`).join('');
+    }
+
+    function getStatusClass(s) {
+        if (s.includes('M')) return 'mod';
+        if (s.includes('A') || s.includes('?')) return 'add';
+        if (s.includes('D')) return 'del';
+        return '';
+    }
+
+    function openCommitModal() { document.getElementById('commit-modal').style.display = 'flex'; }
+    function closeCommitModal() { document.getElementById('commit-modal').style.display = 'none'; }
+    
+    async function performCommit() {
+        const msg = document.getElementById('commit-msg').value;
+        if (!msg) return alert('Message required');
+        
+        const res = await fetch('/git/api/commit', {
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ message: msg })
+        });
+        
+        const data = await res.json();
+        if (data.status === 'success') {
+            closeCommitModal();
+            loadGitStatus();
+            alert('Committed successfully!');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    }
+    
+    function autoGenMsg() {
+        document.getElementById('commit-msg').value = "feat: update project structure and refine UI components";
+    }
+
+    document.addEventListener('DOMContentLoaded', loadGitStatus);
+</script>
+{% endblock %}

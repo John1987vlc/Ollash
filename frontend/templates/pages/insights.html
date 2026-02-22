@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+
+{% block title %}Analytics & Insights - Ollash{% endblock %}
+
+{% block styles %}
+<style>
+    .insights-container {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xl);
+        margin-top: var(--spacing-xl);
+    }
+
+    .report-summary-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-xl);
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-md);
+        box-shadow: var(--shadow-md);
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--spacing-lg);
+    }
+
+    .metric-item {
+        background: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-md);
+        text-align: center;
+        transition: transform 0.3s ease;
+    }
+
+    .metric-item:hover {
+        transform: translateY(-3px);
+        border-color: var(--color-primary);
+    }
+
+    .metric-value-large {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--color-primary);
+        margin: var(--spacing-sm) 0;
+    }
+
+    .metric-label-small {
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .insight-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--color-primary);
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin-bottom: var(--spacing-md);
+    }
+
+    .score-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 8px solid var(--color-border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0 auto;
+        position: relative;
+    }
+
+    .score-circle::after {
+        content: "";
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        border: 8px solid var(--color-primary);
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    }
+
+    .recommendations-list {
+        list-style: none;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .recommendation-item {
+        background: var(--color-bg);
+        border-left: 4px solid var(--color-primary);
+        padding: var(--spacing-md);
+        border-radius: 0 var(--radius-md) var(--radius-md) 0;
+        font-size: 0.95rem;
+    }
+
+    .chart-panel {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-xl);
+    }
+
+    .export-buttons {
+        display: flex;
+        gap: var(--spacing-md);
+        margin-top: var(--spacing-xl);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="view-header">
+    <h1>Analytics & Insights</h1>
+    <p class="subtitle">Intelligent activity reports and performance trends.</p>
+</div>
+
+<div class="insights-container">
+    <div class="report-summary-card" id="report-summary-section">
+        <div class="insight-pill">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+            Weekly Digest - {{ now }}
+        </div>
+
+        <div style="display: flex; gap: var(--spacing-xl); flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 300px;">
+                <h2 style="font-size: 1.5rem; margin-bottom: var(--spacing-sm);" id="report-title">Generating report...</h2>
+                <p id="report-summary-text" style="color: var(--color-text-muted); line-height: 1.6;">Please wait while we analyze your system activity.</p>
+                
+                <div class="metrics-grid" style="margin-top: var(--spacing-xl);">
+                    <div class="metric-item">
+                        <div class="metric-label-small">Lines of Code</div>
+                        <div class="metric-value-large" id="metric-loc">--</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label-small">Auto-corrected</div>
+                        <div class="metric-value-large" id="metric-fixed">--</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label-small">Time Saved</div>
+                        <div class="metric-value-large" id="metric-time">--h</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="width: 200px; text-align: center;">
+                <div class="metric-label-small" style="margin-bottom: var(--spacing-md);">Performance Score</div>
+                <div class="score-circle" id="performance-score">--</div>
+                <div style="margin-top: var(--spacing-lg);">
+                    <span class="status-badge status-success" id="report-status">Good</span>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: var(--spacing-xl);">
+            <h3>Recommendations</h3>
+            <div class="recommendations-list" id="recommendations-list">
+                <!-- Recommendations will be populated -->
+            </div>
+        </div>
+
+        <div class="export-buttons">
+            <button class="btn-primary" id="export-md-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path>
+                </svg>
+                Export Markdown
+            </button>
+            <button class="btn-secondary" id="export-html-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                Export HTML
+            </button>
+        </div>
+    </div>
+
+    <div class="chart-panel">
+        <h3>Activity Trends (Last 7 Days)</h3>
+        <div style="height: 300px; margin-top: var(--spacing-md);">
+            <canvas id="trendsChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentReportId = null;
+
+    async function fetchInsights() {
+        try {
+            const res = await fetch('/api/reports/weekly');
+            const data = await res.json();
+            
+            if (data.error) throw new Error(data.error);
+
+            currentReportId = data.id;
+
+            // Update UI
+            document.getElementById('report-title').textContent = data.title;
+            document.getElementById('report-summary-text').textContent = data.summary;
+            document.getElementById('performance-score').textContent = Math.round(data.performance_score);
+            
+            // Map custom metrics
+            const loc = data.metrics.find(m => m.name === 'Lines Of Code Generated');
+            const fixed = data.metrics.find(m => m.name === 'Auto Corrected Errors');
+            const time = data.metrics.find(m => m.name === 'Time Saved Hours');
+
+            if (loc) document.getElementById('metric-loc').textContent = loc.value;
+            if (fixed) document.getElementById('metric-fixed').textContent = fixed.value;
+            if (time) document.getElementById('metric-time').textContent = time.value + 'h';
+
+            // Populate recommendations
+            const recList = document.getElementById('recommendations-list');
+            recList.innerHTML = '';
+            data.recommendations.forEach(rec => {
+                const item = document.createElement('div');
+                item.className = 'recommendation-item';
+                item.textContent = rec;
+                recList.appendChild(item);
+            });
+
+            // Initialize Trend Chart
+            initTrendChart(data.trends);
+
+        } catch (error) {
+            console.error('Error fetching insights:', error);
+            document.getElementById('report-title').textContent = 'Error Generating Report';
+        }
+    }
+
+    function initTrendChart(trends) {
+        const ctx = document.getElementById('trendsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Productivity Score',
+                    data: [65, 78, 82, 75, 90, 85, 94],
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a1a1aa' } },
+                    x: { grid: { display: false }, ticks: { color: '#a1a1aa' } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    document.getElementById('export-md-btn').onclick = () => {
+        if (currentReportId) window.location.href = `/api/reports/export/${currentReportId}?format=markdown`;
+    };
+
+    document.getElementById('export-html-btn').onclick = () => {
+        if (currentReportId) window.location.href = `/api/reports/export/${currentReportId}?format=html`;
+    };
+
+    document.addEventListener('DOMContentLoaded', fetchInsights);
+</script>
+{% endblock %}

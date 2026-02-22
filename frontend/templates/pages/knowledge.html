@@ -93,11 +93,12 @@
 
 <div id="vector-tab" class="tab-content active">
     <div class="knowledge-container">
-        <div class="upload-zone" id="kb-upload-zone">
+        <div class="upload-zone" id="kb-upload-zone" style="border: 2px dashed var(--color-primary); padding: 40px; background: rgba(99, 102, 241, 0.05);">
             <input type="file" id="kb-file-input" multiple hidden>
-            <div class="upload-icon">&#x2139;</div>
-            <p>Drag & drop documents here or <span>browse</span></p>
-            <small>Supports PDF, MD, TXT (Max 50MB)</small>
+            <div class="upload-icon" style="font-size: 2rem; margin-bottom: 10px;">📄 👁️</div>
+            <p style="font-size: 1.1rem; font-weight: 500;">Drag & drop Documents or Images for OCR Ingestion</p>
+            <p style="font-size: 0.9rem; color: var(--color-text-muted);">Supports PDF, PNG, JPG, MD, TXT (Auto-OCR enabled)</p>
+            <button class="btn-secondary" style="margin-top: 15px;" onclick="document.getElementById('kb-file-input').click()">Browse Files</button>
         </div>
         <div class="kb-document-list">
             <h3>Indexed Documents</h3>
