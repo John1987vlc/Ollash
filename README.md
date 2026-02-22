@@ -91,6 +91,21 @@ The frontend has been refactored to a component-based architecture:
 - **`frontend/schemas/`** — Pydantic v2 request schemas for blueprint API validation.
 - **`package.json` + `vite.config.js`** — Optional Vite bundling (activate with `USE_VITE_ASSETS=true` in `.env`).
 
+### v1.2.1 Backend Modularization
+
+`CoreAgent` was refactored from 768 to ~350 lines by extracting two new focused modules:
+
+| New module | Responsibility |
+|---|---|
+| `backend/core/language_standards.py` | `frozenset` constants for Python stdlib, Node builtins, Go stdlib, and import-to-package mappings. Single source of truth shared by agents and scanners. |
+| `backend/utils/core/analysis/scanners/dependency_reconciler.py` | `DependencyReconciler` — reconciles `requirements.txt`, `package.json`, `go.mod`, and `Cargo.toml` with actual imports. Extracted from `CoreAgent`. |
+
+`CoreAgent` now imports language constants from `language_standards` and delegates all reconciliation to `DependencyReconciler`, keeping the base class focused on its abstract agent contract.
+
+**Bug fixes (CI/CD):**
+- `JavaScriptOptimizationPhase`: added missing `await` on async `.chat()` calls (caused `TypeError` on Python 3.11).
+- `JavascriptValidator`: extended poker-function regex to match ES6 class method syntax (`shuffle() {}`).`
+
 ### CI/CD Pipeline
 
 The GitHub Actions pipeline runs jobs in parallel for minimal wall-clock time:

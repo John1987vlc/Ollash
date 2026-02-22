@@ -97,9 +97,10 @@ class JavascriptValidator(BaseValidator):
         is_poker_file = any(kw in file_path.lower() or kw in content.lower() for kw in ["poker", "hand", "deck", "card"])
         if is_poker_file:
             # Core functions expected in a game logic file
+            # Updated to support ES6 class methods (shuffle() { ... })
             core_patterns = {
-                "shuffle": r"function\s+shuffle|shuffle\s*=\s*\(|shuffle\s*:",
-                "deal": r"function\s+deal|deal\s*=\s*\(|deal\s*:",
+                "shuffle": r"function\s+shuffle|shuffle\s*=\s*\(|shuffle\s*:|shuffle\s*\(",
+                "deal": r"function\s+deal|deal\s*=\s*\(|deal\s*:|deal\s*\(",
                 "evaluate": r"evaluate|handValue|rank"
             }
             

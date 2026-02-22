@@ -68,7 +68,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
             
             # Simplified fix call (would normally use a specialized method)
             system = "You are a web developer. Fix HTML to match JS requirements. Return ONLY the full corrected HTML code."
-            response, _ = self.context.llm_manager.get_client("coder").chat(
+            response, _ = await self.context.llm_manager.get_client("coder").chat(
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": f"HTML:\n{html}\n\nTask: {fix_prompt}"}
@@ -96,7 +96,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
                   "Look for mismatched function names, missing exports, or logical disconnects. "
                   "If you find an error, provide a FIX for the specific file. Respond in XML <fix file='path'>code</fix> format.")
         
-        response, _ = self.context.llm_manager.get_client("coder").chat(
+        response, _ = await self.context.llm_manager.get_client("coder").chat(
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": f"JS Files Overview:\n{project_summary}"}
