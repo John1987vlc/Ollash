@@ -37,6 +37,7 @@ disallow_untyped_defs = true
 warn_unused_configs = true
 ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
+exclude = ["tests/", "legacy/", "frontend/static/"]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true
@@ -46,3 +47,22 @@ warn_required_dynamic_aliases = true
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 timeout = 120
+
+[tool.coverage.run]
+source = ["backend"]
+omit = ["*/tests/*", "*/legacy/*", "*/__init__.py", "*/migrations/*"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 40
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"

@@ -5,7 +5,14 @@ Exposes functionality from CybersecurityTools and VulnerabilityScanner.
 
 from pathlib import Path
 from flask import Blueprint, current_app, jsonify, request
+from pydantic import ValidationError
 
+from frontend.schemas.cybersecurity_schemas import (
+    IntegrityCheckRequest,
+    LogAnalysisRequest,
+    PortScanRequest,
+    VulnScanRequest,
+)
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.system.structured_logger import StructuredLogger
 from backend.utils.core.command_executor import CommandExecutor
@@ -44,16 +51,13 @@ def scan_ports():
     Payload: { "host": "localhost", "common_ports_only": true }
     """
     try:
-        data = request.get_json()
-        if not data or "host" not in data:
-            return jsonify({"ok": False, "error": "Missing 'host' parameter"}), 400
+        body = PortScanRequest.model_validate(request.get_json() or {})
+    except ValidationError as exc:
+        return jsonify({"ok": False, "error": exc.errors()}), 422
 
-        host = data["host"]
-        common_only = data.get("common_ports_only", True)
-
+    try:
         managers = get_cybersecurity_managers()
-        result = managers["tools"].scan_ports(host, common_only)
-
+        result = managers["tools"].scan_ports(body.host, body.common_ports_only)
         return jsonify(result), 200
     except Exception as e:
         current_app.logger.error(f"Error in scan_ports: {e}")
@@ -66,21 +70,21 @@ def scan_vulnerabilities():
     Payload: { "path": "src/app.py" }
     """
     try:
-        data = request.get_json()
-        if not data or "path" not in data:
-            return jsonify({"ok": False, "error": "Missing 'path' parameter"}), 400
+        body = VulnScanRequest.model_validate(request.get_json() or {})
+    except ValidationError as exc:
+        return jsonify({"ok": False, "error": exc.errors()}), 422
 
-        rel_path = data["path"]
+    try:
         project_root = current_app.config.get("ollash_root_dir", Path.cwd())
-        full_path = project_root / rel_path
+        full_path = project_root / body.path
 
         if not full_path.exists():
-            return jsonify({"ok": False, "error": f"File not found: {rel_path}"}), 404
+            return jsonify({"ok": False, "error": f"File not found: {body.path}"}), 404
 
         content = full_path.read_text(encoding="utf-8", errors="ignore")
 
         managers = get_cybersecurity_managers()
-        result = managers["scanner"].scan_file(rel_path, content)
+        result = managers["scanner"].scan_file(body.path, content)
 
         return jsonify({"ok": True, "result": result.to_dict()}), 200
     except Exception as e:
@@ -94,22 +98,19 @@ def check_integrity():
     Payload: { "path": "file.txt", "expected_hash": "...", "algorithm": "sha256" }
     """
     try:
-        data = request.get_json()
-        if not data or "path" not in data or "expected_hash" not in data:
-            return jsonify({"ok": False, "error": "Missing required parameters"}), 400
+        body = IntegrityCheckRequest.model_validate(request.get_json() or {})
+    except ValidationError as exc:
+        return jsonify({"ok": False, "error": exc.errors()}), 422
 
-        path = data["path"]
-        expected = data["expected_hash"]
-        algo = data.get("algorithm", "sha256")
-
+    try:
         managers = get_cybersecurity_managers()
-        res = managers["tools"].check_file_hash(path, algo)
+        res = managers["tools"].check_file_hash(body.path, body.algorithm)
 
         if res["ok"]:
             actual_hash = res["result"]["hash"]
-            match = actual_hash.lower() == expected.lower()
+            match = actual_hash.lower() == body.expected_hash.lower()
             res["result"]["match"] = match
-            res["result"]["expected_hash"] = expected
+            res["result"]["expected_hash"] = body.expected_hash
 
         return jsonify(res), 200
     except Exception as e:
@@ -122,16 +123,13 @@ def analyze_logs():
     Payload: { "path": "logs/auth.log", "keywords": ["FAILED"] }
     """
     try:
-        data = request.get_json()
-        if not data or "path" not in data:
-            return jsonify({"ok": False, "error": "Missing 'path' parameter"}), 400
+        body = LogAnalysisRequest.model_validate(request.get_json() or {})
+    except ValidationError as exc:
+        return jsonify({"ok": False, "error": exc.errors()}), 422
 
-        path = data["path"]
-        keywords = data.get("keywords")
-
+    try:
         managers = get_cybersecurity_managers()
-        result = managers["tools"].analyze_security_log(path, keywords)
-
+        result = managers["tools"].analyze_security_log(body.path, body.keywords)
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500

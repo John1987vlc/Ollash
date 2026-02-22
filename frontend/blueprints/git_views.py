@@ -2,6 +2,10 @@ from flask import Blueprint, render_template, jsonify, request
 import subprocess
 import os
 
+from pydantic import ValidationError
+
+from frontend.schemas.git_schemas import GitCommitRequest
+
 bp = Blueprint('git', __name__, url_prefix='/git')
 
 # Helper to run git commands
@@ -54,16 +58,17 @@ def get_diff():
 
 @bp.route('/api/commit', methods=['POST'])
 def commit_changes():
-    data = request.json
-    message = data.get('message', 'Update from Ollash')
-    files = data.get('files', ['.']) # Default to all
-    
+    try:
+        body = GitCommitRequest.model_validate(request.get_json() or {})
+    except ValidationError as exc:
+        return jsonify({"status": "error", "error": exc.errors()}), 422
+
     # Stage
-    run_git(['add'] + files)
-    
+    run_git(['add'] + body.files)
+
     # Commit
-    res = run_git(['commit', '-m', message])
-    
+    res = run_git(['commit', '-m', body.message])
+
     if res.get('code') == 0:
         return jsonify({"status": "success", "output": res.get('stdout')})
     return jsonify({"status": "error", "error": res.get('stderr')}), 500

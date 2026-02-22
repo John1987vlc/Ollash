@@ -17,7 +17,15 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/artifact-renderer.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
+
+    <!-- Apply persisted theme immediately to prevent flash of wrong theme -->
+    <script>
+        (function() {
+            var t = localStorage.getItem('ollash-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+        }());
+    </script>
+
     <!-- Global Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
@@ -117,6 +125,13 @@
     </div>
 
     <!-- Global Core Scripts -->
+    <!-- Foundation: store and theme-manager must load before all other modules -->
+    <script src="{{ url_for('static', filename='js/core/store.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/theme-manager.js') }}"></script>
+    <!-- Reusable UI components -->
+    <script src="{{ url_for('static', filename='js/components/modal-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/confirm-dialog.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/notification-toast.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/ui-animations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/alert-handler.js') }}"></script>

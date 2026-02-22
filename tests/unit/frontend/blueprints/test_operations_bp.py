@@ -76,8 +76,8 @@ def test_delete_job_not_found(client):
 
 @pytest.mark.unit
 def test_preview_dag(client):
-    """POST /operations/api/dag/preview genera un DAG con las tareas dadas."""
-    payload = {"tasks": ["task_a", "task_b", "task_c"]}
+    """POST /operations/api/dag/preview genera un DAG con la tarea dada."""
+    payload = {"task": "Implement user authentication and session management"}
     response = client.post(
         "/operations/api/dag/preview",
         json=payload,
@@ -86,3 +86,16 @@ def test_preview_dag(client):
     assert response.status_code in (200, 400)
     data = response.get_json()
     assert data is not None
+
+
+@pytest.mark.unit
+def test_preview_dag_missing_task_returns_422(client):
+    """POST /operations/api/dag/preview sin 'task' retorna 422 (validación Pydantic)."""
+    response = client.post(
+        "/operations/api/dag/preview",
+        json={"tasks": ["wrong_field"]},
+        content_type="application/json",
+    )
+    assert response.status_code == 422
+    data = response.get_json()
+    assert "error" in data

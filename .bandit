@@ -1,0 +1,5 @@
+[bandit]
+exclude_dirs = tests,legacy,.venv,frontend/static
+skips =
+    B101,
+    B601

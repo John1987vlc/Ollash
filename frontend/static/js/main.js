@@ -3,15 +3,15 @@
  * High-level orchestration, SPA routing, and global state management.
  */
 
-// Global Helpers for Modals (called from HTML onclick)
+// Global Helpers for Modals (called from HTML onclick — delegate to ModalManager)
 window.closeAutomationModal = function() {
-    const modal = document.getElementById('automation-modal');
-    if (modal) modal.style.display = 'none';
+    if (window.ModalManager) ModalManager.close('automation-modal');
+    else { const m = document.getElementById('automation-modal'); if (m) m.style.display = 'none'; }
 };
 
 window.closeNotificationModal = function() {
-    const modal = document.getElementById('notification-config-modal');
-    if (modal) modal.style.display = 'none';
+    if (window.ModalManager) ModalManager.close('notification-config-modal');
+    else { const m = document.getElementById('notification-config-modal'); if (m) m.style.display = 'none'; }
 };
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -262,20 +262,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==================== Theme Management ====================
-    function setTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('ollash-theme', theme);
-        if (window.monacoEditor) {
-            monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs-light');
-        }
-    }
-
-    if (themeToggle) {
+    // ThemeManager handles persistence, data-theme attribute, and aria-pressed.
+    // We add Monaco Editor integration here since ThemeManager doesn't know about it.
+    if (window.ThemeManager) {
+        ThemeManager.init();
+        OllashStore.subscribe('theme', function(theme) {
+            if (window.monacoEditor && typeof monaco !== 'undefined') {
+                monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs-light');
+            }
+        });
+    } else if (themeToggle) {
+        // Fallback if ThemeManager hasn't loaded
         const savedTheme = localStorage.getItem('ollash-theme') || 'dark';
-        setTheme(savedTheme);
+        document.documentElement.setAttribute('data-theme', savedTheme);
         themeToggle.addEventListener('click', () => {
             const current = document.documentElement.getAttribute('data-theme') || 'dark';
-            setTheme(current === 'dark' ? 'light' : 'dark');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('ollash-theme', next);
         });
     }
 
@@ -351,9 +355,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Global messaging bridge
+    // Global messaging bridge — delegates to NotificationToast if available
     window.showMessage = function(msg, type) {
-        if (window.notificationService) window.notificationService[type === 'error' ? 'error' : 'info'](msg);
-        else console.log(`[${type}] ${msg}`);
+        if (window.NotificationToast) {
+            NotificationToast.show(msg, type || 'info');
+        } else if (window.notificationService) {
+            window.notificationService[type === 'error' ? 'error' : 'info'](msg);
+        } else {
+            console.log(`[${type}] ${msg}`);
+        }
     };
+
+    // Initialize component managers
+    if (window.ModalManager) ModalManager.init();
+    if (window.ConfirmDialog) ConfirmDialog.init();
 });

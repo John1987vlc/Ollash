@@ -6,43 +6,259 @@ on:
   pull_request:
     branches: [ master, main ]
 
+# Cancel duplicate runs on the same branch/PR immediately
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─── Jobs ────────────────────────────────────────────────────────────────────
+#
+# Execution graph (all 3 start immediately in parallel):
+#
+#   lint ─────────────────────────────────────────────────── (informational)
+#   unit-tests ──┬── integration-tests (parallel after unit pass)
+#                └── e2e-tests         (parallel after unit pass)
+#   security ─────────────────────────────────────────────── (informational)
+#
+# If unit-tests fails → integration-tests & e2e-tests are skipped automatically.
+# If lint fails → unit/integration/e2e still run (give full feedback quickly).
+
 jobs:
-  test:
+
+# ── Lint & Type-check (starts immediately) ────────────────────────────────────
+  lint:
+    name: Lint & Type-check
     runs-on: ubuntu-latest
-    
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Cache pip (lint)
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-lint-${{ hashFiles('requirements*.txt') }}
+        restore-keys: ${{ runner.os }}-pip-lint-
+
+    - name: Install quality tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    # Fast gate first: syntax errors & undefined names → fail immediately
+    - name: Ruff check (critical errors only — fast gate)
+      run: ruff check backend/ frontend/ tests/ --select=E9,F63,F7,F82
+
+    # Full lint only if fast gate passes
+    - name: Ruff check (full rules)
+      run: ruff check backend/ frontend/ tests/
+
+    - name: Ruff format check
+      run: ruff format --check backend/ frontend/ tests/
+
+    - name: Flake8 style check
+      run: flake8 backend/ frontend/ tests/ --max-line-length=120 --extend-ignore=E501,W503
+
+    - name: Mypy type check (informational)
+      run: mypy backend/ --ignore-missing-imports --no-strict-optional
+      continue-on-error: true
+
+# ── Unit Tests (starts immediately in parallel with lint) ────────────────────
+  unit-tests:
+    name: Unit Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    # No dependency on lint — runs in parallel for faster total feedback
+
     strategy:
+      fail-fast: true   # Cancel the other Python version immediately on failure
       matrix:
         python-version: ["3.10", "3.11"]
 
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    
+
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-unit-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt') }}
+        restore-keys: ${{ runner.os }}-pip-unit-${{ matrix.python-version }}-
+
+    - name: Cache pytest
+      uses: actions/cache@v4
+      with:
+        path: .pytest_cache
+        key: ${{ runner.os }}-pytest-${{ matrix.python-version }}-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-pytest-${{ matrix.python-version }}-
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
-        playwright install chromium
-        
-    - name: Lint with Ruff
+
+    - name: Run unit tests with coverage
       run: |
-        # Stop the build if there are Python syntax errors or undefined names
-        ruff check backend/ frontend/ tests/ --select=E9,F63,F7,F82 --ignore=E501
-        
-    - name: Run Unit Tests
+        pytest tests/unit/ -n auto --dist=loadfile \
+          --cov=backend --cov-report=xml --cov-report=html \
+          -v --tb=short
+      env:
+        PYTHONPATH: .
+
+    - name: Upload coverage report (3.11 only)
+      if: matrix.python-version == '3.11'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: htmlcov/
+        retention-days: 14
+
+    - name: Upload coverage XML (3.11 only)
+      if: matrix.python-version == '3.11'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-xml
+        path: coverage.xml
+        retention-days: 14
+
+# ── Integration Tests (starts after unit-tests pass) ─────────────────────────
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    # Skipped automatically if unit-tests fails
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-integration-${{ hashFiles('requirements*.txt') }}
+        restore-keys: ${{ runner.os }}-pip-integration-
+
+    - name: Install dependencies
       run: |
-        pytest tests/unit/
-        
-    - name: Run E2E Tests (Headless)
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Run integration tests
+      run: pytest tests/integration/ -v --tb=short
+      env:
+        PYTHONPATH: .
+
+# ── E2E Tests (starts after unit-tests pass, in parallel with integration) ───
+  e2e-tests:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    # Runs in parallel with integration-tests — both start as soon as unit-tests pass
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Cache pip (E2E)
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-e2e-${{ hashFiles('requirements*.txt') }}
+        restore-keys: ${{ runner.os }}-pip-e2e-
+
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ hashFiles('requirements-dev.txt') }}
+        restore-keys: playwright-
+
+    - name: Install dependencies
       run: |
-        # Start the Flask app in background is handled by the fixture in conftest.py
-        # But we need to ensure port availability.
-        # Running pytest will handle the server start/stop.
-        pytest tests/e2e/
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Install Playwright browsers
+      run: playwright install chromium --with-deps
+
+    - name: Run E2E tests
+      run: pytest tests/e2e/ -m e2e -v --tb=short
       env:
         FLASK_ENV: testing
+        PYTHONPATH: .
+
+    - name: Upload Playwright traces on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-traces
+        path: test-results/traces/
+        retention-days: 7
+
+    - name: Upload Playwright screenshots on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-screenshots
+        path: test-results/screenshots/
+        retention-days: 7
+
+# ── Security Scan (starts immediately in parallel, informational) ─────────────
+  security:
+    name: Security Scan (SCA)
+    runs-on: ubuntu-latest
+    # No dependency — runs in parallel with lint and unit-tests
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Cache pip (security)
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-security-${{ hashFiles('requirements*.txt') }}
+        restore-keys: ${{ runner.os }}-pip-security-
+
+    - name: Install security tools only
+      run: |
+        python -m pip install --upgrade pip
+        pip install "bandit>=1.7.9" "safety>=3.0.0"
+
+    - name: Bandit SAST scan
+      run: |
+        bandit -r backend/ -ll -f json -o bandit-report.json || true
+        bandit -r backend/ -ll
+      continue-on-error: true
+
+    - name: Upload Bandit report
+      uses: actions/upload-artifact@v4
+      with:
+        name: bandit-report
+        path: bandit-report.json
+        retention-days: 30
+
+    - name: Safety dependency vulnerability scan
+      run: safety check -r requirements.txt --output text
+      continue-on-error: true

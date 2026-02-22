@@ -1,6 +1,9 @@
 from flask import Blueprint, render_template, jsonify, request
 import uuid
 from datetime import datetime, timedelta
+from pydantic import ValidationError
+
+from frontend.schemas.operations_schemas import DagPreviewRequest, JobCreateRequest
 
 # Mocking backend imports if they don't exist yet for the UI demo
 try:
@@ -29,11 +32,15 @@ def operations_dashboard():
 @bp.route('/api/jobs', methods=['GET', 'POST'])
 def handle_jobs():
     if request.method == 'POST':
-        data = request.json
+        try:
+            body = JobCreateRequest.model_validate(request.json or {})
+        except ValidationError as exc:
+            return jsonify({"error": exc.errors()}), 422
+
         new_job = {
             "id": f"job_{uuid.uuid4().hex[:8]}",
-            "name": data.get('name', 'Untitled Task'),
-            "cron": data.get('cron', '* * * * *'),
+            "name": body.name,
+            "cron": body.cron,
             "next_run": (datetime.now() + timedelta(days=1)).isoformat(),
             "status": "active"
         }
@@ -50,7 +57,12 @@ def delete_job(job_id):
 @bp.route('/api/dag/preview', methods=['POST'])
 def preview_dag():
     """Generates a visual execution plan (DAG) for a complex task."""
-    task_description = request.json.get('task')
+    try:
+        body = DagPreviewRequest.model_validate(request.json or {})
+    except ValidationError as exc:
+        return jsonify({"error": exc.errors()}), 422
+
+    task_description = body.task
     
     # Mock DAG generation
     dag = {
