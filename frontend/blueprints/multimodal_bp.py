@@ -14,6 +14,7 @@ from backend.utils.core.system.agent_logger import AgentLogger  # For type hinti
 from backend.utils.core.io.multimedia_ingester import MultimediaIngester
 from backend.utils.core.io.ocr_processor import OCRProcessor, PDFOCRProcessor
 from backend.utils.core.io.speech_transcriber import SpeechTranscriber
+from backend.utils.core.io.voice_command_processor import VoiceCommandProcessor, get_voice_command_processor
 
 from werkzeug.utils import secure_filename
 
@@ -24,19 +25,18 @@ multimodal_bp = Blueprint("multimodal", __name__, url_prefix="/api/multimodal")
 ocr_processor: Optional[OCRProcessor] = None
 multimedia_ingester: Optional[MultimediaIngester] = None
 speech_transcriber: Optional[SpeechTranscriber] = None
+voice_processor: Optional[VoiceCommandProcessor] = None
 logger: Optional[AgentLogger] = None  # Declare global logger with correct type
 UPLOAD_FOLDER = "knowledge_workspace/ingest/uploads"
 
 
 def init_app(app, ollash_root_dir: Path):
     """Initialize multimodal managers"""
-    global ocr_processor, multimedia_ingester, speech_transcriber, logger
+    global ocr_processor, multimedia_ingester, speech_transcriber, voice_processor, logger
 
     # Ensure upload folder exists
     upload_path = ollash_root_dir / UPLOAD_FOLDER
     upload_path.mkdir(parents=True, exist_ok=True)
-
-    # Get logger from AgentKernel, ensuring consistency
 
     # Get logger from AgentKernel, ensuring consistency
     _kernel = AgentKernel(ollash_root_dir=ollash_root_dir)
@@ -58,6 +58,10 @@ def init_app(app, ollash_root_dir: Path):
     # Initialize speech transcriber
     speech_transcriber = SpeechTranscriber(workspace_path=multimodal_workspace_path)
     logger.info("SpeechTranscriber initialized")
+
+    # Initialize voice command processor
+    voice_processor = get_voice_command_processor()
+    logger.info("VoiceCommandProcessor initialized")
 
 
 # ========================
@@ -468,6 +472,35 @@ def upload_file():
         return jsonify({"error": f"Upload failed: {str(e)}"}), 500
 
 
+@multimodal_bp.route("/upload-audio", methods=["POST"])
+def upload_audio():
+    """
+    Upload an audio blob from MediaRecorder
+    """
+    try:
+        if "audio" not in request.files:
+            return jsonify({"error": "No audio part"}), 400
+
+        audio_file = request.files["audio"]
+        filename = f"voice_input_{datetime.now().strftime('%Y%m%d_%H%M%S')}.webm"
+
+        ollash_root_dir = Path(request.environ.get("ollash_root_dir", "."))
+        upload_path = ollash_root_dir / UPLOAD_FOLDER
+        file_path = upload_path / filename
+
+        audio_file.save(str(file_path))
+        logger.info(f"Audio blob uploaded: {filename}")
+
+        return jsonify({
+            "status": "success",
+            "filename": filename,
+            "local_path": str(file_path)
+        }), 200
+    except Exception as e:
+        logger.error(f"Audio upload error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @multimodal_bp.route("/speech/transcribe", methods=["POST"])
 def transcribe_audio():
     """
@@ -593,6 +626,55 @@ def integrate_web_speech():
         return jsonify({"error": "Integration failed"}), 500
 
 
+# ========================
+# Voice Command Endpoints
+# ========================
+
+@multimodal_bp.route("/voice/command/process", methods=["POST"])
+def process_voice_command():
+    """
+    Classifies a voice command from text.
+    Payload: { "text": "add task build the app", "confidence": 0.95, "language": "en" }
+    """
+    try:
+        data = request.get_json() or {}
+        text = data.get("text")
+        confidence = data.get("confidence", 0.0) * 100 # Processor expects 0-100
+        lang = data.get("language", "en")
+
+        if not text:
+            return jsonify({"error": "text required"}), 400
+
+        command = voice_processor.process_voice_input(text, confidence, lang)
+        return jsonify(command.to_dict()), 200
+    except Exception as e:
+        logger.error(f"Voice command processing error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@multimodal_bp.route("/voice/command/execute", methods=["POST"])
+def execute_voice_command():
+    """
+    Executes a previously processed voice command.
+    Payload: { "command_id": "voice_...", "parameters": { ... } }
+    """
+    try:
+        data = request.get_json() or {}
+        # Reconstruct command object or find in history
+        cmd_id = data.get("command_id")
+
+        # Simple lookup in processor history
+        command = next((c for c in voice_processor.command_history if c.id == cmd_id), None)
+
+        if not command:
+            return jsonify({"error": "Command not found in history"}), 404
+
+        result = voice_processor.execute_voice_command(command)
+        return jsonify(result), 200
+    except Exception as e:
+        logger.error(f"Voice command execution error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @multimodal_bp.route("/speech/analyze-confidence", methods=["POST"])
 def analyze_confidence():
     """
@@ -674,7 +756,7 @@ def speech_summary():
         return jsonify({**summary, "timestamp": datetime.now().isoformat()}), 200
     except Exception as e:
         logger.error(f"Summary error: {e}")
-        return jsonify({"error": "Failed to generate summary"}), 500
+        return jsonify({"error": f"Failed to generate summary: {str(e)}"}), 500
 
 
 @multimodal_bp.route("/speech/stats", methods=["GET"])
@@ -745,6 +827,7 @@ def health_check():
             "ocr_processor": "operational" if ocr_processor else "not_initialized",
             "multimedia_ingester": "operational" if multimedia_ingester else "not_initialized",
             "speech_transcriber": "operational" if speech_transcriber else "not_initialized",
+            "voice_processor": "operational" if voice_processor else "not_initialized",
             "timestamp": datetime.now().isoformat(),
         }
 

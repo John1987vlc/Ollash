@@ -5,7 +5,7 @@ Maintains the same interface while loading text from /prompts/domains/auto_gener
 
 import logging
 from pathlib import Path
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple
 from backend.utils.core.llm.prompt_loader import PromptLoader
 
 logger = logging.getLogger(__name__)
@@ -27,11 +27,11 @@ class AutoGenPrompts:
         content = AutoGenPrompts._loader.load_prompt("domains/auto_generation/readme.yaml")
         system = content.get("system_prompt", "")
         user_template = content.get("user_prompt", "")
-        
+
         docker_note = (
             "\n- Include a 'Docker' section with a Dockerfile example and run commands." if include_docker else ""
         )
-        
+
         user = user_template.format(
             project_description=project_description,
             template_name=template_name,
@@ -58,7 +58,7 @@ class AutoGenPrompts:
         content = AutoGenPrompts._loader.load_prompt("domains/auto_generation/structure.yaml")
         sub_structure = content.get("sub_structure", {})
         system = sub_structure.get("system", "")
-        
+
         # Limit readme_content context
         user = sub_structure.get("user", "").format(
             folder_path=folder_path,

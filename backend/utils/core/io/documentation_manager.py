@@ -243,3 +243,76 @@ class DocumentationManager:
         except Exception as e:
             self.logger.error(f"Failed to clear collection: {e}")
             return False
+
+    def get_documentation_tree(self) -> List[Dict[str, Any]]:
+        """
+        Dynamically scans the project for documentation files.
+        Returns a tree structure of documentation files.
+        """
+        doc_files = []
+
+        # Priority files at root
+        priority_files = ["README.md", "CLAUDE.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md"]
+        for filename in priority_files:
+            file_path = self.project_root / filename
+            if file_path.exists() and file_path.is_file():
+                doc_files.append({
+                    "name": filename,
+                    "path": filename,
+                    "type": "file"
+                })
+
+        # Scan docs/ directory
+        docs_dir = self.project_root / "docs"
+        if docs_dir.exists() and docs_dir.is_dir():
+            docs_items = []
+            for item in docs_dir.rglob("*.md"):
+                rel_path = item.relative_to(self.project_root)
+                docs_items.append({
+                    "name": item.name,
+                    "path": str(rel_path).replace("\\", "/"),
+                    "type": "file"
+                })
+
+            if docs_items:
+                doc_files.append({
+                    "name": "docs/",
+                    "path": "docs",
+                    "type": "directory",
+                    "children": sorted(docs_items, key=lambda x: x["name"])
+                })
+
+        return sorted(doc_files, key=lambda x: (x["type"] != "file", x["name"]))
+
+    def get_documentation_content(self, rel_path: str) -> Optional[str]:
+        """
+        Reads the content of a documentation file by its relative path.
+        """
+        # Security check: ensure path is within project root and is a markdown file
+        try:
+            # Normalize path and check for directory traversal
+            normalized_path = os.path.normpath(rel_path).lstrip(os.sep)
+            if normalized_path.startswith("..") or os.path.isabs(normalized_path):
+                 self.logger.warning(f"Blocked potential path traversal attempt: {rel_path}")
+                 return None
+
+            file_path = (self.project_root / normalized_path).resolve()
+
+            # Verify it's within project root
+            if not str(file_path).startswith(str(self.project_root.resolve())):
+                self.logger.warning(f"Blocked attempt to read outside project root: {rel_path}")
+                return None
+
+            if not file_path.exists() or not file_path.is_file():
+                self.logger.warning(f"Documentation file not found: {file_path}")
+                return None
+
+            # Only allow markdown or text files
+            if file_path.suffix.lower() not in [".md", ".txt"]:
+                self.logger.warning(f"Blocked attempt to read non-documentation file type: {file_path.suffix}")
+                return None
+
+            return file_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception as e:
+            self.logger.error(f"Error reading documentation content for {rel_path}: {e}")
+            return None

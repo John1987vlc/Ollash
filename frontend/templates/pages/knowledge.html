@@ -1,29 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Ollash - Knowledge Base & Memory{% endblock %}
+
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/knowledge.css') }}">
+<style>
+    .knowledge-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 25px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding-bottom: 10px;
+    }
+    .k-tab {
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    .k-tab:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-primary);
+    }
+    .k-tab.active {
+        background: rgba(99, 102, 241, 0.15);
+        color: var(--accent-primary);
+    }
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    .memory-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+    .memory-card {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 20px;
+    }
+    .memory-card h4 {
+        margin-bottom: 10px;
+        color: var(--accent-primary);
+    }
+    .memory-card p {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+    }
+    .memory-card .badge {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+    }
+    .memory-card .success { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+    .memory-card .failure { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .stat-item { text-align: center; flex: 1; }
+    .stat-val { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-info">
+        <h1>Intelligence Hub</h1>
+        <p>Explore the agent's knowledge workspace, episodic memory, and learned error patterns.</p>
+    </div>
+</div>
+
+<div class="knowledge-tabs" id="knowledge-view">
+    <button class="k-tab active" data-tab="vector">Vector Documents (RAG)</button>
+    <button class="k-tab" data-tab="episodic">Episodic Memory</button>
+    <button class="k-tab" data-tab="errors">Error Immunity</button>
+</div>
+
+<div id="vector-tab" class="tab-content active">
+    <div class="knowledge-container">
+        <div class="upload-zone" id="kb-upload-zone">
+            <input type="file" id="kb-file-input" multiple hidden>
+            <div class="upload-icon">&#x2139;</div>
+            <p>Drag & drop documents here or <span>browse</span></p>
+            <small>Supports PDF, MD, TXT (Max 50MB)</small>
+        </div>
+        <div class="kb-document-list">
+            <h3>Indexed Documents</h3>
+            <div id="kb-doc-grid" class="kb-grid">
+                <p class="placeholder">Loading knowledge base...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="episodic-tab" class="tab-content">
+    <div id="episodic-stats" class="stat-row">
+        <!-- Stats populated by JS -->
+    </div>
+    <h3>Recent Experience & Decisions</h3>
+    <div id="episodic-list" class="memory-grid">
+        <p class="placeholder">Loading episodic memory...</p>
+    </div>
+</div>
+
+<div id="errors-tab" class="tab-content">
+    <div id="error-stats" class="stat-row">
+        <!-- Stats populated by JS -->
+    </div>
+    <h3>Learned Immunity Patterns</h3>
+    <div id="error-list" class="memory-grid">
+        <p class="placeholder">Loading error patterns...</p>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pages/knowledge.js') }}"></script>
 {% endblock %}
-
-            <!-- Knowledge Base View (RAG) -->
-            <div class="view" id="knowledge-view">
-                <div class="view-header">
-                    <h1>Vector Knowledge Base</h1>
-                    <p class="subtitle">Manage documents indexed in ChromaDB for RAG context</p>
-                </div>
-                <div class="knowledge-container">
-                    <div class="upload-zone" id="kb-upload-zone">
-                        <input type="file" id="kb-file-input" multiple hidden>
-                        <div class="upload-icon">&#x2139;</div>
-                        <p>Drag & drop documents here or <span>browse</span></p>
-                        <small>Supports PDF, MD, TXT (Max 50MB)</small>
-                    </div>
-                    <div class="kb-document-list">
-                        <h3>Indexed Documents</h3>
-                        <div id="kb-doc-grid" class="kb-grid">
-                            <p class="placeholder">Loading knowledge base...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>

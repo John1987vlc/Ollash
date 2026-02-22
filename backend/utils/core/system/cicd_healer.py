@@ -221,14 +221,14 @@ Suggested fixes:
 
 Affected files: {", ".join(analysis.affected_files)}
 
-Generate the corrected file contents. For each file that needs changes,
+        Generate the corrected file contents. For each file that needs changes,
 provide the complete corrected content.
 
 Respond with JSON: {{"file_path": "corrected content", ...}}"""
 
         try:
             messages = [{"role": "user", "content": prompt}]
-            response = self.llm_client.chat(messages=messages)
+            response, _ = self.llm_client.chat(messages=messages, tools=[])
             if response and "message" in response:
                 content = response["message"].get("content", "")
                 # Try to parse JSON from response

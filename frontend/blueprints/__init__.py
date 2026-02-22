@@ -44,6 +44,8 @@ from .fragments_bp import fragments_bp
 from .router_bp import router_bp
 from .refactor_bp import refactor_bp, init_app as init_refactor
 from .system_health_bp import system_health_bp, init_app as init_system_health
+from .cybersecurity_bp import cybersecurity_bp, init_app as init_cybersecurity
+from .swarm_bp import swarm_bp, init_app as init_swarm
 
 
 def register_blueprints(
@@ -79,6 +81,8 @@ def register_blueprints(
         (knowledge_graph_bp, lambda: init_knowledge_graph(app)),
         (pair_programming_bp, lambda: init_pair_programming(app, event_publisher)),
         (system_health_bp, lambda: init_system_health(app)),
+        (cybersecurity_bp, lambda: init_cybersecurity(app)),
+        (swarm_bp, lambda: init_swarm(app)),
         (prompt_studio_bp, lambda: None),
         (audit_bp, lambda: None),
         (knowledge_bp, lambda: None),

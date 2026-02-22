@@ -10,6 +10,8 @@ import json
 import os
 import queue
 import threading
+import time
+import hashlib
 from pathlib import Path
 from statistics import mean
 from typing import Any, Dict, List, Optional
@@ -492,3 +494,88 @@ def optimal_pipeline():
             "efficiency_weight_used": efficiency_weight,
         }
     )
+
+
+@benchmark_bp.route("/api/benchmark/parallel", methods=["POST"])
+def run_parallel_eval():
+    """Runs a parallel evaluation of multiple models on a set of prompts."""
+    try:
+        from backend.utils.core.llm.parallel_generator import GenerationTask
+        from backend.core.containers import main_container
+
+        data = request.get_json(force=True)
+        models = data.get("models", [])
+        prompts = data.get("prompts", ["Write a quicksort in Python", "Explain quantum entanglement"])
+
+        if not models:
+            return jsonify({"error": "No models provided"}), 400
+
+        generator = main_container.core.parallel_generator()
+        evaluator = main_container.core.shadow_evaluator()
+        evaluator.start()
+
+        tasks = []
+        for model in models:
+            for i, prompt in enumerate(prompts):
+                tasks.append(GenerationTask(
+                    file_path=f"{model}_prompt_{i}",
+                    context={"model": model, "prompt": prompt}
+                ))
+
+        async def _run_parallel():
+            def sync_gen(file_path, context):
+                model = context["model"]
+                prompt = context["prompt"]
+                try:
+                    # Mocking the generation call or using a simple Ollama call
+                    config = current_app.config.get("config", {})
+                    import os
+                    ollama_url = os.environ.get("OLLASH_OLLAMA_URL", config.get("ollama_url", "http://localhost:11434"))
+                    resp = requests.post(f"{ollama_url}/api/generate", json={
+                        "model": model,
+                        "prompt": prompt,
+                        "stream": False
+                    }, timeout=60)
+                    resp.raise_for_status()
+                    content = resp.json().get("response", "")
+
+                    # Notify evaluator
+                    evaluator.record_shadow_log({
+                        "timestamp": time.time(),
+                        "phase_name": "parallel_eval",
+                        "model_name": model,
+                        "input_hash": hashlib.md5(prompt.encode()).hexdigest(),
+                        "output_preview": content[:500]
+                    })
+
+                    return content, True, None
+                except Exception as e:
+                    return None, False, str(e)
+
+            return await generator.generate_files(tasks, sync_gen)
+
+        # Run the async loop
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        results = loop.run_until_complete(_run_parallel())
+        evaluator.stop()
+
+        return jsonify({
+            "status": "success",
+            "results": {k: {"success": v.success, "content": v.content, "error": v.error} for k, v in results.items()}
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@benchmark_bp.route("/api/benchmark/shadow-report")
+def get_shadow_report():
+    """Returns the shadow evaluator performance report."""
+    try:
+        from backend.core.containers import main_container
+        evaluator = main_container.core.shadow_evaluator()
+        report = evaluator.get_performance_report()
+        return jsonify(report)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

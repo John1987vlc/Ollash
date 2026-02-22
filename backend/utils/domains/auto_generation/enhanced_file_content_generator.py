@@ -158,6 +158,7 @@ Output ONLY the code content."""
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            tools=[],
             options_override={"temperature": 0.2},  # More deterministic
         )
 
@@ -383,7 +384,8 @@ Output the improved version only, no explanations."""
                     {"role": "system", "content": "You are a code improvement expert."},
                     {"role": "user", "content": improved_prompt},
                 ],
-                temperature=0.2,
+                tools=[],
+                options_override={"temperature": 0.2},
             )
 
             improved_content = response_data.get("content", "")
@@ -473,7 +475,8 @@ Generate ONLY the fixed code (same language), no explanations."""
                     },
                     {"role": "user", "content": fix_prompt},
                 ],
-                temperature=0.15,
+                tools=[],
+                options_override={"temperature": 0.15},
             )
 
             fixed = response_data.get("content", "")

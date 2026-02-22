@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block title %}Cybersecurity - Ollash{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/security.css') }}">
+<style>
+    .security-controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+    .control-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-md);
+    }
+    .results-area {
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-md);
+        margin-top: var(--spacing-md);
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .vuln-high { color: var(--color-error); }
+    .vuln-medium { color: var(--color-warning); }
+    .vuln-low { color: var(--color-info); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-info">
+        <h1>Cybersecurity & Hardening</h1>
+        <p class="header-subtitle">Vulnerability scanning, port analysis, and system hardening recommendations.</p>
+    </div>
+</div>
+
+<div class="security-controls">
+    <!-- Port Scanner -->
+    <div class="control-card">
+        <h3><i class="icon-shield"></i> Port Scanner</h3>
+        <div class="input-group">
+            <input type="text" id="port-host" placeholder="Target host (e.g. localhost)" class="form-control">
+            <label><input type="checkbox" id="common-ports" checked> Common ports only</label>
+            <button id="run-port-scan" class="btn-primary">Scan Ports</button>
+        </div>
+        <div id="port-results" class="results-area">Results will appear here...</div>
+    </div>
+
+    <!-- Vulnerability Scanner -->
+    <div class="control-card">
+        <h3><i class="icon-bug"></i> Code Vulnerability Scan</h3>
+        <div class="input-group">
+            <input type="text" id="scan-path" placeholder="File path (e.g. src/app.py)" class="form-control">
+            <button id="run-vuln-scan" class="btn-primary">Scan File</button>
+        </div>
+        <div id="vuln-results" class="results-area">Results will appear here...</div>
+    </div>
+
+    <!-- Log Analysis -->
+    <div class="control-card">
+        <h3><i class="icon-file-text"></i> Security Log Analysis</h3>
+        <div class="input-group">
+            <input type="text" id="log-path" placeholder="Log path (e.g. logs/auth.log)" class="form-control">
+            <button id="run-log-analysis" class="btn-primary">Analyze Log</button>
+        </div>
+        <div id="log-results" class="results-area">Results will appear here...</div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="control-card">
+        <h3><i class="icon-check-square"></i> Hardening Recommendations</h3>
+        <div class="input-group">
+            <select id="os-type" class="form-control">
+                <option value="Linux">Linux</option>
+                <option value="Windows">Windows</option>
+                <option value="macOS">macOS</option>
+            </select>
+            <button id="get-recommendations" class="btn-primary">Get Recommendations</button>
+        </div>
+        <div id="rec-results" class="results-area">Recommendations will appear here...</div>
+    </div>
+</div>
+
+<div class="interventions-area">
+    <h2>Real-time Quarantine & Healing</h2>
+    <div class="security-grid">
+        <div class="security-panel">
+            <div class="panel-header">
+                <h3>Quarantined Files</h3>
+                <span class="badge" id="quarantine-count">0</span>
+            </div>
+            <div class="quarantine-list" id="quarantine-list">
+                <!-- Items populated via JS -->
+                <p class="text-muted">No files currently in quarantine.</p>
+            </div>
+        </div>
+        <div class="security-panel">
+            <div class="panel-header">
+                <h3>Recent Interventions</h3>
+            </div>
+            <div class="security-reports" id="intervention-list">
+                <!-- Interventions populated via JS -->
+                <p class="text-muted">No recent healing interventions.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const runPortScan = document.getElementById('run-port-scan');
+        const runVulnScan = document.getElementById('run-vuln-scan');
+        const runLogAnalysis = document.getElementById('run-log-analysis');
+        const getRecs = document.getElementById('get-recommendations');
+
+        runPortScan.addEventListener('click', async () => {
+            const host = document.getElementById('port-host').value;
+            const common = document.getElementById('common-ports').checked;
+            const resultsDiv = document.getElementById('port-results');
+            
+            resultsDiv.innerText = 'Scanning...';
+            try {
+                const response = await fetch('/api/cybersecurity/scan/ports', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ host, common_ports_only: common })
+                });
+                const data = await response.json();
+                resultsDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultsDiv.innerText = 'Error: ' + e.message;
+            }
+        });
+
+        runVulnScan.addEventListener('click', async () => {
+            const path = document.getElementById('scan-path').value;
+            const resultsDiv = document.getElementById('vuln-results');
+            
+            resultsDiv.innerText = 'Scanning...';
+            try {
+                const response = await fetch('/api/cybersecurity/scan/vulnerabilities', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path })
+                });
+                const data = await response.json();
+                resultsDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultsDiv.innerText = 'Error: ' + e.message;
+            }
+        });
+
+        runLogAnalysis.addEventListener('click', async () => {
+            const path = document.getElementById('log-path').value;
+            const resultsDiv = document.getElementById('log-results');
+            
+            resultsDiv.innerText = 'Analyzing...';
+            try {
+                const response = await fetch('/api/cybersecurity/logs/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path })
+                });
+                const data = await response.json();
+                resultsDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultsDiv.innerText = 'Error: ' + e.message;
+            }
+        });
+
+        getRecs.addEventListener('click', async () => {
+            const os = document.getElementById('os-type').value;
+            const resultsDiv = document.getElementById('rec-results');
+            
+            resultsDiv.innerText = 'Fetching...';
+            try {
+                const response = await fetch(`/api/cybersecurity/recommendations?os=${os}`);
+                const data = await response.json();
+                resultsDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultsDiv.innerText = 'Error: ' + e.message;
+            }
+        });
+    });
+</script>
+{% endblock %}

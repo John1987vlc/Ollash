@@ -58,10 +58,12 @@ class MultiProviderManager(IModelProvider):
         config: LLMModelsConfig,
         tool_settings: ToolSettingsConfig,
         logger: AgentLogger,
+        recorder: Optional[Any] = None,
     ):
         self.config = config
         self.tool_settings = tool_settings
         self.logger = logger
+        self.recorder = recorder
 
         # Provider instances keyed by provider name
         self._providers: Dict[str, Any] = {}
@@ -80,6 +82,8 @@ class MultiProviderManager(IModelProvider):
             model=self.config.default_model,
             timeout=self.config.default_timeout,
             logger=self.logger,
+            config=self.tool_settings.model_dump(),
+            recorder=self.recorder,
         )
         self._providers["ollama"] = ollama
         self.logger.info("MultiProviderManager: Default Ollama provider registered.")
@@ -96,6 +100,8 @@ class MultiProviderManager(IModelProvider):
                 model=provider_config.models.get("default", self.config.default_model),
                 timeout=provider_config.timeout,
                 logger=self.logger,
+                config=self.tool_settings.model_dump(),
+                recorder=self.recorder,
             )
         elif provider_config.provider_type == "openai_compatible":
             provider = OpenAICompatibleProvider(
@@ -169,14 +175,20 @@ class MultiProviderManager(IModelProvider):
         if ollama_provider:
             # Get or create an OllamaClient via the Ollama provider pattern
             from backend.utils.core.llm.ollama_client import OllamaClient
+            from backend.utils.core.llm.llm_recorder import LLMRecorder
 
             if model_name not in self._client_cache:
+                # Ensure we have a recorder
+                if self.recorder is None:
+                    self.recorder = LLMRecorder(self.logger)
+
                 client = OllamaClient(
                     url=str(self.config.ollama_url),
                     model=model_name,
                     timeout=self.config.default_timeout,
                     logger=self.logger,
                     config=self.tool_settings.model_dump(),
+                    llm_recorder=self.recorder,
                 )
                 self._client_cache[model_name] = client
             self._client_cache[cache_key] = self._client_cache[model_name]

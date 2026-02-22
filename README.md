@@ -16,8 +16,8 @@
 ## 🚀 Key Features
 
 ### 🧠 **Advanced Cognitive Engine**
-- **Centralized Prompt Management:** (New in v1.0.0) All agent personas and task templates are managed via a structured YAML hierarchy in `/prompts/`, enabling rapid tuning and multi-language support without code changes.
-- **Episodic Memory:** Persistent reasoning cache using ChromaDB to reuse solutions for recurring errors.
+- **Intelligence Hub:** (New) Centralized dashboard for exploring the agent's **Episodic Memory**, learned **Error Immunity** patterns, and vector-based knowledge graph.
+- **Episodic Memory:** Persistent reasoning cache that stores past decisions and successful error solutions across projects.
 - **Hybrid Model Routing:** Automatically selects the best model (e.g., `qwen3-coder-next`) based on intent classification.
 - **Smart Context Management:** Automatic summarization and token pressure relief at 70% capacity.
 
@@ -26,13 +26,15 @@
 - **Code Expert:** Deep repository analysis, refactoring, and test generation.
 - **Cybersecurity:** Vulnerability scanning, dependency auditing, and security policy enforcement.
 - **Network & Systems:** Real-time diagnostics, Nmap integration, and system monitoring.
-- **Senior Reviewer:** (New in v1.0.0) Automated quality gates and architectural compliance checks.
+- **Senior Reviewer:** Automated quality gates and architectural compliance checks.
 - **Orchestrator:** High-level task decomposition and multi-agent coordination.
 
 ### 🌐 **Full-Stack Experience**
 - **Modern Web UI:** Flask-based interface with real-time **Server-Sent Events (SSE)** for transparent agent thought-streaming.
+- **Command Palette:** (New) Global navigation and tool search accessible via `Ctrl+K`.
+- **Dynamic Documentation:** (New) Built-in Markdown viewer for exploring project manuals and technical guides.
 - **Interactive CLI:** A robust terminal interface for quick tasks and direct chat.
-- **Auto-Agent Pipeline:** 8-phase autonomous project generation from a single text prompt.
+- **Visual Phase Pipeline:** (New) Real-time monitoring of the agent's **22-phase autonomous generation pipeline**.
 
 ---
 

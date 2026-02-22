@@ -23,13 +23,13 @@ def block_ollama_globally():
 
     with patch("backend.utils.core.llm.ollama_client.OllamaClient") as mock_client:
         mock_instance = mock_client.return_value
-        
+
         async def smart_achat(messages, **kwargs):
             prompt = str(messages).lower()
-            
+
             # Default response
             content = "Mocked LLM Response"
-            
+
             # Handle Project Structure Requests (Phase 2)
             if "structure" in prompt or "folders" in prompt:
                 content = json.dumps({
@@ -39,28 +39,28 @@ def block_ollama_globally():
                     ],
                     "root_files": ["README.md", "requirements.txt"]
                 })
-            
+
             # Handle Planning/Logic Requests (Phase 1)
             elif "plan" in prompt or "logic" in prompt:
                 content = "1. Setup project\n2. Implement core logic\n3. Add tests"
-                
+
             # Handle README Requests (Phase 3)
             elif "readme" in prompt:
                 content = "# Mocked Project\nThis is a mocked project description for testing."
-                
+
             return {"message": {"content": content}}, {"prompt_tokens": 10, "completion_tokens": 10}
 
         # Async methods
         mock_instance.achat = AsyncMock(side_effect=smart_achat)
         mock_instance.agenerate = AsyncMock(side_effect=lambda prompt, **kwargs: ({"response": "Mocked response"}, {"prompt_tokens": 5, "completion_tokens": 5}))
         mock_instance.aembed = AsyncMock(return_value=[0.1] * 384)
-        
+
         # Sync methods
         mock_instance.chat.side_effect = lambda messages, **kwargs: ({"message": {"content": "Mocked sync response"}}, {"prompt_tokens": 5, "completion_tokens": 5})
         mock_instance.generate.side_effect = lambda prompt, **kwargs: ({"response": "Mocked sync response"}, {"prompt_tokens": 5, "completion_tokens": 5})
         mock_instance.get_embedding.return_value = [0.1] * 384
         mock_instance.list_models.return_value = {"models": [{"name": "qwen3-coder-next"}]}
-        
+
         yield mock_client
 
 

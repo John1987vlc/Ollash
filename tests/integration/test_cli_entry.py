@@ -1,4 +1,3 @@
-import pytest
 from pathlib import Path
 
 class TestMainSuite:
@@ -7,7 +6,7 @@ class TestMainSuite:
     def test_suite_organization(self):
         """Verify that test suite is properly organized."""
         tests_dir = Path(__file__).parent.parent
-        
+
         # Check that top-level test directories exist
         expected_dirs = [
             "unit",
@@ -22,7 +21,7 @@ class TestMainSuite:
     def test_integration_structure(self):
         """Verify that integration tests are properly categorized."""
         integration_dir = Path(__file__).parent
-        
+
         categories = ["agents_swarm", "llm_integration", "system_flows"]
         for cat in categories:
             assert (integration_dir / cat).exists(), f"Integration category {cat} should exist"
@@ -30,7 +29,7 @@ class TestMainSuite:
     def test_modules_have_tests(self):
         """Verify that key modules have their corresponding test files."""
         tests_dir = Path(__file__).parent.parent
-        
+
         # Unit test requirements
         unit_requirements = {
             "backend/agents": ["test_default_agent.py", "test_auto_agent.py"],

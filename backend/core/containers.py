@@ -47,6 +47,8 @@ from backend.utils.core.io.export_manager import ExportManager
 from backend.utils.core.io.file_manager import FileManager
 from backend.utils.core.analysis.file_validator import FileValidator
 from backend.utils.core.memory.fragment_cache import FragmentCache
+from backend.utils.core.memory.episodic_memory import EpisodicMemory
+from backend.utils.core.analysis.shadow_evaluator import ShadowEvaluator
 from backend.utils.core.llm.llm_recorder import LLMRecorder
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 from backend.utils.core.llm.parallel_generator import ParallelFileGenerator
@@ -141,9 +143,20 @@ class CoreContainer(containers.DeclarativeContainer):
         max_requests_per_minute=config.provided.get.call("parallel_generation_max_rpm", 10),
     )
 
+    shadow_evaluator = providers.Singleton(
+        ShadowEvaluator,
+        logger=logger,
+        event_publisher=event_publisher,
+        log_dir=providers.Factory(lambda root: root / "logs" / "shadow", ollash_root_dir),
+    )
+
     kb_dir = providers.Factory(lambda root: root / ".cache" / "knowledge", ollash_root_dir)
     error_knowledge_base = providers.Singleton(
         ErrorKnowledgeBase, knowledge_dir=kb_dir, logger=logger, enable_persistence=True
+    )
+
+    episodic_memory = providers.Singleton(
+        EpisodicMemory, memory_dir=ollash_root_dir.provided, logger=logger
     )
 
     permission_manager = providers.Singleton(

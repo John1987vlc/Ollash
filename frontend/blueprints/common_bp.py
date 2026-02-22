@@ -4,6 +4,7 @@ from pathlib import Path
 
 import requests
 from flask import Blueprint, jsonify, render_template, current_app
+from backend.core.containers import main_container
 
 common_bp = Blueprint("common", __name__)
 
@@ -38,6 +39,16 @@ def docs_page():
 @common_bp.route("/costs")
 def costs_page():
     return render_template("pages/costs.html")
+
+
+@common_bp.route("/security")
+def security_page():
+    return render_template("pages/security.html")
+
+
+@common_bp.route("/swarm")
+def swarm_page():
+    return render_template("pages/swarm.html")
 
 
 @common_bp.route("/create")
@@ -103,6 +114,30 @@ def policies_page():
 @common_bp.route("/fragments")
 def fragments_page():
     return render_template("pages/fragments.html")
+
+
+@common_bp.route("/api/docs/tree")
+def get_docs_tree():
+    """Returns the dynamic documentation tree."""
+    try:
+        doc_manager = main_container.core.documentation_manager()
+        tree = doc_manager.get_documentation_tree()
+        return jsonify(tree)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@common_bp.route("/api/docs/content/<path:rel_path>")
+def get_doc_content(rel_path):
+    """Returns the content of a specific documentation file."""
+    try:
+        doc_manager = main_container.core.documentation_manager()
+        content = doc_manager.get_documentation_content(rel_path)
+        if content is None:
+            return jsonify({"error": "File not found or access denied"}), 404
+        return jsonify({"content": content, "path": rel_path})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @common_bp.route("/api/status")

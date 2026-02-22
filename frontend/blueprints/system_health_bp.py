@@ -1,15 +1,23 @@
 """Blueprint for system health monitoring endpoints.
 
 Provides CPU, RAM, disk, and optional GPU metrics for the sidebar dashboard.
+Also controls for LoadSimulator and AutonomousMaintenance.
 """
 
 import subprocess
 import os
 import logging
 from pathlib import Path
+from typing import Optional
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from backend.core.containers import main_container
+
+from backend.utils.core.system.agent_logger import AgentLogger
+from backend.utils.core.system.structured_logger import StructuredLogger
+from backend.utils.core.command_executor import CommandExecutor
+from backend.utils.core.system.load_simulator import LoadSimulator
+from backend.utils.core.system.autonomous_maintenance import AutonomousMaintenanceTask
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +30,23 @@ except ImportError:
 system_health_bp = Blueprint("system_health", __name__)
 
 _ollash_root_dir: Path = None
-
+_load_simulator: Optional[LoadSimulator] = None
+_maint_task: Optional[AutonomousMaintenanceTask] = None
 
 def init_app(app):
-    global _ollash_root_dir
+    global _ollash_root_dir, _load_simulator, _maint_task
     _ollash_root_dir = app.config.get("ollash_root_dir", Path("."))
+
+    # Initialize managers
+    log_path = _ollash_root_dir / "logs" / "system_health.log"
+    structured_logger = StructuredLogger(log_path, "system_health")
+    agent_logger = AgentLogger(structured_logger, "SystemHealthAgent")
+
+    exec_cmd = CommandExecutor(_ollash_root_dir, agent_logger)
+    _load_simulator = LoadSimulator(exec_cmd, agent_logger)
+
+    event_publisher = app.config.get("event_publisher")
+    _maint_task = AutonomousMaintenanceTask(_ollash_root_dir, agent_logger, event_publisher)
 
 
 @system_health_bp.route("/api/system/health")
@@ -115,34 +135,104 @@ def system_health():
 
     # --- LLM Health & Rate Limiter Metrics ---
     try:
-        llm_manager = main_container.auto_agent_module.llm_client_manager()
-        clients = llm_manager.get_all_clients()
+        # Check if llm_client_manager is available via container
+        if hasattr(main_container.auto_agent_module, "llm_client_manager"):
+            llm_manager = main_container.auto_agent_module.llm_client_manager()
+            clients = llm_manager.get_all_clients()
 
-        # Aggregate metrics from all active clients
-        total_rpm = 0
-        latencies = []
-        statuses = []
+            # Aggregate metrics from all active clients
+            total_rpm = 0
+            latencies = []
+            statuses = []
 
-        for client in clients.values():
-            if hasattr(client, "_rate_limiter"):
-                metrics = client._rate_limiter.get_health_metrics()
-                total_rpm = max(total_rpm, metrics.get("effective_rpm", 0))  # Use max to show busiest
-                latencies.append(metrics.get("ema_response_time_ms", 0))
-                statuses.append(metrics.get("status", "unknown"))
+            for client in clients.values():
+                if hasattr(client, "_rate_limiter"):
+                    metrics = client._rate_limiter.get_health_metrics()
+                    total_rpm = max(total_rpm, metrics.get("effective_rpm", 0))  # Use max to show busiest
+                    latencies.append(metrics.get("ema_response_time_ms", 0))
+                    statuses.append(metrics.get("status", "unknown"))
 
-        avg_latency = sum(latencies) / len(latencies) if latencies else 0
-        overall_status = "normal"
-        if "throttled" in statuses:
-            overall_status = "throttled"
-        elif "degraded" in statuses:
-            overall_status = "degraded"
+            avg_latency = sum(latencies) / len(latencies) if latencies else 0
+            overall_status = "normal"
+            if "throttled" in statuses:
+                overall_status = "throttled"
+            elif "degraded" in statuses:
+                overall_status = "degraded"
 
-        result["llm_health"] = {
-            "rate_limiter": {"effective_rpm": total_rpm, "status": overall_status},
-            "latency": {"avg_ms": round(avg_latency, 1), "status": "high" if avg_latency > 5000 else "normal"},
-        }
-
+            result["llm_health"] = {
+                "rate_limiter": {"effective_rpm": total_rpm, "status": overall_status},
+                "latency": {"avg_ms": round(avg_latency, 1), "status": "high" if avg_latency > 5000 else "normal"},
+            }
     except Exception as e:
         logger.warning(f"Failed to gather LLM health metrics: {e}")
 
     return jsonify(result)
+
+# ========================
+# Load Simulator Endpoints
+# ========================
+
+@system_health_bp.route("/api/system/simulate-load", methods=["POST"])
+async def simulate_load():
+    """
+    Runs an HTTP load test.
+    Payload: { "url": "http://localhost:5000", "concurrent": 5, "total": 50 }
+    """
+    try:
+        data = request.get_json() or {}
+        url = data.get("url")
+        if not url:
+            return jsonify({"error": "url required"}), 400
+
+        concurrent = data.get("concurrent", 10)
+        total = data.get("total", 100)
+
+        result = await _load_simulator.run_http_benchmark(url, concurrent, total)
+        return jsonify(result.to_dict()), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@system_health_bp.route("/api/system/simulate-script", methods=["POST"])
+async def simulate_script():
+    """
+    Benchmarks a script.
+    Payload: { "path": "scripts/test.py", "iterations": 5 }
+    """
+    try:
+        data = request.get_json() or {}
+        path = data.get("path")
+        if not path:
+            return jsonify({"error": "path required"}), 400
+
+        iterations = data.get("iterations", 10)
+
+        result = await _load_simulator.run_script_benchmark(path, iterations)
+        return jsonify(result.to_dict()), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ========================
+# Autonomous Maintenance Endpoints
+# ========================
+
+@system_health_bp.route("/api/system/maintenance/run", methods=["POST"])
+def run_maintenance():
+    """
+    Forces an autonomous maintenance cycle run.
+    """
+    try:
+        report = _maint_task.run_cycle()
+        return jsonify(report), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@system_health_bp.route("/api/system/maintenance/status", methods=["GET"])
+def maintenance_status():
+    """
+    Gets the status of autonomous maintenance.
+    """
+    return jsonify({
+        "cycle_count": _maint_task._cycle_count,
+        "interval_minutes": _maint_task.INTERVAL_MINUTES,
+        "project_root": str(_maint_task.project_root)
+    }), 200

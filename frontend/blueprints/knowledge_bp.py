@@ -1,7 +1,6 @@
-from flask import Blueprint, jsonify, request, current_app, render_template
+from flask import Blueprint, jsonify, request, render_template
 from werkzeug.utils import secure_filename
 from backend.core.containers import main_container
-from backend.utils.core.io.documentation_manager import DocumentationManager
 
 knowledge_bp = Blueprint("knowledge", __name__)
 
@@ -11,16 +10,8 @@ def knowledge_page():
     return render_template("pages/knowledge.html")
 
 
-_doc_manager: DocumentationManager = None
-
-
 def get_doc_manager():
-    global _doc_manager
-    if _doc_manager is None:
-        root = main_container.core.ollash_root_dir()
-        config = current_app.config.get("config", {})
-        _doc_manager = DocumentationManager(config, root)
-    return _doc_manager
+    return main_container.core.documentation_manager()
 
 
 @knowledge_bp.route("/api/knowledge/documents", methods=["GET"])
@@ -85,5 +76,44 @@ def delete_document(doc_id):
         mgr = get_doc_manager()
         mgr.documentation_collection.delete(ids=[doc_id])
         return jsonify({"status": "deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@knowledge_bp.route("/api/knowledge/errors", methods=["GET"])
+def get_error_knowledge():
+    """Returns statistics and patterns from the Error Knowledge Base."""
+    try:
+        ekb = main_container.core.error_knowledge_base()
+        stats = ekb.get_error_statistics()
+        patterns = [p.to_dict() for p in ekb.patterns.values()]
+        return jsonify({"statistics": stats, "patterns": patterns})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@knowledge_bp.route("/api/knowledge/episodes", methods=["GET"])
+def get_episodic_memory():
+    """Returns statistics and recent episodes from Episodic Memory."""
+    try:
+        em = main_container.core.episodic_memory()
+        stats = em.get_statistics()
+
+        # Get all episodes from DB
+        import sqlite3
+        with sqlite3.connect(str(em._db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT * FROM episodes ORDER BY timestamp DESC LIMIT 50").fetchall()
+            episodes = [dict(row) for row in rows]
+
+            # Get decisions too
+            decision_rows = conn.execute("SELECT * FROM decisions ORDER BY timestamp DESC LIMIT 50").fetchall()
+            decisions = [dict(row) for row in decision_rows]
+
+        return jsonify({
+            "statistics": stats,
+            "episodes": episodes,
+            "decisions": decisions
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

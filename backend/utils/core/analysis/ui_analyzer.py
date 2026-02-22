@@ -139,7 +139,7 @@ Be specific and actionable."""
 
         try:
             messages = [{"role": "user", "content": prompt}]
-            response = self.llm_client.chat(messages=messages)
+            response, _ = self.llm_client.chat(messages=messages, tools=[])
             if response and "message" in response:
                 content = response["message"].get("content", "")
                 self._parse_llm_analysis(report, content)

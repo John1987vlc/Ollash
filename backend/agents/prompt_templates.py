@@ -24,7 +24,7 @@ class RolePromptTemplates:
     Prompt templates loaded from centralized YAML files.
     Optimized for different LLM roles.
     """
-    
+
     _loader = PromptLoader()
 
     @staticmethod
@@ -35,12 +35,12 @@ class RolePromptTemplates:
             "writer": "roles/writer.yaml",
             "orchestration": "roles/orchestrator.yaml",
         }
-        
+
         file_path = role_map.get(role)
         if not file_path:
             logger.warning(f"No prompt file found for role: {role}")
             return "You are a helpful AI assistant."
-            
+
         content = RolePromptTemplates._loader.load_prompt(file_path)
         return content.get("system_prompt", "You are a helpful AI assistant.")
 

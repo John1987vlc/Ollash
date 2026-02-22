@@ -1,20 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Ollash - Create Project Wizard{% endblock %}
+
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/wizard.css') }}">
+<style>
+    .phase-pipeline {
+        margin-top: 30px;
+        display: none;
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 25px;
+    }
+    .phase-pipeline.active { display: block; }
+    .phase-steps {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        justify-content: center;
+    }
+    .phase-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 120px;
+        opacity: 0.3;
+        transition: all 0.3s;
+        text-align: center;
+    }
+    .phase-step.active { opacity: 1; transform: scale(1.1); }
+    .phase-step.completed { opacity: 0.7; }
+    .phase-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 8px;
+        border: 2px solid transparent;
+    }
+    .phase-step.active .phase-icon {
+        background: var(--accent-primary);
+        box-shadow: 0 0 15px var(--accent-primary);
+        animation: pulse 2s infinite;
+    }
+    .phase-step.completed .phase-icon {
+        background: #10b981;
+        color: white;
+    }
+    .phase-label { font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); }
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+    }
+</style>
 {% endblock %}
 
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/pages/wizard.js') }}"></script>
-{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div class="header-info">
+        <h1>Create New Project</h1>
+        <p>Step-by-step project creation wizard</p>
+    </div>
+</div>
 
-            <!-- Create Project View (Wizard Mode) -->
-            <div class="view" id="create-view">
-                <div class="view-header">
-                    <h1>Create New Project</h1>
-                    <p class="subtitle">Step-by-step project creation wizard</p>
-                </div>
-
-                <div class="create-form-container">
-                    <div class="wizard-container" id="wizard-container">
+<div class="create-form-container" id="create-view">
+    <div class="wizard-container" id="wizard-container">
+        <!-- (Existing wizard steps content...) -->
                         <div class="wizard-progress">
                             <div class="wizard-step-indicator active" data-step="1"><span>1</span> Name &amp; Template</div>
                             <div class="wizard-step-indicator" data-step="2"><span>2</span> Configuration</div>
@@ -148,6 +204,18 @@
                         </div>
                     </div>
 
+                    <!-- Pipeline Visual Section -->
+                    <div id="phase-pipeline-view" class="phase-pipeline">
+                        <h3>Agent Intelligence Pipeline</h3>
+                        <p class="subtitle" style="margin-bottom: 20px;">The agent is moving through autonomous phases. This process can take several minutes.</p>
+                        <div class="phase-steps" id="phase-steps-container">
+                            <!-- Populated by JS -->
+                        </div>
+                        <div id="phase-log-mini" style="margin-top: 30px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; max-height: 150px; overflow-y: auto;">
+                            <!-- Activity log -->
+                        </div>
+                    </div>
+
                     <!-- Hidden form for backward compat -->
                     <form id="create-project-form" class="create-form" style="display:none;">
                         <button type="submit" class="btn-primary"><span>Generate Project</span></button>
@@ -192,3 +260,8 @@
                     <div class="generated-file-tree" id="generated-file-tree" style="display:none;"></div>
                 </div>
             </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/wizard.js') }}"></script>
+{% endblock %}

@@ -1,4 +1,3 @@
-import os
 import yaml
 import logging
 from pathlib import Path
@@ -11,7 +10,7 @@ class PromptLoader:
     Utility class for loading centralized prompts from YAML files.
     Ensures consistent prompt management across the codebase.
     """
-    
+
     _instance = None
     _cache: Dict[str, Any] = {}
 

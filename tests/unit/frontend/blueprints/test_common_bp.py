@@ -47,11 +47,11 @@ def test_modular_page_routes(client, path, view_id):
 def test_api_status_check(client, mock_ollama):
     """Test the status check API with a mocked response."""
     from unittest.mock import patch, MagicMock
-    
+
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {"models": [{"name": "qwen3-coder-next"}]}
-    
+
     with patch("requests.get", return_value=mock_resp):
         response = client.get("/api/status")
         assert response.status_code == 200

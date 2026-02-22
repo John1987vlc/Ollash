@@ -34,6 +34,9 @@
     <!-- Marked.js -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
+    <!-- Command Palette CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/command-palette.css') }}">
+
     {% block styles %}{% endblock %}
 </head>
 <body>
@@ -46,12 +49,36 @@
 
         <!-- Main Content -->
         <main class="main-content">
+            <!-- Global Breadcrumbs -->
+            <nav class="breadcrumbs" id="breadcrumbs-container"></nav>
+            
             {% block content %}{% endblock %}
         </main>
     </div>
 
     <!-- Global Modals & Components -->
     {% include 'layouts/partials/modals.html' %}
+
+    <!-- Command Palette Overlay -->
+    <div id="command-palette-overlay" class="command-palette-overlay">
+        <div class="command-palette">
+            <div class="command-palette-input-wrapper">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="command-palette-input" placeholder="Search for views, tools, or settings..." autocomplete="off">
+            </div>
+            <div id="command-palette-results" class="command-palette-results">
+                <!-- Dynamic results -->
+            </div>
+            <div class="command-palette-footer">
+                <div class="command-shortcut"><kbd>↑↓</kbd> to navigate</div>
+                <div class="command-shortcut"><kbd>↵</kbd> to select</div>
+                <div class="command-shortcut"><kbd>ESC</kbd> to close</div>
+            </div>
+        </div>
+    </div>
 
     <!-- Global Core Scripts -->
     <script src="{{ url_for('static', filename='js/core/utils.js') }}"></script>
@@ -64,6 +91,7 @@
     <script src="{{ url_for('static', filename='js/core/translator.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/health.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/terminal.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/command-palette.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/benchmark.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/projects.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/chat.js') }}"></script>

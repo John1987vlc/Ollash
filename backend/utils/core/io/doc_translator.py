@@ -116,7 +116,7 @@ Code with translated comments:"""
         messages = [{"role": "user", "content": prompt}]
 
         try:
-            response = self.llm_client.chat(messages=messages)
+            response, _ = self.llm_client.chat(messages=messages, tools=[])
             if response and "message" in response:
                 return response["message"].get("content", "")
         except Exception as e:

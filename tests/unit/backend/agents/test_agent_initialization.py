@@ -21,7 +21,7 @@ def test_agent_tools_availability(default_agent):
     """Test that specialized tools are available across domains."""
     registry = default_agent._tool_registry
     assert registry is not None
-    
+
     domains = ["orchestrator", "code", "network", "system", "cybersecurity"]
     for domain in domains:
         tools = registry.get_tools_for_agent(domain)

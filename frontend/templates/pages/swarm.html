@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+
+{% block title %}Swarm & Cowork - Ollash{% endblock %}
+
+{% block styles %}
+<style>
+    .swarm-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-lg);
+        padding: var(--spacing-lg);
+    }
+    
+    .swarm-viz-panel {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        position: relative;
+        min-height: 500px;
+        overflow: hidden;
+    }
+    
+    #swarm-nodes-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+    
+    .swarm-node {
+        position: absolute;
+        width: 80px;
+        height: 80px;
+        background: var(--color-surface-elevated);
+        border: 2px solid var(--color-border);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .swarm-node.active {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 20px var(--color-primary-transparent);
+        transform: scale(1.1);
+        z-index: 10;
+    }
+    
+    .cowork-panel {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-md);
+    }
+    
+    .cowork-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-md);
+    }
+    
+    .results-area {
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-md);
+        margin-top: var(--spacing-md);
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-info">
+        <h1>Agent Swarm & Co-working</h1>
+        <p class="header-subtitle">Visualize agent coordination and use advanced co-working tools.</p>
+    </div>
+</div>
+
+<div class="swarm-container">
+    <!-- Swarm Visualization -->
+    <div class="swarm-viz-panel">
+        <div class="panel-header">
+            <h3>Swarm Coordination</h3>
+        </div>
+        <div id="swarm-nodes-container">
+            <!-- Nodes populated via swarm.js -->
+        </div>
+    </div>
+
+    <!-- Co-working Tools -->
+    <div class="cowork-panel">
+        <!-- Document to Task -->
+        <div class="cowork-card">
+            <h3><i class="icon-file-text"></i> Document to Task</h3>
+            <p class="text-muted">Convert requirements documents into automation tasks.</p>
+            <div class="input-group">
+                <input type="text" id="doc-to-task-name" placeholder="Document name (in references/)" class="form-control">
+                <button id="run-doc-to-task" class="btn-primary">Generate Tasks</button>
+            </div>
+            <div id="doc-to-task-results" class="results-area">Results will appear here...</div>
+        </div>
+
+        <!-- Log Analysis -->
+        <div class="cowork-card">
+            <h3><i class="icon-activity"></i> Advanced Log Audit</h3>
+            <p class="text-muted">Analyze recent logs for high-risk security events.</p>
+            <div class="input-group">
+                <select id="log-type-select" class="form-control">
+                    <option value="system">System Logs</option>
+                    <option value="security">Security Logs</option>
+                    <option value="application">Application Logs</option>
+                </select>
+                <button id="run-log-audit" class="btn-primary">Audit Logs</button>
+            </div>
+            <div id="log-audit-results" class="results-area">Audit results will appear here...</div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="cowork-card">
+            <h3><i class="icon-clipboard"></i> Executive Summary</h3>
+            <p class="text-muted">Generate a professional summary with recommendations.</p>
+            <div class="input-group">
+                <input type="text" id="summary-doc-name" placeholder="Document name" class="form-control">
+                <button id="run-summary" class="btn-primary">Summarize</button>
+            </div>
+            <div id="summary-results" class="results-area">Summary will appear here...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/swarm.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize Swarm Module
+        if (window.SwarmModule) {
+            window.SwarmModule.init();
+        }
+
+        const runDocToTask = document.getElementById('run-doc-to-task');
+        const runLogAudit = document.getElementById('run-log-audit');
+        const runSummary = document.getElementById('run-summary');
+
+        runDocToTask.addEventListener('click', async () => {
+            const docName = document.getElementById('doc-to-task-name').value;
+            const resultsDiv = document.getElementById('doc-to-task-results');
+            resultsDiv.innerText = 'Analyzing and generating tasks...';
+            
+            try {
+                const response = await fetch('/api/swarm/doc-to-task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ document_name: docName })
+                });
+                const data = await response.json();
+                resultsDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultsDiv.innerText = 'Error: ' + e.message;
+            }
+        });
+
+        runLogAudit.addEventListener('click', async () => {
+            const logType = document.getElementById('log-type-select').value;
+            const resultsDiv = document.getElementById('log-audit-results');
+            resultsDiv.innerText = 'Auditing logs for risks...';
+            
+            try {
+                const response = await fetch('/api/swarm/log-audit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ log_type: logType })
+                });
+                const data = await response.json();
+                resultsDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultsDiv.innerText = 'Error: ' + e.message;
+            }
+        });
+
+        runSummary.addEventListener('click', async () => {
+            const docName = document.getElementById('summary-doc-name').value;
+            const resultsDiv = document.getElementById('summary-results');
+            resultsDiv.innerText = 'Generating executive summary...';
+            
+            try {
+                const response = await fetch('/api/swarm/summary', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ document_name: docName })
+                });
+                const data = await response.json();
+                resultsDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultsDiv.innerText = 'Error: ' + e.message;
+            }
+        });
+    });
+</script>
+{% endblock %}
