@@ -145,10 +145,45 @@ class StructureEditor {
 
     _handleDrop(targetPath) {
         if (!this.draggedPath || this.draggedPath === targetPath) return;
-        // For simplicity, we just re-render — complex reordering within the same structure
-        // would require more logic. This is a visual indicator that DnD is supported.
+        
+        const sourcePath = this.draggedPath;
+        const sourceParts = sourcePath.split('/');
+        const fileName = sourceParts.pop();
+        
+        // Check if source is file or dir (rudimentary check)
+        const type = sourcePath.includes('.') ? 'file' : 'directory';
+
+        // Remove from source
+        this._handleDelete(sourcePath, type, false);
+        
+        // Add to target
+        this._insertIntoPath(targetPath, fileName, type);
+        
         this.onStructureChange(this.structure);
         this.render();
+    }
+
+    _insertIntoPath(path, name, type) {
+        const parts = path.split('/').filter(p => p);
+        const findAndInsert = (node, pathParts, idx) => {
+            if (idx === pathParts.length) {
+                if (type === 'file') {
+                    if (!node.files) node.files = [];
+                    node.files.push(name);
+                } else {
+                    if (!node.folders) node.folders = [];
+                    node.folders.push({ name, folders: [], files: [] });
+                }
+                return true;
+            }
+            const target = pathParts[idx];
+            if (node.folders) {
+                const folder = node.folders.find(f => f.name === target);
+                if (folder) return findAndInsert(folder, pathParts, idx + 1);
+            }
+            return false;
+        };
+        findAndInsert(this.structure, parts, 0);
     }
 
     _handleRename(oldPath, newName, type) {
@@ -190,10 +225,10 @@ class StructureEditor {
         }
     }
 
-    _handleDelete(path, type) {
+    _handleDelete(path, type, shouldRender = true) {
         const parts = path.split('/').filter(p => p);
 
-        function deleteInNode(node, pathParts, idx) {
+        const deleteInNode = (node, pathParts, idx) => {
             const target = pathParts[idx];
             const isLast = idx === pathParts.length - 1;
 
@@ -214,12 +249,16 @@ class StructureEditor {
                 if (nextFolder) return deleteInNode(nextFolder, pathParts, idx + 1);
             }
             return false;
-        }
+        };
 
         if (deleteInNode(this.structure, parts, 0)) {
-            this.onStructureChange(this.structure);
-            this.render();
+            if (shouldRender) {
+                this.onStructureChange(this.structure);
+                this.render();
+            }
+            return true;
         }
+        return false;
     }
 
     addPath(path, type) {

@@ -121,6 +121,21 @@ def fragments_page():
     return render_template("pages/fragments.html")
 
 
+@bp.route("/checkpoints")
+def checkpoints_page():
+    return render_template("pages/checkpoints.html")
+
+
+@bp.route("/integrations")
+def integrations_page():
+    return render_template("pages/integrations.html")
+
+
+@bp.route("/pair-programming")
+def pair_programming_page():
+    return render_template("pages/pair_programming.html")
+
+
 @bp.route("/api/docs/tree")
 def get_docs_tree():
     """Returns the dynamic documentation tree."""

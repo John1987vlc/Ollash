@@ -1,0 +1,71 @@
+{% block styles %}
+<style>
+    .timeline-container {
+        position: relative;
+        padding: 20px 0;
+        margin-left: 20px;
+        border-left: 2px solid var(--color-border);
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 30px;
+        padding-left: 30px;
+    }
+    .timeline-dot {
+        position: absolute;
+        left: -9px;
+        top: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--color-surface);
+        border: 2px solid var(--color-primary);
+        transition: all 0.3s ease;
+    }
+    .timeline-item:hover .timeline-dot {
+        background: var(--color-primary);
+        box-shadow: 0 0 10px var(--color-primary);
+    }
+    .timeline-content {
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 15px;
+    }
+    .timeline-meta {
+        font-size: 0.8rem;
+        color: var(--color-text-subtle);
+        margin-bottom: 5px;
+        display: flex;
+        justify-content: space-between;
+    }
+    .tag {
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        background: rgba(255,255,255,0.1);
+    }
+    .tag.auto { color: var(--color-accent); background: rgba(139, 92, 246, 0.1); }
+    .tag.manual { color: var(--color-success); background: rgba(16, 185, 129, 0.1); }
+</style>
+{% endblock %}
+
+<div class="view" id="checkpoints-view">
+    <div class="view-header">
+        <h1>Project Time Machine</h1>
+        <p class="subtitle">Visual timeline of project snapshots and restore points.</p>
+        <button class="btn-primary" onclick="createCheckpoint()">Create Snapshot</button>
+    </div>
+
+    <div class="card-panel">
+        <div id="timeline-list" class="timeline-container">
+            <!-- Injected via JS -->
+            <div class="skeleton-pulse" style="height: 100px; margin-bottom: 20px;"></div>
+            <div class="skeleton-pulse" style="height: 100px; margin-bottom: 20px;"></div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/checkpoints.js') }}"></script>
+{% endblock %}

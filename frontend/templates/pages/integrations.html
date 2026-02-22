@@ -1,0 +1,89 @@
+{% block styles %}
+<style>
+    .ifttt-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+    .ifttt-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    .ifttt-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 4px; height: 100%;
+        background: var(--color-primary);
+    }
+    .logic-flow {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: 15px 0;
+    }
+    .flow-step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.9rem;
+    }
+    .step-icon {
+        width: 24px; height: 24px;
+        background: var(--color-surface-elevated);
+        border-radius: 4px;
+        display: flex; align-items: center; justify-content: center;
+    }
+</style>
+{% endblock %}
+
+<div class="view" id="integrations-view">
+    <div class="view-header">
+        <h1>Automation Triggers</h1>
+        <p class="subtitle">Configure "If This Then That" rules for autonomous agent behavior.</p>
+        <button class="btn-primary" onclick="openTriggerModal()">+ New Trigger</button>
+    </div>
+
+    <div class="ifttt-grid" id="trigger-list">
+        <!-- Injected via JS -->
+    </div>
+</div>
+
+<!-- Trigger Config Modal -->
+<div id="trigger-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Configure Automation Rule</h3>
+            <button class="close-modal" onclick="closeTriggerModal()">&times;</button>
+        </div>
+        <form id="trigger-form">
+            <div class="form-group">
+                <label>IF (Trigger Event)</label>
+                <select id="trigger-event" class="form-input">
+                    <option value="test_failure">Tests Failed</option>
+                    <option value="high_vuln">Critical Vulnerability Found</option>
+                    <option value="deploy_success">Deployment Success</option>
+                    <option value="webhook">Incoming Webhook</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>THEN (Action)</label>
+                <select id="trigger-action" class="form-input">
+                    <option value="run_agent">Run Specific Agent Task</option>
+                    <option value="notify_slack">Send Slack Notification</option>
+                    <option value="rollback">Rollback to Checkpoint</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Save Rule</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/integrations.js') }}"></script>
+{% endblock %}

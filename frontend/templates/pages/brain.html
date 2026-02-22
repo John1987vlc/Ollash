@@ -1,25 +1,106 @@
-{% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/brain.css') }}">
-{% endblock %}
+<div class="view" id="brain-view">
+    <div class="view-header">
+        <h1>Agent Intelligence Hub</h1>
+        <p class="subtitle">Monitor technical decisions and explore learned knowledge graphs.</p>
+    </div>
 
-            <!-- Brain View (Knowledge Base) -->
-            <div class="view" id="brain-view">
-                <div class="view-header">
-                    <h1>Agent Brain</h1>
-                    <p class="subtitle">Lessons learned, error patterns avoided, and learned preferences</p>
-                </div>
-                <div class="brain-container">
-                    <div class="brain-tabs">
-                        <button class="brain-tab-btn active" data-brain-tab="errors">Error Patterns</button>
-                        <button class="brain-tab-btn" data-brain-tab="preferences">Learned Preferences</button>
-                    </div>
-                    <div class="brain-content">
-                        <div id="brain-errors-list" class="brain-list">
-                            <p class="placeholder">Loading learned patterns...</p>
-                        </div>
-                        <div id="brain-preferences-list" class="brain-list" style="display: none;">
-                            <p class="placeholder">Loading preferences...</p>
-                        </div>
-                    </div>
+    <div class="brain-layout">
+        <!-- Decision Memory Panel -->
+        <div class="card-panel decision-panel">
+            <div class="panel-header">
+                <h3>Decision Memory</h3>
+                <div class="toggle-control">
+                    <span class="label">Auto-Record</span>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-decision-recording">
+                        <span class="slider round"></span>
+                    </label>
                 </div>
             </div>
+            <div class="decision-list" id="decision-history">
+                <div class="empty-state">No decisions recorded yet.</div>
+            </div>
+        </div>
+
+        <!-- Knowledge Graph Panel -->
+        <div class="card-panel graph-panel">
+            <div class="panel-header">
+                <h3>Knowledge Visualization</h3>
+                <div class="graph-actions">
+                    <button class="btn-icon" id="refresh-graph" title="Refresh Graph">🔄</button>
+                    <button class="btn-icon" id="fit-graph" title="Fit to Screen">🔍</button>
+                </div>
+            </div>
+            <div id="knowledge-graph-container" class="graph-canvas"></div>
+            <div class="graph-legend">
+                <span class="legend-item"><i class="dot file"></i> File</span>
+                <span class="legend-item"><i class="dot concept"></i> Concept</span>
+                <span class="legend-item"><i class="dot logic"></i> logic</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .brain-layout {
+        display: grid;
+        grid-template-columns: 400px 1fr;
+        gap: var(--spacing-lg);
+        height: calc(100vh - 180px);
+    }
+
+    .decision-panel {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .decision-list {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+
+    .decision-item {
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-sm);
+        transition: transform 0.2s;
+    }
+
+    .decision-item:hover { transform: translateX(5px); }
+    .decision-tag { font-size: 0.7rem; text-transform: uppercase; font-weight: bold; color: var(--color-accent); }
+    .decision-reason { font-size: 0.85rem; color: var(--color-text-muted); margin-top: 5px; }
+
+    .graph-panel {
+        position: relative;
+        padding: 0 !important;
+        overflow: hidden;
+    }
+
+    .graph-canvas {
+        width: 100%;
+        height: 100%;
+        background: #0a0a0f;
+    }
+
+    .graph-legend {
+        position: absolute;
+        bottom: 15px;
+        left: 15px;
+        display: flex;
+        gap: 15px;
+        background: rgba(0,0,0,0.5);
+        padding: 8px 15px;
+        border-radius: 20px;
+        backdrop-filter: blur(5px);
+        font-size: 0.75rem;
+    }
+
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .dot.file { background: #6366f1; }
+    .dot.concept { background: #ec4899; }
+    .dot.logic { background: #10b981; }
+</style>

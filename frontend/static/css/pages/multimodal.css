@@ -1,61 +1,91 @@
-/* ==================== Multimodal & Assets ==================== */
-.chat-attachment-preview {
-    display: flex;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    background: var(--color-surface-elevated);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--spacing-sm);
-    flex-wrap: wrap;
-}
+/* Advanced UI/UX Effects */
 
-.attachment-thumbnail {
-    width: 60px;
-    height: 60px;
-    border-radius: var(--radius-sm);
-    background: var(--color-bg);
-    position: relative;
-    border: 1px solid var(--color-border);
-    overflow: hidden;
-}
-
-.attachment-thumbnail img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.remove-attachment {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 16px;
-    height: 16px;
-    background: var(--color-error);
-    color: white;
-    border: none;
+/* Terminal Bubble */
+.terminal-bubble {
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    font-size: 12px;
+    background: var(--color-primary);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Image Studio Styles */
-#image-editor-container {
-    background: #1a1a1a;
-    border-radius: var(--radius-md);
+.terminal-bubble:hover {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.global-status-bar {
     display: flex;
-    justify-content: center;
-    padding: var(--spacing-lg);
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--color-border);
     margin-bottom: var(--spacing-md);
-    max-height: 60vh;
-    overflow: auto;
 }
 
-#image-canvas {
-    max-width: 100%;
-    height: auto;
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+.latency-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.latency-indicator .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+/* Recording State */
+#voice-input-btn.recording-active {
+    background: var(--color-error) !important;
+    animation: pulse-red 1.5s infinite;
+}
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Cost Alert */
+body.cost-alert-active .app-container {
+    border: 2px solid var(--color-warning);
+    box-shadow: inset 0 0 50px rgba(245, 158, 11, 0.1);
+}
+
+/* Toolbox Grid */
+.toolbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+    gap: 10px;
+    padding: 10px var(--spacing-md) !important;
+}
+
+.tool-toggle {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tool-toggle input { display: none; }
+
+.tool-toggle .tool-icon {
+    font-size: 1.2rem;
+    filter: grayscale(1);
+    opacity: 0.5;
+    transition: all 0.2s;
+}
+
+.tool-toggle input:checked + .tool-icon {
+    filter: grayscale(0);
+    opacity: 1;
+    transform: scale(1.2);
 }

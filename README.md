@@ -1,138 +1,65 @@
-# Ollash - Enterprise Local IT Agent
+# Ollash - Local IT Agent
 
-![Ollash Logo](Ollash.jpg)
-
-**Ollash** is an advanced, autonomous AI agent platform designed for local infrastructure management, code generation, and DevOps orchestration. It combines the power of local LLMs (Ollama) with a robust, modular frontend to deliver a secure and intelligent IT assistant.
+**Ollash** is an advanced AI-powered IT assistant designed to run locally using Ollama. It orchestrates specialized agents to handle coding, system administration, cybersecurity, and network tasks autonomously.
 
 ## 🚀 Key Features
 
-### 🛡️ Enterprise Governance & Resilience
-- **Binary Guard:** Strict detection and skipping of binary files (images, audio, etc.) during code generation to prevent LLM corruption and save tokens.
-- **Context Anchor:** Robust fallback planning that preserves the original project description intent even during LLM logic planning failures.
-- **Resilience Monitor:** Real-time loop detection and contingency planning. Automatically detects stuck agents and proposes alternative execution paths.
-- **RBAC Policies:** Granular permission matrix to control agent access to File System, Network, CLI, and Security tools.
-- **WASM Sandbox:** Execute generated code in a secure, isolated WebAssembly environment before applying it to your project.
-
-### ⚙️ Operations & Automation
-- **Enterprise CLI:** A powerful command-line interface for terminal-based automation and CI/CD integration.
-- **Operations Center:** Built-in Task Scheduler (Cron) for automating maintenance scripts.
-- **Execution DAG Visualizer:** Preview complex multi-step plans as Directed Acyclic Graphs before execution.
-- **Git Integration:** Full version control management directly from the UI (Status, Diff, Commit, Log).
-
-### 🧠 Intelligence & Knowledge
-- **Prompts v2 (SQLite + YAML Seed):** Prompts are versioned in SQLite for real-time editing via Prompt Studio, with YAML fallbacks for high reliability.
-- **Knowledge Base with OCR:** Drag-and-drop ingestion of PDFs and Images with automatic text extraction.
-- **Prompt Studio:** Real-time prompt engineering with integrated linter and security validation.
-- **Model Health Routing:** Latency monitoring with automatic fallback strategies for high-availability LLM access.
-
-### 📊 Analytics & Insights
-- **Activity Reports:** Weekly productivity summaries (Lines of Code, Time Saved, Error Rates).
-- **GPU/Hardware Monitor:** Real-time tracking of GPU load and memory usage to prevent OOM errors.
-
-## 💻 Hardware Requirements & Performance Tuning
-
-Ollash is optimized for high-end local execution while remaining accessible. To maximize the performance of Small Language Models (SLMs) like **Qwen3-Coder:30b**, we recommend the following configurations:
-
-### 🚀 High-End Optimization (Target: RTX 5080 / 64GB RAM)
-- **GPU:** 16GB+ VRAM (e.g., RTX 5080, 4090, 3090)
-- **RAM:** 64GB
-- **Default Configuration (Active):** 
-  - `num_ctx: 16384` (16k token window for massive code context)
-  - `temperature: 0.1` (Strict precision for logic tasks)
-  - `repeat_penalty: 1.15` (Prevents model loops)
-
-### ⚖️ Balanced / Mid-Range
-- **GPU:** 8GB - 12GB VRAM (e.g., RTX 4070, 3060)
-- **RAM:** 16GB - 32GB
-- **Optimization:** 
-  - Set `num_ctx: 8192` in your `.env` file to balance context and speed.
-
-### 🐢 Minimum / Low-Power
-- **GPU:** Integrated Graphics or CPU-only
-- **RAM:** 8GB
-- **Survival Mode:** 
-  - **CRITICAL:** Change `num_ctx: 4096` in your `.env` to avoid **Out of Memory (OOM)** errors.
-  - Performance will be slower, but micro-task execution will remain functional.
-
-> **Note:** The system uses structural XML prompting (`<thinking_process>` and `<code_created>`) and AST-based self-correction to ensure code quality regardless of the hardware tier.
+*   **Autonomous Project Generation**: From concept to full codebase (frontend, backend, tests) with self-reflection.
+*   **Specialist Swarm**: 5 specialized agents (Orchestrator, Coder, SysAdmin, NetSec, Reviewer) working in concert.
+*   **Semantic Integrity**: Advanced JavaScript validation and logical consistency checks.
+*   **Multimodal Interface**: Voice commands and OCR text extraction.
+*   **Visual Intelligence**:
+    *   **Brain View**: Explore decision history and knowledge graphs visually.
+    *   **Time Machine**: Checkpoint timeline for project restoration.
+    *   **Pair Programming**: Split-view editor with AI ghostwriter.
+*   **Advanced Tooling**:
+    *   **Floating Terminal**: Integrated Xterm.js console with autocomplete.
+    *   **Visual Structure Editor**: Drag-and-drop project scaffolding.
+    *   **Integrations Panel**: IFTTT-style automation triggers.
 
 ## 🛠️ Installation
 
-1.  **Clone the Repository:**
+1.  **Clone the repository:**
     ```bash
     git clone https://github.com/your-org/ollash.git
     cd ollash
     ```
 
-2.  **Install Dependencies:**
+2.  **Install dependencies:**
     ```bash
     python -m venv venv
-    source venv/bin/activate  # or .\venv\Scripts\activate on Windows
+    source venv/bin/activate  # On Windows: .\venv\Scripts\activate
     pip install -r requirements.txt
-    playwright install  # For E2E testing
     ```
 
-3.  **Run the Application:**
-    - **Web UI:** `python run_web.py` - Full visual experience for monitoring and interaction.
-    - **Enterprise CLI:** `python ollash_cli.py --help` - Command-line power for developers and automation.
-    - Access the UI at `http://localhost:5000`.
+3.  **Configure environment:**
+    Copy `.env.example` to `.env` and set your `OLLAMA_URL`.
 
-Check the [CLI Reference Guide](docs/CLI_REFERENCE.md) for detailed documentation of all commands.
-
-## 📂 Project Structure
-
-```text
-Ollash/
-├── backend/          # Core logic, agents, and system utilities
-├── frontend/         # Flask web application and UI assets
-├── legacy/           # Relocated legacy scripts and wrappers
-├── tests/            # Comprehensive test suite (unit, integration, e2e)
-├── docs/             # Technical documentation and CLI reference
-├── .ollash/          # Hidden directory for logs, DBs, and vector stores
-├── plugins/          # Extensible plugin system for custom tools
-├── .github/          # CI/CD workflows and GitHub templates
-├── requirements.txt  # Project dependencies
-├── run_web.py        # Main entry point for the Web UI
-└── ollash_cli.py     # Main entry point for the Enterprise CLI
-```
-
-## 🏗️ Code Generation Architecture
-
-The autonomous code generation pipeline follows a clean separation of concerns:
-
-| Component | Responsibility |
-|---|---|
-| `LogicPlanningPhase` | Generates a structured `logic_plan` per file (purpose, exports, imports, logic) |
-| `EnhancedFileContentGenerator` | Creates files from plans; optionally queries `DocumentationManager` for RAG context |
-| `CodePatcher` | Handles targeted edits and intelligent merging of **existing** files using `difflib` |
-| `PreferenceManagerExtended` | Profile-based, per-user preferences stored in `knowledge_workspace/preferences/` |
-
-> **Note:** `PreferenceManager` (flat `.ollash_preferences.json`) is **deprecated**. Run `migrate_preferences()` from `backend.utils.core.preference_manager` to port data to `PreferenceManagerExtended`.
+4.  **Run the application:**
+    ```bash
+    python run_web.py
+    ```
+    Access the UI at `http://localhost:5000`.
 
 ## 🧪 Testing
 
-We use **Pytest** for backend logic and **Playwright** for frontend E2E tests.
-
+Run the full test suite:
 ```bash
-# Run Unit Tests
-pytest tests/unit
-
-# Run Integration Tests
-pytest tests/integration
-
-# Run all tests with coverage
-pytest tests/unit tests/integration --cov=backend --cov-report=term-missing
-
-# Run a single test file
-pytest tests/unit/backend/utils/domains/auto_generation/test_code_patcher.py -v
-
-# Run E2E UI Tests (requires running server)
-pytest tests/e2e -m e2e
+pytest tests/
 ```
+
+## 🏗️ Architecture
+
+Ollash uses a modular "Phase" architecture for its AutoAgent, allowing for flexible pipelines:
+- **Analysis & Planning**: Requirements gathering and architecture design.
+- **Generation**: Parallel code generation with CoT (Chain of Thought) verification.
+- **Refinement & Repair**: Recursive self-correction loops.
+- **Optimization**: Cross-file semantic consistency checks.
 
 ## 🤝 Contributing
 
-Please see `CONTRIBUTING.md` for guidelines. We follow a strict feature-branch workflow with required PR reviews.
+Contributions are welcome! Please read `CONTRIBUTING.md` for details on our code of conduct and the process for submitting pull requests.
 
----
-*Powered by Ollama & Python*
+## 📄 License
+
+MIT License

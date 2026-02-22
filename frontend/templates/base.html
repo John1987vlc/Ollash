@@ -21,6 +21,7 @@
     <!-- Global Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     
     <!-- Monaco Editor -->
@@ -69,6 +70,20 @@
 
         <!-- Main Content -->
         <main class="main-content">
+            <!-- Global Latency & Status Bar -->
+            <div class="global-status-bar">
+                <div class="latency-indicator" id="latency-indicator" title="Ollama Latency">
+                    <span class="dot"></span>
+                    <span class="label">Ollama: --- ms</span>
+                </div>
+                <div class="terminal-bubble" id="terminal-bubble" title="Open Terminal">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M2 3L14 3L14 13L2 13L2 3Z"/>
+                        <polyline points="5 6 8 9 5 12" fill="none" stroke="white" stroke-width="1.5"/>
+                    </svg>
+                </div>
+            </div>
+
             <!-- Global Breadcrumbs -->
             <nav class="breadcrumbs" id="breadcrumbs-container"></nav>
             

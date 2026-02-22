@@ -48,8 +48,7 @@ window.TerminalModule = (function() {
         term.write(termPrompt);
 
         term.onData(data => {
-            if (data === '
-') {
+            if (data === '\r') {
                 term.writeln('');
                 if (currentCommand.trim()) executeCommand(currentCommand.trim());
                 currentCommand = '';
@@ -58,6 +57,14 @@ window.TerminalModule = (function() {
                 if (currentCommand.length > 0) {
                     currentCommand = currentCommand.slice(0, -1);
                     term.write('\b \b');
+                }
+            } else if (data === '\t') { // Tab for autocomplete
+                const suggestions = ['python', 'npm', 'git', 'ollama', 'docker', 'pytest'];
+                const match = suggestions.find(s => s.startsWith(currentCommand));
+                if (match) {
+                    const remainder = match.slice(currentCommand.length);
+                    currentCommand += remainder;
+                    term.write(remainder);
                 }
             } else {
                 currentCommand += data;

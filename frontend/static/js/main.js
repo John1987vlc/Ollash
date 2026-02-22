@@ -36,7 +36,8 @@ document.addEventListener('DOMContentLoaded', function() {
             healthCpuVal: document.getElementById('health-cpu-val'),
             healthRamVal: document.getElementById('health-ram-val'),
             healthDiskVal: document.getElementById('health-disk-val'),
-            healthNetVal: document.getElementById('health-net-val')
+            healthNetVal: document.getElementById('health-net-val'),
+            healthChartCanvas: document.getElementById('health-history-chart')
         });
     }
 
@@ -50,7 +51,9 @@ document.addEventListener('DOMContentLoaded', function() {
         ChatModule.init({
             chatMessages: document.getElementById('chat-messages'),
             chatInput: document.getElementById('chat-input'),
-            sendBtn: document.getElementById('send-btn')
+            sendBtn: document.getElementById('send-btn'),
+            voiceBtn: document.getElementById('voice-input-btn'),
+            attachBtn: document.getElementById('attach-file-btn')
         });
     }
 
@@ -62,6 +65,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Automations Module
     if (typeof AutomationsModule !== 'undefined') {
         AutomationsModule.init();
+    }
+
+    // Brain Module (NEW)
+    if (typeof BrainModule !== 'undefined') {
+        // Handled via triggerViewLoad
     }
 
     // Project Creation Wizard
@@ -209,20 +217,47 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'plugins': if (typeof loadPlugins !== 'undefined') loadPlugins(); break;
             case 'cicd': if (window.CICDModule) window.CICDModule.loadHistory(); break;
             case 'hil': if (window.HILModule) window.HILModule.refresh(); break;
+            case 'checkpoints': if (typeof loadCheckpoints !== 'undefined') loadCheckpoints(); break;
+            case 'integrations': if (typeof loadIntegrations !== 'undefined') loadIntegrations(); break;
+            case 'pair-programming': if (typeof loadPairProgramming !== 'undefined') loadPairProgramming(); break;
         }
     }
 
     // ==================== Global Helpers ====================
     async function checkOllamaStatus() {
         if (!statusDot || !statusText) return;
+        const start = performance.now();
+        const latencyLabel = document.querySelector('#latency-indicator .label');
+        const latencyDot = document.querySelector('#latency-indicator .dot');
+
         try {
             const resp = await fetch('/api/status');
             const data = await resp.json();
+            const latency = Math.round(performance.now() - start);
+            
             statusDot.style.background = (data.status === 'ok') ? 'var(--color-success)' : 'var(--color-error)';
             statusText.textContent = (data.status === 'ok') ? 'Ollama connected' : 'Ollama offline';
+            
+            if (latencyLabel) latencyLabel.textContent = `Ollama: ${latency} ms`;
+            if (latencyDot) {
+                latencyDot.style.background = latency < 100 ? 'var(--color-success)' : (latency < 500 ? 'var(--color-warning)' : 'var(--color-error)');
+            }
         } catch {
             statusDot.style.background = 'var(--color-error)';
             statusText.textContent = 'Ollama offline';
+            if (latencyLabel) latencyLabel.textContent = 'Ollama: Offline';
+        }
+    }
+
+    function checkCostThreshold() {
+        const totalTokens = parseInt(localStorage.getItem('session-tokens') || '0');
+        const threshold = parseInt(document.getElementById('token-budget')?.value || '50000');
+        
+        if (totalTokens > threshold) {
+            document.body.classList.add('cost-alert-active');
+            window.showMessage('Token budget exceeded!', 'warning');
+        } else {
+            document.body.classList.remove('cost-alert-active');
         }
     }
 
@@ -286,10 +321,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ==================== Initialization ====================
     checkOllamaStatus();
-    setInterval(checkOllamaStatus, 30000);
-    setInterval(() => {
-        if (typeof HealthModule !== 'undefined' && HealthModule.fetchSystemHealth) HealthModule.fetchSystemHealth();
-    }, 10000);
+    setInterval(checkOllamaStatus, 15000); // More frequent latency checks
+    setInterval(checkCostThreshold, 60000);
+
+    // Terminal Bubble Listener
+    const termBubble = document.getElementById('terminal-bubble');
+    if (termBubble) {
+        termBubble.addEventListener('click', () => {
+            if (window.TerminalModule) window.TerminalModule.toggle();
+        });
+    }
+
+    // Toolbox (Active Tools) listeners
+    document.querySelectorAll('.tool-toggle input').forEach(input => {
+        input.addEventListener('change', async (e) => {
+            const tool = e.target.dataset.tool;
+            const enabled = e.target.checked;
+            
+            // Sync with backend (mock endpoint for now)
+            await fetch('/api/settings/tool', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tool, enabled })
+            });
+            
+            // Update UI count
+            const count = document.querySelectorAll('.tool-toggle input:checked').length;
+            document.getElementById('active-tools-count').textContent = count;
+        });
+    });
 
     // Global messaging bridge
     window.showMessage = function(msg, type) {

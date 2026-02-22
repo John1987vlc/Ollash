@@ -121,8 +121,34 @@
                         <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.54-2.44V4.5A2.5 2.5 0 0 1 7 2h2.5z"></path>
                         <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.54-2.44V4.5A2.5 2.5 0 0 0 17 2h-2.5z"></path>
                     </svg>
-                    <span>Brain State</span>
+                    <span>Intelligence Hub</span>
                 </button>
+            </div>
+        </div>
+
+        <!-- Active Tools (Toolbox) -->
+        <div class="nav-group expanded">
+            <button class="nav-group-header" aria-expanded="true" aria-controls="nav-group-tools">
+                <span>Active Tools</span>
+                <span class="badge" id="active-tools-count">4</span>
+            </button>
+            <div class="nav-group-content toolbox-grid" id="nav-group-tools">
+                <label class="tool-toggle" title="Git Operations">
+                    <input type="checkbox" checked data-tool="git">
+                    <span class="tool-icon">📦</span>
+                </label>
+                <label class="tool-toggle" title="Network Diagnostics">
+                    <input type="checkbox" checked data-tool="network">
+                    <span class="tool-icon">🌐</span>
+                </label>
+                <label class="tool-toggle" title="Cybersecurity">
+                    <input type="checkbox" checked data-tool="security">
+                    <span class="tool-icon">🛡️</span>
+                </label>
+                <label class="tool-toggle" title="File System">
+                    <input type="checkbox" checked data-tool="filesystem">
+                    <span class="tool-icon">📁</span>
+                </label>
             </div>
         </div>
 

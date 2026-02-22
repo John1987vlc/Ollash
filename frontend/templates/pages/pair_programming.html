@@ -1,0 +1,77 @@
+{% block styles %}
+<style>
+    .pair-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        height: calc(100vh - 160px);
+        gap: 10px;
+    }
+    .editor-pane {
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        display: flex;
+        flex-direction: column;
+    }
+    .pane-header {
+        background: var(--color-surface-elevated);
+        padding: 5px 10px;
+        font-size: 0.8rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--color-border);
+    }
+    .agent-cursor {
+        position: absolute;
+        width: 2px;
+        height: 18px;
+        background: var(--color-accent);
+        pointer-events: none;
+        transition: all 0.1s;
+    }
+    .agent-label {
+        position: absolute;
+        background: var(--color-accent);
+        color: white;
+        font-size: 10px;
+        padding: 2px 4px;
+        border-radius: 3px;
+        top: -15px;
+        left: 0;
+    }
+</style>
+{% endblock %}
+
+<div class="view" id="pair-programming-view">
+    <div class="view-header">
+        <h1>Pair Programming Session</h1>
+        <div style="display:flex; gap: 10px;">
+            <span class="status-indicator status-online"></span>
+            <span>Agent Active</span>
+        </div>
+    </div>
+
+    <div class="pair-layout">
+        <!-- User Editor -->
+        <div class="editor-pane">
+            <div class="pane-header">
+                <span>👤 User (You)</span>
+                <span id="current-file">src/app.py</span>
+            </div>
+            <div id="monaco-user" style="flex: 1;"></div>
+        </div>
+
+        <!-- Agent Context/Suggestions -->
+        <div class="editor-pane">
+            <div class="pane-header">
+                <span>🤖 Agent Context</span>
+                <button class="btn-xs" onclick="applyAgentSuggestion()">Accept Suggestion</button>
+            </div>
+            <div id="monaco-agent" style="flex: 1;"></div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/pair-programming.js') }}"></script>
+{% endblock %}
