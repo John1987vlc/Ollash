@@ -205,15 +205,19 @@ class StructureGenerator:
 
     @staticmethod
     def extract_file_paths(json_structure: dict, current_path: str = "") -> List[str]:
-        """Recursively extract all file paths from the JSON structure."""
+        """Recursively extract all file paths from the JSON structure.
+
+        Always uses forward slashes so paths match LLM-generated JSON keys
+        regardless of the OS (avoids Windows backslash mismatch).
+        """
         file_paths = []
         for file_name in json_structure.get("files", []):
-            file_paths.append(str(Path(current_path) / file_name))
+            file_paths.append((Path(current_path) / file_name).as_posix())
 
         for folder_data in json_structure.get("folders", []):
             folder_name = folder_data.get("name")
             if folder_name:
-                new_path = str(Path(current_path) / folder_name)
+                new_path = (Path(current_path) / folder_name).as_posix()
                 file_paths.extend(StructureGenerator.extract_file_paths(folder_data, new_path))
 
         return file_paths
