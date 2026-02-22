@@ -98,12 +98,12 @@ class OllamaClient:
         self._gpu_limiter_enabled = gpu_config.get("enabled", True)
 
         self._rate_limiter = GPUAwareRateLimiter(
-            base_rpm=rate_config.get("requests_per_minute", 60),
-            tokens_per_minute=rate_config.get("max_tokens_per_minute", 100000),
-            degradation_threshold_ms=gpu_config.get("degradation_threshold_ms", 5000.0),
-            recovery_threshold_ms=gpu_config.get("recovery_threshold_ms", 2000.0),
-            min_rpm=gpu_config.get("min_rpm", 5),
-            ema_alpha=gpu_config.get("ema_alpha", 0.3),
+           base_rpm=rate_config.get("requests_per_minute", 300), 
+            tokens_per_minute=rate_config.get("max_tokens_per_minute", 2000000), 
+            degradation_threshold_ms=gpu_config.get("degradation_threshold_ms", 20000.0), 
+            recovery_threshold_ms=gpu_config.get("recovery_threshold_ms", 5000.0), 
+            min_rpm=gpu_config.get("min_rpm", 60), 
+            ema_alpha=gpu_config.get("ema_alpha", 0.2), 
             logger=logger,  # This logger is the AgentLogger wrapper
         )
 

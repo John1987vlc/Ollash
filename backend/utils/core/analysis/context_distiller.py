@@ -15,13 +15,21 @@ class ContextDistiller:
     def distill_file(file_path: str, content: str = None) -> str:
         """
         Parses a file and returns a 'skeleton' version.
-        If content is not provided, it reads from the file_path.
+        Only uses AST for Python files.
         """
         try:
             if content is None:
-                with open(file_path, "r", encoding="utf-8") as f:
+                # Use a more robust approach to find the file if path is relative
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                     content = f.read()
             
+            # CRITICAL: Only use AST for Python files
+            if not str(file_path).lower().endswith(".py"):
+                # Non-python files: take first 50 lines as summary context
+                lines = content.splitlines() if content else []
+                return "\n".join(lines[:50]) + ("\n... [truncated]" if len(lines) > 50 else "")
+
+            # For Python files, use AST
             tree = ast.parse(content)
             distilled_lines = []
             

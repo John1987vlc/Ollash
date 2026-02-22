@@ -224,8 +224,8 @@ class FileContentGenerationPhase(IAgentPhase):
         for export in exports:
             if export and export not in content:
                 self.context.logger.warning(f"    Missing expected export: {export}")
-                # We don't fail immediately, but we could if we want extreme strictness
-                # return False 
+                # We enforce strictness here
+                return False 
 
         # 4. TODO density check
         if "TODO" in content and content.count("TODO") > 5:

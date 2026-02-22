@@ -58,10 +58,24 @@ class CodeAnalyzer:
 
     def analyze_python(self, file_path: str) -> CodeInfo:
         """Analiza código Python."""
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
 
-        tree = ast.parse(content)
+            tree = ast.parse(content)
+        except Exception as e:
+            # Fallback for files that can't be parsed
+            return CodeInfo(
+                language=Language.PYTHON,
+                functions=[],
+                classes=[],
+                imports=[],
+                dependencies=[],
+                line_count=0,
+                has_tests=False,
+                has_docs=False,
+                file_path=file_path,
+            )
 
         functions = []
         classes = []
