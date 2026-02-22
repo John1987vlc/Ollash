@@ -16,7 +16,7 @@ from .automations_bp import automations_bp, init_app as init_automations
 from .automations_bp_api import automations_api_bp, init_app as init_automations_api
 from .benchmark_bp import benchmark_bp, init_app as init_benchmark
 from .chat_bp import chat_bp, init_app as init_chat
-from .common_bp import common_bp, init_app as init_common
+from .common_views import bp as common_bp, init_app as init_common
 from .learning_bp import init_app as init_learning, learning_bp
 from .metrics_bp import init_app as init_metrics, metrics_bp
 from .monitors_bp import init_app as init_monitors, monitors_bp
@@ -33,7 +33,7 @@ from .knowledge_graph_bp import knowledge_graph_bp, init_app as init_knowledge_g
 from .pair_programming_bp import pair_programming_bp, init_app as init_pair_programming
 from .project_graph_bp import project_graph_bp, init_app as init_project_graph
 from .prompt_studio_bp import prompt_studio_bp
-from .knowledge_bp import knowledge_bp
+from .knowledge_views import bp as knowledge_bp
 from .decisions_bp import decisions_bp
 from .tuning_bp import tuning_bp
 from .hil_bp import hil_bp
@@ -44,12 +44,12 @@ from .fragments_bp import fragments_bp
 from .router_bp import router_bp
 from .refactor_bp import refactor_bp, init_app as init_refactor
 from .system_health_bp import system_health_bp, init_app as init_system_health
-from .cybersecurity_bp import cybersecurity_bp, init_app as init_cybersecurity
+from .cybersecurity_views import bp as cybersecurity_bp, init_app as init_cybersecurity
 from .swarm_bp import swarm_bp, init_app as init_swarm
 from .resilience_bp import resilience_bp
 from .insights_bp import insights_bp
-from .operations_bp import operations_bp
-from .git_bp import git_bp
+from .operations_views import bp as operations_bp
+from .git_views import bp as git_bp
 
 
 def register_blueprints(

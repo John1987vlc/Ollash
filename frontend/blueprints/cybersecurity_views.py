@@ -13,7 +13,7 @@ from backend.utils.core.io.file_manager import FileManager
 from backend.utils.domains.cybersecurity.cybersecurity_tools import CybersecurityTools
 from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScanner
 
-cybersecurity_bp = Blueprint("cybersecurity", __name__, url_prefix="/api/cybersecurity")
+bp = Blueprint("cybersecurity", __name__, url_prefix="/api/cybersecurity")
 
 def get_cybersecurity_managers():
     """Returns or creates the cybersecurity managers."""
@@ -37,7 +37,7 @@ def get_cybersecurity_managers():
 
     return current_app._cybersecurity_managers
 
-@cybersecurity_bp.route("/scan/ports", methods=["POST"])
+@bp.route("/scan/ports", methods=["POST"])
 def scan_ports():
     """
     Performs a port scan on a target host.
@@ -59,7 +59,7 @@ def scan_ports():
         current_app.logger.error(f"Error in scan_ports: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
-@cybersecurity_bp.route("/scan/vulnerabilities", methods=["POST"])
+@bp.route("/scan/vulnerabilities", methods=["POST"])
 def scan_vulnerabilities():
     """
     Scans a file for security vulnerabilities.
@@ -87,7 +87,7 @@ def scan_vulnerabilities():
         current_app.logger.error(f"Error in scan_vulnerabilities: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
-@cybersecurity_bp.route("/integrity/check", methods=["POST"])
+@bp.route("/integrity/check", methods=["POST"])
 def check_integrity():
     """
     Checks file integrity using hashes.
@@ -115,7 +115,7 @@ def check_integrity():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
-@cybersecurity_bp.route("/logs/analyze", methods=["POST"])
+@bp.route("/logs/analyze", methods=["POST"])
 def analyze_logs():
     """
     Analyzes security logs for anomalies.
@@ -136,7 +136,7 @@ def analyze_logs():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
-@cybersecurity_bp.route("/recommendations", methods=["GET"])
+@bp.route("/recommendations", methods=["GET"])
 def get_recommendations():
     """
     Provides security hardening recommendations.

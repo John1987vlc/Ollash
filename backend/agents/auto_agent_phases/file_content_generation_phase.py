@@ -103,8 +103,17 @@ class FileContentGenerationPhase(IAgentPhase):
                 while attempts < max_attempts:
                     attempts += 1
                     current_user_prompt = user_prompt
+                    
                     if last_error:
-                        current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}\nPlease fix the error and respond strictly following the <thinking_process> and <code_created> format."
+                        # Implement Chain of Thought (CoT) for retries
+                        is_js = file_path.endswith('.js') or file_path.endswith('.jsx')
+                        cot_instruction = ""
+                        if is_js:
+                            cot_instruction = "\n\nCRITICAL: You previously generated code that failed validation. " \
+                                              "First, explain WHY the previous logic failed (in a <reflection> tag), " \
+                                              "then provide the corrected implementation in <code_created>."
+                        
+                        current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}{cot_instruction}"
 
                     # 3. LLM Call
                     response_data, _ = self.context.llm_manager.get_client("coder").chat(

@@ -67,3 +67,32 @@
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
+
+/* Command palette adaptive width */
+#command-palette-overlay .command-palette {
+    width: min(600px, 95vw);
+}
+
+/* Mobile: modals go full-screen */
+@media (max-width: 480px) {
+    .modal {
+        padding: 0;
+        align-items: flex-end;
+    }
+
+    .modal-content {
+        max-width: 100%;
+        max-height: 95vh;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        animation: modal-enter-mobile 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-content.modal-wide {
+        max-width: 100%;
+    }
+
+    @keyframes modal-enter-mobile {
+        from { opacity: 0; transform: translateY(100%); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+}

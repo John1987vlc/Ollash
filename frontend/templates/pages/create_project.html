@@ -1,7 +1,3 @@
-{% extends "base.html" %}
-
-{% block title %}Ollash - Create Project Wizard{% endblock %}
-
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/wizard.css') }}">
 <style>
@@ -60,235 +56,233 @@
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="page-header">
-    <div class="header-info">
-        <h1>Create New Project</h1>
-        <p>Step-by-step project creation wizard</p>
+<div class="view" id="create-view">
+    <div class="page-header">
+        <div class="header-info">
+            <h1>Create New Project</h1>
+            <p>Step-by-step project creation wizard</p>
+        </div>
     </div>
-</div>
 
-<div class="create-form-container" id="create-view">
-    <div class="wizard-container" id="wizard-container">
-        <!-- (Existing wizard steps content...) -->
-                        <div class="wizard-progress">
-                            <div class="wizard-step-indicator active" data-step="1"><span>1</span> Name &amp; Template</div>
-                            <div class="wizard-step-indicator" data-step="2"><span>2</span> Configuration</div>
-                            <div class="wizard-step-indicator" data-step="3"><span>3</span> Description</div>
-                        </div>
+    <div class="create-form-container">
+        <div class="wizard-container" id="wizard-container">
+            <div class="wizard-progress">
+                <div class="wizard-step-indicator active" data-step="1"><span>1</span> Name &amp; Template</div>
+                <div class="wizard-step-indicator" data-step="2"><span>2</span> Configuration</div>
+                <div class="wizard-step-indicator" data-step="3"><span>3</span> Description</div>
+            </div>
 
-                        <!-- Step 1: Name + Template -->
-                        <div class="wizard-step active" id="wizard-step-1">
-                            <div class="form-group">
-                                <label for="project-name">Project Name</label>
-                                <input type="text" id="project-name" name="project_name"
-                                       placeholder="e.g., my-awesome-app" required>
-                            </div>
-                            <div class="template-selector">
-                                <h2>Choose a Project Template</h2>
-                                <div class="template-cards">
-                                    <div class="template-card active" data-template="default">
-                                        <h3>Default Project</h3>
-                                        <p>A general-purpose project structure.</p>
-                                    </div>
-                                    <div class="template-card" data-template="fastapi-backend">
-                                        <h3>FastAPI Backend</h3>
-                                        <p>Python backend with FastAPI and uvicorn.</p>
-                                    </div>
-                                    <div class="template-card" data-template="react-frontend">
-                                        <h3>React Frontend</h3>
-                                        <p>Modern web frontend with React and Vite.</p>
-                                    </div>
-                                    <div class="template-card" data-template="automation-script">
-                                        <h3>Automation Script</h3>
-                                        <p>A simple Python automation script.</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="wizard-nav">
-                                <div></div>
-                                <button type="button" class="btn-primary wizard-next-btn" id="wizard-next-1">Next: Configuration &rarr;</button>
-                            </div>
-                        </div>
-
-                        <!-- Step 2: Tech Config -->
-                        <div class="wizard-step" id="wizard-step-2">
-                            <div class="form-group">
-                                <label for="python-version">Python Version</label>
-                                <select id="python-version" name="python_version">
-                                    <option value="3.12">Python 3.12 (Recommended)</option>
-                                    <option value="3.11">Python 3.11</option>
-                                    <option value="3.10">Python 3.10</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="license-type">License Type</label>
-                                <select id="license-type" name="license_type">
-                                    <option value="MIT">MIT License (Permissive)</option>
-                                    <option value="Apache-2.0">Apache License 2.0 (Permissive)</option>
-                                    <option value="GPL-3.0">GPLv3 (Strong Copyleft)</option>
-                                    <option value="None">No License</option>
-                                </select>
-                            </div>
-                            <div class="form-group toggle-group">
-                                <label for="include-docker">Include Docker support</label>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="include-docker" name="include_docker" checked>
-                                    <span class="slider round"></span>
-                                </label>
-                            </div>
-
-                            <!-- GitHub Integration Section -->
-                            <div class="github-integration-box">
-                                <div class="github-header" id="toggle-github-settings">
-                                    <div style="display: flex; align-items: center; gap: var(--spacing-sm);">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.041-1.416-4.041-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                                        </svg>
-                                        <span>GitHub Integration (Optional)</span>
-                                    </div>
-                                    <span class="chevron">&#x25B8;</span>
-                                </div>
-                                <div class="github-content" id="github-settings-content" style="display: none;">
-                                    <p class="help-text">Por motivos de seguridad, no te pedimos credenciales directas. Crea un repositorio vacío en GitHub y pega la URL aquí para que el agente suba el código generado.</p>
-                                    <div class="form-group">
-                                        <label for="git-repo-url">Git Repository URL</label>
-                                        <input type="url" id="git-repo-url" name="git_repo_url" placeholder="https://github.com/usuario/mi-proyecto.git">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="git-token">
-                                            Git Access Token (PAT)
-                                            <span class="tooltip-trigger" title="Necesario para hacer push de las Pull Requests automáticamente.">ⓘ</span>
-                                        </label>
-                                        <input type="password" id="git-token" name="git_token" placeholder="ghp_xxxxxxxxxxxx">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="git-branch">Git Branch</label>
-                                        <input type="text" id="git-branch" name="git_branch" value="main">
-                                    </div>
-                                    <div class="form-group toggle-group" id="auto-improve-group" style="opacity: 0.5; pointer-events: none;">
-                                        <div>
-                                            <label style="margin-bottom: 0;">Habilitar Mejora Continua (Auto-Review)</label>
-                                            <p class="help-text" style="font-size: 0.75rem; margin-top: 4px;">El agente revisará el repositorio cada hora, buscará bugs o áreas de mejora, y generará Pull Requests automáticamente.</p>
-                                        </div>
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" id="auto-improve-enabled" name="auto_improve_enabled">
-                                            <span class="slider round"></span>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="wizard-nav">
-                                <button type="button" class="btn-secondary wizard-back-btn" id="wizard-prev-2">&larr; Back</button>
-                                <button type="button" class="btn-primary wizard-next-btn" id="wizard-next-2">Next: Description &rarr;</button>
-                            </div>
-                        </div>
-
-                        <!-- Step 3: Description -->
-                        <div class="wizard-step" id="wizard-step-3">
-                            <div class="form-group">
-                                <label for="project-description">Project Description</label>
-                                <textarea id="project-description" name="project_description"
-                                          rows="8" placeholder="Describe what your project should do, what features it needs, and any specific requirements..." required></textarea>
-                            </div>
-                            <div class="wizard-nav">
-                                <button type="button" class="btn-secondary wizard-back-btn" id="wizard-prev-3">&larr; Back</button>
-                                <button type="button" class="btn-primary" id="wizard-generate">
-                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                                        <path d="M10 2L18 6V14L10 18L2 14V6L10 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
-                                    </svg>
-                                    <span>Generate Structure</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Agile Kanban Board (Hidden by default) -->
-                    <div id="kanban-board" class="kanban-board" style="display: none; margin-top: 30px;">
-                        <style>
-                            .kanban-board { display: flex; gap: 15px; margin-bottom: 25px; height: 350px; }
-                            .kanban-column { flex: 1; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
-                            .kanban-header { padding: 10px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; }
-                            .kanban-header h3 { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; margin: 0; }
-                            .kanban-tasks { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-                            .kanban-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-left: 3px solid #64748b; border-radius: 4px; padding: 10px; font-size: 0.8rem; transition: all 0.3s ease; }
-                            .kanban-card.in_progress { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
-                            .kanban-card.done { border-left-color: #10b981; opacity: 0.6; }
-                            .kanban-card h4 { margin: 0 0 5px 0; font-size: 0.8rem; color: #f8fafc; }
-                            .kanban-card p { margin: 0; font-size: 0.7rem; color: #94a3b8; }
-                        </style>
-                        <div class="kanban-column" id="col-todo">
-                            <div class="kanban-header"><h3>Todo <span id="count-todo">(0)</span></h3></div>
-                            <div class="kanban-tasks" id="tasks-todo"></div>
-                        </div>
-                        <div class="kanban-column" id="col-in_progress">
-                            <div class="kanban-header"><h3>In Progress <span id="count-in_progress">(0)</span></h3></div>
-                            <div class="kanban-tasks" id="tasks-in_progress"></div>
-                        </div>
-                        <div class="kanban-column" id="col-done">
-                            <div class="kanban-header"><h3>Done <span id="count-done">(0)</span></h3></div>
-                            <div class="kanban-tasks" id="tasks-done"></div>
-                        </div>
-                    </div>
-
-                    <!-- Pipeline Visual Section -->
-                    <div id="phase-pipeline-view" class="phase-pipeline">
-                        <h3>Agent Intelligence Pipeline</h3>
-                        <p class="subtitle" style="margin-bottom: 20px;">The agent is moving through autonomous phases. This process can take several minutes.</p>
-                        <div class="phase-steps" id="phase-steps-container">
-                            <!-- Populated by JS -->
-                        </div>
-                        <div id="phase-log-mini" style="margin-top: 30px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; max-height: 150px; overflow-y: auto;">
-                            <!-- Activity log -->
-                        </div>
-                    </div>
-
-                    <!-- Hidden form for backward compat -->
-                    <form id="create-project-form" class="create-form" style="display:none;">
-                        <button type="submit" class="btn-primary"><span>Generate Project</span></button>
-                    </form>
-
-                    <div id="status-message" class="status-message"></div>
+            <!-- Step 1: Name + Template -->
+            <div class="wizard-step active" id="wizard-step-1">
+                <div class="form-group">
+                    <label for="project-name">Project Name</label>
+                    <input type="text" id="project-name" name="project_name"
+                           placeholder="e.g., my-awesome-app" required>
                 </div>
-
-                <!-- Generated Structure Display (Drag & Drop Editor) -->
-                <div id="generated-structure-section" style="display: none; margin-top: var(--spacing-xl);">
-                    <div class="view-header">
-                        <h2>Review &amp; Edit Structure</h2>
-                        <p class="subtitle">Drag items to reorder. Double-click to rename. Click &times; to remove.</p>
-                    </div>
-
-                    <div class="structure-editor-container">
-                        <div class="structure-editor-tree" id="structure-editor-tree">
-                            <!-- Drag-and-drop tree rendered by StructureEditor class -->
+                <div class="template-selector">
+                    <h2>Choose a Project Template</h2>
+                    <div class="template-cards">
+                        <div class="template-card active" data-template="default">
+                            <h3>Default Project</h3>
+                            <p>A general-purpose project structure.</p>
+                        </div>
+                        <div class="template-card" data-template="fastapi-backend">
+                            <h3>FastAPI Backend</h3>
+                            <p>Python backend with FastAPI and uvicorn.</p>
+                        </div>
+                        <div class="template-card" data-template="react-frontend">
+                            <h3>React Frontend</h3>
+                            <p>Modern web frontend with React and Vite.</p>
+                        </div>
+                        <div class="template-card" data-template="automation-script">
+                            <h3>Automation Script</h3>
+                            <p>A simple Python automation script.</p>
                         </div>
                     </div>
-
-                    <div class="structure-actions" style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-md); align-items: center;">
-                        <input type="text" id="add-path-input" placeholder="path/to/new/file.py" class="form-control" style="flex-grow: 1;">
-                        <button type="button" class="btn-secondary" id="add-path-btn">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                                <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                            Add
-                        </button>
-                        <button type="button" class="btn-primary" id="confirm-structure-btn">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                                <path d="M17 5L7 15L3 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                            Confirm &amp; Generate
-                        </button>
-                        <button type="button" class="btn-secondary" id="edit-structure-btn">
-                            Edit Structure
-                        </button>
-                    </div>
-
-                    <!-- Old generated-file-tree kept hidden for backward compat -->
-                    <div class="generated-file-tree" id="generated-file-tree" style="display:none;"></div>
+                </div>
+                <div class="wizard-nav">
+                    <div></div>
+                    <button type="button" class="btn-primary wizard-next-btn" id="wizard-next-1">Next: Configuration &rarr;</button>
                 </div>
             </div>
-{% endblock %}
+
+            <!-- Step 2: Tech Config -->
+            <div class="wizard-step" id="wizard-step-2">
+                <div class="form-group">
+                    <label for="python-version">Python Version</label>
+                    <select id="python-version" name="python_version">
+                        <option value="3.12">Python 3.12 (Recommended)</option>
+                        <option value="3.11">Python 3.11</option>
+                        <option value="3.10">Python 3.10</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="license-type">License Type</label>
+                    <select id="license-type" name="license_type">
+                        <option value="MIT">MIT License (Permissive)</option>
+                        <option value="Apache-2.0">Apache License 2.0 (Permissive)</option>
+                        <option value="GPL-3.0">GPLv3 (Strong Copyleft)</option>
+                        <option value="None">No License</option>
+                    </select>
+                </div>
+                <div class="form-group toggle-group">
+                    <label for="include-docker">Include Docker support</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="include-docker" name="include_docker" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <!-- GitHub Integration Section -->
+                <div class="github-integration-box">
+                    <div class="github-header" id="toggle-github-settings">
+                        <div style="display: flex; align-items: center; gap: var(--spacing-sm);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.041-1.416-4.041-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                            </svg>
+                            <span>GitHub Integration (Optional)</span>
+                        </div>
+                        <span class="chevron">&#x25B8;</span>
+                    </div>
+                    <div class="github-content" id="github-settings-content" style="display: none;">
+                        <p class="help-text">Por motivos de seguridad, no te pedimos credenciales directas. Crea un repositorio vacío en GitHub y pega la URL aquí para que el agente suba el código generado.</p>
+                        <div class="form-group">
+                            <label for="git-repo-url">Git Repository URL</label>
+                            <input type="url" id="git-repo-url" name="git_repo_url" placeholder="https://github.com/usuario/mi-proyecto.git">
+                        </div>
+                        <div class="form-group">
+                            <label for="git-token">
+                                Git Access Token (PAT)
+                                <span class="tooltip-trigger" title="Necesario para hacer push de las Pull Requests automáticamente.">ⓘ</span>
+                            </label>
+                            <input type="password" id="git-token" name="git_token" placeholder="ghp_xxxxxxxxxxxx">
+                        </div>
+                        <div class="form-group">
+                            <label for="git-branch">Git Branch</label>
+                            <input type="text" id="git-branch" name="git_branch" value="main">
+                        </div>
+                        <div class="form-group toggle-group" id="auto-improve-group" style="opacity: 0.5; pointer-events: none;">
+                            <div>
+                                <label style="margin-bottom: 0;">Habilitar Mejora Continua (Auto-Review)</label>
+                                <p class="help-text" style="font-size: 0.75rem; margin-top: 4px;">El agente revisará el repositorio cada hora, buscará bugs o áreas de mejora, y generará Pull Requests automáticamente.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="auto-improve-enabled" name="auto_improve_enabled">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wizard-nav">
+                    <button type="button" class="btn-secondary wizard-back-btn" id="wizard-prev-2">&larr; Back</button>
+                    <button type="button" class="btn-primary wizard-next-btn" id="wizard-next-2">Next: Description &rarr;</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Description -->
+            <div class="wizard-step" id="wizard-step-3">
+                <div class="form-group">
+                    <label for="project-description">Project Description</label>
+                    <textarea id="project-description" name="project_description"
+                              rows="8" placeholder="Describe what your project should do, what features it needs, and any specific requirements..." required></textarea>
+                </div>
+                <div class="wizard-nav">
+                    <button type="button" class="btn-secondary wizard-back-btn" id="wizard-prev-3">&larr; Back</button>
+                    <button type="button" class="btn-primary" id="wizard-generate">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M10 2L18 6V14L10 18L2 14V6L10 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        </svg>
+                        <span>Generate Structure</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agile Kanban Board (Hidden by default) -->
+        <div id="kanban-board" class="kanban-board" style="display: none; margin-top: 30px;">
+            <style>
+                .kanban-board { display: flex; gap: 15px; margin-bottom: 25px; height: 350px; }
+                .kanban-column { flex: 1; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+                .kanban-header { padding: 10px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; }
+                .kanban-header h3 { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; margin: 0; }
+                .kanban-tasks { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+                .kanban-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-left: 3px solid #64748b; border-radius: 4px; padding: 10px; font-size: 0.8rem; transition: all 0.3s ease; }
+                .kanban-card.in_progress { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
+                .kanban-card.done { border-left-color: #10b981; opacity: 0.6; }
+                .kanban-card h4 { margin: 0 0 5px 0; font-size: 0.8rem; color: #f8fafc; }
+                .kanban-card p { margin: 0; font-size: 0.7rem; color: #94a3b8; }
+            </style>
+            <div class="kanban-column" id="col-todo">
+                <div class="kanban-header"><h3>Todo <span id="count-todo">(0)</span></h3></div>
+                <div class="kanban-tasks" id="tasks-todo"></div>
+            </div>
+            <div class="kanban-column" id="col-in_progress">
+                <div class="kanban-header"><h3>In Progress <span id="count-in_progress">(0)</span></h3></div>
+                <div class="kanban-tasks" id="tasks-in_progress"></div>
+            </div>
+            <div class="kanban-column" id="col-done">
+                <div class="kanban-header"><h3>Done <span id="count-done">(0)</span></h3></div>
+                <div class="kanban-tasks" id="tasks-done"></div>
+            </div>
+        </div>
+
+        <!-- Pipeline Visual Section -->
+        <div id="phase-pipeline-view" class="phase-pipeline">
+            <h3>Agent Intelligence Pipeline</h3>
+            <p class="subtitle" style="margin-bottom: 20px;">The agent is moving through autonomous phases. This process can take several minutes.</p>
+            <div class="phase-steps" id="phase-steps-container">
+                <!-- Populated by JS -->
+            </div>
+            <div id="phase-log-mini" style="margin-top: 30px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; max-height: 150px; overflow-y: auto;">
+                <!-- Activity log -->
+            </div>
+        </div>
+
+        <!-- Hidden form for backward compat -->
+        <form id="create-project-form" class="create-form" style="display:none;">
+            <button type="submit" class="btn-primary"><span>Generate Project</span></button>
+        </form>
+
+        <div id="status-message" class="status-message"></div>
+    </div>
+
+    <!-- Generated Structure Display (Drag & Drop Editor) -->
+    <div id="generated-structure-section" style="display: none; margin-top: var(--spacing-xl);">
+        <div class="view-header">
+            <h2>Review &amp; Edit Structure</h2>
+            <p class="subtitle">Drag items to reorder. Double-click to rename. Click &times; to remove.</p>
+        </div>
+
+        <div class="structure-editor-container">
+            <div class="structure-editor-tree" id="structure-editor-tree">
+                <!-- Drag-and-drop tree rendered by StructureEditor class -->
+            </div>
+        </div>
+
+        <div class="structure-actions" style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-md); align-items: center;">
+            <input type="text" id="add-path-input" placeholder="path/to/new/file.py" class="form-control" style="flex-grow: 1;">
+            <button type="button" class="btn-secondary" id="add-path-btn">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Add
+            </button>
+            <button type="button" class="btn-primary" id="confirm-structure-btn">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M17 5L7 15L3 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Confirm &amp; Generate
+            </button>
+            <button type="button" class="btn-secondary" id="edit-structure-btn">
+                Edit Structure
+            </button>
+        </div>
+
+        <!-- Old generated-file-tree kept hidden for backward compat -->
+        <div class="generated-file-tree" id="generated-file-tree" style="display:none;"></div>
+    </div>
+</div>
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pages/wizard.js') }}"></script>

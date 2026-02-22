@@ -168,13 +168,15 @@ document.addEventListener('DOMContentLoaded', function() {
     navGroups.forEach(group => {
         const header = group.querySelector('.nav-group-header');
         header.addEventListener('click', (e) => {
-            // Collapse others? Optional, but let's keep it simple for now (manual toggle)
             group.classList.toggle('expanded');
+            // Keep aria-expanded in sync with the visual state
+            header.setAttribute('aria-expanded', group.classList.contains('expanded') ? 'true' : 'false');
         });
 
         // Auto-expand if it contains the active item
         if (group.querySelector('.nav-item.active')) {
             group.classList.add('expanded');
+            header.setAttribute('aria-expanded', 'true');
         }
     });
 
@@ -239,6 +241,46 @@ document.addEventListener('DOMContentLoaded', function() {
         themeToggle.addEventListener('click', () => {
             const current = document.documentElement.getAttribute('data-theme') || 'dark';
             setTheme(current === 'dark' ? 'light' : 'dark');
+        });
+    }
+
+    // ==================== Mobile Sidebar Toggle ====================
+    const hamburgerBtn = document.getElementById('sidebar-hamburger');
+    const sidebarEl = document.getElementById('main-sidebar');
+    const sidebarOverlayEl = document.getElementById('sidebar-overlay');
+
+    function openMobileSidebar() {
+        sidebarEl.classList.add('sidebar--open');
+        sidebarOverlayEl.classList.add('sidebar-overlay--visible');
+        sidebarOverlayEl.removeAttribute('aria-hidden');
+        hamburgerBtn.setAttribute('aria-expanded', 'true');
+        hamburgerBtn.setAttribute('aria-label', 'Cerrar menú de navegación');
+    }
+
+    function closeMobileSidebar() {
+        sidebarEl.classList.remove('sidebar--open');
+        sidebarOverlayEl.classList.remove('sidebar-overlay--visible');
+        sidebarOverlayEl.setAttribute('aria-hidden', 'true');
+        hamburgerBtn.setAttribute('aria-expanded', 'false');
+        hamburgerBtn.setAttribute('aria-label', 'Abrir menú de navegación');
+    }
+
+    if (hamburgerBtn && sidebarEl && sidebarOverlayEl) {
+        hamburgerBtn.addEventListener('click', () => {
+            if (sidebarEl.classList.contains('sidebar--open')) {
+                closeMobileSidebar();
+            } else {
+                openMobileSidebar();
+            }
+        });
+
+        sidebarOverlayEl.addEventListener('click', closeMobileSidebar);
+
+        // Close sidebar when a nav item is selected on mobile
+        sidebarEl.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                if (window.innerWidth <= 768) closeMobileSidebar();
+            });
         });
     }
 

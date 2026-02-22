@@ -130,14 +130,32 @@ window.ChatPageModule = (function() {
     }
 
     function handleClearChat() {
-        if (confirm('Are you sure you want to clear the chat history?') && chatMessages) {
-            chatMessages.innerHTML = `
-                <div class="chat-welcome">
-                    <h2>Ollash Agent</h2>
-                    <p>Select a specialist or start typing to use the auto-routing orchestrator.</p>
-                </div>
-            `;
-            if (window.notificationService) notificationService.info('Chat cleared');
+        if (typeof window.showConfirmModal === 'function') {
+            window.showConfirmModal(
+                '¿Estás seguro de que quieres borrar el historial de chat?',
+                () => {
+                    if (chatMessages) {
+                        chatMessages.innerHTML = `
+                            <div class="chat-welcome">
+                                <h2>Ollash Agent</h2>
+                                <p>Select a specialist or start typing to use the auto-routing orchestrator.</p>
+                            </div>
+                        `;
+                    }
+                    if (window.notificationService) notificationService.info('Chat cleared');
+                }
+            );
+        } else {
+            // Fallback if modal not available yet
+            if (confirm('Are you sure you want to clear the chat history?') && chatMessages) {
+                chatMessages.innerHTML = `
+                    <div class="chat-welcome">
+                        <h2>Ollash Agent</h2>
+                        <p>Select a specialist or start typing to use the auto-routing orchestrator.</p>
+                    </div>
+                `;
+                if (window.notificationService) notificationService.info('Chat cleared');
+            }
         }
     }
 

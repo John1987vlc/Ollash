@@ -1,8 +1,8 @@
 <!-- Sidebar -->
-<aside class="sidebar">
+<aside class="sidebar" id="main-sidebar">
     <div class="sidebar-header">
         <div class="logo">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true" focusable="false">
                 <rect width="32" height="32" rx="8" fill="url(#logo-gradient)"/>
                 <path d="M16 8L22 12V20L16 24L10 20V12L16 8Z" stroke="white" stroke-width="2" fill="none"/>
                 <circle cx="16" cy="16" r="3" fill="white"/>
@@ -15,7 +15,7 @@
             </svg>
             <span>Ollash</span>
         </div>
-        <button class="btn-icon" id="toggle-pair-mode" title="Toggle Pair Programming Mode">
+        <button class="btn-icon" id="toggle-pair-mode" title="Toggle Pair Programming Mode" aria-label="Toggle Pair Programming Mode">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                 <circle cx="9" cy="7" r="4"></circle>
@@ -25,16 +25,16 @@
         </button>
     </div>
 
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav" aria-label="Menú principal">
         <!-- Operaciones Group -->
         <div class="nav-group expanded">
-            <button class="nav-group-header">
+            <button class="nav-group-header" aria-expanded="true" aria-controls="nav-group-operaciones">
                 <span>Operaciones</span>
-                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true" focusable="false">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
             </button>
-            <div class="nav-group-content">
+            <div class="nav-group-content" id="nav-group-operaciones">
                 <button class="nav-item active" data-view="chat">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -90,13 +90,13 @@
 
         <!-- Memoria y Checkpoints Group -->
         <div class="nav-group">
-            <button class="nav-group-header">
+            <button class="nav-group-header" aria-expanded="false" aria-controls="nav-group-memoria">
                 <span>Memoria y Checkpoints</span>
-                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true" focusable="false">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
             </button>
-            <div class="nav-group-content">
+            <div class="nav-group-content" id="nav-group-memoria">
                 <button class="nav-item" data-view="checkpoints">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -128,13 +128,13 @@
 
         <!-- Sistema e Integraciones Group -->
         <div class="nav-group">
-            <button class="nav-group-header">
+            <button class="nav-group-header" aria-expanded="false" aria-controls="nav-group-sistema">
                 <span>Sistema e Integraciones</span>
-                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true" focusable="false">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
             </button>
-            <div class="nav-group-content">
+            <div class="nav-group-content" id="nav-group-sistema">
                 <button class="nav-item" data-view="cicd">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
@@ -225,13 +225,13 @@
 
         <!-- Seguridad Group -->
         <div class="nav-group">
-            <button class="nav-group-header">
+            <button class="nav-group-header" aria-expanded="false" aria-controls="nav-group-seguridad">
                 <span>Seguridad</span>
-                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true" focusable="false">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
             </button>
-            <div class="nav-group-content">
+            <div class="nav-group-content" id="nav-group-seguridad">
                 <button class="nav-item" data-view="security">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -260,13 +260,13 @@
 
         <!-- Aprobaciones Group -->
         <div class="nav-group">
-            <button class="nav-group-header">
+            <button class="nav-group-header" aria-expanded="false" aria-controls="nav-group-aprobaciones">
                 <span>Aprobaciones</span>
-                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true" focusable="false">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
             </button>
-            <div class="nav-group-content">
+            <div class="nav-group-content" id="nav-group-aprobaciones">
                 <button class="nav-item" data-view="hil">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -331,8 +331,8 @@
             <span id="theme-icon">&#x2600;&#xfe0f;</span>
             <span id="theme-label">Light Mode</span>
         </button>
-        <div class="status-indicator">
-            <div class="status-dot"></div>
+        <div class="status-indicator" role="status" aria-live="polite" aria-label="Estado del sistema">
+            <div class="status-dot" aria-hidden="true"></div>
             <span>Ready</span>
         </div>
     </div>

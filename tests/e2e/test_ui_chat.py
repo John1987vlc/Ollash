@@ -67,3 +67,36 @@ def test_agent_cards_interactivity(page, base_url):
     import re
 
     expect(page.locator(".agent-card").first).to_have_class(re.compile(r"active"))
+
+
+@pytest.mark.e2e
+def test_clear_chat_shows_confirmation_modal(page, base_url):
+    """
+    Verificar que el botón 'Clear Chat' muestra el modal de confirmación
+    en lugar del confirm() nativo del navegador.
+    """
+    page.goto(base_url)
+    page.locator(".nav-item[data-view='chat']").click()
+    expect(page.locator("#chat-view")).to_be_visible()
+
+    clear_btn = page.locator("#clear-chat-btn")
+    if not clear_btn.is_visible():
+        pytest.skip("Clear chat button not found in current view")
+
+    # Register listener for native dialog — it should NOT appear
+    native_dialog_seen = {"value": False}
+    page.on("dialog", lambda d: (native_dialog_seen.__setitem__("value", True), d.dismiss()))
+
+    clear_btn.click()
+
+    # Custom confirmation modal must appear
+    confirm_modal = page.locator("#confirm-modal")
+    expect(confirm_modal).to_be_visible(timeout=2000)
+
+    # Dismiss by clicking Cancel so we don't clear actual content
+    page.locator("#confirm-modal-cancel").click()
+    expect(confirm_modal).not_to_be_visible()
+
+    assert not native_dialog_seen["value"], (
+        "Native browser confirm() must NOT be used; custom modal should be shown instead"
+    )

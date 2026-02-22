@@ -17,6 +17,7 @@ from backend.agents.auto_agent_phases.file_refinement_phase import FileRefinemen
 from backend.agents.auto_agent_phases.final_review_phase import FinalReviewPhase
 from backend.agents.auto_agent_phases.infrastructure_generation_phase import InfrastructureGenerationPhase
 from backend.agents.auto_agent_phases.iterative_improvement_phase import IterativeImprovementPhase
+from backend.agents.auto_agent_phases.javascript_optimization_phase import JavaScriptOptimizationPhase
 from backend.agents.auto_agent_phases.license_compliance_phase import LicenseCompliancePhase
 from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
 
@@ -359,6 +360,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         providers.Factory(EmptyFileScaffoldingPhase, context=phase_context),
         providers.Factory(FileContentGenerationPhase, context=phase_context),
         providers.Factory(FileRefinementPhase, context=phase_context),
+        providers.Factory(JavaScriptOptimizationPhase, context=phase_context),
         providers.Factory(VerificationPhase, context=phase_context),
         providers.Factory(CodeQuarantinePhase, context=phase_context),
         providers.Factory(SecurityScanPhase, context=phase_context),

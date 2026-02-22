@@ -13,6 +13,59 @@ class ProactiveAlertHandler {
         this.alertMap = new Map();
         this.alertHistory = [];
         this.maxHistorySize = 100;
+        this._reconnectBanner = null;
+    }
+
+    /**
+     * Show a persistent reconnecting banner at the top of the screen.
+     */
+    _showReconnectBanner() {
+        if (this._reconnectBanner) return; // already visible
+        const banner = document.createElement('div');
+        banner.id = 'sse-reconnect-banner';
+        banner.setAttribute('role', 'alert');
+        banner.setAttribute('aria-live', 'assertive');
+        banner.style.cssText = [
+            'position: fixed',
+            'top: 0',
+            'left: 0',
+            'right: 0',
+            'z-index: 9999',
+            'background: #f59e0b',
+            'color: #1c1917',
+            'padding: 8px 16px',
+            'font-size: 0.85rem',
+            'font-weight: 600',
+            'text-align: center',
+            'display: flex',
+            'align-items: center',
+            'justify-content: center',
+            'gap: 8px',
+        ].join('; ');
+        banner.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true" focusable="false">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span id="sse-banner-text">Reconectando con el servidor de alertas…</span>
+        `;
+        document.body.prepend(banner);
+        this._reconnectBanner = banner;
+    }
+
+    /**
+     * Hide the reconnecting banner and optionally show a brief "Connected" confirmation.
+     */
+    _hideReconnectBanner() {
+        if (!this._reconnectBanner) return;
+        const banner = this._reconnectBanner;
+        banner.style.background = '#10b981';
+        banner.querySelector('#sse-banner-text').textContent = 'Conexión con alertas restaurada';
+        setTimeout(() => {
+            banner.remove();
+            this._reconnectBanner = null;
+        }, 2500);
     }
 
     /**
@@ -31,6 +84,7 @@ class ProactiveAlertHandler {
                 console.log('✅ Connected to alert stream');
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
+                this._hideReconnectBanner();
             });
 
             // Handle ui_alert events (proactive notifications from the system)
@@ -281,6 +335,7 @@ class ProactiveAlertHandler {
             this.eventSource.close();
             this.eventSource = null;
         }
+        this._showReconnectBanner();
         this.scheduleReconnect();
     }
 
@@ -290,14 +345,27 @@ class ProactiveAlertHandler {
     scheduleReconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             console.warn('❌ Max reconnect attempts reached');
+            // Update banner to indicate permanent failure
+            if (this._reconnectBanner) {
+                this._reconnectBanner.style.background = '#ef4444';
+                this._reconnectBanner.style.color = '#fff';
+                const text = this._reconnectBanner.querySelector('#sse-banner-text');
+                if (text) text.textContent = 'No se pudo conectar con el servidor de alertas. Recarga la página.';
+            }
             return;
         }
 
         this.reconnectAttempts++;
         const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-        
+
+        // Update banner with attempt info
+        if (this._reconnectBanner) {
+            const text = this._reconnectBanner.querySelector('#sse-banner-text');
+            if (text) text.textContent = `Reconectando… (intento ${this.reconnectAttempts}/${this.maxReconnectAttempts})`;
+        }
+
         console.log(`⏳ Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-        
+
         setTimeout(() => {
             this.connect();
         }, delay);
@@ -332,11 +400,11 @@ class ProactiveAlertHandler {
 }
 
 // Initialize globally when DOM is ready
-let proactiveAlertHandler = null;
+window.proactiveAlertHandler = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    proactiveAlertHandler = new ProactiveAlertHandler();
-    proactiveAlertHandler.connect();
+    window.proactiveAlertHandler = new ProactiveAlertHandler();
+    window.proactiveAlertHandler.connect();
 });
 
 // Add CSS for notifications dynamically

@@ -52,6 +52,18 @@
     <div class="bg-gradient"></div>
     <div class="noise-overlay"></div>
 
+    <!-- Mobile sidebar overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+
+    <!-- Mobile hamburger menu button -->
+    <button class="sidebar-hamburger" id="sidebar-hamburger" aria-label="Abrir menú de navegación" aria-expanded="false" aria-controls="main-sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
     <div class="app-container">
         {% include 'layouts/partials/sidebar.html' %}
 
@@ -68,14 +80,15 @@
     {% include 'layouts/partials/modals.html' %}
 
     <!-- Command Palette Overlay -->
-    <div id="command-palette-overlay" class="command-palette-overlay">
+    <div id="command-palette-overlay" class="command-palette-overlay" role="dialog" aria-modal="true" aria-label="Paleta de comandos">
         <div class="command-palette">
             <div class="command-palette-input-wrapper">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <input type="text" id="command-palette-input" placeholder="Search for views, tools, or settings..." autocomplete="off">
+                <input type="text" id="command-palette-input" placeholder="Search for views, tools, or settings..." autocomplete="off"
+                    role="combobox" aria-expanded="true" aria-autocomplete="list" aria-controls="command-palette-results" aria-label="Buscar en paleta de comandos">
             </div>
             <div id="command-palette-results" class="command-palette-results">
                 <!-- Dynamic results -->

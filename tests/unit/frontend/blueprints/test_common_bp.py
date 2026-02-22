@@ -61,3 +61,26 @@ def test_api_status_check(client, mock_ollama):
         # Flexibility for :latest suffix
         model_names = [m.split(":")[0] for m in data["models"]]
         assert "qwen3-coder" in model_names
+
+
+@pytest.mark.unit
+def test_settings_page_has_no_inline_scripts(client):
+    """
+    Verifica que settings.html no contiene bloques <script> con JS inline.
+    El script loadHealth() fue movido a frontend/static/js/pages/settings.js
+    como parte de las mejoras de UI/UX (extracción de scripts inline).
+    """
+    response = client.get("/settings")
+    assert response.status_code == 200
+
+    html = response.data.decode("utf-8")
+
+    # The old inline function must not appear in the rendered HTML
+    assert "async function loadHealth()" not in html, (
+        "Inline 'loadHealth' function must be removed from settings.html and moved to settings.js"
+    )
+
+    # The external script reference must be present instead
+    assert "settings.js" in html, (
+        "settings.html must include a <script src='.../settings.js'> tag pointing to the external module"
+    )

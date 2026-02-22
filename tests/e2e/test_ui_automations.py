@@ -25,6 +25,12 @@ def test_automations_list_rendering(page, base_url):
     )
 
     page.goto(base_url)
+    
+    # Expand 'Sistema e Integraciones' group if needed
+    header = page.locator("button[aria-controls='nav-group-sistema']")
+    if header.get_attribute("aria-expanded") == "false":
+        header.click()
+        
     page.locator(".nav-item[data-view='automations']").click()
 
     # Wait for the grid to contain the task name
@@ -37,6 +43,12 @@ def test_create_automation_modal(page, base_url):
     Validates the creation of a new automation using correct field IDs.
     """
     page.goto(base_url)
+    
+    # Expand 'Sistema e Integraciones' group if needed
+    header = page.locator("button[aria-controls='nav-group-sistema']")
+    if header.get_attribute("aria-expanded") == "false":
+        header.click()
+        
     page.locator(".nav-item[data-view='automations']").click()
 
     # Click New Automation
@@ -64,3 +76,29 @@ def test_create_automation_modal(page, base_url):
 
     # Modal should close
     expect(modal).to_be_hidden()
+
+
+@pytest.mark.e2e
+def test_automation_modal_has_aria_attributes(page, base_url):
+    """
+    Verifica que el modal de automatización tenga role='dialog' y aria-modal='true'
+    una vez abierto (test de regresión de accesibilidad).
+    """
+    page.goto(base_url)
+    
+    # Expand 'Sistema e Integraciones' group if needed
+    header = page.locator("button[aria-controls='nav-group-sistema']")
+    if header.get_attribute("aria-expanded") == "false":
+        header.click()
+        
+    page.locator(".nav-item[data-view='automations']").click()
+    page.locator("#new-automation-btn").click()
+
+    modal = page.locator("#automation-modal")
+    expect(modal).to_be_visible()
+
+    role = modal.get_attribute("role")
+    aria_modal = modal.get_attribute("aria-modal")
+
+    assert role == "dialog", f"Automation modal should have role='dialog', got '{role}'"
+    assert aria_modal == "true", f"Automation modal should have aria-modal='true', got '{aria_modal}'"

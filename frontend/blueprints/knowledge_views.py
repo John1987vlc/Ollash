@@ -2,10 +2,10 @@ from flask import Blueprint, jsonify, request, render_template
 from werkzeug.utils import secure_filename
 from backend.core.containers import main_container
 
-knowledge_bp = Blueprint("knowledge", __name__)
+bp = Blueprint("knowledge", __name__)
 
 
-@knowledge_bp.route("/knowledge")
+@bp.route("/knowledge")
 def knowledge_page():
     return render_template("pages/knowledge.html")
 
@@ -14,7 +14,7 @@ def get_doc_manager():
     return main_container.core.documentation_manager()
 
 
-@knowledge_bp.route("/api/knowledge/documents", methods=["GET"])
+@bp.route("/api/knowledge/documents", methods=["GET"])
 def list_documents():
     """Returns a list of documents indexed in the documentation_store collection."""
     try:
@@ -39,7 +39,7 @@ def list_documents():
         return jsonify({"error": str(e)}), 500
 
 
-@knowledge_bp.route("/api/knowledge/upload", methods=["POST"])
+@bp.route("/api/knowledge/upload", methods=["POST"])
 def upload_document():
     """Uploads a document, saves it to knowledge_workspace/ingest and indexes it."""
     if "file" not in request.files:
@@ -69,7 +69,7 @@ def upload_document():
         return jsonify({"error": str(e)}), 500
 
 
-@knowledge_bp.route("/api/knowledge/documents/<doc_id>", methods=["DELETE"])
+@bp.route("/api/knowledge/documents/<doc_id>", methods=["DELETE"])
 def delete_document(doc_id):
     """Deletes a document from the vector store."""
     try:
@@ -80,7 +80,7 @@ def delete_document(doc_id):
         return jsonify({"error": str(e)}), 500
 
 
-@knowledge_bp.route("/api/knowledge/errors", methods=["GET"])
+@bp.route("/api/knowledge/errors", methods=["GET"])
 def get_error_knowledge():
     """Returns statistics and patterns from the Error Knowledge Base."""
     try:
@@ -92,7 +92,7 @@ def get_error_knowledge():
         return jsonify({"error": str(e)}), 500
 
 
-@knowledge_bp.route("/api/knowledge/episodes", methods=["GET"])
+@bp.route("/api/knowledge/episodes", methods=["GET"])
 def get_episodic_memory():
     """Returns statistics and recent episodes from Episodic Memory."""
     try:

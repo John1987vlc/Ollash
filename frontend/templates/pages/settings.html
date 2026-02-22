@@ -1,8 +1,7 @@
-{% extends 'base.html' %}
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/settings.css') }}">
+{% endblock %}
 
-{% block title %}Settings - Ollash{% endblock %}
-
-{% block content %}
 <div class="view" id="settings-view">
     <div class="view-header">
         <h1>Settings</h1>
@@ -10,7 +9,6 @@
     </div>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: var(--spacing-xl);">
-        <!-- ... existing content ... -->
         <!-- Model Health & Routing Card -->
         <div class="card-panel" style="grid-column: 1 / -1;">
             <h3>Model Health & Routing</h3>
@@ -60,43 +58,6 @@
     </div>
 </div>
 
-<script>
-    async function loadHealth() {
-        const res = await fetch('/api/health/');
-        const data = await res.json();
-        
-        const container = document.getElementById('model-health-container');
-        container.innerHTML = '';
-        
-        data.models.forEach(model => {
-            const card = document.createElement('div');
-            card.className = 'metric-card';
-            card.style.textAlign = 'left';
-            card.style.padding = '15px';
-            
-            const statusColor = model.status === 'online' ? 'var(--color-success)' : 'var(--color-error)';
-            
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <strong>${model.name}</strong>
-                    <span style="width:8px; height:8px; border-radius:50%; background:${statusColor}; box-shadow:0 0 5px ${statusColor}"></span>
-                </div>
-                <div style="font-size:0.85rem; color:var(--color-text-muted);">
-                    Latency: <span style="color:${model.latency < 100 ? 'var(--color-success)' : 'var(--color-warning)'}">${model.latency}ms</span>
-                </div>
-                <div style="margin-top:10px;">
-                    <label style="font-size:0.7rem; text-transform:uppercase;">Fallback Model</label>
-                    <select class="form-input" style="padding:4px; font-size:0.8rem;">
-                        <option>${model.fallback || 'None'}</option>
-                        <option>llama3:8b</option>
-                        <option>mistral:7b</option>
-                    </select>
-                </div>
-            `;
-            container.appendChild(card);
-        });
-    }
-    
-    document.addEventListener('DOMContentLoaded', loadHealth);
-</script>
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/settings.js') }}"></script>
 {% endblock %}

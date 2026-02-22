@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, jsonify, request
 import subprocess
 import os
 
-git_bp = Blueprint('git', __name__, url_prefix='/git')
+bp = Blueprint('git', __name__, url_prefix='/git')
 
 # Helper to run git commands
 def run_git(args, cwd=None):
@@ -20,11 +20,11 @@ def run_git(args, cwd=None):
     except Exception as e:
         return {"error": str(e)}
 
-@git_bp.route('/')
+@bp.route('/')
 def git_dashboard():
     return render_template('pages/git.html')
 
-@git_bp.route('/api/status')
+@bp.route('/api/status')
 def get_status():
     status = run_git(['status', '--short'])
     branch = run_git(['rev-parse', '--abbrev-ref', 'HEAD'])
@@ -43,7 +43,7 @@ def get_status():
         "clean": len(files) == 0
     })
 
-@git_bp.route('/api/diff')
+@bp.route('/api/diff')
 def get_diff():
     file_path = request.args.get('file')
     if not file_path:
@@ -52,7 +52,7 @@ def get_diff():
     diff = run_git(['diff', 'HEAD', '--', file_path])
     return jsonify({"diff": diff.get('stdout', '')})
 
-@git_bp.route('/api/commit', methods=['POST'])
+@bp.route('/api/commit', methods=['POST'])
 def commit_changes():
     data = request.json
     message = data.get('message', 'Update from Ollash')
@@ -68,7 +68,7 @@ def commit_changes():
         return jsonify({"status": "success", "output": res.get('stdout')})
     return jsonify({"status": "error", "error": res.get('stderr')}), 500
 
-@git_bp.route('/api/log')
+@bp.route('/api/log')
 def get_log():
     log = run_git(['log', '-n', '5', '--pretty=format:%h - %s (%cr) <%an>'])
     return jsonify({"log": log.get('stdout', '').splitlines()})

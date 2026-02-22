@@ -13,7 +13,7 @@ from flask import Blueprint
 
 logger = logging.getLogger(__name__)
 
-terminal_bp = Blueprint("terminal_bp", __name__)
+bp = Blueprint("terminal_bp", __name__)
 
 _allowed_working_dirs = set()
 _max_output_size = 50000  # 50KB per command

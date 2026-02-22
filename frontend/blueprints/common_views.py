@@ -6,7 +6,7 @@ import requests
 from flask import Blueprint, jsonify, render_template, current_app
 from backend.core.containers import main_container
 
-common_bp = Blueprint("common", __name__)
+bp = Blueprint("common", __name__)
 
 _ollash_root_dir: Path = None
 
@@ -16,112 +16,112 @@ def init_app(app):
     _ollash_root_dir = app.config.get("ollash_root_dir")
 
 
-@common_bp.route("/")
+@bp.route("/")
 def index():
     return render_template("index.html")
 
 
-@common_bp.route("/chat")
+@bp.route("/chat")
 def chat_page():
     return render_template("pages/chat.html")
 
 
-@common_bp.route("/auto_agent")
+@bp.route("/auto_agent")
 def auto_agent_page():
     return render_template("pages/auto_agent.html")
 
 
-@common_bp.route("/architecture")
+@bp.route("/architecture")
 def architecture_page():
     return render_template("pages/architecture.html")
 
 
-@common_bp.route("/docs")
+@bp.route("/docs")
 def docs_page():
     return render_template("pages/docs.html")
 
 
-@common_bp.route("/costs")
+@bp.route("/costs")
 def costs_page():
     return render_template("pages/costs.html")
 
 
-@common_bp.route("/security")
+@bp.route("/security")
 def security_page():
     return render_template("pages/security.html")
 
 
-@common_bp.route("/swarm")
+@bp.route("/swarm")
 def swarm_page():
     return render_template("pages/swarm.html")
 
 
-@common_bp.route("/create")
+@bp.route("/create")
 def create_page():
     return render_template("pages/create_project.html")
 
 
-@common_bp.route("/projects")
+@bp.route("/projects")
 def projects_page():
     return render_template("pages/projects.html")
 
 
-@common_bp.route("/benchmark")
+@bp.route("/benchmark")
 def benchmark_page():
     return render_template("pages/benchmark.html")
 
 
-@common_bp.route("/automations")
+@bp.route("/automations")
 def automations_page():
     return render_template("pages/automations.html")
 
 
-@common_bp.route("/brain")
+@bp.route("/brain")
 def brain_page():
     return render_template("pages/brain.html")
 
 
-@common_bp.route("/plugins")
+@bp.route("/plugins")
 def plugins_page():
     return render_template("pages/plugins.html")
 
 
-@common_bp.route("/settings")
+@bp.route("/settings")
 def settings_page():
     return render_template("pages/settings.html")
 
 
-@common_bp.route("/prompts")
+@bp.route("/prompts")
 def prompts_page():
     return render_template("pages/prompts.html")
 
 
-@common_bp.route("/audit")
+@bp.route("/audit")
 def audit_page():
     return render_template("pages/audit.html")
 
 
-@common_bp.route("/knowledge")
+@bp.route("/knowledge")
 def knowledge_page():
     return render_template("pages/knowledge.html")
 
 
-@common_bp.route("/tuning")
+@bp.route("/tuning")
 def tuning_page():
     return render_template("pages/tuning.html")
 
 
-@common_bp.route("/policies")
+@bp.route("/policies")
 def policies_page():
     return render_template("pages/policies.html")
 
 
-@common_bp.route("/fragments")
+@bp.route("/fragments")
 def fragments_page():
     return render_template("pages/fragments.html")
 
 
-@common_bp.route("/api/docs/tree")
+@bp.route("/api/docs/tree")
 def get_docs_tree():
     """Returns the dynamic documentation tree."""
     try:
@@ -132,7 +132,7 @@ def get_docs_tree():
         return jsonify({"error": str(e)}), 500
 
 
-@common_bp.route("/api/docs/content/<path:rel_path>")
+@bp.route("/api/docs/content/<path:rel_path>")
 def get_doc_content(rel_path):
     """Returns the content of a specific documentation file."""
     try:
@@ -145,7 +145,7 @@ def get_doc_content(rel_path):
         return jsonify({"error": str(e)}), 500
 
 
-@common_bp.route("/api/status")
+@bp.route("/api/status")
 def status():
     """Health check — verifies Ollama connectivity."""
     try:

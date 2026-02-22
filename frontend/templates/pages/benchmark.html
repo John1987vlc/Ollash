@@ -1,140 +1,134 @@
-            {% extends "base.html" %}
-            
-            {% block title %}Ollash - Model Benchmarking & Evaluation{% endblock %}
-            
-            {% block styles %}
-            <style>
-                .benchmark-layout {
-                    display: grid;
-                    grid-template-columns: 350px 1fr;
-                    gap: 20px;
-                }
-                .panel {
-                    background: rgba(15, 23, 42, 0.6);
-                    border: 1px solid rgba(255, 255, 255, 0.05);
-                    border-radius: 12px;
-                    padding: 20px;
-                    backdrop-filter: blur(10px);
-                }
-                .panel h3 { margin-bottom: 15px; font-size: 1rem; color: var(--text-primary); }
-                
-                .parallel-panel {
-                    margin-top: 20px;
-                    border-top: 2px solid var(--accent-primary);
-                }
-                .prompt-area {
-                    width: 100%;
-                    background: rgba(0, 0, 0, 0.2);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 8px;
-                    color: var(--text-primary);
-                    padding: 10px;
-                    font-family: inherit;
-                    resize: vertical;
-                    margin-bottom: 10px;
-                }
-                .comparison-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-                    gap: 15px;
-                    margin-top: 20px;
-                }
-                .comparison-card {
-                    background: rgba(15, 23, 42, 0.4);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 12px;
-                    padding: 15px;
-                }
-                .comparison-card h4 { color: var(--accent-primary); margin-bottom: 10px; }
-                .comparison-content {
-                    font-family: 'JetBrains Mono', monospace;
-                    font-size: 0.85rem;
-                    max-height: 300px;
-                    overflow-y: auto;
-                    white-space: pre-wrap;
-                    color: var(--text-secondary);
-                }
-                .shadow-stats {
-                    display: flex;
-                    gap: 10px;
-                    margin-top: 10px;
-                    font-size: 0.8rem;
-                }
-                .shadow-tag {
-                    background: rgba(99, 102, 241, 0.1);
-                    color: var(--accent-primary);
-                    padding: 2px 8px;
-                    border-radius: 4px;
-                }
-            </style>
-            {% endblock %}
-            
-            {% block content %}
-            <div class="page-header">
-                <div class="header-info">
-                    <h1>Model Benchmarking</h1>
-                    <p>Compare Ollama models on autonomous generation tasks or evaluate them side-by-side.</p>
+{% block styles %}
+<style>
+    .benchmark-layout {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 20px;
+    }
+    .panel {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 20px;
+        backdrop-filter: blur(10px);
+    }
+    .panel h3 { margin-bottom: 15px; font-size: 1rem; color: var(--text-primary); }
+    
+    .parallel-panel {
+        margin-top: 20px;
+        border-top: 2px solid var(--accent-primary);
+    }
+    .prompt-area {
+        width: 100%;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: var(--text-primary);
+        padding: 10px;
+        font-family: inherit;
+        resize: vertical;
+        margin-bottom: 10px;
+    }
+    .comparison-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .comparison-card {
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 15px;
+    }
+    .comparison-card h4 { color: var(--accent-primary); margin-bottom: 10px; }
+    .comparison-content {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        color: var(--text-secondary);
+    }
+    .shadow-stats {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+        font-size: 0.8rem;
+    }
+    .shadow-tag {
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--accent-primary);
+        padding: 2px 8px;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+<div class="view" id="benchmark-view">
+    <div class="page-header">
+        <div class="header-info">
+            <h1>Model Benchmarking</h1>
+            <p>Compare Ollama models on autonomous generation tasks or evaluate them side-by-side.</p>
+        </div>
+    </div>
+
+    <div class="benchmark-layout">
+        <aside class="benchmark-config panel">
+            <h3>Standard Benchmark</h3>
+            <div class="form-group">
+                <label for="bench-ollama-url">Ollama Server URL</label>
+                <div class="input-with-btn">
+                    <input type="text" id="bench-ollama-url" placeholder="http://localhost:11434" class="form-control">
+                    <button class="btn-secondary" id="bench-fetch-models">Fetch</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Select Models</label>
+                <div class="model-list" id="bench-model-list">
+                    <div class="model-list-empty">Load models to select</div>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="bench-start-btn" disabled style="width: 100%;">
+                Start Standard Run
+            </button>
+
+            <div class="parallel-panel">
+                <h3>Parallel Comparison</h3>
+                <textarea id="eval-prompts" class="prompt-area" rows="3" placeholder="Enter test prompt (e.g. Write a quicksort in Python)"></textarea>
+                <button class="btn-accent" id="parallel-eval-btn" style="width: 100%;">
+                    Run Parallel Eval
+                </button>
+            </div>
+        </aside>
+
+        <main class="benchmark-results">
+            <div id="bench-output" class="panel">
+                <div class="bench-placeholder">
+                    <p>Configure and start a benchmark to see results here.</p>
                 </div>
             </div>
             
-            <div class="benchmark-layout" id="benchmark-view">
-            
-                <aside class="benchmark-config panel">
-                    <h3>Standard Benchmark</h3>
-                    <div class="form-group">
-                        <label for="bench-ollama-url">Ollama Server URL</label>
-                        <div class="input-with-btn">
-                            <input type="text" id="bench-ollama-url" placeholder="http://localhost:11434" class="form-control">
-                            <button class="btn-secondary" id="bench-fetch-models">Fetch</button>
-                        </div>
-                    </div>
-            
-                    <div class="form-group">
-                        <label>Select Models</label>
-                        <div class="model-list" id="bench-model-list">
-                            <div class="model-list-empty">Load models to select</div>
-                        </div>
-                    </div>
-            
-                    <button class="btn-primary" id="bench-start-btn" disabled style="width: 100%;">
-                        Start Standard Run
-                    </button>
-            
-                    <div class="parallel-panel">
-                        <h3>Parallel Comparison</h3>
-                        <textarea id="eval-prompts" class="prompt-area" rows="3" placeholder="Enter test prompt (e.g. Write a quicksort in Python)"></textarea>
-                        <button class="btn-accent" id="parallel-eval-btn" style="width: 100%;">
-                            Run Parallel Eval
-                        </button>
-                    </div>
-                </aside>
-            
-                <main class="benchmark-results">
-                    <div id="bench-output" class="panel">
-                        <div class="bench-placeholder">
-                            <p>Configure and start a benchmark to see results here.</p>
-                        </div>
-                    </div>
-                    
-                    <div id="comparison-view" style="display: none;">
-                        <div class="section-header">
-                            <h3>Side-by-Side Comparison</h3>
-                            <button class="btn-sm" id="close-comparison">Back to Benchmark</button>
-                        </div>
-                        <div id="comparison-grid" class="comparison-grid">
-                            <!-- Comparisons will appear here -->
-                        </div>
-                    </div>
-            
-                    <div class="benchmark-history panel" style="margin-top: 20px;">
-                        <h3>Past Results</h3>
-                        <div id="bench-history-list" class="bench-history-list"></div>
-                    </div>
-                </main>
+            <div id="comparison-view" style="display: none;">
+                <div class="section-header">
+                    <h3>Side-by-Side Comparison</h3>
+                    <button class="btn-sm" id="close-comparison">Back to Benchmark</button>
+                </div>
+                <div id="comparison-grid" class="comparison-grid">
+                    <!-- Comparisons will appear here -->
+                </div>
             </div>
-            {% endblock %}
-            
-            {% block scripts %}
-            <script src="{{ url_for('static', filename='js/pages/benchmark.js') }}"></script>
-            {% endblock %}
-            
+
+            <div class="benchmark-history panel" style="margin-top: 20px;">
+                <h3>Past Results</h3>
+                <div id="bench-history-list" class="bench-history-list"></div>
+            </div>
+        </main>
+    </div>
+</div>
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/benchmark.js') }}"></script>
+{% endblock %}

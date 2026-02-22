@@ -29,10 +29,26 @@ class CodeQuarantinePhase(IAgentPhase):
         self.context.logger.info("PHASE 5.55: Code Quarantine...")
         self.context.event_publisher.publish("phase_start", phase="5.55", message="Starting code quarantine")
 
+        import re
+        # Security patterns with word boundaries to avoid false positives like 'evaluation' or 'evaluateHand'
+        unsafe_patterns = [
+            re.compile(r"\beval\s*\("),
+            re.compile(r"\bsubprocess\b"),
+            re.compile(r"new\s+Function\s*\("),
+            re.compile(r"\bexec\s*\("),
+        ]
+
         for rel_path, content in generated_files.items():
             if not content:
                 continue
-            if "subprocess" in content or "eval" in content:  # Simple heuristic
+            
+            # Skip non-code files
+            if rel_path.endswith('.json') or rel_path.endswith('.md') or rel_path.endswith('.txt'):
+                continue
+
+            is_unsafe = any(pattern.search(content) for pattern in unsafe_patterns)
+            
+            if is_unsafe:
                 self.context.logger.warning(f"  Quarantining {rel_path} due to potentially unsafe content.")
                 self.context.code_quarantine.quarantine_file(project_root / rel_path)
 

@@ -52,19 +52,40 @@ test();
                 roundedSelection: true,
                 padding: { top: 16 }
             });
+            window.monacoEditorInstance = editor; // Expose for testing
         });
     }
 
     async function executeCode() {
-        const code = editor.getValue();
-        const language = document.getElementById('language-select').value;
+        const runBtn = document.getElementById('run-sandbox-btn');
+        const languageSelect = document.getElementById('language-select');
         const outputContent = document.getElementById('output-content');
         const execTime = document.getElementById('exec-time');
 
-        outputContent.innerHTML = '';
-        execTime.textContent = 'Executing...';
+        if (!runBtn) return;
+
+        // Disable button and show loading state IMMEDIATELY
+        const originalLabel = runBtn.textContent;
+        runBtn.disabled = true;
+        runBtn.textContent = 'Ejecutando…';
+        runBtn.setAttribute('aria-busy', 'true');
 
         try {
+            // Get code with fallback if editor failed to load
+            let code = '';
+            if (editor) code = editor.getValue();
+            else if (window.monacoEditorInstance) code = window.monacoEditorInstance.getValue();
+
+            const language = languageSelect ? languageSelect.value : 'python';
+
+            if (!code) {
+                outputContent.textContent = 'Error: No code to execute (editor might not be loaded)';
+                return;
+            }
+
+            outputContent.innerHTML = '';
+            execTime.textContent = 'Executing...';
+
             const response = await UIAnimations.withThinkingState('terminal-output', fetch('/sandbox/execute', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -87,6 +108,11 @@ test();
             outputContent.textContent = `Connection Error: ${error.message}`;
             outputContent.style.color = '#ef4444';
             execTime.textContent = 'Error';
+        } finally {
+            // Restore button state
+            runBtn.disabled = false;
+            runBtn.textContent = originalLabel;
+            runBtn.removeAttribute('aria-busy');
         }
     }
 
@@ -94,26 +120,39 @@ test();
     document.addEventListener('DOMContentLoaded', () => {
         initMonaco();
 
-        document.getElementById('run-sandbox-btn').addEventListener('click', executeCode);
+        const runBtn = document.getElementById('run-sandbox-btn');
+        if (runBtn) runBtn.addEventListener('click', executeCode);
         
-        document.getElementById('language-select').addEventListener('change', (e) => {
-            const lang = e.target.value;
-            const model = editor.getModel();
-            monaco.editor.setModelLanguage(model, lang);
-            
-            if (lang === 'python') editor.setValue(defaultPython);
-            else if (lang === 'javascript') editor.setValue(defaultJS);
-        });
+        const langSelect = document.getElementById('language-select');
+        if (langSelect) {
+            langSelect.addEventListener('change', (e) => {
+                const lang = e.target.value;
+                if (editor) {
+                    const model = editor.getModel();
+                    monaco.editor.setModelLanguage(model, lang);
+                    
+                    if (lang === 'python') editor.setValue(defaultPython);
+                    else if (lang === 'javascript') editor.setValue(defaultJS);
+                }
+            });
+        }
 
-        document.getElementById('clear-btn').onclick = () => {
-            document.getElementById('output-content').innerHTML = '// Output cleared...';
-            document.getElementById('exec-time').textContent = '';
-        };
+        const clearBtn = document.getElementById('clear-btn');
+        if (clearBtn) {
+            clearBtn.onclick = () => {
+                document.getElementById('output-content').innerHTML = '// Output cleared...';
+                document.getElementById('exec-time').textContent = '';
+            };
+        }
 
-        document.getElementById('reset-btn').onclick = () => {
-            const lang = document.getElementById('language-select').value;
-            if (lang === 'python') editor.setValue(defaultPython);
-            else if (lang === 'javascript') editor.setValue(defaultJS);
-        };
+        const resetBtn = document.getElementById('reset-btn');
+        if (resetBtn) {
+            resetBtn.onclick = () => {
+                if (!editor) return;
+                const lang = document.getElementById('language-select').value;
+                if (lang === 'python') editor.setValue(defaultPython);
+                else if (lang === 'javascript') editor.setValue(defaultJS);
+            };
+        }
     });
 })();

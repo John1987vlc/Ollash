@@ -37,6 +37,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function hidePalette() {
         paletteOverlay.classList.remove('active');
+        // Return focus to the element that triggered the palette
+        if (document.activeElement === paletteInput) {
+            paletteInput.blur();
+        }
+    }
+
+    /**
+     * Focus trap: cycles focus between the input and result items while palette is open.
+     */
+    function trapFocus(e) {
+        if (!paletteOverlay.classList.contains('active')) return;
+        if (e.key !== 'Tab') return;
+
+        const focusable = [paletteInput, ...paletteResults.querySelectorAll('.command-result-item')];
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+            if (document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            }
+        } else {
+            if (document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
     }
 
     function renderResults() {
@@ -52,8 +80,11 @@ document.addEventListener('DOMContentLoaded', () => {
         filteredRoutes.forEach((route, index) => {
             const item = document.createElement('div');
             item.className = `command-result-item ${index === selectedIndex ? 'selected' : ''}`;
+            item.setAttribute('tabindex', '0');
+            item.setAttribute('role', 'option');
+            item.setAttribute('aria-selected', index === selectedIndex ? 'true' : 'false');
             item.innerHTML = `
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                     <path d="${route.icon}"></path>
                 </svg>
                 <div class="command-result-info">
@@ -62,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
             item.onclick = () => navigateTo(route);
+            item.onkeydown = (e) => { if (e.key === 'Enter') navigateTo(route); };
             paletteResults.appendChild(item);
         });
     }
@@ -118,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape' && paletteOverlay.classList.contains('active')) {
             hidePalette();
         }
+        trapFocus(e);
     });
 
     paletteOverlay.onclick = (e) => {

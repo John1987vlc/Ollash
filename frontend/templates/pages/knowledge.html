@@ -1,7 +1,3 @@
-{% extends "base.html" %}
-
-{% block title %}Ollash - Knowledge Base & Memory{% endblock %}
-
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/knowledge.css') }}">
 <style>
@@ -77,58 +73,58 @@
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="page-header">
-    <div class="header-info">
-        <h1>Intelligence Hub</h1>
-        <p>Explore the agent's knowledge workspace, episodic memory, and learned error patterns.</p>
-    </div>
-</div>
-
-<div class="knowledge-tabs" id="knowledge-view">
-    <button class="k-tab active" data-tab="vector">Vector Documents (RAG)</button>
-    <button class="k-tab" data-tab="episodic">Episodic Memory</button>
-    <button class="k-tab" data-tab="errors">Error Immunity</button>
-</div>
-
-<div id="vector-tab" class="tab-content active">
-    <div class="knowledge-container">
-        <div class="upload-zone" id="kb-upload-zone" style="border: 2px dashed var(--color-primary); padding: 40px; background: rgba(99, 102, 241, 0.05);">
-            <input type="file" id="kb-file-input" multiple hidden>
-            <div class="upload-icon" style="font-size: 2rem; margin-bottom: 10px;">📄 👁️</div>
-            <p style="font-size: 1.1rem; font-weight: 500;">Drag & drop Documents or Images for OCR Ingestion</p>
-            <p style="font-size: 0.9rem; color: var(--color-text-muted);">Supports PDF, PNG, JPG, MD, TXT (Auto-OCR enabled)</p>
-            <button class="btn-secondary" style="margin-top: 15px;" onclick="document.getElementById('kb-file-input').click()">Browse Files</button>
+<div class="view" id="knowledge-view">
+    <div class="page-header">
+        <div class="header-info">
+            <h1>Intelligence Hub</h1>
+            <p>Explore the agent's knowledge workspace, episodic memory, and learned error patterns.</p>
         </div>
-        <div class="kb-document-list">
-            <h3>Indexed Documents</h3>
-            <div id="kb-doc-grid" class="kb-grid">
-                <p class="placeholder">Loading knowledge base...</p>
+    </div>
+
+    <div class="knowledge-tabs">
+        <button class="k-tab active" data-tab="vector">Vector Documents (RAG)</button>
+        <button class="k-tab" data-tab="episodic">Episodic Memory</button>
+        <button class="k-tab" data-tab="errors">Error Immunity</button>
+    </div>
+
+    <div id="vector-tab" class="tab-content active">
+        <div class="knowledge-container">
+            <div class="upload-zone" id="kb-upload-zone" style="border: 2px dashed var(--color-primary); padding: 40px; background: rgba(99, 102, 241, 0.05);">
+                <input type="file" id="kb-file-input" multiple hidden>
+                <div class="upload-icon" style="font-size: 2rem; margin-bottom: 10px;">📄 👁️</div>
+                <p style="font-size: 1.1rem; font-weight: 500;">Drag & drop Documents or Images for OCR Ingestion</p>
+                <p style="font-size: 0.9rem; color: var(--color-text-muted);">Supports PDF, PNG, JPG, MD, TXT (Auto-OCR enabled)</p>
+                <button class="btn-secondary" style="margin-top: 15px;" onclick="document.getElementById('kb-file-input').click()">Browse Files</button>
+            </div>
+            <div class="kb-document-list">
+                <h3>Indexed Documents</h3>
+                <div id="kb-doc-grid" class="kb-grid">
+                    <p class="placeholder">Loading knowledge base...</p>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<div id="episodic-tab" class="tab-content">
-    <div id="episodic-stats" class="stat-row">
-        <!-- Stats populated by JS -->
+    <div id="episodic-tab" class="tab-content">
+        <div id="episodic-stats" class="stat-row">
+            <!-- Stats populated by JS -->
+        </div>
+        <h3>Recent Experience & Decisions</h3>
+        <div id="episodic-list" class="memory-grid">
+            <p class="placeholder">Loading episodic memory...</p>
+        </div>
     </div>
-    <h3>Recent Experience & Decisions</h3>
-    <div id="episodic-list" class="memory-grid">
-        <p class="placeholder">Loading episodic memory...</p>
-    </div>
-</div>
 
-<div id="errors-tab" class="tab-content">
-    <div id="error-stats" class="stat-row">
-        <!-- Stats populated by JS -->
-    </div>
-    <h3>Learned Immunity Patterns</h3>
-    <div id="error-list" class="memory-grid">
-        <p class="placeholder">Loading error patterns...</p>
+    <div id="errors-tab" class="tab-content">
+        <div id="error-stats" class="stat-row">
+            <!-- Stats populated by JS -->
+        </div>
+        <h3>Learned Immunity Patterns</h3>
+        <div id="error-list" class="memory-grid">
+            <p class="placeholder">Loading error patterns...</p>
+        </div>
     </div>
 </div>
-{% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pages/knowledge.js') }}"></script>

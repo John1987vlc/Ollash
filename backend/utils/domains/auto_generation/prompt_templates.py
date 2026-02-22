@@ -5,7 +5,7 @@ Maintains the same interface while loading text from /prompts/domains/auto_gener
 
 import logging
 from pathlib import Path
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional, Dict, Any, List
 from backend.utils.core.llm.prompt_loader import PromptLoader
 
 logger = logging.getLogger(__name__)
@@ -296,20 +296,39 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def suggest_improvements_prompt(project_summary: str) -> Tuple[str, str]:
+    def suggest_improvements_prompt(
+        project_description: str,
+        readme_content: str,
+        json_structure: dict,
+        current_files: Dict[str, str],
+        loop_num: int,
+    ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for improvement suggestions."""
         prompt_content = AutoGenPrompts._loader.load_prompt("domains/auto_generation/review.yaml")
         suggest = prompt_content.get("improvement_suggestions", {})
         system = suggest.get("system", "")
+        
+        project_summary = f"Description: {project_description}\n" \
+                          f"Structure: {json_structure}\n" \
+                          f"Loop iteration: {loop_num + 1}"
+        
         user = suggest.get("user", "").format(project_summary=project_summary)
         return system, user
 
     @staticmethod
-    def generate_improvement_plan_prompt(improvements: str) -> Tuple[str, str]:
+    def generate_improvement_plan_prompt(
+        suggestions: List[str],
+        project_description: str,
+        readme_content: str,
+        json_structure: dict,
+        current_files: Dict[str, str],
+    ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for improvement plan generation."""
         prompt_content = AutoGenPrompts._loader.load_prompt("domains/auto_generation/review.yaml")
         plan = prompt_content.get("improvement_plan", {})
         system = plan.get("system", "")
+        
+        improvements = "\n".join([f"- {s}" for s in suggestions])
         user = plan.get("user", "").format(improvements=improvements)
         return system, user
 

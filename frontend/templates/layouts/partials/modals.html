@@ -1,29 +1,29 @@
 <!-- Modals & Floating Components -->
 
 <!-- Test Generator Suite Modal -->
-<div id="test-gen-modal" class="modal" style="display: none;">
+<div id="test-gen-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="test-gen-modal-title" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Test Generator Suite</h3>
-            <button class="close-modal" onclick="document.getElementById('test-gen-modal').style.display='none'">&times;</button>
+            <h3 id="test-gen-modal-title">Test Generator Suite</h3>
+            <button class="close-modal" aria-label="Close" onclick="document.getElementById('test-gen-modal').style.display='none'">&times;</button>
         </div>
         <div class="form-group">
-            <label>Target Language</label>
+            <label for="test-lang">Target Language</label>
             <select class="form-input" id="test-lang">
                 <option value="python">Python (pytest)</option>
                 <option value="javascript">JavaScript (Jest)</option>
                 <option value="go">Go (testing)</option>
                 <option value="rust">Rust (cargo test)</option>
             </select>
-            
-            <label>Test Type</label>
+
+            <label for="test-type">Test Type</label>
             <select class="form-input" id="test-type">
                 <option value="unit">Unit Tests</option>
                 <option value="integration">Integration Tests</option>
                 <option value="e2e">E2E Tests (Playwright)</option>
             </select>
-            
-            <label>Context / Code Snippet</label>
+
+            <label for="test-context">Context / Code Snippet</label>
             <textarea class="form-input" rows="5" id="test-context" placeholder="Paste function or class here..."></textarea>
         </div>
         <div class="form-actions">
@@ -34,11 +34,11 @@
 </div>
 
 <!-- Automation Modal -->
-<div class="modal" id="automation-modal" style="display: none;">
+<div class="modal" id="automation-modal" role="dialog" aria-modal="true" aria-labelledby="automation-modal-title" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Schedule New Task</h2>
-            <button class="close-modal" onclick="closeAutomationModal()">&times;</button>
+            <h2 id="automation-modal-title">Schedule New Task</h2>
+            <button class="close-modal" aria-label="Close" onclick="closeAutomationModal()">&times;</button>
         </div>
         <form id="automation-form">
             <div class="form-group">
@@ -83,11 +83,11 @@
 </div>
 
 <!-- Notification Config Modal -->
-<div class="modal" id="notification-config-modal" style="display: none;">
+<div class="modal" id="notification-config-modal" role="dialog" aria-modal="true" aria-labelledby="notification-modal-title" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Notification Settings</h2>
-            <button class="close-modal" onclick="closeNotificationModal()">&times;</button>
+            <h2 id="notification-modal-title">Notification Settings</h2>
+            <button class="close-modal" aria-label="Close" onclick="closeNotificationModal()">&times;</button>
         </div>
         <form id="notification-config-form">
             <div class="form-group">
@@ -119,11 +119,11 @@
 </div>
 
 <!-- Image Editor Modal -->
-<div class="modal" id="image-editor-modal" style="display: none;">
+<div class="modal" id="image-editor-modal" role="dialog" aria-modal="true" aria-labelledby="image-editor-modal-title" style="display: none;">
     <div class="modal-content modal-wide">
         <div class="modal-header">
-            <h2>Image Asset Editor</h2>
-            <button class="close-modal" onclick="document.getElementById('image-editor-modal').style.display='none'">&times;</button>
+            <h2 id="image-editor-modal-title">Image Asset Editor</h2>
+            <button class="close-modal" aria-label="Close" onclick="document.getElementById('image-editor-modal').style.display='none'">&times;</button>
         </div>
         <div id="image-editor-container">
             <canvas id="image-canvas"></canvas>
@@ -136,19 +136,19 @@
 </div>
 
 <!-- Floating Terminal (VS Code style) -->
-<div class="floating-terminal" id="floating-terminal" style="display: none;">
+<div class="floating-terminal" id="floating-terminal" role="region" aria-label="Terminal flotante" style="display: none;">
     <div class="floating-terminal-header" id="floating-terminal-header">
         <div class="floating-terminal-title">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                 <path d="M2 3L14 3L14 13L2 13L2 3Z"/>
                 <polyline points="5 6 8 9 5 12"/>
             </svg>
             Terminal
         </div>
         <div class="floating-terminal-actions">
-            <button class="btn-icon" id="terminal-minimize" title="Minimize">&#x2012;</button>
-            <button class="btn-icon" id="terminal-maximize" title="Maximize">&#x25A1;</button>
-            <button class="btn-icon" id="terminal-close" title="Close">&times;</button>
+            <button class="btn-icon" id="terminal-minimize" aria-label="Minimizar terminal" title="Minimize">&#x2012;</button>
+            <button class="btn-icon" id="terminal-maximize" aria-label="Maximizar terminal" title="Maximize">&#x25A1;</button>
+            <button class="btn-icon" id="terminal-close" aria-label="Cerrar terminal" title="Close">&times;</button>
         </div>
     </div>
     <div id="floating-terminal-body">
@@ -157,12 +157,12 @@
 </div>
 
 <!-- Diff Modal for Refactoring -->
-<div class="modal" id="diff-modal" style="display: none;">
+<div class="modal" id="diff-modal" role="dialog" aria-modal="true" aria-labelledby="diff-modal-title" style="display: none;">
     <div class="modal-content modal-wide">
         <div class="modal-header">
-            <h2>Review Changes</h2>
+            <h2 id="diff-modal-title">Review Changes</h2>
             <span id="diff-file-path" class="diff-file-path"></span>
-            <button class="close-modal" onclick="closeDiffModal()">&times;</button>
+            <button class="close-modal" aria-label="Close" onclick="closeDiffModal()">&times;</button>
         </div>
         <div id="diff-editor-container" style="width: 100%; height: 500px;"></div>
         <div class="form-actions">
@@ -173,29 +173,29 @@
 </div>
 
 <!-- Swarm Activity Modal -->
-<div class="modal" id="swarm-modal" style="display: none;">
+<div class="modal" id="swarm-modal" role="dialog" aria-modal="true" aria-labelledby="swarm-modal-title" style="display: none;">
     <div class="modal-content modal-wide">
         <div class="modal-header">
-            <h2>Swarm Activity Monitor</h2>
-            <button class="close-modal" onclick="document.getElementById('swarm-modal').style.display='none'">&times;</button>
+            <h2 id="swarm-modal-title">Swarm Activity Monitor</h2>
+            <button class="close-modal" aria-label="Close" onclick="document.getElementById('swarm-modal').style.display='none'">&times;</button>
         </div>
         <div id="swarm-canvas-container" style="height: 400px; position: relative;">
             <div class="orchestrator-node main-node">Orchestrator</div>
             <div id="swarm-nodes-container"></div>
         </div>
         <div class="swarm-legend">
-            <div class="legend-item"><span class="dot active"></span> Active Specialist</div>
-            <div class="legend-item"><span class="dot idle"></span> Idle</div>
+            <div class="legend-item"><span class="dot active" aria-hidden="true"></span> Active Specialist</div>
+            <div class="legend-item"><span class="dot idle" aria-hidden="true"></span> Idle</div>
         </div>
     </div>
 </div>
 
 <!-- Model Benchmark Modal -->
-<div class="modal" id="benchmark-modal" style="display: none;">
+<div class="modal" id="benchmark-modal" role="dialog" aria-modal="true" aria-labelledby="benchmark-modal-title" style="display: none;">
     <div class="modal-content modal-wide">
         <div class="modal-header">
-            <h2>Model Benchmark Comparison</h2>
-            <button class="close-modal" onclick="document.getElementById('benchmark-modal').style.display='none'">&times;</button>
+            <h2 id="benchmark-modal-title">Model Benchmark Comparison</h2>
+            <button class="close-modal" aria-label="Close" onclick="document.getElementById('benchmark-modal').style.display='none'">&times;</button>
         </div>
         <div class="benchmark-modal-body">
             <div class="benchmark-config-inline">
@@ -213,21 +213,38 @@
 </div>
 
 <!-- Human-in-the-loop Approval Modal -->
-<div class="modal" id="hil-modal" style="display: none;">
+<div class="modal" id="hil-modal" role="dialog" aria-modal="true" aria-labelledby="hil-modal-title" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Agent Needs Approval</h2>
-            <button class="close-modal" onclick="document.getElementById('hil-modal').style.display='none'">&times;</button>
+            <h2 id="hil-modal-title">Agent Needs Approval</h2>
+            <button class="close-modal" aria-label="Close" onclick="document.getElementById('hil-modal').style.display='none'">&times;</button>
         </div>
         <div class="modal-body">
             <p id="hil-prompt">The agent is about to take an action...</p>
             <input type="hidden" id="hil-request-id">
+            <label for="hil-feedback" class="sr-only">Feedback o correcciones opcionales</label>
             <textarea id="hil-feedback" class="form-control" rows="3" placeholder="Optional feedback or corrections..."></textarea>
         </div>
         <div class="form-actions">
             <button class="btn-primary" onclick="respondHIL('approve')">Approve</button>
             <button class="btn-secondary" onclick="respondHIL('reject')">Reject</button>
             <button class="btn-secondary" onclick="respondHIL('correct')">Correct</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Dialog Modal (generic, for destructive actions) -->
+<div class="modal" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title" style="display: none;">
+    <div class="modal-content" style="max-width: 420px;">
+        <div class="modal-header">
+            <h2 id="confirm-modal-title">Confirmar Acción</h2>
+        </div>
+        <div style="padding: var(--spacing-lg);">
+            <p id="confirm-modal-message">¿Estás seguro?</p>
+        </div>
+        <div class="form-actions">
+            <button class="btn-secondary" id="confirm-modal-cancel" onclick="closeConfirmModal()">Cancelar</button>
+            <button class="btn-primary" id="confirm-modal-ok">Confirmar</button>
         </div>
     </div>
 </div>
@@ -242,5 +259,26 @@
             body: JSON.stringify({ request_id: requestId, response, feedback })
         });
         document.getElementById('hil-modal').style.display = 'none';
+    }
+
+    /**
+     * Show a generic confirmation modal.
+     * @param {string} message - Message to display.
+     * @param {Function} onConfirm - Callback when user confirms.
+     */
+    function showConfirmModal(message, onConfirm) {
+        document.getElementById('confirm-modal-message').textContent = message;
+        const okBtn = document.getElementById('confirm-modal-ok');
+        okBtn.onclick = () => {
+            closeConfirmModal();
+            onConfirm();
+        };
+        const modal = document.getElementById('confirm-modal');
+        modal.style.display = 'flex';
+        okBtn.focus();
+    }
+
+    function closeConfirmModal() {
+        document.getElementById('confirm-modal').style.display = 'none';
     }
 </script>

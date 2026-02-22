@@ -354,28 +354,22 @@ Respond ONLY with valid JSON (no markdown):
 
             raw = response_data["message"]["content"]
 
-            # Try to extract JSON
-            try:
-                # Remove markdown if present
-                if "```" in raw:
-                    raw = raw.split("```")[1]
-                    if raw.startswith("json"):
-                        raw = raw[4:]
+            # Use robust response parser instead of manual splitting
+            result = self.parser.extract_json(raw)
+            if not result:
+                self.logger.warning("LLM structure review did not return valid JSON or was empty.")
+                return issues
 
-                result = json.loads(raw)
-
-                for issue_data in result.get("issues", []):
-                    issues.append(
-                        StructureIssue(
-                            category=issue_data.get("category", "organization"),
-                            severity=issue_data.get("severity", "low"),
-                            description=issue_data.get("description", ""),
-                            affected_paths=[],
-                            suggestion=issue_data.get("suggestion", ""),
-                        )
+            for issue_data in result.get("issues", []):
+                issues.append(
+                    StructureIssue(
+                        category=issue_data.get("category", "organization"),
+                        severity=issue_data.get("severity", "low"),
+                        description=issue_data.get("description", ""),
+                        affected_paths=[],
+                        suggestion=issue_data.get("suggestion", ""),
                     )
-            except json.JSONDecodeError:
-                self.logger.debug("LLM structure review did not return valid JSON")
+                )
 
         except Exception as e:
             self.logger.debug(f"Error getting LLM structure review: {e}")
