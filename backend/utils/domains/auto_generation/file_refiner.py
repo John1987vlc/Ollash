@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from backend.utils.core.system.agent_logger import AgentLogger
-from backend.utils.core.io.documentation_manager import DocumentationManager  # ADDED IMPORT
+from backend.utils.core.io.documentation_manager import DocumentationManager
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 from backend.utils.core.llm.ollama_client import OllamaClient
 
@@ -38,13 +38,13 @@ class FileRefiner:
         llm_client: OllamaClient,
         logger: AgentLogger,
         response_parser: LLMResponseParser,
-        documentation_manager: DocumentationManager,  # ADDED PARAMETER
+        documentation_manager: DocumentationManager,
         options: dict = None,
     ):
         self.llm_client = llm_client
         self.logger = logger
         self.parser = response_parser
-        self.documentation_manager = documentation_manager  # STORE IT
+        self.documentation_manager = documentation_manager
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
     def refine_file(
@@ -60,61 +60,64 @@ class FileRefiner:
             file_path: Relative path of the file.
             current_content: Current file content.
             readme_excerpt: README excerpt for context.
-            issues: Optional list of issue dicts from senior review, each with
-                    'description', 'severity', 'recommendation', and optional 'file'.
+            issues: Optional list of issue dicts from senior review.
         """
 
         # Query documentation for relevant context
         documentation_context = ""
-        # Create a more targeted query based on the file and issues if any
         query_parts = [f"Refine {file_path}"]
         if issues:
             for issue in issues[:2]:  # Take top 2 issues for query
                 query_parts.append(issue.get("description", ""))
-        query_parts.append(readme_excerpt[:100])  # Add a snippet of readme
+        query_parts.append(readme_excerpt[:100])
 
         documentation_query = " ".join(query_parts)
 
         retrieved_docs = self.documentation_manager.query_documentation(
             documentation_query, n_results=2
-        )  # Get top 2 results
+        )
         if retrieved_docs:
             documentation_context = "\n\nRelevant Documentation Snippets:\n" + "\n---\n".join(
                 [doc["document"] for doc in retrieved_docs]
             )
 
+        # SECCIÓN CORREGIDA: Ajuste de argumentos según prompt_templates.py
         if issues:
+            # Se formatea la cadena de issues para que coincida con el método esperado
+            issues_str = "\n".join([f"- {i.get('description')}" for i in issues])
             system, user = AutoGenPrompts.file_refinement_with_issues(
-                file_path, current_content, readme_excerpt, issues
+                file_path, current_content, issues_str
             )
         else:
-            system, user = AutoGenPrompts.file_refinement(file_path, current_content, readme_excerpt)
+            # file_refinement en prompt_templates.py solo acepta (file_path, content)
+            system, user = AutoGenPrompts.file_refinement(file_path, current_content)
 
-        # Append documentation context to the user prompt
-        user += documentation_context
+        # Inyectar el README y la documentación extra en el prompt de usuario
+        user_context = f"\n\nPROJECT CONTEXT (README):\n{readme_excerpt}\n"
+        user += user_context + documentation_context
 
-        response_data, usage = self.llm_client.chat(
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            tools=[],
-            options_override=self.options,
-        )
-        raw = response_data["message"]["content"]
-        refined = self.parser.extract_raw_content(raw)
+        try:
+            response_data, usage = self.llm_client.chat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                tools=[],
+                options_override=self.options,
+            )
+            raw = response_data["message"]["content"]
+            refined = self.parser.extract_raw_content(raw)
 
-        # Sanity check: refined must meet minimum size ratio
-        # Dependency files allow drastic reduction (cleaning hallucinated entries)
-        filename = Path(file_path).name
-        if filename in self.REDUCTION_EXEMPT_FILES:
-            min_ratio = self.EXEMPT_MIN_RATIO
-        else:
-            min_ratio = self.NORMAL_MIN_RATIO
+            # Sanity check
+            filename = Path(file_path).name
+            min_ratio = self.EXEMPT_MIN_RATIO if filename in self.REDUCTION_EXEMPT_FILES else self.NORMAL_MIN_RATIO
 
-        if refined and len(refined) > len(current_content) * min_ratio:
-            self.logger.info(f"    Refined ({len(refined)} chars)")
-            return refined
+            if refined and len(refined) > len(current_content) * min_ratio:
+                self.logger.info(f"    Refined {file_path} ({len(refined)} chars)")
+                return refined
 
-        self.logger.warning(f"    Refinement produced poor result for {file_path}, keeping original")
+        except Exception as e:
+            self.logger.error(f" Error during refinement of {file_path}: {e}")
+
+        self.logger.warning(f" Refinement produced poor result or failed for {file_path}, keeping original")
         return None

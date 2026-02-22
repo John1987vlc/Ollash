@@ -25,14 +25,13 @@ class DependencyReconciliationPhase(IAgentPhase):
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
-        python_version = kwargs.get("python_version", "3.12")
 
         self.context.logger.info("PHASE 5.6: Reconciling dependency files with actual imports...")
         self.context.event_publisher.publish("phase_start", phase="5.6", message="Starting dependency reconciliation")
 
-        # Call the _reconcile_requirements method from the AutoAgent instance via context
-        # This is a temporary dependency to AutoAgent, will be refactored later
-        generated_files = self.context.auto_agent._reconcile_requirements(generated_files, project_root, python_version)
+        # Use the specialized DependencyScanner directly from context
+        # This replaces the circular dependency on AutoAgent
+        generated_files = self.context.dependency_scanner.reconcile_dependencies(generated_files, project_root)
 
         self.context.event_publisher.publish(
             "phase_complete", phase="5.6", message="Dependency reconciliation complete"

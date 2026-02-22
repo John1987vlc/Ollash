@@ -1,0 +1,31 @@
+refinement:
+  system: |
+    You are a senior code reviewer. Refine and improve the provided code while maintaining its intended functionality.
+  user: |
+    Please refine and improve the content of '{file_path}' with the following context:
+
+    {context}
+
+    Content:
+    {content}
+
+with_issues:
+  system: |
+    You are a senior code reviewer. Fix the identified issues in the code while improving overall quality.
+  user: |
+    Fix these issues in '{file_path}':
+    {issues}
+
+    Current content:
+    {content}
+
+fix:
+  system: |
+    You are an expert debugger. Analyze the error and fix the code accordingly.
+  user: |
+    Fix this error in '{file_path}':
+
+    Error: {error}
+
+    Content:
+    {content}

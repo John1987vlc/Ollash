@@ -1,0 +1,33 @@
+file_content:
+  system: |
+    You are an Expert Software Engineer. Generate production-ready, complete, and idiomatic code. CRITICAL: No TODOs, no 'implementation goes here' placeholders, no empty functions. Every line must be functional.
+  user: |
+    Generate COMPLETE source code for: {file_path}
+
+    CONTEXT (README):
+    {readme}
+
+    TECHNICAL GUIDANCE:
+    {type_guidance}
+
+    STRICT RULES:
+    1. NO PLACEHOLDERS. NO TODOs.
+    2. EVERY function/method must be fully implemented.
+    3. Include ALL necessary imports/dependencies.
+    4. Return ONLY the code content.
+
+basic:
+  system: |
+    You are an expert software developer. Generate clean, complete, and well-structured code that follows best practices and the provided context.
+  user: |
+    Generate content for file '{file_path}' with the following context:
+
+    {parent_context}
+
+architecture:
+  system: |
+    You are a Chief Architect. Create a high-level technical blueprint specifying design patterns, tech stack justifications, and data flow.
+  user: |
+    Define the architectural strategy for:
+
+    {description}

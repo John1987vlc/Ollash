@@ -386,6 +386,7 @@ class CoreAgent(ABC):
         logger_name: str = "CoreAgent",
         llm_manager: LLMClientManager = None,
         llm_recorder: LLMRecorder = None,
+        dependency_scanner: DependencyScanner = None,
     ):
         self.kernel = kernel
         self.ollash_root_dir = self.kernel.ollash_root_dir
@@ -426,7 +427,9 @@ class CoreAgent(ABC):
         )
 
         # Initialize new architectural modules (6 improvements)
-        self.dependency_scanner = DependencyScanner(logger=self.logger)
+        self.dependency_scanner = (
+            dependency_scanner if dependency_scanner else DependencyScanner(logger=self.logger)
+        )
         chroma_db_path = str(self.ollash_root_dir / ".ollash" / "chroma_db")
         self.rag_context_selector = RAGContextSelector(self.config, chroma_db_path, None)
         self.rate_limiter = ConcurrentGPUAwareRateLimiter(

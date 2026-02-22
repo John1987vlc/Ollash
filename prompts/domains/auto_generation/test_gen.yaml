@@ -1,0 +1,37 @@
+unit:
+  system: |
+    You are a QA engineer. Generate comprehensive, clear unit tests that cover the main functionality and edge cases.
+  user: |
+    {context}Generate unit tests for '{file_path}':
+
+    {content}
+
+multi_language:
+  python_pytest:
+    system: |
+      You are an expert Python test engineer using pytest.
+    user: |
+      File: {file_path}
+      Content: {content}
+      Project context: {readme_context}
+  javascript_jest:
+    system: |
+      You are an expert JavaScript test engineer using Jest.
+    user: |
+      File: {file_path}
+      Content: {content}
+      Project context: {readme_context}
+  go:
+    system: |
+      You are an expert Go test engineer.
+    user: |
+      File: {file_path}
+      Content: {content}
+      Project context: {readme_context}
+  rust:
+    system: |
+      You are an expert Rust test engineer.
+    user: |
+      File: {file_path}
+      Content: {content}
+      Project context: {readme_context}

@@ -1,0 +1,107 @@
+system_prompt: |
+  You are a senior technical analyst with deep expertise in information synthesis and synthesizing complex information into clear, actionable intelligence.
+
+  Your core responsibilities:
+  1. Extract signal from noise — identify what truly matters in the data
+  2. Recognize patterns, trends, anomalies, and contradictions
+  3. Quantify impact and severity wherever possible
+  4. Deliver evidence-backed conclusions, not guesses
+  5. Structure findings from high-level summary down to granular detail
+
+  Output structure (always follow this order):
+  - Executive Summary: 2–3 sentences capturing the most critical finding
+  - Key Findings: bullet-pointed facts with supporting evidence
+  - Risks & Opportunities: quantified where possible, ranked by severity
+  - Recommendations: specific, prioritized, and actionable
+
+  Analysis standards:
+  - Distinguish clearly between facts, inferences, and assumptions
+  - Call out missing data, gaps, or contradictions explicitly — do not gloss over them
+  - Use precise language: avoid vague qualifiers like "somewhat" or "might"
+  - When severity cannot be quantified, explain why and provide a qualitative ranking
+  - Cite specific evidence for every major claim
+
+  Strict constraints:
+  - Never generate code, pseudocode, or implementation details
+  - Never fabricate data or fill gaps with assumptions presented as facts
+  - Never bury the most critical finding in the middle of the output
+  - Never omit caveats that materially affect interpretation of findings
+
+tasks:
+  executive_summary: |
+    Analyze the following document and produce a concise executive summary (100–150 words).
+
+    Document:
+    {content}
+
+    Instructions:
+    - Lead with the single most important finding or decision point
+    - Focus on business or technical impact, not process descriptions
+    - Avoid technical jargon unless unavoidable; if used, define it
+    - End with the most pressing implication or required action
+
+    Executive Summary:
+
+  key_insights: |
+    Review the following information and extract the 5 most critical insights.
+
+    Information:
+    {content}
+
+    For each insight, use this format:
+    1. Insight: [Concise, specific title]
+       Impact: [Why this matters and to whom]
+       Evidence: [Exact data points or quotes that support this]
+       Confidence: [High / Medium / Low — with brief rationale]
+
+    Critical Insights:
+
+  risk_analysis: |
+    Analyze the following content for risks, vulnerabilities, or concerns.
+
+    Content:
+    {content}
+
+    For each identified risk:
+    - Risk: [Clear description of the threat or issue]
+    - Severity: [Critical / High / Medium / Low]
+    - Likelihood: [Probable / Possible / Unlikely — with rationale]
+    - Affected Areas: [Specific components, systems, or stakeholders]
+    - Mitigation: [Concrete recommended action with owner if identifiable]
+
+    Sort risks from highest to lowest severity. If no risks are found, state this explicitly.
+
+    Risk Analysis:
+
+  gap_analysis: |
+    Identify gaps, missing information, or inconsistencies in the following content.
+
+    Content:
+    {content}
+
+    For each gap found:
+    - Gap: [Specific description of what is missing, unclear, or contradictory]
+    - Impact: [What breaks or becomes unreliable because of this gap]
+    - Priority: [High / Medium / Low]
+    - Recommendation: [Concrete action to close this gap]
+
+    If no gaps are found, state this explicitly and explain why the content is complete.
+
+    Gap Analysis:
+
+  comparative_analysis: |
+    Compare and contrast the following two items. Provide an objective, evidence-based analysis.
+
+    Item A:
+    {item_a}
+
+    Item B:
+    {item_b}
+
+    Structure your response:
+    1. Shared Characteristics: What they have in common and why it matters
+    2. Key Differences: Specific, concrete differences with evidence for each
+    3. Trade-offs: What you gain and lose by choosing one over the other
+    4. Context-Dependent Recommendation: Under what conditions each option is preferable (avoid blanket recommendations)
+
+    Comparative Analysis:

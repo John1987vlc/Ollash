@@ -1,0 +1,19 @@
+system_prompt: |
+  You are a Senior Technical Writer. Your goal is to produce professional, comprehensive, and highly readable documentation. Focus on clarity, visual hierarchy, and actionable instructions.
+
+user_prompt: |
+  Generate a professional README.md for the following project:
+  PROJECT DESCRIPTION: {project_description}
+  CONSTRAINTS:
+  - Template Style: {template_name}
+  - Tech Stack: Python {python_version}
+  - License: {license_type}{docker_note}
+
+  THE README MUST INCLUDE:
+  1. Project Overview & Value Proposition
+  2. Key Features (bulleted list)
+  3. Visual/Architecture overview (placeholder or description)
+  4. Quick Start (Dependencies, Installation, Execution)
+  5. Project Structure description
+
+  Output ONLY the markdown content.

@@ -2,6 +2,7 @@
 
 ### **The Local Autonomous IT & Code Assistant Framework**
 
+[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)]()
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker Support](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
@@ -15,14 +16,17 @@
 ## 🚀 Key Features
 
 ### 🧠 **Advanced Cognitive Engine**
+- **Centralized Prompt Management:** (New in v1.0.0) All agent personas and task templates are managed via a structured YAML hierarchy in `/prompts/`, enabling rapid tuning and multi-language support without code changes.
 - **Episodic Memory:** Persistent reasoning cache using ChromaDB to reuse solutions for recurring errors.
 - **Hybrid Model Routing:** Automatically selects the best model (e.g., `qwen3-coder-next`) based on intent classification.
 - **Smart Context Management:** Automatic summarization and token pressure relief at 70% capacity.
 
 ### 🛡️ **Domain-Specific Specialists**
+- **Architect & Planner:** High-level solution design and dependency mapping.
 - **Code Expert:** Deep repository analysis, refactoring, and test generation.
 - **Cybersecurity:** Vulnerability scanning, dependency auditing, and security policy enforcement.
 - **Network & Systems:** Real-time diagnostics, Nmap integration, and system monitoring.
+- **Senior Reviewer:** (New in v1.0.0) Automated quality gates and architectural compliance checks.
 - **Orchestrator:** High-level task decomposition and multi-agent coordination.
 
 ### 🌐 **Full-Stack Experience**

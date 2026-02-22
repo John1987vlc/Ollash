@@ -7,6 +7,7 @@ from backend.interfaces.imodel_provider import IModelProvider
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.system.cicd_healer import CICDHealer
 from backend.utils.core.analysis.code_quarantine import CodeQuarantine
+from backend.utils.core.analysis.scanners.dependency_scanner import DependencyScanner
 from backend.utils.core.command_executor import CommandExecutor
 from backend.utils.core.analysis.dependency_graph import DependencyGraph
 from backend.utils.core.io.documentation_manager import DocumentationManager
@@ -150,6 +151,7 @@ class PhaseContext:
         code_quarantine: CodeQuarantine,
         fragment_cache: FragmentCache,
         dependency_graph: DependencyGraph,
+        dependency_scanner: DependencyScanner,
         parallel_generator: ParallelFileGenerator,
         error_knowledge_base: ErrorKnowledgeBase,
         policy_enforcer: PolicyEnforcer,
@@ -188,6 +190,7 @@ class PhaseContext:
         self.code_quarantine = code_quarantine
         self.fragment_cache = fragment_cache
         self.dependency_graph = dependency_graph
+        self.dependency_scanner = dependency_scanner
         self.parallel_generator = parallel_generator
         self.error_knowledge_base = error_knowledge_base
         self.policy_enforcer = policy_enforcer

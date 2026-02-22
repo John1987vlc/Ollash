@@ -1,5 +1,6 @@
 import sys
 import shutil
+import pytest
 from pathlib import Path
 
 # Añadir el raíz del proyecto al path

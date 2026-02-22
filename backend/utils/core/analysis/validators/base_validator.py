@@ -181,7 +181,14 @@ class BaseValidator:
             tmp_f.write(content)
             temp_file_path = Path(tmp_f.name)
 
-        rel_temp_file_path = temp_file_path.relative_to(self.command_executor.working_dir)
+        # Suggested Fix in base_validator.py
+        working_path = Path(self.command_executor.working_dir).resolve()
+        temp_file_path = temp_file_path.resolve()
+        try:
+            rel_temp_file_path = temp_file_path.relative_to(working_path)
+        except ValueError:
+            # Fallback to absolute path if not a subpath
+            rel_temp_file_path = temp_file_path
 
         linter_command = command + [str(rel_temp_file_path)]
 

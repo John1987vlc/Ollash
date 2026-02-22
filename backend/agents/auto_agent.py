@@ -23,6 +23,7 @@ from backend.core.kernel import AgentKernel
 # Agent Phases & Context
 from backend.interfaces.iagent_phase import IAgentPhase
 from backend.interfaces.imodel_provider import IModelProvider
+from backend.utils.core.analysis.scanners.dependency_scanner import DependencyScanner
 from backend.utils.core.system.execution_plan import ExecutionPlan
 
 # Core utilities
@@ -45,6 +46,7 @@ class AutoAgent(CoreAgent):
         kernel: Optional[AgentKernel] = Provide["auto_agent_module.agent_kernel"],
         llm_manager: Optional[IModelProvider] = Provide["auto_agent_module.llm_manager"],
         llm_recorder: Optional[LLMRecorder] = Provide["core.llm_recorder"],
+        dependency_scanner: Optional[DependencyScanner] = Provide["core.dependency_scanner"],
         **kwargs,
     ):
         super().__init__(
@@ -52,6 +54,7 @@ class AutoAgent(CoreAgent):
             logger_name="AutoAgent",
             llm_manager=llm_manager,
             llm_recorder=llm_recorder,
+            dependency_scanner=dependency_scanner,
         )
 
         self.config = self.kernel.get_full_config()

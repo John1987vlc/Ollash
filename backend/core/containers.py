@@ -52,6 +52,7 @@ from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 from backend.utils.core.llm.parallel_generator import ParallelFileGenerator
 from backend.utils.core.system.permission_profiles import PermissionProfileManager, PolicyEnforcer
 from backend.utils.core.analysis.scanners.rag_context_selector import RAGContextSelector
+from backend.utils.core.analysis.scanners.dependency_scanner import DependencyScanner
 from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScanner
 
 # Core Utilities
@@ -131,6 +132,7 @@ class CoreContainer(containers.DeclarativeContainer):
     fragment_cache = providers.Singleton(FragmentCache, cache_dir=cache_dir, logger=logger, enable_persistence=True)
 
     dependency_graph = providers.Singleton(DependencyGraph, logger=logger)
+    dependency_scanner = providers.Singleton(DependencyScanner, logger=logger)
 
     parallel_generator = providers.Singleton(
         ParallelFileGenerator,
@@ -281,7 +283,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
     )
 
     # --- PhaseContext Provider ---
-    phase_context = providers.Factory(
+    phase_context = providers.Singleton(
         PhaseContext,
         config=core.config,
         logger=core.logger,
@@ -295,6 +297,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         code_quarantine=core.code_quarantine,
         fragment_cache=core.fragment_cache,
         dependency_graph=core.dependency_graph,
+        dependency_scanner=core.dependency_scanner,
         parallel_generator=core.parallel_generator,
         error_knowledge_base=core.error_knowledge_base,
         policy_enforcer=core.policy_enforcer,
