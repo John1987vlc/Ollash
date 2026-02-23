@@ -231,25 +231,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }, 100);
                 break;
+            case 'brain': if (typeof loadBrainData !== 'undefined') loadBrainData(); break;
+            case 'swarm': if (window.SwarmModule) window.SwarmModule.init(); break;
+            case 'operations': if (typeof loadJobs !== 'undefined') loadJobs(); break;
+            case 'resilience': if (typeof refreshResilienceData !== 'undefined') refreshResilienceData(); break;
+            case 'insights': if (typeof loadInsightsData !== 'undefined') loadInsightsData(); break;
+            case 'git': if (window.GitModule) window.GitModule.init(); break;
+            case 'automations': if (window.AutomationsModule) window.AutomationsModule.loadAutomations(); break;
+            case 'architecture': if (window.ArchitectureModule) window.ArchitectureModule.loadArchitecture(); break;
             case 'docs': if (window.DocsModule) window.DocsModule.loadDocs(); break;
             case 'costs': if (window.CostModule) window.CostModule.updateCostsDashboard(); break;
-            case 'architecture': if (window.ArchitectureModule) window.ArchitectureModule.loadArchitecture(); break;
-            case 'brain': if (typeof loadBrainData !== 'undefined') loadBrainData(); break;
-            case 'plugins': if (typeof loadPlugins !== 'undefined') loadPlugins(); break;
-            case 'cicd': if (window.CICDModule) window.CICDModule.loadHistory(); break;
-            case 'hil': if (window.HILModule) window.HILModule.refresh(); break;
             case 'security': if (window.SecurityModule) window.SecurityModule.init(); break;
-            case 'sandbox':
-                // Sandbox is often an <a> link, but if we make it a view:
-                const sbView = document.getElementById('sandbox-view');
-                if (sbView) {
-                    sbView.classList.add('active');
-                    // init sandbox logic if needed
-                }
-                break;
+            case 'audit': if (window.AuditModule) window.AuditModule.init(); break;
+            case 'policies': if (window.PoliciesModule) window.PoliciesModule.init(); break;
+            case 'benchmark': if (window.BenchmarkModule) window.BenchmarkModule.loadHistory(); break;
             case 'checkpoints': if (typeof loadCheckpoints !== 'undefined') loadCheckpoints(); break;
-            case 'integrations': if (typeof loadIntegrations !== 'undefined') loadIntegrations(); break;
+            case 'integrations': if (window.IntegrationsModule) window.IntegrationsModule.init(); break;
+            case 'knowledge': if (typeof loadKnowledgeData !== 'undefined') loadKnowledgeData(); break;
+            case 'decisions': if (typeof loadDecisions !== 'undefined') loadDecisions(); break;
             case 'pair-programming': if (typeof loadPairProgramming !== 'undefined') loadPairProgramming(); break;
+            case 'sandbox':
+                const sbView = document.getElementById('sandbox-view');
+                if (sbView) sbView.classList.add('active');
+                break;
         }
     }
 

@@ -2,28 +2,48 @@
 
 {% block title %}Ollash - Local IT Agent{% endblock %}
 
+{% block styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/swarm.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/resilience.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/git.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/insights.css') }}">
+{% endblock %}
+
 {% block content %}
     {% include 'pages/chat.html' %}
     {% include 'pages/architecture.html' %}
     {% include 'pages/docs.html' %}
     {% include 'pages/costs.html' %}
+    {% include 'pages/sandbox.html' %}
     {% include 'pages/create_project.html' %}
     {% include 'pages/projects.html' %}
     {% include 'pages/benchmark.html' %}
     {% include 'pages/automations.html' %}
+    {% include 'pages/swarm.html' %}
+    {% include 'pages/operations.html' %}
     {% include 'pages/brain.html' %}
-    {% include 'pages/plugins.html' %}
     {% include 'pages/settings.html' %}
     {% include 'pages/prompts.html' %}
     {% include 'pages/security.html' %}
     {% include 'pages/audit.html' %}
     {% include 'pages/knowledge.html' %}
-    {% include 'pages/tuning.html' %}
+    {% include 'pages/resilience.html' %}
     {% include 'pages/policies.html' %}
     {% include 'pages/fragments.html' %}
     {% include 'pages/cicd.html' %}
     {% include 'pages/hil.html' %}
     {% include 'pages/checkpoints.html' %}
     {% include 'pages/integrations.html' %}
+    {% include 'pages/git.html' %}
+    {% include 'pages/insights.html' %}
+    {% include 'pages/decisions.html' %}
     {% include 'pages/pair_programming.html' %}
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/pages/swarm.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/resilience.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/git.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/insights.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/security.js') }}"></script>
 {% endblock %}

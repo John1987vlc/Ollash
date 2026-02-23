@@ -1,7 +1,7 @@
 /**
  * Integrations Module - Triggers and Webhooks
  */
-const IntegrationsModule = (function() {
+window.IntegrationsModule = (function() {
     async function loadTriggers() {
         const container = document.getElementById('trigger-list');
         if (!container) return;
@@ -15,7 +15,7 @@ const IntegrationsModule = (function() {
                     <div style="display:flex; justify-content:space-between;">
                         <h4>${t.name}</h4>
                         <label class="switch small">
-                            <input type="checkbox" ${t.active ? 'checked' : ''} onchange="toggleTrigger('${t.id}')">
+                            <input type="checkbox" ${t.active ? 'checked' : ''} onchange="IntegrationsModule.toggleTrigger('${t.id}')">
                             <span class="slider round"></span>
                         </label>
                     </div>
@@ -36,19 +36,45 @@ const IntegrationsModule = (function() {
         }
     }
 
-    window.openTriggerModal = () => document.getElementById('trigger-modal').style.display = 'flex';
-    window.closeTriggerModal = () => document.getElementById('trigger-modal').style.display = 'none';
+    function init() {
+        loadTriggers();
+        
+        const triggerForm = document.getElementById('trigger-form');
+        if (triggerForm) {
+            triggerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                // Mock save implementation
+                if (window.showMessage) window.showMessage('Trigger saved successfully', 'success');
+                closeTriggerModal();
+                loadTriggers(); 
+            });
+        }
+    }
 
-    document.getElementById('trigger-form')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        // Mock save implementation
-        window.showMessage('Trigger saved successfully', 'success');
-        closeTriggerModal();
-        loadTriggers(); // Refresh list (mock)
-    });
+    function openTriggerModal() {
+        const modal = document.getElementById('trigger-modal');
+        if (modal) modal.style.display = 'flex';
+    }
 
-    return { init: loadTriggers };
+    function closeTriggerModal() {
+        const modal = document.getElementById('trigger-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function toggleTrigger(id) {
+        console.log("Toggle trigger", id);
+        // Implement backend call if needed
+    }
+
+    return { 
+        init: init,
+        loadTriggers: loadTriggers,
+        openTriggerModal: openTriggerModal,
+        closeTriggerModal: closeTriggerModal,
+        toggleTrigger: toggleTrigger
+    };
 })();
 
-// Initialize when view is active
-window.loadIntegrations = IntegrationsModule.init;
+// Global helpers for inline onclicks
+window.openTriggerModal = IntegrationsModule.openTriggerModal;
+window.closeTriggerModal = IntegrationsModule.closeTriggerModal;

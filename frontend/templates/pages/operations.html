@@ -1,134 +1,64 @@
-{% extends 'base.html' %}
+<div class="view" id="operations-view">
+    <div class="view-header">
+        <h1>Operations Center</h1>
+        <p class="subtitle">Orchestrate automated tasks and visualize execution plans.</p>
+    </div>
 
-{% block title %}Operations Center - Ollash{% endblock %}
-
-{% block styles %}
-<style>
-    .ops-grid {
-        display: grid;
-        grid-template-columns: 1fr 350px;
-        gap: var(--spacing-xl);
-        margin-top: var(--spacing-xl);
-        height: calc(100vh - 180px);
-    }
-
-    .card-panel {
-        background: var(--color-surface);
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
-        padding: var(--spacing-lg);
-        display: flex;
-        flex-direction: column;
-    }
-
-    .job-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: var(--spacing-md);
-        border-bottom: 1px solid var(--color-border);
-        transition: background 0.2s;
-    }
-
-    .job-item:hover {
-        background: var(--color-surface-elevated);
-    }
-
-    .dag-container {
-        flex: 1;
-        background: var(--color-bg);
-        border-radius: var(--radius-md);
-        position: relative;
-        overflow: hidden;
-        border: 1px dashed var(--color-border);
-    }
-
-    .dag-node {
-        position: absolute;
-        background: var(--color-surface-elevated);
-        border: 1px solid var(--color-primary);
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        box-shadow: var(--shadow-sm);
-        transition: transform 0.3s;
-    }
-
-    .dag-node.thinking { border-color: var(--color-accent); color: var(--color-accent); }
-    .dag-node.action { border-color: var(--color-success); color: var(--color-success); }
-    .dag-node.validation { border-color: var(--color-warning); color: var(--color-warning); }
-
-    .dag-line {
-        position: absolute;
-        height: 2px;
-        background: var(--color-border);
-        transform-origin: 0 50%;
-        z-index: 0;
-    }
-</style>
-{% endblock %}
-
-{% block content %}
-<div class="view-header">
-    <h1>Operations Center</h1>
-    <p class="subtitle">Orchestrate automated tasks and visualize execution plans.</p>
-</div>
-
-<div class="ops-grid">
-    <!-- Left: Task Scheduler -->
-    <div class="card-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
-            <h2>Scheduled Tasks</h2>
-            <button class="btn-primary" onclick="openNewJobModal()">+ New Job</button>
+    <div class="ops-grid">
+        <!-- Left: Task Scheduler -->
+        <div class="card-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+                <h2>Scheduled Tasks</h2>
+                <button class="btn-primary" onclick="openNewJobModal()">+ New Job</button>
+            </div>
+            
+            <div id="job-list" style="overflow-y: auto;">
+                <!-- Jobs injected via JS -->
+                <div class="skeleton-pulse" style="height: 60px; margin-bottom: 10px; border-radius: 8px;"></div>
+                <div class="skeleton-pulse" style="height: 60px; margin-bottom: 10px; border-radius: 8px;"></div>
+            </div>
         </div>
-        
-        <div id="job-list" style="overflow-y: auto;">
-            <!-- Jobs injected via JS -->
-            <div class="skeleton-pulse" style="height: 60px; margin-bottom: 10px; border-radius: 8px;"></div>
-            <div class="skeleton-pulse" style="height: 60px; margin-bottom: 10px; border-radius: 8px;"></div>
+
+        <!-- Right: DAG Visualizer -->
+        <div class="card-panel">
+            <h2>Execution Plan Preview</h2>
+            <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: var(--spacing-md);">
+                Visualizing logic flow for complex tasks.
+            </p>
+            
+            <div class="dag-container" id="dag-viz">
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--color-text-subtle);">
+                    <p>No active plan</p>
+                    <button class="btn-secondary" style="margin-top: 10px;" onclick="simulateDAG()">Simulate Plan</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Right: DAG Visualizer -->
-    <div class="card-panel">
-        <h2>Execution Plan Preview</h2>
-        <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: var(--spacing-md);">
-            Visualizing logic flow for complex tasks.
-        </p>
-        
-        <div class="dag-container" id="dag-viz">
-            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--color-text-subtle);">
-                <p>No active plan</p>
-                <button class="btn-secondary" style="margin-top: 10px;" onclick="simulateDAG()">Simulate Plan</button>
+    <!-- Simple Modal for New Job -->
+    <div id="new-job-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create Scheduled Task</h3>
+                <button class="btn-icon" onclick="closeNewJobModal()">✕</button>
+            </div>
+            <div class="form-group">
+                <label>Task Name</label>
+                <input type="text" id="job-name" class="form-input" placeholder="e.g. Daily Backup">
+                
+                <label>Cron Expression</label>
+                <input type="text" id="job-cron" class="form-input" placeholder="* * * * *">
+                
+                <label>Command / Script</label>
+                <textarea class="form-input" rows="3" placeholder="python scripts/backup.py"></textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn-secondary" onclick="closeNewJobModal()">Cancel</button>
+                <button class="btn-primary" onclick="createJob()">Create Task</button>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Simple Modal for New Job -->
-<div id="new-job-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Create Scheduled Task</h3>
-            <button class="btn-icon" onclick="closeNewJobModal()">✕</button>
-        </div>
-        <div class="form-group">
-            <label>Task Name</label>
-            <input type="text" id="job-name" class="form-input" placeholder="e.g. Daily Backup">
-            
-            <label>Cron Expression</label>
-            <input type="text" id="job-cron" class="form-input" placeholder="* * * * *">
-            
-            <label>Command / Script</label>
-            <textarea class="form-input" rows="3" placeholder="python scripts/backup.py"></textarea>
-        </div>
-        <div class="form-actions">
-            <button class="btn-secondary" onclick="closeNewJobModal()">Cancel</button>
-            <button class="btn-primary" onclick="createJob()">Create Task</button>
-        </div>
-    </div>
-</div>
-{% endblock %}
 
 {% block scripts %}
 <script>

@@ -2,7 +2,7 @@
  * CI/CD & Maintenance Dashboard Logic
  */
 
-const CICDModule = (function() {
+window.CICDModule = (function() {
     // --- Elements ---
     let ciLogInput, analyzeBtn, fixBtn, analysisResults, ciCategory, ciConfidence, ciRootCause, ciSuggestions;
     let maintTimeline, runMaintBtn;

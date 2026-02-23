@@ -1,72 +1,60 @@
-{% extends 'base.html' %}
-
-{% block title %}Swarm & Cowork - Ollash{% endblock %}
-
-{% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/swarm.css') }}">
-{% endblock %}
-
-{% block content %}
-<div class="page-header">
-    <div class="header-info">
-        <h1>Agent Swarm & Co-working</h1>
-        <p class="header-subtitle">Visualize agent coordination and use advanced co-working tools.</p>
-    </div>
-</div>
-
-<div class="swarm-container">
-    <!-- Swarm Visualization -->
-    <div class="swarm-viz-panel">
-        <div class="panel-header">
-            <h3>Swarm Coordination</h3>
-        </div>
-        <div id="swarm-nodes-container">
-            <!-- Nodes populated via swarm.js -->
+<div class="view" id="swarm-view">
+    <div class="page-header">
+        <div class="header-info">
+            <h1>Agent Swarm & Co-working</h1>
+            <p class="header-subtitle">Visualize agent coordination and use advanced co-working tools.</p>
         </div>
     </div>
 
-    <!-- Co-working Tools -->
-    <div class="cowork-panel">
-        <!-- Document to Task -->
-        <div class="cowork-card">
-            <h3><i class="icon-file-text"></i> Document to Task</h3>
-            <p class="text-muted">Convert requirements documents into automation tasks.</p>
-            <div class="input-group">
-                <input type="text" id="doc-to-task-name" placeholder="Document name (in references/)" class="form-control">
-                <button id="run-doc-to-task" class="btn-primary">Generate Tasks</button>
+    <div class="swarm-container">
+        <!-- Swarm Visualization -->
+        <div class="swarm-viz-panel">
+            <div class="panel-header">
+                <h3>Swarm Coordination</h3>
             </div>
-            <div id="doc-to-task-results" class="results-area">Results will appear here...</div>
+            <div id="swarm-nodes-container">
+                <!-- Nodes populated via swarm.js -->
+            </div>
         </div>
 
-        <!-- Log Analysis -->
-        <div class="cowork-card">
-            <h3><i class="icon-activity"></i> Advanced Log Audit</h3>
-            <p class="text-muted">Analyze recent logs for high-risk security events.</p>
-            <div class="input-group">
-                <select id="log-type-select" class="form-control">
-                    <option value="system">System Logs</option>
-                    <option value="security">Security Logs</option>
-                    <option value="application">Application Logs</option>
-                </select>
-                <button id="run-log-audit" class="btn-primary">Audit Logs</button>
+        <!-- Co-working Tools -->
+        <div class="cowork-panel">
+            <!-- Document to Task -->
+            <div class="cowork-card">
+                <h3><i class="icon-file-text"></i> Document to Task</h3>
+                <p class="text-muted">Convert requirements documents into automation tasks.</p>
+                <div class="input-group">
+                    <input type="text" id="doc-to-task-name" placeholder="Document name (in references/)" class="form-control">
+                    <button id="run-doc-to-task" class="btn-primary">Generate Tasks</button>
+                </div>
+                <div id="doc-to-task-results" class="results-area">Results will appear here...</div>
             </div>
-            <div id="log-audit-results" class="results-area">Audit results will appear here...</div>
-        </div>
 
-        <!-- Executive Summary -->
-        <div class="cowork-card">
-            <h3><i class="icon-clipboard"></i> Executive Summary</h3>
-            <p class="text-muted">Generate a professional summary with recommendations.</p>
-            <div class="input-group">
-                <input type="text" id="summary-doc-name" placeholder="Document name" class="form-control">
-                <button id="run-summary" class="btn-primary">Summarize</button>
+            <!-- Log Analysis -->
+            <div class="cowork-card">
+                <h3><i class="icon-activity"></i> Advanced Log Audit</h3>
+                <p class="text-muted">Analyze recent logs for high-risk security events.</p>
+                <div class="input-group">
+                    <select id="log-type-select" class="form-control">
+                        <option value="system">System Logs</option>
+                        <option value="security">Security Logs</option>
+                        <option value="application">Application Logs</option>
+                    </select>
+                    <button id="run-log-audit" class="btn-primary">Audit Logs</button>
+                </div>
+                <div id="log-audit-results" class="results-area">Audit results will appear here...</div>
             </div>
-            <div id="summary-results" class="results-area">Summary will appear here...</div>
+
+            <!-- Executive Summary -->
+            <div class="cowork-card">
+                <h3><i class="icon-clipboard"></i> Executive Summary</h3>
+                <p class="text-muted">Generate a professional summary with recommendations.</p>
+                <div class="input-group">
+                    <input type="text" id="summary-doc-name" placeholder="Document name" class="form-control">
+                    <button id="run-summary" class="btn-primary">Summarize</button>
+                </div>
+                <div id="summary-results" class="results-area">Summary will appear here...</div>
+            </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/pages/swarm.js') }}"></script>
-{% endblock %}
