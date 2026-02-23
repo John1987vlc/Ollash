@@ -122,9 +122,7 @@ class TestPushToRemoteDispatch:
             git_branch="main",
         )
 
-        phase._push_to_existing_repo.assert_called_once_with(
-            git, "https://github.com/org/repo.git", "tok", "main"
-        )
+        phase._push_to_existing_repo.assert_called_once_with(git, "https://github.com/org/repo.git", "tok", "main")
         assert result["method"] == "direct_push"
 
     @patch("subprocess.run")
@@ -195,9 +193,7 @@ class TestFinalReviewPhaseExecute:
     async def test_no_git_push_skips_git_operations(self, tmp_path):
         """When git_push=False, no git operations are performed."""
         phase = _make_phase()
-        with patch(
-            "backend.agents.auto_agent_phases.final_review_phase.GitManager"
-        ) as mock_git_cls:
+        with patch("backend.agents.auto_agent_phases.final_review_phase.GitManager") as mock_git_cls:
             await phase.execute(
                 project_description="desc",
                 project_name="proj",
@@ -217,9 +213,7 @@ class TestFinalReviewPhaseExecute:
             return_value={"success": True, "method": "direct_push", "output": "ok", "error": ""}
         )
 
-        with patch(
-            "backend.agents.auto_agent_phases.final_review_phase.GitManager"
-        ) as mock_git_cls:
+        with patch("backend.agents.auto_agent_phases.final_review_phase.GitManager") as mock_git_cls:
             mock_git = MagicMock()
             mock_git_cls.return_value = mock_git
             mock_git._run_git.return_value = {"success": True}
@@ -248,9 +242,7 @@ class TestFinalReviewPhaseExecute:
         phase = _make_phase()
         phase._push_to_existing_repo = MagicMock()
 
-        with patch(
-            "backend.agents.auto_agent_phases.final_review_phase.GitManager"
-        ) as mock_git_cls:
+        with patch("backend.agents.auto_agent_phases.final_review_phase.GitManager") as mock_git_cls:
             mock_git = MagicMock()
             mock_git_cls.return_value = mock_git
             mock_git._run_git.return_value = {"success": True}
@@ -281,9 +273,7 @@ class TestFinalReviewPhaseExecute:
         """When git_push=True but no token, only a local git init is done."""
         phase = _make_phase()
 
-        with patch(
-            "backend.agents.auto_agent_phases.final_review_phase.GitManager"
-        ) as mock_git_cls:
+        with patch("backend.agents.auto_agent_phases.final_review_phase.GitManager") as mock_git_cls:
             mock_git = MagicMock()
             mock_git_cls.return_value = mock_git
             mock_git._run_git.return_value = {"success": True}

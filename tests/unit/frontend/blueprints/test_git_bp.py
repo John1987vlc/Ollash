@@ -1,6 +1,4 @@
 """Unit tests for git_bp - git integration routes."""
-import json
-import sys
 import pytest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
@@ -15,14 +13,14 @@ from flask import Flask
 def app():
     from frontend.blueprints.git_views import bp as git_bp
     import frontend.blueprints.git_views as git_module
-    
+
     # Base directory for templates
     template_dir = Path(__file__).parents[4] / "frontend" / "templates"
-    
+
     flask_app = Flask(__name__, template_folder=str(template_dir))
     flask_app.config["ollash_root_dir"] = Path(".")
     flask_app.register_blueprint(git_bp, url_prefix="/git")
-    
+
     # Store the module in the app for easier patching in tests
     flask_app.git_module = git_module
     return flask_app

@@ -1,4 +1,3 @@
-import pytest
 from backend.utils.core.analysis.context_distiller import ContextDistiller
 
 def test_distill_simple_python():
@@ -17,7 +16,7 @@ def top_level_func(x):
     return x * 2
 """
     distilled = ContextDistiller.distill_file("test.py", code)
-    
+
     assert "# --- Imports ---" in distilled
     assert "import os" in distilled
     assert "from pathlib import Path" in distilled
@@ -34,6 +33,6 @@ def test_distill_syntax_error():
     # Broken code
     code = "class MyClass: def unfinished(self,"
     distilled = ContextDistiller.distill_file("error.py", code)
-    
+
     assert "truncated due to parsing error" in distilled
     assert "class MyClass" in distilled

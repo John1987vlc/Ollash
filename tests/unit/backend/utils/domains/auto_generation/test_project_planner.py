@@ -29,7 +29,8 @@ class TestProjectPlanner:
         )
 
         result = planner.generate_readme(
-            project_description="Test Description", template_name="default", python_version="3.12"
+            project_name="Test Project",
+            project_description="Test Description",
         )
 
         assert "# Test Project" in result

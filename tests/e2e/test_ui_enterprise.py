@@ -1,11 +1,10 @@
-import pytest
 from playwright.sync_api import Page, expect
 
 def test_operations_dashboard_loads(page: Page):
     page.goto("http://localhost:5000/operations/")
     expect(page.get_by_text("Operations Center")).to_be_visible()
     expect(page.get_by_text("Scheduled Tasks")).to_be_visible()
-    
+
     # Check DAG Preview
     page.get_by_role("button", name="Simulate Plan").click()
     expect(page.locator(".dag-node").first).to_be_visible()

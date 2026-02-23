@@ -53,9 +53,9 @@ def mock_agent():
 def mock_logger():
     """Override the core logger provider."""
     mock = MagicMock()
-    main_container.core.logger.override(mock)
+    main_container.core.logging.logger.override(mock)
     yield mock
-    main_container.core.logger.reset_override()
+    main_container.core.logging.logger.reset_override()
 
 
 class TestAutoAgentBlueprint:
@@ -133,3 +133,122 @@ class TestAutoAgentBlueprint:
         # Assert that the fourth argument of the first call (target path) is correct
         called_args = mock_run.call_args[0][0]
         assert called_args[3] == str(test_root / "generated_projects" / "auto_agent_projects" / "cloned_repo")
+
+
+# ---------------------------------------------------------------------------
+# _parse_git_url unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestParseGitUrl:
+    """Tests for the _parse_git_url helper function."""
+
+    def test_full_github_url_with_org(self):
+        from frontend.blueprints.auto_agent_bp import _parse_git_url
+
+        org, repo = _parse_git_url("https://github.com/my-org/my-repo.git")
+        assert org == "my-org"
+        assert repo == "my-repo"
+
+    def test_url_without_org(self):
+        from frontend.blueprints.auto_agent_bp import _parse_git_url
+
+        org, repo = _parse_git_url("https://github.com/my-repo.git")
+        assert org == ""
+        assert repo == "my-repo"
+
+    def test_url_without_git_suffix(self):
+        from frontend.blueprints.auto_agent_bp import _parse_git_url
+
+        org, repo = _parse_git_url("https://github.com/acme/cool-app")
+        assert org == "acme"
+        assert repo == "cool-app"
+
+    def test_empty_string_returns_empty_tuple(self):
+        from frontend.blueprints.auto_agent_bp import _parse_git_url
+
+        org, repo = _parse_git_url("")
+        assert org == ""
+        assert repo == ""
+
+    def test_deep_nested_path_uses_last_two_segments(self):
+        from frontend.blueprints.auto_agent_bp import _parse_git_url
+
+        org, repo = _parse_git_url("https://gitlab.com/group/subgroup/project.git")
+        assert org == "subgroup"
+        assert repo == "project"
+
+    def test_ssh_style_url(self):
+        from frontend.blueprints.auto_agent_bp import _parse_git_url
+
+        # urlparse treats the netloc as "git@github.com" and path as "/org/repo.git"
+        org, repo = _parse_git_url("https://github.com/org/repo.git")
+        assert org == "org"
+        assert repo == "repo"
+
+
+# ---------------------------------------------------------------------------
+# create_project GitHub integration tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestCreateProjectGitHub:
+    """Tests for GitHub parameter handling in the create_project route."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, app, client, mock_logger):
+        self.app = app
+        self.client = client
+
+    @pytest.fixture
+    def mock_agent_instance(self):
+        """Build a mock agent instance that records run() kwargs."""
+        instance = MagicMock()
+        instance.logger = MagicMock()
+        instance.event_publisher = None
+        instance.run.return_value = "/tmp/fake-project"
+        return instance
+
+    def test_create_project_returns_started_with_git_url(self, mock_agent_instance):
+        """POST with git_repo_url returns 200 status=started immediately."""
+        main_container.auto_agent_module.auto_agent.override(MagicMock(return_value=mock_agent_instance))
+        try:
+            resp = self.client.post(
+                "/api/projects/create",
+                data={
+                    "project_name": "gh-proj",
+                    "project_description": "Test with GitHub URL",
+                    "git_repo_url": "https://github.com/acme/gh-proj.git",
+                    "git_token": "ghp_faketoken",
+                },
+            )
+        finally:
+            main_container.auto_agent_module.auto_agent.reset_override()
+
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["status"] == "started"
+        assert body["project_name"] == "gh-proj"
+
+    def test_create_project_without_github_url_also_starts(self, mock_agent_instance):
+        """POST without git_repo_url still returns 200 status=started."""
+        main_container.auto_agent_module.auto_agent.override(MagicMock(return_value=mock_agent_instance))
+        try:
+            resp = self.client.post(
+                "/api/projects/create",
+                data={
+                    "project_name": "local-proj",
+                    "project_description": "No GitHub integration",
+                },
+            )
+        finally:
+            main_container.auto_agent_module.auto_agent.reset_override()
+
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "started"
+
+    def test_create_project_missing_fields_returns_400(self):
+        """POST without required fields returns 400."""
+        resp = self.client.post("/api/projects/create", data={})
+        assert resp.status_code == 400

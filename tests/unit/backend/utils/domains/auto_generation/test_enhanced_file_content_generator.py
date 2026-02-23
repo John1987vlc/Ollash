@@ -1,7 +1,7 @@
 """Unit tests for EnhancedFileContentGenerator."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from backend.utils.domains.auto_generation.enhanced_file_content_generator import (
     EnhancedFileContentGenerator,

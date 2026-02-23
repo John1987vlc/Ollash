@@ -4,6 +4,8 @@ E2E Accessibility Tests for Ollash UI.
 Verifies that ARIA attributes added in the UI/UX improvements are present
 and that keyboard navigation works correctly.
 """
+import re
+
 import pytest
 from playwright.sync_api import expect
 
@@ -161,8 +163,6 @@ def test_toggle_pair_mode_has_aria_label(page, base_url):
 # ---------------------------------------------------------------------------
 # Command Palette focus trap
 # ---------------------------------------------------------------------------
-
-import re
 
 
 @pytest.mark.e2e

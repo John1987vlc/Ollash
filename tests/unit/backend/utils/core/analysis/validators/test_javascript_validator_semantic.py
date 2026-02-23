@@ -1,10 +1,11 @@
 import pytest
 from unittest.mock import MagicMock
 from backend.utils.core.analysis.validators.javascript_validator import JavascriptValidator
-from backend.utils.core.analysis.validators.base_validator import ValidationStatus
 
+
+@pytest.mark.unit
 class TestJavascriptValidatorSemantic:
-    
+
     @pytest.fixture
     def validator(self):
         # Mock command executor to avoid checking for eslint binary in unit tests
@@ -17,52 +18,52 @@ class TestJavascriptValidatorSemantic:
         btn.innerHTML = 'Loading...'; // Dangerous!
         """
         result = validator.validate("script.js", content, 2, len(content), ".js")
-        
+
         assert "Potential crash" in result.message
         assert "Using DOM element 'btn' without null check" in result.message
 
     def test_dom_integrity_check_success_if(self, validator):
-        """Should pass if there is a null check using 'if'."""
+        """Should produce no errors when there is a null check using 'if'."""
         content = """
         const btn = document.getElementById('submit-btn');
         if (btn) {
             btn.innerHTML = 'Loading...';
         }
         """
-        # We manually call the semantic check since validate might try to run eslint
-        errors = validator._semantic_integrity_check("script.js", content)
+        # _semantic_integrity_check returns (errors, warnings)
+        errors, _warnings = validator._semantic_integrity_check("script.js", content)
         assert not errors
 
     def test_dom_integrity_check_success_optional_chaining(self, validator):
-        """Should pass if there is usage of optional chaining."""
+        """Should produce no errors when optional chaining is used."""
         content = """
         const btn = document.getElementById('submit-btn');
         btn?.innerHTML = 'Loading...';
         """
-        errors = validator._semantic_integrity_check("script.js", content)
+        errors, _warnings = validator._semantic_integrity_check("script.js", content)
         assert not errors
 
     def test_poker_integrity_check_failure(self, validator):
-        """Should detect missing core functions in Poker files."""
+        """Missing core poker functions are reported as warnings (non-blocking)."""
         content = """
         class PokerGame {
             start() { console.log('started'); }
         }
         """
-        result = validator.validate("PokerEngine.js", content, 3, len(content), ".js")
-        
-        assert "Poker logic missing 'shuffle'" in result.message
-        assert "Poker logic missing 'deal'" in result.message
+        # Poker issues are warnings, not hard errors — they don't fail validate()
+        _errors, warnings = validator._semantic_integrity_check("PokerEngine.js", content)
+        assert any("shuffle" in w for w in warnings), f"Expected shuffle warning, got: {warnings}"
+        assert any("deal" in w for w in warnings), f"Expected deal warning, got: {warnings}"
 
     def test_poker_integrity_check_success(self, validator):
-        """Should pass if core functions are present."""
+        """Should produce no errors when core poker functions are present."""
         content = """
         class PokerGame {
             shuffle() { /* ... */ }
             deal() { /* ... */ }
         }
         """
-        errors = validator._semantic_integrity_check("PokerEngine.js", content)
+        errors, _warnings = validator._semantic_integrity_check("PokerEngine.js", content)
         assert not errors
 
     def test_implicit_globals(self, validator):

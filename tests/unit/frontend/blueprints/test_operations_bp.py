@@ -1,6 +1,5 @@
 """Unit tests for operations_bp - operations dashboard routes."""
 import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
 from flask import Flask
 

@@ -157,14 +157,8 @@ def create_project():
             _git_org_from_url, _repo_name_from_url = _parse_git_url(git_repo_url)
 
             git_push = request.form.get("git_push") == "true" or bool(git_repo_url)
-            repo_name = (
-                request.form.get("repo_name", "").strip()
-                or _repo_name_from_url
-                or project_name
-            )
-            git_organization = (
-                request.form.get("git_organization", "").strip() or _git_org_from_url
-            )
+            repo_name = request.form.get("repo_name", "").strip() or _repo_name_from_url or project_name
+            git_organization = request.form.get("git_organization", "").strip() or _git_org_from_url
 
             run_kwargs = {
                 "project_description": project_description,
@@ -207,17 +201,22 @@ def create_project():
                             num_refine_loops=1,
                             maintenance_mode=True,
                             github_integration=True,
-                            github_token=run_kwargs.get("git_token")
+                            github_token=run_kwargs.get("git_token"),
                         )
 
                     scheduler.set_callback(maintenance_callback)
-                    scheduler.schedule_task(f"maint_{project_name}", {
-                        "name": f"Maintenance: {project_name}",
-                        "schedule": "custom",
-                        "cron": f"0 */{maintenance_interval} * * *",
-                        "agent": "orchestrator"
-                    })
-                    agent.logger.info(f"[PROJECT_STATUS] Autonomous maintenance scheduled every {maintenance_interval}h for '{project_name}'.")
+                    scheduler.schedule_task(
+                        f"maint_{project_name}",
+                        {
+                            "name": f"Maintenance: {project_name}",
+                            "schedule": "custom",
+                            "cron": f"0 */{maintenance_interval} * * *",
+                            "agent": "orchestrator",
+                        },
+                    )
+                    agent.logger.info(
+                        f"[PROJECT_STATUS] Autonomous maintenance scheduled every {maintenance_interval}h for '{project_name}'."
+                    )
                 except Exception as maint_err:
                     agent.logger.error(f"Failed to schedule maintenance for '{project_name}': {maint_err}")
 

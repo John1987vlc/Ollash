@@ -1,11 +1,9 @@
-import pytest
-import os
 from playwright.sync_api import Page, expect
 
 def test_kanban_board_updates(page: Page):
     # We will use a mock HTML to test the JS logic of KanbanBoard
     # since we don't want to spin up the whole Flask server + Ollama for a simple UI check
-    
+
     html_content = """
     <html>
     <body>
@@ -53,9 +51,9 @@ def test_kanban_board_updates(page: Page):
     </body>
     </html>
     """
-    
+
     page.set_content(html_content)
-    
+
     # 1. Initialize Backlog
     page.evaluate("""() => {
         window.KanbanBoard.initBacklog([
@@ -63,17 +61,17 @@ def test_kanban_board_updates(page: Page):
             {id: 'T2', title: 'Task 2'}
         ]);
     }""")
-    
+
     expect(page.locator("#tasks-todo .kanban-card")).to_have_count(2)
     expect(page.locator("#count-todo")).to_have_text("(2)")
-    
+
     # 2. Move Task to In Progress
     page.evaluate("() => window.KanbanBoard.moveTask('T1', 'in_progress')")
-    
+
     expect(page.locator("#tasks-todo .kanban-card")).to_have_count(1)
     expect(page.locator("#tasks-in_progress .kanban-card")).to_have_count(1)
     expect(page.locator("#count-in_progress")).to_have_text("(1)")
-    
+
     # 3. Move Task to Done
     page.evaluate("() => window.KanbanBoard.moveTask('T1', 'done')")
     expect(page.locator("#tasks-done .kanban-card")).to_have_count(1)

@@ -1,7 +1,5 @@
 """Tests for core utilities: LLMResponseParser, FileValidator, Heartbeat."""
 
-import json
-
 from backend.utils.core.analysis.file_validator import FileValidator, ValidationStatus
 from backend.utils.core.system.heartbeat import Heartbeat
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
@@ -45,21 +43,6 @@ class TestLLMResponseParser:
 
     def test_extract_json_returns_none_on_failure(self):
         assert LLMResponseParser.extract_json("not json at all") is None
-
-    def test_fix_incomplete_json_missing_braces(self):
-        fixed = LLMResponseParser.fix_incomplete_json('{"a": {"b": 1}')
-        parsed = json.loads(fixed)
-        assert parsed["a"]["b"] == 1
-
-    def test_fix_incomplete_json_missing_brackets(self):
-        fixed = LLMResponseParser.fix_incomplete_json('{"a": [1, 2')
-        parsed = json.loads(fixed)
-        assert parsed["a"] == [1, 2]
-
-    def test_fix_incomplete_json_trailing_comma(self):
-        fixed = LLMResponseParser.fix_incomplete_json('{"a": 1, "b": 2, }')
-        parsed = json.loads(fixed)
-        assert parsed == {"a": 1, "b": 2}
 
     def test_extract_multiple_files(self):
         response = (

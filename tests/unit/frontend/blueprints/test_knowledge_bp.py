@@ -1,7 +1,7 @@
 """Unit tests for knowledge_bp - knowledge base routes."""
 import sys
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pathlib import Path
 from flask import Flask
 
@@ -54,10 +54,10 @@ def app(mock_doc_manager, mock_error_kb, mock_episodic):
     _mock_container.episodic_memory.return_value = mock_episodic
 
     from frontend.blueprints.knowledge_views import bp as knowledge_bp
-    
+
     # Base directory for templates
     template_dir = Path(__file__).parents[4] / "frontend" / "templates"
-    
+
     flask_app = Flask(__name__, template_folder=str(template_dir))
     flask_app.config["ollash_root_dir"] = Path(".")
     flask_app.register_blueprint(knowledge_bp)

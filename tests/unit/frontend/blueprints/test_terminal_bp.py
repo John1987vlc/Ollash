@@ -1,7 +1,7 @@
 """Unit tests for terminal_bp - floating terminal routes."""
 import sys
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pathlib import Path
 from flask import Flask
 

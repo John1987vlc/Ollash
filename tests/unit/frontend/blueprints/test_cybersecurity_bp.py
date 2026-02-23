@@ -100,7 +100,7 @@ def test_vulnerability_scan_returns_json(client, app):
     # We need a real file to exist for the check in the blueprint
     test_file = Path("test_vuln.py")
     test_file.write_text("print('hello')", encoding="utf-8")
-    
+
     try:
         with patch.object(
             app.cyber_module,

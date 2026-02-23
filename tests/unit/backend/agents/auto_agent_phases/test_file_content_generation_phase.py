@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock
 from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
@@ -16,12 +16,12 @@ def mock_context():
     ctx.llm_manager = MagicMock()
     ctx.response_parser = MagicMock()
     ctx.file_content_generator = MagicMock()
-    
+
     # Files sub-context
     ctx.files_ctx = MagicMock()
     ctx.files_ctx.validator = MagicMock()
     ctx.files_ctx.validator.validate.return_value = MagicMock(status=MagicMock(name="VALID"))
-    
+
     return ctx
 
 
@@ -37,15 +37,15 @@ class TestFileContentGenerationPhase:
             {"id": "T1", "title": "Task 1", "file_path": "main.py", "task_type": "create_file"}
         ]
         mock_context.select_related_files.return_value = {}
-        
+
         # Mock LLM Client
         mock_client = MagicMock()
         mock_client.chat.return_value = (
-            {"content": "<thinking_process>Análisis</thinking_process><code_created>def main(): pass</code_created>"}, 
+            {"content": "<thinking_process>Análisis</thinking_process><code_created>def main(): pass</code_created>"},
             {"prompt_tokens": 10, "completion_tokens": 10}
         )
         mock_context.llm_manager.get_client.return_value = mock_client
-        
+
         # Mock Validator
         mock_validator = MagicMock()
         mock_validator.validate.return_value = MagicMock(status=MagicMock(name="VALID"))
@@ -81,7 +81,7 @@ class TestFileContentGenerationPhase:
         # Content too short for main file (threshold is 20)
         short_main_content = "def main(): pass" # 16 chars
         assert phase._validate_file_content("main.py", short_main_content, plan) is False
-        
+
         # Valid main content
         good_main_content = "def main():\n    print('Hello World')\n" + "#" * 20
         assert phase._validate_file_content("main.py", good_main_content, plan) is True

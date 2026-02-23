@@ -15,7 +15,7 @@ from typing import List
 import pytest
 
 from backend.utils.core.system.event_publisher import EventPublisher
-from frontend.services.chat_event_bridge import ChatEvent, ChatEventBridge
+from frontend.services.chat_event_bridge import ChatEventBridge
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

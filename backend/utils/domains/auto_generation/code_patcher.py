@@ -152,9 +152,7 @@ Output the improved version only, no explanations."""
         similarity = matcher.ratio()
 
         if similarity < 0.30:
-            self.logger.warning(
-                f"Improved version similarity {similarity:.2f} is too low — keeping original"
-            )
+            self.logger.warning(f"Improved version similarity {similarity:.2f} is too low — keeping original")
             return original
 
         if similarity > 0.70:
@@ -238,6 +236,7 @@ Generate ONLY the fixed code (same language), no explanations."""
 
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
+
             loader = PromptLoader()
             prompts = loader.load_prompt("domains/auto_generation/code_repair.yaml")
 
@@ -248,7 +247,7 @@ Generate ONLY the fixed code (same language), no explanations."""
                 file_path=file_path,
                 requirement=requirement,
                 content=content,
-                related_context=related_context or "(No additional context provided)"
+                related_context=related_context or "(No additional context provided)",
             )
 
             response_data, _ = self.llm_client.chat(

@@ -92,7 +92,7 @@ def test_chat_page_axe_with_modal_open(page, base_url, flask_server):
     ]
 
     assert len(blocking_violations) == 0, (
-        f"Axe violations with modal open: "
+        "Axe violations with modal open: "
         + ", ".join(v["id"] for v in blocking_violations)
     )
 
@@ -113,6 +113,6 @@ def test_command_palette_axe(page, base_url, flask_server):
     ]
 
     assert len(blocking_violations) == 0, (
-        f"Axe violations in command palette: "
+        "Axe violations in command palette: "
         + ", ".join(v["id"] for v in blocking_violations)
     )

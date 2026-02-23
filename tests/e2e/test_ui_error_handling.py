@@ -111,24 +111,24 @@ def test_sandbox_run_button_disabled_during_execution(page, base_url):
     ))
 
     run_btn = page.locator("#run-sandbox-btn")
-    
+
     # Inject mock editor if real one didn't load (common in CI/E2E without CDN access)
     page.evaluate("""
         if (typeof window.monacoEditorInstance === 'undefined') {
             window.monacoEditorInstance = { getValue: () => 'print("test")' };
-            // Also need to set the local variable 'editor' if possible, 
+            // Also need to set the local variable 'editor' if possible,
             // but since it's in a closure, we might need to rely on our fallback in sandbox.js
         }
     """)
-    
+
     run_btn.click()
 
     # Check disabled state immediately after click
     is_disabled = run_btn.is_disabled()
-    
+
     # Cleanup routes to prevent TargetClosedError in subsequent tests
     page.unroute("**/sandbox/execute")
-    
+
     assert is_disabled, "Run button should be disabled during code execution"
 
 

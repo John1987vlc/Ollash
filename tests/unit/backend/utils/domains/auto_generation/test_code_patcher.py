@@ -1,6 +1,5 @@
 """Unit tests for CodePatcher — verifies difflib-based merge replaces old heuristics."""
 
-import difflib
 import pytest
 from unittest.mock import MagicMock
 

@@ -2,7 +2,6 @@ import pytest
 import unittest.mock
 from backend.utils.core.system.task_scheduler import TaskScheduler
 from backend.utils.core.system.execution_plan import ExecutionPlan
-from frontend.blueprints.prompt_studio_bp import validate_prompt
 
 # Mocking Flask request
 @pytest.fixture
@@ -27,7 +26,7 @@ def test_prompt_validation_logic():
     if len(prompt) < 50:
         warnings.append("Warning")
     assert len(warnings) > 0
-    
+
     prompt_long = "Long enough prompt " * 10
     warnings = []
     if len(prompt_long) < 50:
