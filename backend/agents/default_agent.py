@@ -258,6 +258,7 @@ RULES:
 
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
+
             loader = PromptLoader()
             prompts = loader.load_prompt("core/services.yaml")
 
@@ -267,11 +268,7 @@ RULES:
 
             preprocess_client = self.llm_manager.get_client("orchestration")  # Use llm_manager
             response, _ = await preprocess_client.achat(
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user}
-                ],
-                tools=[]
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], tools=[]
             )
             refined_text = response.get("message", {}).get("content", instruction)
 
@@ -289,8 +286,9 @@ RULES:
 
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
+
             loader = PromptLoader()
-            prompts = loader.load_prompt("core/services.yaml")
+            _prompts = loader.load_prompt("core/services.yaml")
 
             # Use translation standardization as base for final translation
             system = "You are a professional translator."
@@ -298,11 +296,7 @@ RULES:
 
             translate_client = self.llm_manager.get_client("orchestration")  # Use llm_manager
             response, _ = await translate_client.achat(
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user}
-                ],
-                tools=[]
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], tools=[]
             )
             return response.get("message", {}).get("content", text)
         except Exception as e:
@@ -507,19 +501,22 @@ RULES:
                             if correction_client:
                                 try:
                                     from backend.utils.core.llm.prompt_loader import PromptLoader
+
                                     loader = PromptLoader()
                                     prompts = loader.load_prompt("core/services.yaml")
 
                                     system = prompts.get("self_correction", {}).get("system", "")
                                     user_template = prompts.get("self_correction", {}).get("user", "")
-                                    user = user_template.format(error=f"The tool call {json.dumps(original_tool_call)} failed with this error:\n{error_msg}")
+                                    user = user_template.format(
+                                        error=f"The tool call {json.dumps(original_tool_call)} failed with this error:\n{error_msg}"
+                                    )
 
                                     response, _ = await correction_client.achat(
                                         messages=[
                                             {"role": "system", "content": system},
-                                            {"role": "user", "content": user}
+                                            {"role": "user", "content": user},
                                         ],
-                                        tools=[]
+                                        tools=[],
                                     )
                                     response_content = response.get("message", {}).get("content", "")
                                     solution_data = json.loads(response_content)

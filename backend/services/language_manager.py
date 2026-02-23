@@ -10,6 +10,7 @@ from typing import Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+
 class LanguageManager:
     """
     Service to ensure all internal processing happens in English.
@@ -36,16 +37,9 @@ class LanguageManager:
 
         logger.info("Detecting non-English input. Translating to English for internal processing...")
 
-        prompt = [
-            {
-                "role": "system",
-                "content": "You are a translation and prompt standardization expert. Translate the user's request to English if it's in another language. Return ONLY the translated English text. Maintain technical terms exactly as they are."
-            },
-            {"role": "user", "content": text}
-        ]
-
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
+
             loader = PromptLoader()
             prompts = loader.load_prompt("core/services.yaml")
 
@@ -56,14 +50,10 @@ class LanguageManager:
             # Use a faster model for translation if available, otherwise default
             client = self.llm_provider.get_client("orchestration")
             response, _ = await client.achat(
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user}
-                ],
-                tools=[]
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], tools=[]
             )
             translated = response.get("message", {}).get("content", text).strip()
-            return translated, "detected" # We don't necessarily need the exact code for internal use
+            return translated, "detected"  # We don't necessarily need the exact code for internal use
         except Exception as e:
             logger.error(f"Automatic translation failed: {e}")
             return text, "error"
@@ -85,9 +75,9 @@ class LanguageManager:
         prompt = [
             {
                 "role": "system",
-                "content": "Translate the following system prompt to English. Maintain all technical placeholders like {{variable}} or {placeholder}. Return ONLY the English version."
+                "content": "Translate the following system prompt to English. Maintain all technical placeholders like {{variable}} or {placeholder}. Return ONLY the English version.",
             },
-            {"role": "user", "content": system_prompt}
+            {"role": "user", "content": system_prompt},
         ]
 
         try:

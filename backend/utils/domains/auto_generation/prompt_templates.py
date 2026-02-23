@@ -10,6 +10,7 @@ from backend.utils.core.llm.prompt_loader import PromptLoader
 
 logger = logging.getLogger(__name__)
 
+
 class AutoGenPrompts:
     """Static methods for generating prompts for various auto-generation phases.
     Now integrated with PromptRepository for dynamic editing and versioning.
@@ -24,6 +25,7 @@ class AutoGenPrompts:
         if cls._repository is None:
             try:
                 from backend.core.containers import main_container
+
                 # Try multiple ways to access the prompt_repository provider
                 if hasattr(main_container, "core"):
                     core = main_container.core
@@ -47,7 +49,7 @@ class AutoGenPrompts:
             if active_prompt:
                 # If stored as JSON in DB, parse it
                 try:
-                    data = eval(active_prompt) # Caution: only if we trust our DB storage format
+                    data = eval(active_prompt)  # Caution: only if we trust our DB storage format
                     if isinstance(data, dict):
                         return data.get("system", ""), data.get("user", "")
                 except:
@@ -59,19 +61,17 @@ class AutoGenPrompts:
         if section:
             content = content.get(section, {})
 
-        return content.get("system", content.get("system_prompt", "")), \
-               content.get("user", content.get("user_prompt", ""))
+        return content.get("system", content.get("system_prompt", "")), content.get(
+            "user", content.get("user_prompt", "")
+        )
 
     @staticmethod
     def architecture_planning_detailed(
-        category: str, files_list: str, project_description: str,
-        already_planned_contracts: str = ""
+        category: str, files_list: str, project_description: str, already_planned_contracts: str = ""
     ) -> Tuple[str, str]:
         """Returns (system, user) for Phase 2.5 Planning."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "architecture_planning_detailed",
-            "domains/auto_generation/planning.yaml",
-            "architecture_planning_detailed"
+            "architecture_planning_detailed", "domains/auto_generation/planning.yaml", "architecture_planning_detailed"
         )
         user = user_template.format(
             category=category,
@@ -82,30 +82,31 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def agile_backlog_planning(project_description: str, initial_structure: str, readme_content: str) -> Tuple[str, str]:
+    def agile_backlog_planning(
+        project_description: str, initial_structure: str, readme_content: str
+    ) -> Tuple[str, str]:
         """Returns (system, user) for Agile Backlog generation."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "agile_backlog_planning",
-            "domains/auto_generation/planning.yaml",
-            "agile_backlog_planning"
+            "agile_backlog_planning", "domains/auto_generation/planning.yaml", "agile_backlog_planning"
         )
         user = user_template.format(
-            project_description=project_description,
-            initial_structure=initial_structure,
-            readme_content=readme_content
+            project_description=project_description, initial_structure=initial_structure, readme_content=readme_content
         )
         return system, user
 
     @staticmethod
     def micro_task_execution(
-        title: str, description: str, file_path: str, task_type: str, readme_content: str,
-        context_files_content: str, logic_plan_section: str = ""
+        title: str,
+        description: str,
+        file_path: str,
+        task_type: str,
+        readme_content: str,
+        context_files_content: str,
+        logic_plan_section: str = "",
     ) -> Tuple[str, str]:
         """Returns (system, user) for a single micro-task execution."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "micro_task_execution",
-            "domains/auto_generation/code_gen.yaml",
-            "micro_task_execution"
+            "micro_task_execution", "domains/auto_generation/code_gen.yaml", "micro_task_execution"
         )
         user = user_template.format(
             title=title,
@@ -119,12 +120,18 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def project_analysis_gaps(total_files: int, total_loc: int, languages: str, has_tests: bool, test_files_count: int, project_description: str, readme_content: str) -> Tuple[str, str]:
+    def project_analysis_gaps(
+        total_files: int,
+        total_loc: int,
+        languages: str,
+        has_tests: bool,
+        test_files_count: int,
+        project_description: str,
+        readme_content: str,
+    ) -> Tuple[str, str]:
         """Returns (system, user) for Phase 0.5 Analysis."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "project_analysis_gaps",
-            "domains/auto_generation/analysis.yaml",
-            "project_analysis_gaps"
+            "project_analysis_gaps", "domains/auto_generation/analysis.yaml", "project_analysis_gaps"
         )
         user = user_template.format(
             total_files=total_files,
@@ -133,28 +140,23 @@ class AutoGenPrompts:
             has_tests=has_tests,
             test_files_count=test_files_count,
             project_description=project_description,
-            readme_content=readme_content[:1000]
+            readme_content=readme_content[:1000],
         )
         return system, user
 
     @staticmethod
     def readme_generation(
-        project_name: str,
-        project_description: str,
-        features_and_stack: str = "",
-        project_structure: str = ""
+        project_name: str, project_description: str, features_and_stack: str = "", project_structure: str = ""
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for specialized README generation."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "readme_generation",
-            "domains/auto_generation/docs.yaml",
-            "readme_generation"
+            "readme_generation", "domains/auto_generation/docs.yaml", "readme_generation"
         )
         user = user_template.format(
             project_name=project_name,
             project_description=project_description,
             features_and_stack=features_and_stack or "(No specific stack provided)",
-            project_structure=project_structure or "(Structure not provided)"
+            project_structure=project_structure or "(Structure not provided)",
         )
         return system, user
 
@@ -162,14 +164,10 @@ class AutoGenPrompts:
     def documentation_refinement(file_path: str, content: str, project_description: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for specialized documentation refinement."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "documentation_refinement",
-            "domains/auto_generation/docs.yaml",
-            "documentation_refinement"
+            "documentation_refinement", "domains/auto_generation/docs.yaml", "documentation_refinement"
         )
         user = user_template.format(
-            file_path=file_path,
-            content=content,
-            project_description=project_description or "(No additional context)"
+            file_path=file_path, content=content, project_description=project_description or "(No additional context)"
         )
         return system, user
 
@@ -177,9 +175,7 @@ class AutoGenPrompts:
     def high_level_structure_generation(description: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for high-level project structure."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "high_level",
-            "domains/auto_generation/structure.yaml",
-            "high_level"
+            "high_level", "domains/auto_generation/structure.yaml", "high_level"
         )
         user = user_template.format(description=description)
         return system, user
@@ -188,12 +184,10 @@ class AutoGenPrompts:
     def high_level_structure_generation_simplified(description: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for simplified high-level structure."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "high_level_simplified",
-            "domains/auto_generation/structure.yaml",
-            "high_level_simplified"
+            "high_level_simplified", "domains/auto_generation/structure.yaml", "high_level_simplified"
         )
-        if not user_template: # Fallback
-             return AutoGenPrompts.high_level_structure_generation(description)
+        if not user_template:  # Fallback
+            return AutoGenPrompts.high_level_structure_generation(description)
         user = user_template.format(description=description)
         return system, user
 
@@ -203,15 +197,13 @@ class AutoGenPrompts:
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for sub-structure generation."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "sub_structure",
-            "domains/auto_generation/structure.yaml",
-            "sub_structure"
+            "sub_structure", "domains/auto_generation/structure.yaml", "sub_structure"
         )
         user = user_template.format(
             folder_path=folder_path,
             readme_content=readme_content[:800],
             overall_structure=overall_structure,
-            template_name=template_name
+            template_name=template_name,
         )
         return system, user
 
@@ -221,18 +213,18 @@ class AutoGenPrompts:
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for simplified sub-structure generation."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "sub_structure_simplified",
-            "domains/auto_generation/structure.yaml",
-            "sub_structure_simplified"
+            "sub_structure_simplified", "domains/auto_generation/structure.yaml", "sub_structure_simplified"
         )
-        if not user_template: # Fallback
-            return AutoGenPrompts.sub_structure_generation(folder_path, readme_content, overall_structure, template_name)
-            
+        if not user_template:  # Fallback
+            return AutoGenPrompts.sub_structure_generation(
+                folder_path, readme_content, overall_structure, template_name
+            )
+
         user = user_template.format(
             folder_path=folder_path,
             readme_content=readme_content[:400],
             overall_structure=overall_structure,
-            template_name=template_name
+            template_name=template_name,
         )
         return system, user
 
@@ -240,11 +232,9 @@ class AutoGenPrompts:
     def file_content_generation(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file content generation."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "file_content",
-            "domains/auto_generation/code_gen.yaml",
-            "file_content"
+            "file_content", "domains/auto_generation/code_gen.yaml", "file_content"
         )
-        
+
         file_ext = Path(file_path).suffix.lower()
         guidance_map = {
             ".py": "- Use PEP 8, strict type hints, Google-style docstrings, and robust error handling.",
@@ -255,20 +245,14 @@ class AutoGenPrompts:
         }
         type_guidance = guidance_map.get(file_ext, "- Follow language-specific best practices and idioms.")
 
-        user = user_template.format(
-            file_path=file_path,
-            readme=readme[:1000],
-            type_guidance=type_guidance
-        )
+        user = user_template.format(file_path=file_path, readme=readme[:1000], type_guidance=type_guidance)
         return system, user
 
     @staticmethod
     def architecture_planning(description: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for project architecture planning."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "architecture",
-            "domains/auto_generation/code_gen.yaml",
-            "architecture"
+            "architecture", "domains/auto_generation/code_gen.yaml", "architecture"
         )
         user = user_template.format(description=description)
         return system, user
@@ -277,32 +261,22 @@ class AutoGenPrompts:
     def file_content_generation_basic(file_path: str, parent_context: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for basic file content generation."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "basic",
-            "domains/auto_generation/code_gen.yaml",
-            "basic"
+            "basic", "domains/auto_generation/code_gen.yaml", "basic"
         )
         user = user_template.format(file_path=file_path, parent_context=parent_context)
         return system, user
 
     @staticmethod
-    def file_fix(file_path: str, content: str, error: str) -> Tuple[str, str]:
+    def file_fix(file_path: str, content: str, error: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file fixing."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
-            "fix",
-            "domains/auto_generation/refinement.yaml",
-            "fix"
-        )
-        user = user_template.format(file_path=file_path, error=error, content=content)
+        system, user_template = AutoGenPrompts._get_prompt_pair("fix", "domains/auto_generation/refinement.yaml", "fix")
+        user = user_template.format(file_path=file_path, error=error, content=content, readme=readme[:1000])
         return system, user
 
     @staticmethod
     def generate_unit_tests(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for unit test generation."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
-            "unit",
-            "domains/auto_generation/test_gen.yaml",
-            "unit"
-        )
+        system, user_template = AutoGenPrompts._get_prompt_pair("unit", "domains/auto_generation/test_gen.yaml", "unit")
         context_str = f"Project info:\n{readme}\n\n" if readme else ""
         user = user_template.format(context=context_str, file_path=file_path, content=content)
         return system, user
@@ -317,13 +291,11 @@ class AutoGenPrompts:
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for improvement suggestions."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "improvement_suggestions",
-            "domains/auto_generation/review.yaml",
-            "improvement_suggestions"
+            "improvement_suggestions", "domains/auto_generation/review.yaml", "improvement_suggestions"
         )
-        project_summary = f"Description: {project_description}\n" \
-                          f"Structure: {json_structure}\n" \
-                          f"Loop iteration: {loop_num + 1}"
+        project_summary = (
+            f"Description: {project_description}\nStructure: {json_structure}\nLoop iteration: {loop_num + 1}"
+        )
 
         user = user_template.format(project_summary=project_summary)
         return system, user
@@ -338,9 +310,7 @@ class AutoGenPrompts:
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for improvement plan generation."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "improvement_plan",
-            "domains/auto_generation/review.yaml",
-            "improvement_plan"
+            "improvement_plan", "domains/auto_generation/review.yaml", "improvement_plan"
         )
         improvements = "\n".join([f"- {s}" for s in suggestions])
         user = user_template.format(improvements=improvements)
@@ -350,9 +320,7 @@ class AutoGenPrompts:
     def senior_review_prompt(project_summary: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for senior review."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "senior_review",
-            "domains/auto_generation/review.yaml",
-            "senior_review"
+            "senior_review", "domains/auto_generation/review.yaml", "senior_review"
         )
         user = user_template.format(project_summary=project_summary)
         return system, user
@@ -361,9 +329,7 @@ class AutoGenPrompts:
     def project_review(project_summary: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for a final project review."""
         system, user_template = AutoGenPrompts._get_prompt_pair(
-            "final_project_review",
-            "domains/auto_generation/review.yaml",
-            "final_project_review"
+            "final_project_review", "domains/auto_generation/review.yaml", "final_project_review"
         )
         user = user_template.format(project_summary=project_summary)
         return system, user

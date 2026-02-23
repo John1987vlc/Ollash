@@ -26,16 +26,14 @@ class ReadmeGenerationPhase(IAgentPhase):
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1: Generating README.md...")
         self.context.event_publisher.publish("phase_start", phase="1", message="Generating README.md")
 
-        template_name = kwargs.get("template_name", "default")
-        python_version = kwargs.get("python_version", "3.12")
-        license_type = kwargs.get("license_type", "MIT")
-        include_docker = kwargs.get("include_docker", False)
+        _template_name = kwargs.get("template_name", "default")
+        _python_version = kwargs.get("python_version", "3.12")
+        _license_type = kwargs.get("license_type", "MIT")
+        _include_docker = kwargs.get("include_docker", False)
 
         # Generate README with richer context
         readme = self.context.project_planner.generate_readme(
-            project_name=project_name,
-            project_description=project_description,
-            project_structure=str(initial_structure)
+            project_name=project_name, project_description=project_description, project_structure=str(initial_structure)
         )
 
         readme_file_path = "README.md"

@@ -73,9 +73,7 @@ class FileRefiner:
 
         documentation_query = " ".join(query_parts)
 
-        retrieved_docs = self.documentation_manager.query_documentation(
-            documentation_query, n_results=2
-        )
+        retrieved_docs = self.documentation_manager.query_documentation(documentation_query, n_results=2)
         if retrieved_docs:
             documentation_context = "\n\nRelevant Documentation Snippets:\n" + "\n---\n".join(
                 [doc["document"] for doc in retrieved_docs]
@@ -101,9 +99,7 @@ class FileRefiner:
             )
         else:
             # file_refinement en prompt_templates.py ahora acepta context
-            system, user = AutoGenPrompts.file_refinement(
-                file_path, current_content, context=combined_context
-            )
+            system, user = AutoGenPrompts.file_refinement(file_path, current_content, context=combined_context)
 
         try:
             response_data, usage = self.llm_client.chat(
@@ -119,13 +115,18 @@ class FileRefiner:
 
             # 3. Anti-Hallucination Guard
             hallucination_indicators = [
-                "example_function", "SELECT * FROM table_name", 
-                "Your JSON is properly formatted", "proper Python syntax",
-                "Certainly! Here's how", "Hope this helps"
+                "example_function",
+                "SELECT * FROM table_name",
+                "Your JSON is properly formatted",
+                "proper Python syntax",
+                "Certainly! Here's how",
+                "Hope this helps",
             ]
             if refined and any(ind.lower() in refined.lower() for ind in hallucination_indicators):
-                 self.logger.warning(f"  [HALLUCINATION DETECTED] Refinement of {file_path} contained generic example code.")
-                 return None
+                self.logger.warning(
+                    f"  [HALLUCINATION DETECTED] Refinement of {file_path} contained generic example code."
+                )
+                return None
 
             # Sanity check
             filename = Path(file_path).name
@@ -135,8 +136,9 @@ class FileRefiner:
                 # For documentation, ensure it didn't just replace content with total garbage
                 if filename.lower().endswith((".md", ".txt")) and "README" in filename.upper():
                     # Check if at least some keyword from the original or project exists
-                    if len(refined) < 50: return None # Too short for a real README
-                
+                    if len(refined) < 50:
+                        return None  # Too short for a real README
+
                 self.logger.info(f"    Refined {file_path} ({len(refined)} chars)")
                 return refined
 
