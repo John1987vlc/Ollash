@@ -11,6 +11,18 @@
             <div class="view active" id="chat-view">
                 <div class="chat-main-layout">
                     <div class="chat-container">
+                        <!-- New Chat Header -->
+                        <div class="chat-header" id="chat-session-header">
+                            <div class="chat-header-agent-icon" id="chat-header-icon">&#x1f3af;</div>
+                            <div class="chat-header-info">
+                                <h3 id="chat-header-agent-name">Orchestrator</h3>
+                                <span id="chat-header-status" class="status-pill status-online">Active</span>
+                            </div>
+                            <div class="chat-header-actions">
+                                <button class="btn-icon" id="clear-chat-top-btn" title="Clear Chat">🗑️</button>
+                            </div>
+                        </div>
+
                         <div class="chat-messages" id="chat-messages">
                             <div class="chat-welcome">
                                 <h2>Ollash Agent</h2>

@@ -89,16 +89,19 @@ class ChatSessionManager:
             )
             return session_id
 
+    def get_session(self, session_id: str) -> Optional[ChatSession]:
+        return self.sessions.get(session_id)
+
     def list_sessions(self, limit: int = 20):
         """Returns a list of recent chat sessions from DB."""
-        return self.db.query(
+        return self.db.fetch_all(
             "SELECT id, agent_type, created_at, title FROM chat_sessions ORDER BY created_at DESC LIMIT ?",
             (limit,)
         )
 
     def get_session_history(self, session_id: str):
         """Returns all messages for a given session."""
-        return self.db.query(
+        return self.db.fetch_all(
             "SELECT role, content, timestamp FROM chat_messages WHERE session_id = ? ORDER BY timestamp ASC",
             (session_id,)
         )

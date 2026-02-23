@@ -40,8 +40,16 @@ const ChatModule = (function() {
             card.onclick = function() {
                 const newAgent = this.dataset.agent;
                 
+                // Update header
+                const headerName = document.getElementById('chat-header-agent-name');
+                const headerIcon = document.getElementById('chat-header-icon');
+                if (headerName) headerName.textContent = newAgent.charAt(0).toUpperCase() + newAgent.slice(1);
+                if (headerIcon) {
+                    const icon = this.querySelector('.agent-card-icon')?.textContent || '🤖';
+                    headerIcon.textContent = icon;
+                }
+
                 // If switching or re-clicking, start new session
-                // Unless we are already in an empty session of the same type
                 if (state.messageCount > 0 || state.selectedAgent !== newAgent) {
                     startNewSession(newAgent);
                 }
