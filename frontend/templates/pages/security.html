@@ -4,35 +4,6 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/security.css') }}">
-<style>
-    .security-controls {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: var(--spacing-md);
-        margin-bottom: var(--spacing-lg);
-    }
-    .control-card {
-        background: var(--color-surface);
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
-        padding: var(--spacing-md);
-    }
-    .results-area {
-        background: var(--color-surface-elevated);
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-md);
-        padding: var(--spacing-md);
-        margin-top: var(--spacing-md);
-        font-family: var(--font-mono);
-        font-size: 0.85rem;
-        white-space: pre-wrap;
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    .vuln-high { color: var(--color-error); }
-    .vuln-medium { color: var(--color-warning); }
-    .vuln-low { color: var(--color-info); }
-</style>
 {% endblock %}
 
 {% block content %}
@@ -117,81 +88,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const runPortScan = document.getElementById('run-port-scan');
-        const runVulnScan = document.getElementById('run-vuln-scan');
-        const runLogAnalysis = document.getElementById('run-log-analysis');
-        const getRecs = document.getElementById('get-recommendations');
-
-        runPortScan.addEventListener('click', async () => {
-            const host = document.getElementById('port-host').value;
-            const common = document.getElementById('common-ports').checked;
-            const resultsDiv = document.getElementById('port-results');
-            
-            resultsDiv.innerText = 'Scanning...';
-            try {
-                const response = await fetch('/api/cybersecurity/scan/ports', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ host, common_ports_only: common })
-                });
-                const data = await response.json();
-                resultsDiv.innerText = JSON.stringify(data, null, 2);
-            } catch (e) {
-                resultsDiv.innerText = 'Error: ' + e.message;
-            }
-        });
-
-        runVulnScan.addEventListener('click', async () => {
-            const path = document.getElementById('scan-path').value;
-            const resultsDiv = document.getElementById('vuln-results');
-            
-            resultsDiv.innerText = 'Scanning...';
-            try {
-                const response = await fetch('/api/cybersecurity/scan/vulnerabilities', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path })
-                });
-                const data = await response.json();
-                resultsDiv.innerText = JSON.stringify(data, null, 2);
-            } catch (e) {
-                resultsDiv.innerText = 'Error: ' + e.message;
-            }
-        });
-
-        runLogAnalysis.addEventListener('click', async () => {
-            const path = document.getElementById('log-path').value;
-            const resultsDiv = document.getElementById('log-results');
-            
-            resultsDiv.innerText = 'Analyzing...';
-            try {
-                const response = await fetch('/api/cybersecurity/logs/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path })
-                });
-                const data = await response.json();
-                resultsDiv.innerText = JSON.stringify(data, null, 2);
-            } catch (e) {
-                resultsDiv.innerText = 'Error: ' + e.message;
-            }
-        });
-
-        getRecs.addEventListener('click', async () => {
-            const os = document.getElementById('os-type').value;
-            const resultsDiv = document.getElementById('rec-results');
-            
-            resultsDiv.innerText = 'Fetching...';
-            try {
-                const response = await fetch(`/api/cybersecurity/recommendations?os=${os}`);
-                const data = await response.json();
-                resultsDiv.innerText = JSON.stringify(data, null, 2);
-            } catch (e) {
-                resultsDiv.innerText = 'Error: ' + e.message;
-            }
-        });
-    });
-</script>
+<script src="{{ url_for('static', filename='js/pages/security.js') }}"></script>
 {% endblock %}

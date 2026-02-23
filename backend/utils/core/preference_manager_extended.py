@@ -524,3 +524,47 @@ class PreferenceManagerExtended:
             return md
 
         return ""
+
+
+def migrate_preferences(project_root: Path, logger: Any, user_id: str = "default") -> bool:
+    """Migrate ``.ollash_preferences.json`` data to PreferenceManagerExtended format.
+
+    Reads the legacy flat key-value file and stores every entry as a
+    ``custom_settings`` entry in the PreferenceManagerExtended profile for
+    ``user_id``.
+
+    Args:
+        project_root: Root directory of the project (where ``.ollash_preferences.json`` lives).
+        logger: Logger instance for progress messages.
+        user_id: Target profile identifier in PreferenceManagerExtended.
+
+    Returns:
+        ``True`` if migration was performed, ``False`` if there was nothing to migrate.
+    """
+    import json as _json
+
+    old_prefs_file = project_root / ".ollash_preferences.json"
+    if not old_prefs_file.exists():
+        logger.info("migrate_preferences: no legacy file found, nothing to migrate.")
+        return False
+
+    try:
+        with open(old_prefs_file, "r", encoding="utf-8") as f:
+            old_data: Dict[str, Any] = _json.load(f)
+    except (_json.JSONDecodeError, IOError) as e:
+        logger.error(f"migrate_preferences: could not read legacy file: {e}")
+        return False
+
+    knowledge_workspace = project_root / ".ollash" / "knowledge_workspace"
+    extended = PreferenceManagerExtended(knowledge_workspace)
+    profile = extended.get_profile(user_id)
+
+    for key, value in old_data.items():
+        profile.custom_settings[key] = value
+
+    extended.save_profile(profile)
+    logger.info(
+        f"migrate_preferences: migrated {len(old_data)} entries "
+        f"from .ollash_preferences.json to PreferenceManagerExtended (user='{user_id}')."
+    )
+    return True

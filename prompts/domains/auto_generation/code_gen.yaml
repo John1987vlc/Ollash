@@ -1,77 +1,63 @@
-file_content:
+file_gen_v2:
   system: |
     You are an Expert Software Engineer. Generate production-ready, complete, and idiomatic code. CRITICAL: No TODOs, no 'implementation goes here' placeholders, no empty functions. Every line must be functional.
+    {language_specific_rules}
   user: |
-    Generate COMPLETE source code for: {file_path}
+    ## ROLE: Senior Developer
+    ## TASK: Generate COMPLETE content for '{file_path}'.
 
-    CONTEXT (README):
-    {readme}
+    ### CONTEXT & REQUIREMENTS:
+    {context}
 
-    TECHNICAL GUIDANCE:
-    {type_guidance}
+    ### INSTRUCTIONS:
+    1. Implement EVERY export: {exports}
+    2. Include ALL necessary imports.
+    3. NO TODOs or placeholders.
+    4. Return production-ready, functional code.
 
-    STRICT RULES:
-    1. NO PLACEHOLDERS. NO TODOs.
-    2. EVERY function/method must be fully implemented.
-    3. Include ALL necessary imports/dependencies.
-    4. Return ONLY the code content.
+    Output ONLY the code content inside Markdown code blocks.
 
 micro_task_execution:
   system: |
-    You are an Expert Developer working on a specific micro-task.
-    Your goal is to implement ONE specific functionality or modification in a file.
-    Focus on the task description and maintain consistency with the provided context.
-    
-    CRITICAL FORMATTING RULE:
-    1. Analyze the problem step-by-step inside <thinking_process> tags.
-    2. Provide the final code inside <code_created> tags.
-    3. DO NOT use markdown code blocks (```) outside or inside these tags unless specifically part of the code content.
-    4. NO explanations outside these tags.
-
-    EXAMPLE RESPONSE FORMAT:
-    <thinking_process>
-    I need to implement a function that adds two numbers. I will use the '+' operator.
-    </thinking_process>
-    <code_created>
-    def add(a, b):
-        return a + b
-    </code_created>
+    You are a Senior Software Engineer. You implement real, functional systems.
+    CRITICAL: Output ONLY the source code.
+    - NO placeholders like "def example_function()" or "SELECT * FROM".
+    - NO conversational filler (e.g., "Certainly!", "Here is your code").
+    - NO "implementation goes here" comments.
+    - Everything must be functional and specific to the requested project.
+    {language_specific_rules}
   user: |
+    ## ROLE: Micro-Task Executor
     ## TASK: {title}
+    ## FILE: {file_path}
+    ## TYPE: {task_type}
+
     ### DESCRIPTION:
     {description}
 
-    ### TARGET FILE: {file_path}
-    ### TASK TYPE: {task_type}
-
-    ### PROJECT CONTEXT (README):
-    {readme_content}
-
-    ### IMPLEMENTATION CONTRACT (from Architecture Plan):
+    ### LOGIC PLAN (Architecture Contract):
     {logic_plan_section}
 
-    ### RELATED FILES FOR CONTEXT:
+    ### RELATED CONTEXT (Dependencies):
     {context_files_content}
 
+    ### README CONTEXT:
+    {readme_content}
+
     ### INSTRUCTIONS:
-    - If task_type is "create_file", generate the FULL content.
-    - If task_type is "modify_file", update the existing content carefully.
-    - If the IMPLEMENTATION CONTRACT is provided, you MUST implement EXACTLY those exports with the exact construct type (class vs function vs variable).
-    - Follow the <thinking_process> and <code_created> format strictly.
-    - No TODOs. No placeholders.
+    1. Implement the file '{file_path}' fully and professionally.
+    2. Use REAL logic, data, and structures based on the README and LOGIC PLAN.
+    3. Ensure syntax is perfect for the file type.
+    4. NO placeholders or generic example code.
+    5. Return the COMPLETE file content wrapped in <code_created> tags.
 
-basic:
-  system: |
-    You are an expert software developer. Generate clean, complete, and well-structured code that follows best practices and the provided context.
-  user: |
-    Generate content for file '{file_path}' with the following context:
+    Output ONLY the code inside the tags.
 
-    {parent_context}
-
-architecture:
-  system: |
-    You are a Chief Architect. Create a high-level technical blueprint specifying design patterns, tech stack justifications, and data flow.
-  user: |
-    Define the architectural strategy for:
-
-    {description}
+language_rules:
+  ".py": "Follow PEP 8, use type hints, and include docstrings."
+  ".js": "Use modern ES6+ syntax and follow best practices."
+  ".ts": "Use strict type annotations and interfaces."
+  ".html": "Use semantic HTML5 and accessible structure."
+  ".css": "Use modern features and responsive design."
+  ".txt": "Plain text format. No code blocks unless content requires it."
+  "default": "Follow industry best practices for this file type."

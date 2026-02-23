@@ -1,0 +1,141 @@
+/**
+ * Artifact Plan/Task Content & Action Buttons
+ * Extracted from artifact-renderer.css for modularity
+ */
+
+/* Plan Content */
+.plan-content { padding: 0; }
+
+.plan-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.plan-task {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1.5rem;
+    transition: all 0.2s;
+}
+
+.plan-task:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.task-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.task-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 50%;
+    color: white;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.task-header h4 {
+    margin: 0;
+    flex: 1;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.task-priority {
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.task-priority.critical { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.task-priority.high { background: rgba(249, 115, 22, 0.15); color: #f97316; }
+.task-priority.medium { background: rgba(99, 102, 241, 0.15); color: var(--accent-primary); }
+.task-priority.low { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+
+.plan-task p {
+    margin: 0.5rem 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.task-criteria {
+    background: rgba(99, 102, 241, 0.05);
+    border-left: 3px solid var(--accent-primary);
+    padding: 0.75rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+}
+
+.task-criteria strong { color: var(--accent-primary); }
+
+.task-criteria ul {
+    margin: 0.5rem 0 0 1.5rem;
+    padding: 0;
+}
+
+.task-criteria li {
+    margin: 0.3rem 0;
+    color: var(--text-secondary);
+}
+
+.task-effort {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--accent-primary);
+}
+
+/* Artifact Actions */
+.artifact-actions {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.btn-artifact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 4px;
+    color: var(--accent-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.btn-artifact:hover {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(99, 102, 241, 0.15);
+}
+
+.btn-artifact span { font-size: 1rem; }
+
+@media (max-width: 1024px) {
+    .artifact-actions { flex-direction: column; }
+    .btn-artifact { width: 100%; justify-content: center; }
+}

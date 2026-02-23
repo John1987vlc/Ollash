@@ -99,5 +99,5 @@ class ProjectReviewer:
 
         # 3. Success check
         results["success"] = results["all_branches_merged"] and results["no_open_agent_issues"]
-        
+
         return results

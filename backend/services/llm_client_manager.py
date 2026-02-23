@@ -2,7 +2,7 @@
 Manages the lifecycle of OllamaClient instances based on configured agent roles.
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from backend.core.config_schemas import LLMModelsConfig, ToolSettingsConfig
 from backend.interfaces.imodel_provider import IModelProvider
@@ -113,3 +113,16 @@ class LLMClientManager(IModelProvider):
         Returns a dictionary of all initialized OllamaClient instances, keyed by model name.
         """
         return self.clients_by_model
+
+    # F40: Global context and VRAM management
+    def set_global_context(self, context: List[int]):
+        for client in self.clients_by_model.values():
+            client.set_session_context(context)
+
+    def set_global_keep_alive(self, keep_alive: str):
+        for client in self.clients_by_model.values():
+            client.set_keep_alive(keep_alive)
+
+    def release_all_vram(self):
+        for client in self.clients_by_model.values():
+            client.unload_model()

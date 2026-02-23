@@ -28,8 +28,8 @@ class ModelBenchmarker:
             10,
             "small",
             {
-                "num_ctx": 4096,
-                "num_predict": 2048,
+                "num_ctx": 32000,
+                "num_predict": 8096,
                 "temperature": 0.5,
                 "keep_alive": "0s",
             },
@@ -39,8 +39,8 @@ class ModelBenchmarker:
             30,
             "medium",
             {
-                "num_ctx": 2048,
-                "num_predict": 1024,
+                "num_ctx": 16000,
+                "num_predict": 4096,
                 "temperature": 0.5,
                 "keep_alive": "0s",
             },
@@ -50,8 +50,8 @@ class ModelBenchmarker:
             70,
             "large",
             {
-                "num_ctx": 1024,
-                "num_predict": 512,
+                "num_ctx": 8000,
+                "num_predict": 3072,
                 "temperature": 0.5,
                 "keep_alive": "0s",
             },
@@ -61,8 +61,8 @@ class ModelBenchmarker:
             float("inf"),
             "xlarge",
             {
-                "num_ctx": 512,
-                "num_predict": 256,
+                "num_ctx": 4096,
+                "num_predict": 1532,
                 "temperature": 0.5,
                 "keep_alive": "0s",
             },

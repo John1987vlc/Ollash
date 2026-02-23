@@ -1,4 +1,3 @@
-from collections import defaultdict  # NEW
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -37,6 +36,9 @@ from backend.utils.domains.auto_generation.project_reviewer import ProjectReview
 from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
 from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
 from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
+from backend.core.language_standards import BACKEND_ROUTE_PATTERNS, DEPENDENCY_FILES, FRONTEND_EXTENSIONS
+from backend.utils.core.language_utils import LanguageUtils
+from backend.utils.core.io.project_ingestion_service import ProjectIngestionService
 
 
 class LLMSubContext:
@@ -110,32 +112,6 @@ class PhaseContext:
 
     Backward-compatible: context.file_manager etc. still work via properties.
     """
-
-    # File categories for intelligent context selection (Moved from CoreAgent)
-    _FRONTEND_EXTENSIONS = {
-        ".js",
-        ".jsx",
-        ".ts",
-        ".tsx",
-        ".vue",
-        ".svelte",
-        ".html",
-        ".css",
-        ".scss",
-        ".less",
-    }
-    _BACKEND_ROUTE_PATTERNS = {"routes", "views", "api", "endpoints", "controllers"}
-    _DEPENDENCY_FILES = {
-        "requirements.txt",
-        "package.json",
-        "Cargo.toml",
-        "go.mod",
-        "Gemfile",
-        "pyproject.toml",
-        "build.gradle",
-        "pom.xml",
-        "Dockerfile",
-    }
 
     def __init__(
         self,
@@ -223,7 +199,9 @@ class PhaseContext:
         self.current_file_paths: List[str] = []
         self.current_readme_content: str = ""
         self.logic_plan: Dict[str, Dict[str, Any]] = {}  # Store implementation plans
-        self.backlog: List[Dict[str, Any]] = []  # NEW: Agile backlog of micro-tasks
+        self.backlog: List[Dict[str, Any]] = []
+        self.ollama_context = None  # F40: KV Cache context
+        self.last_model = None  # F40: Track model transitions
 
         # Sub-contexts for grouped access
         self.llm = LLMSubContext(llm_manager, response_parser)
@@ -234,6 +212,12 @@ class PhaseContext:
             project_reviewer, senior_reviewer, improvement_suggester, improvement_planner
         )
         self.infra_ctx = InfraSubContext(cicd_healer, vulnerability_scanner, infra_generator, export_manager)
+
+        # Utility services (extracted)
+        self._ingestion_service = ProjectIngestionService(
+            file_reader=file_manager.read_file,
+            logger=logger,
+        )
 
     def update_generated_data(
         self,
@@ -298,18 +282,18 @@ class PhaseContext:
             if str(p.parent) == target_dir:
                 score += 3
 
-            if target_ext in self._FRONTEND_EXTENSIONS:
+            if target_ext in FRONTEND_EXTENSIONS:
                 name_lower = p.stem.lower()
-                if any(pat in name_lower for pat in self._BACKEND_ROUTE_PATTERNS):
+                if any(pat in name_lower for pat in BACKEND_ROUTE_PATTERNS):
                     score += 5
                 if "model" in name_lower:
                     score += 3
 
-            if target_name in self._DEPENDENCY_FILES:
+            if target_name in DEPENDENCY_FILES:
                 if p.suffix in (".py", ".js", ".ts", ".go", ".rs", ".rb"):
                     score += 4
 
-            if any(pat in target.stem.lower() for pat in self._BACKEND_ROUTE_PATTERNS):
+            if any(pat in target.stem.lower() for pat in BACKEND_ROUTE_PATTERNS):
                 if "model" in p.stem.lower():
                     score += 4
 
@@ -326,54 +310,15 @@ class PhaseContext:
 
     def infer_language(self, file_path: str) -> str:
         """Infer programming language from file path."""
-        ext = Path(file_path).suffix.lower()
-        language_map = {
-            ".py": "python",
-            ".js": "javascript",
-            ".jsx": "javascript",
-            ".ts": "typescript",
-            ".tsx": "typescript",
-            ".go": "go",
-            ".rs": "rust",
-            ".java": "java",
-            ".cpp": "cpp",
-            ".c": "c",
-            ".cs": "csharp",
-            ".rb": "ruby",
-            ".php": "php",
-            ".swift": "swift",
-            ".kt": "kotlin",
-        }
-        return language_map.get(ext, "unknown")
+        return LanguageUtils.infer_language(file_path)
 
     def group_files_by_language(self, files: Dict[str, str]) -> Dict[str, List[Tuple[str, str]]]:
         """Group files by programming language."""
-        grouped = defaultdict(list)
-
-        for rel_path, content in files.items():
-            language = self.infer_language(rel_path)
-            if language != "unknown":
-                grouped[language].append((rel_path, content))
-
-        return dict(grouped)
+        return LanguageUtils.group_files_by_language(files)
 
     def get_test_file_path(self, source_file: str, language: str) -> str:
         """Get test file path based on language conventions."""
-        source_path = Path(source_file)
-
-        # Language-specific test path patterns
-        patterns = {
-            "python": lambda p: str(Path("tests") / f"test_{p}.py"),
-            "javascript": lambda p: str(Path("tests") / f"{p}.test.js"),
-            "typescript": lambda p: str(Path("tests") / f"{p}.test.ts"),
-            "go": lambda p: str(Path(p).parent / f"{p}_test.go"),
-            "rust": lambda p: str(Path("tests") / f"{p}.rs"),
-            "java": lambda p: str(Path("src/test/java") / f"{p}Test.java"),
-        }
-
-        stem = source_path.stem
-        pattern_fn = patterns.get(language, lambda p: str(Path("tests") / f"test_{p}"))
-        return pattern_fn(stem)
+        return LanguageUtils.get_test_file_path(source_file, language)
 
     def implement_plan(
         self,
@@ -426,148 +371,15 @@ class PhaseContext:
         return files, structure, file_paths
 
     def ingest_existing_project(self, project_path: Path) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        """
-        Loads an existing project into the agent's state.
+        """Load an existing project into the agent's state.
 
-        This method:
-        1. Reads all source files from the project
-        2. Reconstructs the project structure
-        3. Extracts README if exists
-        4. Updates internal state with loaded data
-
-        Args:
-            project_path: Root path of the existing project
+        Delegates to :class:`ProjectIngestionService` and updates internal
+        context state with the loaded data.
 
         Returns:
             Tuple of (generated_files, initial_structure, file_paths)
         """
-        self.logger.info(f"🔍 Ingesting existing project from {project_path}")
-
-        loaded_files: Dict[str, str] = {}
-        file_paths: List[str] = []
-        readme_content: str = ""
-        structure: Dict[str, Any] = {}
-
-        # Define extensions and directories to load (exclude build, cache, etc)
-        source_extensions = {
-            ".py",
-            ".js",
-            ".jsx",
-            ".ts",
-            ".tsx",
-            ".go",
-            ".rs",
-            ".java",
-            ".cpp",
-            ".c",
-            ".cs",
-            ".rb",
-            ".php",
-            ".swift",
-            ".kt",
-            ".json",
-            ".yaml",
-            ".yml",
-            ".xml",
-            ".md",
-            ".txt",
-            ".html",
-            ".css",
-            ".scss",
-            ".less",
-        }
-
-        exclude_dirs = {
-            "__pycache__",
-            ".git",
-            ".venv",
-            "venv",
-            "node_modules",
-            ".cache",
-            "dist",
-            "build",
-            ".pytest_cache",
-            ".mypy_cache",
-            ".egg-info",
-            ".idea",
-            ".vscode",
-            "target",
-        }
-
-        try:
-            project_path = Path(project_path)
-            if not project_path.exists():
-                self.logger.error(f"Project path does not exist: {project_path}")
-                return {}, {}, []
-
-            # Walk through project directory
-            for root, dirs, files_in_dir in __import__("os").walk(project_path):
-                # Filter out excluded directories
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
-
-                for file in files_in_dir:
-                    file_path = Path(root) / file
-                    rel_path = file_path.relative_to(project_path)
-
-                    # Check if file should be loaded
-                    if file_path.suffix.lower() not in source_extensions:
-                        continue
-
-                    # Handle special files
-                    if file.lower() == "readme.md":
-                        try:
-                            readme_content = self.file_manager.read_file(str(file_path))
-                        except Exception as e:
-                            self.logger.warning(f"Could not read README: {e}")
-                        continue
-
-                    # Load file content
-                    try:
-                        content = self.file_manager.read_file(str(file_path))
-                        rel_path_str = str(rel_path).replace("\\", "/")
-                        loaded_files[rel_path_str] = content
-                        file_paths.append(rel_path_str)
-
-                        self.logger.debug(f"  Loaded: {rel_path_str} ({len(content)} bytes)")
-                    except Exception as e:
-                        self.logger.warning(f"Could not load {rel_path}: {e}")
-
-            # Build structure from loaded files
-            structure = self._build_structure_from_files(loaded_files)
-
-            # Update context state
+        loaded_files, structure, file_paths, readme_content = self._ingestion_service.ingest(project_path)
+        if loaded_files:
             self.update_generated_data(loaded_files, structure, file_paths, readme_content)
-            self.logger.info(f"✅ Ingested {len(loaded_files)} files from existing project")
-
-            return loaded_files, structure, file_paths
-
-        except Exception as e:
-            self.logger.error(f"Error ingesting project: {e}")
-            return {}, {}, []
-
-    def _build_structure_from_files(self, files: Dict[str, str]) -> Dict[str, Any]:
-        """
-        Reconstructs project structure from loaded files.
-        Groups files by directory and type.
-        """
-        structure: Dict[str, Any] = {}
-
-        for file_path in files.keys():
-            parts = Path(file_path).parts
-            current = structure
-
-            # Navigate/create directory structure
-            for part in parts[:-1]:
-                if part not in current:
-                    current[part] = {}
-                current = current[part]
-
-            # Mark file in structure
-            filename = parts[-1] if parts else file_path
-            current[filename] = {
-                "type": "file",
-                "extension": Path(filename).suffix,
-                "language": self.infer_language(filename),
-            }
-
-        return structure
+        return loaded_files, structure, file_paths

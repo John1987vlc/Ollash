@@ -1,6 +1,5 @@
 from flask import Blueprint, jsonify
 import random
-import time
 
 system_health_bp = Blueprint('system_health', __name__, url_prefix='/api/health')
 
@@ -9,7 +8,7 @@ def get_system_health():
     """Detailed health check including GPU and Model Latency."""
     # Mocking data from backend.utils.core.system.gpu_aware_rate_limiter
     # and backend.utils.core.llm.model_health_monitor
-    
+
     return jsonify({
         "status": "ok",
         "cpu": random.randint(10, 40),

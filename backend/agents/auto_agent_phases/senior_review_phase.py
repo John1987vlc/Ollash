@@ -102,7 +102,14 @@ class SeniorReviewPhase(IAgentPhase):
                     contingency_plan = self.context.contingency_planner.generate_contingency_plan(
                         issues, project_description, readme_content
                     )
-                    if contingency_plan and contingency_plan.get("actions"):
+
+                    # Normalize contingency_plan: ensure it's a dict and has 'actions'
+                    if isinstance(contingency_plan, list):
+                        contingency_plan = {"actions": contingency_plan}
+                    elif not isinstance(contingency_plan, dict):
+                        contingency_plan = {"actions": []}
+
+                    if contingency_plan.get("actions"):
                         self.context.logger.info("  Contingency plan generated. Implementing...")
                         (
                             generated_files,

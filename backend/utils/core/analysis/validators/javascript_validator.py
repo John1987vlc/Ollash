@@ -50,14 +50,14 @@ class JavascriptValidator(BaseValidator):
             )
 
         # 2. Semantic Integrity Check (The "Self-Reflection" layer)
-        integrity_errors = self._semantic_integrity_check(file_path, content)
-        
+        integrity_errors, integrity_warnings = self._semantic_integrity_check(file_path, content)
+
         if integrity_errors:
             # Enforce semantic quality even if syntax is valid
             combined_message = syntax_result.message
             if syntax_result.status == ValidationStatus.VALID:
                 combined_message = "Syntax is OK, but logical integrity issues were found:"
-            
+
             error_list = "\n".join([f"- {err}" for i, err in enumerate(integrity_errors[:5])])
             return ValidationResult(
                 file_path,
@@ -67,14 +67,21 @@ class JavascriptValidator(BaseValidator):
                 chars
             )
 
+        # Log warnings but don't fail
+        if integrity_warnings and self.logger:
+            for w in integrity_warnings:
+                self.logger.debug(f"  [SEMANTIC WARNING] {file_path}: {w}")
+
         return syntax_result
 
-    def _semantic_integrity_check(self, file_path: str, content: str) -> List[str]:
+    def _semantic_integrity_check(self, file_path: str, content: str) -> tuple[List[str], List[str]]:
         """
         Heuristic-based check for common LLM failures in JS.
+        Returns (errors, warnings)
         """
         errors = []
-        
+        warnings = []
+
         # A. DOM Integrity: document.getElementById usage
         # Pattern: const x = document.getElementById('...'); x.innerHTML = ... (WITHOUT null check)
         dom_accesses = re.findall(r"(?:const|let|var)\s+(\w+)\s*=\s*document\.getElementById", content)
@@ -86,33 +93,28 @@ class JavascriptValidator(BaseValidator):
                     errors.append(f"Potential crash: Using DOM element '{var_name}' without null check. Use 'if({var_name})' or optional chaining.")
 
         # B. Global Scope Pollution: implicit globals
-        # Pattern: x = 10; (at the start of a line, not inside a string/comment)
-        # Note: Very simplified heuristic
         implicit_globals = re.findall(r"^(?!\s*(?:const|let|var|function|class|if|for|while|return|export|import|//|/\*))\s*([a-zA-Z_$][\w$]*)\s*=", content, re.MULTILINE)
         for glob in implicit_globals:
             if glob not in ["window", "console", "module", "exports", "document"]:
                 errors.append(f"Implicit global variable '{glob}'. Use 'const', 'let', or 'var' to declare it.")
 
-        # C. Domain Specific: Poker Logic Consistency
+        # C. Domain Specific: Poker Logic Consistency (AS WARNINGS)
         is_poker_file = any(kw in file_path.lower() or kw in content.lower() for kw in ["poker", "hand", "deck", "card"])
         if is_poker_file:
-            # Core functions expected in a game logic file
-            # Updated to support ES6 class methods (shuffle() { ... })
             core_patterns = {
                 "shuffle": r"function\s+shuffle|shuffle\s*=\s*\(|shuffle\s*:|shuffle\s*\(",
                 "deal": r"function\s+deal|deal\s*=\s*\(|deal\s*:|deal\s*\(",
                 "evaluate": r"evaluate|handValue|rank"
             }
-            
-            # If it looks like a GameEngine or HandEvaluator, check for specifics
+
             if "engine" in file_path.lower() or "engine" in content.lower():
                 if not re.search(core_patterns["shuffle"], content, re.I):
-                    errors.append("Poker logic missing 'shuffle' function.")
+                    warnings.append("Poker logic missing 'shuffle' function.")
                 if not re.search(core_patterns["deal"], content, re.I):
-                    errors.append("Poker logic missing 'deal' function.")
-            
+                    warnings.append("Poker logic missing 'deal' function.")
+
             if "evaluator" in file_path.lower() or "hand" in content.lower():
                 if not re.search(core_patterns["evaluate"], content, re.I):
-                    errors.append("Hand evaluation logic seems incomplete (no evaluation function found).")
+                    warnings.append("Hand evaluation logic seems incomplete (no evaluation function found).")
 
-        return errors
+        return errors, warnings

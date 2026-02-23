@@ -46,7 +46,7 @@ class IterativeImprovementPhase(IAgentPhase):
                     tool_name="suggest_improvements",
                     iteration=loop_num + 1,
                 )
-                
+
                 # If maintenance, we could use a different prompt or logic here
                 suggestions = self.context.improvement_suggester.suggest_improvements(
                     project_description,

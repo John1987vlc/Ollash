@@ -55,6 +55,24 @@
                 </select>
             </div>
         </div>
+
+        <!-- Customization & Limits -->
+        <div class="card-panel">
+            <h3>Customization & Limits</h3>
+            <div class="form-group">
+                <label>Mermaid Diagram Theme</label>
+                <select id="mermaid-theme-selector" class="form-input">
+                    <option value="default">Default</option>
+                    <option value="forest">Forest</option>
+                    <option value="dark">Dark</option>
+                    <option value="neutral">Neutral</option>
+                </select>
+
+                <label style="margin-top: 15px;">Token Budget (Alert threshold)</label>
+                <input type="number" id="token-budget" class="form-input" placeholder="e.g. 50000">
+                <p class="help-text">Interface will show a visual warning when reached.</p>
+            </div>
+        </div>
     </div>
 </div>
 

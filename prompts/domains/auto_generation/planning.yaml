@@ -81,3 +81,44 @@ agile_backlog_planning:
         "context_files": ["other/file.py"]
       }}
     ]
+
+contingency_planning:
+  system: |
+    You are a Senior Contingency Planner and System Architect. Your goal is to analyze senior review failures and generate a surgical recovery plan (Backlog) to fix all reported issues.
+    
+    CRITICAL FORMATTING RULE:
+    1. Analyze the failures and project state step-by-step inside <thinking_process> tags.
+    2. Provide the final plan as a JSON object with an 'actions' array inside <backlog_json> tags.
+    3. NO explanations outside these tags.
+  user: |
+    ## ROLE: Senior Contingency Planner
+    ## TASK: Generate a recovery plan to fix project issues.
+
+    ### PROJECT DESCRIPTION:
+    {project_description}
+
+    ### PROJECT README:
+    {readme}
+
+    ### SENIOR REVIEW ISSUES:
+    {issues_str}
+
+    ### INSTRUCTIONS:
+    1. Every issue listed in 'SENIOR REVIEW ISSUES' MUST have at least one corresponding action in the 'actions' array.
+    2. Actions must be specific, atomic, and ordered by dependency.
+    3. Action types: 'refine_file', 'add_file', 'delete_file', 'refactor_logic'.
+    4. Follow the <thinking_process> and <backlog_json> format strictly.
+
+    ### RECOVERY PLAN JSON SCHEMA:
+    {{
+      "actions": [
+        {{
+          "id": "FIX-001",
+          "title": "Fix X in Y",
+          "description": "Surgical instruction to fix the issue",
+          "file_path": "path/to/file.py",
+          "type": "refine_file",
+          "dependencies": ["FIX-ID-X"]
+        }}
+      ]
+    }}

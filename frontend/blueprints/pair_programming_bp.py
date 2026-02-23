@@ -36,7 +36,7 @@ def create_session():
         session = PairProgrammingSession(
             session_id=session_id,
             event_publisher=_event_publisher,
-            logger=main_container.core.logger(),
+            logger=main_container.core.logging.logger(),
         )
         _sessions[session_id] = session
         return jsonify({"session_id": session_id, "status": "active"})

@@ -21,7 +21,7 @@ def init_app(app):
         _healer = CICDHealer(
             llm_client=main_container.auto_agent_module.llm_client_manager().get_client("coder"),
             command_executor=main_container.core.command_executor(),
-            logger=main_container.core.logger(),
+            logger=main_container.core.logging.logger(),
         )
         logger.info("CI/CD healer initialized")
     except Exception as e:

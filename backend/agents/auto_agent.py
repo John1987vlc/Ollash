@@ -6,11 +6,12 @@ import asyncio
 import datetime
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from dependency_injector import providers
 from dependency_injector.wiring import Provide, inject
 
+from backend.agents.auto_agent_phases.iterative_improvement_phase import IterativeImprovementPhase
 from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.agents.auto_agent_phases.project_analysis_phase import ProjectAnalysisPhase
@@ -258,7 +259,7 @@ class AutoAgent(CoreAgent):
                 self.logger.info(f"🚀 EXECUTING PHASE: {phase_name}")
                 if milestone_id:
                     execution_plan.start_milestone(milestone_id)
-                    self.event_publisher.publish("milestone_started", milestone_id=milestone_id, phase=phase_name)    
+                    self.event_publisher.publish("milestone_started", milestone_id=milestone_id, phase=phase_name)
 
                 try:
                     # Run the phase execution
@@ -280,7 +281,7 @@ class AutoAgent(CoreAgent):
                     )
                     readme_content = generated_files.get("README.md", readme_content)
                     self.phase_context.update_generated_data(generated_files, initial_structure, file_paths, readme_content)
-                    
+
                     # LogicPlanningPhase specific: Two-pass Issue Creation
                     if isinstance(phase, LogicPlanningPhase) and self.git_tool:
                         self._manage_github_issues(initial_structure)
@@ -330,10 +331,10 @@ class AutoAgent(CoreAgent):
     def _manage_github_issues(self, structure: Dict):
         """Implements the 'Dos Pasadas' logic for GitHub issues."""
         self.logger.info("🔗 Starting 'Dos Pasadas' Issue Management...")
-        
+
         # Prefer backlog from context, fallback to structure tasks
         tasks = self.phase_context.backlog if hasattr(self.phase_context, "backlog") and self.phase_context.backlog else structure.get("tasks", [])
-        
+
         if not tasks:
             self.logger.warning("No tasks found in backlog or structure for issue creation.")
             return
@@ -345,7 +346,7 @@ class AutoAgent(CoreAgent):
             task_id = task.get("id") or task.get("task_id")
             title = f"[{task_id}] {task.get('title', 'Untitled Task')}"
             desc = task.get("description", "No description")
-            
+
             # Professional English "Secretary" Formatting
             body = (
                 f"### 📋 Task Description\n"
@@ -354,30 +355,30 @@ class AutoAgent(CoreAgent):
                 f"✨ **Task created by Ollash** 🤖\n"
                 f"Internal ID: `{task_id}`"
             )
-            
+
             self.logger.info(f"  Pass 1: Creating issue for {task_id}")
             res = self.git_tool.create_issue(title, body)
             if res.get("success"):
                 issue_mapping[task_id] = res.get("number")
                 task["github_number"] = res.get("number")
-        
+
         # Guardamos el mapeo para uso externo (PRs en legacy)
         self.phase_context.issue_mapping = issue_mapping
-        
+
         # Pass 2: Link dependencies
         for task in tasks:
             task_id = task.get("id") or task.get("task_id")
             # The schema specifically uses "dependencies", but we keep depends_on as fallback
             deps = task.get("dependencies") or task.get("depends_on", [])
             github_number = task.get("github_number")
-            
+
             if deps and github_number:
                 self.logger.info(f"  Pass 2: Linking dependencies for issue #{github_number}")
                 blocked_by = []
                 for dep_id in deps:
                     if dep_id in issue_mapping:
                         blocked_by.append(f"#{issue_mapping[dep_id]}")
-                
+
                 if blocked_by:
                     desc = task.get("description", "")
                     new_body = f"{desc}\n\n🚫 Blocked by: {', '.join(blocked_by)}"
@@ -389,18 +390,18 @@ class AutoAgent(CoreAgent):
             from backend.utils.core.llm.prompt_loader import PromptLoader
             loader = PromptLoader()
             prompts = loader.load_prompt("domains/auto_generation/manifest.yaml")
-            
+
             system = prompts.get("generate_manifest", {}).get("system", "")
             user_template = prompts.get("generate_manifest", {}).get("user", "")
-            
+
             backlog = getattr(self.phase_context, "backlog", [])
             done = len([t for t in backlog if t.get("github_number") and t.get("status") == "done"]) # Simplified status check
             total = len(backlog) or 1
-            
+
             backlog_summary = f"{done}/{total} tasks completed."
-            
+
             current_version = getattr(self.phase_context, "current_version", "v0.1.0")
-            
+
             user = user_template.format(
                 project_name=self.phase_context.initial_exec_params.get("project_name", "Unknown"),
                 project_description=self.phase_context.initial_exec_params.get("project_description", "N/A"),
@@ -410,7 +411,7 @@ class AutoAgent(CoreAgent):
                 next_tag=f"v0.1.{done + 1}",
                 last_decisions="Implemented DevOps standards: Semantic Versioning and Conventional Commits."
             )
-            
+
             res, _ = self.llm_manager.get_client("writer").chat([
                 {"role": "system", "content": system},
                 {"role": "user", "content": user}
@@ -448,9 +449,9 @@ class AutoAgent(CoreAgent):
         plan_file = project_root / "EXECUTION_PLAN.json"
         self.phase_context.file_manager.write_file(plan_file, execution_plan.to_json())
 
-    def generate_structure_only(self, project_description: str, project_name: str, **kwargs) -> Tuple[str, Dict]: 
+    def generate_structure_only(self, project_description: str, project_name: str, **kwargs) -> Tuple[str, Dict]:
         """Executes only the initial project setup phases."""
-        self.logger.info(f"[PROJECT_NAME:{project_name}] Starting structure generation for '{project_name}'.")    
+        self.logger.info(f"[PROJECT_NAME:{project_name}] Starting structure generation for '{project_name}'.")
 
         self.phase_context.initial_exec_params = kwargs
 
@@ -512,7 +513,7 @@ class AutoAgent(CoreAgent):
             )
             readme_content = generated_files.get("README.md", readme_content)
             self.phase_context.update_generated_data(generated_files, initial_structure, file_paths, readme_content)
-            
+
             # F40: Store and propagate context
             if isinstance(generated_files, dict) and 'context' in generated_files:
                 ctx = generated_files['context']

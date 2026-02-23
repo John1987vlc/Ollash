@@ -4,6 +4,7 @@
 window.WizardModule = (function() {
     let currentWizardStep = 1;
     let selectedTemplate = 'default';
+    let isInitialized = false;
     
     // DOM Elements
     let wizardSteps, wizardIndicators, wizardNextBtns, wizardBackBtns, wizardGenerateBtn;
@@ -86,6 +87,23 @@ window.WizardModule = (function() {
                 intervalGroup.style.display = autoImproveToggle.checked ? 'block' : 'none';
             });
         }
+
+        // GitHub Section Toggle
+        const githubHeader = document.getElementById('toggle-github-settings');
+        const githubContent = document.getElementById('github-settings-content');
+        if (githubHeader && githubContent) {
+            githubHeader.onclick = (e) => {
+                e.preventDefault();
+                const isHidden = githubContent.style.display === 'none' || githubContent.style.display === '';
+                githubContent.style.display = isHidden ? 'block' : 'none';
+                
+                const chevron = githubHeader.querySelector('.chevron');
+                if (chevron) {
+                    chevron.innerHTML = isHidden ? '&#x25BE;' : '&#x25B8;';
+                }
+            };
+        }
+        isInitialized = true;
     }
 
     function wizardGoTo(step) {
@@ -249,6 +267,7 @@ window.WizardModule = (function() {
 
     return {
         init: init,
-        goTo: wizardGoTo
+        goTo: wizardGoTo,
+        get isInitialized() { return isInitialized; }
     };
 })();

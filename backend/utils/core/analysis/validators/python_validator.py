@@ -18,7 +18,7 @@ class PythonValidator(BaseValidator):
             return self._validate_python_syntax_only(file_path, content, lines, chars)
 
         # Try pylint first
-        # F29: Disable import-error and no-name-in-module during generation 
+        # F29: Disable import-error and no-name-in-module during generation
         # because dependent files may not exist yet.
         pylint_cmd = ["pylint", "--disable=all", "--enable=F,E", "--disable=E0401,E0611", "--output-format=text"]
         # Example pylint error: file.py:10:0: E0001: some-error-message (some-checker)

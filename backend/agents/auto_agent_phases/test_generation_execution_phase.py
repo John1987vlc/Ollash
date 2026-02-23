@@ -184,15 +184,31 @@ class TestGenerationExecutionPhase(IAgentPhase):
                 )
 
                 if test_results["success"]:
-                    self.context.logger.info("  ✅ ALL TESTS PASSED! (MVP requirement satisfied)")
-                    self.context.event_publisher.publish(
-                        "tool_output",
-                        tool_name="execute_tests",
-                        status="success",
-                        message=f"All tests passed on attempt {test_retries + 1}",
-                    )
-                    self.context.event_publisher.publish("tool_end", tool_name="execute_tests")
-                    break
+                    self.context.logger.info("  ✅ ALL LOCAL TESTS PASSED! (MVP requirement satisfied)")
+
+                    # Remote QA Check (GitHub-Native Testing)
+                    if kwargs.get("remote_mode", False):
+                        self.context.logger.info("  🌐 Checking remote CI status on GitHub...")
+                        remote_passed = self._check_remote_ci_status(project_root)
+                        if not remote_passed:
+                            self.context.logger.warning("  ❌ Remote CI failed despite local tests passing.")
+                            test_results["success"] = False
+                            # Add remote failure to results for refinement
+                            test_results["failures"].append({
+                                "name": "RemoteCI",
+                                "message": "GitHub Actions workflow failed. Check remote logs for details.",
+                                "severity": "critical"
+                            })
+
+                    if test_results["success"]:
+                        self.context.event_publisher.publish(
+                            "tool_output",
+                            tool_name="execute_tests",
+                            status="success",
+                            message=f"All tests passed on attempt {test_retries + 1}",
+                        )
+                        self.context.event_publisher.publish("tool_end", tool_name="execute_tests")
+                        break
                 else:
                     failure_count = len(test_results.get("failures", []))
                     self.context.logger.warning(
@@ -344,3 +360,23 @@ class TestGenerationExecutionPhase(IAgentPhase):
         file_paths.extend([rp for rp in generated_test_files if rp not in file_paths])
 
         return generated_files, initial_structure, file_paths
+
+    def _check_remote_ci_status(self, project_root: Path) -> bool:
+        """Helper to check the latest GitHub Action run status."""
+        import subprocess
+        import json
+        try:
+            result = subprocess.run(
+                ["gh", "run", "list", "--limit", "1", "--json", "conclusion"],
+                capture_output=True,
+                text=True,
+                cwd=str(project_root),
+                timeout=15,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                runs = json.loads(result.stdout)
+                if runs and runs[0].get("conclusion") == "success":
+                    return True
+        except Exception as e:
+            self.context.logger.warning(f"Could not verify remote CI status: {e}")
+        return False

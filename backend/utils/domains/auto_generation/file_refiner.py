@@ -81,20 +81,29 @@ class FileRefiner:
                 [doc["document"] for doc in retrieved_docs]
             )
 
-        # SECCIÓN CORREGIDA: Ajuste de argumentos según prompt_templates.py
-        if issues:
+        # Prepare the combined context (README + documentation)
+        combined_context = f"PROJECT CONTEXT (README):\n{readme_excerpt}\n"
+        if documentation_context:
+            combined_context += documentation_context
+
+        # NEW: Specialized Doc Refinement Path
+        is_doc = file_path.lower().endswith((".md", ".txt", ".rst"))
+
+        if is_doc:
+            system, user = AutoGenPrompts.documentation_refinement(
+                file_path, current_content, project_description=combined_context
+            )
+        elif issues:
             # Se formatea la cadena de issues para que coincida con el método esperado
             issues_str = "\n".join([f"- {i.get('description')}" for i in issues])
             system, user = AutoGenPrompts.file_refinement_with_issues(
-                file_path, current_content, issues_str
+                file_path, current_content, issues_str, context=combined_context
             )
         else:
-            # file_refinement en prompt_templates.py solo acepta (file_path, content)
-            system, user = AutoGenPrompts.file_refinement(file_path, current_content)
-
-        # Inyectar el README y la documentación extra en el prompt de usuario
-        user_context = f"\n\nPROJECT CONTEXT (README):\n{readme_excerpt}\n"
-        user += user_context + documentation_context
+            # file_refinement en prompt_templates.py ahora acepta context
+            system, user = AutoGenPrompts.file_refinement(
+                file_path, current_content, context=combined_context
+            )
 
         try:
             response_data, usage = self.llm_client.chat(
@@ -108,11 +117,26 @@ class FileRefiner:
             raw = response_data["message"]["content"]
             refined = self.parser.extract_raw_content(raw)
 
+            # 3. Anti-Hallucination Guard
+            hallucination_indicators = [
+                "example_function", "SELECT * FROM table_name", 
+                "Your JSON is properly formatted", "proper Python syntax",
+                "Certainly! Here's how", "Hope this helps"
+            ]
+            if refined and any(ind.lower() in refined.lower() for ind in hallucination_indicators):
+                 self.logger.warning(f"  [HALLUCINATION DETECTED] Refinement of {file_path} contained generic example code.")
+                 return None
+
             # Sanity check
             filename = Path(file_path).name
             min_ratio = self.EXEMPT_MIN_RATIO if filename in self.REDUCTION_EXEMPT_FILES else self.NORMAL_MIN_RATIO
 
             if refined and len(refined) > len(current_content) * min_ratio:
+                # For documentation, ensure it didn't just replace content with total garbage
+                if filename.lower().endswith((".md", ".txt")) and "README" in filename.upper():
+                    # Check if at least some keyword from the original or project exists
+                    if len(refined) < 50: return None # Too short for a real README
+                
                 self.logger.info(f"    Refined {file_path} ({len(refined)} chars)")
                 return refined
 

@@ -24,7 +24,7 @@ def init_app(app):
 
             _kg_builder = KnowledgeGraphBuilder(
                 workspace_path=root / "knowledge_workspace",
-                logger=main_container.core.logger(),
+                logger=main_container.core.logging.logger(),
             )
             logger.info("Knowledge Graph builder initialized")
     except Exception as e:

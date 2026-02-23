@@ -1,7 +1,6 @@
 import ast
 import logging
-from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ class ContextDistiller:
                 # Use a more robust approach to find the file if path is relative
                 with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                     content = f.read()
-            
+
             # CRITICAL: Only use AST for Python files
             if not str(file_path).lower().endswith(".py"):
                 # Non-python files: take first 50 lines as summary context
@@ -32,13 +31,13 @@ class ContextDistiller:
             # For Python files, use AST
             tree = ast.parse(content)
             distilled_lines = []
-            
+
             # Extract Imports
             imports = []
             for node in tree.body:
                 if isinstance(node, (ast.Import, ast.ImportFrom)):
                     imports.append(ast.unparse(node))
-            
+
             if imports:
                 distilled_lines.append("# --- Imports ---")
                 distilled_lines.extend(imports)
@@ -52,13 +51,13 @@ class ContextDistiller:
                     doc = ast.get_docstring(node)
                     if doc:
                         distilled_lines.append(f'    """{doc[:100]}..."""')
-                    
+
                     for subnode in node.body:
                         if isinstance(subnode, ast.FunctionDef):
                             args = ast.unparse(subnode.args)
                             distilled_lines.append(f"    def {subnode.name}({args}): ...")
                     distilled_lines.append("")
-                
+
                 elif isinstance(node, ast.FunctionDef):
                     args = ast.unparse(node.args)
                     distilled_lines.append(f"def {node.name}({args}): ...")

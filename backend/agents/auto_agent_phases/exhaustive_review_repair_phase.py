@@ -186,7 +186,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
             if content and len(content) > 50:  # Only check substantial files
                 language = self.context.error_knowledge_base._detect_language(file_path)
                 common_patterns = self.context.error_knowledge_base.query_similar_errors(
-                    file_path=file_path, 
+                    file_path=file_path,
                     language=language,
                     max_results=5
                 )

@@ -93,5 +93,17 @@ window.ConfirmDialog = (function () {
         });
     }
 
-    return { ask, init };
+    function close() {
+        _respond(false);
+    }
+
+    return { ask, init, close };
 }());
+
+// Callback-style compatibility shims for any remaining onclick handlers
+window.showConfirmModal = function(message, onConfirm) {
+    ConfirmDialog.ask(message).then(function(confirmed) {
+        if (confirmed && onConfirm) onConfirm();
+    });
+};
+window.closeConfirmModal = function() { ConfirmDialog.close(); };

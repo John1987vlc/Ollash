@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, jsonify, request, send_file
-from backend.utils.core.feedback.activity_report_generator import get_activity_report_generator, ReportType
+from backend.utils.core.feedback.activity_report_generator import get_activity_report_generator
 import io
-import json
 
 insights_bp = Blueprint('insights', __name__)
 
@@ -12,7 +11,7 @@ def insights_page():
 @insights_bp.route('/api/reports/weekly')
 def get_weekly_report():
     generator = get_activity_report_generator()
-    
+
     # Custom metrics for the requested "Premium" experience
     custom_metrics = {
         "lines_of_code_generated": 12450,
@@ -21,9 +20,9 @@ def get_weekly_report():
         "agents_deployed": 12,
         "success_rate": 94.2
     }
-    
+
     report = generator.generate_daily_summary(metrics=custom_metrics)
-    
+
     if report:
         return jsonify(report.to_dict())
     return jsonify({"error": "Failed to generate report"}), 500
@@ -32,14 +31,14 @@ def get_weekly_report():
 def export_report(report_id):
     format_type = request.args.get('format', 'markdown')
     generator = get_activity_report_generator()
-    
+
     # Find the report in cache (simplified)
     report = next((r for r in generator.reports_generated if r.id == report_id), None)
-    
+
     if not report:
         # Generate a fresh one if not found
         report = generator.generate_daily_summary()
-        
+
     if format_type == 'html':
         content = generator.format_report_as_html(report)
         return send_file(

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import argparse, asyncio, json, subprocess, time
-from pathlib import Path
+import argparse
+import asyncio
+import subprocess
+import time
 from backend.core.containers import main_container
-from backend.agents.auto_agent import AutoAgent
 
 class GitLifecycleManager:
     """Manages the full cycle: Branch -> PR -> Merge -> Deletion."""
@@ -31,14 +33,14 @@ class GitLifecycleManager:
         self.project_root.mkdir(parents=True, exist_ok=True)
         if not (self.project_root / ".git").exists():
             self.run(["git", "init"], "Init")
-        
+
         if create_if_missing and repo_name:
             self.log(f"🚀 Checking/Creating repository {repo_name} on GitHub...")
             env = os.environ.copy()
             env["GITHUB_TOKEN"] = self.token
             # Use 'gh' directly for creation
             repo_path = f"{org}/{repo_name}" if org else repo_name
-            subprocess.run(["gh", "repo", "create", repo_path, "--private", "--confirm"], 
+            subprocess.run(["gh", "repo", "create", repo_path, "--private", "--confirm"],
                            cwd=self.project_root, capture_output=True, text=True, env=env)
 
         auth_url = self.repo_url.replace("https://", f"https://{self.token}@")
@@ -49,35 +51,35 @@ class GitLifecycleManager:
     def handle_task_completion(self, task_id, file_path, task_desc, issue_number=None, agent=None, version="v0.1.0"):
         branch = f"feat/{task_id.lower()}"
         self.log(f"🛠️ Processing task {task_id} ({file_path}) -> Version {version}...")
-        
+
         # 1. Create branch and commit
         self.run(["git", "checkout", "-b", branch], f"Create branch {branch}", True)
         self.run(["git", "add", file_path], f"Add {file_path}")
-        
+
         # Use simple commit for local, full PR body later
         self.run(["git", "commit", "-m", f"feat: implement {task_id}"], "Commit")
         if self.run(["git", "push", "origin", branch, "--force"], f"Push {branch}"):
-            
+
             # 2. Secretary Agent: Generate professional description
             self.log(f"📝 Secretary Agent drafting PR description for {version}...")
             # ... (prompt logic remains same)
             pr_body = f"Completed task {task_id}." # Fallback
-            
+
             if agent:
                 try:
                     from backend.utils.core.llm.prompt_loader import PromptLoader
                     loader = PromptLoader()
                     prompts = loader.load_prompt("domains/auto_generation/secretary.yaml")
-                    
+
                     system = prompts.get("pr_description", {}).get("system", "")
                     user_template = prompts.get("pr_description", {}).get("user", "")
-                    
+
                     user = user_template.format(
                         task_id=task_id,
                         task_desc=task_desc,
                         file_path=file_path
                     )
-                    
+
                     res, _ = agent.llm_manager.get_client("writer").chat([
                         {"role": "system", "content": system},
                         {"role": "user", "content": user}
@@ -88,27 +90,32 @@ class GitLifecycleManager:
 
             # 3. Create PR and MERGE immediately
             self.log(f"🚀 Creating PR and Merging {task_id}...")
-            
+
             env = os.environ.copy()
             env["GITHUB_TOKEN"] = self.token
-            
+
             if issue_number:
                 pr_body += f"\n\nCloses #{issue_number}"
-            
+
             # Title with version
             pr_title = f"{version} | {task_id}: Implementation"
-            
-            pr_res = subprocess.run(["gh", "pr", "create", "--title", pr_title, "--body", pr_body, "--head", branch, "--base", self.base_branch], 
+
+            pr_res = subprocess.run(["gh", "pr", "create", "--title", pr_title, "--body", pr_body, "--head", branch, "--base", self.base_branch],
                                     cwd=self.project_root, capture_output=True, text=True, env=env)
-            
+
             if pr_res.returncode == 0:
                 # 4. PR Merge
                 if self.run(["gh", "pr", "merge", "--merge", "--delete-branch"], f"Merge PR {task_id}"):
                     self.log(f"✅ Task {task_id} integrated. Tagging as {version}.")
-                    
+
                     # NEW: Semantic Tag
-                    self.run(["git", "tag", "-a", version, "-m", f"Release {version}: {task_id}"], f"Tag {version}")
-                    self.run(["git", "push", "origin", version], f"Push tag {version}")
+                    # Fetch tags to ensure we have the latest state
+                    self.run(["git", "fetch", "--tags"], "Fetch tags", True)
+                    
+                    # Force update the tag if it exists (moving the tag to the new commit)
+                    # Alternatively, we could increment, but for this task flow, moving the tag to the latest completion of that step is acceptable behavior for "v0.1.X" tracking.
+                    self.run(["git", "tag", "-f", "-a", version, "-m", f"Release {version}: {task_id}"], f"Tag {version}")
+                    self.run(["git", "push", "origin", version, "--force"], f"Push tag {version}")
 
                     # 5. Return to main and update
                     self.run(["git", "checkout", self.base_branch], "Back to main")
@@ -121,12 +128,12 @@ class GitLifecycleManager:
         """Force-pushes the OLLASH.md manifest directly to the main branch."""
         self.log("🧠 Syncing OLLASH.md manifest to main...")
         manifest_path = self.project_root / "OLLASH.md"
-        
+
         with open(manifest_path, "w", encoding="utf-8") as f:
             f.write(content)
-            
+
         current_branch = subprocess.run(["git", "branch", "--show-current"], cwd=self.project_root, capture_output=True, text=True).stdout.strip()
-        
+
         # Flux: Stash -> Switch to main -> Add/Commit -> Push -> Switch back
         # Using a safer approach: push local file directly to origin/main
         if current_branch != self.base_branch:
@@ -136,14 +143,14 @@ class GitLifecycleManager:
             self.run(["git", "stash"], "Stash changes")
             self.run(["git", "checkout", self.base_branch], "Switch to main")
             self.run(["git", "pull", "origin", self.base_branch], "Sync main")
-            
+
             with open(manifest_path, "w", encoding="utf-8") as f: # Re-write in main
                 f.write(content)
-                
+
             self.run(["git", "add", "OLLASH.md"], "Add manifest")
             self.run(["git", "commit", "-m", "chore: update Ollash project manifest 🤖"], "Commit manifest", True)
             self.run(["git", "push", "origin", self.base_branch], "Push manifest")
-            
+
             self.run(["git", "checkout", current_branch], "Return to feat branch")
             self.run(["git", "stash", "pop"], "Restore work", True)
         else:
@@ -164,13 +171,13 @@ def main():
         agent = main_container.auto_agent_module.auto_agent()
         project_root = agent.generated_projects_dir / args.name
         git_manager = GitLifecycleManager(args.repo_url, args.github_token, project_root)
-        
+
         # Parse org from URL
         from urllib.parse import urlparse
         parsed = urlparse(args.repo_url)
         parts = [p for p in parsed.path.strip("/").split("/") if p]
         org = parts[0] if len(parts) >= 2 else None
-        
+
         git_manager.setup(create_if_missing=args.git_auto_create, org=org, repo_name=args.name)
 
         def on_event(event_type, event_data):
@@ -178,29 +185,37 @@ def main():
                 git_manager.log("📝 Secretary Agent drafting initial vision description...")
                 initial_msg = "Initial project vision and README"
                 try:
-                    prompt = (
-                        f"Write a professional and inspiring initial commit message for the project '{args.name}'.\n"
-                        f"Project description: {args.description}\n\n"
-                        f"Signature: '✨ Project vision initialized by Ollash 🤖'"
+                    from backend.utils.core.llm.prompt_loader import PromptLoader
+                    loader = PromptLoader()
+                    prompts = loader.load_prompt("domains/auto_generation/vision.yaml")
+                    
+                    system = prompts.get("initial_vision", {}).get("system", "")
+                    user_template = prompts.get("initial_vision", {}).get("user", "")
+                    
+                    user = user_template.format(
+                        project_name=args.name,
+                        project_description=args.description
                     )
-                    res, _ = agent.llm_manager.get_client("writer").chat([{"role": "user", "content": prompt}])
+                    
+                    res, _ = agent.llm_manager.get_client("writer").chat([
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user}
+                    ])
                     initial_msg = res.get("content", initial_msg).strip()
                 except: pass
 
                 git_manager.run(["git", "add", "README.md"], "Add README")
                 git_manager.run(["git", "commit", "-m", initial_msg], "Initial Commit")
                 git_manager.run(["git", "push", "-u", "origin", "main", "--force"], "Initial Push")
-            
+
             if event_type == "agent_board_update" and event_data.get("new_status") == "done":
                 task_id = event_data.get("task_id")
                 backlog = getattr(agent.phase_context, "backlog", [])
                 
                 # Calculate Semantic Version (v0.1.X)
-                # Minor version increments per phase completion (simulated here)
-                # Patch version increments per task
-                done_tasks = [t for t in backlog if t.get("status") == "done" or t["id"] == task_id]
-                patch = len(done_tasks)
-                version = f"v0.1.{patch}"
+                # Count already finished tasks + current one
+                done_count = len([t for t in backlog if t.get("status") == "done"])
+                version = f"v0.1.{done_count}"
                 
                 task = next((t for t in backlog if t["id"] == task_id), None)
                 if task: 
@@ -217,25 +232,26 @@ def main():
                         task_desc=task.get("description", "No description"),
                         issue_number=issue_number,
                         agent=agent,
-                        version=version # Pass SemVer
+                        version=version
                     )
                     
                     # NEW: Update and Sync OLLASH.md manifest
                     try:
+                        import nest_asyncio
+                        nest_asyncio.apply()
                         loop = asyncio.get_event_loop()
                         manifest_content = loop.run_until_complete(agent._update_ollash_manifest(current_task_id=task_id))
                         if manifest_content:
                             git_manager.sync_ollash_manifest(manifest_content)
                     except Exception as e:
                         git_manager.log(f"⚠️ Manifest Sync Error: {e}")
-
         agent.phase_context.event_publisher.subscribe("phase_complete", on_event)
         agent.phase_context.event_publisher.subscribe("agent_board_update", on_event)
 
         # Initial Run
         agent.run(
-            project_description=args.description, 
-            project_name=args.name, 
+            project_description=args.description,
+            project_name=args.name,
             num_refine_loops=1, # At least 1 refinement for quality
             github_integration=True,
             github_token=args.github_token
@@ -245,7 +261,7 @@ def main():
         if args.maintenance_interval:
             from backend.utils.core.system.task_scheduler import get_scheduler
             scheduler = get_scheduler()
-            
+
             async def maintenance_job(tid, tdata):
                 git_manager.log(f"⏰ Maintenance cycle started (Every {args.maintenance_interval}h)")
                 # Run the agent in maintenance mode (only refinement/audit)
@@ -253,7 +269,7 @@ def main():
                     project_description=args.description,
                     project_name=args.name,
                     num_refine_loops=1,
-                    maintenance_mode=True, 
+                    maintenance_mode=True,
                     github_integration=True,
                     github_token=args.github_token
                 )
@@ -265,9 +281,9 @@ def main():
                 "cron": f"0 */{args.maintenance_interval} * * *",
                 "agent": "orchestrator"
             })
-            
+
             git_manager.log(f"🚀 Continuous Maintenance scheduled every {args.maintenance_interval} hours. Press Ctrl+C to stop.")
-            while True: 
+            while True:
                 time.sleep(10)
 
     except Exception as e: print(f"FATAL: {e}")

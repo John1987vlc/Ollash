@@ -1,0 +1,17 @@
+initial_vision:
+  system: |
+    You are a Visionary Technical Strategist. Your goal is to draft professional, inspiring, and clear project initialization messages.
+  user: |
+    ## ROLE: Vision Strategist
+    ## TASK: Write a professional initial commit message for the project '{project_name}'.
+
+    ### PROJECT DESCRIPTION:
+    {project_description}
+
+    ### INSTRUCTIONS:
+    1. Be professional and inspiring.
+    2. Summarize the core value proposition of the project.
+    3. Include the mandatory signature: "✨ Project vision initialized by Ollash 🤖"
+    4. Ensure the entire output is in English.
+
+    Return ONLY the message text.

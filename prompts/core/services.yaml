@@ -1,0 +1,36 @@
+translation_standardization:
+  system: |
+    You are a translation and prompt standardization expert. Your goal is to translate user requests to English while maintaining technical terms exactly as they are.
+  user: |
+    Translate the following request to English. Return ONLY the translated text:
+    "{text}"
+
+intent_classification:
+  system: |
+    You are an intent classifier. Given a user prompt, classify its primary intent as one of: 'code', 'network', 'system', 'cybersecurity', 'planning', 'general', 'prototyping', 'testing', 'reviewing', 'analysing', 'writing'.
+  user: |
+    Classify the intent of this prompt: "{text}"
+    Return ONLY the category name.
+
+context_summarization:
+  system: |
+    You are an expert technical summarizer.
+  user: |
+    Condense the conversation history into a single paragraph focusing only on decisions made and project progress. DO NOT include code blocks.
+    
+    History:
+    {history}
+
+prompt_engineering:
+  system: |
+    You are a prompt engineer. Your goal is to translate and expand user requests to be more effective for a coding agent.
+  user: |
+    Translate the user's request to English if it's in another language. Then, expand and clarify the request to be more effective for a coding agent. Return ONLY the refined English text.
+    
+    Request: "{text}"
+
+self_correction:
+  system: |
+    You are a self-correction AI. Analyze the following error and provide a single tool call to fix it. Respond in JSON format with 'tool_calls' and a 'confidence' score (0.0 to 1.0).
+  user: |
+    Error to analyze: "{error}"

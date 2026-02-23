@@ -31,13 +31,11 @@ class ReadmeGenerationPhase(IAgentPhase):
         license_type = kwargs.get("license_type", "MIT")
         include_docker = kwargs.get("include_docker", False)
 
-        # Generate README
+        # Generate README with richer context
         readme = self.context.project_planner.generate_readme(
-            project_description,
-            template_name,
-            python_version,
-            license_type,
-            include_docker,
+            project_name=project_name,
+            project_description=project_description,
+            project_structure=str(initial_structure)
         )
 
         readme_file_path = "README.md"

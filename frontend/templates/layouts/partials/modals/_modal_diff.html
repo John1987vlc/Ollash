@@ -1,0 +1,15 @@
+<!-- Diff Modal for Refactoring Review -->
+<div class="modal" id="diff-modal" role="dialog" aria-modal="true" aria-labelledby="diff-modal-title" style="display: none;">
+    <div class="modal-content modal-wide">
+        <div class="modal-header">
+            <h2 id="diff-modal-title">Review Changes</h2>
+            <span id="diff-file-path" class="diff-file-path"></span>
+            <button class="close-modal" aria-label="Close" onclick="closeDiffModal()">&times;</button>
+        </div>
+        <div id="diff-editor-container" style="width: 100%; height: 500px;"></div>
+        <div class="form-actions">
+            <button class="btn-primary" id="apply-diff-btn">Apply Changes</button>
+            <button class="btn-secondary" onclick="closeDiffModal()">Discard</button>
+        </div>
+    </div>
+</div>

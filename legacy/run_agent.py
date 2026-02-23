@@ -11,7 +11,8 @@ Uso:
     python run_agent.py --auto-create --project-description "Flask REST API" --project-name myapi
 """
 
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from backend.agents.default_agent import DefaultAgent

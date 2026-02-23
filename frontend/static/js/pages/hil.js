@@ -207,3 +207,20 @@ document.addEventListener('DOMContentLoaded', () => {
         HILModule.init();
     }
 });
+
+// Global helper called by HIL modal buttons (onclick="respondHIL('approve'|'reject'|'correct')")
+window.respondHIL = async function(response) {
+    const requestId = document.getElementById('hil-request-id')?.value;
+    const feedback = document.getElementById('hil-feedback')?.value || '';
+    await fetch('/api/hil/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: requestId, response, feedback })
+    });
+    if (window.ModalManager) {
+        ModalManager.close('hil-modal');
+    } else {
+        const m = document.getElementById('hil-modal');
+        if (m) m.style.display = 'none';
+    }
+};

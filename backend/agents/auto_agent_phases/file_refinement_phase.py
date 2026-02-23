@@ -28,16 +28,19 @@ class FileRefinementPhase(IAgentPhase):
         self.context.logger.info("PHASE 5: Refining files...")
         self.context.event_publisher.publish("phase_start", phase="5", message="Refining files")
 
-        for idx, (rel_path, content) in enumerate(list(generated_files.items()), 1):
+        files_to_refine = list(generated_files.items())
+        total_files = len(files_to_refine)
+
+        for idx, (rel_path, content) in enumerate(files_to_refine, 1):
             if not content or len(content) < 10:
                 continue
             self.context.event_publisher.publish(
                 "tool_start",
                 tool_name="file_refinement",
                 file=rel_path,
-                progress=f"{idx}/{len(file_paths)}",
+                progress=f"{idx}/{total_files}",
             )
-            self.context.logger.info(f"  [{idx}/{len(file_paths)}] Refining {rel_path}")
+            self.context.logger.info(f"  [{idx}/{total_files}] Refining {rel_path}")
             try:
                 refined = self.context.file_refiner.refine_file(rel_path, content, readme_content[:1000])
                 if refined:

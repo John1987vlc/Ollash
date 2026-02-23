@@ -198,7 +198,7 @@ def create_project():
             if maintenance_enabled:
                 try:
                     scheduler = get_scheduler()
-                    
+
                     async def maintenance_callback(tid, tdata):
                         agent.logger.info(f"⏰ Web-initiated maintenance cycle started for '{project_name}'")
                         agent.run(

@@ -28,7 +28,7 @@ def init_app(app):
         _cost_analyzer = CostAnalyzer(
             token_tracker=None,
             llm_config=main_container.auto_agent_module.llm_models_config(),
-            logger=main_container.core.logger(),
+            logger=main_container.core.logging.logger(),
         )
         logger.info("Cost analyzer initialized")
     except Exception as e:

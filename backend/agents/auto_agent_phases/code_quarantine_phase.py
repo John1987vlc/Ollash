@@ -41,13 +41,13 @@ class CodeQuarantinePhase(IAgentPhase):
         for rel_path, content in generated_files.items():
             if not content:
                 continue
-            
+
             # Skip non-code files
             if rel_path.endswith('.json') or rel_path.endswith('.md') or rel_path.endswith('.txt'):
                 continue
 
             is_unsafe = any(pattern.search(content) for pattern in unsafe_patterns)
-            
+
             if is_unsafe:
                 self.context.logger.warning(f"  Quarantining {rel_path} due to potentially unsafe content.")
                 self.context.code_quarantine.quarantine_file(project_root / rel_path)

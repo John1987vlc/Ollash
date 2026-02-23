@@ -14,10 +14,10 @@ def run_git(args, cwd=None):
         if cwd is None:
             cwd = os.getcwd()
         result = subprocess.run(
-            ['git'] + args, 
-            cwd=cwd, 
-            capture_output=True, 
-            text=True, 
+            ['git'] + args,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
             check=False
         )
         return {"stdout": result.stdout, "stderr": result.stderr, "code": result.returncode}
@@ -32,7 +32,7 @@ def git_dashboard():
 def get_status():
     status = run_git(['status', '--short'])
     branch = run_git(['rev-parse', '--abbrev-ref', 'HEAD'])
-    
+
     files = []
     if status.get('stdout'):
         for line in status['stdout'].splitlines():
@@ -40,7 +40,7 @@ def get_status():
             parts = line.strip().split()
             if len(parts) >= 2:
                 files.append({"status": parts[0], "file": parts[1]})
-                
+
     return jsonify({
         "branch": branch.get('stdout', '').strip(),
         "files": files,
@@ -52,7 +52,7 @@ def get_diff():
     file_path = request.args.get('file')
     if not file_path:
         return jsonify({"error": "No file specified"}), 400
-        
+
     diff = run_git(['diff', 'HEAD', '--', file_path])
     return jsonify({"diff": diff.get('stdout', '')})
 

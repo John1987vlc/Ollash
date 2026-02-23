@@ -137,7 +137,7 @@ class GitPRTool:
         repo_path = f"{org}/{name}" if org else name
         visibility = "--private" if private else "--public"
         cmd = ["gh", "repo", "create", repo_path, visibility, "--confirm"]
-        
+
         try:
             result = subprocess.run(
                 cmd,
@@ -168,7 +168,7 @@ class GitPRTool:
             res = subprocess.run(["git", "tag", "-a", tag_name, "-m", message], cwd=self.git.repo_path, capture_output=True, text=True)
             if res.returncode != 0:
                 return {"success": False, "error": res.stderr.strip()}
-            
+
             # Push tag to origin
             res = subprocess.run(["git", "push", "origin", tag_name], cwd=self.git.repo_path, capture_output=True, text=True)
             return {"success": res.returncode == 0, "error": res.stderr.strip() if res.returncode != 0 else None}

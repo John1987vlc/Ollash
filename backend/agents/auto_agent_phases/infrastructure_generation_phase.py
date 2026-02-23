@@ -90,10 +90,10 @@ class InfrastructureGenerationPhase(IAgentPhase):
         # GitHub deploy workflow
         deploy_workflow = self._generate_deploy_workflow(needs, primary_lang, project_name)
         ci_workflow = self._generate_ci_workflow(needs, primary_lang, project_name)
-        
+
         workflows_dir = project_root / ".github" / "workflows"
         workflows_dir.mkdir(parents=True, exist_ok=True)
-        
+
         generated_files[".github/workflows/deploy.yml"] = deploy_workflow
         self.context.file_manager.write_file(workflows_dir / "deploy.yml", deploy_workflow)
         self._track_file(".github/workflows/deploy.yml", file_paths)

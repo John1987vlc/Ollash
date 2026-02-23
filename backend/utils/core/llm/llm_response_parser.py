@@ -1,7 +1,6 @@
 ﻿import json
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
 
 class LLMResponseParser:
     @staticmethod
@@ -35,7 +34,7 @@ class LLMResponseParser:
     @staticmethod
     def extract_json(response):
         if not response: return None
-        
+
         # 1. Intentar extraer de tags específicos (case-insensitive)
         tag_match = re.search(r"<(?:plan_json|backlog_json|code_created|senior_review_json)>([\s\S]*?)(?:</(?:plan_json|backlog_json|code_created|senior_review_json)>|$)", response, re.I)
         if tag_match:
@@ -43,16 +42,16 @@ class LLMResponseParser:
             # Limpiar posibles bloques de código dentro de los tags
             content = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", content, flags=re.M).strip()
             try: return json.loads(content)
-            except: 
+            except:
                 # Si falla el parseo directo, intentamos la búsqueda heurística dentro del contenido del tag
                 response = content
 
         # 2. Limpieza estándar (remover bloques de pensamiento)
         cleaned, _ = LLMResponseParser.remove_think_blocks(response)
-        
+
         # 3. Limpiar bloques de código Markdown
         stripped = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", cleaned.strip(), flags=re.M).strip()
-        
+
         # 4. Intento de carga directa
         try: return json.loads(stripped)
         except: pass
@@ -61,22 +60,22 @@ class LLMResponseParser:
         # Esto rescata JSONs enterrados en texto explicativo
         fb = stripped.find('[')
         fbr = stripped.find('{')
-        
-        if fb != -1 and (fbr == -1 or fb < fbr): 
+
+        if fb != -1 and (fbr == -1 or fb < fbr):
             start, closer = fb, ']'
-        elif fbr != -1: 
+        elif fbr != -1:
             start, closer = fbr, '}'
-        else: 
+        else:
             return None
-            
+
         last = stripped.rfind(closer)
         if last > start:
             candidate = stripped[start:last+1]
-            try: 
+            try:
                 # Limpieza agresiva de comentarios estilo JS que a veces los modelos meten
                 candidate_clean = re.sub(r"//.*$", "", candidate, flags=re.M)
                 return json.loads(candidate_clean)
-            except: 
+            except:
                 # Último intento: intentar corregir comas finales (trailing commas) que rompen el JSON estándar
                 try:
                     candidate_no_trailing = re.sub(r",\s*([\]}])", r"\1", candidate_clean)
