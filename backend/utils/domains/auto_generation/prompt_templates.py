@@ -368,3 +368,100 @@ class AutoGenPrompts:
         )
         user = user_template.format(project_summary=project_summary)
         return system, user
+
+    # ------------------------------------------------------------------
+    # E7: Dynamic documentation prompts
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def changelog_entry_prompt(
+        project_name: str,
+        changes: List[str],
+        version: str = "",
+    ) -> Tuple[str, str]:
+        """Returns (system, user) for generating a Keep-a-Changelog entry.
+
+        Args:
+            project_name: Name of the project.
+            changes: List of change descriptions from the current cycle.
+            version: Optional semantic version; uses today's date if empty.
+        """
+        from datetime import date
+
+        version_tag = version if version else f"[Auto-{date.today().isoformat()}]"
+        changes_md = "\n".join(f"- {c}" for c in changes)
+
+        system = (
+            "You are a technical writer that produces concise Keep-a-Changelog formatted entries. "
+            "Output ONLY the changelog block starting with '## [version] - date' and ending before "
+            "the next '## ' heading. Use sections ### Added, ### Changed, ### Fixed as appropriate. "
+            "Be concise — no more than 20 bullet points total."
+        )
+        user = (
+            f"Project: {project_name}\n"
+            f"Version: {version_tag}\n\n"
+            f"Changes applied in this automation cycle:\n{changes_md}\n\n"
+            "Generate the Keep-a-Changelog entry block now."
+        )
+        return system, user
+
+    @staticmethod
+    def roadmap_prompt(
+        project_name: str,
+        improvement_gaps: Dict[str, Any],
+        tech_hints: Optional[List[str]] = None,
+    ) -> Tuple[str, str]:
+        """Returns (system, user) for generating a ROADMAP.md.
+
+        Args:
+            project_name: Name of the project.
+            improvement_gaps: Dict of gap categories → list of gap descriptions.
+            tech_hints: Optional tech-stack prompt hints from TechStackDetector.
+        """
+        gaps_md = ""
+        for category, items in improvement_gaps.items():
+            if isinstance(items, list):
+                gaps_md += f"\n**{category}**\n" + "\n".join(f"- {i}" for i in items[:5])
+            else:
+                gaps_md += f"\n**{category}**: {items}"
+
+        tech_section = ""
+        if tech_hints:
+            tech_section = "\nTechnology context: " + "; ".join(tech_hints[:3])
+
+        system = (
+            "You are a technical product manager. Generate a concise ROADMAP.md with three sections: "
+            "'## Current Focus', '## Near-term (next 3 cycles)', '## Future'. "
+            "Each section should have 3-7 bullet points. Be specific and actionable. "
+            "Output ONLY the markdown content."
+        )
+        user = (
+            f"Project: {project_name}{tech_section}\n\n"
+            f"Identified improvement gaps:{gaps_md}\n\n"
+            "Generate the ROADMAP.md content now."
+        )
+        return system, user
+
+    @staticmethod
+    def readme_summary_update_prompt(
+        existing_readme: str,
+        cycle_summary: str,
+    ) -> Tuple[str, str]:
+        """Returns (system, user) to update the '## Last Auto-Update' section in README.
+
+        Args:
+            existing_readme: Current README.md content.
+            cycle_summary: Compact summary of what changed in the current auto-cycle.
+        """
+        system = (
+            "You are a documentation assistant. You will receive a README.md and a cycle summary. "
+            "Return the complete README with the '## Last Auto-Update' section at the very end "
+            "replaced (or appended if absent) with the provided cycle summary. "
+            "Do NOT modify any other section. Output ONLY the full README content."
+        )
+        user = (
+            f"CYCLE SUMMARY:\n{cycle_summary}\n\n"
+            f"EXISTING README:\n{existing_readme[:3000]}\n\n"
+            "Return the updated README now."
+        )
+        return system, user

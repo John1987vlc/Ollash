@@ -20,6 +20,24 @@
 *   **Enhanced Monitoring**: Timed logs with Heartbeat system to ensure the agent is active during long reasoning tasks.
 *   **Semantic Integrity**: Advanced JavaScript and Python validation with cross-file consistency checks.
 
+## v1.5.0 — Agentic Auto Mode Improvements
+
+Nine targeted enhancements that make the hourly automation cycle truly autonomous, safe, and differential:
+
+| # | Enhancement | Description |
+|---|---|---|
+| E1 | **Incremental Differential Analysis** | Hash-based file tracking — only re-analyzes changed files each cycle (Phase 0.5) |
+| E2 | **Auto Tech Stack Detection** | Parses `requirements.txt`, `package.json`, `pyproject.toml` etc. to inject framework-aware prompt hints |
+| E3 | **Auto Quality Monitoring** | Test + linter gate after every improvement loop; auto-heal sub-loop (up to 3 attempts) before proceeding |
+| E4 | **Risk-Based Prioritization** | VulnerabilityScanner results feed into improvement suggestions — critical CVEs fixed first |
+| E5 | **Git Event Trigger** | Background daemon polls `git diff --numstat`; reschedules the next automation run immediately on external changes |
+| E6 | **Execution History Persistence** | Full Pydantic-modelled execution history (last 50 runs) stored in `tasks.json`; previous errors surfaced at cycle start |
+| E7 | **Dynamic Documentation** | Phase 7.5 auto-generates CHANGELOG.md, ROADMAP.md, and refreshes `## Last Auto-Update` in README after each cycle |
+| E8 | **File Locking** | `LockedFileManager` replaces `FileManager` — per-path `threading.Lock` + `asyncio.Lock` prevent concurrent write corruption |
+| E9 | **Sandbox Validation** | `SandboxValidator` runs syntax check (and optional Docker compile) before writing; invalid files saved as `.candidate` |
+
+---
+
 ## 🛠️ Installation
 
 1.  **Clone the repository:**
@@ -63,6 +81,18 @@ Ollash uses a modular "Phase" architecture for its AutoAgent:
 - **Phase 4.0: Sniper Execution**: Sequential micro-task implementation with CoT and Auto-Healing.
 - **Phase 5.2: Semantic Optimization**: Cross-file DOM and functional coherence.
 - **Phase 7.0: Continuous Maintenance**: Background audit loops and auto-improvement.
+
+### v1.5.0 Agentic Auto Mode
+
+*   **Differential Analysis (`E1`)**: `AnalysisStateManager` saves an MD5 snapshot after each run. Subsequent runs skip unchanged files — full re-analysis only when the cache is cold or the project changes significantly.
+*   **Tech Stack Detection (`E2`)**: `TechStackDetector` inspects manifest files and injects framework-specific prompt hints (e.g. `"Flask 2.3 — use Blueprints, application factory"`).
+*   **Quality Gate + Auto-Heal (`E3`)**: After every improvement iteration, `QualityGate` runs tests and linter. Up to 3 heal iterations attempt to fix failures before the pipeline continues.
+*   **Risk-Based Improvement (`E4`)**: `VulnerabilityScanner` results are ranked and prepended to improvement suggestions so security issues are addressed first.
+*   **Git Event Trigger (`E5`)**: `GitChangeTrigger` runs as a daemon thread. When a developer pushes externally, the next hourly run is rescheduled to execute immediately.
+*   **Execution History (`E6`)**: `AutomationManager` persists the last 50 `ExecutionRecord` entries per task; the agent reads previous errors at startup for contextual continuity.
+*   **Dynamic Documentation (`E7`)**: New `DynamicDocumentationPhase` (7.5) auto-generates CHANGELOG.md, ROADMAP.md, and updates the README after each cycle using low-temperature LLM prompts.
+*   **Concurrency Safety (`E8`)**: `LockedFileManager` extends `FileManager` with per-path `threading.Lock` and `asyncio.Lock` so background automation threads and async agent phases never corrupt shared files.
+*   **Sandbox Validation (`E9`)**: `SandboxValidator` runs a subprocess syntax check (and Docker compile for Python) before committing any generated file to disk; rejected content is saved as `.candidate` for review.
 
 ### v1.4.0 Surgical Integrity & YAML Refactor
 

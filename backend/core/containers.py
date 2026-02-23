@@ -16,6 +16,7 @@ from backend.agents.auto_agent_phases.file_content_generation_phase import FileC
 from backend.agents.auto_agent_phases.file_refinement_phase import FileRefinementPhase
 from backend.agents.auto_agent_phases.final_review_phase import FinalReviewPhase
 from backend.agents.auto_agent_phases.infrastructure_generation_phase import InfrastructureGenerationPhase
+from backend.agents.auto_agent_phases.dynamic_documentation_phase import DynamicDocumentationPhase
 from backend.agents.auto_agent_phases.iterative_improvement_phase import IterativeImprovementPhase
 from backend.agents.auto_agent_phases.javascript_optimization_phase import JavaScriptOptimizationPhase
 from backend.agents.auto_agent_phases.license_compliance_phase import LicenseCompliancePhase
@@ -455,6 +456,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         providers.Factory(CICDHealingPhase, context=phase_context),
         providers.Factory(DocumentationDeployPhase, context=phase_context),
         providers.Factory(IterativeImprovementPhase, context=phase_context),
+        providers.Factory(DynamicDocumentationPhase, context=phase_context),
         providers.Factory(ContentCompletenessPhase, context=phase_context),
         providers.Factory(SeniorReviewPhase, context=phase_context),
     )

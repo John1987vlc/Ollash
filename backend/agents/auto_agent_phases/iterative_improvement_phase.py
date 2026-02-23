@@ -172,12 +172,17 @@ class IterativeImprovementPhase(IAgentPhase):
                         refined = self.context.file_refiner.refine_file(rel_path, content, readme_content[:1000])
                         if refined:
                             generated_files[rel_path] = refined
-                            self.context.file_manager.write_file(project_root / rel_path, refined)
+                            vresult = self._validated_write(project_root / rel_path, refined)
+                            if not vresult.approved:
+                                self.context.logger.warning(
+                                    f"    SandboxValidator rejected {rel_path}: {vresult.reason}. "
+                                    f"Candidate saved at {vresult.candidate_path}"
+                                )
                             self.context.event_publisher.publish(
                                 "tool_output",
                                 tool_name="file_refinement",
                                 file=rel_path,
-                                status="success",
+                                status="success" if vresult.approved else "candidate",
                             )
                         else:
                             self.context.event_publisher.publish(
@@ -357,3 +362,32 @@ class IterativeImprovementPhase(IAgentPhase):
         py_count = sum(1 for p in files if p.endswith(".py"))
         js_count = sum(1 for p in files if p.endswith((".js", ".ts")))
         return "python" if py_count >= js_count else "javascript"
+
+    # ------------------------------------------------------------------
+    # E9: Sandbox-validated write helper
+    # ------------------------------------------------------------------
+
+    def _validated_write(self, file_path: Path, content: str):
+        """Write *content* to *file_path* via SandboxValidator (lazy init).
+
+        Falls back to a direct write if the validator cannot be imported so
+        the pipeline never breaks due to E9 issues.
+        """
+        try:
+            from backend.utils.domains.auto_generation.sandbox_validator import SandboxValidator
+
+            # Lazily cache the validator on the context to avoid re-instantiation
+            if self.context._sandbox_validator is None:
+                self.context._sandbox_validator = SandboxValidator(logger=self.context.logger)
+            return self.context._sandbox_validator.validate_and_write(
+                file_path, content, self.context.file_manager
+            )
+        except Exception as exc:
+            self.context.logger.warning(
+                f"  SandboxValidator unavailable, writing directly: {exc}"
+            )
+            self.context.file_manager.write_file(file_path, content)
+            # Return a minimal approved result so callers don't need to handle None
+            from backend.utils.domains.auto_generation.sandbox_validator import ValidationResult
+
+            return ValidationResult(approved=True, reason="fallback write")

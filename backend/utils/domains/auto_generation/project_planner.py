@@ -1,3 +1,5 @@
+from typing import Any, Dict, List, Optional
+
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.llm.ollama_client import OllamaClient
 
@@ -11,6 +13,13 @@ class ProjectPlanner:
         "num_ctx": 4096,
         "num_predict": 2048,
         "temperature": 0.4,
+        "keep_alive": "0s",
+    }
+
+    DOC_OPTIONS = {
+        "num_ctx": 4096,
+        "num_predict": 1024,
+        "temperature": 0.3,
         "keep_alive": "0s",
     }
 
@@ -39,4 +48,108 @@ class ProjectPlanner:
         )
         content = response_data["message"]["content"]
         self.logger.info(f"README generated: {len(content)} characters")
+        return content
+
+    # ------------------------------------------------------------------
+    # E7: Dynamic documentation helpers
+    # ------------------------------------------------------------------
+
+    def generate_changelog_entry(
+        self,
+        project_name: str,
+        changes: List[str],
+        version: str = "",
+    ) -> str:
+        """Generate a Keep-a-Changelog formatted entry for the current auto-cycle.
+
+        Args:
+            project_name: Name of the project.
+            changes: List of human-readable change descriptions.
+            version: Optional semantic version tag (e.g. "1.2.0"); uses date if empty.
+
+        Returns:
+            Markdown string for a single changelog entry block.
+        """
+        system, user = AutoGenPrompts.changelog_entry_prompt(
+            project_name=project_name,
+            changes=changes,
+            version=version,
+        )
+        response_data, _ = self.llm_client.chat(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            tools=[],
+            options_override=self.DOC_OPTIONS,
+        )
+        content = response_data["message"]["content"]
+        self.logger.info(f"Changelog entry generated: {len(content)} chars")
+        return content
+
+    def generate_roadmap(
+        self,
+        project_name: str,
+        improvement_gaps: Dict[str, Any],
+        tech_stack_info: Optional[Any] = None,
+    ) -> str:
+        """Generate a ROADMAP.md based on current improvement gaps and tech stack.
+
+        Args:
+            project_name: Name of the project.
+            improvement_gaps: Dict of identified gaps from ProjectAnalysisPhase.
+            tech_stack_info: Optional TechStackInfo for technology-specific hints.
+
+        Returns:
+            Full ROADMAP.md content as a markdown string.
+        """
+        tech_hints: List[str] = []
+        if tech_stack_info is not None and hasattr(tech_stack_info, "prompt_hints"):
+            tech_hints = tech_stack_info.prompt_hints or []
+
+        system, user = AutoGenPrompts.roadmap_prompt(
+            project_name=project_name,
+            improvement_gaps=improvement_gaps,
+            tech_hints=tech_hints,
+        )
+        response_data, _ = self.llm_client.chat(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            tools=[],
+            options_override=self.DOC_OPTIONS,
+        )
+        content = response_data["message"]["content"]
+        self.logger.info(f"Roadmap generated: {len(content)} chars")
+        return content
+
+    def update_readme_summary(
+        self,
+        existing_readme: str,
+        cycle_summary: str,
+    ) -> str:
+        """Append or replace the '## Last Auto-Update' section in README.md.
+
+        Args:
+            existing_readme: Current README.md content.
+            cycle_summary: Compact summary of what the current auto-cycle changed.
+
+        Returns:
+            Updated README.md content with refreshed auto-update section.
+        """
+        system, user = AutoGenPrompts.readme_summary_update_prompt(
+            existing_readme=existing_readme,
+            cycle_summary=cycle_summary,
+        )
+        response_data, _ = self.llm_client.chat(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            tools=[],
+            options_override=self.DOC_OPTIONS,
+        )
+        content = response_data["message"]["content"]
+        self.logger.info("README Last Auto-Update section refreshed")
         return content
