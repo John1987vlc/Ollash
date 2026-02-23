@@ -30,6 +30,10 @@ window.ChatPageModule = (function() {
         promptLibraryPanel = document.getElementById('prompt-library-modal');
         promptCatBtns = document.querySelectorAll('.prompt-cat-btn');
         
+        toolboxContent = document.getElementById('toolbox-content');
+        toolboxTotalCount = document.getElementById('toolbox-total-count');
+        toolboxSearchInput = document.getElementById('toolbox-search-input');
+        
         // Attachments
         const fileInput = document.getElementById('chat-file-input');
         const previewContainer = document.getElementById('chat-attachment-preview');
