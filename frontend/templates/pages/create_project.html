@@ -1,59 +1,6 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/wizard.css') }}">
-<style>
-    .phase-pipeline {
-        margin-top: 30px;
-        display: none;
-        background: rgba(15, 23, 42, 0.4);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        padding: 25px;
-    }
-    .phase-pipeline.active { display: block; }
-    .phase-steps {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 15px;
-        justify-content: center;
-    }
-    .phase-step {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 120px;
-        opacity: 0.3;
-        transition: all 0.3s;
-        text-align: center;
-    }
-    .phase-step.active { opacity: 1; transform: scale(1.1); }
-    .phase-step.completed { opacity: 0.7; }
-    .phase-icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 8px;
-        border: 2px solid transparent;
-    }
-    .phase-step.active .phase-icon {
-        background: var(--accent-primary);
-        box-shadow: 0 0 15px var(--accent-primary);
-        animation: pulse 2s infinite;
-    }
-    .phase-step.completed .phase-icon {
-        background: #10b981;
-        color: white;
-    }
-    .phase-label { font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); }
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/create-project.css') }}">
 {% endblock %}
 
 <div class="view" id="create-view">
@@ -150,6 +97,16 @@
                             <label for="git-repo-url">Git Repository URL</label>
                             <input type="url" id="git-repo-url" name="git_repo_url" placeholder="https://github.com/usuario/mi-proyecto.git">
                         </div>
+                        <div class="form-group toggle-group">
+                            <div>
+                                <label style="margin-bottom: 0;">Auto-create repository if it doesn't exist</label>
+                                <p class="help-text" style="font-size: 0.75rem; margin-top: 4px;">Ollash will create a new private repository on your GitHub account.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="git-auto-create" name="git_auto_create">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
                         <div class="form-group">
                             <label for="git-token">
                                 Git Access Token (PAT)
@@ -163,13 +120,20 @@
                         </div>
                         <div class="form-group toggle-group" id="auto-improve-group" style="opacity: 0.5; pointer-events: none;">
                             <div>
-                                <label style="margin-bottom: 0;">Habilitar Mejora Continua (Auto-Review)</label>
-                                <p class="help-text" style="font-size: 0.75rem; margin-top: 4px;">El agente revisará el repositorio cada hora, buscará bugs o áreas de mejora, y generará Pull Requests automáticamente.</p>
+                                <label style="margin-bottom: 0;">Enable Continuous Maintenance (Auto-Review)</label>
+                                <p class="help-text" style="font-size: 0.75rem; margin-top: 4px;">The agent will periodically audit the repository for bugs and improvements.</p>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" id="auto-improve-enabled" name="auto_improve_enabled">
                                 <span class="slider round"></span>
                             </label>
+                        </div>
+                        <div class="form-group" id="maintenance-interval-group" style="display: none; margin-left: 20px; border-left: 2px solid var(--border-color); padding-left: 15px;">
+                            <label for="maintenance-interval">Audit Interval (Hours)</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="number" id="maintenance-interval" name="maintenance_interval" value="1" min="1" max="24" class="form-control" style="width: 80px;">
+                                <span class="help-text">1 - 24 hours</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -201,18 +165,6 @@
 
         <!-- Agile Kanban Board (Hidden by default) -->
         <div id="kanban-board" class="kanban-board" style="display: none; margin-top: 30px;">
-            <style>
-                .kanban-board { display: flex; gap: 15px; margin-bottom: 25px; height: 350px; }
-                .kanban-column { flex: 1; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
-                .kanban-header { padding: 10px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; }
-                .kanban-header h3 { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; margin: 0; }
-                .kanban-tasks { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-                .kanban-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-left: 3px solid #64748b; border-radius: 4px; padding: 10px; font-size: 0.8rem; transition: all 0.3s ease; }
-                .kanban-card.in_progress { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
-                .kanban-card.done { border-left-color: #10b981; opacity: 0.6; }
-                .kanban-card h4 { margin: 0 0 5px 0; font-size: 0.8rem; color: #f8fafc; }
-                .kanban-card p { margin: 0; font-size: 0.7rem; color: #94a3b8; }
-            </style>
             <div class="kanban-column" id="col-todo">
                 <div class="kanban-header"><h3>Todo <span id="count-todo">(0)</span></h3></div>
                 <div class="kanban-tasks" id="tasks-todo"></div>
@@ -286,38 +238,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pages/wizard.js') }}"></script>
-<script>
-    window.KanbanBoard = (function() {
-        function updateCounters() {
-            ['todo', 'in_progress', 'done'].forEach(s => {
-                const count = document.getElementById(`tasks-${s}`).children.length;
-                document.getElementById(`count-${s}`).textContent = `(${count})`;
-            });
-        }
-        return {
-            initBacklog: (tasks) => {
-                const board = document.getElementById('kanban-board');
-                if (board) board.style.display = 'flex';
-                ['todo', 'in_progress', 'done'].forEach(s => document.getElementById(`tasks-${s}`).innerHTML = '');
-                tasks.forEach(t => {
-                    const card = document.createElement('div');
-                    card.className = `kanban-card todo`;
-                    card.id = `task-card-${t.id}`;
-                    card.innerHTML = `<h4>${t.title}</h4><p>${t.description || ''}</p>`;
-                    document.getElementById('tasks-todo').appendChild(card);
-                });
-                updateCounters();
-            },
-            moveTask: (id, status) => {
-                const card = document.getElementById(`task-card-${id}`);
-                const dest = document.getElementById(`tasks-${status}`);
-                if (card && dest) {
-                    card.className = `kanban-card ${status}`;
-                    dest.appendChild(card);
-                    updateCounters();
-                }
-            }
-        };
-    })();
-</script>
+<script src="{{ url_for('static', filename='js/pages/create-project.js') }}"></script>
 {% endblock %}

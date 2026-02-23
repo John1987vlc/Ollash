@@ -77,6 +77,105 @@ class GitPRTool:
         return self.git.push("origin", branch)
 
     # ------------------------------------------------------------------
+    # Issues
+    # ------------------------------------------------------------------
+
+    def create_issue(self, title: str, body: str, labels: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Create a GitHub Issue via ``gh issue create``."""
+        cmd = ["gh", "issue", "create", "--title", title, "--body", body]
+        if labels:
+            for label in labels:
+                cmd.extend(["--label", label])
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=self.git.repo_path,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                issue_url = result.stdout.strip()
+                issue_number = None
+                if "/" in issue_url:
+                    try:
+                        issue_number = int(issue_url.rstrip("/").split("/")[-1])
+                    except ValueError:
+                        pass
+                self.logger.info(f"Issue created: {issue_url}")
+                return {"success": True, "url": issue_url, "number": issue_number}
+            else:
+                error = result.stderr.strip()
+                self.logger.error(f"Issue creation failed: {error}")
+                return {"success": False, "error": error}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def update_issue_body(self, issue_number: int, body: str) -> Dict[str, Any]:
+        """Update the body of an existing GitHub Issue."""
+        try:
+            result = subprocess.run(
+                ["gh", "issue", "edit", str(issue_number), "--body", body],
+                capture_output=True,
+                text=True,
+                cwd=self.git.repo_path,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                self.logger.info(f"Issue #{issue_number} updated")
+                return {"success": True}
+            else:
+                error = result.stderr.strip()
+                self.logger.error(f"Issue update failed: {error}")
+                return {"success": False, "error": error}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def create_remote_repository(self, name: str, private: bool = True, org: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new GitHub repository via ``gh repo create``."""
+        repo_path = f"{org}/{name}" if org else name
+        visibility = "--private" if private else "--public"
+        cmd = ["gh", "repo", "create", repo_path, visibility, "--confirm"]
+        
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=self.git.repo_path,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                url = result.stdout.strip()
+                self.logger.info(f"Repository created: {url}")
+                return {"success": True, "url": url}
+            else:
+                error = result.stderr.strip()
+                # If already exists, we consider it a success for the "create if not exists" logic
+                if "already exists" in error.lower():
+                    self.logger.info(f"Repository {repo_path} already exists.")
+                    return {"success": True, "already_exists": True}
+                self.logger.error(f"Repository creation failed: {error}")
+                return {"success": False, "error": error}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def create_tag(self, tag_name: str, message: str) -> Dict[str, Any]:
+        """Create and push a git tag."""
+        try:
+            # Create local tag
+            res = subprocess.run(["git", "tag", "-a", tag_name, "-m", message], cwd=self.git.repo_path, capture_output=True, text=True)
+            if res.returncode != 0:
+                return {"success": False, "error": res.stderr.strip()}
+            
+            # Push tag to origin
+            res = subprocess.run(["git", "push", "origin", tag_name], cwd=self.git.repo_path, capture_output=True, text=True)
+            return {"success": res.returncode == 0, "error": res.stderr.strip() if res.returncode != 0 else None}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    # ------------------------------------------------------------------
     # Pull Request
     # ------------------------------------------------------------------
 
@@ -164,6 +263,28 @@ class GitPRTool:
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def get_pr_status(self, pr_number: int) -> Dict[str, Any]:
+        """Get the status of a PR (state, mergeable, checks)."""
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "view", str(pr_number), "--json", "state,mergeable,statusCheckRollup"],
+                capture_output=True,
+                text=True,
+                cwd=self.git.repo_path,
+                timeout=15,
+            )
+            if result.returncode == 0:
+                import json
+                return json.loads(result.stdout)
+        except Exception as e:
+            self.logger.warning(f"Could not get PR status for #{pr_number}: {e}")
+        return {}
+
+    def is_merge_permitted(self, policy_manager: Any) -> bool:
+        """Check if 'merge' action is permitted by policy."""
+        # Simple check for 'git merge' or a custom 'merge' policy
+        return policy_manager.is_command_allowed("gh pr merge", ["--squash"])
 
     # ------------------------------------------------------------------
     # Full workflow

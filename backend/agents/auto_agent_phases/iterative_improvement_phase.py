@@ -35,7 +35,9 @@ class IterativeImprovementPhase(IAgentPhase):
                 message=f"Starting iterative improvement loops ({num_refine_loops} loops)",
             )
             for loop_num in range(num_refine_loops):
-                self.context.logger.info(f"PHASE 7: Iteration {loop_num + 1}/{num_refine_loops}")
+                is_maintenance = kwargs.get("maintenance_mode", False)
+                mode_str = "AUDIT" if is_maintenance else "REFINEMENT"
+                self.context.logger.info(f"PHASE 7: {mode_str} Iteration {loop_num + 1}/{num_refine_loops}")
                 self.context.event_publisher.publish("iteration_start", phase="7", iteration=loop_num + 1)
 
                 # 1. Suggest improvements
@@ -44,6 +46,8 @@ class IterativeImprovementPhase(IAgentPhase):
                     tool_name="suggest_improvements",
                     iteration=loop_num + 1,
                 )
+                
+                # If maintenance, we could use a different prompt or logic here
                 suggestions = self.context.improvement_suggester.suggest_improvements(
                     project_description,
                     readme_content,

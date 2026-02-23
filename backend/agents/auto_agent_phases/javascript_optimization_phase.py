@@ -50,7 +50,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
     async def _optimize_html_js_integration(self, html: str, js_files: Dict[str, str], all_files: Dict[str, str], root: Path) -> Dict[str, str]:
         """Ensures index.html has the necessary IDs and script tags."""
         self.context.logger.info("  Checking HTML-JS DOM coherence...")
-        
+
         # Find all document.getElementById calls in all JS files
         required_ids = set()
         for content in js_files.values():
@@ -59,16 +59,16 @@ class JavaScriptOptimizationPhase(IAgentPhase):
             required_ids.update(ids)
 
         missing_ids = [id for id in required_ids if f'id="{id}"' not in html and f"id='{id}'" not in html]
-        
+
         if missing_ids:
             self.context.logger.warning(f"    Found {len(missing_ids)} missing IDs in HTML: {missing_ids}")
             # Request LLM to fix index.html
             fix_prompt = (f"The following IDs are required by JavaScript but missing in HTML: {missing_ids}. "
                           f"Please update the HTML structure to include these IDs logically.")
-            
+
             # Simplified fix call (would normally use a specialized method)
             system = "You are a web developer. Fix HTML to match JS requirements. Return ONLY the full corrected HTML code."
-            response, _ = await self.context.llm_manager.get_client("coder").chat(
+            response, _ = self.context.llm_manager.get_client("coder").chat(
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": f"HTML:\n{html}\n\nTask: {fix_prompt}"}
@@ -87,30 +87,30 @@ class JavaScriptOptimizationPhase(IAgentPhase):
         """Ensures functions called in one file exist in another."""
         # This is a complex check, we'll use a specific LLM overview
         self.context.logger.info("  Checking Cross-JS functional coherence...")
-        
+
         # Use a list comprehension and join to build the summary
         file_summaries = [f"--- FILE: {p} ---\n{c[:1000]}" for p, c in js_files.items()]
         project_summary = "\n".join(file_summaries)
-        
+
         system = ("You are a lead developer. Review the interaction between these JavaScript files. "
                   "Look for mismatched function names, missing exports, or logical disconnects. "
                   "If you find an error, provide a FIX for the specific file. Respond in XML <fix file='path'>code</fix> format.")
-        
-        response, _ = await self.context.llm_manager.get_client("coder").chat(
+
+        response, _ = self.context.llm_manager.get_client("coder").chat(
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": f"JS Files Overview:\n{project_summary}"}
             ]
         )
-        
+
         raw_res = response.get("content", "")
         # Robust regex for fix extraction
         fixes = re.findall(r'''<fix file=['"]([^'"]+)['"]>([\s\S]*?)</fix>''', raw_res)
-        
+
         for file_path, corrected_code in fixes:
             if file_path in all_files:
                 self.context.logger.info(f"    Applied cross-file fix to {file_path}")
                 all_files[file_path] = corrected_code.strip()
                 self.context.file_manager.write_file(root / file_path, corrected_code.strip())
-                
+
         return all_files

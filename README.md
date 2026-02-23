@@ -2,22 +2,21 @@
 
 **Ollash** is an advanced AI-powered IT assistant designed to run locally using Ollama. It orchestrates specialized agents to handle coding, system administration, cybersecurity, and network tasks autonomously.
 
-## Key Features
+## 🚀 Key Features
 
 *   **Autonomous Project Generation**: From concept to full codebase (frontend, backend, tests) with self-reflection.
-*   **Specialist Swarm**: 5 specialized agents (Orchestrator, Coder, SysAdmin, NetSec, Reviewer) working in concert.
-*   **Semantic Integrity**: Advanced JavaScript validation and logical consistency checks.
-*   **Multimodal Interface**: Voice commands and OCR text extraction.
-*   **Visual Intelligence**:
-    *   **Brain View**: Explore decision history and knowledge graphs visually.
-    *   **Time Machine**: Checkpoint timeline for project restoration.
-    *   **Pair Programming**: Split-view editor with AI ghostwriter.
-*   **Advanced Tooling**:
-    *   **Floating Terminal**: Integrated Xterm.js console with autocomplete.
-    *   **Visual Structure Editor**: Drag-and-drop project scaffolding.
-    *   **Integrations Panel**: IFTTT-style automation triggers.
+*   **Specialist Swarm**: 5 specialized agents (Orchestrator, Coder, SysAdmin, NetSec, Secretary) working in concert.
+*   **Continuous Maintenance (New)**: Scheduled audits (1-24h) to keep projects bug-free and optimized autonomously.
+*   **OLLASH.md Manifest (New)**: Persistent "Project Brain" that syncs state directly to `main` for seamless session resumes.
+*   **DevOps Standards (New)**: 
+    *   **Semantic Versioning**: Automatic tagging (v0.1.X) based on progress.
+    *   **Conventional Commits**: Standardized history (feat, fix, chore, docs).
+    *   **Automated CI/CD**: Automatic generation of GitHub Actions (`ci.yml`) for testing and linting.
+*   **Infrastructure Automation (New)**: Auto-creation of GitHub repositories and milestone tagging.
+*   **Enhanced Monitoring (New)**: Timed logs with Heartbeat system to ensure the agent is active during long reasoning tasks.
+*   **Semantic Integrity**: Advanced JavaScript and Python validation with cross-file consistency checks.
 
-## Installation
+## 🛠️ Installation
 
 1.  **Clone the repository:**
     ```bash
@@ -41,7 +40,7 @@
     ```
     Access the UI at `http://localhost:5000`.
 
-## Testing
+## 🧪 Testing
 
 ```bash
 # Unit tests (parallel, fast)
@@ -55,77 +54,29 @@ make test-e2e
 
 # Full suite
 make test
-
-# Coverage report (generates htmlcov/index.html)
-make coverage
 ```
 
-## Code Quality
+## 📐 Architecture
 
-```bash
-# Lint + format check
-make lint
+Ollash uses a modular "Phase" architecture for its AutoAgent:
+- **Phase 0.5: Project Analysis**: Technical stack and requirement gathering.
+- **Phase 1.0: Vision (README)**: Drafting the project soul with the Secretary.
+- **Phase 2.5: Tactical Planning**: Logic plans and Agile Backlog with Issue linking.
+- **Phase 4.0: Sniper Execution**: Sequential micro-task implementation with CoT verification.
+- **Phase 5.2: Semantic Optimization**: Cross-file DOM and functional coherence.
+- **Phase 7.0: Continuous Maintenance**: Background audit loops and auto-improvement.
 
-# Auto-fix formatting
-make format
+### v1.3.0 DevOps & Stability Refactor
 
-# Security scan (bandit + safety)
-make security
-```
+*   **`OLLASH.md` Manifest**: Implementation of a high-priority sync loop that keeps the `main` branch updated with the latest project state.
+*   **Secretary Agent**: A specialized `writer` agent that manages professional English communications, PR descriptions, and Conventional Commit messages.
+*   **Robust JSON Parsing**: Improved parser with trailing-comma correction and aggressive heuristic recovery for Small Language Models.
+*   **Validation Relaxing**: Python validator now ignores `import-error` during generation to allow for sequential building.
 
-## Architecture
-
-Ollash uses a modular "Phase" architecture for its AutoAgent, allowing for flexible pipelines:
-- **Analysis & Planning**: Requirements gathering and architecture design.
-- **Generation**: Parallel code generation with CoT (Chain of Thought) verification.
-- **Refinement & Repair**: Recursive self-correction loops.
-- **Optimization**: Cross-file semantic consistency checks.
-
-### v1.2.0 Frontend Architecture
-
-The frontend has been refactored to a component-based architecture:
-
-- **`frontend/static/js/core/store.js`** — Centralized pub/sub state management (replaces window globals).
-- **`frontend/static/js/core/theme-manager.js`** — Dynamic dark/light theme switcher with CSS variable integration.
-- **`frontend/static/js/components/`** — Reusable UI components: `modal-manager.js`, `confirm-dialog.js`, `notification-toast.js`.
-- **`frontend/schemas/`** — Pydantic v2 request schemas for blueprint API validation.
-- **`package.json` + `vite.config.js`** — Optional Vite bundling (activate with `USE_VITE_ASSETS=true` in `.env`).
-
-### v1.2.1 Backend Modularization
-
-`CoreAgent` was refactored from 768 to ~350 lines by extracting two new focused modules:
-
-| New module | Responsibility |
-|---|---|
-| `backend/core/language_standards.py` | `frozenset` constants for Python stdlib, Node builtins, Go stdlib, and import-to-package mappings. Single source of truth shared by agents and scanners. |
-| `backend/utils/core/analysis/scanners/dependency_reconciler.py` | `DependencyReconciler` — reconciles `requirements.txt`, `package.json`, `go.mod`, and `Cargo.toml` with actual imports. Extracted from `CoreAgent`. |
-
-`CoreAgent` now imports language constants from `language_standards` and delegates all reconciliation to `DependencyReconciler`, keeping the base class focused on its abstract agent contract.
-
-**Bug fixes (CI/CD):**
-- `JavaScriptOptimizationPhase`: added missing `await` on async `.chat()` calls (caused `TypeError` on Python 3.11).
-- `JavascriptValidator`: extended poker-function regex to match ES6 class method syntax (`shuffle() {}`).`
-
-### CI/CD Pipeline
-
-The GitHub Actions pipeline runs jobs in parallel for minimal wall-clock time:
-
-```
-push / PR
-  ├── lint          (parallel, immediate)
-  ├── unit-tests    (parallel, immediate — matrix: py3.10 + py3.11)
-  └── security      (parallel, immediate, informational)
-        ↓ (when unit-tests passes)
-        ├── integration-tests  (parallel)
-        └── e2e-tests          (parallel)
-```
-
-Concurrent runs on the same branch are cancelled automatically.
-
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please read `CONTRIBUTING.md` for details on our code of conduct and the process for submitting pull requests.
 
-## License
+## 📄 License
 
 MIT License

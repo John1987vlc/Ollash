@@ -7,7 +7,8 @@ import subprocess
 import threading
 import zipfile
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
+from urllib.parse import urlparse
 
 from flask import Blueprint, Response, jsonify, request, send_file, stream_with_context
 
@@ -23,6 +24,33 @@ from backend.utils.core.tools.git_pr_tool import GitPRTool
 from backend.utils.core.system.task_scheduler import get_scheduler
 
 auto_agent_bp = Blueprint("auto_agent", __name__)
+
+
+def _parse_git_url(git_repo_url: str) -> Tuple[str, str]:
+    """Parse a Git remote URL and return ``(organization, repo_name)``.
+
+    Examples::
+
+        >>> _parse_git_url("https://github.com/my-org/my-repo.git")
+        ('my-org', 'my-repo')
+        >>> _parse_git_url("https://github.com/my-repo.git")
+        ('', 'my-repo')
+        >>> _parse_git_url("")
+        ('', '')
+    """
+    if not git_repo_url:
+        return "", ""
+    parsed = urlparse(git_repo_url)
+    parts = [p for p in parsed.path.strip("/").split("/") if p]
+    # Strip .git suffix from the last segment
+    if parts:
+        parts[-1] = parts[-1].removesuffix(".git")
+    if len(parts) >= 2:
+        return parts[-2], parts[-1]
+    if len(parts) == 1:
+        return "", parts[0]
+    return "", ""
+
 
 # Globals for shared services
 _ollash_root_dir: Path = None
@@ -87,7 +115,7 @@ def generate_project_structure():
         )
     except Exception as e:
         # Log the exception using the agent's logger if possible, otherwise a default logger
-        logger = main_container.core.logger()
+        logger = main_container.core.logging.logger()
         logger.error(
             f"[PROJECT_STATUS] Error generating structure for '{project_name}': {e}",
             exc_info=True,
@@ -120,6 +148,24 @@ def create_project():
 
             agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' generation starting in background.")
 
+            # --- Git parameter resolution ---
+            # Parse the pre-created repo URL (if provided) to extract org + repo name.
+            # The wizard sends git_push=true when a URL is filled, but we also
+            # auto-enable push here as a safety net so the backend is not solely
+            # reliant on the client-side flag.
+            git_repo_url = request.form.get("git_repo_url", "").strip()
+            _git_org_from_url, _repo_name_from_url = _parse_git_url(git_repo_url)
+
+            git_push = request.form.get("git_push") == "true" or bool(git_repo_url)
+            repo_name = (
+                request.form.get("repo_name", "").strip()
+                or _repo_name_from_url
+                or project_name
+            )
+            git_organization = (
+                request.form.get("git_organization", "").strip() or _git_org_from_url
+            )
+
             run_kwargs = {
                 "project_description": project_description,
                 "project_name": project_name,
@@ -129,10 +175,13 @@ def create_project():
                 "include_docker": request.form.get("include_docker") == "true",
                 "num_refine_loops": int(request.form.get("num_refine_loops", 0)),
                 # Git & CI/CD options
-                "git_push": request.form.get("git_push") == "true",
+                "git_push": git_push,
                 "git_token": request.form.get("git_token", ""),
-                "repo_name": request.form.get("repo_name", project_name),
-                "git_organization": request.form.get("git_organization", ""),
+                "git_repo_url": git_repo_url,
+                "repo_name": repo_name,
+                "git_organization": git_organization,
+                "git_branch": request.form.get("git_branch", "main"),
+                "git_auto_create": request.form.get("git_auto_create") == "true",
                 # Feature flags
                 "senior_review_as_pr": request.form.get("senior_review_as_pr") == "true",
                 "enable_github_wiki": request.form.get("enable_github_wiki") == "true",
@@ -143,33 +192,39 @@ def create_project():
             project_root = agent.run(**run_kwargs)
 
             # Schedule autonomous maintenance if requested
-            if request.form.get("enable_hourly_pr") == "true":
+            maintenance_enabled = request.form.get("maintenance_enabled") == "true"
+            maintenance_interval = int(request.form.get("maintenance_interval", 1))
+
+            if maintenance_enabled:
                 try:
-                    from backend.utils.core.system.autonomous_maintenance import AutonomousMaintenanceTask
-                    from backend.utils.core.system.agent_logger import AgentLogger
+                    scheduler = get_scheduler()
+                    
+                    async def maintenance_callback(tid, tdata):
+                        agent.logger.info(f"⏰ Web-initiated maintenance cycle started for '{project_name}'")
+                        agent.run(
+                            project_description=project_description,
+                            project_name=project_name,
+                            num_refine_loops=1,
+                            maintenance_mode=True,
+                            github_integration=True,
+                            github_token=run_kwargs.get("git_token")
+                        )
 
-                    maint_logger = AgentLogger(f"Maint-{project_name}")
-                    maint_task = AutonomousMaintenanceTask(
-                        project_root=project_root, agent_logger=maint_logger, event_publisher=_event_publisher
-                    )
-
-                    # Register the task with the scheduler
-                    # Note: AutonomousMaintenanceTask.register expects an automation_manager
-                    # but it seems it just needs something with a .scheduler property.
-                    # We can pass an object that has the scheduler.
-                    class SimpleAutomationManager:
-                        def __init__(self, scheduler):
-                            self.scheduler = scheduler
-
-                    maint_task.register(SimpleAutomationManager(get_scheduler().scheduler))
-                    agent.logger.info(f"[PROJECT_STATUS] Autonomous maintenance scheduled for '{project_name}'.")
+                    scheduler.set_callback(maintenance_callback)
+                    scheduler.schedule_task(f"maint_{project_name}", {
+                        "name": f"Maintenance: {project_name}",
+                        "schedule": "custom",
+                        "cron": f"0 */{maintenance_interval} * * *",
+                        "agent": "orchestrator"
+                    })
+                    agent.logger.info(f"[PROJECT_STATUS] Autonomous maintenance scheduled every {maintenance_interval}h for '{project_name}'.")
                 except Exception as maint_err:
                     agent.logger.error(f"Failed to schedule maintenance for '{project_name}': {maint_err}")
 
             agent.logger.info(f"[PROJECT_STATUS] Project '{project_name}' created at {project_root}")
             _chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' completed."})
         except Exception as e:
-            logger = main_container.core.logger()
+            logger = main_container.core.logging.logger()
             logger.error(
                 f"[PROJECT_STATUS] Error creating project '{project_name}': {e}",
                 exc_info=True,
@@ -434,7 +489,7 @@ def clone_project():
         )
 
     try:
-        logger = main_container.core.logger()
+        logger = main_container.core.logging.logger()
         logger.info(f"Cloning {git_url} to {target_path}")
 
         projects_dir.mkdir(parents=True, exist_ok=True)
@@ -467,7 +522,7 @@ def clone_project():
             504,
         )
     except Exception as e:
-        logger = main_container.core.logger()
+        logger = main_container.core.logging.logger()
         logger.error(f"Error cloning project: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -617,7 +672,7 @@ def get_project_issues(project_name):
                 all_issues.extend(parsed_issues)
             except Exception as e:
                 # Use a reliable logger
-                logger = main_container.core.logger()
+                logger = main_container.core.logging.logger()
                 logger.error(f"Error parsing issue file {issue_file_path}: {e}")
                 # Continue to next file even if one fails to parse
 
@@ -716,7 +771,7 @@ def get_project_git_status(project_name):
         return jsonify({"status": "success", "git_enabled": False})
 
     try:
-        logger = main_container.core.logger()
+        logger = main_container.core.logging.logger()
         git_tool = GitPRTool(str(project_path), logger)
 
         # Get open PRs

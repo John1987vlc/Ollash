@@ -89,11 +89,18 @@ class InfrastructureGenerationPhase(IAgentPhase):
 
         # GitHub deploy workflow
         deploy_workflow = self._generate_deploy_workflow(needs, primary_lang, project_name)
+        ci_workflow = self._generate_ci_workflow(needs, primary_lang, project_name)
+        
         workflows_dir = project_root / ".github" / "workflows"
         workflows_dir.mkdir(parents=True, exist_ok=True)
+        
         generated_files[".github/workflows/deploy.yml"] = deploy_workflow
         self.context.file_manager.write_file(workflows_dir / "deploy.yml", deploy_workflow)
         self._track_file(".github/workflows/deploy.yml", file_paths)
+
+        generated_files[".github/workflows/ci.yml"] = ci_workflow
+        self.context.file_manager.write_file(workflows_dir / "ci.yml", ci_workflow)
+        self._track_file(".github/workflows/ci.yml", file_paths)
 
         # Dependabot config
         dependabot = self._generate_dependabot_config(needs, generated_files)
@@ -122,6 +129,56 @@ class InfrastructureGenerationPhase(IAgentPhase):
         """Add file to tracked paths if not already present."""
         if path not in file_paths:
             file_paths.append(path)
+
+    def _generate_ci_workflow(self, needs: Dict[str, Any], language: str, project_name: str) -> str:
+        """Generate GitHub Actions CI workflow for testing and linting."""
+        test_steps = {
+            "python": """      - name: Lint with ruff
+        run: pip install ruff && ruff check .
+      - name: Run tests with pytest
+        run: pip install pytest && pytest tests/""",
+            "node": """      - name: Lint with eslint
+        run: npm run lint --if-present
+      - name: Run tests
+        run: npm test --if-present""",
+            "go": """      - name: Lint
+        run: go vet ./...
+      - name: Run tests
+        run: go test -v ./...""",
+        }.get(language, """      - name: Run basic syntax check
+        run: echo "No specific test suite detected for this language." """)
+
+        setup_step = {
+            "python": """      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt --error-on-missing""",
+            "node": """      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci""",
+            "go": """      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: go mod download""",
+        }.get(language, "")
+
+        return f"""name: Continuous Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+{setup_step}
+{test_steps}
+"""
 
     def _generate_deploy_workflow(self, needs: Dict[str, Any], language: str, project_name: str) -> str:
         """Generate GitHub Actions deploy workflow based on detected stack."""

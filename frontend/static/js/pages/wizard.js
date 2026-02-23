@@ -62,6 +62,30 @@ window.WizardModule = (function() {
                 selectedTemplate = card.dataset.template;
             };
         });
+
+        // GitHub Maintenance UI Logic
+        const gitRepoUrlInput = document.getElementById('git-repo-url');
+        const autoImproveGroup = document.getElementById('auto-improve-group');
+        const autoImproveToggle = document.getElementById('auto-improve-enabled');
+        const intervalGroup = document.getElementById('maintenance-interval-group');
+
+        if (gitRepoUrlInput && autoImproveGroup) {
+            gitRepoUrlInput.addEventListener('input', () => {
+                const hasUrl = gitRepoUrlInput.value.trim().length > 0;
+                autoImproveGroup.style.opacity = hasUrl ? '1' : '0.5';
+                autoImproveGroup.style.pointerEvents = hasUrl ? 'auto' : 'none';
+                if (!hasUrl) {
+                    if (autoImproveToggle) autoImproveToggle.checked = false;
+                    if (intervalGroup) intervalGroup.style.display = 'none';
+                }
+            });
+        }
+
+        if (autoImproveToggle && intervalGroup) {
+            autoImproveToggle.addEventListener('change', () => {
+                intervalGroup.style.display = autoImproveToggle.checked ? 'block' : 'none';
+            });
+        }
     }
 
     function wizardGoTo(step) {
@@ -127,9 +151,18 @@ window.WizardModule = (function() {
         formData.append('license_type', document.getElementById('license-type').value);
         formData.append('include_docker', document.getElementById('include-docker').checked);
         
-        // Git settings
-        formData.append('git_repo_url', document.getElementById('git-repo-url')?.value || '');
+        // Git settings — derive git_push automatically from whether a URL was provided
+        const gitRepoUrl = document.getElementById('git-repo-url')?.value?.trim() || '';
+        formData.append('git_repo_url', gitRepoUrl);
         formData.append('git_token', document.getElementById('git-token')?.value || '');
+        formData.append('git_branch', document.getElementById('git-branch')?.value?.trim() || 'main');
+        formData.append('git_push', gitRepoUrl ? 'true' : 'false');
+        formData.append('git_auto_create', document.getElementById('git-auto-create')?.checked ? 'true' : 'false');
+
+        // Continuous Maintenance
+        const maintenanceEnabled = document.getElementById('auto-improve-enabled')?.checked;
+        formData.append('maintenance_enabled', maintenanceEnabled ? 'true' : 'false');
+        formData.append('maintenance_interval', document.getElementById('maintenance-interval')?.value || '1');
 
         // Show pipeline UI
         document.getElementById('generated-structure-section').style.display = 'none';
