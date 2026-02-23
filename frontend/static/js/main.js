@@ -228,6 +228,15 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'plugins': if (typeof loadPlugins !== 'undefined') loadPlugins(); break;
             case 'cicd': if (window.CICDModule) window.CICDModule.loadHistory(); break;
             case 'hil': if (window.HILModule) window.HILModule.refresh(); break;
+            case 'security': if (window.SecurityModule) window.SecurityModule.init(); break;
+            case 'sandbox':
+                // Sandbox is often an <a> link, but if we make it a view:
+                const sbView = document.getElementById('sandbox-view');
+                if (sbView) {
+                    sbView.classList.add('active');
+                    // init sandbox logic if needed
+                }
+                break;
             case 'checkpoints': if (typeof loadCheckpoints !== 'undefined') loadCheckpoints(); break;
             case 'integrations': if (typeof loadIntegrations !== 'undefined') loadIntegrations(); break;
             case 'pair-programming': if (typeof loadPairProgramming !== 'undefined') loadPairProgramming(); break;

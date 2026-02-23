@@ -66,18 +66,47 @@ def load_role_prompt(role):
                     with open(found[0], "r", encoding="utf-8") as f:
                         if ext == ".yaml":
                             import yaml
-
-                            content = yaml.safe_load(f)
+                            # Read raw text instead of just extracting a field, 
+                            # to allow editing complex YAML structures.
+                            f.seek(0)
+                            raw_text = f.read()
+                            return jsonify({"role": role, "prompt": raw_text, "source": "filesystem"})
                         else:
                             content = json.load(f)
-
-                        # Return string representation for editor
-                        text = content.get("prompt") or content.get("system_prompt") or json.dumps(content, indent=2)
-                        return jsonify({"role": role, "prompt": text, "source": "filesystem"})
+                            text = content.get("prompt") or content.get("system_prompt") or json.dumps(content, indent=2)
+                            return jsonify({"role": role, "prompt": text, "source": "filesystem"})
                 except Exception as e:
                     return jsonify({"error": str(e)}), 500
 
     return jsonify({"error": "Prompt not found"}), 404
+
+
+@prompt_studio_bp.route("/api/migrate", methods=["POST"])
+def migrate_to_db():
+    """Migrate all filesystem prompts to the database."""
+    if not _repository or not _prompts_dir:
+        return jsonify({"error": "Repository or prompts dir not available"}), 500
+    
+    count = 0
+    try:
+        # Scan all yaml and json files
+        for ext in [".yaml", ".json"]:
+            for f in _prompts_dir.glob(f"**/*{ext}"):
+                role = f.stem
+                with open(f, "r", encoding="utf-8") as fh:
+                    if ext == ".yaml":
+                        content = fh.read()
+                    else:
+                        data = json.load(fh)
+                        content = data.get("prompt") or data.get("system_prompt") or json.dumps(data, indent=2)
+                    
+                    # Only save if not already in DB or force update
+                    _repository.save_prompt(role, content, is_active=True)
+                    count += 1
+        
+        return jsonify({"status": "success", "migrated": count})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @prompt_studio_bp.route("/api/save", methods=["POST"])

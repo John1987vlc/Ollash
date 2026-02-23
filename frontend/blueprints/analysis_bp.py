@@ -15,7 +15,7 @@ from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.memory.cross_reference_analyzer import CrossReferenceAnalyzer
 from backend.utils.core.memory.decision_context_manager import DecisionContextManager
 from backend.utils.core.memory.knowledge_graph_builder import KnowledgeGraphBuilder
-from backend.utils.core.tools.all_tool_definitions import ALL_TOOL_DEFINITIONS
+from backend.utils.core.tools.all_tool_definitions import ALL_TOOLS_DEFINITIONS
 
 analysis_bp = Blueprint("analysis", __name__, url_prefix="/api/analysis")
 
@@ -28,9 +28,9 @@ def get_tool_definitions():
     """
     try:
         categorized = {}
-        total_count = len(ALL_TOOL_DEFINITIONS)
+        total_count = len(ALL_TOOLS_DEFINITIONS)
 
-        for tool in ALL_TOOL_DEFINITIONS:
+        for tool in ALL_TOOLS_DEFINITIONS:
             name = tool["function"]["name"]
             # Try to infer category from name (e.g., 'ping_host' -> 'network')
             # In a more robust system, this would be part of the tool metadata

@@ -3,7 +3,8 @@
  */
 
 (function() {
-    let editor;
+    window.ollashSandboxEditor = null;
+    
     const defaultPython = `import sys
 
 def main():
@@ -33,13 +34,14 @@ test();
 
     function initMonaco() {
         if (typeof monaco === 'undefined') {
-            console.error('Monaco Editor not found');
+            console.debug('Monaco not ready, retrying in 500ms...');
+            setTimeout(initMonaco, 500);
             return;
         }
 
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.29.1/min/vs' } });
         require(['vs/editor/editor.main'], function() {
-            editor = monaco.editor.create(document.getElementById('monaco-editor-container'), {
+            window.ollashSandboxEditor = monaco.editor.create(document.getElementById('monaco-editor-container'), {
                 value: defaultPython,
                 language: 'python',
                 theme: 'vs-dark',
@@ -52,7 +54,7 @@ test();
                 roundedSelection: true,
                 padding: { top: 16 }
             });
-            window.monacoEditorInstance = editor; // Expose for testing
+            console.log('🚀 Sandbox Editor initialized');
         });
     }
 
@@ -64,33 +66,34 @@ test();
 
         if (!runBtn) return;
 
-        // Disable button and show loading state IMMEDIATELY
-        const originalLabel = runBtn.textContent;
-        runBtn.disabled = true;
-        runBtn.textContent = 'Ejecutando…';
-        runBtn.setAttribute('aria-busy', 'true');
-
         try {
-            // Get code with fallback if editor failed to load
+            // Get code from global instance
             let code = '';
-            if (editor) code = editor.getValue();
-            else if (window.monacoEditorInstance) code = window.monacoEditorInstance.getValue();
+            if (window.ollashSandboxEditor) {
+                code = window.ollashSandboxEditor.getValue();
+            }
 
-            const language = languageSelect ? languageSelect.value : 'python';
-
-            if (!code) {
+            if (!code || code.trim().length === 0) {
                 outputContent.textContent = 'Error: No code to execute (editor might not be loaded)';
+                outputContent.style.color = '#ef4444';
                 return;
             }
+
+            // Disable button and show loading state
+            const originalLabel = runBtn.innerHTML;
+            runBtn.disabled = true;
+            runBtn.innerHTML = '<div class="spinner-inline"></div> Executing...';
+
+            const language = languageSelect ? languageSelect.value : 'python';
 
             outputContent.innerHTML = '';
             execTime.textContent = 'Executing...';
 
-            const response = await UIAnimations.withThinkingState('terminal-output', fetch('/sandbox/execute', {
+            const response = await fetch('/sandbox/execute', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, language })
-            }));
+            });
 
             const data = await response.json();
 
@@ -103,16 +106,19 @@ test();
                 outputContent.style.color = '#ef4444';
                 execTime.textContent = 'Failed';
             }
+            
+            // Restore button state
+            runBtn.disabled = false;
+            runBtn.innerHTML = originalLabel;
+
         } catch (error) {
             console.error('Sandbox execution error:', error);
             outputContent.textContent = `Connection Error: ${error.message}`;
             outputContent.style.color = '#ef4444';
             execTime.textContent = 'Error';
-        } finally {
-            // Restore button state
+            
             runBtn.disabled = false;
-            runBtn.textContent = originalLabel;
-            runBtn.removeAttribute('aria-busy');
+            runBtn.textContent = 'RUN IN SECURE ENVIRONMENT';
         }
     }
 
@@ -127,12 +133,12 @@ test();
         if (langSelect) {
             langSelect.addEventListener('change', (e) => {
                 const lang = e.target.value;
-                if (editor) {
-                    const model = editor.getModel();
+                if (window.ollashSandboxEditor) {
+                    const model = window.ollashSandboxEditor.getModel();
                     monaco.editor.setModelLanguage(model, lang);
                     
-                    if (lang === 'python') editor.setValue(defaultPython);
-                    else if (lang === 'javascript') editor.setValue(defaultJS);
+                    if (lang === 'python') window.ollashSandboxEditor.setValue(defaultPython);
+                    else if (lang === 'javascript') window.ollashSandboxEditor.setValue(defaultJS);
                 }
             });
         }
@@ -148,10 +154,10 @@ test();
         const resetBtn = document.getElementById('reset-btn');
         if (resetBtn) {
             resetBtn.onclick = () => {
-                if (!editor) return;
+                if (!window.ollashSandboxEditor) return;
                 const lang = document.getElementById('language-select').value;
-                if (lang === 'python') editor.setValue(defaultPython);
-                else if (lang === 'javascript') editor.setValue(defaultJS);
+                if (lang === 'python') window.ollashSandboxEditor.setValue(defaultPython);
+                else if (lang === 'javascript') window.ollashSandboxEditor.setValue(defaultJS);
             };
         }
     });

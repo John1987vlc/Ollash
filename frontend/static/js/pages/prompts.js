@@ -163,6 +163,24 @@ const PromptStudio = {
         }
     },
     
+    migratePrompts: async function() {
+        if (!confirm("This will overwrite existing database prompts with filesystem versions. Continue?")) return;
+        
+        try {
+            const res = await fetch('/prompts/api/migrate', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success') {
+                alert(`Successfully migrated ${data.migrated} prompts to the database.`);
+                await this.loadRoles();
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        } catch (e) {
+            console.error("Migration failed", e);
+            alert("Fatal error during migration.");
+        }
+    },
+
     handleInput: function() {
         // Debounced validation
         clearTimeout(this.debounceTimer);
