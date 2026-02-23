@@ -1,4 +1,5 @@
 """Unit tests for knowledge_bp - knowledge base routes."""
+
 import sys
 import pytest
 from unittest.mock import MagicMock
@@ -18,6 +19,7 @@ sys.modules.setdefault("werkzeug.utils", MagicMock(secure_filename=lambda f: f))
 # ---------------------------------------------------------------------------
 # App fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_doc_manager():
@@ -72,6 +74,7 @@ def client(app):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 def test_knowledge_page_returns_200(client):

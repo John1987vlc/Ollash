@@ -1,5 +1,6 @@
 from playwright.sync_api import Page, expect
 
+
 def test_kanban_board_updates(page: Page):
     # We will use a mock HTML to test the JS logic of KanbanBoard
     # since we don't want to spin up the whole Flask server + Ollama for a simple UI check

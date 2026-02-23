@@ -20,18 +20,14 @@ class ProjectPlanner:
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
     def generate_readme(
-        self,
-        project_name: str,
-        project_description: str,
-        features_and_stack: str = "",
-        project_structure: str = ""
+        self, project_name: str, project_description: str, features_and_stack: str = "", project_structure: str = ""
     ) -> str:
         """Generate a comprehensive README.md using specialized prompts."""
         system, user = AutoGenPrompts.readme_generation(
             project_name=project_name,
             project_description=project_description,
             features_and_stack=features_and_stack,
-            project_structure=project_structure
+            project_structure=project_structure,
         )
         response_data, usage = self.llm_client.chat(
             messages=[

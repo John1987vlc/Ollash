@@ -30,6 +30,7 @@ class IntentRoutingMixin(ABC):
         if orchestration_client:
             try:
                 from backend.utils.core.llm.prompt_loader import PromptLoader
+
                 loader = PromptLoader()
                 prompts = loader.load_prompt("core/services.yaml")
 
@@ -38,11 +39,7 @@ class IntentRoutingMixin(ABC):
                 user = user_template.format(text=prompt)
 
                 response, _ = await orchestration_client.achat(
-                    messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user}
-                    ],
-                    tools=[]
+                    messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], tools=[]
                 )
 
                 # Extract intent from the response. The LLM is instructed to return only the intent string.

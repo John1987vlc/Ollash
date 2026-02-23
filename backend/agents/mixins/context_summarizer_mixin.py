@@ -74,6 +74,7 @@ class ContextSummarizerMixin(ABC):
 
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
+
             loader = PromptLoader()
             prompts = loader.load_prompt("core/services.yaml")
 
@@ -82,11 +83,7 @@ class ContextSummarizerMixin(ABC):
             user = user_template.format(history=json.dumps(messages_to_summarize))
 
             summary_response, _ = await summarizer_client.achat(
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user}
-                ],
-                tools=[]
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], tools=[]
             )
             summary_content = summary_response["message"]["content"]
 

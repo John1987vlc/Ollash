@@ -61,9 +61,7 @@ def flask_server(server_port, project_root):
         time.sleep(delay)
         delay = min(delay * 2, 1.0)
     else:
-        raise RuntimeError(
-            f"E2E Flask server did not respond on {url} within 15 seconds."
-        )
+        raise RuntimeError(f"E2E Flask server did not respond on {url} within 15 seconds.")
 
     yield
 
@@ -100,18 +98,14 @@ def page(context, flask_server, request):
     _page = context.new_page()
     _page.on(
         "console",
-        lambda msg: print(f"BROWSER CONSOLE [{msg.type}]: {msg.text}")
-        if msg.type == "error"
-        else None,
+        lambda msg: print(f"BROWSER CONSOLE [{msg.type}]: {msg.text}") if msg.type == "error" else None,
     )
     _page.on("pageerror", lambda exc: print(f"BROWSER PAGE ERROR: {exc}"))
 
     yield _page
 
     # Determine whether the test body failed
-    test_failed = (
-        hasattr(request.node, "rep_call") and request.node.rep_call.failed
-    )
+    test_failed = hasattr(request.node, "rep_call") and request.node.rep_call.failed
 
     if test_failed:
         trace_dir = Path("test-results/traces")

@@ -6,6 +6,7 @@ Verifies:
 - Run button in sandbox is disabled during code execution.
 - Confirmation modal appears instead of native confirm() for destructive actions.
 """
+
 import pytest
 from playwright.sync_api import expect
 
@@ -13,6 +14,7 @@ from playwright.sync_api import expect
 # ---------------------------------------------------------------------------
 # SSE Reconnect Banner
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 def test_sse_reconnect_banner_appears_on_disconnect(page, base_url):
@@ -82,6 +84,7 @@ def test_sse_reconnect_banner_hides_on_reconnect(page, base_url):
 # Sandbox Run Button – loading state
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.e2e
 def test_sandbox_run_button_exists(page, base_url):
     """
@@ -101,14 +104,17 @@ def test_sandbox_run_button_disabled_during_execution(page, base_url):
     page.wait_for_selector("#run-sandbox-btn", timeout=5000)
 
     # Intercept the fetch call to control timing
-    page.route("**/sandbox/execute", lambda route: (
-        page.wait_for_timeout(500),
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body='{"status": "success", "output": "Hello!", "duration": 0.1}',
-        )
-    ))
+    page.route(
+        "**/sandbox/execute",
+        lambda route: (
+            page.wait_for_timeout(500),
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"status": "success", "output": "Hello!", "duration": 0.1}',
+            ),
+        ),
+    )
 
     run_btn = page.locator("#run-sandbox-btn")
 
@@ -135,6 +141,7 @@ def test_sandbox_run_button_disabled_during_execution(page, base_url):
 # ---------------------------------------------------------------------------
 # Confirmation Modal – replaces native confirm()
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 def test_confirm_modal_shows_on_clear_chat(page, base_url):

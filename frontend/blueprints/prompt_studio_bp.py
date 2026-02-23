@@ -2,29 +2,33 @@ from flask import Blueprint, render_template, request, jsonify
 from pathlib import Path
 import json
 
-prompt_studio_bp = Blueprint('prompt_studio', __name__, url_prefix='/prompts')
+prompt_studio_bp = Blueprint("prompt_studio", __name__, url_prefix="/prompts")
 
 _repository = None
 _prompts_dir = None
 
+
 def init_app(app):
     global _repository, _prompts_dir
     from backend.core.containers import main_container
+
     try:
         if hasattr(main_container, "core"):
             _repository = main_container.core.prompt_repository()
         elif hasattr(main_container, "prompt_repository"):
             _repository = main_container.prompt_repository()
 
-        _prompts_dir = Path(app.config.get('ollash_root_dir', '.')) / "prompts"
+        _prompts_dir = Path(app.config.get("ollash_root_dir", ".")) / "prompts"
     except Exception as e:
         app.logger.error(f"Failed to initialize Prompt Studio repository: {e}")
 
-@prompt_studio_bp.route('/')
-def prompt_studio():
-    return render_template('pages/prompts.html')
 
-@prompt_studio_bp.route('/api/roles', methods=['GET'])
+@prompt_studio_bp.route("/")
+def prompt_studio():
+    return render_template("pages/prompts.html")
+
+
+@prompt_studio_bp.route("/api/roles", methods=["GET"])
 def list_roles():
     """List all available roles (from filesystem and DB)."""
     roles = set()
@@ -41,7 +45,8 @@ def list_roles():
 
     return jsonify({"roles": sorted(list(roles))})
 
-@prompt_studio_bp.route('/api/load/<role>', methods=['GET'])
+
+@prompt_studio_bp.route("/api/load/<role>", methods=["GET"])
 def load_role_prompt(role):
     """Load the active prompt for a role (DB preferred, then filesystem)."""
     # 1. Try DB
@@ -53,32 +58,34 @@ def load_role_prompt(role):
     # 2. Try Filesystem fallback
     if _prompts_dir:
         # Search for yaml then json
-        for ext in ['.yaml', '.json']:
+        for ext in [".yaml", ".json"]:
             # Search recursively
             found = list(_prompts_dir.glob(f"**/{role}{ext}"))
             if found:
                 try:
-                    with open(found[0], 'r', encoding='utf-8') as f:
-                        if ext == '.yaml':
+                    with open(found[0], "r", encoding="utf-8") as f:
+                        if ext == ".yaml":
                             import yaml
+
                             content = yaml.safe_load(f)
                         else:
                             content = json.load(f)
 
                         # Return string representation for editor
-                        text = content.get('prompt') or content.get('system_prompt') or json.dumps(content, indent=2)
+                        text = content.get("prompt") or content.get("system_prompt") or json.dumps(content, indent=2)
                         return jsonify({"role": role, "prompt": text, "source": "filesystem"})
                 except Exception as e:
                     return jsonify({"error": str(e)}), 500
 
     return jsonify({"error": "Prompt not found"}), 404
 
-@prompt_studio_bp.route('/api/save', methods=['POST'])
+
+@prompt_studio_bp.route("/api/save", methods=["POST"])
 def save_prompt():
     """Save a modified prompt to the database."""
     data = request.json
-    role = data.get('role')
-    prompt_text = data.get('prompt')
+    role = data.get("role")
+    prompt_text = data.get("prompt")
 
     if not role or not prompt_text:
         return jsonify({"error": "Missing role or prompt text"}), 400
@@ -92,7 +99,8 @@ def save_prompt():
 
     return jsonify({"error": "Repository not available"}), 503
 
-@prompt_studio_bp.route('/api/history/<role>', methods=['GET'])
+
+@prompt_studio_bp.route("/api/history/<role>", methods=["GET"])
 def get_history(role):
     """Get version history for a role from the DB."""
     if _repository:
@@ -100,11 +108,12 @@ def get_history(role):
         return jsonify({"history": history})
     return jsonify({"history": []})
 
-@prompt_studio_bp.route('/api/validate', methods=['POST'])
+
+@prompt_studio_bp.route("/api/validate", methods=["POST"])
 def validate_prompt():
     """Validation logic."""
     data = request.json
-    prompt_text = data.get('prompt', '')
+    prompt_text = data.get("prompt", "")
 
     warnings = []
     if len(prompt_text) < 50:

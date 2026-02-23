@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Shared enumerations
 # ---------------------------------------------------------------------------
 
+
 class OperatorType(Enum):
     """Supported comparison operators (shared by both managers)."""
 
@@ -77,6 +78,7 @@ class TimeWindowType(Enum):
 # Advanced dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CompositeTriggerCondition:
     """A condition that combines multiple sub-conditions with logic."""
@@ -104,6 +106,7 @@ class TriggerDependency:
 # ---------------------------------------------------------------------------
 # Shared condition evaluator
 # ---------------------------------------------------------------------------
+
 
 class TriggerEvaluator:
     """Evaluates automation rules with typed operator support."""
@@ -187,6 +190,7 @@ class TriggerEvaluator:
 # Basic trigger
 # ---------------------------------------------------------------------------
 
+
 class ConditionalTrigger:
     """A single conditional trigger with cooldown support."""
 
@@ -228,6 +232,7 @@ class ConditionalTrigger:
 # ---------------------------------------------------------------------------
 # TriggerManager (lightweight, rule-based)
 # ---------------------------------------------------------------------------
+
 
 class TriggerManager:
     """Manages a collection of lightweight conditional triggers."""
@@ -292,6 +297,7 @@ class TriggerManager:
 # ---------------------------------------------------------------------------
 # AdvancedTriggerManager (composite, state machine, dependencies)
 # ---------------------------------------------------------------------------
+
 
 class AdvancedTriggerManager:
     """
@@ -440,7 +446,7 @@ class AdvancedTriggerManager:
             )
             self.firing_history.append(result)
             if len(self.firing_history) > self.max_history:
-                self.firing_history = self.firing_history[-self.max_history:]
+                self.firing_history = self.firing_history[-self.max_history :]
             return result
         except Exception as e:
             logger.error(f"Error firing trigger {trigger_id}: {e}")
@@ -450,16 +456,18 @@ class AdvancedTriggerManager:
         conflicts = []
         trigger_ids = list(self.triggers.keys())
         for i, tid1 in enumerate(trigger_ids):
-            for tid2 in trigger_ids[i + 1:]:
+            for tid2 in trigger_ids[i + 1 :]:
                 if self._triggers_could_conflict(tid1, tid2):
-                    conflicts.append({
-                        "trigger1": tid1,
-                        "trigger2": tid2,
-                        "trigger1_name": self.triggers[tid1].get("name"),
-                        "trigger2_name": self.triggers[tid2].get("name"),
-                        "conflict_type": "simultaneous_fire",
-                        "recommendation": "Add dependency or exclusive conditions",
-                    })
+                    conflicts.append(
+                        {
+                            "trigger1": tid1,
+                            "trigger2": tid2,
+                            "trigger1_name": self.triggers[tid1].get("name"),
+                            "trigger2_name": self.triggers[tid2].get("name"),
+                            "conflict_type": "simultaneous_fire",
+                            "recommendation": "Add dependency or exclusive conditions",
+                        }
+                    )
         return conflicts
 
     def get_trigger_status(self, trigger_id: Optional[str] = None) -> Dict[str, Any]:
@@ -489,9 +497,7 @@ class AdvancedTriggerManager:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _evaluate_composite_condition(
-        self, condition: Optional[Dict[str, Any]], context: Dict[str, Any]
-    ) -> bool:
+    def _evaluate_composite_condition(self, condition: Optional[Dict[str, Any]], context: Dict[str, Any]) -> bool:
         if not condition:
             return False
         operator = LogicOperator(condition.get("operator", "and"))
@@ -500,7 +506,8 @@ class AdvancedTriggerManager:
         if time_window and not self._is_within_time_window(time_window):
             return False
         results = [
-            self._evaluate_composite_condition(sc, context) if "sub_conditions" in sc
+            self._evaluate_composite_condition(sc, context)
+            if "sub_conditions" in sc
             else self._evaluator.evaluate_condition(sc, context)
             for sc in sub_conditions
         ]

@@ -2,6 +2,7 @@ import pytest
 import re
 from playwright.sync_api import expect
 
+
 @pytest.mark.e2e
 def test_brain_view_loads(page, base_url):
     """Verifies that the Brain (Intelligence Hub) view loads correctly."""
@@ -18,6 +19,7 @@ def test_brain_view_loads(page, base_url):
     expect(page.locator("#brain-view")).to_be_visible()
     expect(page.locator("#knowledge-graph-container")).to_be_visible()
     expect(page.locator(".decision-panel")).to_be_visible()
+
 
 @pytest.mark.e2e
 def test_checkpoints_view_loads(page, base_url):
@@ -36,6 +38,7 @@ def test_checkpoints_view_loads(page, base_url):
     expect(page.locator("text='Project Time Machine'")).to_be_visible()
     expect(page.locator("button:has-text('Create Snapshot')")).to_be_visible()
 
+
 @pytest.mark.e2e
 def test_integrations_view_loads(page, base_url):
     """Verifies that the Integrations (Triggers) view loads."""
@@ -46,12 +49,13 @@ def test_integrations_view_loads(page, base_url):
     # Force click if needed or check attribute
     if header.get_attribute("aria-expanded") == "false":
         header.click()
-        page.wait_for_timeout(300) # Animation wait
+        page.wait_for_timeout(300)  # Animation wait
 
     page.locator(".nav-item[data-view='integrations']").click()
 
     expect(page.locator("#integrations-view")).to_be_visible()
     expect(page.locator("button:has-text('+ New Trigger')")).to_be_visible()
+
 
 @pytest.mark.e2e
 def test_pair_programming_view_loads(page, base_url):
@@ -70,6 +74,7 @@ def test_pair_programming_view_loads(page, base_url):
     expect(page.locator("#monaco-user")).to_be_visible()
     expect(page.locator("#monaco-agent")).to_be_visible()
 
+
 @pytest.mark.e2e
 def test_multimodal_buttons_present(page, base_url):
     """Verifies that Voice and OCR buttons are present in the Chat view."""
@@ -80,6 +85,7 @@ def test_multimodal_buttons_present(page, base_url):
 
     expect(page.locator("#voice-input-btn")).to_be_visible()
     expect(page.locator("#attach-file-btn")).to_be_visible()
+
 
 @pytest.mark.e2e
 def test_terminal_toggle(page, base_url):

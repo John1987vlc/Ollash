@@ -37,6 +37,7 @@ class EnhancedFileContentGenerator:
             self._code_patcher = code_patcher
         else:
             from backend.utils.domains.auto_generation.code_patcher import CodePatcher
+
             self._code_patcher = CodePatcher(llm_client, logger, self.response_parser)
 
     def generate_file_with_plan(
@@ -172,6 +173,7 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
 
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
+
             loader = PromptLoader()
             prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
 
@@ -182,11 +184,7 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
             system = system_template.format(language_specific_rules=lang_rule)
 
             user_template = prompts.get("file_gen_v2", {}).get("user", "")
-            user = user_template.format(
-                file_path=file_path,
-                context=context,
-                exports=", ".join(exports)
-            )
+            user = user_template.format(file_path=file_path, context=context, exports=", ".join(exports))
 
             response_data, _ = self.llm_client.chat(
                 messages=[
@@ -330,6 +328,4 @@ TODO: Implement {file_path}
         Returns:
             Updated file content
         """
-        return self._code_patcher.edit_existing_file(
-            file_path, current_content, readme, issues_to_fix, edit_strategy
-        )
+        return self._code_patcher.edit_existing_file(file_path, current_content, readme, issues_to_fix, edit_strategy)

@@ -4,6 +4,7 @@ E2E Accessibility Tests for Ollash UI.
 Verifies that ARIA attributes added in the UI/UX improvements are present
 and that keyboard navigation works correctly.
 """
+
 import re
 
 import pytest
@@ -13,6 +14,7 @@ from playwright.sync_api import expect
 # ---------------------------------------------------------------------------
 # Modal ARIA attributes
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 def test_automation_modal_has_aria_dialog(page, base_url):
@@ -92,6 +94,7 @@ def test_all_modals_have_dialog_role(page, base_url):
 # Close button aria-label
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.e2e
 def test_modal_close_buttons_have_aria_label(page, base_url):
     """
@@ -106,14 +109,13 @@ def test_modal_close_buttons_have_aria_label(page, base_url):
     for i in range(count):
         btn = close_buttons.nth(i)
         aria_label = btn.get_attribute("aria-label")
-        assert aria_label and len(aria_label.strip()) > 0, (
-            f"Close button #{i} is missing aria-label"
-        )
+        assert aria_label and len(aria_label.strip()) > 0, f"Close button #{i} is missing aria-label"
 
 
 # ---------------------------------------------------------------------------
 # Sidebar ARIA
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 def test_sidebar_nav_has_aria_label(page, base_url):
@@ -228,6 +230,7 @@ def test_command_palette_closes_on_escape(page, base_url):
 # ---------------------------------------------------------------------------
 # Focus-visible indicator
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 def test_focus_visible_style_exists(page, base_url):

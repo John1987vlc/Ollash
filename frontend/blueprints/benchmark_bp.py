@@ -517,10 +517,9 @@ def run_parallel_eval():
         tasks = []
         for model in models:
             for i, prompt in enumerate(prompts):
-                tasks.append(GenerationTask(
-                    file_path=f"{model}_prompt_{i}",
-                    context={"model": model, "prompt": prompt}
-                ))
+                tasks.append(
+                    GenerationTask(file_path=f"{model}_prompt_{i}", context={"model": model, "prompt": prompt})
+                )
 
         async def _run_parallel():
             def sync_gen(file_path, context):
@@ -530,23 +529,26 @@ def run_parallel_eval():
                     # Mocking the generation call or using a simple Ollama call
                     config = current_app.config.get("config", {})
                     import os
+
                     ollama_url = os.environ.get("OLLASH_OLLAMA_URL", config.get("ollama_url", "http://localhost:11434"))
-                    resp = requests.post(f"{ollama_url}/api/generate", json={
-                        "model": model,
-                        "prompt": prompt,
-                        "stream": False
-                    }, timeout=60)
+                    resp = requests.post(
+                        f"{ollama_url}/api/generate",
+                        json={"model": model, "prompt": prompt, "stream": False},
+                        timeout=60,
+                    )
                     resp.raise_for_status()
                     content = resp.json().get("response", "")
 
                     # Notify evaluator
-                    evaluator.record_shadow_log({
-                        "timestamp": time.time(),
-                        "phase_name": "parallel_eval",
-                        "model_name": model,
-                        "input_hash": hashlib.md5(prompt.encode()).hexdigest(),
-                        "output_preview": content[:500]
-                    })
+                    evaluator.record_shadow_log(
+                        {
+                            "timestamp": time.time(),
+                            "phase_name": "parallel_eval",
+                            "model_name": model,
+                            "input_hash": hashlib.md5(prompt.encode()).hexdigest(),
+                            "output_preview": content[:500],
+                        }
+                    )
 
                     return content, True, None
                 except Exception as e:
@@ -556,15 +558,20 @@ def run_parallel_eval():
 
         # Run the async loop
         import asyncio
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         results = loop.run_until_complete(_run_parallel())
         evaluator.stop()
 
-        return jsonify({
-            "status": "success",
-            "results": {k: {"success": v.success, "content": v.content, "error": v.error} for k, v in results.items()}
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "results": {
+                    k: {"success": v.success, "content": v.content, "error": v.error} for k, v in results.items()
+                },
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -574,6 +581,7 @@ def get_shadow_report():
     """Returns the shadow evaluator performance report."""
     try:
         from backend.core.containers import main_container
+
         evaluator = main_container.core.analysis.shadow_evaluator()
         report = evaluator.get_performance_report()
         return jsonify(report)

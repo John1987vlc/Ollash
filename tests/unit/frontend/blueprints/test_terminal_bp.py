@@ -1,4 +1,5 @@
 """Unit tests for terminal_bp - floating terminal routes."""
+
 import sys
 import pytest
 from unittest.mock import MagicMock
@@ -15,6 +16,7 @@ sys.modules.setdefault("flask_sock", MagicMock())
 # ---------------------------------------------------------------------------
 # App fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def app():
@@ -36,6 +38,7 @@ def client(app):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 def test_terminal_blueprint_registered(app):

@@ -39,11 +39,7 @@ class DocumentationManager:
         # The full config dict is nested: {"llm_models": {...}, "agent_features": {...}}
         # Support both the nested shape and a flat shape for backward compatibility.
         llm_cfg = self.config.get("llm_models", {})
-        embedding_model = (
-            llm_cfg.get("embedding")
-            or self.config.get("embedding")
-            or "all-minilm"
-        )
+        embedding_model = llm_cfg.get("embedding") or self.config.get("embedding") or "all-minilm"
         ollama_url = os.environ.get(
             "OLLASH_OLLAMA_URL",
             llm_cfg.get("ollama_url") or self.config.get("ollama_url", "http://localhost:11434"),
@@ -281,11 +277,7 @@ class DocumentationManager:
         for filename in priority_files:
             file_path = self.project_root / filename
             if file_path.exists() and file_path.is_file():
-                doc_files.append({
-                    "name": filename,
-                    "path": filename,
-                    "type": "file"
-                })
+                doc_files.append({"name": filename, "path": filename, "type": "file"})
 
         # Scan docs/ directory
         docs_dir = self.project_root / "docs"
@@ -293,19 +285,17 @@ class DocumentationManager:
             docs_items = []
             for item in docs_dir.rglob("*.md"):
                 rel_path = item.relative_to(self.project_root)
-                docs_items.append({
-                    "name": item.name,
-                    "path": str(rel_path).replace("\\", "/"),
-                    "type": "file"
-                })
+                docs_items.append({"name": item.name, "path": str(rel_path).replace("\\", "/"), "type": "file"})
 
             if docs_items:
-                doc_files.append({
-                    "name": "docs/",
-                    "path": "docs",
-                    "type": "directory",
-                    "children": sorted(docs_items, key=lambda x: x["name"])
-                })
+                doc_files.append(
+                    {
+                        "name": "docs/",
+                        "path": "docs",
+                        "type": "directory",
+                        "children": sorted(docs_items, key=lambda x: x["name"]),
+                    }
+                )
 
         return sorted(doc_files, key=lambda x: (x["type"] != "file", x["name"]))
 
@@ -318,8 +308,8 @@ class DocumentationManager:
             # Normalize path and check for directory traversal
             normalized_path = os.path.normpath(rel_path).lstrip(os.sep)
             if normalized_path.startswith("..") or os.path.isabs(normalized_path):
-                 self.logger.warning(f"Blocked potential path traversal attempt: {rel_path}")
-                 return None
+                self.logger.warning(f"Blocked potential path traversal attempt: {rel_path}")
+                return None
 
             file_path = (self.project_root / normalized_path).resolve()
 

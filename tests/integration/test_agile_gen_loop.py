@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 from pathlib import Path
 from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
 
+
 @pytest.mark.asyncio
 async def test_execution_loop_with_retries():
     # 1. Setup Mocks
@@ -19,9 +20,7 @@ async def test_execution_loop_with_retries():
     mock_context.files_ctx.validator = mock_validator
 
     # Mock Backlog
-    mock_context.backlog = [
-        {"id": "T1", "title": "Test Task", "file_path": "test.py", "task_type": "create_file"}
-    ]
+    mock_context.backlog = [{"id": "T1", "title": "Test Task", "file_path": "test.py", "task_type": "create_file"}]
 
     # 2. Mock LLM Response (Fail twice, then succeed)
     mock_client = MagicMock()
@@ -31,13 +30,14 @@ async def test_execution_loop_with_retries():
     mock_client.chat.side_effect = [
         ({"content": "Fail 1"}, {}),
         ({"content": "Fail 2"}, {}),
-        ({"content": "<thinking_process>Fixed</thinking_process><code_created>print('hello')</code_created>"}, {})
+        ({"content": "<thinking_process>Fixed</thinking_process><code_created>print('hello')</code_created>"}, {}),
     ]
     # Use side_effect to return the same client every time get_client is called
     mock_context.llm_manager.get_client.side_effect = lambda role: mock_client
 
     # Mock Distiller to avoid filesystem calls
     from backend.utils.core.analysis.context_distiller import ContextDistiller
+
     ContextDistiller.distill_batch = MagicMock(return_value="# Distilled Context")
 
     # 3. Execute Phase
@@ -53,7 +53,7 @@ async def test_execution_loop_with_retries():
         readme_content="Readme",
         initial_structure={},
         generated_files=generated_files,
-        file_paths=[]
+        file_paths=[],
     )
 
     # 4. Assertions

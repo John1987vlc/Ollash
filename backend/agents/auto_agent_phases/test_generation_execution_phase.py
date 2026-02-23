@@ -194,11 +194,13 @@ class TestGenerationExecutionPhase(IAgentPhase):
                             self.context.logger.warning("  ❌ Remote CI failed despite local tests passing.")
                             test_results["success"] = False
                             # Add remote failure to results for refinement
-                            test_results["failures"].append({
-                                "name": "RemoteCI",
-                                "message": "GitHub Actions workflow failed. Check remote logs for details.",
-                                "severity": "critical"
-                            })
+                            test_results["failures"].append(
+                                {
+                                    "name": "RemoteCI",
+                                    "message": "GitHub Actions workflow failed. Check remote logs for details.",
+                                    "severity": "critical",
+                                }
+                            )
 
                     if test_results["success"]:
                         self.context.event_publisher.publish(
@@ -365,6 +367,7 @@ class TestGenerationExecutionPhase(IAgentPhase):
         """Helper to check the latest GitHub Action run status."""
         import subprocess
         import json
+
         try:
             result = subprocess.run(
                 ["gh", "run", "list", "--limit", "1", "--json", "conclusion"],

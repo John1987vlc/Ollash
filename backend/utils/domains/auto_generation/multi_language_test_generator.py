@@ -310,14 +310,15 @@ Format as a single test file with clear organization."""
     ) -> Dict[str, Any]:
         """Execute Jest or Mocha tests."""
         import shutil
+
         if not shutil.which("npm"):
             self.logger.warning("  npm command not found. Skipping Node.js test execution.")
             return {
-                "success": True, # Skip with success to not block generation
+                "success": True,  # Skip with success to not block generation
                 "output": "npm not found in environment. Skipping tests.",
                 "failures": [],
                 "framework": framework.value,
-                "skipped": True
+                "skipped": True,
             }
 
         try:

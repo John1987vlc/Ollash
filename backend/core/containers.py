@@ -78,6 +78,7 @@ from backend.utils.domains.auto_generation.structure_pre_reviewer import Structu
 # Sub-containers (semantic grouping)
 # ---------------------------------------------------------------------------
 
+
 class LoggingContainer(containers.DeclarativeContainer):
     """Logging, kernel, and event infrastructure."""
 
@@ -156,9 +157,7 @@ class SecurityContainer(containers.DeclarativeContainer):
     ollash_root_dir = providers.Dependency()
     tool_settings_config = providers.Dependency()
 
-    permission_manager = providers.Singleton(
-        PermissionProfileManager, logger=logger, project_root=ollash_root_dir
-    )
+    permission_manager = providers.Singleton(PermissionProfileManager, logger=logger, project_root=ollash_root_dir)
     policy_enforcer = providers.Singleton(
         PolicyEnforcer,
         profile_manager=permission_manager,
@@ -183,6 +182,7 @@ class MemoryContainer(containers.DeclarativeContainer):
 # ---------------------------------------------------------------------------
 # Core container — composes sub-containers and holds shared cross-cutting deps
 # ---------------------------------------------------------------------------
+
 
 class CoreContainer(containers.DeclarativeContainer):
     """Core application services. Composes semantic sub-containers.
@@ -283,6 +283,7 @@ class CoreContainer(containers.DeclarativeContainer):
 # ---------------------------------------------------------------------------
 # AutoAgent container
 # ---------------------------------------------------------------------------
+
 
 class AutoAgentContainer(containers.DeclarativeContainer):
     """Container for AutoAgent and its specific dependencies."""
@@ -471,6 +472,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
 # ---------------------------------------------------------------------------
 # Application container (top-level)
 # ---------------------------------------------------------------------------
+
 
 class ApplicationContainer(containers.DeclarativeContainer):
     """Top-level container for the entire application."""

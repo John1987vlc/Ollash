@@ -1,4 +1,5 @@
 """Unit tests for operations_bp - operations dashboard routes."""
+
 import pytest
 from pathlib import Path
 from flask import Flask
@@ -11,9 +12,11 @@ _PROJECT_ROOT = Path(__file__).parents[5]
 # App fixture
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def app():
     from frontend.blueprints.operations_views import bp as operations_bp
+
     # Provide the real template folder so render_template doesn't fail on page routes
     flask_app = Flask(__name__, template_folder=str(_PROJECT_ROOT / "frontend" / "templates"))
     flask_app.config["ollash_root_dir"] = Path(".")
@@ -29,6 +32,7 @@ def client(app):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 def test_operations_dashboard_loads(client):

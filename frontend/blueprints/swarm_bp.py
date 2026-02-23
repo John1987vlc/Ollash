@@ -16,6 +16,7 @@ from backend.utils.domains.bonus.cowork_impl import CoworkTools
 
 swarm_bp = Blueprint("swarm", __name__, url_prefix="/api/swarm")
 
+
 def get_swarm_managers():
     """Returns or creates the swarm managers."""
     if not hasattr(current_app, "_swarm_managers"):
@@ -39,7 +40,7 @@ def get_swarm_managers():
             timeout=config.get("timeout", 300),
             logger=agent_logger,
             config=config,
-            llm_recorder=llm_recorder
+            llm_recorder=llm_recorder,
         )
 
         # Documentation Manager
@@ -49,12 +50,10 @@ def get_swarm_managers():
         workspace_path = project_root / ".ollash" / "knowledge_workspace"
         cowork_tools = CoworkTools(doc_manager, ollama_client, agent_logger, workspace_path)
 
-        current_app._swarm_managers = {
-            "tools": cowork_tools,
-            "logger": agent_logger
-        }
+        current_app._swarm_managers = {"tools": cowork_tools, "logger": agent_logger}
 
     return current_app._swarm_managers
+
 
 @swarm_bp.route("/doc-to-task", methods=["POST"])
 def doc_to_task():
@@ -75,6 +74,7 @@ def doc_to_task():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @swarm_bp.route("/analyze-logs", methods=["POST"])
 def analyze_logs():
     """Analyzes recent logs for risks."""
@@ -90,6 +90,7 @@ def analyze_logs():
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @swarm_bp.route("/executive-summary", methods=["POST"])
 def executive_summary():
@@ -108,6 +109,7 @@ def executive_summary():
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 def init_app(app):
     """Initializes the blueprint."""

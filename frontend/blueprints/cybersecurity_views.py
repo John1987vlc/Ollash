@@ -22,6 +22,7 @@ from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScann
 
 bp = Blueprint("cybersecurity", __name__, url_prefix="/api/cybersecurity")
 
+
 def get_cybersecurity_managers():
     """Returns or creates the cybersecurity managers."""
     if not hasattr(current_app, "_cybersecurity_managers"):
@@ -39,10 +40,11 @@ def get_cybersecurity_managers():
         current_app._cybersecurity_managers = {
             "tools": CybersecurityTools(exec_cmd, file_mgr, agent_logger),
             "scanner": VulnerabilityScanner(agent_logger),
-            "logger": agent_logger
+            "logger": agent_logger,
         }
 
     return current_app._cybersecurity_managers
+
 
 @bp.route("/scan/ports", methods=["POST"])
 def scan_ports():
@@ -62,6 +64,7 @@ def scan_ports():
     except Exception as e:
         current_app.logger.error(f"Error in scan_ports: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
+
 
 @bp.route("/scan/vulnerabilities", methods=["POST"])
 def scan_vulnerabilities():
@@ -91,6 +94,7 @@ def scan_vulnerabilities():
         current_app.logger.error(f"Error in scan_vulnerabilities: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
+
 @bp.route("/integrity/check", methods=["POST"])
 def check_integrity():
     """
@@ -116,6 +120,7 @@ def check_integrity():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+
 @bp.route("/logs/analyze", methods=["POST"])
 def analyze_logs():
     """
@@ -134,6 +139,7 @@ def analyze_logs():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+
 @bp.route("/recommendations", methods=["GET"])
 def get_recommendations():
     """
@@ -147,6 +153,7 @@ def get_recommendations():
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
 
 def init_app(app):
     """Initializes the blueprint."""

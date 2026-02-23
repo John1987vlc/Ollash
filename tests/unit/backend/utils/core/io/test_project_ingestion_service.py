@@ -18,8 +18,10 @@ def make_service(tmp_path, read_fn=None, logger=None):
     if logger is None:
         logger = MagicMock()
     if read_fn is None:
+
         def read_fn(path: str) -> str:
             return Path(path).read_text(encoding="utf-8")
+
     return ProjectIngestionService(file_reader=read_fn, logger=logger)
 
 

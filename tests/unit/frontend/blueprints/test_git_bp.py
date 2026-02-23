@@ -1,4 +1,5 @@
 """Unit tests for git_bp - git integration routes."""
+
 import pytest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
@@ -8,6 +9,7 @@ from flask import Flask
 # ---------------------------------------------------------------------------
 # App fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def app():
@@ -34,6 +36,7 @@ def client(app):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 def test_git_dashboard_renders(client):

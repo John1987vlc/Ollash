@@ -49,11 +49,28 @@ with_issues:
 
 fix:
   system: |
-    You are an expert debugger. Analyze the error and fix the code accordingly.
+    You are an expert debugger and Senior Software Engineer. 
+    Analyze the provided error, project context, and code content to provide a precise fix.
+    CRITICAL: Output ONLY the complete, fixed source code. No conversational text, no placeholders.
   user: |
-    Fix this error in '{file_path}':
+    ## ROLE: Expert Debugger
+    ## TASK: Fix the following error in '{file_path}'.
 
-    Error: {error}
+    ### PROJECT CONTEXT (README):
+    {readme}
 
-    Content:
+    ### ERROR REPORT:
+    {error}
+
+    ### CURRENT CONTENT:
+    ```
     {content}
+    ```
+
+    ### INSTRUCTIONS:
+    1. Fix the error while maintaining the intended functionality and style.
+    2. Ensure the file is complete and contains no placeholders.
+    3. If the error is a syntax error or linter warning, resolve it according to best practices.
+    4. Return the ENTIRE updated file content.
+
+    Output ONLY the fixed code inside Markdown code blocks.

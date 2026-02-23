@@ -29,7 +29,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])
 
         # Only run if there are significant JS files
-        js_files = {path: content for path, content in generated_files.items() if path.endswith('.js')}
+        js_files = {path: content for path, content in generated_files.items() if path.endswith(".js")}
         if not js_files:
             return generated_files, initial_structure, file_paths
 
@@ -39,7 +39,9 @@ class JavaScriptOptimizationPhase(IAgentPhase):
         # 1. HTML-JS Integration Check
         html_content = generated_files.get("src/index.html") or generated_files.get("index.html")
         if html_content:
-            generated_files = await self._optimize_html_js_integration(html_content, js_files, generated_files, project_root)
+            generated_files = await self._optimize_html_js_integration(
+                html_content, js_files, generated_files, project_root
+            )
 
         # 2. Cross-JS Function Consistency
         generated_files = await self._optimize_cross_js_coherence(js_files, generated_files, project_root)
@@ -47,7 +49,9 @@ class JavaScriptOptimizationPhase(IAgentPhase):
         self.context.event_publisher.publish("phase_complete", phase="5.2", message="JavaScript optimization complete")
         return generated_files, initial_structure, file_paths
 
-    async def _optimize_html_js_integration(self, html: str, js_files: Dict[str, str], all_files: Dict[str, str], root: Path) -> Dict[str, str]:
+    async def _optimize_html_js_integration(
+        self, html: str, js_files: Dict[str, str], all_files: Dict[str, str], root: Path
+    ) -> Dict[str, str]:
         """Ensures index.html has the necessary IDs and script tags."""
         self.context.logger.info("  Checking HTML-JS DOM coherence...")
 
@@ -55,7 +59,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
         required_ids = set()
         for content in js_files.values():
             # Use triple quotes for regex to avoid escaping issues
-            ids = re.findall(r'''document\.getElementById\(['"]([^'"]+)['"]\)''', content)
+            ids = re.findall(r"""document\.getElementById\(['"]([^'"]+)['"]\)""", content)
             required_ids.update(ids)
 
         missing_ids = [id for id in required_ids if f'id="{id}"' not in html and f"id='{id}'" not in html]
@@ -65,22 +69,17 @@ class JavaScriptOptimizationPhase(IAgentPhase):
 
             try:
                 from backend.utils.core.llm.prompt_loader import PromptLoader
+
                 loader = PromptLoader()
                 prompts = loader.load_prompt("domains/auto_generation/optimization.yaml")
 
                 system = prompts.get("html_js_dom_fix", {}).get("system", "")
                 user_template = prompts.get("html_js_dom_fix", {}).get("user", "")
 
-                user = user_template.format(
-                    missing_ids=missing_ids,
-                    html=html
-                )
+                user = user_template.format(missing_ids=missing_ids, html=html)
 
                 response, _ = self.context.llm_manager.get_client("coder").chat(
-                    messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user}
-                    ]
+                    messages=[{"role": "system", "content": system}, {"role": "user", "content": user}]
                 )
                 new_html = self.context.response_parser.extract_raw_content(response.get("content", ""))
                 if new_html:
@@ -93,7 +92,9 @@ class JavaScriptOptimizationPhase(IAgentPhase):
 
         return all_files
 
-    async def _optimize_cross_js_coherence(self, js_files: Dict[str, str], all_files: Dict[str, str], root: Path) -> Dict[str, str]:
+    async def _optimize_cross_js_coherence(
+        self, js_files: Dict[str, str], all_files: Dict[str, str], root: Path
+    ) -> Dict[str, str]:
         """Ensures functions called in one file exist in another."""
         # This is a complex check, we'll use a specific LLM overview
         self.context.logger.info("  Checking Cross-JS functional coherence...")
@@ -104,6 +105,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
 
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
+
             loader = PromptLoader()
             prompts = loader.load_prompt("domains/auto_generation/optimization.yaml")
 
@@ -113,15 +115,12 @@ class JavaScriptOptimizationPhase(IAgentPhase):
             user = user_template.format(project_summary=project_summary)
 
             response, _ = self.context.llm_manager.get_client("coder").chat(
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user}
-                ]
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}]
             )
 
             raw_res = response.get("content", "")
             # Robust regex for fix extraction
-            fixes = re.findall(r'''<fix file=['"]([^'"]+)['"]>([\s\S]*?)</fix>''', raw_res)
+            fixes = re.findall(r"""<fix file=['"]([^'"]+)['"]>([\s\S]*?)</fix>""", raw_res)
 
             for file_path, corrected_code in fixes:
                 if file_path in all_files:

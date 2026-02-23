@@ -491,11 +491,7 @@ def upload_audio():
         audio_file.save(str(file_path))
         logger.info(f"Audio blob uploaded: {filename}")
 
-        return jsonify({
-            "status": "success",
-            "filename": filename,
-            "local_path": str(file_path)
-        }), 200
+        return jsonify({"status": "success", "filename": filename, "local_path": str(file_path)}), 200
     except Exception as e:
         logger.error(f"Audio upload error: {e}")
         return jsonify({"error": str(e)}), 500
@@ -630,6 +626,7 @@ def integrate_web_speech():
 # Voice Command Endpoints
 # ========================
 
+
 @multimodal_bp.route("/voice/command/process", methods=["POST"])
 def process_voice_command():
     """
@@ -639,7 +636,7 @@ def process_voice_command():
     try:
         data = request.get_json() or {}
         text = data.get("text")
-        confidence = data.get("confidence", 0.0) * 100 # Processor expects 0-100
+        confidence = data.get("confidence", 0.0) * 100  # Processor expects 0-100
         lang = data.get("language", "en")
 
         if not text:
@@ -650,6 +647,7 @@ def process_voice_command():
     except Exception as e:
         logger.error(f"Voice command processing error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @multimodal_bp.route("/voice/command/execute", methods=["POST"])
 def execute_voice_command():

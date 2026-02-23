@@ -10,7 +10,6 @@ _CROSS_JS_PROMPTS = {"cross_js_coherence": {"system": "Fix JS", "user": "Fix {pr
 
 @pytest.mark.unit
 class TestJavaScriptOptimizationPhase:
-
     @pytest.fixture
     def mock_context(self):
         ctx = MagicMock()
@@ -49,7 +48,10 @@ class TestJavaScriptOptimizationPhase:
     @pytest.mark.asyncio
     async def test_cross_js_coherence_check(self, mock_context):
         phase = JavaScriptOptimizationPhase(mock_context)
-        files = {"src/game.js": "const engine = new Engine(); engine.start();", "src/engine.js": "class Engine { init() {} }"}
+        files = {
+            "src/game.js": "const engine = new Engine(); engine.start();",
+            "src/engine.js": "class Engine { init() {} }",
+        }
         fix_xml = "<fix file='src/engine.js'>class Engine { init() {} start() {} }</fix>"
         mock_context.llm_manager.get_client.return_value.chat.return_value = ({"content": fix_xml}, {})
         with patch(_PROMPT_LOADER_PATH) as ml:

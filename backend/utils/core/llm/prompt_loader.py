@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class PromptLoader:
     """
     Utility class for loading centralized prompts from SQLite or YAML files.
@@ -36,6 +37,7 @@ class PromptLoader:
             # Try to lazy load from main container to avoid circular imports
             try:
                 from backend.core.containers import main_container
+
                 if hasattr(main_container, "core"):
                     self._repository = main_container.core.prompt_repository()
                 elif hasattr(main_container, "prompt_repository"):

@@ -4,6 +4,7 @@ from backend.agents.auto_agent_phases.file_content_generation_phase import FileC
 from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
+
 @pytest.fixture
 def mock_context():
     ctx = MagicMock(spec=PhaseContext)
@@ -26,6 +27,7 @@ def mock_context():
     ctx.group_files_by_language = MagicMock(return_value={"python": ["main.py"]})
     ctx.infer_language = MagicMock(return_value="python")
     return ctx
+
 
 class TestArchRefactor:
     """Test suite for the Architectural Refactor of AutoAgent Phases."""
@@ -53,9 +55,12 @@ def main():
         assert phase._validate_file_content("main.py", hallucinated_content, plan) is False
 
         # Safe if in comments
-        safe_content = """# Here is the code for the main function
+        safe_content = (
+            """# Here is the code for the main function
 def main():
-    return 0""" + "#" * 50
+    return 0"""
+            + "#" * 50
+        )
         assert phase._validate_file_content("main.py", safe_content, plan) is True
 
     def test_strict_validation_min_payload(self, mock_context):
@@ -68,9 +73,12 @@ def main():
         assert phase._validate_file_content("app.py", tiny_main, plan) is False
 
         # Main file with sufficient payload
-        good_main = """app = Flask(__name__)
+        good_main = (
+            """app = Flask(__name__)
 @app.route('/')
-def index(): return 'hi'""" + "#" * 100
+def index(): return 'hi'"""
+            + "#" * 100
+        )
         assert phase._validate_file_content("app.py", good_main, plan) is True
 
     def test_logic_planning_fallback_intent(self, mock_context):
@@ -93,14 +101,14 @@ def index(): return 'hi'""" + "#" * 100
         # Binary guard is now at the start of the loop
         mock_context.backlog = [
             {"id": "T1", "title": "Logo", "file_path": "logo.png", "task_type": "create_file"},
-            {"id": "T2", "title": "Main", "file_path": "main.py", "task_type": "create_file"}
+            {"id": "T2", "title": "Main", "file_path": "main.py", "task_type": "create_file"},
         ]
 
         # Mock LLM for the non-binary file
         mock_client = MagicMock()
         mock_client.chat.return_value = (
             {"content": "<thinking_process>Análisis</thinking_process><code_created>print('ok')</code_created>"},
-            {"prompt_tokens": 10, "completion_tokens": 10}
+            {"prompt_tokens": 10, "completion_tokens": 10},
         )
         mock_context.llm_manager.get_client.return_value = mock_client
 
@@ -117,7 +125,7 @@ def index(): return 'hi'""" + "#" * 100
             readme_content="# Readme",
             initial_structure={},
             generated_files=generated_files,
-            file_paths=["logo.png", "main.py"]
+            file_paths=["logo.png", "main.py"],
         )
 
         # logo.png should be in generated_files as empty string (skipped)

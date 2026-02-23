@@ -66,14 +66,13 @@ class ProjectReviewer:
             "no_open_agent_issues": True,
             "readme_updated": True,
             "success": True,
-            "details": []
+            "details": [],
         }
 
         # 1. Check Branches
         try:
             res = subprocess.run(
-                ["gh", "pr", "list", "--json", "number,state"],
-                cwd=project_root, capture_output=True, text=True
+                ["gh", "pr", "list", "--json", "number,state"], cwd=project_root, capture_output=True, text=True
             )
             if res.returncode == 0:
                 open_prs = [p for p in json.loads(res.stdout) if p["state"] == "OPEN"]
@@ -87,7 +86,9 @@ class ProjectReviewer:
         try:
             res = subprocess.run(
                 ["gh", "issue", "list", "--label", "auto-agent", "--json", "number,state"],
-                cwd=project_root, capture_output=True, text=True
+                cwd=project_root,
+                capture_output=True,
+                text=True,
             )
             if res.returncode == 0:
                 open_issues = [i for i in json.loads(res.stdout) if i["state"] == "OPEN"]

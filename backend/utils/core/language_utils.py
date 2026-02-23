@@ -67,7 +67,5 @@ class LanguageUtils:
         Falls back to ``tests/test_<stem>`` for unknown languages.
         """
         stem = Path(source_file).stem
-        pattern_fn = LanguageUtils._TEST_PATTERNS.get(
-            language, lambda s: str(Path("tests") / f"test_{s}")
-        )
+        pattern_fn = LanguageUtils._TEST_PATTERNS.get(language, lambda s: str(Path("tests") / f"test_{s}"))
         return pattern_fn(stem)

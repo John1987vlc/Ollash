@@ -14,19 +14,50 @@ from backend.utils.core.language_utils import LanguageUtils
 # Extensions and directories recognised / excluded during ingestion.
 _SOURCE_EXTENSIONS = frozenset(
     {
-        ".py", ".js", ".jsx", ".ts", ".tsx",
-        ".go", ".rs", ".java", ".cpp", ".c",
-        ".cs", ".rb", ".php", ".swift", ".kt",
-        ".json", ".yaml", ".yml", ".xml",
-        ".md", ".txt", ".html", ".css", ".scss", ".less",
+        ".py",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".go",
+        ".rs",
+        ".java",
+        ".cpp",
+        ".c",
+        ".cs",
+        ".rb",
+        ".php",
+        ".swift",
+        ".kt",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".xml",
+        ".md",
+        ".txt",
+        ".html",
+        ".css",
+        ".scss",
+        ".less",
     }
 )
 
 _EXCLUDE_DIRS = frozenset(
     {
-        "__pycache__", ".git", ".venv", "venv", "node_modules",
-        ".cache", "dist", "build", ".pytest_cache", ".mypy_cache",
-        ".egg-info", ".idea", ".vscode", "target",
+        "__pycache__",
+        ".git",
+        ".venv",
+        "venv",
+        "node_modules",
+        ".cache",
+        "dist",
+        "build",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".egg-info",
+        ".idea",
+        ".vscode",
+        "target",
     }
 )
 

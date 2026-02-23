@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 
 import aiohttp
 import requests
@@ -27,37 +27,56 @@ class OllamaClient:
 
     async def achat(self, messages, tools=None, options_override=None, context=None):
         tools = tools or []
-        if context is None: context = getattr(self, "_session_context", None)
+        if context is None:
+            context = getattr(self, "_session_context", None)
         opts = {"temperature": 0.1, "num_ctx": 32768, "keep_alive": "5m"}
-        if options_override: opts.update(options_override)
-        if hasattr(self, "_keep_alive"): opts["keep_alive"] = self._keep_alive
+        if options_override:
+            opts.update(options_override)
+        if hasattr(self, "_keep_alive"):
+            opts["keep_alive"] = self._keep_alive
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False, "options": opts}
-        if context: payload["context"] = context
+        if context:
+            payload["context"] = context
         session = await self._get_aiohttp_session()
         async with session.post(self.chat_url, json=payload, timeout=self.timeout) as resp:
             data = await resp.json()
             res = data.copy()
             res["content"] = data.get("message", {}).get("content", "")
-            if "context" in data: res["context"] = data["context"]
+            if "context" in data:
+                res["context"] = data["context"]
             return res, {"prompt_tokens": 0, "completion_tokens": 0}
 
     def chat(self, messages, tools=None, options_override=None, context=None):
         tools = tools or []
-        if context is None: context = getattr(self, "_session_context", None)
+        if context is None:
+            context = getattr(self, "_session_context", None)
         opts = {"temperature": 0.1, "num_ctx": 32768, "keep_alive": "5m"}
-        if options_override: opts.update(options_override)
-        if hasattr(self, "_keep_alive"): opts["keep_alive"] = self._keep_alive
+        if options_override:
+            opts.update(options_override)
+        if hasattr(self, "_keep_alive"):
+            opts["keep_alive"] = self._keep_alive
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False, "options": opts}
-        if context: payload["context"] = context
+        if context:
+            payload["context"] = context
         r = self.http_session.post(self.chat_url, json=payload, timeout=self.timeout)
         data = r.json()
         res = data.copy()
         res["content"] = data.get("message", {}).get("content", "")
-        if "context" in data: res["context"] = data["context"]
+        if "context" in data:
+            res["context"] = data["context"]
         return res, {"prompt_tokens": 0, "completion_tokens": 0}
 
-    def set_session_context(self, context): self._session_context = context
-    def set_keep_alive(self, keep_alive): self._keep_alive = keep_alive
-    def unload_model(self, model=None): pass
-    def get_embedding(self, text, max_chars=None): return [0.0] * 384
-    async def aget_embedding(self, text): return [0.0] * 384
+    def set_session_context(self, context):
+        self._session_context = context
+
+    def set_keep_alive(self, keep_alive):
+        self._keep_alive = keep_alive
+
+    def unload_model(self, model=None):
+        pass
+
+    def get_embedding(self, text, max_chars=None):
+        return [0.0] * 384
+
+    async def aget_embedding(self, text):
+        return [0.0] * 384

@@ -83,6 +83,7 @@ class TestValidateContent:
         """Regression: ensure the merge artifact (duplicate) has been removed."""
         import inspect
         import backend.utils.domains.auto_generation.enhanced_file_content_generator as mod
+
         source = inspect.getsource(mod)
         assert source.count("def _validate_content") == 1, (
             "Duplicate _validate_content found — merge artifact not removed"
@@ -92,6 +93,7 @@ class TestValidateContent:
         """Regression: ensure the duplicate _generate_fallback_skeleton has been removed."""
         import inspect
         import backend.utils.domains.auto_generation.enhanced_file_content_generator as mod
+
         source = inspect.getsource(mod)
         assert source.count("def _generate_fallback_skeleton") == 1, (
             "Duplicate _generate_fallback_skeleton found — merge artifact not removed"
@@ -101,6 +103,7 @@ class TestValidateContent:
         """Regression: import re must be at module level, not inside a loop."""
         import inspect
         import backend.utils.domains.auto_generation.enhanced_file_content_generator as mod
+
         source = inspect.getsource(mod)
         # The top-level import should appear before class definition
         class_pos = source.index("class EnhancedFileContentGenerator")
@@ -139,9 +142,7 @@ class TestGenerateFileWithPlan:
             "validation": [],
             "dependencies": [],
         }
-        result = generator.generate_file_with_plan(
-            "calc.py", logic_plan, "A project", "# README", {}, {}
-        )
+        result = generator.generate_file_with_plan("calc.py", logic_plan, "A project", "# README", {}, {})
         assert "calculate" in result
 
     def test_generate_file_falls_back_to_skeleton_after_all_retries(
@@ -167,9 +168,7 @@ class TestGenerateFileWithPlan:
             "validation": [],
             "dependencies": [],
         }
-        result = gen.generate_file_with_plan(
-            "broken.py", logic_plan, "desc", "# README", {}, {}
-        )
+        result = gen.generate_file_with_plan("broken.py", logic_plan, "desc", "# README", {}, {})
         # Should have returned the fallback skeleton
         assert "MyClass" in result
         assert mock_llm.chat.call_count == gen.max_retries
@@ -184,9 +183,7 @@ class TestRAGIntegration:
         mock_doc_manager.query_documentation.return_value = [
             {"document": "def example(): pass", "source": "docs/api.md", "distance": 0.1}
         ]
-        mock_response_parser.extract_code_block.return_value = (
-            "def calculate():\n    return 42\n" + "#" * 60
-        )
+        mock_response_parser.extract_code_block.return_value = "def calculate():\n    return 42\n" + "#" * 60
 
         gen = EnhancedFileContentGenerator(
             llm_client=mock_llm,
@@ -232,6 +229,4 @@ class TestRAGIntegration:
 class TestEditExistingFileDelegates:
     def test_edit_delegates_to_code_patcher(self, generator, mock_code_patcher):
         generator.edit_existing_file("file.py", "original", "# README", [], "partial")
-        mock_code_patcher.edit_existing_file.assert_called_once_with(
-            "file.py", "original", "# README", [], "partial"
-        )
+        mock_code_patcher.edit_existing_file.assert_called_once_with("file.py", "original", "# README", [], "partial")

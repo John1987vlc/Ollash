@@ -8,20 +8,24 @@ hil_bp = Blueprint("hil", __name__)
 # In a production scenario, this would be managed by a global ConfirmationManager
 _pending_requests = {}
 
+
 @hil_bp.route("/api/hil/pending", methods=["GET"])
 def get_pending():
     """Returns a list of all pending HIL requests."""
     requests_list = []
     for req_id, req in _pending_requests.items():
-        requests_list.append({
-            "id": req_id,
-            "type": req.get("type"),
-            "title": req.get("title"),
-            "details": req.get("details"),
-            "timestamp": req.get("timestamp"),
-            "agent": req.get("agent", "DefaultAgent")
-        })
+        requests_list.append(
+            {
+                "id": req_id,
+                "type": req.get("type"),
+                "title": req.get("title"),
+                "details": req.get("details"),
+                "timestamp": req.get("timestamp"),
+                "agent": req.get("agent", "DefaultAgent"),
+            }
+        )
     return jsonify(sorted(requests_list, key=lambda x: x["timestamp"], reverse=True))
+
 
 @hil_bp.route("/api/hil/respond", methods=["POST"])
 def respond_hil():
@@ -43,10 +47,12 @@ def respond_hil():
 
     # In a real integration, we would notify the waiting agent here via EventPublisher
     from backend.utils.core.system.event_publisher import EventPublisher
+
     publisher = EventPublisher()
     publisher.publish("hil_response", {"request_id": request_id, "response": response, "feedback": feedback})
 
     return jsonify({"status": "success"})
+
 
 # Helper for testing/dev to inject a request
 @hil_bp.route("/api/hil/debug/add", methods=["POST"])
@@ -58,6 +64,6 @@ def add_debug_request():
         "title": data.get("title", "Modificar archivo"),
         "details": data.get("details", {}),
         "timestamp": datetime.datetime.now().isoformat(),
-        "agent": data.get("agent", "AutoAgent")
+        "agent": data.get("agent", "AutoAgent"),
     }
     return jsonify({"id": req_id})

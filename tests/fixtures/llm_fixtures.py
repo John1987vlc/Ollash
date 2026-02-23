@@ -21,13 +21,15 @@ def block_ollama_globally():
             content = "Mocked LLM Response"
 
             if "structure" in prompt or "folders" in prompt:
-                content = json.dumps({
-                    "folders": [
-                        {"name": "src", "files": ["main.py"]},
-                        {"name": "tests", "files": ["test_main.py"]},
-                    ],
-                    "root_files": ["README.md", "requirements.txt"],
-                })
+                content = json.dumps(
+                    {
+                        "folders": [
+                            {"name": "src", "files": ["main.py"]},
+                            {"name": "tests", "files": ["test_main.py"]},
+                        ],
+                        "root_files": ["README.md", "requirements.txt"],
+                    }
+                )
             elif "plan" in prompt or "logic" in prompt:
                 content = "1. Setup project\n2. Implement core logic\n3. Add tests"
             elif "readme" in prompt:

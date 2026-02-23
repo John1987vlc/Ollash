@@ -109,14 +109,8 @@ def test_concurrent_pushes_no_data_loss():
     chunks = _drain_events(bridge, timeout=5.0)
     data_lines = [c for c in chunks if c.startswith("data:")]
 
-    tool_events = [
-        json.loads(line.removeprefix("data: ").strip())
-        for line in data_lines
-        if '"tool_output"' in line
-    ]
-    assert len(tool_events) == n_events, (
-        f"Expected {n_events} tool_output events, got {len(tool_events)}"
-    )
+    tool_events = [json.loads(line.removeprefix("data: ").strip()) for line in data_lines if '"tool_output"' in line]
+    assert len(tool_events) == n_events, f"Expected {n_events} tool_output events, got {len(tool_events)}"
 
 
 @pytest.mark.integration
@@ -160,6 +154,7 @@ def test_iter_events_sends_keepalive_on_empty_queue():
     # Only send stream_end so the loop processes one keepalive before the end
     def _close_after_delay() -> None:
         import time
+
         time.sleep(0.2)
         bridge.close()
 

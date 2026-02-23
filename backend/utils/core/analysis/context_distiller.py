@@ -4,6 +4,7 @@ from typing import Dict
 
 logger = logging.getLogger(__name__)
 
+
 class ContextDistiller:
     """
     Distills source code into lightweight skeletons (AST-based) to save tokens.

@@ -21,6 +21,7 @@ from backend.utils.core.system.trigger_manager import (
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def simple_rule_eq():
     """A simple rule: score == 10."""
@@ -54,6 +55,7 @@ def multi_condition_or_rule():
 # ---------------------------------------------------------------------------
 # TestTriggerEvaluator
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestTriggerEvaluator:
@@ -167,6 +169,7 @@ class TestTriggerEvaluator:
 # TestBasicTriggerEvaluation
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestBasicTriggerEvaluation:
     def test_add_trigger_returns_true(self, simple_rule_eq):
@@ -234,6 +237,7 @@ class TestBasicTriggerEvaluation:
 # TestCooldownLogic
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestCooldownLogic:
     def test_cooldown_prevents_immediate_second_fire(self, simple_rule_eq):
@@ -274,6 +278,7 @@ class TestCooldownLogic:
 # TestTriggerHistory
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestTriggerHistory:
     def test_history_grows_after_fires(self, simple_rule_eq):
@@ -309,6 +314,7 @@ class TestTriggerHistory:
 # ---------------------------------------------------------------------------
 # TestCompositeTriggers
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestCompositeTriggers:
@@ -406,9 +412,7 @@ class TestCompositeTriggers:
 
     def test_get_trigger_status(self):
         atm = AdvancedTriggerManager()
-        cond = CompositeTriggerCondition(
-            id="c1", operator=LogicOperator.AND, sub_conditions=[]
-        )
+        cond = CompositeTriggerCondition(id="c1", operator=LogicOperator.AND, sub_conditions=[])
         atm.register_composite_trigger("t1", "My Trigger", cond)
         status = atm.get_trigger_status("t1")
         assert status["name"] == "My Trigger"
@@ -416,9 +420,7 @@ class TestCompositeTriggers:
 
     def test_register_trigger_dependency(self):
         atm = AdvancedTriggerManager()
-        cond = CompositeTriggerCondition(
-            id="c1", operator=LogicOperator.AND, sub_conditions=[]
-        )
+        cond = CompositeTriggerCondition(id="c1", operator=LogicOperator.AND, sub_conditions=[])
         atm.register_composite_trigger("t1", "T1", cond)
         atm.register_composite_trigger("t2", "T2", cond)
         assert atm.add_trigger_dependency("t2", "t1") is True
@@ -428,11 +430,13 @@ class TestCompositeTriggers:
 # TestGlobalSingletons
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestGlobalSingletons:
     def test_get_trigger_manager_returns_same_instance(self):
         # Reset for isolation
         import backend.utils.core.system.trigger_manager as tm_module
+
         tm_module._trigger_manager = None
         a = get_trigger_manager()
         b = get_trigger_manager()
@@ -440,6 +444,7 @@ class TestGlobalSingletons:
 
     def test_get_advanced_trigger_manager_returns_same_instance(self):
         import backend.utils.core.system.trigger_manager as tm_module
+
         tm_module._advanced_trigger_manager = None
         a = get_advanced_trigger_manager()
         b = get_advanced_trigger_manager()

@@ -38,6 +38,7 @@ class TimedLogger:
     """
     Logger wrapper that adds [HH:MM:SS] timestamps and provides a heartbeat.
     """
+
     def __init__(self, logger):
         self._logger = logger
         self.last_log_time = time.time()
@@ -116,7 +117,7 @@ class AutoAgent(CoreAgent):
         self.generated_projects_dir = self.phase_context.generated_projects_dir
         self.generated_projects_dir.mkdir(parents=True, exist_ok=True)
 
-        self.git_tool = None # Lazy load later if needed
+        self.git_tool = None  # Lazy load later if needed
 
         self.logger.info("AutoAgent initialized with a modular phase pipeline and sequential flow.")
 
@@ -135,6 +136,7 @@ class AutoAgent(CoreAgent):
         # 1. Language Standardization
         try:
             from backend.services.language_manager import LanguageManager
+
             lang_manager = LanguageManager(self.llm_manager)
             loop = self._get_or_create_loop()
             project_description, _ = loop.run_until_complete(lang_manager.ensure_english_input(project_description))
@@ -145,9 +147,7 @@ class AutoAgent(CoreAgent):
 
         project_root = self.generated_projects_dir / project_name
         _INFRA_DIRS = {".git", ".ollash", ".gitignore", ".env"}
-        project_exists = project_root.exists() and any(
-            p for p in project_root.iterdir() if p.name not in _INFRA_DIRS
-        )
+        project_exists = project_root.exists() and any(p for p in project_root.iterdir() if p.name not in _INFRA_DIRS)
 
         if project_exists:
             self.logger.info(f"Existing project detected at {project_root}")
@@ -196,6 +196,7 @@ class AutoAgent(CoreAgent):
             self.git_tool = GitPRTool(str(project_root), self.logger)
             if kwargs.get("github_token"):
                 import os
+
                 os.environ["GITHUB_TOKEN"] = kwargs.get("github_token")
 
         loop = self._get_or_create_loop()
@@ -251,8 +252,8 @@ class AutoAgent(CoreAgent):
 
         try:
             for i, phase in enumerate(phases):
-                next_phase = phases[i+1] if i+1 < len(phases) else None
-                keep_alive = '10m' if next_phase else '0s'
+                next_phase = phases[i + 1] if i + 1 < len(phases) else None
+                keep_alive = "10m" if next_phase else "0s"
                 phase_name = phase.__class__.__name__
                 milestone_id = execution_plan.get_milestone_id_by_phase_class_name(phase_name)
 
@@ -276,21 +277,23 @@ class AutoAgent(CoreAgent):
                         generated_files=generated_files,
                         file_paths=file_paths,
                         context=self.phase_context.ollama_context,
-                        options_override={'keep_alive': keep_alive},
+                        options_override={"keep_alive": keep_alive},
                         **self.phase_context.initial_exec_params,
                     )
                     readme_content = generated_files.get("README.md", readme_content)
-                    self.phase_context.update_generated_data(generated_files, initial_structure, file_paths, readme_content)
+                    self.phase_context.update_generated_data(
+                        generated_files, initial_structure, file_paths, readme_content
+                    )
 
                     # LogicPlanningPhase specific: Two-pass Issue Creation
                     if isinstance(phase, LogicPlanningPhase) and self.git_tool:
                         self._manage_github_issues(initial_structure)
 
                     # F40: Store and propagate context
-                    if isinstance(generated_files, dict) and 'context' in generated_files:
-                        ctx = generated_files['context']
+                    if isinstance(generated_files, dict) and "context" in generated_files:
+                        ctx = generated_files["context"]
                         self.phase_context.ollama_context = ctx
-                        if hasattr(self.llm_manager, 'set_global_context'):
+                        if hasattr(self.llm_manager, "set_global_context"):
                             self.llm_manager.set_global_context(ctx)
 
                     if milestone_id:
@@ -305,7 +308,7 @@ class AutoAgent(CoreAgent):
 
                     # Cycle of Life: If this was a code generation phase, we might want to PR it
                     if phase_name == "FileContentGenerationPhase":
-                         self.logger.info("Cycle of Life: Phase completed, ready for verification.")
+                        self.logger.info("Cycle of Life: Phase completed, ready for verification.")
 
                 except Exception as e:
                     self.logger.error(f"Error in phase {phase_name}: {e}", exc_info=True)
@@ -333,14 +336,18 @@ class AutoAgent(CoreAgent):
         self.logger.info("🔗 Starting 'Dos Pasadas' Issue Management...")
 
         # Prefer backlog from context, fallback to structure tasks
-        tasks = self.phase_context.backlog if hasattr(self.phase_context, "backlog") and self.phase_context.backlog else structure.get("tasks", [])
+        tasks = (
+            self.phase_context.backlog
+            if hasattr(self.phase_context, "backlog") and self.phase_context.backlog
+            else structure.get("tasks", [])
+        )
 
         if not tasks:
             self.logger.warning("No tasks found in backlog or structure for issue creation.")
             return
 
         # Pass 1: Create all issues to get IDs
-        issue_mapping = {} # internal_task_id -> github_issue_number
+        issue_mapping = {}  # internal_task_id -> github_issue_number
         for task in tasks:
             # Handle different task formats (Dict or internal object)
             task_id = task.get("id") or task.get("task_id")
@@ -348,13 +355,7 @@ class AutoAgent(CoreAgent):
             desc = task.get("description", "No description")
 
             # Professional English "Secretary" Formatting
-            body = (
-                f"### 📋 Task Description\n"
-                f"{desc}\n\n"
-                f"---\n"
-                f"✨ **Task created by Ollash** 🤖\n"
-                f"Internal ID: `{task_id}`"
-            )
+            body = f"### 📋 Task Description\n{desc}\n\n---\n✨ **Task created by Ollash** 🤖\nInternal ID: `{task_id}`"
 
             self.logger.info(f"  Pass 1: Creating issue for {task_id}")
             res = self.git_tool.create_issue(title, body)
@@ -388,6 +389,7 @@ class AutoAgent(CoreAgent):
         """Generates the content for OLLASH.md manifest."""
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
+
             loader = PromptLoader()
             prompts = loader.load_prompt("domains/auto_generation/manifest.yaml")
 
@@ -395,7 +397,9 @@ class AutoAgent(CoreAgent):
             user_template = prompts.get("generate_manifest", {}).get("user", "")
 
             backlog = getattr(self.phase_context, "backlog", [])
-            done = len([t for t in backlog if t.get("github_number") and t.get("status") == "done"]) # Simplified status check
+            done = len(
+                [t for t in backlog if t.get("github_number") and t.get("status") == "done"]
+            )  # Simplified status check
             total = len(backlog) or 1
 
             backlog_summary = f"{done}/{total} tasks completed."
@@ -409,13 +413,12 @@ class AutoAgent(CoreAgent):
                 current_task=current_task_id,
                 current_version=current_version,
                 next_tag=f"v0.1.{done + 1}",
-                last_decisions="Implemented DevOps standards: Semantic Versioning and Conventional Commits."
+                last_decisions="Implemented DevOps standards: Semantic Versioning and Conventional Commits.",
             )
 
-            res, _ = self.llm_manager.get_client("writer").chat([
-                {"role": "system", "content": system},
-                {"role": "user", "content": user}
-            ])
+            res, _ = self.llm_manager.get_client("writer").chat(
+                [{"role": "system", "content": system}, {"role": "user", "content": user}]
+            )
             return res.get("content", "").strip()
         except Exception as e:
             self.logger.error(f"Failed to generate manifest: {e}")
@@ -473,6 +476,7 @@ class AutoAgent(CoreAgent):
         try:
             loop = asyncio.get_running_loop()
             import nest_asyncio
+
             nest_asyncio.apply()
             return loop.run_until_complete(
                 self._run_structure_phases_async(structure_phases, project_description, project_name)
@@ -496,8 +500,8 @@ class AutoAgent(CoreAgent):
         generated_files, initial_structure, readme_content, file_paths = {}, {}, "", []
 
         for i, phase in enumerate(phases):
-            next_phase = phases[i+1] if i+1 < len(phases) else None
-            keep_alive = '10m' if next_phase else '0s'
+            next_phase = phases[i + 1] if i + 1 < len(phases) else None
+            keep_alive = "10m" if next_phase else "0s"
             self.logger.info(f"Executing phase: {phase.__class__.__name__}")
             generated_files, initial_structure, file_paths = await phase.execute(
                 project_description=project_description,
@@ -508,17 +512,17 @@ class AutoAgent(CoreAgent):
                 generated_files=generated_files,
                 file_paths=file_paths,
                 context=self.phase_context.ollama_context,
-                options_override={'keep_alive': keep_alive},
+                options_override={"keep_alive": keep_alive},
                 **self.phase_context.initial_exec_params,
             )
             readme_content = generated_files.get("README.md", readme_content)
             self.phase_context.update_generated_data(generated_files, initial_structure, file_paths, readme_content)
 
             # F40: Store and propagate context
-            if isinstance(generated_files, dict) and 'context' in generated_files:
-                ctx = generated_files['context']
+            if isinstance(generated_files, dict) and "context" in generated_files:
+                ctx = generated_files["context"]
                 self.phase_context.ollama_context = ctx
-                if hasattr(self.llm_manager, 'set_global_context'):
+                if hasattr(self.llm_manager, "set_global_context"):
                     self.llm_manager.set_global_context(ctx)
 
         return readme_content, initial_structure

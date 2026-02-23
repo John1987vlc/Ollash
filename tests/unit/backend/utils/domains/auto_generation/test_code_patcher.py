@@ -49,6 +49,7 @@ class TestSmartMerge:
         """Regression: the old `len(improved) > len(original) * 0.8` must not exist."""
         import inspect
         import backend.utils.domains.auto_generation.code_patcher as mod
+
         source = inspect.getsource(mod)
         assert "* 0.8" not in source, "Old length-ratio heuristic detected in code_patcher"
         assert "* 1.5" not in source, "Old length-ratio heuristic detected in code_patcher"
@@ -81,6 +82,7 @@ class TestIsBetterLine:
         """Regression: brace + parenthesis counting must not be in _is_better_line."""
         import inspect
         import backend.utils.domains.auto_generation.code_patcher as mod
+
         source = inspect.getsource(mod._is_better_line if hasattr(mod, "_is_better_line") else mod)
         # Get just the method source from the class
         patcher_source = inspect.getsource(CodePatcher._is_better_line)

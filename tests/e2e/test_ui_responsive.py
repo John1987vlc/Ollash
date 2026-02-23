@@ -4,6 +4,7 @@ E2E Responsive Design Tests for Ollash UI.
 Verifies that the sidebar, modals, and notification container
 adapt correctly to mobile viewport sizes.
 """
+
 import pytest
 from playwright.sync_api import expect
 
@@ -15,6 +16,7 @@ DESKTOP_VIEWPORT = {"width": 1280, "height": 800}
 # ---------------------------------------------------------------------------
 # Sidebar – mobile behaviour
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 def test_sidebar_hidden_on_mobile_by_default(page, base_url):
@@ -28,9 +30,7 @@ def test_sidebar_hidden_on_mobile_by_default(page, base_url):
     # On mobile, sidebar should be off-screen (translated out), not covering content
     # Check that it does NOT have 'sidebar--open' class by default
     sidebar_classes = sidebar.get_attribute("class") or ""
-    assert "sidebar--open" not in sidebar_classes, (
-        "Sidebar should NOT be open by default on mobile"
-    )
+    assert "sidebar--open" not in sidebar_classes, "Sidebar should NOT be open by default on mobile"
 
 
 @pytest.mark.e2e
@@ -74,9 +74,7 @@ def test_hamburger_opens_sidebar_on_mobile(page, base_url):
     sidebar = page.locator("#main-sidebar")
     # After click, sidebar should have sidebar--open class
     sidebar_classes = sidebar.get_attribute("class") or ""
-    assert "sidebar--open" in sidebar_classes, (
-        "Sidebar should be open after clicking hamburger"
-    )
+    assert "sidebar--open" in sidebar_classes, "Sidebar should be open after clicking hamburger"
 
 
 @pytest.mark.e2e
@@ -109,14 +107,13 @@ def test_clicking_overlay_closes_sidebar(page, base_url):
     page.locator("#sidebar-overlay").click()
 
     sidebar_classes = page.locator("#main-sidebar").get_attribute("class") or ""
-    assert "sidebar--open" not in sidebar_classes, (
-        "Sidebar should close when overlay is clicked"
-    )
+    assert "sidebar--open" not in sidebar_classes, "Sidebar should close when overlay is clicked"
 
 
 # ---------------------------------------------------------------------------
 # Modals – mobile behaviour
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 def test_modal_adapts_to_mobile_viewport(page, base_url):
@@ -134,14 +131,13 @@ def test_modal_adapts_to_mobile_viewport(page, base_url):
     # Check that modal content does not overflow horizontally
     modal_width = modal_content.bounding_box()["width"]
     viewport_width = page.viewport_size["width"]
-    assert modal_width <= viewport_width, (
-        f"Modal content width ({modal_width}px) exceeds viewport ({viewport_width}px)"
-    )
+    assert modal_width <= viewport_width, f"Modal content width ({modal_width}px) exceeds viewport ({viewport_width}px)"
 
 
 # ---------------------------------------------------------------------------
 # Command palette – mobile
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 def test_command_palette_fits_in_mobile_viewport(page, base_url):
@@ -168,6 +164,7 @@ def test_command_palette_fits_in_mobile_viewport(page, base_url):
 # Notifications – mobile
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.e2e
 def test_notification_container_exists(page, base_url):
     """
@@ -186,8 +183,6 @@ def test_notification_container_exists(page, base_url):
     """)
 
     # Container is created dynamically
-    container_visible = page.evaluate(
-        "document.getElementById('notifications-container') !== null"
-    )
+    container_visible = page.evaluate("document.getElementById('notifications-container') !== null")
     # This is informational; container may not be created until first notification
     assert isinstance(container_visible, bool)

@@ -33,16 +33,14 @@ class TestFileContentGenerationPhase:
         phase = FileContentGenerationPhase(mock_context)
 
         # Setup Mock Backlog
-        mock_context.backlog = [
-            {"id": "T1", "title": "Task 1", "file_path": "main.py", "task_type": "create_file"}
-        ]
+        mock_context.backlog = [{"id": "T1", "title": "Task 1", "file_path": "main.py", "task_type": "create_file"}]
         mock_context.select_related_files.return_value = {}
 
         # Mock LLM Client
         mock_client = MagicMock()
         mock_client.chat.return_value = (
             {"content": "<thinking_process>Análisis</thinking_process><code_created>def main(): pass</code_created>"},
-            {"prompt_tokens": 10, "completion_tokens": 10}
+            {"prompt_tokens": 10, "completion_tokens": 10},
         )
         mock_context.llm_manager.get_client.return_value = mock_client
 
@@ -79,7 +77,7 @@ class TestFileContentGenerationPhase:
         assert phase._validate_file_content("test.py", invalid_export, plan) is False
 
         # Content too short for main file (threshold is 20)
-        short_main_content = "def main(): pass" # 16 chars
+        short_main_content = "def main(): pass"  # 16 chars
         assert phase._validate_file_content("main.py", short_main_content, plan) is False
 
         # Valid main content

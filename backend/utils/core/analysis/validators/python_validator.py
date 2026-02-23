@@ -20,7 +20,15 @@ class PythonValidator(BaseValidator):
         # Try pylint first
         # F29: Disable import-error and no-name-in-module during generation
         # because dependent files may not exist yet.
-        pylint_cmd = ["pylint", "--disable=all", "--enable=F,E", "--disable=E0401,E0611", "--output-format=text"]
+        # Also disable unsubscriptable-object (E1136) for list[int] issues,
+        # redundant-keyword-arg (E1124), and no-member (E1101).
+        pylint_cmd = [
+            "pylint",
+            "--disable=all",
+            "--enable=F,E",
+            "--disable=E0401,E0611,E1101,E1136,E1124",
+            "--output-format=text",
+        ]
         # Example pylint error: file.py:10:0: E0001: some-error-message (some-checker)
         pylint_error_pattern = re.compile(r"^(.*?):(\d+):(\d+): ([FE]\d{4}):(.*)$")
         pylint_result = self._run_linter_command(

@@ -63,11 +63,7 @@ class MemoryManager:
         else:
             # Support nested config {"llm_models": {...}} and flat config for backward compat
             llm_cfg = self.config.get("llm_models", {})
-            embedding_model = (
-                llm_cfg.get("embedding")
-                or self.config.get("embedding")
-                or "all-minilm"
-            )
+            embedding_model = llm_cfg.get("embedding") or self.config.get("embedding") or "all-minilm"
             ollama_timeout = llm_cfg.get("default_timeout") or self.config.get("timeout", 300)
             ollama_client_config_dict = {
                 "ollama_max_retries": self.config.get("ollama_max_retries", 5),

@@ -30,6 +30,7 @@ class CodeQuarantinePhase(IAgentPhase):
         self.context.event_publisher.publish("phase_start", phase="5.55", message="Starting code quarantine")
 
         import re
+
         # Security patterns with word boundaries to avoid false positives like 'evaluation' or 'evaluateHand'
         unsafe_patterns = [
             re.compile(r"\beval\s*\("),
@@ -43,7 +44,7 @@ class CodeQuarantinePhase(IAgentPhase):
                 continue
 
             # Skip non-code files
-            if rel_path.endswith('.json') or rel_path.endswith('.md') or rel_path.endswith('.txt'):
+            if rel_path.endswith(".json") or rel_path.endswith(".md") or rel_path.endswith(".txt"):
                 continue
 
             is_unsafe = any(pattern.search(content) for pattern in unsafe_patterns)

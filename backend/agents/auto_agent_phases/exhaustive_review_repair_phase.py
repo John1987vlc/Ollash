@@ -186,9 +186,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
             if content and len(content) > 50:  # Only check substantial files
                 language = self.context.error_knowledge_base._detect_language(file_path)
                 common_patterns = self.context.error_knowledge_base.query_similar_errors(
-                    file_path=file_path,
-                    language=language,
-                    max_results=5
+                    file_path=file_path, language=language, max_results=5
                 )
 
                 # Check for known problematic patterns
@@ -503,9 +501,7 @@ during Phase 5.75 to ensure code quality before Senior Review.
             if not file_path.endswith(".py") or not content:
                 continue
 
-            for match in re.finditer(
-                r"^from\s+([\w.]+)\s+import\s+(.+)$", content, re.MULTILINE
-            ):
+            for match in re.finditer(r"^from\s+([\w.]+)\s+import\s+(.+)$", content, re.MULTILINE):
                 module_ref = match.group(1)
                 # Get the last segment (e.g. "game.rules" → "rules")
                 module_stem = module_ref.split(".")[-1]
@@ -514,10 +510,7 @@ during Phase 5.75 to ensure code quality before Senior Review.
                     # Module not in generated files — could be stdlib/external, skip
                     continue
 
-                imported_symbols = [
-                    s.strip().split(" as ")[0].strip()
-                    for s in match.group(2).split(",")
-                ]
+                imported_symbols = [s.strip().split(" as ")[0].strip() for s in match.group(2).split(",")]
                 available = defined_names[module_stem]
 
                 for symbol in imported_symbols:
@@ -533,8 +526,7 @@ during Phase 5.75 to ensure code quality before Senior Review.
                                     f"Available: {sorted(available) or '(none)'}"
                                 ),
                                 "recommendation": (
-                                    f"Either add '{symbol}' to '{module_stem}.py' "
-                                    f"or fix the import in '{file_path}'."
+                                    f"Either add '{symbol}' to '{module_stem}.py' or fix the import in '{file_path}'."
                                 ),
                             }
                         )

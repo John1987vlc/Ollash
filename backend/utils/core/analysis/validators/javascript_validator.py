@@ -60,11 +60,7 @@ class JavascriptValidator(BaseValidator):
 
             error_list = "\n".join([f"- {err}" for i, err in enumerate(integrity_errors[:5])])
             return ValidationResult(
-                file_path,
-                ValidationStatus.SYNTAX_ERROR,
-                f"{combined_message}\n{error_list}",
-                lines,
-                chars
+                file_path, ValidationStatus.SYNTAX_ERROR, f"{combined_message}\n{error_list}", lines, chars
             )
 
         # Log warnings but don't fail
@@ -90,21 +86,29 @@ class JavascriptValidator(BaseValidator):
             if not re.search(rf"if\s*\(\s*{var_name}\s*\)|{var_name}\s*\?|{var_name}\s*&&", content):
                 # Optimization: check if it's used immediately with dot notation without optional chaining
                 if re.search(rf"{var_name}\.(?!\?)", content):
-                    errors.append(f"Potential crash: Using DOM element '{var_name}' without null check. Use 'if({var_name})' or optional chaining.")
+                    errors.append(
+                        f"Potential crash: Using DOM element '{var_name}' without null check. Use 'if({var_name})' or optional chaining."
+                    )
 
         # B. Global Scope Pollution: implicit globals
-        implicit_globals = re.findall(r"^(?!\s*(?:const|let|var|function|class|if|for|while|return|export|import|//|/\*))\s*([a-zA-Z_$][\w$]*)\s*=", content, re.MULTILINE)
+        implicit_globals = re.findall(
+            r"^(?!\s*(?:const|let|var|function|class|if|for|while|return|export|import|//|/\*))\s*([a-zA-Z_$][\w$]*)\s*=",
+            content,
+            re.MULTILINE,
+        )
         for glob in implicit_globals:
             if glob not in ["window", "console", "module", "exports", "document"]:
                 errors.append(f"Implicit global variable '{glob}'. Use 'const', 'let', or 'var' to declare it.")
 
         # C. Domain Specific: Poker Logic Consistency (AS WARNINGS)
-        is_poker_file = any(kw in file_path.lower() or kw in content.lower() for kw in ["poker", "hand", "deck", "card"])
+        is_poker_file = any(
+            kw in file_path.lower() or kw in content.lower() for kw in ["poker", "hand", "deck", "card"]
+        )
         if is_poker_file:
             core_patterns = {
                 "shuffle": r"function\s+shuffle|shuffle\s*=\s*\(|shuffle\s*:|shuffle\s*\(",
                 "deal": r"function\s+deal|deal\s*=\s*\(|deal\s*:|deal\s*\(",
-                "evaluate": r"evaluate|handValue|rank"
+                "evaluate": r"evaluate|handValue|rank",
             }
 
             if "engine" in file_path.lower() or "engine" in content.lower():

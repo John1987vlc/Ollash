@@ -145,8 +145,11 @@ class InfrastructureGenerationPhase(IAgentPhase):
         run: go vet ./...
       - name: Run tests
         run: go test -v ./...""",
-        }.get(language, """      - name: Run basic syntax check
-        run: echo "No specific test suite detected for this language." """)
+        }.get(
+            language,
+            """      - name: Run basic syntax check
+        run: echo "No specific test suite detected for this language." """,
+        )
 
         setup_step = {
             "python": """      - uses: actions/setup-python@v5

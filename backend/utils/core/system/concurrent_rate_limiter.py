@@ -35,8 +35,10 @@ class GlobalGPUResourceTracker:
         self._initialized = True
         self._state_lock = threading.RLock()
 
-       # GPU state
-        self._estimated_gpu_memory_mb = 16000  # Cambia esto a la VRAM real de tu servidor (ej. 16000 para 16GB, 80000 para 80GB)
+        # GPU state
+        self._estimated_gpu_memory_mb = (
+            16000  # Cambia esto a la VRAM real de tu servidor (ej. 16000 para 16GB, 80000 para 80GB)
+        )
         self._used_gpu_memory_mb = 0
         self._max_concurrent_requests = 10  # Aumenta la concurrencia (ej. 10, 20 o más)
         self._active_requests = 0
@@ -45,7 +47,8 @@ class GlobalGPUResourceTracker:
         # Token tracking across all agents
         self._tokens_per_minute_global = 0
         self._tokens_check_timestamp = time.time()
-        self._max_tokens_per_minute = 500000 # También puedes subir el límite de tokens por minuto
+        self._max_tokens_per_minute = 500000  # También puedes subir el límite de tokens por minuto
+
     def acquire_gpu_slot(
         self,
         estimated_memory_mb: int,

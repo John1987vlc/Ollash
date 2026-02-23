@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 class TestMainSuite:
     """Basic validation of the test suite structure and availability."""
 
@@ -8,12 +9,7 @@ class TestMainSuite:
         tests_dir = Path(__file__).parent.parent
 
         # Check that top-level test directories exist
-        expected_dirs = [
-            "unit",
-            "integration",
-            "e2e",
-            "fixtures"
-        ]
+        expected_dirs = ["unit", "integration", "e2e", "fixtures"]
         for dir_name in expected_dirs:
             module_dir = tests_dir / dir_name
             assert module_dir.exists(), f"Test directory {dir_name}/ should exist"

@@ -54,9 +54,7 @@ def default_agent(mock_kernel, tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("agent_data")
     prompt_dir = tmp_path / "prompts"
     prompt_dir.mkdir(parents=True, exist_ok=True)
-    (prompt_dir / "default.json").write_text(
-        json.dumps({"prompt": "You are a test agent"})
-    )
+    (prompt_dir / "default.json").write_text(json.dumps({"prompt": "You are a test agent"}))
 
     with (
         patch("backend.agents.default_agent.FileManager"),

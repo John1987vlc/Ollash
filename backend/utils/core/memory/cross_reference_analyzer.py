@@ -93,15 +93,8 @@ class CrossReferenceAnalyzer:
         # Embedding client
         # Support nested config {"llm_models": {...}} and flat config for backward compat
         llm_cfg = self.config.get("llm_models", {})
-        embedding_model = (
-            llm_cfg.get("embedding")
-            or self.config.get("embedding")
-            or "all-minilm"
-        )
-        ollama_url = (
-            llm_cfg.get("ollama_url")
-            or self.config.get("ollama_url", "http://localhost:11434")
-        )
+        embedding_model = llm_cfg.get("embedding") or self.config.get("embedding") or "all-minilm"
+        ollama_url = llm_cfg.get("ollama_url") or self.config.get("ollama_url", "http://localhost:11434")
         ollama_timeout = llm_cfg.get("default_timeout") or self.config.get("timeout", 300)
         ollama_client_config_dict = {
             "ollama_max_retries": self.config.get("ollama_max_retries", 5),

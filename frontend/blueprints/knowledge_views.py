@@ -101,6 +101,7 @@ def get_episodic_memory():
 
         # Get all episodes from DB
         import sqlite3
+
         with sqlite3.connect(str(em._db_path)) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute("SELECT * FROM episodes ORDER BY timestamp DESC LIMIT 50").fetchall()
@@ -110,10 +111,6 @@ def get_episodic_memory():
             decision_rows = conn.execute("SELECT * FROM decisions ORDER BY timestamp DESC LIMIT 50").fetchall()
             decisions = [dict(row) for row in decision_rows]
 
-        return jsonify({
-            "statistics": stats,
-            "episodes": episodes,
-            "decisions": decisions
-        })
+        return jsonify({"statistics": stats, "episodes": episodes, "decisions": decisions})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

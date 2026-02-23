@@ -173,7 +173,7 @@ class ProjectAnalysisPhase(IAgentPhase):
             has_tests=codebase_analysis["test_coverage"]["has_tests"],
             test_files_count=len(codebase_analysis["test_coverage"]["test_files"]),
             project_description=project_description,
-            readme_content=readme_content or "No README found"
+            readme_content=readme_content or "No README found",
         )
 
         try:

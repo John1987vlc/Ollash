@@ -5,7 +5,6 @@ from backend.utils.core.analysis.validators.javascript_validator import Javascri
 
 @pytest.mark.unit
 class TestJavascriptValidatorSemantic:
-
     @pytest.fixture
     def validator(self):
         # Mock command executor to avoid checking for eslint binary in unit tests

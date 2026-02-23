@@ -249,7 +249,7 @@ class SeniorReviewPhase(IAgentPhase):
                         self.context.event_publisher.publish("tool_end", tool_name="fix_senior_review_issues")
 
                     self.context.logger.info("  Re-running verification after senior review fixes...")
-                    generated_files = self.context.file_completeness_checker.verify_and_fix(
+                    generated_files = await self.context.file_completeness_checker.verify_and_fix(
                         generated_files, readme_content[:2000]
                     )
                     for rel_path, content in generated_files.items():

@@ -203,7 +203,7 @@ class IterativeImprovementPhase(IAgentPhase):
                 )
 
                 # Re-execute VerificationPhase logic
-                generated_files = self.context.file_completeness_checker.verify_and_fix(
+                generated_files = await self.context.file_completeness_checker.verify_and_fix(
                     generated_files, readme_content[:1000]
                 )
                 for rel_path, content in generated_files.items():

@@ -28,7 +28,9 @@ class VerificationPhase(IAgentPhase):
         self.context.logger.info("PHASE 5.5: Verification loop...")
         self.context.event_publisher.publish("phase_start", phase="5.5", message="Starting verification loop")
 
-        generated_files = self.context.file_completeness_checker.verify_and_fix(generated_files, readme_content[:1000])
+        generated_files = await self.context.file_completeness_checker.verify_and_fix(
+            generated_files, readme_content[:1000]
+        )
 
         for rel_path, content in generated_files.items():
             if content:

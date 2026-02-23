@@ -51,22 +51,18 @@ def test_no_critical_axe_violations(page, base_url, flask_server, path, label):
     axe = Axe()
     results = axe.run(page)
 
-    blocking_violations = [
-        v for v in results.violations if v.get("impact") in BLOCKING_IMPACTS
-    ]
+    blocking_violations = [v for v in results.violations if v.get("impact") in BLOCKING_IMPACTS]
 
     if blocking_violations:
         summary_lines = []
         for v in blocking_violations:
             nodes_affected = len(v.get("nodes", []))
             summary_lines.append(
-                f"  [{v['impact'].upper()}] {v['id']}: {v['description']} "
-                f"({nodes_affected} node(s) affected)"
+                f"  [{v['impact'].upper()}] {v['id']}: {v['description']} ({nodes_affected} node(s) affected)"
             )
         violation_report = "\n".join(summary_lines)
         pytest.fail(
-            f"Axe found {len(blocking_violations)} blocking violation(s) on '{label}' ({path}):\n"
-            f"{violation_report}"
+            f"Axe found {len(blocking_violations)} blocking violation(s) on '{label}' ({path}):\n{violation_report}"
         )
 
 
@@ -87,13 +83,10 @@ def test_chat_page_axe_with_modal_open(page, base_url, flask_server):
     axe = Axe()
     results = axe.run(page)
 
-    blocking_violations = [
-        v for v in results.violations if v.get("impact") in BLOCKING_IMPACTS
-    ]
+    blocking_violations = [v for v in results.violations if v.get("impact") in BLOCKING_IMPACTS]
 
-    assert len(blocking_violations) == 0, (
-        "Axe violations with modal open: "
-        + ", ".join(v["id"] for v in blocking_violations)
+    assert len(blocking_violations) == 0, "Axe violations with modal open: " + ", ".join(
+        v["id"] for v in blocking_violations
     )
 
 
@@ -108,11 +101,8 @@ def test_command_palette_axe(page, base_url, flask_server):
     axe = Axe()
     results = axe.run(page)
 
-    blocking_violations = [
-        v for v in results.violations if v.get("impact") in BLOCKING_IMPACTS
-    ]
+    blocking_violations = [v for v in results.violations if v.get("impact") in BLOCKING_IMPACTS]
 
-    assert len(blocking_violations) == 0, (
-        "Axe violations in command palette: "
-        + ", ".join(v["id"] for v in blocking_violations)
+    assert len(blocking_violations) == 0, "Axe violations in command palette: " + ", ".join(
+        v["id"] for v in blocking_violations
     )

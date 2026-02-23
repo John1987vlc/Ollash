@@ -77,9 +77,7 @@ class CoreAgent(ABC):
         )
 
         # Architectural modules
-        self.dependency_scanner = (
-            dependency_scanner if dependency_scanner else DependencyScanner(logger=self.logger)
-        )
+        self.dependency_scanner = dependency_scanner if dependency_scanner else DependencyScanner(logger=self.logger)
         self.dependency_reconciler = DependencyReconciler(
             dependency_scanner=self.dependency_scanner,
             logger=self.logger,
@@ -160,9 +158,7 @@ class CoreAgent(ABC):
     # Dependency reconciliation (delegates to DependencyReconciler)
     # ------------------------------------------------------------------
 
-    def _reconcile_requirements(
-        self, files: Dict[str, str], project_root: Path, python_version: str
-    ) -> Dict[str, str]:
+    def _reconcile_requirements(self, files: Dict[str, str], project_root: Path, python_version: str) -> Dict[str, str]:
         """Reconcile dependency manifests with actual imports.
 
         Delegates to :class:`DependencyReconciler` which supports Python,

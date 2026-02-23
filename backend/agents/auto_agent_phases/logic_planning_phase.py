@@ -56,8 +56,12 @@ class LogicPlanningPhase(IAgentPhase):
 
             # Generate a plan for this category, passing already-planned contracts
             category_plan = await self._plan_category(
-                category, files_to_plan, project_description, readme_content,
-                initial_structure, already_planned_contracts
+                category,
+                files_to_plan,
+                project_description,
+                readme_content,
+                initial_structure,
+                already_planned_contracts,
             )
 
             for file_path, plan in category_plan.items():
@@ -72,9 +76,7 @@ class LogicPlanningPhase(IAgentPhase):
 
         # NEW: Generate Agile Backlog
         self.context.logger.info("  Generating Agile Backlog of micro-tasks...")
-        backlog = await self._generate_backlog(
-            project_description, readme_content, initial_structure
-        )
+        backlog = await self._generate_backlog(project_description, readme_content, initial_structure)
 
         backlog_file = project_root / "BACKLOG.json"
         self.context.file_manager.write_file(backlog_file, json.dumps(backlog, indent=2))
@@ -85,20 +87,14 @@ class LogicPlanningPhase(IAgentPhase):
         self.context.backlog = backlog
 
         # Publish event for UI Kanban initialization
-        self.context.event_publisher.publish(
-            "agent_board_update",
-            action="init_backlog",
-            tasks=backlog
-        )
+        self.context.event_publisher.publish("agent_board_update", action="init_backlog", tasks=backlog)
 
         self.context.event_publisher.publish(
             "phase_complete",
             phase="2.5",
             message=f"Logic plan and Backlog ({len(backlog)} tasks) created",
         )
-        self.context.logger.info(
-            f"[PROJECT_NAME:{project_name}] PHASE 2.5 complete: Plans and Backlog created."
-        )
+        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5 complete: Plans and Backlog created.")
 
         return generated_files, initial_structure, file_paths
 
@@ -111,7 +107,7 @@ class LogicPlanningPhase(IAgentPhase):
         system_prompt, user_prompt = AutoGenPrompts.agile_backlog_planning(
             project_description=project_description,
             initial_structure=json.dumps(initial_structure, indent=2),
-            readme_content=readme_content[:2000]
+            readme_content=readme_content[:2000],
         )
 
         attempts = 0
@@ -141,8 +137,11 @@ class LogicPlanningPhase(IAgentPhase):
 
                 if not backlog:
                     import re
+
                     # Try to extract from tags specifically
-                    tag_match = re.search(r"<backlog_json>([\s\S]*?)(?:</backlog_json>|$)", response_text, re.IGNORECASE)
+                    tag_match = re.search(
+                        r"<backlog_json>([\s\S]*?)(?:</backlog_json>|$)", response_text, re.IGNORECASE
+                    )
                     if tag_match:
                         backlog = LLMResponseParser.extract_json(tag_match.group(1))
 
@@ -151,6 +150,7 @@ class LogicPlanningPhase(IAgentPhase):
                 else:
                     # Log failed response for debugging
                     import uuid
+
                     fail_id = uuid.uuid4().hex[:6]
                     fail_log = self.context.generated_projects_dir / f"FAILED_BACKLOG_{fail_id}_ATTEMPT_{attempts}.txt"
                     self.context.file_manager.write_file(fail_log, response_text)
@@ -168,6 +168,7 @@ class LogicPlanningPhase(IAgentPhase):
     def _create_fallback_backlog(self, initial_structure: Dict) -> List[Dict]:
         """Creates a basic backlog based on file structure if LLM fails."""
         backlog = []
+
         # Flatten structure to get file paths
         def get_files(struct, prefix=""):
             files = []
@@ -181,15 +182,17 @@ class LogicPlanningPhase(IAgentPhase):
 
         files = get_files(initial_structure)
         for i, file_path in enumerate(files):
-            backlog.append({
-                "id": f"TASK-{i+1:03d}",
-                "title": f"Implement {file_path}",
-                "description": f"Create the content for {file_path}",
-                "file_path": file_path,
-                "task_type": "create_file",
-                "dependencies": [],
-                "context_files": []
-            })
+            backlog.append(
+                {
+                    "id": f"TASK-{i + 1:03d}",
+                    "title": f"Implement {file_path}",
+                    "description": f"Create the content for {file_path}",
+                    "file_path": file_path,
+                    "task_type": "create_file",
+                    "dependencies": [],
+                    "context_files": [],
+                }
+            )
         return backlog
 
     def _categorize_files(self, file_paths: List[str]) -> Dict[str, List[str]]:
@@ -276,7 +279,9 @@ class LogicPlanningPhase(IAgentPhase):
                 response_text = response_data.get("content", "")
 
                 if not response_text.strip():
-                    self.context.logger.warning(f"  ⚠ LLM returned empty response for category {category} (Attempt {attempts})")
+                    self.context.logger.warning(
+                        f"  ⚠ LLM returned empty response for category {category} (Attempt {attempts})"
+                    )
                     continue
 
                 plans = LLMResponseParser.extract_json(response_text)
@@ -292,13 +297,17 @@ class LogicPlanningPhase(IAgentPhase):
                     fail_log = self.context.generated_projects_dir / f"FAILED_PLAN_{category}_{attempts}.txt"
                     log_content = f"--- RAW RESPONSE ---\n{response_text}\n--- END RAW ---"
                     self.context.file_manager.write_file(fail_log, log_content)
-                    raise ValueError(f"LLM returned invalid planning JSON for {category}. Raw response saved to {fail_log.name}")
+                    raise ValueError(
+                        f"LLM returned invalid planning JSON for {category}. Raw response saved to {fail_log.name}"
+                    )
 
             except Exception as e:
                 last_error = str(e)
                 self.context.logger.warning(f"  ⚠ Attempt {attempts} failed to plan category {category}: {e}")
                 if attempts == max_attempts:
-                    self.context.logger.error(f"  ✖ Planning for category {category} failed after max attempts. Using basic plans.")
+                    self.context.logger.error(
+                        f"  ✖ Planning for category {category} failed after max attempts. Using basic plans."
+                    )
                     return self._create_basic_plans(files, category, project_description)
 
         return self._create_basic_plans(files, category, project_description)
@@ -309,7 +318,7 @@ class LogicPlanningPhase(IAgentPhase):
 
         # Validation: If project_description is too short, we might be losing intent
         if len(project_description) < 10:
-             self.context.logger.warning("Project description is critically short for fallback planning.")
+            self.context.logger.warning("Project description is critically short for fallback planning.")
 
         for file_path in files:
             purpose = f"Implementation of {category} logic for: {project_description[:100]}..."

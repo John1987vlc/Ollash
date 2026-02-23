@@ -14,10 +14,12 @@ def app(project_root):
     os.makedirs(test_root, exist_ok=True)
 
     _app = create_app(ollash_root_dir=test_root)
-    _app.config.update({
-        "TESTING": True,
-        "ollash_root_dir": str(test_root),
-    })
+    _app.config.update(
+        {
+            "TESTING": True,
+            "ollash_root_dir": str(test_root),
+        }
+    )
     yield _app
 
 

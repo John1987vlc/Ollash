@@ -165,12 +165,16 @@ class GitPRTool:
         """Create and push a git tag."""
         try:
             # Create local tag
-            res = subprocess.run(["git", "tag", "-a", tag_name, "-m", message], cwd=self.git.repo_path, capture_output=True, text=True)
+            res = subprocess.run(
+                ["git", "tag", "-a", tag_name, "-m", message], cwd=self.git.repo_path, capture_output=True, text=True
+            )
             if res.returncode != 0:
                 return {"success": False, "error": res.stderr.strip()}
 
             # Push tag to origin
-            res = subprocess.run(["git", "push", "origin", tag_name], cwd=self.git.repo_path, capture_output=True, text=True)
+            res = subprocess.run(
+                ["git", "push", "origin", tag_name], cwd=self.git.repo_path, capture_output=True, text=True
+            )
             return {"success": res.returncode == 0, "error": res.stderr.strip() if res.returncode != 0 else None}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -276,6 +280,7 @@ class GitPRTool:
             )
             if result.returncode == 0:
                 import json
+
                 return json.loads(result.stdout)
         except Exception as e:
             self.logger.warning(f"Could not get PR status for #{pr_number}: {e}")

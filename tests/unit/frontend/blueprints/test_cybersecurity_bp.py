@@ -1,4 +1,5 @@
 """Unit tests for cybersecurity_bp - security scanning routes."""
+
 import sys
 import pytest
 from unittest.mock import MagicMock, patch
@@ -28,13 +29,10 @@ for mod in [
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_managers():
     """Build a mock managers dict that cybersecurity_bp returns."""
-    mgrs = {
-        "tools": MagicMock(),
-        "scanner": MagicMock(),
-        "logger": MagicMock()
-    }
+    mgrs = {"tools": MagicMock(), "scanner": MagicMock(), "logger": MagicMock()}
     mgrs["tools"].scan_ports.return_value = {"open_ports": [80, 443], "ok": True}
     mgrs["scanner"].scan_file.return_value = MagicMock(to_dict=lambda: {"vulnerabilities": []})
     mgrs["tools"].check_file_hash.return_value = {"ok": True, "result": {"hash": "abc"}}
@@ -46,6 +44,7 @@ def _make_managers():
 # ---------------------------------------------------------------------------
 # App fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def app():
@@ -75,6 +74,7 @@ def client(app):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 def test_port_scan_returns_json(client, app):

@@ -10,28 +10,51 @@ try:
     from backend.utils.core.system.task_scheduler import TaskScheduler
     from backend.utils.core.system.execution_plan import ExecutionPlan
 except ImportError:
-    class TaskScheduler:
-        def get_jobs(self): return []
-        def add_job(self, *args): pass
-        def remove_job(self, *args): pass
-    class ExecutionPlan:
-        def generate_preview(self, task): return {}
 
-bp = Blueprint('operations', __name__, url_prefix='/operations')
+    class TaskScheduler:
+        def get_jobs(self):
+            return []
+
+        def add_job(self, *args):
+            pass
+
+        def remove_job(self, *args):
+            pass
+
+    class ExecutionPlan:
+        def generate_preview(self, task):
+            return {}
+
+
+bp = Blueprint("operations", __name__, url_prefix="/operations")
 
 # In-memory mock storage for demonstration
 scheduler_jobs = [
-    {"id": "job_1", "name": "Daily System Backup", "cron": "0 0 * * *", "next_run": "2026-02-23T00:00:00", "status": "active"},
-    {"id": "job_2", "name": "Weekly Model Retraining", "cron": "0 2 * * 0", "next_run": "2026-03-01T02:00:00", "status": "paused"}
+    {
+        "id": "job_1",
+        "name": "Daily System Backup",
+        "cron": "0 0 * * *",
+        "next_run": "2026-02-23T00:00:00",
+        "status": "active",
+    },
+    {
+        "id": "job_2",
+        "name": "Weekly Model Retraining",
+        "cron": "0 2 * * 0",
+        "next_run": "2026-03-01T02:00:00",
+        "status": "paused",
+    },
 ]
 
-@bp.route('/')
-def operations_dashboard():
-    return render_template('pages/operations.html')
 
-@bp.route('/api/jobs', methods=['GET', 'POST'])
+@bp.route("/")
+def operations_dashboard():
+    return render_template("pages/operations.html")
+
+
+@bp.route("/api/jobs", methods=["GET", "POST"])
 def handle_jobs():
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
             body = JobCreateRequest.model_validate(request.json or {})
         except ValidationError as exc:
@@ -42,19 +65,21 @@ def handle_jobs():
             "name": body.name,
             "cron": body.cron,
             "next_run": (datetime.now() + timedelta(days=1)).isoformat(),
-            "status": "active"
+            "status": "active",
         }
         scheduler_jobs.append(new_job)
         return jsonify(new_job)
     return jsonify(scheduler_jobs)
 
-@bp.route('/api/jobs/<job_id>', methods=['DELETE'])
+
+@bp.route("/api/jobs/<job_id>", methods=["DELETE"])
 def delete_job(job_id):
     global scheduler_jobs
-    scheduler_jobs = [job for job in scheduler_jobs if job['id'] != job_id]
+    scheduler_jobs = [job for job in scheduler_jobs if job["id"] != job_id]
     return jsonify({"status": "success"})
 
-@bp.route('/api/dag/preview', methods=['POST'])
+
+@bp.route("/api/dag/preview", methods=["POST"])
 def preview_dag():
     """Generates a visual execution plan (DAG) for a complex task."""
     try:
@@ -69,13 +94,13 @@ def preview_dag():
             {"id": "2", "label": "Search Codebase", "type": "tool"},
             {"id": "3", "label": "Plan Architecture", "type": "thinking"},
             {"id": "4", "label": "Write Code", "type": "action"},
-            {"id": "5", "label": "Run Tests", "type": "validation"}
+            {"id": "5", "label": "Run Tests", "type": "validation"},
         ],
         "edges": [
             {"from": "1", "to": "2"},
             {"from": "2", "to": "3"},
             {"from": "3", "to": "4"},
-            {"from": "4", "to": "5"}
-        ]
+            {"from": "4", "to": "5"},
+        ],
     }
     return jsonify(dag)

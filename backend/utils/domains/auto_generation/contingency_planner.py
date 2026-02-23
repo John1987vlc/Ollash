@@ -46,6 +46,7 @@ class ContingencyPlanner:
 
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
+
             loader = PromptLoader()
             prompts = loader.load_prompt("domains/auto_generation/planning.yaml")
 
@@ -53,18 +54,10 @@ class ContingencyPlanner:
             user_template = prompts.get("contingency_planning", {}).get("user", "")
 
             issue_str = "\n".join([f"- {issue.get('description', 'N/A')}" for issue in issues])
-            user = user_template.format(
-                project_description=project_description,
-                readme=readme,
-                issues_str=issue_str
-            )
+            user = user_template.format(project_description=project_description, readme=readme, issues_str=issue_str)
 
             response, _ = self.client.chat(
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user}
-                ],
-                tools=[]
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], tools=[]
             )
             content = response.get("message", {}).get("content", "")
             plan = self.parser.extract_json(content)

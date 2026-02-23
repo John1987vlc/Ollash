@@ -9,15 +9,19 @@ from backend.utils.core.llm.prompt_loader import PromptLoader
 
 logger = logging.getLogger(__name__)
 
+
 class classproperty(object):
     """
     Decorator that converts a method with a single cls argument
     into a property that can be accessed directly from the class.
     """
+
     def __init__(self, f):
         self.f = f
+
     def __get__(self, obj, owner):
         return self.f(owner)
+
 
 class RolePromptTemplates:
     """

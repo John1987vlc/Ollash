@@ -29,23 +29,27 @@ class FileContentGenerationPhase(IAgentPhase):
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         file_paths = kwargs.get("file_paths", [])
 
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4: Executing Agile Backlog with Self-Reflection...")
+        self.context.logger.info(
+            f"[PROJECT_NAME:{project_name}] PHASE 4: Executing Agile Backlog with Self-Reflection..."
+        )
         self.context.event_publisher.publish(
             "phase_start", phase="4", message="Starting iterative micro-task execution with XML/AST validation"
         )
 
         backlog = getattr(self.context, "backlog", [])
         if not backlog and hasattr(self.context, "logic_plan"):
-             for i, (path, plan) in enumerate(self.context.logic_plan.items()):
-                 backlog.append({
-                     "id": f"TASK-{i:03d}",
-                     "title": f"Implement {path}",
-                     "description": plan.get("purpose", f"Generate {path}"),
-                     "file_path": path,
-                     "task_type": "create_file",
-                     "dependencies": [],
-                     "context_files": []
-                 })
+            for i, (path, plan) in enumerate(self.context.logic_plan.items()):
+                backlog.append(
+                    {
+                        "id": f"TASK-{i:03d}",
+                        "title": f"Implement {path}",
+                        "description": plan.get("purpose", f"Generate {path}"),
+                        "file_path": path,
+                        "task_type": "create_file",
+                        "dependencies": [],
+                        "context_files": [],
+                    }
+                )
 
         # Sort backlog respecting declared dependencies (Fix 3)
         backlog = self._topological_sort(backlog)
@@ -59,19 +63,23 @@ class FileContentGenerationPhase(IAgentPhase):
             file_path = task.get("file_path", "")
             task_type = task.get("task_type", "create_file")
 
-            self.context.logger.info(f"  [Task {completed_tasks+1}/{total_tasks}] {task_id}: {title}")
+            self.context.logger.info(f"  [Task {completed_tasks + 1}/{total_tasks}] {task_id}: {title}")
 
             # CRITICAL: Binary Guard - Skip LLM call for binary files
             if self._is_binary_file(file_path):
                 self.context.logger.info(f"    Skipped: Binary file detected ({file_path})")
                 generated_files[file_path] = ""
                 # Move to done in Kanban anyway
-                self.context.event_publisher.publish("agent_board_update", action="move_task", task_id=task_id, new_status="done")
+                self.context.event_publisher.publish(
+                    "agent_board_update", action="move_task", task_id=task_id, new_status="done"
+                )
                 completed_tasks += 1
                 continue
 
             # Notify progress to Kanban Board
-            self.context.event_publisher.publish("agent_board_update", action="move_task", task_id=task_id, new_status="in_progress")
+            self.context.event_publisher.publish(
+                "agent_board_update", action="move_task", task_id=task_id, new_status="in_progress"
+            )
 
             try:
                 # 1. Distilled Context Preparation
@@ -105,12 +113,14 @@ class FileContentGenerationPhase(IAgentPhase):
 
                     if last_error:
                         # Implement Chain of Thought (CoT) for retries
-                        is_code = file_path.endswith(('.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.go', '.rs'))
+                        is_code = file_path.endswith((".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".go", ".rs"))
                         cot_instruction = ""
                         if is_code:
-                            cot_instruction = "\n\nCRITICAL: You previously generated code that failed validation. " \
-                                              "First, explain WHY the previous logic failed (in a <reflection> tag), " \
-                                              "then provide the corrected implementation in <code_created>."
+                            cot_instruction = (
+                                "\n\nCRITICAL: You previously generated code that failed validation. "
+                                "First, explain WHY the previous logic failed (in a <reflection> tag), "
+                                "then provide the corrected implementation in <code_created>."
+                            )
 
                         current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}{cot_instruction}"
 
@@ -128,18 +138,26 @@ class FileContentGenerationPhase(IAgentPhase):
 
                     # 4. XML Extraction via Regex (Case-insensitive and robust to whitespace)
                     import re
-                    codigo_match = re.search(r"<code_created>([\s\S]*?)(?:</code_created>|$)", raw_response, re.IGNORECASE)
+
+                    codigo_match = re.search(
+                        r"<code_created>([\s\S]*?)(?:</code_created>|$)", raw_response, re.IGNORECASE
+                    )
 
                     if not codigo_match:
                         # FALLBACK: If the model failed tags but used markdown blocks, try to rescue it
                         if "```" in raw_response:
                             from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
                             content = LLMResponseParser.extract_single_code_block(raw_response)
                             if content:
-                                self.context.logger.info(f"    ⚠ Attempt {attempts}: Rescued code from markdown block (Missing XML tags).")
+                                self.context.logger.info(
+                                    f"    ⚠ Attempt {attempts}: Rescued code from markdown block (Missing XML tags)."
+                                )
                                 # We continue to validation
                             else:
-                                last_error = "FORMAT FAILURE: Missing <code_created> tags and no valid code block found."
+                                last_error = (
+                                    "FORMAT FAILURE: Missing <code_created> tags and no valid code block found."
+                                )
                                 self.context.logger.warning(f"    ⚠ Attempt {attempts}: {last_error}")
                                 continue
                         else:
@@ -155,8 +173,12 @@ class FileContentGenerationPhase(IAgentPhase):
                     validation_result = self.context.files_ctx.validator.validate(file_path, content)
 
                     # Handle Semantic Warnings (Auto-Heal)
-                    if "logical integrity issues" in validation_result.message or "SEMANTIC WARNING" in str(validation_result):
-                        self.context.logger.info(f"    ⚠ Attempt {attempts}: Integrity issues detected. Attempting auto-heal...")
+                    if "logical integrity issues" in validation_result.message or "SEMANTIC WARNING" in str(
+                        validation_result
+                    ):
+                        self.context.logger.info(
+                            f"    ⚠ Attempt {attempts}: Integrity issues detected. Attempting auto-heal..."
+                        )
 
                         # Extract the missing requirement from the warning
                         # Heuristic: look for "missing 'X' function" or similar patterns
@@ -166,16 +188,17 @@ class FileContentGenerationPhase(IAgentPhase):
 
                         # Use CodePatcher to inject
                         from backend.utils.domains.auto_generation.code_patcher import CodePatcher
+
                         patcher = CodePatcher(
                             self.context.llm_manager.get_client("coder"),
                             self.context.logger,
-                            self.context.response_parser
+                            self.context.response_parser,
                         )
                         content = patcher.inject_missing_function(
                             file_path=file_path,
                             content=content,
                             requirement=missing_req,
-                            related_context=context_files_content
+                            related_context=context_files_content,
                         )
 
                         # Re-validate after healing
@@ -186,9 +209,11 @@ class FileContentGenerationPhase(IAgentPhase):
                         break
                     else:
                         last_error = f"SYNTAX ERROR: {validation_result.message}"
-                        self.context.logger.warning(f"    ⚠ Attempt {attempts} failed validation: {validation_result.message}")
+                        self.context.logger.warning(
+                            f"    ⚠ Attempt {attempts} failed validation: {validation_result.message}"
+                        )
                         if attempts < max_attempts:
-                            content = "" # Reset to force retry
+                            content = ""  # Reset to force retry
 
                 # 6. Final Save and Notification
                 if content:
@@ -199,16 +224,16 @@ class FileContentGenerationPhase(IAgentPhase):
                     # Update internal status for manifest tracking
                     task["status"] = "done"
 
-                    self.context.event_publisher.publish("agent_board_update", action="move_task", task_id=task_id, new_status="done")
+                    self.context.event_publisher.publish(
+                        "agent_board_update", action="move_task", task_id=task_id, new_status="done"
+                    )
                 else:
                     self.context.logger.error(f"    ✖ Task {task_id} failed after {max_attempts} attempts.")
 
             except Exception as e:
                 self.context.logger.error(f"Fatal error in task {task_id}: {e}")
                 # Record error in knowledge base
-                self.context.error_knowledge_base.record_error(
-                    file_path, "micro_task_failure", str(e), task_id, title
-                )
+                self.context.error_knowledge_base.record_error(file_path, "micro_task_failure", str(e), task_id, title)
 
         self.context.event_publisher.publish(
             "phase_complete",
@@ -254,7 +279,9 @@ class FileContentGenerationPhase(IAgentPhase):
         # 1. Minimum payload check (< 20 chars for main files is usually an error or hallucination)
         is_main_file = any(x in file_path.lower() for x in ["main", "app", "server", "index", "core"])
         if is_main_file and len(stripped_content) < 20:
-            self.context.logger.warning(f"    Payload too small ({len(stripped_content)} chars) for main file: {file_path}")
+            self.context.logger.warning(
+                f"    Payload too small ({len(stripped_content)} chars) for main file: {file_path}"
+            )
             return False
 
         if len(stripped_content) < 5:
@@ -262,9 +289,15 @@ class FileContentGenerationPhase(IAgentPhase):
 
         # 2. Hallucination detection (Phrases outside comments)
         hallucination_phrases = [
-            "Here is the code", "Sure, I can help", "Certainly!",
-            "I've implemented", "As a senior developer", "Hope this helps",
-            "example_function", "proper Python syntax", "SELECT * FROM table_name"
+            "Here is the code",
+            "Sure, I can help",
+            "Certainly!",
+            "I've implemented",
+            "As a senior developer",
+            "Hope this helps",
+            "example_function",
+            "proper Python syntax",
+            "SELECT * FROM table_name",
         ]
 
         # Simple heuristic: if these phrases appear in the first 200 chars and are not in comments
@@ -273,7 +306,7 @@ class FileContentGenerationPhase(IAgentPhase):
             if phrase.lower() in prefix:
                 # Check if it's likely a comment (simple check)
                 if not any(prefix.startswith(c) for c in ["#", "//", "/*", '"""', "'''"]):
-                    self.context.logger.warning(f"    Possible hallucination detected in {file_path}: \"{phrase}\"")
+                    self.context.logger.warning(f'    Possible hallucination detected in {file_path}: "{phrase}"')
                     return False
 
         # 3. Plan compliance: Check for required exports
@@ -287,8 +320,8 @@ class FileContentGenerationPhase(IAgentPhase):
 
         # 4. TODO density check
         if "TODO" in content and content.count("TODO") > 5:
-             self.context.logger.warning(f"    High TODO density ({content.count('TODO')}) in {file_path}")
-             return False
+            self.context.logger.warning(f"    High TODO density ({content.count('TODO')}) in {file_path}")
+            return False
 
         return True
 
@@ -349,9 +382,7 @@ class FileContentGenerationPhase(IAgentPhase):
                     queue.append(dependent)
 
         if len(sorted_ids) != len(id_to_task):
-            self.context.logger.warning(
-                "  ⚠ Cycle detected in backlog dependencies — keeping original order"
-            )
+            self.context.logger.warning("  ⚠ Cycle detected in backlog dependencies — keeping original order")
             return backlog
 
         # Preserve tasks without IDs (append at end)
@@ -363,11 +394,32 @@ class FileContentGenerationPhase(IAgentPhase):
     def _is_binary_file(self, file_path: str) -> bool:
         """Check if the file is a binary format that shouldn't be generated by LLM."""
         binary_extensions = {
-            '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp',
-            '.wav', '.mp3', '.ogg', '.m4a', '.flac',
-            '.zip', '.tar', '.gz', '.7z', '.rar',
-            '.pdf', '.exe', '.dll', '.so', '.dylib',
-            '.eot', '.ttf', '.woff', '.woff2'
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".bmp",
+            ".ico",
+            ".webp",
+            ".wav",
+            ".mp3",
+            ".ogg",
+            ".m4a",
+            ".flac",
+            ".zip",
+            ".tar",
+            ".gz",
+            ".7z",
+            ".rar",
+            ".pdf",
+            ".exe",
+            ".dll",
+            ".so",
+            ".dylib",
+            ".eot",
+            ".ttf",
+            ".woff",
+            ".woff2",
         }
         return Path(file_path).suffix.lower() in binary_extensions
 
