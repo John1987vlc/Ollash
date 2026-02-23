@@ -1,6 +1,6 @@
 /**
  * Ollash Model Benchmarking & Evaluation
- * Manages standard benchmarks and parallel model comparison.
+ * Uses global BenchmarkService for persistent tracking.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -18,9 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const comparisonGrid = document.getElementById('comparison-grid');
     const closeComparison = document.getElementById('close-comparison');
 
-    // State
-    let eventSource = null;
-
     // --- Helpers ---
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -28,10 +25,61 @@ document.addEventListener('DOMContentLoaded', () => {
         return div.innerHTML;
     }
 
+    function appendLog(msg) {
+        if (!benchOutput) return;
+        
+        if (msg.type === 'info' || msg.type === 'model_start') {
+            const p = document.createElement('p');
+            p.className = 'bench-log-entry';
+            p.style.fontWeight = '600';
+            p.textContent = `> Testing Model: ${msg.model || msg.message}`;
+            benchOutput.appendChild(p);
+        } else if (msg.type === 'task_start') {
+            const p = document.createElement('p');
+            p.className = 'bench-log-entry task-entry';
+            p.style.marginLeft = '15px';
+            p.style.fontSize = '0.85rem';
+            p.style.color = 'var(--color-text-muted)';
+            p.textContent = `  - Task ${msg.task_index}/${msg.total_tasks}: ${msg.task}...`;
+            benchOutput.appendChild(p);
+        } else if (msg.type === 'task_done') {
+            const lastEntry = benchOutput.lastElementChild;
+            if (lastEntry && lastEntry.classList.contains('task-entry')) {
+                lastEntry.textContent += ` [${msg.status}] (${msg.duration_sec.toFixed(1)}s)`;
+                if (msg.status !== 'Success') lastEntry.style.color = 'var(--color-error)';
+            }
+        } else if (msg.type === 'model_done') {
+            const div = document.createElement('div');
+            div.className = 'stat-row';
+            div.style.background = 'rgba(16, 185, 129, 0.1)';
+            div.style.padding = '10px';
+            div.style.borderRadius = '8px';
+            div.style.margin = '10px 0';
+            div.innerHTML = `<strong>${msg.model}</strong> completed. Success: ${msg.result.overall_status}`;
+            benchOutput.appendChild(div);
+        } else if (msg.type === 'benchmark_done') {
+            const div = document.createElement('div');
+            div.className = 'success-msg';
+            div.style.marginTop = '20px';
+            div.textContent = 'Benchmark Suite Complete!';
+            benchOutput.appendChild(div);
+            loadHistory();
+        }
+        benchOutput.scrollTop = benchOutput.scrollHeight;
+    }
+
     // --- Standard Benchmark Logic ---
     async function fetchModels() {
         const url = benchOllamaUrl.value.trim();
         const params = url ? `?url=${encodeURIComponent(url)}` : '';
+        const fetchBtn = document.getElementById('bench-fetch-models');
+        const spinner = document.getElementById('fetch-spinner');
+        const btnText = fetchBtn.querySelector('.btn-text');
+
+        if (fetchBtn) fetchBtn.disabled = true;
+        if (spinner) spinner.style.display = 'block';
+        if (btnText) btnText.textContent = 'Fetching...';
+        
         benchModelList.innerHTML = '<div class="loading-spinner-small"></div>';
 
         try {
@@ -70,13 +118,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 label.querySelector('input').onchange = () => {
                     const checked = benchModelList.querySelectorAll('input:checked').length;
-                    benchStartBtn.disabled = checked === 0;
+                    benchStartBtn.disabled = checked === 0 || window.BenchmarkService.isRunning;
                 };
                 
                 benchModelList.appendChild(label);
             });
         } catch (err) {
             benchModelList.innerHTML = `<div class="error-msg">Connection error: ${err.message}</div>`;
+        } finally {
+            if (fetchBtn) fetchBtn.disabled = false;
+            if (spinner) spinner.style.display = 'none';
+            if (btnText) btnText.textContent = 'Fetch Available Models';
         }
     }
 
@@ -87,56 +139,20 @@ document.addEventListener('DOMContentLoaded', () => {
         benchStartBtn.disabled = true;
         benchOutput.innerHTML = '<div class="loading-spinner"></div><p>Starting benchmark run...</p>';
 
-        try {
-            const resp = await fetch('/api/benchmark/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    models: checked,
-                    ollama_url: benchOllamaUrl.value.trim()
-                })
-            });
-            const data = await resp.json();
-
-            if (data.status !== 'started') {
-                benchOutput.innerHTML = `<div class="error-msg">${escapeHtml(data.message)}</div>`;
-                benchStartBtn.disabled = false;
-                return;
-            }
-
-            if (eventSource) eventSource.close();
-            eventSource = new EventSource('/api/benchmark/stream');
-
-            eventSource.onmessage = (e) => {
-                const msg = JSON.parse(e.data);
-                if (msg.type === 'info' || msg.type === 'model_start') {
-                    const p = document.createElement('p');
-                    p.style.fontSize = '0.85rem';
-                    p.style.color = 'var(--text-secondary)';
-                    p.textContent = `> ${msg.message || msg.model}`;
-                    benchOutput.appendChild(p);
-                } else if (msg.type === 'model_done') {
-                    const div = document.createElement('div');
-                    div.className = 'stat-row';
-                    div.style.background = 'rgba(16, 185, 129, 0.1)';
-                    div.style.padding = '10px';
-                    div.style.borderRadius = '8px';
-                    div.style.marginTop = '10px';
-                    div.innerHTML = `<strong>${msg.model}</strong> completed. Success Rate: ${msg.result.success_rate * 100}%`;
-                    benchOutput.appendChild(div);
-                } else if (msg.type === 'benchmark_done') {
-                    benchOutput.innerHTML += `<div class="success-msg" style="margin-top:20px;">Benchmark complete!</div>`;
-                    eventSource.close();
-                    benchStartBtn.disabled = false;
-                    loadHistory();
-                }
-                benchOutput.scrollTop = benchOutput.scrollHeight;
-            };
-
-        } catch (err) {
-            benchOutput.innerHTML = `<div class="error-msg">Error: ${err.message}</div>`;
+        const result = await window.BenchmarkService.start(checked, benchOllamaUrl.value.trim());
+        if (!result.ok) {
+            benchOutput.innerHTML = `<div class="error-msg">${escapeHtml(result.message)}</div>`;
             benchStartBtn.disabled = false;
         }
+    }
+
+    // --- Listen to Global Benchmark Events ---
+    window.BenchmarkService.addListener(appendLog);
+
+    // Initial state check
+    if (window.BenchmarkService.isRunning) {
+        benchStartBtn.disabled = true;
+        benchOutput.innerHTML = '<p>A benchmark is already running in background...</p>';
     }
 
     // --- Parallel Evaluation Logic ---
@@ -240,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const resp = await fetch('/api/benchmark/results');
             const data = await resp.json();
+            if (!benchHistoryList) return;
             benchHistoryList.innerHTML = '';
             data.results.forEach(r => {
                 const btn = document.createElement('button');

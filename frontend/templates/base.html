@@ -91,6 +91,12 @@
                     <span class="dot"></span>
                     <span class="label">Ollama: --- ms</span>
                 </div>
+                
+                <div id="global-benchmark-status" class="benchmark-status-pill" style="display: none;">
+                    <div class="spinner-inline" style="width:10px; height:10px; border-width:1px;"></div>
+                    <span class="status-text">Benchmark Running...</span>
+                </div>
+
                 <div class="terminal-bubble" id="terminal-bubble" title="Open Terminal">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M2 3L14 3L14 13L2 13L2 3Z"/>
@@ -144,6 +150,7 @@
     <script src="{{ url_for('static', filename='js/core/ui-animations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/sse-connection-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/alert-handler.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/benchmark-service.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/notification-service.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/chat-module.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/artifact-renderer.js') }}"></script>

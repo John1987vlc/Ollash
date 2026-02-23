@@ -141,36 +141,15 @@ def start_benchmark():
             total_models = len(models)
             all_results = []
 
-            for model_idx, model_name in enumerate(models, 1):
-                event_queue.put(
-                    json.dumps(
-                        {
-                            "type": "model_start",
-                            "model": model_name,
-                            "index": model_idx,
-                            "total": total_models,
-                        }
-                    )
-                )
+            # Define progress callback
+            def benchmark_callback(data):
+                event_queue.put(json.dumps(data))
 
-                # Run benchmark for this single model
-                benchmarker.results = []  # Clear for this specific run
-                benchmarker.run_benchmark([model_name])
-
-                if benchmarker.results:
-                    result = benchmarker.results[0]
-                    all_results.append(result)
-                    event_queue.put(
-                        json.dumps(
-                            {
-                                "type": "model_done",
-                                "model": model_name,
-                                "index": model_idx,
-                                "total": total_models,
-                                "result": result,
-                            }
-                        )
-                    )
+            # Run benchmark for all models with real-time updates
+            benchmarker.results = []
+            benchmarker.run_benchmark(models, callback=benchmark_callback)
+            
+            all_results = benchmarker.results
 
             # F14: Generate Summary after all models are done
             summary_text = "No summary generated."

@@ -338,6 +338,29 @@ document.addEventListener('DOMContentLoaded', function() {
     checkOllamaStatus();
     setInterval(checkOllamaStatus, 15000); 
 
+    // Global Benchmark Tracker
+    if (window.BenchmarkService) {
+        const benchIndicator = document.getElementById('global-benchmark-status');
+        const benchStatusText = benchIndicator?.querySelector('.status-text');
+
+        window.BenchmarkService.addListener((event) => {
+            if (!benchIndicator) return;
+
+            if (event.type === 'model_start' || event.type === 'task_start') {
+                benchIndicator.style.display = 'flex';
+                if (benchStatusText) {
+                    benchStatusText.textContent = event.type === 'model_start' 
+                        ? `Testing: ${event.model}`
+                        : `Task: ${event.task}`;
+                }
+            } else if (event.type === 'benchmark_done' || event.type === 'error' || event.type === 'stream_end') {
+                setTimeout(() => {
+                    benchIndicator.style.display = 'none';
+                }, 3000);
+            }
+        });
+    }
+
     async function fetchSystemMetrics() {
         if (typeof HealthModule === 'undefined') return;
         try {

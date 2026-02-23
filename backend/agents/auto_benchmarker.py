@@ -158,7 +158,7 @@ class ModelBenchmarker:
             self.SIZE_TIERS[-1][1],
         )
 
-    def run_benchmark(self, models_to_test: List[str]):
+    def run_benchmark(self, models_to_test: List[str], callback: Optional[callable] = None):
         """Run benchmark across all specified models and tasks."""
         # Filter out obvious embedding models that don't support chat
         models_to_test = [m for m in models_to_test if "embed" not in m.lower()]
@@ -171,6 +171,9 @@ class ModelBenchmarker:
         total_tasks = len(self.test_tasks)
 
         for model_idx, model_name in enumerate(models_to_test, 1):
+            if callback:
+                callback({"type": "model_start", "model": model_name, "index": model_idx, "total": total_models})
+
             model_slug = model_name.replace(":", "_").replace("/", "__")
             model_project_dir = self.generated_projects_dir / model_slug
             model_project_dir.mkdir(exist_ok=True)
@@ -228,6 +231,15 @@ class ModelBenchmarker:
                 task_start = time.time()
                 heartbeat = Heartbeat(model_name, task_label, logger=self.logger)
                 heartbeat.start()
+
+                if callback:
+                    callback({
+                        "type": "task_start",
+                        "model": model_name,
+                        "task": task_name,
+                        "task_index": task_idx,
+                        "total_tasks": total_tasks
+                    })
 
                 try:
                     creation_prompt = (
@@ -327,6 +339,15 @@ class ModelBenchmarker:
                     task_output["validation_result"] = validation_result
 
                 outputs.append(task_output)
+                
+                if callback:
+                    callback({
+                        "type": "task_done",
+                        "model": model_name,
+                        "task": task_name,
+                        "status": task_status,
+                        "duration_sec": task_elapsed
+                    })
 
             # F13: Unload model from RAM after finishing all tasks for this model
             client.unload_model()
@@ -361,31 +382,38 @@ class ModelBenchmarker:
             # Aggregate rubric scores across all tasks for this model
             aggregated_rubric_scores = self._aggregate_rubric_scores(outputs)
 
-            self.results.append(
-                {
+            model_result = {
+                "model": model_name,
+                "model_size_bytes": model_size,
+                "model_size_human": self.format_size(model_size) if model_size else "unknown",
+                "size_tier": size_tier,
+                "options_used": {
+                    "num_ctx": model_options["num_ctx"],
+                    "num_predict": model_options["num_predict"],
+                    "timeout_base": model_timeout,
+                    "temperature": model_options["temperature"],
+                },
+                "overall_status": model_overall_status,
+                "duration_sec": round(model_duration, 2),
+                "tokens_per_second": tokens_per_second,
+                "total_tokens_session": {
+                    "prompt": tracker.session_prompt_tokens,
+                    "completion": tracker.session_completion_tokens,
+                    "total": tokens_generated,
+                },
+                "thematic_scores": final_thematic,
+                "rubric_scores": aggregated_rubric_scores,
+                "projects_results": outputs,
+            }
+
+            if callback:
+                callback({
+                    "type": "model_done",
                     "model": model_name,
-                    "model_size_bytes": model_size,
-                    "model_size_human": self.format_size(model_size) if model_size else "unknown",
-                    "size_tier": size_tier,
-                    "options_used": {
-                        "num_ctx": model_options["num_ctx"],
-                        "num_predict": model_options["num_predict"],
-                        "timeout_base": model_timeout,
-                        "temperature": model_options["temperature"],
-                    },
-                    "overall_status": model_overall_status,
-                    "duration_sec": round(model_duration, 2),
-                    "tokens_per_second": tokens_per_second,
-                    "total_tokens_session": {
-                        "prompt": tracker.session_prompt_tokens,
-                        "completion": tracker.session_completion_tokens,
-                        "total": tokens_generated,
-                    },
-                    "thematic_scores": final_thematic,
-                    "rubric_scores": aggregated_rubric_scores,
-                    "projects_results": outputs,
-                }
-            )
+                    "result": model_result
+                })
+
+            self.results.append(model_result)
 
     def _save_generated_project(self, project_dir: Path, model_response: str, task_description: str):
         """Parse model response and save as project files."""

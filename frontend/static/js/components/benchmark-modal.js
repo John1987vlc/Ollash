@@ -1,9 +1,9 @@
 /**
  * Quick Benchmark Modal Logic
+ * Uses global BenchmarkService for background tracking.
  */
 window.BenchmarkModal = (function() {
     let modelList, startBtn, resultsContainer;
-    let eventSource = null;
 
     function init() {
         modelList = document.getElementById('modal-bench-model-list');
@@ -18,10 +18,47 @@ window.BenchmarkModal = (function() {
         document.querySelectorAll('[data-modal-open="benchmark-modal"]').forEach(btn => {
             btn.addEventListener('click', fetchModels);
         });
+
+        // Listen to global events to update modal results if open
+        if (window.BenchmarkService) {
+            window.BenchmarkService.addListener(appendResult);
+        }
+    }
+
+    function appendResult(msg) {
+        if (!resultsContainer) return;
+
+        if (msg.type === 'model_start') {
+            const p = document.createElement('p');
+            p.className = 'bench-modal-log-model';
+            p.innerHTML = `<strong>> Model: ${msg.model}</strong>`;
+            resultsContainer.appendChild(p);
+        } else if (msg.type === 'task_start') {
+            const p = document.createElement('p');
+            p.className = 'bench-modal-log-task';
+            p.style.marginLeft = '10px';
+            p.style.fontSize = '0.8rem';
+            p.textContent = `  - ${msg.task}...`;
+            resultsContainer.appendChild(p);
+        } else if (msg.type === 'model_done') {
+            const div = document.createElement('div');
+            div.className = 'bench-result-entry';
+            div.innerHTML = `<strong>${msg.model}</strong>: ${msg.result.overall_status}`;
+            resultsContainer.appendChild(div);
+        } else if (msg.type === 'benchmark_done') {
+            const div = document.createElement('div');
+            div.className = 'success-msg';
+            div.textContent = 'Benchmark complete!';
+            resultsContainer.appendChild(div);
+            if (startBtn) startBtn.disabled = false;
+        }
+        resultsContainer.scrollTop = resultsContainer.scrollHeight;
     }
 
     async function fetchModels() {
         if (!modelList) return;
+        if (modelList.children.length > 1) return; // Already loaded
+
         modelList.innerHTML = '<div class="loading-spinner-small"></div>';
         
         try {
@@ -56,35 +93,15 @@ window.BenchmarkModal = (function() {
             return;
         }
 
-        resultsContainer.innerHTML = '<div class="loading-spinner"></div><p>Running benchmark...</p>';
-        startBtn.disabled = true;
+        resultsContainer.innerHTML = '<p>Starting background run...</p>';
+        if (startBtn) startBtn.disabled = true;
 
-        try {
-            const ollamaUrl = localStorage.getItem('ollash-ollama-url') || 'http://localhost:11434';
-            const resp = await fetch('/api/benchmark/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ models: checked, ollama_url: ollamaUrl })
-            });
-            
-            if (eventSource) eventSource.close();
-            eventSource = new EventSource('/api/benchmark/stream');
-
-            eventSource.onmessage = (e) => {
-                const msg = JSON.parse(e.data);
-                if (msg.type === 'model_done') {
-                    const div = document.createElement('div');
-                    div.className = 'bench-result-entry';
-                    div.innerHTML = `<strong>${msg.model}</strong>: ${(msg.result.success_rate * 100).toFixed(0)}% success`;
-                    resultsContainer.appendChild(div);
-                } else if (msg.type === 'benchmark_done') {
-                    eventSource.close();
-                    startBtn.disabled = false;
-                }
-            };
-        } catch (err) {
-            resultsContainer.innerHTML = `<div class="error-msg">Error: ${err.message}</div>`;
-            startBtn.disabled = false;
+        const ollamaUrl = localStorage.getItem('ollash-ollama-url') || 'http://localhost:11434';
+        const result = await window.BenchmarkService.start(checked, ollamaUrl);
+        
+        if (!result.ok) {
+            resultsContainer.innerHTML = `<div class="error-msg">${result.message}</div>`;
+            if (startBtn) startBtn.disabled = false;
         }
     }
 
