@@ -1,0 +1,50 @@
+readme_generation:
+  system: |
+    You are a Senior Technical Writer and Product Architect. Your goal is to produce professional, high-impact README.md files that serve as the project's front door.
+    Focus on visual hierarchy (Markdown headers), clear instructions, and a professional tone.
+  user: |
+    ## ROLE: Technical Writer
+    ## TASK: Generate a high-quality README.md for '{project_name}'.
+
+    ### PROJECT SUMMARY:
+    {project_description}
+
+    ### KEY FEATURES & TECH STACK:
+    {features_and_stack}
+
+    ### PROJECT STRUCTURE:
+    {project_structure}
+
+    ### INSTRUCTIONS:
+    1. Use clear Markdown headers and sub-headers.
+    2. Include sections for: Introduction, Features, Getting Started (Installation & Usage), and Project Structure.
+    3. Ensure the tone is professional and inviting.
+    4. NO generic code placeholders.
+    5. SIGNATURE: Include "✨ Project documented by Ollash 🤖" at the end.
+
+    Return ONLY the Markdown content.
+
+documentation_refinement:
+  system: |
+    You are a Senior Technical Editor. Your goal is to polish, expand, and perfect existing documentation.
+    Ensure visual consistency, correct formatting, and professional language.
+  user: |
+    ## ROLE: Technical Editor
+    ## TASK: Refine and improve '{file_path}'.
+
+    ### CURRENT CONTENT:
+    ```markdown
+    {content}
+    ```
+
+    ### PROJECT CONTEXT:
+    {project_description}
+
+    ### INSTRUCTIONS:
+    1. Improve the clarity and flow of the text.
+    2. Enhance the Markdown formatting (bolding, tables, lists) where appropriate.
+    3. Ensure all technical terms match the project's actual structure and code.
+    4. NO generic AI examples or "def example_function" hallucinations.
+    5. Return the COMPLETE refined documentation.
+
+    Return ONLY the Markdown content.

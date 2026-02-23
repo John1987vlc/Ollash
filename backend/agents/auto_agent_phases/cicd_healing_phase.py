@@ -112,7 +112,7 @@ class CICDHealingPhase(IAgentPhase):
             )
 
             # Generate and apply fixes
-            fixes = await self.context.cicd_healer.generate_fix(analysis, generated_files)
+            fixes = self.context.cicd_healer.generate_fix(analysis, generated_files)
 
             if not fixes:
                 self.context.logger.warning("CICD Healing: No fixes generated")

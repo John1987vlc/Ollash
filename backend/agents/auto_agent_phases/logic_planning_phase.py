@@ -75,7 +75,7 @@ class LogicPlanningPhase(IAgentPhase):
         backlog = await self._generate_backlog(
             project_description, readme_content, initial_structure
         )
-        
+
         backlog_file = project_root / "BACKLOG.json"
         self.context.file_manager.write_file(backlog_file, json.dumps(backlog, indent=2))
         generated_files["BACKLOG.json"] = json.dumps(backlog, indent=2)
@@ -135,10 +135,10 @@ class LogicPlanningPhase(IAgentPhase):
                 )
 
                 response_text = response_data.get("content", "")
-                
+
                 # Use robust parser
                 backlog = LLMResponseParser.extract_json(response_text)
-                
+
                 if not backlog:
                     import re
                     # Try to extract from tags specifically
@@ -275,21 +275,24 @@ class LogicPlanningPhase(IAgentPhase):
 
                 response_text = response_data.get("content", "")
 
-                plans = LLMResponseParser.extract_json(response_text)
-                
-                if not plans:
-                    import re
-                    tag_match = re.search(r"<plan_json>([\s\S]*?)(?:</plan_json>|$)", response_text, re.IGNORECASE)
-                    if tag_match:
-                        plans = LLMResponseParser.extract_json(tag_match.group(1))
+                if not response_text.strip():
+                    self.context.logger.warning(f"  ⚠ LLM returned empty response for category {category} (Attempt {attempts})")
+                    continue
 
-                if isinstance(plans, dict) and any(f in plans for f in files):
+                plans = LLMResponseParser.extract_json(response_text)
+
+                if not plans:
+                    # Intento desesperado: si no hay tags, buscar cualquier objeto JSON
+                    plans = LLMResponseParser.extract_json(response_text)
+
+                if isinstance(plans, dict) and (not files or any(f in plans for f in files)):
                     return plans
                 else:
                     # Log failed response for debugging
                     fail_log = self.context.generated_projects_dir / f"FAILED_PLAN_{category}_{attempts}.txt"
-                    self.context.file_manager.write_file(fail_log, response_text)
-                    raise ValueError(f"LLM returned invalid planning JSON. Raw response saved to {fail_log.name}")
+                    log_content = f"--- RAW RESPONSE ---\n{response_text}\n--- END RAW ---"
+                    self.context.file_manager.write_file(fail_log, log_content)
+                    raise ValueError(f"LLM returned invalid planning JSON for {category}. Raw response saved to {fail_log.name}")
 
             except Exception as e:
                 last_error = str(e)
@@ -303,13 +306,12 @@ class LogicPlanningPhase(IAgentPhase):
     def _create_basic_plans(self, files: List[str], category: str, project_description: str) -> Dict[str, Dict]:
         """Create basic fallback plans anchored to the original project description."""
         plans = {}
-        
+
         # Validation: If project_description is too short, we might be losing intent
         if len(project_description) < 10:
              self.context.logger.warning("Project description is critically short for fallback planning.")
 
         for file_path in files:
-            ext = Path(file_path).suffix
             purpose = f"Implementation of {category} logic for: {project_description[:100]}..."
             exports = []
 
@@ -319,7 +321,7 @@ class LogicPlanningPhase(IAgentPhase):
             elif category == "main":
                 purpose = f"Main entry point for {project_description[:50]}"
                 exports = ["main", "app"]
-            
+
             plans[file_path] = {
                 "purpose": purpose,
                 "exports": exports,

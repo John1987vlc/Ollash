@@ -256,17 +256,23 @@ RULES:
         """
         self.logger.info("Refining user instruction...")
 
-        refine_prompt = [
-            {
-                "role": "system",
-                "content": "You are a prompt engineer. Translate the user's request to English if it's in another language. Then, expand and clarify the request to be more effective for a coding agent. Return ONLY the refined English text.",
-            },
-            {"role": "user", "content": f"Refine this: {instruction}"},
-        ]
-
         try:
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+            loader = PromptLoader()
+            prompts = loader.load_prompt("core/services.yaml")
+
+            system = prompts.get("prompt_engineering", {}).get("system", "")
+            user_template = prompts.get("prompt_engineering", {}).get("user", "")
+            user = user_template.format(text=instruction)
+
             preprocess_client = self.llm_manager.get_client("orchestration")  # Use llm_manager
-            response, _ = await preprocess_client.achat(refine_prompt, tools=[])
+            response, _ = await preprocess_client.achat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ],
+                tools=[]
+            )
             refined_text = response.get("message", {}).get("content", instruction)
 
             original_lang = "es" if any(ord(c) > 127 for c in instruction) else "en"  # Very basic
@@ -281,17 +287,23 @@ RULES:
         if target_lang == "en":
             return text
 
-        translation_prompt = [
-            {
-                "role": "system",
-                "content": f"Translate the following technical response to {target_lang}. Maintain code blocks and technical terms as they are.",
-            },
-            {"role": "user", "content": text},
-        ]
-
         try:
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+            loader = PromptLoader()
+            prompts = loader.load_prompt("core/services.yaml")
+
+            # Use translation standardization as base for final translation
+            system = "You are a professional translator."
+            user = f"Translate the following technical response to {target_lang}. Maintain code blocks and technical terms as they are.\n\nText: {text}"
+
             translate_client = self.llm_manager.get_client("orchestration")  # Use llm_manager
-            response, _ = await translate_client.achat(translation_prompt, tools=[])
+            response, _ = await translate_client.achat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ],
+                tools=[]
+            )
             return response.get("message", {}).get("content", text)
         except Exception as e:
             self.logger.error(f"Error in final translation: {e}")
@@ -416,7 +428,7 @@ RULES:
 
                         # REQUIREMENT: Output must be in English unless explicitly requested otherwise.
                         # We don't translate back automatically anymore.
-                        final_response = final_response_en 
+                        final_response = final_response_en
 
                         self.conversation.append({"role": "assistant", "content": final_response_en})
                         self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
@@ -493,18 +505,22 @@ RULES:
                             self.logger.info("Escalating to small model for error analysis.")
                             correction_client = self.llm_manager.get_client("self_correction")
                             if correction_client:
-                                correction_prompt = [
-                                    {
-                                        "role": "system",
-                                        "content": "You are a self-correction AI. Analyze the following error and provide a single tool call to fix it. Respond in JSON format with 'tool_calls' and a 'confidence' score (0.0 to 1.0).",
-                                    },
-                                    {
-                                        "role": "user",
-                                        "content": f"The tool call {json.dumps(original_tool_call)} failed with this error:\n{error_msg}",
-                                    },
-                                ]
                                 try:
-                                    response, _ = await correction_client.achat(correction_prompt, tools=[])
+                                    from backend.utils.core.llm.prompt_loader import PromptLoader
+                                    loader = PromptLoader()
+                                    prompts = loader.load_prompt("core/services.yaml")
+
+                                    system = prompts.get("self_correction", {}).get("system", "")
+                                    user_template = prompts.get("self_correction", {}).get("user", "")
+                                    user = user_template.format(error=f"The tool call {json.dumps(original_tool_call)} failed with this error:\n{error_msg}")
+
+                                    response, _ = await correction_client.achat(
+                                        messages=[
+                                            {"role": "system", "content": system},
+                                            {"role": "user", "content": user}
+                                        ],
+                                        tools=[]
+                                    )
                                     response_content = response.get("message", {}).get("content", "")
                                     solution_data = json.loads(response_content)
                                     confidence = solution_data.get("confidence", 0.0)

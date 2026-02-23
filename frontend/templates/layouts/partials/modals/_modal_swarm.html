@@ -1,0 +1,17 @@
+<!-- Swarm Activity Monitor Modal -->
+<div class="modal" id="swarm-modal" role="dialog" aria-modal="true" aria-labelledby="swarm-modal-title" style="display: none;">
+    <div class="modal-content modal-wide">
+        <div class="modal-header">
+            <h2 id="swarm-modal-title">Swarm Activity Monitor</h2>
+            <button class="close-modal" aria-label="Close" data-modal-close>&times;</button>
+        </div>
+        <div id="swarm-canvas-container" style="height: 400px; position: relative;">
+            <div class="orchestrator-node main-node">Orchestrator</div>
+            <div id="swarm-nodes-container"></div>
+        </div>
+        <div class="swarm-legend">
+            <div class="legend-item"><span class="dot active" aria-hidden="true"></span> Active Specialist</div>
+            <div class="legend-item"><span class="dot idle" aria-hidden="true"></span> Idle</div>
+        </div>
+    </div>
+</div>

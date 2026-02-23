@@ -45,3 +45,61 @@ window.SwarmModule = (function() {
         highlightAgent: highlightAgent
     };
 })();
+
+// Co-working tool button handlers (swarm.html page)
+document.addEventListener('DOMContentLoaded', () => {
+    const runDocToTask = document.getElementById('run-doc-to-task');
+    const runLogAudit = document.getElementById('run-log-audit');
+    const runSummary = document.getElementById('run-summary');
+
+    if (runDocToTask) {
+        runDocToTask.addEventListener('click', async () => {
+            const docName = document.getElementById('doc-to-task-name').value;
+            const resultsDiv = document.getElementById('doc-to-task-results');
+            resultsDiv.innerText = 'Analyzing and generating tasks...';
+            try {
+                const response = await fetch('/api/swarm/doc-to-task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ document_name: docName })
+                });
+                const data = await response.json();
+                resultsDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) { resultsDiv.innerText = 'Error: ' + e.message; }
+        });
+    }
+
+    if (runLogAudit) {
+        runLogAudit.addEventListener('click', async () => {
+            const logType = document.getElementById('log-type-select').value;
+            const resultsDiv = document.getElementById('log-audit-results');
+            resultsDiv.innerText = 'Auditing logs for risks...';
+            try {
+                const response = await fetch('/api/swarm/log-audit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ log_type: logType })
+                });
+                const data = await response.json();
+                resultsDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) { resultsDiv.innerText = 'Error: ' + e.message; }
+        });
+    }
+
+    if (runSummary) {
+        runSummary.addEventListener('click', async () => {
+            const docName = document.getElementById('summary-doc-name').value;
+            const resultsDiv = document.getElementById('summary-results');
+            resultsDiv.innerText = 'Generating executive summary...';
+            try {
+                const response = await fetch('/api/swarm/summary', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ document_name: docName })
+                });
+                const data = await response.json();
+                resultsDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) { resultsDiv.innerText = 'Error: ' + e.message; }
+        });
+    }
+});

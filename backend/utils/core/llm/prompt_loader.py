@@ -60,7 +60,7 @@ class PromptLoader:
         Loads a prompt from DB (priority) or filesystem.
         """
         role_key = Path(relative_path).stem
-        
+
         # 1. Try DB first
         db_content = self._get_db_prompt(role_key)
         if db_content:
@@ -76,7 +76,7 @@ class PromptLoader:
             # Try with .yaml extension if missing
             if not file_path.suffix:
                 file_path = file_path.with_suffix(".yaml")
-            
+
             if not file_path.exists():
                 logger.error(f"Prompt file not found: {file_path}")
                 return {}

@@ -44,8 +44,7 @@ async def cmd_agent(args):
             project_name=args.name or "auto_project",
             include_docker=True
         )
-        print(f"
-[+] Project generated successfully at: {path}")
+        print(f"\n[+] Project generated successfully at: {path}")
     except Exception as e:
         print(f"[-] Error in agent: {e}")
         sys.exit(1)
@@ -168,8 +167,7 @@ async def cmd_vision_ocr(args):
     print(f"[*] Processing image: {args.file}")
     try:
         result = processor.process_image(args.file)
-        print("
---- EXTRACTED TEXT ---")
+        print("\n--- EXTRACTED TEXT ---")
         print(result.extracted_text)
         print("----------------------")
         print(f"Confidence: {result.confidence:.2f}, Time: {result.processing_time_ms:.0f}ms")

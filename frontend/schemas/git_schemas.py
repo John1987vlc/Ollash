@@ -1,6 +1,6 @@
 """Request schemas for the Git blueprint (frontend/blueprints/git_views.py)."""
 
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, Field, field_validator
 

@@ -32,7 +32,6 @@ from backend.agents.auto_agent_phases.structure_pre_review_phase import Structur
 from backend.agents.auto_agent_phases.test_generation_execution_phase import TestGenerationExecutionPhase
 from backend.agents.auto_agent_phases.verification_phase import VerificationPhase
 
-# Import all services and phases to be managed by the container
 from backend.core.config import config
 from backend.core.kernel import AgentKernel
 from backend.services.llm_client_manager import LLMClientManager
@@ -59,8 +58,6 @@ from backend.utils.core.system.permission_profiles import PermissionProfileManag
 from backend.utils.core.analysis.scanners.rag_context_selector import RAGContextSelector
 from backend.utils.core.analysis.scanners.dependency_scanner import DependencyScanner
 from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScanner
-
-# Core Utilities
 from backend.utils.core.system.structured_logger import StructuredLogger
 from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
 from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
@@ -70,8 +67,6 @@ from backend.utils.domains.auto_generation.improvement_planner import Improvemen
 from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
 from backend.utils.domains.auto_generation.infra_generator import InfraGenerator
 from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
-
-# Specialized AutoAgent services
 from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
 from backend.utils.domains.auto_generation.project_reviewer import ProjectReviewer
 from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
@@ -79,17 +74,16 @@ from backend.utils.domains.auto_generation.structure_generator import StructureG
 from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
 
 
-class CoreContainer(containers.DeclarativeContainer):
-    """Container for core, cross-cutting services."""
+# ---------------------------------------------------------------------------
+# Sub-containers (semantic grouping)
+# ---------------------------------------------------------------------------
 
-    config = providers.Object(config)
-    ollash_root_dir = providers.Factory(Path, config.provided.get.call("ollash_root_dir", "."))
-    generated_projects_dir = providers.Factory(
-        lambda root: root / "generated_projects" / "auto_agent_projects",
-        ollash_root_dir,
-    )
+class LoggingContainer(containers.DeclarativeContainer):
+    """Logging, kernel, and event infrastructure."""
 
-    # Create a separate provider for the structured logger
+    config = providers.Dependency()
+    ollash_root_dir = providers.Dependency()
+
     structured_logger = providers.Singleton(
         StructuredLogger,
         log_file_path=providers.Factory(
@@ -102,60 +96,41 @@ class CoreContainer(containers.DeclarativeContainer):
 
     agent_kernel = providers.Singleton(
         AgentKernel,
-        ollash_root_dir=ollash_root_dir.provided,
+        ollash_root_dir=ollash_root_dir,
         structured_logger=structured_logger,
     )
 
     logger = providers.Singleton(AgentLogger, structured_logger=structured_logger, logger_name="OllashApp")
     event_publisher = providers.Singleton(EventPublisher)
-
     tool_settings_config = providers.Singleton(lambda k: k.get_tool_settings_config(), agent_kernel)
 
-    command_executor = providers.Singleton(
-        CommandExecutor,
-        working_dir=ollash_root_dir.provided,
-        logger=logger,
-        use_docker_sandbox=config.provided.get.call("use_docker_sandbox", False),
-    )
 
-    file_manager = providers.Singleton(FileManager, root_path=ollash_root_dir.provided)
+class StorageContainer(containers.DeclarativeContainer):
+    """File system, caching, and parsing services."""
+
+    logger = providers.Dependency()
+    ollash_root_dir = providers.Dependency()
+    command_executor = providers.Dependency()
+
+    file_manager = providers.Singleton(FileManager, root_path=ollash_root_dir)
     response_parser = providers.Singleton(LLMResponseParser)
     file_validator = providers.Singleton(FileValidator, logger=logger, command_executor=command_executor)
-
-    prompt_loader = providers.Singleton(
-        PromptLoader,
-        prompts_dir=providers.Factory(lambda root: root / "prompts", ollash_root_dir),
-    )
-
-    prompt_db_path = providers.Factory(lambda root: root / ".ollash" / "prompt_history.db", ollash_root_dir)
-    prompt_repository = providers.Singleton(
-        PromptRepository,
-        db_path=prompt_db_path,
-    )
-
-    llm_recorder = providers.Singleton(LLMRecorder, logger=logger)
-    documentation_manager = providers.Singleton(
-        DocumentationManager,
-        project_root=ollash_root_dir.provided,
-        logger=logger,
-        llm_recorder=llm_recorder,
-        config=config.provided,
-    )
-
-    code_quarantine = providers.Singleton(CodeQuarantine, project_root=ollash_root_dir.provided, logger=logger)
 
     cache_dir = providers.Factory(lambda root: root / ".cache" / "fragments", ollash_root_dir)
     fragment_cache = providers.Singleton(FragmentCache, cache_dir=cache_dir, logger=logger, enable_persistence=True)
 
+
+class AnalysisContainer(containers.DeclarativeContainer):
+    """Code analysis, RAG, and evaluation services."""
+
+    logger = providers.Dependency()
+    ollash_root_dir = providers.Dependency()
+    event_publisher = providers.Dependency()
+    config = providers.Dependency()
+
+    code_quarantine = providers.Singleton(CodeQuarantine, project_root=ollash_root_dir, logger=logger)
     dependency_graph = providers.Singleton(DependencyGraph, logger=logger)
     dependency_scanner = providers.Singleton(DependencyScanner, logger=logger)
-
-    parallel_generator = providers.Singleton(
-        ParallelFileGenerator,
-        logger=logger,
-        max_concurrent=config.provided.get.call("parallel_generation_max_concurrent", 3),
-        max_requests_per_minute=config.provided.get.call("parallel_generation_max_rpm", 10),
-    )
 
     shadow_evaluator = providers.Singleton(
         ShadowEvaluator,
@@ -164,17 +139,25 @@ class CoreContainer(containers.DeclarativeContainer):
         log_dir=providers.Factory(lambda root: root / "logs" / "shadow", ollash_root_dir),
     )
 
-    kb_dir = providers.Factory(lambda root: root / ".cache" / "knowledge", ollash_root_dir)
-    error_knowledge_base = providers.Singleton(
-        ErrorKnowledgeBase, knowledge_dir=kb_dir, logger=logger, enable_persistence=True
+    rag_context_selector = providers.Singleton(
+        RAGContextSelector,
+        settings_manager=config,
+        project_root=ollash_root_dir,
+        logger=logger,
     )
 
-    episodic_memory = providers.Singleton(
-        EpisodicMemory, memory_dir=ollash_root_dir.provided, logger=logger
-    )
+    vulnerability_scanner = providers.Singleton(VulnerabilityScanner, logger=logger)
+
+
+class SecurityContainer(containers.DeclarativeContainer):
+    """Permission profiles and policy enforcement."""
+
+    logger = providers.Dependency()
+    ollash_root_dir = providers.Dependency()
+    tool_settings_config = providers.Dependency()
 
     permission_manager = providers.Singleton(
-        PermissionProfileManager, logger=logger, project_root=ollash_root_dir.provided
+        PermissionProfileManager, logger=logger, project_root=ollash_root_dir
     )
     policy_enforcer = providers.Singleton(
         PolicyEnforcer,
@@ -183,37 +166,136 @@ class CoreContainer(containers.DeclarativeContainer):
         tool_settings_config=tool_settings_config,
     )
 
-    rag_context_selector = providers.Singleton(
-        RAGContextSelector,
-        settings_manager=config.provided,
-        project_root=ollash_root_dir.provided,
-        logger=logger,
+
+class MemoryContainer(containers.DeclarativeContainer):
+    """Long-term memory and knowledge base services."""
+
+    logger = providers.Dependency()
+    ollash_root_dir = providers.Dependency()
+
+    kb_dir = providers.Factory(lambda root: root / ".cache" / "knowledge", ollash_root_dir)
+    error_knowledge_base = providers.Singleton(
+        ErrorKnowledgeBase, knowledge_dir=kb_dir, logger=logger, enable_persistence=True
+    )
+    episodic_memory = providers.Singleton(EpisodicMemory, memory_dir=ollash_root_dir, logger=logger)
+
+
+# ---------------------------------------------------------------------------
+# Core container — composes sub-containers and holds shared cross-cutting deps
+# ---------------------------------------------------------------------------
+
+class CoreContainer(containers.DeclarativeContainer):
+    """Core application services. Composes semantic sub-containers.
+
+    Sub-container access paths:
+      core.logging.logger         — AgentLogger
+      core.logging.agent_kernel   — AgentKernel
+      core.logging.event_publisher — EventPublisher
+      core.logging.tool_settings_config — ToolSettingsConfig
+      core.storage.file_manager   — FileManager
+      core.storage.response_parser — LLMResponseParser
+      core.storage.file_validator  — FileValidator
+      core.storage.fragment_cache  — FragmentCache
+      core.analysis.code_quarantine / dependency_graph / dependency_scanner
+      core.analysis.shadow_evaluator / rag_context_selector / vulnerability_scanner
+      core.security.permission_manager / policy_enforcer
+      core.memory.error_knowledge_base / episodic_memory
+    """
+
+    config = providers.Object(config)
+    ollash_root_dir = providers.Factory(Path, config.provided.get.call("ollash_root_dir", "."))
+    generated_projects_dir = providers.Factory(
+        lambda root: root / "generated_projects" / "auto_agent_projects",
+        ollash_root_dir,
     )
 
-    vulnerability_scanner = providers.Singleton(
-        VulnerabilityScanner,
-        logger=logger,
+    # Logging sub-container defined first — others depend on logging.logger
+    logging = providers.Container(
+        LoggingContainer,
+        config=config,
+        ollash_root_dir=ollash_root_dir,
+    )
+
+    command_executor = providers.Singleton(
+        CommandExecutor,
+        working_dir=ollash_root_dir.provided,
+        logger=logging.logger,
+        use_docker_sandbox=config.provided.get.call("use_docker_sandbox", False),
+    )
+
+    storage = providers.Container(
+        StorageContainer,
+        logger=logging.logger,
+        ollash_root_dir=ollash_root_dir,
+        command_executor=command_executor,
+    )
+    analysis = providers.Container(
+        AnalysisContainer,
+        logger=logging.logger,
+        ollash_root_dir=ollash_root_dir,
+        event_publisher=logging.event_publisher,
+        config=config.provided,
+    )
+    security = providers.Container(
+        SecurityContainer,
+        logger=logging.logger,
+        ollash_root_dir=ollash_root_dir,
+        tool_settings_config=logging.tool_settings_config,
+    )
+    memory = providers.Container(
+        MemoryContainer,
+        logger=logging.logger,
+        ollash_root_dir=ollash_root_dir,
+    )
+
+    # Shared cross-cutting providers (used by AutoAgent and multiple sub-systems)
+    llm_recorder = providers.Singleton(LLMRecorder, logger=logging.logger)
+
+    prompt_loader = providers.Singleton(
+        PromptLoader,
+        prompts_dir=providers.Factory(lambda root: root / "prompts", ollash_root_dir),
+    )
+    prompt_db_path = providers.Factory(lambda root: root / ".ollash" / "prompt_history.db", ollash_root_dir)
+    prompt_repository = providers.Singleton(PromptRepository, db_path=prompt_db_path)
+
+    documentation_manager = providers.Singleton(
+        DocumentationManager,
+        project_root=ollash_root_dir.provided,
+        logger=logging.logger,
+        llm_recorder=llm_recorder,
+        config=config.provided,
+    )
+
+    parallel_generator = providers.Singleton(
+        ParallelFileGenerator,
+        logger=logging.logger,
+        max_concurrent=config.provided.get.call("parallel_generation_max_concurrent", 3),
+        max_requests_per_minute=config.provided.get.call("parallel_generation_max_rpm", 10),
     )
 
     export_manager = providers.Singleton(
         ExportManager,
         command_executor=command_executor,
-        logger=logger,
+        logger=logging.logger,
     )
 
+
+# ---------------------------------------------------------------------------
+# AutoAgent container
+# ---------------------------------------------------------------------------
 
 class AutoAgentContainer(containers.DeclarativeContainer):
     """Container for AutoAgent and its specific dependencies."""
 
     core = providers.Container(CoreContainer)
 
-    llm_models_config = providers.Singleton(lambda k: k.get_llm_models_config(), core.agent_kernel)
+    llm_models_config = providers.Singleton(lambda k: k.get_llm_models_config(), core.logging.agent_kernel)
 
     llm_client_manager = providers.Singleton(
         LLMClientManager,
         config=llm_models_config,
-        tool_settings=core.tool_settings_config,
-        logger=core.logger,
+        tool_settings=core.logging.tool_settings_config,
+        logger=core.logging.logger,
         recorder=core.llm_recorder,
     )
 
@@ -221,114 +303,112 @@ class AutoAgentContainer(containers.DeclarativeContainer):
     project_planner = providers.Factory(
         ProjectPlanner,
         llm_client=llm_client_manager.provided.get_client.call("planner"),
-        logger=core.logger,
+        logger=core.logging.logger,
     )
     structure_generator = providers.Factory(
         StructureGenerator,
         llm_client=llm_client_manager.provided.get_client.call("prototyper"),
-        logger=core.logger,
-        response_parser=core.response_parser,
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
     )
     file_content_generator = providers.Factory(
         FileContentGenerator,
         llm_client=llm_client_manager.provided.get_client.call("prototyper"),
-        logger=core.logger,
-        response_parser=core.response_parser,
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
         documentation_manager=core.documentation_manager,
-        fragment_cache=core.fragment_cache,
+        fragment_cache=core.storage.fragment_cache,
     )
     file_refiner = providers.Factory(
         FileRefiner,
         llm_client=llm_client_manager.provided.get_client.call("coder"),
-        logger=core.logger,
-        response_parser=core.response_parser,
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
         documentation_manager=core.documentation_manager,
     )
     file_completeness_checker = providers.Factory(
         FileCompletenessChecker,
         llm_client=llm_client_manager.provided.get_client.call("coder"),
-        logger=core.logger,
-        response_parser=core.response_parser,
-        file_validator=core.file_validator,
-        max_retries_per_file=core.tool_settings_config.provided.completeness_checker_max_retries,
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
+        file_validator=core.storage.file_validator,
+        max_retries_per_file=core.logging.tool_settings_config.provided.completeness_checker_max_retries,
     )
     project_reviewer = providers.Factory(
         ProjectReviewer,
         llm_client=llm_client_manager.provided.get_client.call("generalist"),
-        logger=core.logger,
+        logger=core.logging.logger,
     )
     improvement_suggester = providers.Factory(
         ImprovementSuggester,
         llm_client=llm_client_manager.provided.get_client.call("suggester"),
-        logger=core.logger,
-        response_parser=core.response_parser,
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
     )
     improvement_planner = providers.Factory(
         ImprovementPlanner,
         llm_client=llm_client_manager.provided.get_client.call("improvement_planner"),
-        logger=core.logger,
-        response_parser=core.response_parser,
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
     )
     test_generator = providers.Factory(
         MultiLanguageTestGenerator,
         llm_client=llm_client_manager.provided.get_client.call("test_generator"),
-        logger=core.logger,
-        response_parser=core.response_parser,
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
         command_executor=core.command_executor,
     )
     senior_reviewer = providers.Factory(
         SeniorReviewer,
         llm_client=llm_client_manager.provided.get_client.call("senior_reviewer"),
-        logger=core.logger,
-        response_parser=core.response_parser,
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
     )
     structure_pre_reviewer = providers.Factory(
         StructurePreReviewer,
         llm_client=llm_client_manager.provided.get_client.call("senior_reviewer"),
-        logger=core.logger,
-        response_parser=core.response_parser,
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
     )
     contingency_planner = providers.Factory(
         ContingencyPlanner,
         client=llm_client_manager.provided.get_client.call("planner"),
-        logger=core.logger,
-        parser=core.response_parser,
+        logger=core.logging.logger,
+        parser=core.storage.response_parser,
     )
-
     cicd_healer = providers.Factory(
         CICDHealer,
-        logger=core.logger,
+        logger=core.logging.logger,
         command_executor=core.command_executor,
         llm_client=llm_client_manager.provided.get_client.call("coder"),
     )
-
     infra_generator = providers.Factory(
         InfraGenerator,
         llm_client=llm_client_manager.provided.get_client.call("prototyper"),
-        logger=core.logger,
-        response_parser=core.response_parser,
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
     )
 
     # --- PhaseContext Provider ---
     phase_context = providers.Singleton(
         PhaseContext,
         config=core.config,
-        logger=core.logger,
+        logger=core.logging.logger,
         ollash_root_dir=core.ollash_root_dir,
         llm_manager=llm_client_manager,
-        response_parser=core.response_parser,
-        file_manager=core.file_manager,
-        file_validator=core.file_validator,
+        response_parser=core.storage.response_parser,
+        file_manager=core.storage.file_manager,
+        file_validator=core.storage.file_validator,
         documentation_manager=core.documentation_manager,
-        event_publisher=core.event_publisher,
-        code_quarantine=core.code_quarantine,
-        fragment_cache=core.fragment_cache,
-        dependency_graph=core.dependency_graph,
-        dependency_scanner=core.dependency_scanner,
+        event_publisher=core.logging.event_publisher,
+        code_quarantine=core.analysis.code_quarantine,
+        fragment_cache=core.storage.fragment_cache,
+        dependency_graph=core.analysis.dependency_graph,
+        dependency_scanner=core.analysis.dependency_scanner,
         parallel_generator=core.parallel_generator,
-        error_knowledge_base=core.error_knowledge_base,
-        policy_enforcer=core.policy_enforcer,
-        rag_context_selector=core.rag_context_selector,
+        error_knowledge_base=core.memory.error_knowledge_base,
+        policy_enforcer=core.security.policy_enforcer,
+        rag_context_selector=core.analysis.rag_context_selector,
         project_planner=project_planner,
         structure_generator=structure_generator,
         file_content_generator=file_content_generator,
@@ -343,7 +423,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         structure_pre_reviewer=structure_pre_reviewer,
         generated_projects_dir=core.generated_projects_dir,
         cicd_healer=cicd_healer,
-        vulnerability_scanner=core.vulnerability_scanner,
+        vulnerability_scanner=core.analysis.vulnerability_scanner,
         export_manager=core.export_manager,
         infra_generator=infra_generator,
         command_executor=core.command_executor,
@@ -379,7 +459,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
 
     auto_agent = providers.Factory(
         AutoAgent,
-        kernel=core.agent_kernel,
+        kernel=core.logging.agent_kernel,
         llm_manager=llm_client_manager,
         llm_recorder=core.llm_recorder,
         phase_context=phase_context,
@@ -387,6 +467,10 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         project_analysis_phase_factory=project_analysis_phase_factory,
     )
 
+
+# ---------------------------------------------------------------------------
+# Application container (top-level)
+# ---------------------------------------------------------------------------
 
 class ApplicationContainer(containers.DeclarativeContainer):
     """Top-level container for the entire application."""

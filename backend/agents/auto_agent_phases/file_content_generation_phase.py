@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
-from backend.utils.core.llm.parallel_generator import GenerationTask
 from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 from backend.utils.core.analysis.context_distiller import ContextDistiller
 
@@ -61,7 +60,7 @@ class FileContentGenerationPhase(IAgentPhase):
             task_type = task.get("task_type", "create_file")
 
             self.context.logger.info(f"  [Task {completed_tasks+1}/{total_tasks}] {task_id}: {title}")
-            
+
             # CRITICAL: Binary Guard - Skip LLM call for binary files
             if self._is_binary_file(file_path):
                 self.context.logger.info(f"    Skipped: Binary file detected ({file_path})")
@@ -93,7 +92,7 @@ class FileContentGenerationPhase(IAgentPhase):
                     context_files_content=context_files_content[:4000],
                     logic_plan_section=logic_plan_section,
                 )
-                
+
                 content = ""
                 attempts = 0
                 max_attempts = 3
@@ -103,16 +102,16 @@ class FileContentGenerationPhase(IAgentPhase):
                 while attempts < max_attempts:
                     attempts += 1
                     current_user_prompt = user_prompt
-                    
+
                     if last_error:
                         # Implement Chain of Thought (CoT) for retries
-                        is_js = file_path.endswith('.js') or file_path.endswith('.jsx')
+                        is_code = file_path.endswith(('.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.go', '.rs'))
                         cot_instruction = ""
-                        if is_js:
+                        if is_code:
                             cot_instruction = "\n\nCRITICAL: You previously generated code that failed validation. " \
                                               "First, explain WHY the previous logic failed (in a <reflection> tag), " \
                                               "then provide the corrected implementation in <code_created>."
-                        
+
                         current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}{cot_instruction}"
 
                     # 3. LLM Call
@@ -126,7 +125,7 @@ class FileContentGenerationPhase(IAgentPhase):
                     )
 
                     raw_response = response_data.get("content", "").strip()
-                    
+
                     # 4. XML Extraction via Regex (Case-insensitive and robust to whitespace)
                     import re
                     codigo_match = re.search(r"<code_created>([\s\S]*?)(?:</code_created>|$)", raw_response, re.IGNORECASE)
@@ -154,7 +153,34 @@ class FileContentGenerationPhase(IAgentPhase):
 
                     # 5. AST/Syntax Validation
                     validation_result = self.context.files_ctx.validator.validate(file_path, content)
-                    
+
+                    # Handle Semantic Warnings (Auto-Heal)
+                    if "logical integrity issues" in validation_result.message or "SEMANTIC WARNING" in str(validation_result):
+                        self.context.logger.info(f"    ⚠ Attempt {attempts}: Integrity issues detected. Attempting auto-heal...")
+
+                        # Extract the missing requirement from the warning
+                        # Heuristic: look for "missing 'X' function" or similar patterns
+                        missing_req = "missing function or logic"
+                        if "missing" in validation_result.message:
+                            missing_req = validation_result.message.split("missing")[-1].strip()
+
+                        # Use CodePatcher to inject
+                        from backend.utils.domains.auto_generation.code_patcher import CodePatcher
+                        patcher = CodePatcher(
+                            self.context.llm_manager.get_client("coder"),
+                            self.context.logger,
+                            self.context.response_parser
+                        )
+                        content = patcher.inject_missing_function(
+                            file_path=file_path,
+                            content=content,
+                            requirement=missing_req,
+                            related_context=context_files_content
+                        )
+
+                        # Re-validate after healing
+                        validation_result = self.context.files_ctx.validator.validate(file_path, content)
+
                     if validation_result.status.name == "VALID":
                         self.context.logger.info(f"    ✓ {file_path} syntactically validated (Attempt {attempts})")
                         break
@@ -169,6 +195,10 @@ class FileContentGenerationPhase(IAgentPhase):
                     generated_files[file_path] = content
                     self.context.file_manager.write_file(project_root / file_path, content)
                     completed_tasks += 1
+
+                    # Update internal status for manifest tracking
+                    task["status"] = "done"
+
                     self.context.event_publisher.publish("agent_board_update", action="move_task", task_id=task_id, new_status="done")
                 else:
                     self.context.logger.error(f"    ✖ Task {task_id} failed after {max_attempts} attempts.")
@@ -220,7 +250,7 @@ class FileContentGenerationPhase(IAgentPhase):
         Validate that generated content is complete, correct, and free of hallucinations.
         """
         stripped_content = content.strip()
-        
+
         # 1. Minimum payload check (< 20 chars for main files is usually an error or hallucination)
         is_main_file = any(x in file_path.lower() for x in ["main", "app", "server", "index", "core"])
         if is_main_file and len(stripped_content) < 20:
@@ -232,10 +262,11 @@ class FileContentGenerationPhase(IAgentPhase):
 
         # 2. Hallucination detection (Phrases outside comments)
         hallucination_phrases = [
-            "Here is the code", "Sure, I can help", "Certainly!", 
-            "I've implemented", "As a senior developer", "Hope this helps"
+            "Here is the code", "Sure, I can help", "Certainly!",
+            "I've implemented", "As a senior developer", "Hope this helps",
+            "example_function", "proper Python syntax", "SELECT * FROM table_name"
         ]
-        
+
         # Simple heuristic: if these phrases appear in the first 200 chars and are not in comments
         prefix = stripped_content[:200].lower()
         for phrase in hallucination_phrases:
@@ -268,12 +299,12 @@ class FileContentGenerationPhase(IAgentPhase):
         lines = []
         exports = plan.get("exports", [])
         if exports:
-            lines.append(f"Exports (MUST implement all, with the exact construct type):")
+            lines.append("Exports (MUST implement all, with the exact construct type):")
             for e in exports:
                 lines.append(f"  - {e}")
         imports_list = plan.get("imports", [])
         if imports_list:
-            lines.append(f"Imports to use:")
+            lines.append("Imports to use:")
             for i in imports_list:
                 lines.append(f"  - {i}")
         main_logic = plan.get("main_logic", [])

@@ -14,7 +14,7 @@ from backend.utils.core.feedback.activity_report_generator import get_activity_r
 
 # Import Phase 6 components
 from backend.utils.core.feedback.adaptive_notification_ui import get_adaptive_notification_ui
-from backend.utils.core.system.advanced_trigger_manager import LogicOperator, get_advanced_trigger_manager
+from backend.utils.core.system.trigger_manager import LogicOperator, get_advanced_trigger_manager
 from backend.utils.core.feedback.feedback_cycle_manager import FeedbackType, get_feedback_cycle_manager
 from backend.utils.core.memory.memory_of_decisions import DecisionDomain, MemoryOfDecisions
 from backend.utils.core.io.voice_command_processor import get_voice_command_processor
@@ -495,7 +495,7 @@ def register_trigger():
     except ValueError:
         operator = LogicOperator.AND
 
-    from backend.utils.core.system.advanced_trigger_manager import CompositeTriggerCondition
+    from backend.utils.core.system.trigger_manager import CompositeTriggerCondition
 
     condition = CompositeTriggerCondition(
         id=f"cond_{data.get('id', 'default')}",

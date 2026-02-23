@@ -72,19 +72,22 @@ class ContextSummarizerMixin(ABC):
             # If we only have a few messages but they are huge, just keep the last 2
             return ([system_prompt] if system_prompt else []) + messages[-2:]
 
-        summary_prompt = [
-            {
-                "role": "system",
-                "content": "You are an expert technical summarizer. Condense the conversation history into a single paragraph focusing only on decisions made and project progress. DO NOT include code blocks.",
-            },
-            {
-                "role": "user",
-                "content": f"Summarize this conversation context:\n{json.dumps(messages_to_summarize)}",
-            },
-        ]
-
         try:
-            summary_response, _ = await summarizer_client.achat(summary_prompt, tools=[])
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+            loader = PromptLoader()
+            prompts = loader.load_prompt("core/services.yaml")
+
+            system = prompts.get("context_summarization", {}).get("system", "")
+            user_template = prompts.get("context_summarization", {}).get("user", "")
+            user = user_template.format(history=json.dumps(messages_to_summarize))
+
+            summary_response, _ = await summarizer_client.achat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ],
+                tools=[]
+            )
             summary_content = summary_response["message"]["content"]
 
             summarized_messages = []

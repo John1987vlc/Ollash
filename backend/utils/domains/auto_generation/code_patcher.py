@@ -232,6 +232,40 @@ Generate ONLY the fixed code (same language), no explanations."""
             self.logger.warning(f"Could not generate fix: {e}")
             return problem_section
 
+    def inject_missing_function(self, file_path: str, content: str, requirement: str, related_context: str = "") -> str:
+        """Inject a missing function or method into the code using centralized prompts."""
+        self.logger.info(f"  Injecting missing logic for '{requirement}' into {file_path}...")
+
+        try:
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+            loader = PromptLoader()
+            prompts = loader.load_prompt("domains/auto_generation/code_repair.yaml")
+
+            system = prompts.get("surgical_injection", {}).get("system", "")
+            user_template = prompts.get("surgical_injection", {}).get("user", "")
+
+            user = user_template.format(
+                file_path=file_path,
+                requirement=requirement,
+                content=content,
+                related_context=related_context or "(No additional context provided)"
+            )
+
+            response_data, _ = self.llm_client.chat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                tools=[],
+                options_override={"temperature": 0.1},
+            )
+
+            new_content = self.response_parser.extract_raw_content(response_data.get("content", ""))
+            return new_content if new_content and len(new_content) > len(content) else content
+        except Exception as e:
+            self.logger.error(f"Injection failed: {e}")
+            return content
+
     def _is_better_line(self, orig: str, improved: str) -> bool:
         """Determine if the improved line is better using content analysis.
 

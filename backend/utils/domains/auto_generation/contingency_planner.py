@@ -32,7 +32,7 @@ class ContingencyPlanner:
         self, issues: List[Dict[str, Any]], project_description: str, readme: str
     ) -> Dict[str, Any]:
         """
-        Generates a contingency plan to address senior reviewer issues.
+        Generates a contingency plan to address senior reviewer issues using centralized prompts.
 
         Args:
             issues: A list of issues reported by the senior reviewer.
@@ -44,10 +44,28 @@ class ContingencyPlanner:
         """
         self.logger.info("Generating contingency plan...")
 
-        prompt = self._construct_prompt(issues, project_description, readme)
-
         try:
-            response, _ = self.client.chat(prompt, tools=[])
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+            loader = PromptLoader()
+            prompts = loader.load_prompt("domains/auto_generation/planning.yaml")
+
+            system = prompts.get("contingency_planning", {}).get("system", "")
+            user_template = prompts.get("contingency_planning", {}).get("user", "")
+
+            issue_str = "\n".join([f"- {issue.get('description', 'N/A')}" for issue in issues])
+            user = user_template.format(
+                project_description=project_description,
+                readme=readme,
+                issues_str=issue_str
+            )
+
+            response, _ = self.client.chat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ],
+                tools=[]
+            )
             content = response.get("message", {}).get("content", "")
             plan = self.parser.extract_json(content)
             self.logger.info("Contingency plan generated successfully.")
@@ -56,31 +74,6 @@ class ContingencyPlanner:
             self.logger.error(f"Failed to generate contingency plan: {e}")
             return {}
 
-    def _construct_prompt(
-        self, issues: List[Dict[str, Any]], project_description: str, readme: str
-    ) -> List[Dict[str, str]]:
-        """Constructs the prompt for the contingency planner."""
-
-        issue_str = "\n".join([f"- {issue.get('description', 'N/A')}" for issue in issues])
-
-        prompt = f"""
-        The senior review for the project has failed. Here are the issues that were found:
-        {issue_str}
-
-        Here is the original project description:
-        {project_description}
-
-        And here is the project's README:
-        {readme}
-
-        Please generate a new plan to address these issues. The plan should be in JSON format and should include a list of actions to take.
-        Each action should have a 'type' (e.g., 'refine_file', 'add_file', 'delete_file') and a 'file_path' if applicable.
-        """
-
-        return [
-            {
-                "role": "system",
-                "content": "You are a contingency planner for an AI agent.",
-            },
-            {"role": "user", "content": prompt},
-        ]
+    def _construct_prompt(self, *args, **kwargs):
+        """Deprecated: Prompts are now in YAML."""
+        pass

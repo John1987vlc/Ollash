@@ -24,7 +24,7 @@ def init_app(app):
 
         _export_manager = ExportManager(
             command_executor=main_container.core.command_executor(),
-            logger=main_container.core.logger(),
+            logger=main_container.core.logging.logger(),
         )
         logger.info("Export manager initialized")
     except Exception as e:

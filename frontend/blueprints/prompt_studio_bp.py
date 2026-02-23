@@ -15,7 +15,7 @@ def init_app(app):
             _repository = main_container.core.prompt_repository()
         elif hasattr(main_container, "prompt_repository"):
             _repository = main_container.prompt_repository()
-        
+
         _prompts_dir = Path(app.config.get('ollash_root_dir', '.')) / "prompts"
     except Exception as e:
         app.logger.error(f"Failed to initialize Prompt Studio repository: {e}")
@@ -28,17 +28,17 @@ def prompt_studio():
 def list_roles():
     """List all available roles (from filesystem and DB)."""
     roles = set()
-    
+
     # 1. From filesystem
     if _prompts_dir and _prompts_dir.exists():
         for f in _prompts_dir.glob("**/*.yaml"):
             roles.add(f.stem)
         for f in _prompts_dir.glob("**/*.json"):
             roles.add(f.stem)
-            
+
     # 2. Add any roles only in DB (though they usually match files)
     # (Optional: implement list_all_roles in repository)
-    
+
     return jsonify({"roles": sorted(list(roles))})
 
 @prompt_studio_bp.route('/api/load/<role>', methods=['GET'])
@@ -49,7 +49,7 @@ def load_role_prompt(role):
         active = _repository.get_active_prompt(role)
         if active:
             return jsonify({"role": role, "prompt": active, "source": "database"})
-            
+
     # 2. Try Filesystem fallback
     if _prompts_dir:
         # Search for yaml then json
@@ -64,13 +64,13 @@ def load_role_prompt(role):
                             content = yaml.safe_load(f)
                         else:
                             content = json.load(f)
-                        
+
                         # Return string representation for editor
                         text = content.get('prompt') or content.get('system_prompt') or json.dumps(content, indent=2)
                         return jsonify({"role": role, "prompt": text, "source": "filesystem"})
                 except Exception as e:
                     return jsonify({"error": str(e)}), 500
-                    
+
     return jsonify({"error": "Prompt not found"}), 404
 
 @prompt_studio_bp.route('/api/save', methods=['POST'])
@@ -79,17 +79,17 @@ def save_prompt():
     data = request.json
     role = data.get('role')
     prompt_text = data.get('prompt')
-    
+
     if not role or not prompt_text:
         return jsonify({"error": "Missing role or prompt text"}), 400
-        
+
     if _repository:
         try:
             prompt_id = _repository.save_prompt(role, prompt_text, is_active=True)
             return jsonify({"success": True, "id": prompt_id, "message": f"Prompt for '{role}' saved and activated."})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-            
+
     return jsonify({"error": "Repository not available"}), 503
 
 @prompt_studio_bp.route('/api/history/<role>', methods=['GET'])
@@ -105,7 +105,7 @@ def validate_prompt():
     """Validation logic."""
     data = request.json
     prompt_text = data.get('prompt', '')
-    
+
     warnings = []
     if len(prompt_text) < 50:
         warnings.append({"severity": "warning", "message": "Prompt is too short. Context may be lost."})

@@ -12,10 +12,17 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/buttons.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/modals.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/notifications.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/animations/loaders.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/animations/transitions.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/artifact-renderer.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/artifact-markdown.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/artifact-tasks.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/swarm.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/create-project.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/knowledge-graph.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/image-editor.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <!-- Apply persisted theme immediately to prevent flash of wrong theme -->
@@ -125,7 +132,8 @@
     </div>
 
     <!-- Global Core Scripts -->
-    <!-- Foundation: store and theme-manager must load before all other modules -->
+    <!-- Foundation: module-registry, store and theme-manager must load before all other modules -->
+    <script src="{{ url_for('static', filename='js/core/module-registry.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/store.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/theme-manager.js') }}"></script>
     <!-- Reusable UI components -->
@@ -134,13 +142,13 @@
     <script src="{{ url_for('static', filename='js/components/notification-toast.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/ui-animations.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/sse-connection-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/alert-handler.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/notification-service.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/chat-module.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/artifact-renderer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/structure-editor.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/notifications.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/core/translator.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/health.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/terminal.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/command-palette.js') }}"></script>
@@ -150,6 +158,7 @@
     <script src="{{ url_for('static', filename='js/pages/wizard.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/cicd.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/hil.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/swarm.js') }}"></script>
     
     <!-- Main Orchestrator -->
     {% block scripts %}{% endblock %}

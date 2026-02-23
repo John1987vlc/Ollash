@@ -29,23 +29,21 @@ class IntentRoutingMixin(ABC):
         orchestration_client = self.llm_manager.get_client("orchestration")
         if orchestration_client:
             try:
-                # This would be a detailed prompt to the orchestration model
-                # asking it to classify the intent (e.g., code generation, network task, etc.)
-                # and return a specific keyword.
-                messages = [
-                    {
-                        "role": "system",
-                        "content": "You are an intent classifier. Given a user prompt, classify its primary intent as one of: 'code', 'network', 'system', 'cybersecurity', 'planning', 'general', 'prototyping', 'testing', 'reviewing', 'analysing', 'writing'.",
-                    },
-                    {
-                        "role": "user",
-                        "content": f"""User prompt: {prompt}
+                from backend.utils.core.llm.prompt_loader import PromptLoader
+                loader = PromptLoader()
+                prompts = loader.load_prompt("core/services.yaml")
 
-Classify the intent:""",
-                    },
-                ]
+                system = prompts.get("intent_classification", {}).get("system", "")
+                user_template = prompts.get("intent_classification", {}).get("user", "")
+                user = user_template.format(text=prompt)
 
-                response, _ = await orchestration_client.achat(messages, tools=[])
+                response, _ = await orchestration_client.achat(
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user}
+                    ],
+                    tools=[]
+                )
 
                 # Extract intent from the response. The LLM is instructed to return only the intent string.
                 # Use .strip() to remove leading/trailing whitespace, and .lower() for case-insensitivity.

@@ -49,3 +49,28 @@ const Utils = {
 
 // Global shorthand for consistency
 window.escapeHtml = Utils.escapeHtml;
+
+// ==================== Document Translator ====================
+// Merged from translator.js
+document.addEventListener('DOMContentLoaded', () => {
+    window.translateCurrentFile = async (targetLang) => {
+        const projectName = window.currentProject;
+        const filePath = window.currentFile;
+
+        if (!projectName || !filePath) return alert('Select a file first');
+
+        const resp = await fetch('/api/translator/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_name: projectName, file_path: filePath, target_lang: targetLang })
+        });
+
+        const data = await resp.json();
+        if (data.status === 'success') {
+            alert(`File translated to ${targetLang}. Created: ${data.output_file}`);
+            if (typeof refreshFileTree === 'function') refreshFileTree();
+        } else {
+            alert(`Translation failed: ${data.error}`);
+        }
+    };
+});

@@ -63,7 +63,7 @@ class CodeAnalyzer:
                 content = f.read()
 
             tree = ast.parse(content)
-        except Exception as e:
+        except Exception:
             # Fallback for files that can't be parsed
             return CodeInfo(
                 language=Language.PYTHON,

@@ -1,7 +1,8 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse, urlunparse
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
@@ -67,12 +68,16 @@ class FinalReviewPhase(IAgentPhase):
         repo_name = kwargs.get("repo_name", "")
         git_token = kwargs.get("git_token", "")
 
-        if git_push_requested and repo_name:
-            self.context.logger.info(f"Git decision gate: initializing repo for '{repo_name}'")
+        git_repo_url = kwargs.get("git_repo_url", "")
+        git_branch = kwargs.get("git_branch", "main")
+        push_target = git_repo_url or repo_name
+
+        if git_push_requested and (git_repo_url or repo_name):
+            self.context.logger.info(f"Git decision gate: initializing repo for '{push_target}'")
             self.context.event_publisher.publish(
                 "phase_start",
                 phase="6-git",
-                message=f"Initializing Git and pushing to {repo_name}",
+                message=f"Initializing Git and pushing to {push_target}",
             )
 
             try:
@@ -80,12 +85,19 @@ class FinalReviewPhase(IAgentPhase):
                 self._initialize_git_repo(git, project_name)
 
                 if git_token:
-                    push_result = self._push_to_remote(git, repo_name, git_token, kwargs.get("git_organization"))
+                    push_result = self._push_to_remote(
+                        git,
+                        repo_name,
+                        git_token,
+                        organization=kwargs.get("git_organization"),
+                        git_repo_url=git_repo_url,
+                        git_branch=git_branch,
+                    )
                     self.context.logger.info(f"Git push result: {push_result}")
                     self.context.event_publisher.publish(
                         "phase_complete",
                         phase="6-git",
-                        message=f"Project pushed to {repo_name}",
+                        message=f"Project pushed to {push_target}",
                         data=push_result,
                     )
                 else:
@@ -127,12 +139,25 @@ class FinalReviewPhase(IAgentPhase):
         git: GitManager,
         repo_name: str,
         token: str,
-        organization: str = None,
+        organization: Optional[str] = None,
+        git_repo_url: str = "",
+        git_branch: str = "main",
     ) -> Dict[str, Any]:
-        """Push to remote using ``gh`` CLI, falling back to raw ``git push``."""
+        """Push to remote.
+
+        When *git_repo_url* is provided the caller already has a pre-created
+        empty repository (the typical wizard flow).  In that case we skip
+        ``gh repo create`` and push directly to the supplied URL.
+
+        When no URL is given we fall back to the original behaviour: try
+        ``gh repo create`` first, then a manual ``git push`` as a safety net.
+        """
+        if git_repo_url:
+            return self._push_to_existing_repo(git, git_repo_url, token, git_branch)
+
+        # --- Create-and-push path (no pre-created repo) ---
         visibility = "--private"
         org_flag = f"--org {organization}" if organization else ""
-
         env = {**os.environ, "GH_TOKEN": token}
 
         try:
@@ -158,14 +183,43 @@ class FinalReviewPhase(IAgentPhase):
         ns = organization or "user"
         remote_url = f"https://{token}@github.com/{ns}/{repo_name}.git"
         git._run_git("remote", "add", "origin", remote_url)
-        push_result = git._run_git("push", "-u", "origin", "main")
+        push_result = git._run_git("push", "-u", "origin", git_branch)
 
-        if not push_result.get("success"):
+        if not push_result.get("success") and git_branch != "master":
             push_result = git._run_git("push", "-u", "origin", "master")
 
         return {
             "success": push_result.get("success", False),
             "method": "git_push",
+            "output": push_result.get("output", ""),
+            "error": push_result.get("error", ""),
+        }
+
+    def _push_to_existing_repo(
+        self,
+        git: GitManager,
+        git_repo_url: str,
+        token: str,
+        git_branch: str = "main",
+    ) -> Dict[str, Any]:
+        """Push to a pre-created empty repository at *git_repo_url*.
+
+        The token is inserted into the HTTPS URL so ``git push`` can
+        authenticate without an interactive prompt.
+        """
+        parsed = urlparse(git_repo_url)
+        # Build authenticated URL: https://token@github.com/org/repo.git
+        authenticated_url = urlunparse(parsed._replace(netloc=f"{token}@{parsed.netloc}"))
+
+        git._run_git("remote", "add", "origin", authenticated_url)
+        push_result = git._run_git("push", "-u", "origin", git_branch)
+
+        if not push_result.get("success") and git_branch != "master":
+            push_result = git._run_git("push", "-u", "origin", "master")
+
+        return {
+            "success": push_result.get("success", False),
+            "method": "direct_push",
             "output": push_result.get("output", ""),
             "error": push_result.get("error", ""),
         }

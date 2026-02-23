@@ -92,7 +92,7 @@ const GitModule = {
     },
 
     commitChanges: async function() {
-        const message = document.getElementById('commit-message').value;
+        const message = (document.getElementById('commit-msg') || document.getElementById('commit-message'))?.value;
         if (!message) return alert('Please enter a commit message');
         
         try {
@@ -119,3 +119,30 @@ const GitModule = {
 
 // Export for global usage
 window.GitModule = GitModule;
+
+// Wire up git.html button IDs and initialize module
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('git-file-container')) {
+        GitModule.init();
+    }
+
+    const performCommitBtn = document.getElementById('perform-commit-btn');
+    if (performCommitBtn) {
+        performCommitBtn.addEventListener('click', () => GitModule.commitChanges());
+    }
+
+    const autoGenMsg = document.getElementById('auto-gen-msg');
+    if (autoGenMsg) {
+        autoGenMsg.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                const response = await fetch('/git/api/diff-summary');
+                const data = await response.json();
+                const msgEl = document.getElementById('commit-msg');
+                if (msgEl && data.message) msgEl.value = data.message;
+            } catch (err) {
+                console.error('Failed to auto-generate commit message:', err);
+            }
+        });
+    }
+});

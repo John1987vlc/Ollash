@@ -1,0 +1,155 @@
+/**
+ * Artifact Markdown & Code Rendering Styles
+ * Extracted from artifact-renderer.css for modularity
+ */
+
+/* Markdown Content */
+.markdown-content {
+    line-height: 1.7;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.markdown-content h1 {
+    font-size: 1.8rem;
+    border-bottom: 2px solid var(--accent-primary);
+    padding-bottom: 0.5rem;
+}
+
+.markdown-content h2 {
+    font-size: 1.5rem;
+    border-left: 3px solid var(--accent-primary);
+    padding-left: 0.75rem;
+}
+
+.markdown-content h3 { font-size: 1.25rem; }
+
+.markdown-content p {
+    margin: 1rem 0;
+    color: var(--text-secondary);
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    margin: 1rem 0;
+    padding-left: 2rem;
+}
+
+.markdown-content li {
+    margin: 0.5rem 0;
+    color: var(--text-secondary);
+}
+
+.markdown-content code {
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: 4px;
+    padding: 0.2rem 0.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent-primary);
+    font-size: 0.9em;
+}
+
+.markdown-content pre {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+.markdown-content pre code {
+    background: none;
+    padding: 0;
+    color: var(--text-primary);
+}
+
+.markdown-content blockquote {
+    border-left: 4px solid var(--accent-primary);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: var(--text-secondary);
+    font-style: italic;
+    opacity: 0.9;
+}
+
+.markdown-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.markdown-content table th,
+.markdown-content table td {
+    border: 1px solid var(--border-color);
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.markdown-content table th {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--accent-primary);
+    font-weight: 600;
+}
+
+.markdown-content a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.3);
+    transition: all 0.2s;
+}
+
+.markdown-content a:hover { border-bottom-color: var(--accent-primary); }
+
+/* Code Content */
+.code-content { position: relative; }
+
+.code-lang-label {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.25rem 0.75rem;
+    background: rgba(99, 102, 241, 0.15);
+    border-radius: 3px;
+    font-size: 0.75rem;
+    color: var(--accent-primary);
+    font-weight: 600;
+    z-index: 1;
+}
+
+.code-content pre {
+    margin: 0;
+    padding: 1.5rem;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+.code-content code {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+/* JSON Content */
+.json-content {
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+}
+
+.json-content pre {
+    margin: 0;
+    padding: 1.5rem;
+    background: transparent;
+}

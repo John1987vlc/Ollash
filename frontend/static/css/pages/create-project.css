@@ -1,0 +1,122 @@
+/* ==================== Create Project Wizard ==================== */
+
+.phase-pipeline {
+    margin-top: 30px;
+    display: none;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 25px;
+}
+
+.phase-pipeline.active { display: block; }
+
+.phase-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+}
+
+.phase-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 120px;
+    opacity: 0.3;
+    transition: all 0.3s;
+    text-align: center;
+}
+
+.phase-step.active { opacity: 1; transform: scale(1.1); }
+.phase-step.completed { opacity: 0.7; }
+
+.phase-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    border: 2px solid transparent;
+}
+
+.phase-step.active .phase-icon {
+    background: var(--accent-primary);
+    box-shadow: 0 0 15px var(--accent-primary);
+    animation: phasePulse 2s infinite;
+}
+
+.phase-step.completed .phase-icon {
+    background: #10b981;
+    color: white;
+}
+
+.phase-label { font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); }
+
+@keyframes phasePulse {
+    0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+
+/* Inline Kanban used in Wizard flow */
+.kanban-board {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
+    height: 350px;
+}
+
+.kanban-column {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.kanban-header {
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
+}
+
+.kanban-header h3 {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.kanban-tasks {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.kanban-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-left: 3px solid #64748b;
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.kanban-card.in_progress { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
+.kanban-card.done { border-left-color: #10b981; opacity: 0.6; }
+
+.kanban-card h4 { margin: 0 0 5px 0; font-size: 0.8rem; color: #f8fafc; }
+.kanban-card p { margin: 0; font-size: 0.7rem; color: #94a3b8; }

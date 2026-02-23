@@ -2,7 +2,7 @@
 
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from backend.utils.core.llm.ollama_client import OllamaClient
 from backend.utils.core.system.agent_logger import AgentLogger
@@ -166,50 +166,48 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
         main_logic: List[str],
         validation: List[str],
     ) -> str:
-        """Generate file content with specialized prompt."""
+        """Generate file content with specialized prompt from YAML."""
 
         file_ext = Path(file_path).suffix
 
-        # Use appropriate language/format prompt
-        system_prompt = self._get_code_generation_system_prompt(file_ext)
+        try:
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+            loader = PromptLoader()
+            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
 
-        user_prompt = f"""{context}
+            lang_rules_map = prompts.get("language_rules", {})
+            lang_rule = lang_rules_map.get(file_ext, lang_rules_map.get("default", ""))
 
-Generate the COMPLETE content for {file_path}.
-1. Implement EVERY export.
-2. Include ALL necessary imports.
-3. NO TODOs or placeholders.
-4. Production-ready, functional code.
+            system_template = prompts.get("file_gen_v2", {}).get("system", "")
+            system = system_template.format(language_specific_rules=lang_rule)
 
-Output ONLY the code content."""
+            user_template = prompts.get("file_gen_v2", {}).get("user", "")
+            user = user_template.format(
+                file_path=file_path,
+                context=context,
+                exports=", ".join(exports)
+            )
 
-        response_data, _ = self.llm_client.chat(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            tools=[],
-            options_override={"temperature": 0.2},  # More deterministic
-        )
+            response_data, _ = self.llm_client.chat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                tools=[],
+                options_override={"temperature": 0.2},
+            )
 
-        content = response_data["message"]["content"]
-        # Use parser to clean up markdown if any
-        return self.response_parser.extract_code_block(content) or content
+            content = response_data["message"]["content"]
+            return self.response_parser.extract_code_block(content) or content
+
+        except Exception as e:
+            self.logger.error(f"Failed to load centralized generation prompt: {e}")
+            # Minimal fallback
+            return self._generate_fallback_skeleton(file_path, purpose, exports, [])
 
     def _get_code_generation_system_prompt(self, file_ext: str) -> str:
-        """Get language-specific system prompt."""
-
-        base = "You are an expert developer. Generate COMPLETE, production-ready code with no placeholders or TODOs. Return ONLY the code."
-
-        prompts = {
-            ".py": base + " Follow PEP 8, use type hints, and include docstrings.",
-            ".js": base + " Use modern ES6+ syntax and follow best practices.",
-            ".ts": base + " Use strict type annotations and interfaces.",
-            ".html": base + " Use semantic HTML5 and accessible structure.",
-            ".css": base + " Use modern features and responsive design.",
-        }
-
-        return prompts.get(file_ext, base)
+        """Deprecated: Prompts are now loaded from YAML in _generate_with_prompt."""
+        return "You are an expert developer. Return ONLY the code."
 
     def _validate_content(self, content: str, file_path: str, exports: List[str], validation: List[str]) -> bool:
         """Validate that generated content meets requirements."""

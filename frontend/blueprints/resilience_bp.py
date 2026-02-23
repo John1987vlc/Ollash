@@ -16,17 +16,17 @@ def get_resilience_status():
     # In a real scenario, we would pull this from the active agent sessions
     # or a global event bus. For now, we'll use the metrics database.
     db = get_metrics_database(Path(current_app.root_path).parent)
-    
+
     loops = db.get_metric_history('system', 'loop_detected', hours=24)
     contingencies = db.get_metric_history('auto_gen', 'contingency_plan', hours=24)
-    
+
     # Mock some data if empty for demonstration of the premium UI
     if not loops:
         loops = [
-            {"timestamp": (datetime.now() - timedelta(minutes=random.randint(1, 60))).isoformat(), "value": 1, "tags": {"tool": "ls_directory"}} 
+            {"timestamp": (datetime.now() - timedelta(minutes=random.randint(1, 60))).isoformat(), "value": 1, "tags": {"tool": "ls_directory"}}
             for _ in range(3)
         ]
-    
+
     if not contingencies:
         contingencies = [
             {"timestamp": (datetime.now() - timedelta(minutes=random.randint(1, 120))).isoformat(), "value": 1, "tags": {"phase": "senior_review"}}

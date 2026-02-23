@@ -3,17 +3,6 @@
  * High-level orchestration, SPA routing, and global state management.
  */
 
-// Global Helpers for Modals (called from HTML onclick — delegate to ModalManager)
-window.closeAutomationModal = function() {
-    if (window.ModalManager) ModalManager.close('automation-modal');
-    else { const m = document.getElementById('automation-modal'); if (m) m.style.display = 'none'; }
-};
-
-window.closeNotificationModal = function() {
-    if (window.ModalManager) ModalManager.close('notification-config-modal');
-    else { const m = document.getElementById('notification-config-modal'); if (m) m.style.display = 'none'; }
-};
-
 document.addEventListener('DOMContentLoaded', function() {
     // ==================== DOM Elements ====================
     const navItems = document.querySelectorAll('.nav-item');
@@ -210,6 +199,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function triggerViewLoad(viewId) {
         switch(viewId) {
+            case 'create':
+                // Re-initialize to ensure listeners are attached to new DOM elements in SPA
+                setTimeout(() => {
+                    if (window.WizardModule) {
+                        WizardModule.init({
+                            wizardSteps: document.querySelectorAll('.wizard-step'),
+                            wizardIndicators: document.querySelectorAll('.wizard-step-indicator'),
+                            wizardNextBtns: document.querySelectorAll('.wizard-next-btn'),
+                            wizardBackBtns: document.querySelectorAll('.wizard-back-btn'),
+                            wizardGenerateBtn: document.getElementById('wizard-generate')
+                        });
+                    }
+                }, 100);
+                break;
             case 'docs': if (window.DocsModule) window.DocsModule.loadDocs(); break;
             case 'costs': if (window.CostModule) window.CostModule.updateCostsDashboard(); break;
             case 'architecture': if (window.ArchitectureModule) window.ArchitectureModule.loadArchitecture(); break;

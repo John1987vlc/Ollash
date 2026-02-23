@@ -84,7 +84,7 @@ def delete_document(doc_id):
 def get_error_knowledge():
     """Returns statistics and patterns from the Error Knowledge Base."""
     try:
-        ekb = main_container.core.error_knowledge_base()
+        ekb = main_container.core.memory.error_knowledge_base()
         stats = ekb.get_error_statistics()
         patterns = [p.to_dict() for p in ekb.patterns.values()]
         return jsonify({"statistics": stats, "patterns": patterns})
@@ -96,7 +96,7 @@ def get_error_knowledge():
 def get_episodic_memory():
     """Returns statistics and recent episodes from Episodic Memory."""
     try:
-        em = main_container.core.episodic_memory()
+        em = main_container.core.memory.episodic_memory()
         stats = em.get_statistics()
 
         # Get all episodes from DB

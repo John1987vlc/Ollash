@@ -58,12 +58,10 @@ def delete_job(job_id):
 def preview_dag():
     """Generates a visual execution plan (DAG) for a complex task."""
     try:
-        body = DagPreviewRequest.model_validate(request.json or {})
+        DagPreviewRequest.model_validate(request.json or {})
     except ValidationError as exc:
         return jsonify({"error": exc.errors()}), 422
 
-    task_description = body.task
-    
     # Mock DAG generation
     dag = {
         "nodes": [

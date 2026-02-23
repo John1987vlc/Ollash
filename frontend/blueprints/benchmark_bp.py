@@ -511,7 +511,7 @@ def run_parallel_eval():
             return jsonify({"error": "No models provided"}), 400
 
         generator = main_container.core.parallel_generator()
-        evaluator = main_container.core.shadow_evaluator()
+        evaluator = main_container.core.analysis.shadow_evaluator()
         evaluator.start()
 
         tasks = []
@@ -574,7 +574,7 @@ def get_shadow_report():
     """Returns the shadow evaluator performance report."""
     try:
         from backend.core.containers import main_container
-        evaluator = main_container.core.shadow_evaluator()
+        evaluator = main_container.core.analysis.shadow_evaluator()
         report = evaluator.get_performance_report()
         return jsonify(report)
     except Exception as e:

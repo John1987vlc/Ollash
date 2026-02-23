@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from backend.utils.core.memory.chroma_manager import ChromaClientManager
-from backend.utils.core.preference_manager import PreferenceManager
+from backend.utils.core.preference_manager_extended import PreferenceManagerExtended
 
 
 class MemoryManager:
@@ -27,8 +27,7 @@ class MemoryManager:
         self.memory: Dict[str, Any] = {}
         self._load_memory()
 
-        # --> NEW: Initialize PreferenceManager
-        self.preference_manager = PreferenceManager(project_root, logger)
+        self.preference_manager = PreferenceManagerExtended(project_root / ".ollash" / "knowledge_workspace")
 
         # Context management parameters
         self.max_context_tokens = self.config.get("max_context_tokens", 4000)
@@ -144,8 +143,8 @@ class MemoryManager:
     # Preference Management
     # ----------------------------------------------------------------
 
-    def get_preference_manager(self) -> PreferenceManager:
-        """Returns the PreferenceManager instance."""
+    def get_preference_manager(self) -> PreferenceManagerExtended:
+        """Returns the PreferenceManagerExtended instance."""
         return self.preference_manager
 
     # ----------------------------------------------------------------

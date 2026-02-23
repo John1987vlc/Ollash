@@ -6,8 +6,7 @@ Handles automatic translation of inputs and ensuring outputs remain in English.
 """
 
 import logging
-import json
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +29,13 @@ class LanguageManager:
 
         # Basic heuristic for non-English detection (high non-ASCII count)
         is_likely_not_en = any(ord(c) > 127 for c in text[:500])
-        
+
         if not is_likely_not_en:
             # We still might want to "standardize" or "refine" the prompt even if it's English
             return text, "en"
 
-        logger.info(f"Detecting non-English input. Translating to English for internal processing...")
-        
+        logger.info("Detecting non-English input. Translating to English for internal processing...")
+
         prompt = [
             {
                 "role": "system",
@@ -46,9 +45,23 @@ class LanguageManager:
         ]
 
         try:
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+            loader = PromptLoader()
+            prompts = loader.load_prompt("core/services.yaml")
+
+            system = prompts.get("translation_standardization", {}).get("system", "")
+            user_template = prompts.get("translation_standardization", {}).get("user", "")
+            user = user_template.format(text=text)
+
             # Use a faster model for translation if available, otherwise default
             client = self.llm_provider.get_client("orchestration")
-            response, _ = await client.achat(prompt, tools=[])
+            response, _ = await client.achat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ],
+                tools=[]
+            )
             translated = response.get("message", {}).get("content", text).strip()
             return translated, "detected" # We don't necessarily need the exact code for internal use
         except Exception as e:
@@ -57,7 +70,7 @@ class LanguageManager:
 
     async def standardize_prompt(self, system_prompt: str) -> str:
         """
-        Validates that a system prompt is in English. 
+        Validates that a system prompt is in English.
         If not, translates it automatically.
         """
         if not system_prompt:
@@ -68,7 +81,7 @@ class LanguageManager:
             return system_prompt
 
         logger.warning("Spanish or non-English system prompt detected! Automatically translating to English...")
-        
+
         prompt = [
             {
                 "role": "system",

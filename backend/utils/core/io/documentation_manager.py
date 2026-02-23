@@ -74,7 +74,7 @@ class DocumentationManager:
 
         self.logger.info("✓ DocumentationManager initialized with Knowledge Workspace support")
 
-    def index_documentation(self, doc_path: Path, chunk_size: int = 1000, overlap: int = 200):
+    def index_documentation(self, doc_path: Path, chunk_size: int = 800, overlap: int = 80):
         """Index documentation files with support for multiple formats."""
         try:
             file_path = Path(doc_path)
@@ -127,19 +127,33 @@ class DocumentationManager:
             self.logger.error(f"  Failed to index {file_path.name}: {e}")
 
     def _chunk_text(self, text: str, chunk_size: int, overlap: int) -> List[str]:
-        """Splits text into overlapping chunks."""
-        chunks = []
-        words = text.split()
-        if not words:
-            return chunks
+        """Splits text into overlapping chunks using character-based boundaries.
 
-        i = 0
-        while i < len(words):
-            chunk_words = words[i : i + chunk_size]
-            chunks.append(" ".join(chunk_words))
-            i += chunk_size - overlap
-            if i < 0:  # Handle cases where chunk_size < overlap
-                i = 0
+        Args:
+            text: Input text to split.
+            chunk_size: Maximum number of *characters* per chunk (not words).
+                        Defaults to 800 chars, safe for all-minilm (256-token context).
+            overlap: Number of overlapping characters between consecutive chunks.
+        """
+        if not text:
+            return []
+
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = min(start + chunk_size, len(text))
+            # Break at a word boundary to avoid cutting mid-word
+            if end < len(text):
+                break_at = text.rfind(" ", start, end)
+                if break_at > start:
+                    end = break_at
+            chunk = text[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+            if end >= len(text):
+                break  # last chunk processed, stop to avoid tiny overlap tail
+            next_start = end - overlap
+            start = next_start if next_start > start else end
 
         return chunks
 
@@ -169,7 +183,7 @@ class DocumentationManager:
                                 "distance": distance,
                             }
                         )
-            self.logger.info(f"  Found {len(relevant_docs)} relevant documentation chunks for query.")
+            self.logger.debug(f"  Found {len(relevant_docs)} relevant documentation chunks for query.")
             return relevant_docs
         except Exception as e:
             self.logger.error(f"  Failed to query documentation: {e}")
