@@ -1,92 +1,31 @@
 /**
- * Health Module for Ollash Agent
+ * Health Module for Ollash Agent - Compact Grid Version
  */
 window.HealthModule = (function() {
-    let healthHistory = { cpu: [], ram: [], disk: [] };
-    
     // DOM Elements
-    let healthCpuBar, healthRamBar, healthDiskBar, healthGpuBar;
-    let healthCpuVal, healthRamVal, healthDiskVal, healthNetVal, healthGpuVal;
+    let healthCpuVal, healthRamVal, healthDiskVal, healthNetVal;
 
     function init(elements) {
-        healthCpuBar = elements.healthCpuBar;
-        healthRamBar = elements.healthRamBar;
-        healthDiskBar = elements.healthDiskBar;
-        healthGpuBar = elements.healthGpuBar;
         healthCpuVal = elements.healthCpuVal;
         healthRamVal = elements.healthRamVal;
         healthDiskVal = elements.healthDiskVal;
         healthNetVal = elements.healthNetVal;
-        healthGpuVal = elements.healthGpuVal;
     }
 
     function updateMetrics(data) {
-        if (healthCpuBar) {
-            healthCpuBar.style.width = data.cpu + '%';
-            healthCpuBar.className = 'health-bar-fill ' + getStatusClass(data.cpu);
-        }
-        if (healthRamBar) {
-            healthRamBar.style.width = data.ram + '%';
-            healthRamBar.className = 'health-bar-fill ' + getStatusClass(data.ram);
-        }
-        if (healthDiskBar) {
-            healthDiskBar.style.width = data.disk + '%';
-            healthDiskBar.className = 'health-bar-fill ' + getStatusClass(data.disk);
-        }
+        if (healthCpuVal) healthCpuVal.textContent = (data.cpu || 0) + '%';
+        if (healthRamVal) healthRamVal.textContent = (data.ram || 0) + '%';
+        if (healthDiskVal) healthDiskVal.textContent = (data.disk || 0) + '%';
         
-        if (healthCpuVal) healthCpuVal.textContent = data.cpu + '%';
-        if (healthRamVal) healthRamVal.textContent = data.ram + '%';
-        if (healthDiskVal) healthDiskVal.textContent = data.disk + '%';
-        if (healthNetVal) healthNetVal.textContent = `Sub: ${data.net_sent} MB | Baj: ${data.net_recv} MB`;
-
-        // Update history for charts
-        const metrics = ['cpu', 'ram', 'disk'];
-        metrics.forEach(m => {
-            healthHistory[m].push(data[m]);
-            if (healthHistory[m].length > 20) healthHistory[m].shift();
-            renderMiniChart(m);
-        });
-    }
-
-    function getStatusClass(val) {
-        if (val > 80) return 'red';
-        if (val > 50) return 'yellow';
-        return 'green';
-    }
-
-    function renderMiniChart(metric) {
-        const barElement = document.getElementById(`health-${metric}`);
-        if (!barElement) return;
-        const container = barElement.parentElement.parentElement;
-        let canvas = container.querySelector('.health-mini-chart');
-        if (!canvas) {
-            canvas = document.createElement('canvas');
-            canvas.className = 'health-mini-chart';
-            canvas.width = 60;
-            canvas.height = 20;
-            container.appendChild(canvas);
+        if (healthNetVal) {
+            // Show compact net info: e.g. "0.5M" or "102K"
+            const totalNet = (data.net_sent || 0) + (data.net_recv || 0);
+            if (totalNet > 1) {
+                healthNetVal.textContent = totalNet.toFixed(1) + 'M';
+            } else {
+                healthNetVal.textContent = Math.round(totalNet * 1024) + 'K';
+            }
         }
-        
-        const ctx = canvas.getContext('2d');
-        const values = healthHistory[metric];
-        if (values.length < 2) return;
-
-        const w = canvas.width;
-        const h = canvas.height;
-        
-        ctx.clearRect(0, 0, w, h);
-        ctx.beginPath();
-        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#6366f1';
-        ctx.lineWidth = 1;
-        
-        const step = w / (values.length - 1);
-        values.forEach((v, i) => {
-            const x = i * step;
-            const y = h - (v / 100 * h);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
     }
 
     return {

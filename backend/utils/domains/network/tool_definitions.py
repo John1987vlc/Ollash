@@ -124,4 +124,70 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "calculate_subnets",
+            "description": "Calculates subnets, usable IP ranges, and broadcast addresses for a given network.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "network_cidr": {"type": "string", "description": "The base network in CIDR notation (e.g., '192.168.1.0/24')"},
+                    "new_prefix": {"type": "integer", "description": "The prefix length for the new subnets (e.g., 26)"}
+                },
+                "required": ["network_cidr", "new_prefix"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "audit_cisco_config",
+            "description": "Audits a Cisco IOS configuration snippet for common security misconfigurations.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "config_text": {"type": "string", "description": "The configuration snippet to audit."}
+                },
+                "required": ["config_text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_scapy_simulation",
+            "description": "Executes a Scapy Python script to simulate network traffic or analyze packets.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "script": {"type": "string", "description": "Python code using Scapy"}
+                },
+                "required": ["script"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "advanced_nmap_scan",
+            "description": "Performs an advanced Nmap scan with custom arguments in the isolated sandbox.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target": {"type": "string", "description": "Target IP or hostname."},
+                    "args": {"type": "string", "description": "Nmap arguments (e.g., '-sV -T4 -Pn')."}
+                },
+                "required": ["target"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cleanup_network_sandbox",
+            "description": "Stops and removes the network sandbox container.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]

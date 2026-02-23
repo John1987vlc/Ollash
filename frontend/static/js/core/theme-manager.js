@@ -55,6 +55,12 @@ window.ThemeManager = (function () {
         document.querySelectorAll('[data-theme-toggle]').forEach(function (btn) {
             btn.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
             btn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+            
+            // Update icon
+            const icon = btn.querySelector('#theme-icon');
+            if (icon) {
+                icon.innerHTML = theme === 'dark' ? '☀️' : '🌙';
+            }
         });
     }
 

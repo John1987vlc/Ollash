@@ -47,13 +47,53 @@ class FileRefiner:
         self.documentation_manager = documentation_manager
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def refine_file(
+    def simplify_file_content(
         self,
         file_path: str,
-        current_content: str,
-        readme_excerpt: str,
-        issues: Optional[List[Dict]] = None,
+        content: str,
+        remove_redundancy: bool = True
     ) -> Optional[str]:
+        """
+        Aggressively simplifies a file to resolve persistent logic errors or 
+        architectural complexity issues.
+        """
+        self.logger.info(f"  Aggressively simplifying {file_path}...")
+        
+        # We use a specialized prompt for simplification
+        system = "You are a Senior Architect focused on KISS (Keep It Simple, Stupid). Your goal is to simplify code, remove redundancy, and ensure it is 100% functional and error-free."
+        user = f"""## TASK: Simplify the following file to improve stability and resolve issues.
+FILE: {file_path}
+
+## CONSTRAINTS:
+1. Remove any redundant or overly complex logic.
+2. Ensure the code remains functional and meets the core requirements.
+3. Output ONLY the simplified source code inside a Markdown block.
+4. NO conversational text.
+
+## CURRENT CONTENT:
+```
+{content}
+```
+"""
+        try:
+            response_data, _ = self.llm_client.chat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                tools=[],
+                options_override=self.options,
+            )
+            raw = response_data["message"]["content"]
+            simplified = self.parser.extract_raw_content(raw)
+            
+            if simplified and len(simplified) > 20:
+                self.logger.info(f"    Successfully simplified {file_path}")
+                return simplified
+        except Exception as e:
+            self.logger.error(f"  Error simplifying {file_path}: {e}")
+            
+        return None
         """Refine a single file. Returns refined content or None if refinement was worse.
 
         Args:

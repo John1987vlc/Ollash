@@ -254,14 +254,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Events ---
-    benchFetchModels.onclick = fetchModels;
-    benchStartBtn.onclick = startBenchmark;
-    parallelEvalBtn.onclick = runParallelEval;
+    if (benchFetchModels) benchFetchModels.onclick = fetchModels;
+    if (benchStartBtn) benchStartBtn.onclick = startBenchmark;
+    if (parallelEvalBtn) parallelEvalBtn.onclick = runParallelEval;
     
-    closeComparison.onclick = () => {
-        comparisonView.style.display = 'none';
-        benchOutput.style.display = 'block';
-    };
+    if (closeComparison) {
+        closeComparison.onclick = () => {
+            comparisonView.style.display = 'none';
+            benchOutput.style.display = 'block';
+        };
+    }
 
     // Init
     loadHistory();

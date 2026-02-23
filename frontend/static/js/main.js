@@ -199,6 +199,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function triggerViewLoad(viewId) {
         switch(viewId) {
+            case 'chat':
+                if (window.ChatModule) ChatModule.init({
+                    chatMessages: document.getElementById('chat-messages'),
+                    chatInput: document.getElementById('chat-input'),
+                    sendBtn: document.getElementById('send-btn')
+                });
+                if (window.ChatPageModule) ChatPageModule.init();
+                break;
             case 'create':
                 // Re-initialize to ensure listeners are attached to new DOM elements in SPA
                 setTimeout(() => {
@@ -328,7 +336,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ==================== Initialization ====================
     checkOllamaStatus();
-    setInterval(checkOllamaStatus, 15000); // More frequent latency checks
+    setInterval(checkOllamaStatus, 15000); 
+
+    async function fetchSystemMetrics() {
+        if (typeof HealthModule === 'undefined') return;
+        try {
+            const resp = await fetch('/api/health/');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            HealthModule.updateMetrics(data);
+        } catch (err) {}
+    }
+    fetchSystemMetrics();
+    setInterval(fetchSystemMetrics, 5000);
     setInterval(checkCostThreshold, 60000);
 
     // Terminal Bubble Listener
@@ -345,16 +365,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const tool = e.target.dataset.tool;
             const enabled = e.target.checked;
             
-            // Sync with backend (mock endpoint for now)
-            await fetch('/api/settings/tool', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tool, enabled })
-            });
+            try {
+                await fetch('/api/settings/tool', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tool, enabled })
+                });
+            } catch(e) {}
             
-            // Update UI count
             const count = document.querySelectorAll('.tool-toggle input:checked').length;
-            document.getElementById('active-tools-count').textContent = count;
+            const counter = document.getElementById('active-tools-count');
+            if (counter) counter.textContent = count;
         });
     });
 

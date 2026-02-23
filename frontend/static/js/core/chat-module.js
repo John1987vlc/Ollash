@@ -22,7 +22,7 @@ const ChatModule = (function() {
         state.sendBtn = elements.sendBtn;
 
         if (!state.chatInput || !state.sendBtn) {
-            console.warn("ChatModule: Required DOM elements missing during init.");
+            console.debug("ChatModule: Required DOM elements missing during init (expected in some views).");
             return;
         }
 

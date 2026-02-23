@@ -15,8 +15,55 @@ from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.memory.cross_reference_analyzer import CrossReferenceAnalyzer
 from backend.utils.core.memory.decision_context_manager import DecisionContextManager
 from backend.utils.core.memory.knowledge_graph_builder import KnowledgeGraphBuilder
+from backend.utils.core.tools.all_tool_definitions import ALL_TOOL_DEFINITIONS
 
 analysis_bp = Blueprint("analysis", __name__, url_prefix="/api/analysis")
+
+
+@analysis_bp.route("/tools/definitions", methods=["GET"])
+def get_tool_definitions():
+    """
+    Returns categorized tool definitions for the UI.
+    Groups tools by domain (prefix).
+    """
+    try:
+        categorized = {}
+        total_count = len(ALL_TOOL_DEFINITIONS)
+
+        for tool in ALL_TOOL_DEFINITIONS:
+            name = tool["function"]["name"]
+            # Try to infer category from name (e.g., 'ping_host' -> 'network')
+            # In a more robust system, this would be part of the tool metadata
+            category = "general"
+            if any(word in name for word in ["ping", "traceroute", "port", "network", "subnet", "nmap", "scapy"]):
+                category = "network"
+            elif any(word in name for word in ["system", "process", "log", "disk", "resource", "startup", "package"]):
+                category = "system"
+            elif any(word in name for word in ["file", "read", "write", "patch", "refine", "structure"]):
+                category = "code"
+            elif any(word in name for word in ["git", "commit", "push", "pull", "repo"]):
+                category = "git"
+            elif any(word in name for word in ["security", "audit", "vuln", "hardening", "policy"]):
+                category = "security"
+            elif any(word in name for word in ["plan", "project", "logic", "strategy"]):
+                category = "planning"
+
+            if category not in categorized:
+                categorized[category] = []
+            
+            categorized[category].append({
+                "name": name,
+                "description": tool["function"]["description"]
+            })
+
+        return jsonify({
+            "total_tools": total_count,
+            "categories": categorized
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting tool definitions: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 def get_analysis_managers():

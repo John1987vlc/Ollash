@@ -1,32 +1,24 @@
-<!-- Sidebar Footer: Health dashboard + Theme toggle + Status -->
+<!-- Sidebar Footer: Health dashboard + Status -->
 <div class="sidebar-footer">
-    <div class="health-dashboard" id="health-dashboard">
-        <div class="health-metric">
+    <div class="health-dashboard-grid" id="health-dashboard">
+        <div class="health-metric-mini">
             <span class="health-label">CPU</span>
-            <div class="health-bar"><div class="health-bar-fill" id="health-cpu"></div></div>
             <span class="health-value" id="health-cpu-val">--%</span>
         </div>
-        <div class="health-metric">
+        <div class="health-metric-mini">
             <span class="health-label">RAM</span>
-            <div class="health-bar"><div class="health-bar-fill" id="health-ram"></div></div>
             <span class="health-value" id="health-ram-val">--%</span>
         </div>
-        <div class="health-metric">
+        <div class="health-metric-mini">
             <span class="health-label">DSK</span>
-            <div class="health-bar"><div class="health-bar-fill" id="health-disk"></div></div>
             <span class="health-value" id="health-disk-val">--%</span>
         </div>
-        <div class="health-metric" id="health-net-row">
-            <div class="health-bar" style="background:transparent;border:none;overflow:visible;display:flex;align-items:center;padding:0;">
-                <span class="health-value" id="health-net-val" style="width:100%;text-align:left;white-space:nowrap;font-size:0.65rem;color:var(--color-text-subtle);">Net: 0 MB/s</span>
-            </div>
+        <div class="health-metric-mini">
+            <span class="health-label">NET</span>
+            <span class="health-value" id="health-net-val">0M</span>
         </div>
     </div>
-    <button class="theme-toggle" id="theme-toggle" data-theme-toggle
-            aria-label="Switch to light theme" aria-pressed="false">
-        <span id="theme-icon">&#x2600;&#xfe0f;</span>
-        <span id="theme-label">Light Mode</span>
-    </button>
+    
     <div class="status-indicator" role="status" aria-live="polite" aria-label="Estado del sistema">
         <div class="status-dot" aria-hidden="true"></div>
         <span>Ready</span>
