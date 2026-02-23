@@ -6,9 +6,24 @@ const PromptStudio = {
     
     init: async function() {
         console.log("Initializing Prompt Studio...");
-        this.setupMonaco();
-        this.setupEventListeners();
-        await this.loadRoles();
+        
+        let retries = 0;
+        const maxRetries = 10;
+        
+        const trySetup = async () => {
+            if (window.monaco) {
+                this.setupMonaco();
+                this.setupEventListeners();
+                await this.loadRoles();
+            } else if (retries < maxRetries) {
+                retries++;
+                setTimeout(trySetup, 500); // Retry every 500ms
+            } else {
+                console.error("Monaco Editor failed to load after multiple retries.");
+            }
+        };
+        
+        trySetup();
     },
     
     setupMonaco: function() {

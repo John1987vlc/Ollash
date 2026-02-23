@@ -28,8 +28,12 @@
             <h3>General Configuration</h3>
             <div class="form-group">
                 <label>Agent Name</label>
-                <input type="text" class="form-input" value="Ollash Default Agent">
+                <input type="text" id="config-agent-name" class="form-input" value="Ollash Default Agent">
                 
+                <label>Ollama API URL</label>
+                <input type="text" id="config-ollama-url" class="form-input" placeholder="http://localhost:11434">
+                <p class="help-text">Point this to your local or remote Ollama instance.</p>
+
                 <label>Workspace Root</label>
                 <input type="text" class="form-input" value="./projects" disabled>
                 

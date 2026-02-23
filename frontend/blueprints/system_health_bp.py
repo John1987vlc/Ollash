@@ -31,8 +31,8 @@ def get_system_health():
             },
             "models": [
                 {"name": "qwen3-coder:30b", "status": "online", "latency": 120, "fallback": "qwen3-coder:14b"},
-                {"name": "llama3:8b", "status": "online", "latency": 85, "fallback": None},
-                {"name": "mistral:7b", "status": "offline", "latency": 0, "fallback": "llama3:8b"},
+                {"name": "gemma3:12b", "status": "online", "latency": 85, "fallback": None},
+                {"name": "ministral-3:8b", "status": "offline", "latency": 0, "fallback": "gemma3:12b"},
             ],
         }
     )

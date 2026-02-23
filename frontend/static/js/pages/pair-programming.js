@@ -1,58 +1,57 @@
 /**
  * Pair Programming Module - Split View Editor
  */
-const PairProgrammingModule = (function() {
-    let userEditor, agentEditor;
+if (typeof window.PairProgrammingModule === 'undefined') {
+    window.PairProgrammingModule = (function() {
+        let userEditor, agentEditor;
 
-    function init() {
-        if (typeof monaco !== 'undefined') {
-            initEditors();
-        } else {
-            console.warn('Monaco not loaded for Pair Programming');
-        }
-    }
-
-    function initEditors() {
-        if (userEditor) return; // Already init
-
-        userEditor = monaco.editor.create(document.getElementById('monaco-user'), {
-            value: '# User code here\ndef main():\n    pass',
-            language: 'python',
-            theme: 'vs-dark',
-            automaticLayout: true,
-            minimap: { enabled: false }
-        });
-
-        agentEditor = monaco.editor.create(document.getElementById('monaco-agent'), {
-            value: '# Agent suggestions will appear here\ndef main():\n    print("Hello")',
-            language: 'python',
-            theme: 'vs-dark',
-            readOnly: true,
-            automaticLayout: true,
-            minimap: { enabled: false }
-        });
-
-        // Simulate agent activity
-        simulateAgentTyping();
-    }
-
-    function simulateAgentTyping() {
-        // Mock function to show "ghost cursor" logic later
-        setTimeout(() => {
-            if(agentEditor) {
-                // Flash cursor logic would go here via decorators
+        function init() {
+            const userContainer = document.getElementById('monaco-user');
+            const agentContainer = document.getElementById('monaco-agent');
+            
+            if (!userContainer || !agentContainer) {
+                console.debug('Pair Programming containers not found, skipping init.');
+                return;
             }
-        }, 2000);
-    }
 
-    window.applyAgentSuggestion = function() {
-        const suggestion = agentEditor.getValue();
-        userEditor.setValue(suggestion);
-        window.showMessage('Agent code applied', 'success');
-    };
+            if (typeof monaco !== 'undefined') {
+                initEditors(userContainer, agentContainer);
+            } else {
+                console.warn('Monaco not loaded for Pair Programming');
+            }
+        }
 
-    return { init };
-})();
+        function initEditors(userContainer, agentContainer) {
+            if (userEditor) return; 
 
-// Initialize when view is active
-window.loadPairProgramming = PairProgrammingModule.init;
+            userEditor = monaco.editor.create(userContainer, {
+                value: '# User code here\ndef main():\n    pass',
+                language: 'python',
+                theme: (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark' ? 'vs-dark' : 'vs-light',
+                automaticLayout: true,
+                minimap: { enabled: false }
+            });
+
+            agentEditor = monaco.editor.create(agentContainer, {
+                value: '# Agent suggestions will appear here\ndef main():\n    print("Hello")',
+                language: 'python',
+                theme: (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark' ? 'vs-dark' : 'vs-light',
+                readOnly: true,
+                automaticLayout: true,
+                minimap: { enabled: false }
+            });
+        }
+
+        window.applyAgentSuggestion = function() {
+            if (!agentEditor || !userEditor) return;
+            const suggestion = agentEditor.getValue();
+            userEditor.setValue(suggestion);
+            if (window.showMessage) window.showMessage('Agent code applied', 'success');
+        };
+
+        return { init };
+    })();
+
+    // Initialize when view is active
+    window.loadPairProgramming = window.PairProgrammingModule.init;
+}
