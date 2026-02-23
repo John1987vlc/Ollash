@@ -62,6 +62,42 @@ def send_chat():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@chat_bp.route("/api/chat/sessions", methods=["GET"])
+def list_sessions():
+    """Returns a list of recent chat sessions."""
+    if not _session_manager:
+        return jsonify({"sessions": []})
+    
+    # Cleanup empty sessions before listing
+    _session_manager.delete_empty_sessions()
+    
+    sessions = _session_manager.list_sessions()
+    return jsonify({"sessions": [dict(s) for s in sessions]})
+
+
+@chat_bp.route("/api/chat/sessions/<session_id>", methods=["GET"])
+def get_session_history(session_id):
+    """Returns the message history for a specific session."""
+    if not _session_manager:
+        return jsonify({"history": []})
+    
+    history = _session_manager.get_session_history(session_id)
+    return jsonify({"session_id": session_id, "history": [dict(h) for h in history]})
+
+
+@chat_bp.route("/api/chat/sessions/<session_id>", methods=["DELETE"])
+def delete_session(session_id):
+    """Deletes a chat session."""
+    if not _session_manager:
+        return jsonify({"status": "error"}), 503
+    
+    # Also delete from memory if active
+    _session_manager.delete_session(session_id)
+    # Delete from DB
+    _session_manager.db.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+    return jsonify({"status": "success"})
+
+
 @chat_bp.route("/api/chat/stream/<session_id>")
 def stream_chat(session_id):
     """SSE endpoint that streams chat events for a given session."""

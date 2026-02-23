@@ -30,9 +30,30 @@ window.ChatPageModule = (function() {
         promptLibraryPanel = document.getElementById('prompt-library-modal');
         promptCatBtns = document.querySelectorAll('.prompt-cat-btn');
         
-        // Setup Actions
+        // Attachments
+        const fileInput = document.getElementById('chat-file-input');
+        const previewContainer = document.getElementById('chat-attachment-preview');
         const attachBtn = document.getElementById('attach-file-btn');
-        if (attachBtn) attachBtn.onclick = () => document.getElementById('chat-file-input')?.click();
+
+        if (attachBtn && fileInput) {
+            attachBtn.onclick = () => fileInput.click();
+            fileInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    previewContainer.innerHTML = `
+                        <div class="attachment-tag">
+                            <span>📎 ${file.name}</span>
+                            <span class="remove-btn" id="remove-attachment">✕</span>
+                        </div>
+                    `;
+                    previewContainer.style.display = 'flex';
+                    document.getElementById('remove-attachment').onclick = () => {
+                        fileInput.value = '';
+                        previewContainer.style.display = 'none';
+                    };
+                }
+            };
+        }
 
         const imageBtn = document.getElementById('generate-assets-btn');
         if (imageBtn) imageBtn.onclick = () => window.showMessage('Image generation active. Use /image in chat.', 'info');

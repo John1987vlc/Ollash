@@ -1,161 +1,217 @@
 /**
- * Ollash - Chat Module (Reconstructed)
- * Handles the interaction loop between the user and the AI Agent via SSE.
+ * Ollash - Chat Module
+ * Handles sessions, history, and real-time agent communication.
  */
-
 const ChatModule = (function() {
     let state = {
         chatMessages: null,
         chatInput: null,
         sendBtn: null,
+        historyList: null,
         currentSessionId: null,
         isStreaming: false,
-        selectedAgent: 'orchestrator'
+        selectedAgent: 'orchestrator',
+        messageCount: 0 // Used to track if session should be saved
     };
 
-    /**
-     * Initializes the chat interface and event listeners.
-     */
     function init(elements) {
         state.chatMessages = elements.chatMessages;
         state.chatInput = elements.chatInput;
         state.sendBtn = elements.sendBtn;
+        state.historyList = document.getElementById('chat-history-list');
 
-        if (!state.chatInput || !state.sendBtn) {
-            console.debug("ChatModule: Required DOM elements missing during init (expected in some views).");
-            return;
-        }
+        if (!state.chatInput || !state.sendBtn) return;
 
-        // Event: Click Send
-        state.sendBtn.addEventListener('click', () => {
+        // --- Events ---
+        state.sendBtn.onclick = () => {
             const msg = state.chatInput.value.trim();
             if (msg) sendChatMessage(msg);
-        });
+        };
 
-        // Event: Enter to Send
-        state.chatInput.addEventListener('keydown', (e) => {
+        state.chatInput.onkeydown = (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 state.sendBtn.click();
             }
-        });
+        };
 
-        // Event: Agent Card Selection
+        // Agent Card Selection -> Starts NEW session
         document.querySelectorAll('.agent-card').forEach(card => {
-            card.addEventListener('click', function() {
+            card.onclick = function() {
+                const newAgent = this.dataset.agent;
+                
+                // If switching or re-clicking, start new session
+                // Unless we are already in an empty session of the same type
+                if (state.messageCount > 0 || state.selectedAgent !== newAgent) {
+                    startNewSession(newAgent);
+                }
+
                 document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
                 this.classList.add('active');
-                state.selectedAgent = this.dataset.agent;
-                state.chatInput.placeholder = `Ask ${state.selectedAgent.charAt(0).toUpperCase() + state.selectedAgent.slice(1)}...`;
-                state.chatInput.focus();
-            });
+                state.selectedAgent = newAgent;
+                state.chatInput.placeholder = `Ask ${newAgent}...`;
+            };
         });
 
-        console.log("🚀 ChatModule: Initialized successfully");
+        const refreshHistoryBtn = document.getElementById('refresh-history-btn');
+        if (refreshHistoryBtn) refreshHistoryBtn.onclick = loadHistory;
+
+        loadHistory();
+        console.log("🚀 ChatModule: Initialized with History Support");
     }
 
-    /**
-     * Core function to send a message and handle the lifecycle.
-     */
-    async function sendChatMessage(message, agentOverride = null) {
+    async function startNewSession(agentType) {
+        state.currentSessionId = null;
+        state.messageCount = 0;
+        if (state.chatMessages) state.chatMessages.innerHTML = '';
+        
+        // Visual feedback
+        window.NotificationToast?.show(`Starting new ${agentType} session`, 'info');
+        
+        // Refresh history to hide empty previous session if any
+        loadHistory();
+    }
+
+    async function loadHistory() {
+        if (!state.historyList) return;
+        state.historyList.innerHTML = '<div class="history-loading">Loading history...</div>';
+
+        try {
+            const resp = await fetch('/api/chat/sessions');
+            const data = await resp.json();
+
+            if (data.sessions.length === 0) {
+                state.historyList.innerHTML = '<div class="history-empty">No past sessions.</div>';
+                return;
+            }
+
+            state.historyList.innerHTML = '';
+            data.sessions.forEach(session => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                if (session.id === state.currentSessionId) item.classList.add('active');
+                
+                const date = new Date(session.created_at).toLocaleDateString();
+                item.innerHTML = `
+                    <div class="history-item-title">${session.title}</div>
+                    <div class="history-item-meta">
+                        <span>${session.agent_type}</span>
+                        <span>${date}</span>
+                    </div>
+                `;
+                
+                item.onclick = () => loadSessionHistory(session.id, session.agent_type);
+                state.historyList.appendChild(item);
+            });
+        } catch (e) {
+            state.historyList.innerHTML = '<div class="error-msg">Failed to load history</div>';
+        }
+    }
+
+    async function loadSessionHistory(sessionId, agentType) {
+        if (state.isStreaming) return;
+        
+        try {
+            const resp = await fetch(`/api/chat/sessions/${sessionId}`);
+            const data = await resp.json();
+
+            state.currentSessionId = sessionId;
+            state.selectedAgent = agentType;
+            state.messageCount = data.history.length;
+            
+            // UI Update
+            if (state.chatMessages) {
+                state.chatMessages.innerHTML = '';
+                data.history.forEach(msg => {
+                    appendMessage(msg.role, msg.content);
+                });
+            }
+
+            // Highlight in sidebar
+            document.querySelectorAll('.agent-card').forEach(c => {
+                c.classList.toggle('active', c.dataset.agent === agentType);
+            });
+
+            // Highlight in history
+            document.querySelectorAll('.history-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            loadHistory(); // Re-render to update active state
+        } catch (e) {
+            window.NotificationToast?.show("Failed to load conversation", "error");
+        }
+    }
+
+    async function sendChatMessage(message) {
         if (state.isStreaming || !message) return;
 
-        const agentType = agentOverride || state.selectedAgent;
-
-        // 1. UI Update: Add user bubble
         appendMessage('user', message);
         state.chatInput.value = '';
-        state.chatInput.style.height = 'auto';
+        state.messageCount++;
 
         try {
             setLoadingState(true);
 
-            // 2. Request backend to process instruction
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: message,
                     session_id: state.currentSessionId,
-                    agent_type: agentType
+                    agent_type: state.selectedAgent
                 })
             });
 
             const data = await response.json();
             if (data.status === 'started') {
+                const isNew = !state.currentSessionId;
                 state.currentSessionId = data.session_id;
-                // 3. Connect to SSE for the streamed response
                 connectStream(data.session_id);
+                
+                if (isNew) loadHistory(); // Refresh list to show new session
             } else {
-                throw new Error(data.message || 'Server rejected the message');
+                throw new Error(data.message);
             }
-
         } catch (error) {
-            console.error("ChatModule Error:", error);
-            appendMessage('error', `System Error: ${error.message}`);
+            appendMessage('error', `Error: ${error.message}`);
             setLoadingState(false);
         }
     }
 
-    /**
-     * Handles the SSE connection for real-time text.
-     */
     function connectStream(sessionId) {
         const source = new EventSource(`/api/chat/stream/${sessionId}`);
         let agentBubble = null;
         let contentBuffer = "";
-        
-        // Show thinking indicator
         const thinkingId = showThinkingIndicator();
 
         source.onmessage = function(event) {
             const data = JSON.parse(event.data);
-
             if (data.event === 'token') {
                 removeThinkingIndicator(thinkingId);
-                if (!agentBubble) {
-                    agentBubble = appendMessage('assistant', '');
-                }
+                if (!agentBubble) agentBubble = appendMessage('assistant', '');
                 contentBuffer += data.text;
-                
-                // Use global formatAnswer if available
-                if (window.formatAnswer) {
-                    agentBubble.innerHTML = window.formatAnswer(contentBuffer);
-                } else {
-                    agentBubble.textContent = contentBuffer;
-                }
+                agentBubble.innerHTML = window.formatAnswer ? window.formatAnswer(contentBuffer) : contentBuffer;
                 scrollToBottom();
             } 
-            else if (data.event === 'agent_board_update') {
-                if (window.KanbanBoard) {
-                    if (data.action === 'init_backlog') {
-                        window.KanbanBoard.initBacklog(data.tasks);
-                    } else if (data.action === 'move_task') {
-                        window.KanbanBoard.moveTask(data.task_id, data.new_status);
-                    }
-                }
-            }
             else if (data.event === 'done') {
                 source.close();
                 finalizeResponse(agentBubble, data.metrics);
+                loadHistory(); // Refresh to update title if it was first message
             }
             else if (data.event === 'error') {
                 source.close();
-                appendMessage('error', `Stream Error: ${data.message}`);
+                appendMessage('error', `Error: ${data.message}`);
                 setLoadingState(false);
             }
         };
 
-        source.onerror = function() {
-            source.close();
-            setLoadingState(false);
-        };
+        source.onerror = () => { source.close(); setLoadingState(false); };
     }
 
     function finalizeResponse(bubble, metrics) {
         state.isStreaming = false;
         setLoadingState(false);
-        
         if (metrics && bubble) {
             const mDiv = document.createElement('div');
             mDiv.className = 'message-metrics';
@@ -165,26 +221,12 @@ const ChatModule = (function() {
         scrollToBottom();
     }
 
-    /**
-     * Appends a new message to the chat container.
-     */
     function appendMessage(role, content) {
         const msgDiv = document.createElement('div');
         msgDiv.className = `chat-message ${role}-message`;
-        
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble';
-        
-        if (role === 'user') {
-            bubble.textContent = content;
-        } else if (role === 'error') {
-            bubble.className += ' error-bubble';
-            bubble.textContent = content;
-        } else {
-            // Assistant content starts empty for streaming
-            bubble.textContent = content;
-        }
-
+        bubble.innerHTML = (role === 'assistant' && window.formatAnswer) ? window.formatAnswer(content) : content;
         msgDiv.appendChild(bubble);
         state.chatMessages.appendChild(msgDiv);
         scrollToBottom();
@@ -194,15 +236,8 @@ const ChatModule = (function() {
     function showThinkingIndicator() {
         const id = 'thinking-' + Date.now();
         const div = document.createElement('div');
-        div.id = id;
-        div.className = 'chat-message assistant-message';
-        div.innerHTML = `
-            <div class="message-bubble thinking-indicator">
-                <div class="dot-pulse"></div>
-                <div class="dot-pulse" style="animation-delay: 0.2s"></div>
-                <div class="dot-pulse" style="animation-delay: 0.4s"></div>
-            </div>
-        `;
+        div.id = id; div.className = 'chat-message assistant-message';
+        div.innerHTML = `<div class="message-bubble thinking-indicator"><div class="dot-pulse"></div><div class="dot-pulse" style="animation-delay:0.2s"></div><div class="dot-pulse" style="animation-delay:0.4s"></div></div>`;
         state.chatMessages.appendChild(div);
         scrollToBottom();
         return id;
@@ -215,25 +250,14 @@ const ChatModule = (function() {
 
     function setLoadingState(loading) {
         state.isStreaming = loading;
-        if (state.sendBtn) {
-            state.sendBtn.disabled = loading;
-            state.sendBtn.classList.toggle('loading', loading);
-        }
+        if (state.sendBtn) state.sendBtn.disabled = loading;
     }
 
     function scrollToBottom() {
-        if (state.chatMessages) {
-            state.chatMessages.scrollTop = state.chatMessages.scrollHeight;
-        }
+        if (state.chatMessages) state.chatMessages.scrollTop = state.chatMessages.scrollHeight;
     }
 
-    // Public API
-    return {
-        init,
-        sendChatMessage,
-        appendMessage
-    };
+    return { init, sendChatMessage, appendMessage };
 })();
 
-// Export to window for main.js and E2E tests
 window.ChatModule = ChatModule;

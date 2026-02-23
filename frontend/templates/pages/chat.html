@@ -95,18 +95,29 @@
                         </div>
                     </div>
 
-                    <!-- New Active Tools Panel (Toolbox) -->
-                    <div class="chat-toolbox">
-                        <div class="toolbox-header">
-                            <h3>Active Tools</h3>
-                            <span class="toolbox-badge" id="toolbox-total-count">0</span>
+                    <!-- Right Panel: Tools + History -->
+                    <div class="chat-right-panel">
+                        <div class="chat-toolbox">
+                            <div class="toolbox-header">
+                                <h3>Active Tools</h3>
+                                <span class="toolbox-badge" id="toolbox-total-count">0</span>
+                            </div>
+                            <div class="toolbox-search">
+                                <input type="text" id="toolbox-search-input" placeholder="Search tools...">
+                            </div>
+                            <div class="toolbox-content" id="toolbox-content">
+                                <div class="toolbox-loading">Loading tools...</div>
+                            </div>
                         </div>
-                        <div class="toolbox-search">
-                            <input type="text" id="toolbox-search-input" placeholder="Search tools...">
-                        </div>
-                        <div class="toolbox-content" id="toolbox-content">
-                            <!-- Hierarchical tools will be rendered here -->
-                            <div class="toolbox-loading">Loading tools...</div>
+
+                        <div class="chat-history-panel">
+                            <div class="history-header">
+                                <h3>Past Conversations</h3>
+                                <button class="btn-icon-mini" id="refresh-history-btn" title="Refresh History">🔄</button>
+                            </div>
+                            <div class="history-list" id="chat-history-list">
+                                <div class="history-empty">No past sessions found.</div>
+                            </div>
                         </div>
                     </div>
                 </div>

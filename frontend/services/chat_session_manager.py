@@ -26,11 +26,37 @@ class ChatSessionManager:
         self.sessions: Dict[str, ChatSession] = {}
         self._lock = threading.Lock()
         self.event_publisher = event_publisher
+        self._init_db()
+
+    def _init_db(self):
+        """Initialize chat persistence tables."""
+        from backend.utils.core.system.db.sqlite_manager import DatabaseManager
+        db_path = self.ollash_root_dir / ".ollash" / "logs.db"
+        self.db = DatabaseManager(db_path)
+        with self.db.get_connection() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS chat_sessions (
+                    id TEXT PRIMARY KEY,
+                    agent_type TEXT,
+                    project_path TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    title TEXT
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT,
+                    role TEXT,
+                    content TEXT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+                )
+            """)
 
     def create_session(self, project_path: Optional[str] = None, agent_type: Optional[str] = None) -> str:
         """Create a new chat session with its own DefaultAgent instance."""
         with self._lock:
-            # Clean up finished sessions
             self._cleanup_finished()
 
             if len(self.sessions) >= self.MAX_SESSIONS:
@@ -38,8 +64,6 @@ class ChatSessionManager:
 
             session_id = uuid.uuid4().hex
             bridge = ChatEventBridge(self.event_publisher)
-
-            # F17: Ensure project_root is valid, default to ollash_root_dir if none provided
             actual_project_root = project_path if project_path else str(self.ollash_root_dir)
 
             agent = DefaultAgent(
@@ -48,10 +72,15 @@ class ChatSessionManager:
                 base_path=self.ollash_root_dir,
                 event_bridge=bridge,
             )
-            # Pre-set agent type if requested (skips orchestrator default)
             if agent_type and agent_type in agent._agent_tool_name_mappings:
                 agent.active_agent_type = agent_type
                 agent.active_tool_names = agent._agent_tool_name_mappings[agent_type]
+
+            # Save session to DB
+            self.db.execute(
+                "INSERT INTO chat_sessions (id, agent_type, project_path, title) VALUES (?, ?, ?, ?)",
+                (session_id, agent_type or "orchestrator", actual_project_root, f"New {agent_type or 'Chat'}")
+            )
 
             self.sessions[session_id] = ChatSession(
                 session_id=session_id,
@@ -60,30 +89,60 @@ class ChatSessionManager:
             )
             return session_id
 
-    def get_session(self, session_id: str) -> Optional[ChatSession]:
-        return self.sessions.get(session_id)
+    def list_sessions(self, limit: int = 20):
+        """Returns a list of recent chat sessions from DB."""
+        return self.db.query(
+            "SELECT id, agent_type, created_at, title FROM chat_sessions ORDER BY created_at DESC LIMIT ?",
+            (limit,)
+        )
+
+    def get_session_history(self, session_id: str):
+        """Returns all messages for a given session."""
+        return self.db.query(
+            "SELECT role, content, timestamp FROM chat_messages WHERE session_id = ? ORDER BY timestamp ASC",
+            (session_id,)
+        )
 
     def send_message(self, session_id: str, message: str):
-        """Run agent.chat(message) in a background thread."""
+        """Run agent.chat(message) in a background thread and persist to DB."""
         session = self.sessions.get(session_id)
         if session is None:
             raise KeyError(f"Session '{session_id}' not found.")
 
+        # Persist user message
+        self.db.execute(
+            "INSERT INTO chat_messages (session_id, role, content) VALUES (?, ?, ?)",
+            (session_id, "user", message)
+        )
+        
+        # Update session title based on first message if it's default
+        self.db.execute(
+            "UPDATE chat_sessions SET title = ? WHERE id = ? AND title LIKE 'New %'",
+            (message[:30] + "...", session_id)
+        )
+
         def _run():
             import asyncio
-
             try:
-                # F16: agent.chat is async, must be run in an event loop
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 result = loop.run_until_complete(session.agent.chat(message))
 
+                content = ""
+                metrics = {}
                 if isinstance(result, dict):
-                    session.bridge.push_event(
-                        "final_answer", {"content": result.get("text", ""), "metrics": result.get("metrics", {})}
-                    )
+                    content = result.get("text", "")
+                    metrics = result.get("metrics", {})
                 else:
-                    session.bridge.push_event("final_answer", {"content": str(result)})
+                    content = str(result)
+
+                # Persist assistant response
+                self.db.execute(
+                    "INSERT INTO chat_messages (session_id, role, content) VALUES (?, ?, ?)",
+                    (session_id, "assistant", content)
+                )
+
+                session.bridge.push_event("final_answer", {"content": content, "metrics": metrics})
             except Exception as e:
                 session.bridge.push_event("error", {"message": str(e)})
             finally:
@@ -92,6 +151,13 @@ class ChatSessionManager:
         t = threading.Thread(target=_run, daemon=True)
         session.thread = t
         t.start()
+
+    def delete_empty_sessions(self):
+        """Deletes sessions that have no messages."""
+        self.db.execute("""
+            DELETE FROM chat_sessions 
+            WHERE id NOT IN (SELECT DISTINCT session_id FROM chat_messages)
+        """)
 
     def delete_session(self, session_id: str):
         with self._lock:
