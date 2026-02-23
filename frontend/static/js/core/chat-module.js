@@ -104,11 +104,15 @@ const ChatModule = (function() {
         const source = new EventSource(`/api/chat/stream/${sessionId}`);
         let agentBubble = null;
         let contentBuffer = "";
+        
+        // Show thinking indicator
+        const thinkingId = showThinkingIndicator();
 
         source.onmessage = function(event) {
             const data = JSON.parse(event.data);
 
             if (data.event === 'token') {
+                removeThinkingIndicator(thinkingId);
                 if (!agentBubble) {
                     agentBubble = appendMessage('assistant', '');
                 }
@@ -185,6 +189,28 @@ const ChatModule = (function() {
         state.chatMessages.appendChild(msgDiv);
         scrollToBottom();
         return bubble;
+    }
+
+    function showThinkingIndicator() {
+        const id = 'thinking-' + Date.now();
+        const div = document.createElement('div');
+        div.id = id;
+        div.className = 'chat-message assistant-message';
+        div.innerHTML = `
+            <div class="message-bubble thinking-indicator">
+                <div class="dot-pulse"></div>
+                <div class="dot-pulse" style="animation-delay: 0.2s"></div>
+                <div class="dot-pulse" style="animation-delay: 0.4s"></div>
+            </div>
+        `;
+        state.chatMessages.appendChild(div);
+        scrollToBottom();
+        return id;
+    }
+
+    function removeThinkingIndicator(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
     }
 
     function setLoadingState(loading) {

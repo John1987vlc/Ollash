@@ -26,6 +26,7 @@ class OllamaClient:
         return self._aiohttp_session
 
     async def achat(self, messages, tools=None, options_override=None, context=None):
+        import time
         tools = tools or []
         if context is None:
             context = getattr(self, "_session_context", None)
@@ -34,19 +35,42 @@ class OllamaClient:
             opts.update(options_override)
         if hasattr(self, "_keep_alive"):
             opts["keep_alive"] = self._keep_alive
+        
+        # Record request
+        if self._llm_recorder:
+            self._llm_recorder.record_request(self.model, messages, tools, opts)
+
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False, "options": opts}
         if context:
             payload["context"] = context
+        
+        start_time = time.time()
         session = await self._get_aiohttp_session()
-        async with session.post(self.chat_url, json=payload, timeout=self.timeout) as resp:
-            data = await resp.json()
-            res = data.copy()
-            res["content"] = data.get("message", {}).get("content", "")
-            if "context" in data:
-                res["context"] = data["context"]
-            return res, {"prompt_tokens": 0, "completion_tokens": 0}
+        try:
+            async with session.post(self.chat_url, json=payload, timeout=self.timeout) as resp:
+                data = await resp.json()
+                latency = time.time() - start_time
+                res = data.copy()
+                res["content"] = data.get("message", {}).get("content", "")
+                
+                usage = {
+                    "prompt_tokens": data.get("prompt_eval_count", 0),
+                    "completion_tokens": data.get("eval_count", 0)
+                }
+
+                if self._llm_recorder:
+                    self._llm_recorder.record_response(self.model, res, usage, latency, True)
+
+                if "context" in data:
+                    res["context"] = data["context"]
+                return res, usage
+        except Exception as e:
+            if self._llm_recorder:
+                self._llm_recorder.record_response(self.model, {}, {}, time.time() - start_time, False, str(e))
+            raise
 
     def chat(self, messages, tools=None, options_override=None, context=None):
+        import time
         tools = tools or []
         if context is None:
             context = getattr(self, "_session_context", None)
@@ -55,16 +79,38 @@ class OllamaClient:
             opts.update(options_override)
         if hasattr(self, "_keep_alive"):
             opts["keep_alive"] = self._keep_alive
+
+        # Record request
+        if self._llm_recorder:
+            self._llm_recorder.record_request(self.model, messages, tools, opts)
+
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False, "options": opts}
         if context:
             payload["context"] = context
-        r = self.http_session.post(self.chat_url, json=payload, timeout=self.timeout)
-        data = r.json()
-        res = data.copy()
-        res["content"] = data.get("message", {}).get("content", "")
-        if "context" in data:
-            res["context"] = data["context"]
-        return res, {"prompt_tokens": 0, "completion_tokens": 0}
+        
+        start_time = time.time()
+        try:
+            r = self.http_session.post(self.chat_url, json=payload, timeout=self.timeout)
+            data = r.json()
+            latency = time.time() - start_time
+            res = data.copy()
+            res["content"] = data.get("message", {}).get("content", "")
+            
+            usage = {
+                "prompt_tokens": data.get("prompt_eval_count", 0),
+                "completion_tokens": data.get("eval_count", 0)
+            }
+
+            if self._llm_recorder:
+                self._llm_recorder.record_response(self.model, res, usage, latency, True)
+
+            if "context" in data:
+                res["context"] = data["context"]
+            return res, usage
+        except Exception as e:
+            if self._llm_recorder:
+                self._llm_recorder.record_response(self.model, {}, {}, time.time() - start_time, False, str(e))
+            raise
 
     def set_session_context(self, context):
         self._session_context = context

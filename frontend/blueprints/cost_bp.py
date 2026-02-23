@@ -25,12 +25,14 @@ def init_app(app):
         from backend.core.containers import main_container
         from backend.utils.core.analysis.cost_analyzer import CostAnalyzer
 
+        # Get centralized logger
+        app_logger = main_container.core.logging.logger()
+
         _cost_analyzer = CostAnalyzer(
-            token_tracker=None,
+            logger=app_logger,
             llm_config=main_container.auto_agent_module.llm_models_config(),
-            logger=main_container.core.logging.logger(),
         )
-        logger.info("Cost analyzer initialized")
+        logger.info("Cost analyzer initialized with historical data support")
     except Exception as e:
         logger.warning(f"Cost analyzer init skipped: {e}")
 

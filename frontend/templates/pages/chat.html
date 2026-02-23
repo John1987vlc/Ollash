@@ -111,19 +111,38 @@
                     </div>
                 </div>
 
-                <!-- Prompt Library Panel Overlay -->
-                <div class="prompt-library-panel" id="prompt-library-panel" style="display: none;">
-                    <div class="prompt-library-header">
-                        <h4>Quick Prompts</h4>
-                        <button class="btn-close-mini" id="close-prompts-btn">&times;</button>
+                <!-- Prompt Library Modal Overlay -->
+                <div id="prompt-library-modal" class="modal" role="dialog" aria-modal="true" style="display: none;">
+                    <div class="modal-content modal-wide">
+                        <div class="modal-header">
+                            <h3>Prompt Library</h3>
+                            <button class="close-modal" id="close-prompts-btn">&times;</button>
+                        </div>
+                        <div class="prompt-library-body">
+                            <div class="prompt-search-bar">
+                                <input type="text" id="prompt-search-input" placeholder="Search prompts..." class="form-input">
+                            </div>
+                            <div class="prompt-library-categories">
+                                <button class="prompt-cat-btn active" data-cat="all">All</button>
+                                <button class="prompt-cat-btn" data-cat="system">System</button>
+                                <button class="prompt-cat-btn" data-cat="network">Network</button>
+                                <button class="prompt-cat-btn" data-cat="security">Security</button>
+                                <button class="prompt-cat-btn" data-cat="code">Code</button>
+                            </div>
+                            <div class="prompt-library-grid" id="prompt-library-list">
+                                <!-- Cards injected via JS -->
+                            </div>
+                            
+                            <div class="custom-prompt-add">
+                                <hr>
+                                <h4>Add Custom Prompt</h4>
+                                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                    <input type="text" id="custom-prompt-label" placeholder="Label (e.g. My Script)" class="form-input">
+                                    <input type="text" id="custom-prompt-text" placeholder="The prompt instruction..." class="form-input" style="flex: 2;">
+                                    <button class="btn-primary" id="add-custom-prompt-btn">Add to Library</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="prompt-library-categories">
-                        <button class="prompt-cat-btn active" data-cat="all">All</button>
-                        <button class="prompt-cat-btn" data-cat="system">System</button>
-                        <button class="prompt-cat-btn" data-cat="network">Network</button>
-                        <button class="prompt-cat-btn" data-cat="security">Security</button>
-                        <button class="prompt-cat-btn" data-cat="code">Code</button>
-                    </div>
-                    <div class="prompt-library-list" id="prompt-library-list"></div>
                 </div>
             </div>

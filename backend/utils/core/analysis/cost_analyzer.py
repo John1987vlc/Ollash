@@ -160,6 +160,44 @@ class CostAnalyzer:
         self.logger = logger
         self.llm_config = llm_config or {}
         self._records: List[UsageRecord] = []
+        self._load_from_db()
+
+    def _load_from_db(self) -> None:
+        """Loads historical usage records from the logs database."""
+        try:
+            # We access the DB via the logger's DatabaseManager if available
+            if not hasattr(self.logger, "structured_logger") or not hasattr(self.logger.structured_logger, "db"):
+                return
+
+            db = self.logger.structured_logger.db
+            
+            # Query for llm_response events which contain usage data
+            query = "SELECT extra_data, timestamp FROM logs WHERE extra_data LIKE '%llm_response%'"
+            rows = db.query(query)
+            
+            loaded_count = 0
+            for row in rows:
+                try:
+                    data = json.loads(row["extra_data"])
+                    if data.get("type") == "llm_response" and "usage" in data:
+                        usage = data["usage"]
+                        record = UsageRecord(
+                            model_name=data.get("model", "unknown"),
+                            phase_name=data.get("phase_name", "unknown"),
+                            task_type=data.get("task_type", "generation"),
+                            prompt_tokens=usage.get("prompt_tokens", 0),
+                            completion_tokens=usage.get("completion_tokens", 0),
+                            timestamp=row["timestamp"]
+                        )
+                        self._records.append(record)
+                        loaded_count += 1
+                except Exception:
+                    continue
+            
+            if loaded_count > 0:
+                self.logger.info(f"Loaded {loaded_count} historical cost records from database.")
+        except Exception as e:
+            self.logger.warning(f"Failed to load historical costs: {e}")
 
     def record_usage(
         self,

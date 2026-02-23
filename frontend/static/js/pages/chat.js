@@ -27,14 +27,19 @@ window.ChatPageModule = (function() {
         chatMessages = document.getElementById('chat-messages');
         sendBtn = document.getElementById('send-btn');
         promptLibraryToggle = document.getElementById('toggle-prompt-library');
-        promptLibraryPanel = document.getElementById('prompt-library-panel');
+        promptLibraryPanel = document.getElementById('prompt-library-modal');
         promptCatBtns = document.querySelectorAll('.prompt-cat-btn');
         
-        toolboxContent = document.getElementById('toolbox-content');
-        toolboxTotalCount = document.getElementById('toolbox-total-count');
-        toolboxSearchInput = document.getElementById('toolbox-search-input');
+        // Setup Actions
+        const attachBtn = document.getElementById('attach-file-btn');
+        if (attachBtn) attachBtn.onclick = () => document.getElementById('chat-file-input')?.click();
 
-        // Initial setup
+        const imageBtn = document.getElementById('generate-assets-btn');
+        if (imageBtn) imageBtn.onclick = () => window.showMessage('Image generation active. Use /image in chat.', 'info');
+
+        const voiceBtn = document.getElementById('voice-input-btn');
+        if (voiceBtn) voiceBtn.onclick = () => window.showMessage('Voice initialization...', 'info');
+
         if (promptLibraryToggle) {
             promptLibraryToggle.addEventListener('click', togglePromptLibrary);
         }
@@ -44,6 +49,26 @@ window.ChatPageModule = (function() {
             closePromptsBtn.addEventListener('click', () => {
                 promptLibraryPanel.style.display = 'none';
             });
+        }
+        
+        const searchInput = document.getElementById('prompt-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                renderPromptLibrary('all', e.target.value.toLowerCase());
+            });
+        }
+
+        const addCustomBtn = document.getElementById('add-custom-prompt-btn');
+        if (addCustomBtn) {
+            addCustomBtn.onclick = () => {
+                const label = document.getElementById('custom-prompt-label').value;
+                const prompt = document.getElementById('custom-prompt-text').value;
+                if (label && prompt) {
+                    PROMPT_LIBRARY.push({ category: 'custom', label, prompt, agent: 'orchestrator' });
+                    renderPromptLibrary();
+                    window.showMessage('Custom prompt added', 'success');
+                }
+            };
         }
 
         promptCatBtns.forEach(btn => {

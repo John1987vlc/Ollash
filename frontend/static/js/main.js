@@ -193,9 +193,23 @@ document.addEventListener('DOMContentLoaded', function() {
             const viewId = this.dataset.view;
             if (!viewId) return;
 
+            // Show Loader
+            const loader = document.getElementById('global-page-loader');
+            if (loader) {
+                loader.style.display = 'flex';
+                setTimeout(() => { loader.style.display = 'none'; }, 600);
+            }
+
             // Update Sidebar UI
             navItems.forEach(nav => nav.classList.remove('active'));
             this.classList.add('active');
+
+            // Update Header Title
+            const titleEl = document.getElementById('current-view-title');
+            if (titleEl) {
+                const label = this.querySelector('span')?.textContent || 'Dashboard';
+                titleEl.textContent = label;
+            }
 
             // Switch Visibility
             views.forEach(view => {

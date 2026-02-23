@@ -85,28 +85,26 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Global Latency & Status Bar -->
-            <div class="global-status-bar">
-                <div class="latency-indicator" id="latency-indicator" title="Ollama Latency">
-                    <span class="dot"></span>
-                    <span class="label">Ollama: --- ms</span>
+            <!-- New Modern Header -->
+            <header class="view-top-bar">
+                <div class="view-title-area">
+                    <h2 id="current-view-title">Dashboard</h2>
                 </div>
-                
-                <div id="global-benchmark-status" class="benchmark-status-pill" style="display: none;">
-                    <div class="spinner-inline" style="width:10px; height:10px; border-width:1px;"></div>
-                    <span class="status-text">Benchmark Running...</span>
+                <div class="view-actions-area">
+                    <button class="btn-secondary theme-toggle-btn" id="theme-toggle" data-theme-toggle title="Cambiar tema">
+                        <span id="theme-icon">☀️</span>
+                        <span class="theme-label-text">Tema</span>
+                    </button>
                 </div>
+            </header>
 
-                <div class="terminal-bubble" id="terminal-bubble" title="Open Terminal">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M2 3L14 3L14 13L2 13L2 3Z"/>
-                        <polyline points="5 6 8 9 5 12" fill="none" stroke="white" stroke-width="1.5"/>
-                    </svg>
+            <!-- Global View Loader -->
+            <div id="global-page-loader" class="view-loader-overlay" style="display: none;">
+                <div class="loader-content">
+                    <div class="spinner-large"></div>
+                    <p>Cargando sección...</p>
                 </div>
             </div>
-
-            <!-- Global Breadcrumbs -->
-            <nav class="breadcrumbs" id="breadcrumbs-container"></nav>
             
             {% block content %}{% endblock %}
         </main>
