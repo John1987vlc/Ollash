@@ -203,6 +203,13 @@ class PhaseContext:
         self.ollama_context = None  # F40: KV Cache context
         self.last_model = None  # F40: Track model transitions
 
+        # E6: last execution history summary (set by AutoAgent from AutomationManager)
+        self.last_execution_summary: Optional[Any] = None
+        # E2: detected tech stack information (set by ProjectAnalysisPhase)
+        self.tech_stack_info: Optional[Any] = None
+        # E9: lazy-initialised sandbox validator (avoids import cycles)
+        self._sandbox_validator: Optional[Any] = None
+
         # Sub-contexts for grouped access
         self.llm = LLMSubContext(llm_manager, response_parser)
         self.files_ctx = FileSubContext(
@@ -345,23 +352,23 @@ class PhaseContext:
                     if target_path not in file_paths:
                         file_paths.append(target_path)
 
-            elif action_type == "modify_file":
-                target_path = action.get("path")
-                changes = action.get("changes", {})
-                if target_path and target_path in files:
-                    content = files[target_path]
-                    # Simple text replacement for changes
-                    for old_text, new_text in changes.items():
-                        content = content.replace(old_text, new_text)
-                    files[target_path] = content
-                    self.file_manager.write_file(project_root / target_path, content)
-
-            elif action_type == "refine_file":
+            elif action_type == "modify_file" or action_type == "refine_file":
                 target_path = action.get("path")
                 issues = action.get("issues", [])
+                # If issues not provided but it's a modify_file, convert 'changes' to a list of issues
+                if not issues and "changes" in action:
+                    changes = action.get("changes", {})
+                    if isinstance(changes, dict):
+                        issues = [{"description": f"Change {k} to {v}"} for k, v in changes.items()]
+                    elif isinstance(changes, list):
+                        issues = [{"description": str(c)} for c in changes]
+
                 if target_path and target_path in files:
                     try:
-                        refined = self.file_refiner.refine_file(target_path, files[target_path], readme[:2000], issues)
+                        self.logger.info(f"    Refining {target_path} as part of contingency plan...")
+                        refined = self.file_refiner.refine_file(
+                            target_path, files[target_path], readme[:2000], issues
+                        )
                         if refined:
                             files[target_path] = refined
                             self.file_manager.write_file(project_root / target_path, refined)

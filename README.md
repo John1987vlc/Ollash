@@ -16,6 +16,7 @@
     *   **Conventional Commits**: Standardized history (feat, fix, chore, docs).
     *   **Automated CI/CD**: Automatic generation of GitHub Actions (`ci.yml`) for testing and linting.
 *   **Infrastructure Automation**: Auto-creation of GitHub repositories and milestone tagging with `gh` CLI integration.
+*   **System Scripting Sandbox (New)**: Isolated Docker-based environment for the System Agent to develop, lint, and test Bash and PowerShell scripts safely.
 *   **Enhanced Monitoring**: Timed logs with Heartbeat system to ensure the agent is active during long reasoning tasks.
 *   **Semantic Integrity**: Advanced JavaScript and Python validation with cross-file consistency checks.
 

@@ -40,6 +40,7 @@ class InfrastructureGenerationPhase(IAgentPhase):
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         file_paths = kwargs.get("file_paths", [])
         include_docker = kwargs.get("include_docker", False)
+        include_terraform = kwargs.get("include_terraform", False) # New flag
 
         if not self.context.infra_generator:
             self.context.logger.warning("Infrastructure phase: Skipped (InfraGenerator not available)")
@@ -55,13 +56,14 @@ class InfrastructureGenerationPhase(IAgentPhase):
         primary_lang = needs["languages"][0] if needs.get("languages") else "python"
 
         self.context.logger.info(
-            f"  Detected: languages={needs['languages']}, "
-            f"databases={needs['databases']}, "
-            f"web={needs['has_web_server']}, api={needs['has_api']}"
+            f"  Detected: languages={needs.get('languages', [])}, "
+            f"databases={needs.get('databases', [])}, "
+            f"web={needs.get('has_web_server', False)}, api={needs.get('has_api', False)}"
         )
 
-        # Generate Dockerfile
-        if include_docker or needs.get("has_web_server") or needs.get("has_api"):
+        # Generate Dockerfile - ONLY IF EXPLICITLY REQUESTED
+        if include_docker:
+            self.context.logger.info("  Generating Docker infrastructure...")
             dockerfile = self.context.infra_generator.generate_dockerfile(primary_lang, project_name)
             generated_files["Dockerfile"] = dockerfile
             self.context.file_manager.write_file(project_root / "Dockerfile", dockerfile)
@@ -73,31 +75,37 @@ class InfrastructureGenerationPhase(IAgentPhase):
             self.context.file_manager.write_file(project_root / "docker-compose.yml", compose)
             self._track_file("docker-compose.yml", file_paths)
 
-        # Kubernetes manifests
-        k8s = self.context.infra_generator.generate_k8s_deployment(project_name, needs)
-        (project_root / "k8s").mkdir(parents=True, exist_ok=True)
-        generated_files["k8s/deployment.yml"] = k8s
-        self.context.file_manager.write_file(project_root / "k8s" / "deployment.yml", k8s)
-        self._track_file("k8s/deployment.yml", file_paths)
+        # Kubernetes manifests - ONLY IF DOCKER IS ENABLED (usually go together)
+        if include_docker:
+            self.context.logger.info("  Generating Kubernetes manifests...")
+            k8s = self.context.infra_generator.generate_k8s_deployment(project_name, needs)
+            (project_root / "k8s").mkdir(parents=True, exist_ok=True)
+            generated_files["k8s/deployment.yml"] = k8s
+            self.context.file_manager.write_file(project_root / "k8s" / "deployment.yml", k8s)
+            self._track_file("k8s/deployment.yml", file_paths)
 
-        # Terraform
-        terraform = self.context.infra_generator.generate_terraform_main(needs, cloud="aws")
-        (project_root / "terraform").mkdir(parents=True, exist_ok=True)
-        generated_files["terraform/main.tf"] = terraform
-        self.context.file_manager.write_file(project_root / "terraform" / "main.tf", terraform)
-        self._track_file("terraform/main.tf", file_paths)
+        # Terraform - ONLY IF EXPLICITLY REQUESTED
+        if include_terraform:
+            self.context.logger.info("  Generating Terraform infrastructure...")
+            terraform = self.context.infra_generator.generate_terraform_main(needs, cloud="aws")
+            (project_root / "terraform").mkdir(parents=True, exist_ok=True)
+            generated_files["terraform/main.tf"] = terraform
+            self.context.file_manager.write_file(project_root / "terraform" / "main.tf", terraform)
+            self._track_file("terraform/main.tf", file_paths)
 
-        # GitHub deploy workflow
-        deploy_workflow = self._generate_deploy_workflow(needs, primary_lang, project_name)
+        # GitHub deploy workflow - ONLY IF DOCKER OR TERRAFORM ARE ENABLED
+        if include_docker or include_terraform:
+            deploy_workflow = self._generate_deploy_workflow(needs, primary_lang, project_name, include_docker)
+            workflows_dir = project_root / ".github" / "workflows"
+            workflows_dir.mkdir(parents=True, exist_ok=True)
+            generated_files[".github/workflows/deploy.yml"] = deploy_workflow
+            self.context.file_manager.write_file(workflows_dir / "deploy.yml", deploy_workflow)
+            self._track_file(".github/workflows/deploy.yml", file_paths)
+
+        # CI Workflow is usually always wanted
         ci_workflow = self._generate_ci_workflow(needs, primary_lang, project_name)
-
         workflows_dir = project_root / ".github" / "workflows"
         workflows_dir.mkdir(parents=True, exist_ok=True)
-
-        generated_files[".github/workflows/deploy.yml"] = deploy_workflow
-        self.context.file_manager.write_file(workflows_dir / "deploy.yml", deploy_workflow)
-        self._track_file(".github/workflows/deploy.yml", file_paths)
-
         generated_files[".github/workflows/ci.yml"] = ci_workflow
         self.context.file_manager.write_file(workflows_dir / "ci.yml", ci_workflow)
         self._track_file(".github/workflows/ci.yml", file_paths)
@@ -183,7 +191,7 @@ jobs:
 {test_steps}
 """
 
-    def _generate_deploy_workflow(self, needs: Dict[str, Any], language: str, project_name: str) -> str:
+    def _generate_deploy_workflow(self, needs: Dict[str, Any], language: str, project_name: str, include_docker: bool = True) -> str:
         """Generate GitHub Actions deploy workflow based on detected stack."""
         install_step = {
             "python": """      - uses: actions/setup-python@v5
@@ -198,13 +206,19 @@ jobs:
         with:
           go-version: '1.22'
       - run: go mod download""",
-        }.get(
-            language,
-            """      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install -r requirements.txt""",
-        )
+        }.get(language, "")
+
+        docker_steps = ""
+        if include_docker:
+            docker_steps = f"""
+      - name: Build Docker image
+        run: docker build -t {project_name}:${{{{ github.sha }}}} .
+
+      - name: Push to registry
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Deploy step — configure your registry and deployment target here."
+          echo "Image: {project_name}:${{{{ github.sha }}}}" """
 
         return f"""name: Deploy
 
@@ -219,15 +233,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 {install_step}
-
-      - name: Build Docker image
-        run: docker build -t {project_name}:${{{{ github.sha }}}} .
-
-      - name: Push to registry
+{docker_steps}
+      - name: Generic deployment
         if: github.ref == 'refs/heads/main'
-        run: |
-          echo "Deploy step — configure your registry and deployment target here."
-          echo "Image: {project_name}:${{{{ github.sha }}}}"
+        run: echo "Deployment triggered for {project_name}"
 """
 
     def _generate_dependabot_config(self, needs: Dict[str, Any], generated_files: Dict[str, str]) -> str:

@@ -26,7 +26,7 @@
   "semantic_similarity_threshold": 0.95,
   "parallel_generation_max_concurrent": 3,
   "parallel_generation_max_rpm": 10,
-  "senior_review_max_attempts": 3,
+  "senior_review_max_attempts": 5,
   "completeness_checker_max_retries": 2,
   "token_encoding_name": "cl100k_base"
 }

@@ -117,4 +117,63 @@ SYSTEM_TOOL_DEFINITIONS: List[Dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "init_scripting_environment",
+            "description": "Initializes a clean, isolated environment (sandbox) for script development.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_script",
+            "description": "Writes content to a script file in the sandbox.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "Name of the file (e.g., test.ps1, script.sh)",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The content of the script.",
+                    },
+                },
+                "required": ["filename", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "execute_script",
+            "description": "Executes a script in the sandbox and returns the output.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "The file to execute.",
+                    },
+                    "args": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Arguments for the script.",
+                    },
+                },
+                "required": ["filename"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cleanup_environment",
+            "description": "Destroys the sandbox environment and all files within it.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]

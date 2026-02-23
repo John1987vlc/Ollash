@@ -25,6 +25,13 @@ class TestLLMResponseParser:
         text = "```\nx = 1\n```"
         assert LLMResponseParser.extract_single_code_block(text) == "x = 1"
 
+    def test_extract_single_code_block_robust_spacing(self):
+        # Test my improvements for optional newlines/spaces
+        text = "```python\nx = 1```"
+        assert LLMResponseParser.extract_single_code_block(text) == "x = 1"
+        text2 = "```\n\nx = 1\n\n```"
+        assert LLMResponseParser.extract_single_code_block(text2) == "x = 1"
+
     def test_extract_single_code_block_unclosed(self):
         text = "```python\nx = 1\ny = 2"
         result = LLMResponseParser.extract_single_code_block(text)
@@ -92,6 +99,12 @@ class TestFileValidator:
     def test_invalid_json(self):
         r = self.v.validate("bad.json", '{"key": }')
         assert r.status == ValidationStatus.SYNTAX_ERROR
+
+    def test_multi_document_yaml(self):
+        # Kubernetes-style multi-doc
+        yaml_content = "apiVersion: v1\nkind: Pod\n---\napiVersion: v1\nkind: Service"
+        r = self.v.validate("k8s.yaml", yaml_content)
+        assert r.status == ValidationStatus.VALID
 
     def test_empty_file(self):
         r = self.v.validate("empty.py", "")

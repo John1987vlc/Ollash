@@ -311,6 +311,8 @@ class GoDependencyScanner(LanguageDependencyScanner):
     def scan_imports(self, files: Dict[str, str]) -> Set[str]:
         """Extract third-party modules from Go source files."""
         modules = set()
+        # Common standard library packages
+        stdlib = {"fmt", "net", "http", "os", "io", "time", "sync", "context", "encoding", "json"}
 
         for filename, content in files.items():
             if filename.endswith(".go"):
@@ -321,13 +323,14 @@ class GoDependencyScanner(LanguageDependencyScanner):
                 ):
                     if match.group(1):
                         for line in match.group(1).split("\n"):
-                            pkg = re.search(r'"([^"]+)"', line)
-                            if pkg:
-                                modules.add(pkg.group(1))
+                            pkg_match = re.search(r'"([^"]+)"', line)
+                            if pkg_match:
+                                modules.add(pkg_match.group(1))
                     elif match.group(2):
                         modules.add(match.group(2))
 
-        return {m for m in modules if "/" in m}  # Only third-party
+        # Filter out stdlib and relative imports, and ensure it looks like a third-party module (contains '/')
+        return {m for m in modules if m not in stdlib and "/" in m and not m.startswith(".")}
 
     def reconcile(
         self,

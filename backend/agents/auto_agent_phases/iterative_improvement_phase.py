@@ -3,12 +3,17 @@ from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
+from backend.utils.domains.auto_generation.quality_gate import QualityGate, QualityReport
 
 
 class IterativeImprovementPhase(IAgentPhase):
     """
     Phase 7: Conducts iterative improvement loops based on suggestions,
     planning, implementation, and re-verification.
+
+    After each implementation step, a QualityGate check runs tests and linter.
+    If quality checks fail an auto-heal sub-loop (up to MAX_HEAL_ITERATIONS)
+    attempts to fix the issues before proceeding to the next iteration.
     """
 
     def __init__(self, context: PhaseContext):
@@ -135,6 +140,13 @@ class IterativeImprovementPhase(IAgentPhase):
                 )
                 self.context.event_publisher.publish("tool_end", tool_name="implement_plan")
 
+                # 3b. Quality gate: run tests + linter; auto-heal if failing
+                quality_report = await self._run_quality_check(project_root, generated_files)
+                if not quality_report.overall_pass:
+                    generated_files = await self._auto_heal_loop(
+                        quality_report, generated_files, project_root, readme_content
+                    )
+
                 # Re-run refinement and verification after each loop to ensure quality
                 self.context.logger.info(f"  Re-running Phase 5: Refinement after improvement loop {loop_num + 1}...")
                 self.context.event_publisher.publish(
@@ -226,3 +238,122 @@ class IterativeImprovementPhase(IAgentPhase):
             self.context.logger.info("PHASE 7: Iterative Improvement complete.")
 
         return generated_files, initial_structure, file_paths
+
+    # ------------------------------------------------------------------
+    # E3: Quality gate helpers
+    # ------------------------------------------------------------------
+
+    async def _run_quality_check(
+        self, project_root: Path, generated_files: Dict[str, str]
+    ) -> QualityReport:
+        """Run tests and linter via QualityGate; publish a quality_check event."""
+        language = self._detect_primary_language(generated_files)
+        gate = QualityGate(logger=self.context.logger)
+        try:
+            report = await gate.run_quality_check(project_root, language=language)
+            self.context.event_publisher.publish(
+                "quality_check",
+                phase="7",
+                overall_pass=report.overall_pass,
+                tests_failed=report.tests_failed,
+                linter_errors=report.linter_errors,
+            )
+            if report.overall_pass:
+                self.context.logger.info("  Quality gate: PASSED")
+            else:
+                self.context.logger.warning(
+                    "  Quality gate: FAILED — " + "; ".join(report.failure_reasons[:3])
+                )
+        except Exception as exc:
+            self.context.logger.warning(f"  Quality gate check failed (non-critical): {exc}")
+            report = QualityReport(overall_pass=True)  # Fail open
+        return report
+
+    async def _auto_heal_loop(
+        self,
+        initial_report: QualityReport,
+        generated_files: Dict[str, str],
+        project_root: Path,
+        readme_content: str,
+    ) -> Dict[str, str]:
+        """Attempt to fix quality issues through targeted file refinement.
+
+        Runs up to QualityGate.MAX_HEAL_ITERATIONS refinement attempts.
+        Stops early if the quality gate passes.
+
+        Args:
+            initial_report: The failing QualityReport that triggered healing.
+            generated_files: Current file contents.
+            project_root: Project root directory.
+            readme_content: Project README for context.
+
+        Returns:
+            Updated generated_files dict after healing attempts.
+        """
+        report = initial_report
+        gate = QualityGate(logger=self.context.logger)
+        language = self._detect_primary_language(generated_files)
+
+        for attempt in range(1, QualityGate.MAX_HEAL_ITERATIONS + 1):
+            self.context.logger.info(
+                f"  Auto-heal iteration {attempt}/{QualityGate.MAX_HEAL_ITERATIONS}: "
+                + "; ".join(report.failure_reasons[:2])
+            )
+
+            # Build heal context from failure reasons and linter output
+            heal_context = "\n".join(report.failure_reasons) + "\n" + report.linter_output[:500]
+
+            # Refine files mentioned in test output or all Python files if unclear
+            files_to_heal = self._identify_failing_files(report, generated_files)
+            for rel_path in files_to_heal:
+                content = generated_files.get(rel_path, "")
+                if not content:
+                    continue
+                try:
+                    refined = self.context.file_refiner.refine_file(
+                        rel_path,
+                        content,
+                        readme_content[:500] + f"\n\nFix these issues:\n{heal_context[:300]}",
+                    )
+                    if refined:
+                        generated_files[rel_path] = refined
+                        self.context.file_manager.write_file(project_root / rel_path, refined)
+                except Exception as exc:
+                    self.context.logger.warning(f"  Heal attempt for {rel_path} failed: {exc}")
+
+            # Re-check quality
+            try:
+                report = await gate.run_quality_check(project_root, language=language)
+                if report.overall_pass:
+                    self.context.logger.info(f"  Auto-heal succeeded on attempt {attempt}")
+                    break
+            except Exception as exc:
+                self.context.logger.warning(f"  Quality re-check after heal failed: {exc}")
+                break
+
+        return generated_files
+
+    @staticmethod
+    def _identify_failing_files(
+        report: QualityReport, generated_files: Dict[str, str]
+    ) -> List[str]:
+        """Identify file paths mentioned in quality failure output."""
+        failing: List[str] = []
+        combined = " ".join(report.failure_reasons) + " " + report.linter_output + " " + report.test_output
+        for path in generated_files:
+            if path in combined or Path(path).name in combined:
+                failing.append(path)
+        # Fall back to all Python/JS source files if nothing specific found
+        if not failing:
+            failing = [
+                p for p in generated_files
+                if p.endswith((".py", ".js", ".ts")) and "test" not in p.lower()
+            ][:5]
+        return failing
+
+    @staticmethod
+    def _detect_primary_language(files: Dict[str, str]) -> str:
+        """Detect primary language from file extensions."""
+        py_count = sum(1 for p in files if p.endswith(".py"))
+        js_count = sum(1 for p in files if p.endswith((".js", ".ts")))
+        return "python" if py_count >= js_count else "javascript"

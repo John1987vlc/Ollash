@@ -1,3 +1,4 @@
+import asyncio
 from typing import Dict
 
 from backend.utils.core.system.agent_logger import AgentLogger
@@ -63,8 +64,6 @@ class FileCompletenessChecker:
 
         if not to_fix:
             return fixed_files
-
-        import asyncio
 
         async def fix_single_file(result_obj):
             file_path = result_obj.file_path

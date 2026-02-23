@@ -17,12 +17,15 @@ from apscheduler.triggers.interval import IntervalTrigger
 from backend.core.kernel import AgentKernel  # Import AgentKernel
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.system.event_publisher import EventPublisher
+from backend.utils.core.system.task_models import ExecutionRecord
 
 logger = logging.getLogger(__name__)
 
 
 class AutomationManager:
     """Manages scheduled automation tasks and their execution."""
+
+    MAX_HISTORY_PER_TASK: int = 50
 
     def __init__(
         self,
@@ -48,6 +51,7 @@ class AutomationManager:
         self.task_callbacks = {}  # Maps task_id to execution callback
         self.running = False
         self._lock = threading.Lock()
+        self._git_trigger: Optional[Any] = None  # Placeholder for Sprint 3 E5
 
         self._load_tasks()
 
@@ -115,6 +119,8 @@ class AutomationManager:
             self.running = False
 
         try:
+            if self._git_trigger is not None:
+                self._git_trigger.stop()
             if self.scheduler and self.scheduler.running:
                 self.scheduler.shutdown()
             self.logger.info("✅ Automation manager stopped")
@@ -173,6 +179,7 @@ class AutomationManager:
             task_id: Task identifier
             task: Task configuration
         """
+        start = datetime.now()
         try:
             self.logger.info(f"🚀 Executing task: {task.get('name', task_id)}")
 
@@ -181,6 +188,11 @@ class AutomationManager:
                 result = self._check_threshold(task)
                 if not result.get("should_proceed", True):
                     self.logger.info(f"Task {task_id} threshold check: no action needed")
+                    duration = (datetime.now() - start).total_seconds()
+                    self.record_execution(
+                        task_id,
+                        ExecutionRecord(status="skipped", summary="Threshold check: no action needed", duration_seconds=duration),
+                    )
                     return
 
             # Execute the registered callback if it exists
@@ -188,12 +200,126 @@ class AutomationManager:
                 callback = self.task_callbacks[task_id]
                 callback(task_id, task)
 
+            duration = (datetime.now() - start).total_seconds()
+            self.record_execution(
+                task_id,
+                ExecutionRecord(
+                    status="success",
+                    summary=f"Task '{task.get('name', task_id)}' completed",
+                    duration_seconds=duration,
+                ),
+            )
             # Publish task execution event
             self._publish_task_event(task_id, task, "execution_complete", "success")
 
         except Exception as e:
+            duration = (datetime.now() - start).total_seconds()
+            self.record_execution(
+                task_id,
+                ExecutionRecord(
+                    status="error",
+                    summary=f"Task '{task.get('name', task_id)}' failed",
+                    errors=[str(e)],
+                    duration_seconds=duration,
+                ),
+            )
             self.logger.error(f"❌ Error executing task {task_id}: {e}")
             self._publish_task_event(task_id, task, "execution_error", str(e))
+
+    def record_execution(self, task_id: str, record: ExecutionRecord) -> None:
+        """Append an execution record to the task history and persist to disk.
+
+        Trims history to MAX_HISTORY_PER_TASK entries.
+
+        Args:
+            task_id: The task identifier.
+            record: The execution outcome to record.
+        """
+        with self._lock:
+            if task_id not in self.tasks:
+                return
+            task = self.tasks[task_id]
+            history: List[Dict] = task.setdefault("execution_history", [])
+            history.append(record.model_dump())
+            # Keep only the most recent MAX_HISTORY_PER_TASK entries
+            if len(history) > self.MAX_HISTORY_PER_TASK:
+                task["execution_history"] = history[-self.MAX_HISTORY_PER_TASK:]
+            # Update convenience fields
+            if record.status == "success":
+                task["last_success"] = record.timestamp
+            elif record.status == "error":
+                task["last_error"] = record.timestamp
+            self._save_tasks()
+
+    def get_last_execution_summary(self, task_id: str) -> Optional[ExecutionRecord]:
+        """Return the most recent ExecutionRecord for a task, or None.
+
+        Args:
+            task_id: The task identifier.
+
+        Returns:
+            The most recent ExecutionRecord, or None if no history exists.
+        """
+        task = self.tasks.get(task_id)
+        if not task:
+            return None
+        history = task.get("execution_history", [])
+        if not history:
+            return None
+        try:
+            return ExecutionRecord.model_validate(history[-1])
+        except Exception:
+            return None
+
+    # ------------------------------------------------------------------
+    # E5: Git event trigger
+    # ------------------------------------------------------------------
+
+    def enable_git_trigger(self, repo_path: Path, min_changed_lines: int = 5) -> None:
+        """Start a GitChangeTrigger that reschedules interval tasks on git changes.
+
+        Args:
+            repo_path: Path to the git repository root to monitor.
+            min_changed_lines: Minimum line-delta to fire the trigger.
+        """
+        from backend.utils.core.system.git_change_trigger import GitChangeTrigger
+
+        if self._git_trigger is not None:
+            self.logger.warning("GitChangeTrigger already enabled; ignoring duplicate call.")
+            return
+        self._git_trigger = GitChangeTrigger(
+            repo_path=repo_path,
+            on_change_callback=self._on_git_change_detected,
+            logger=self.logger,
+            min_changed_lines=min_changed_lines,
+        )
+        self._git_trigger.start()
+        self.logger.info(f"GitChangeTrigger enabled for repo: {repo_path}")
+
+    def _on_git_change_detected(self) -> None:
+        """Callback invoked by GitChangeTrigger when external git changes are detected.
+
+        Reschedules all enabled interval tasks to run immediately, then
+        publishes a ``git_change_detected`` event for the UI.
+        """
+        self.logger.info("GitChangeTrigger: external changes detected, rescheduling interval tasks")
+        with self._lock:
+            for task_id, task in self.tasks.items():
+                if not task.get("enabled", True):
+                    continue
+                schedule_type = task.get("schedule", {}).get("type", "interval")
+                if schedule_type == "interval" and self.running and self.scheduler:
+                    try:
+                        job = self.scheduler.get_job(task_id)
+                        if job:
+                            job.modify(next_run_time=datetime.now())
+                            self.logger.info(f"  Rescheduled task '{task_id}' to run now")
+                    except Exception as exc:
+                        self.logger.warning(f"  Could not reschedule task '{task_id}': {exc}")
+        self.event_publisher.publish(
+            "git_change_detected",
+            {"timestamp": datetime.now().isoformat()},
+        )
 
     def _check_threshold(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """

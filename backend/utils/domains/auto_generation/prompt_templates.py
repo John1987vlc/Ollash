@@ -5,7 +5,7 @@ Maintains the same interface while loading text from /prompts/domains/auto_gener
 
 import logging
 from pathlib import Path
-from typing import Tuple, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 from backend.utils.core.llm.prompt_loader import PromptLoader
 
 logger = logging.getLogger(__name__)
@@ -128,8 +128,16 @@ class AutoGenPrompts:
         test_files_count: int,
         project_description: str,
         readme_content: str,
+        prompt_hints: Optional[List[str]] = None,
     ) -> Tuple[str, str]:
-        """Returns (system, user) for Phase 0.5 Analysis."""
+        """Returns (system, user) for Phase 0.5 Analysis.
+
+        Args:
+            prompt_hints: Optional technology-specific hints from TechStackDetector
+                          (e.g. ["Flask 2.3 - use Blueprints", "pytest - use fixtures"]).
+                          When provided they are appended to the user prompt so the LLM
+                          can tailor its gap analysis to the detected stack.
+        """
         system, user_template = AutoGenPrompts._get_prompt_pair(
             "project_analysis_gaps", "domains/auto_generation/analysis.yaml", "project_analysis_gaps"
         )
@@ -142,6 +150,9 @@ class AutoGenPrompts:
             project_description=project_description,
             readme_content=readme_content[:1000],
         )
+        if prompt_hints:
+            tech_context = "\n\nTechnology context: " + "; ".join(prompt_hints)
+            user = user + tech_context
         return system, user
 
     @staticmethod
@@ -288,8 +299,17 @@ class AutoGenPrompts:
         json_structure: dict,
         current_files: Dict[str, str],
         loop_num: int,
+        risk_context: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, str]:
-        """Returns (system_prompt, user_prompt) for improvement suggestions."""
+        """Returns (system_prompt, user_prompt) for improvement suggestions.
+
+        Args:
+            risk_context: Optional vulnerability scan results from VulnerabilityScanner.
+                          When provided (and contains critical/high vulns) a priority
+                          block is prepended so the LLM addresses security issues first.
+                          Expected keys: critical_vulns, high_vulns, blocked_files,
+                          top_vulnerabilities (list of {file, severity, count}).
+        """
         system, user_template = AutoGenPrompts._get_prompt_pair(
             "improvement_suggestions", "domains/auto_generation/review.yaml", "improvement_suggestions"
         )
@@ -298,6 +318,21 @@ class AutoGenPrompts:
         )
 
         user = user_template.format(project_summary=project_summary)
+
+        # Inject security priority block when critical/high vulnerabilities detected
+        if risk_context and (risk_context.get("critical_vulns", 0) > 0 or risk_context.get("high_vulns", 0) > 0):
+            vuln_lines = "\n".join(
+                f"  - {v['file']} ({v['severity']}, {v['count']} issue(s))"
+                for v in risk_context.get("top_vulnerabilities", [])
+            )
+            security_block = (
+                f"\n\nSECURITY PRIORITY: The project has {risk_context['critical_vulns']} critical "
+                f"and {risk_context['high_vulns']} high security vulnerabilities that MUST be "
+                f"addressed before any other improvements:\n{vuln_lines}\n"
+                f"List security fixes as your FIRST suggestions."
+            )
+            user = security_block + "\n\n" + user
+
         return system, user
 
     @staticmethod

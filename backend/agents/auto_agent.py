@@ -157,6 +157,21 @@ class AutoAgent(CoreAgent):
                 file_paths,
             ) = self.phase_context.ingest_existing_project(project_root)
             readme_content = generated_files.get("README.md", "")
+
+            # E6: Load last execution summary so phases can adapt to previous failures
+            automation_manager = kwargs.get("automation_manager")
+            task_id = kwargs.get("task_id", "")
+            if automation_manager is not None and task_id:
+                try:
+                    last_summary = automation_manager.get_last_execution_summary(task_id)
+                    self.phase_context.last_execution_summary = last_summary
+                    if last_summary and last_summary.status == "error":
+                        self.logger.warning(
+                            f"Previous execution of task '{task_id}' failed: "
+                            + "; ".join(last_summary.errors)
+                        )
+                except Exception as exc:
+                    self.logger.warning(f"Could not load last execution summary: {exc}")
         else:
             project_root.mkdir(parents=True, exist_ok=True)
             generated_files, initial_structure, readme_content, file_paths = (

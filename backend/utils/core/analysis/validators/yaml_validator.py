@@ -14,7 +14,8 @@ class YamlValidator(BaseValidator):
         try:
             import yaml
 
-            yaml.safe_load(content)
+            # Use safe_load_all to support multi-document YAML files (common in K8s)
+            list(yaml.safe_load_all(content))
             return ValidationResult(file_path, ValidationStatus.VALID, "Valid YAML", lines, chars)
         except ImportError:
             return ValidationResult(

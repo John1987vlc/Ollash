@@ -29,7 +29,7 @@ from backend.agents.auto_agent_phases.security_scan_phase import SecurityScanPha
 from backend.agents.auto_agent_phases.senior_review_phase import SeniorReviewPhase
 from backend.agents.auto_agent_phases.structure_generation_phase import StructureGenerationPhase
 from backend.agents.auto_agent_phases.structure_pre_review_phase import StructurePreReviewPhase
-from backend.agents.auto_agent_phases.test_generation_execution_phase import TestGenerationExecutionPhase
+from backend.agents.auto_agent_phases.generation_execution_phase import TestGenerationExecutionPhase
 from backend.agents.auto_agent_phases.verification_phase import VerificationPhase
 
 from backend.core.config import config
@@ -44,7 +44,7 @@ from backend.utils.core.io.documentation_manager import DocumentationManager
 from backend.utils.core.memory.error_knowledge_base import ErrorKnowledgeBase
 from backend.utils.core.system.event_publisher import EventPublisher
 from backend.utils.core.io.export_manager import ExportManager
-from backend.utils.core.io.file_manager import FileManager
+from backend.utils.core.io.locked_file_manager import LockedFileManager
 from backend.utils.core.analysis.file_validator import FileValidator
 from backend.utils.core.memory.fragment_cache import FragmentCache
 from backend.utils.core.memory.episodic_memory import EpisodicMemory
@@ -113,7 +113,7 @@ class StorageContainer(containers.DeclarativeContainer):
     ollash_root_dir = providers.Dependency()
     command_executor = providers.Dependency()
 
-    file_manager = providers.Singleton(FileManager, root_path=ollash_root_dir)
+    file_manager = providers.Singleton(LockedFileManager, root_path=ollash_root_dir, logger=logger)
     response_parser = providers.Singleton(LLMResponseParser)
     file_validator = providers.Singleton(FileValidator, logger=logger, command_executor=command_executor)
 
@@ -345,6 +345,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         llm_client=llm_client_manager.provided.get_client.call("suggester"),
         logger=core.logging.logger,
         response_parser=core.storage.response_parser,
+        vulnerability_scanner=core.analysis.vulnerability_scanner,
     )
     improvement_planner = providers.Factory(
         ImprovementPlanner,

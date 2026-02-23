@@ -243,7 +243,7 @@ class ToolSettingsConfig(BaseModel):
     )
     parallel_generation_max_concurrent: PositiveInt = Field(3, description="Max concurrent file generations.")
     parallel_generation_max_rpm: PositiveInt = Field(10, description="Max requests per minute for parallel generation.")
-    senior_review_max_attempts: PositiveInt = Field(3, description="Max attempts for senior review fixes.")
+    senior_review_max_attempts: PositiveInt = Field(5, description="Max attempts for senior review fixes.")
     completeness_checker_max_retries: PositiveInt = Field(2, description="Max retries for file completeness checks.")
     token_encoding_name: str = Field(
         "cl100k_base",

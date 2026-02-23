@@ -79,7 +79,7 @@ class ContentCompletenessPhase(IAgentPhase):
                     )
 
             # Re-verify after completing
-            generated_files = self.context.file_completeness_checker.verify_and_fix(
+            generated_files = await self.context.file_completeness_checker.verify_and_fix(
                 generated_files, readme_content[:2000]
             )
             for rel_path, content in generated_files.items():

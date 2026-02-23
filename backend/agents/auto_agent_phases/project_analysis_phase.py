@@ -7,7 +7,9 @@ from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
+from backend.utils.domains.auto_generation.analysis_state_manager import AnalysisStateManager
 from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
+from backend.utils.domains.auto_generation.tech_stack_detector import TechStackDetector
 
 
 class ProjectAnalysisPhase(IAgentPhase):
@@ -48,21 +50,70 @@ class ProjectAnalysisPhase(IAgentPhase):
         )
         self.context.event_publisher.publish("phase_start", phase="0.5", message="Analyzing existing project code")
 
-        # Step 1: Analyze current codebase
-        codebase_analysis = await self._analyze_codebase(generated_files, file_paths)
+        # E1: Incremental differential analysis — load previous snapshot
+        state_mgr = AnalysisStateManager(self.context.logger)
+        prev_snapshot = state_mgr.load_snapshot(project_root)
+        used_cache = False
+        delta_files_analyzed = len(generated_files)
 
-        # Step 2: Compare with project description
+        # Step 1: Analyze current codebase (full or incremental)
+        if prev_snapshot is not None:
+            changed_files = state_mgr.compute_changed_files(generated_files, prev_snapshot)
+            if not changed_files:
+                self.context.logger.info(
+                    "  No file changes since last analysis. Reusing cached analysis."
+                )
+                codebase_analysis = prev_snapshot.full_analysis
+                used_cache = True
+                delta_files_analyzed = 0
+            else:
+                self.context.logger.info(
+                    f"  Incremental analysis: {len(changed_files)}/{len(generated_files)} files changed."
+                )
+                delta_analysis = await self._analyze_codebase(changed_files, list(changed_files.keys()))
+                codebase_analysis = state_mgr.merge_analysis(
+                    prev_snapshot.full_analysis,
+                    delta_analysis,
+                    set(changed_files.keys()),
+                )
+                delta_files_analyzed = len(changed_files)
+        else:
+            codebase_analysis = await self._analyze_codebase(generated_files, file_paths)
+
+        # Step 2: Detect tech stack and store in context
+        try:
+            detector = TechStackDetector()
+            tech_stack = detector.detect(generated_files)
+            codebase_analysis["tech_stack"] = tech_stack.to_dict()
+            codebase_analysis["prompt_hints"] = tech_stack.prompt_hints
+            self.context.tech_stack_info = tech_stack
+            if tech_stack.prompt_hints:
+                self.context.logger.info(
+                    f"  Tech stack detected: {tech_stack.framework} / {tech_stack.primary_language}"
+                )
+        except Exception as exc:
+            self.context.logger.warning(f"  Tech stack detection failed (non-critical): {exc}")
+            codebase_analysis["tech_stack"] = {}
+            codebase_analysis["prompt_hints"] = []
+
+        # Step 3: Compare with project description
         gaps = await self._identify_gaps(project_description, codebase_analysis, readme_content)
 
-        # Step 3: Generate improvement plan
+        # Step 4: Generate improvement plan
         logic_plan = await self._generate_improvement_plan(
             gaps, codebase_analysis, project_description, generated_files
         )
 
-        # Step 4: Save analysis reports
+        # E1: Save snapshot for next incremental run (after full analysis is complete)
+        if not used_cache:
+            state_mgr.save_snapshot(project_root, project_name, generated_files, codebase_analysis)
+
+        # Step 5: Save analysis reports
         analysis_report = {
             "timestamp": str(Path(__file__).stat().st_mtime),
             "files_analyzed": len(generated_files),
+            "delta_files_analyzed": delta_files_analyzed,
+            "used_cache": used_cache,
             "codebase_analysis": codebase_analysis,
             "identified_gaps": gaps,
             "improvement_plan": logic_plan,
@@ -174,6 +225,7 @@ class ProjectAnalysisPhase(IAgentPhase):
             test_files_count=len(codebase_analysis["test_coverage"]["test_files"]),
             project_description=project_description,
             readme_content=readme_content or "No README found",
+            prompt_hints=codebase_analysis.get("prompt_hints"),
         )
 
         try:

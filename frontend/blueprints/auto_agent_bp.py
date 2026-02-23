@@ -102,6 +102,7 @@ def generate_project_structure():
             "python_version": request.form.get("python_version"),
             "license_type": request.form.get("license_type"),
             "include_docker": request.form.get("include_docker") == "true",
+            "include_terraform": request.form.get("include_terraform") == "true",
         }
 
         readme, structure_json = local_auto_agent.generate_structure_only(project_description, project_name, **kwargs)
@@ -167,6 +168,7 @@ def create_project():
                 "python_version": request.form.get("python_version"),
                 "license_type": request.form.get("license_type"),
                 "include_docker": request.form.get("include_docker") == "true",
+                "include_terraform": request.form.get("include_terraform") == "true",
                 "num_refine_loops": int(request.form.get("num_refine_loops", 0)),
                 # Git & CI/CD options
                 "git_push": git_push,

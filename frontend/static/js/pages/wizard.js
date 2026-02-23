@@ -141,6 +141,7 @@ window.WizardModule = (function() {
         formData.append('python_version', document.getElementById('python-version').value);
         formData.append('license_type', document.getElementById('license-type').value);
         formData.append('include_docker', document.getElementById('include-docker').checked);
+        formData.append('include_terraform', document.getElementById('include-terraform').checked);
 
         if (window.showMessage) window.showMessage('Generating project structure...', 'info');
         wizardGenerateBtn.disabled = true;
@@ -168,6 +169,7 @@ window.WizardModule = (function() {
         formData.append('python_version', document.getElementById('python-version').value);
         formData.append('license_type', document.getElementById('license-type').value);
         formData.append('include_docker', document.getElementById('include-docker').checked);
+        formData.append('include_terraform', document.getElementById('include-terraform').checked);
         
         // Git settings — derive git_push automatically from whether a URL was provided
         const gitRepoUrl = document.getElementById('git-repo-url')?.value?.trim() || '';

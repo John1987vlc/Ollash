@@ -73,10 +73,15 @@ reports/
 temp_chess_test/
 test_root/
 test_root_*/
+test-results/
+legacy/
 test_results_*.txt
 all_tests_results.txt
 test_rag_results.txt
 test_results_final.txt
 test_results.txt
 test_summary.txt
+
+# Local DBs
+episodic_index.db
 
