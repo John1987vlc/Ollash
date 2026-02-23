@@ -45,14 +45,38 @@ def push_cost_event(data):
         pass
 
 
+def get_cost_analyzer():
+    """Returns the cost analyzer, initializing it if necessary."""
+    global _cost_analyzer
+    if _cost_analyzer:
+        return _cost_analyzer
+
+    try:
+        from backend.core.containers import main_container
+        from backend.utils.core.analysis.cost_analyzer import CostAnalyzer
+
+        app_logger = main_container.core.logging.logger()
+        llm_config = main_container.auto_agent_module.llm_models_config()
+
+        _cost_analyzer = CostAnalyzer(
+            logger=app_logger,
+            llm_config=llm_config,
+        )
+        return _cost_analyzer
+    except Exception as e:
+        logger.error(f"Lazy CostAnalyzer initialization failed: {e}")
+        return None
+
+
 @cost_bp.route("/report", methods=["GET"])
 def get_cost_report():
     """Get cost report."""
-    if not _cost_analyzer:
+    analyzer = get_cost_analyzer()
+    if not analyzer:
         return jsonify({"error": "Cost analyzer not available"}), 503
 
     try:
-        report = _cost_analyzer.get_report()
+        report = analyzer.get_report()
         return jsonify({"report": report.to_dict() if hasattr(report, "to_dict") else report})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
