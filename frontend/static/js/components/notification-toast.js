@@ -19,7 +19,7 @@ window.NotificationToast = (function () {
     'use strict';
 
     const CONTAINER_ID = 'notification-container';
-    const DEFAULT_DURATION = 5000;  // ms
+    const DEFAULT_DURATION = 8000;  // ms (increased from 5000)
     const MAX_VISIBLE = 5;
 
     const ICONS = {

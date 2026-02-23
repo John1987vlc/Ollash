@@ -27,6 +27,7 @@ class OllamaClient:
 
     async def achat(self, messages, tools=None, options_override=None, context=None):
         import time
+        import asyncio
         tools = tools or []
         if context is None:
             context = getattr(self, "_session_context", None)
@@ -46,8 +47,12 @@ class OllamaClient:
         
         start_time = time.time()
         session = await self._get_aiohttp_session()
+        
+        # Explicit timeout object
+        request_timeout = aiohttp.ClientTimeout(total=self.timeout)
+        
         try:
-            async with session.post(self.chat_url, json=payload, timeout=self.timeout) as resp:
+            async with session.post(self.chat_url, json=payload, timeout=request_timeout) as resp:
                 data = await resp.json()
                 latency = time.time() - start_time
                 res = data.copy()
@@ -64,6 +69,10 @@ class OllamaClient:
                 if "context" in data:
                     res["context"] = data["context"]
                 return res, usage
+        except asyncio.TimeoutError:
+            if self._llm_recorder:
+                self._llm_recorder.record_response(self.model, {}, {}, time.time() - start_time, False, "Timeout")
+            return {"error": "Ollama request timed out", "message": {"content": ""}}, {"prompt_tokens": 0, "completion_tokens": 0}
         except Exception as e:
             if self._llm_recorder:
                 self._llm_recorder.record_response(self.model, {}, {}, time.time() - start_time, False, str(e))
