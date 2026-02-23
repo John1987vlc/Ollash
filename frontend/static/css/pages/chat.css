@@ -64,7 +64,7 @@
     scroll-behavior: smooth;
 }
 
-/* --- Redesigned Chat Input Area --- */
+/* --- Chat Input Area --- */
 .chat-input-area {
     background: var(--color-surface-elevated);
     border-top: 1px solid var(--color-border);
@@ -121,24 +121,6 @@
 .action-group {
     display: flex;
     gap: var(--spacing-sm);
-}
-
-.btn-action {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: transparent;
-    border: 1px solid transparent;
-    color: var(--color-text-muted);
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    font-size: 0.75rem;
-    cursor: pointer;
-}
-
-.btn-action:hover {
-    background: var(--color-surface-hover);
-    color: var(--color-text);
 }
 
 /* --- Attachment Preview --- */
@@ -230,26 +212,6 @@
     margin-top: 30px;
 }
 
-.agent-card {
-    background: var(--color-surface-elevated);
-    border: 2px solid var(--color-border);
-    padding: 25px 20px;
-    border-radius: 16px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.agent-card:hover {
-    transform: translateY(-4px);
-    border-color: var(--color-primary);
-}
-
-.agent-card.active {
-    border-color: var(--color-primary);
-    background: rgba(99, 102, 241, 0.08);
-}
-
 .agent-card-icon { font-size: 2rem; }
 .agent-card-title { font-size: 1rem; font-weight: 700; margin-top: 10px; }
 
@@ -279,22 +241,6 @@
     padding: 20px;
 }
 
-.prompt-cat-btn {
-    width: 100%;
-    text-align: left;
-    padding: 10px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    border-radius: 8px;
-    color: var(--color-text-subtle);
-}
-
-.prompt-cat-btn.active {
-    background: var(--color-primary);
-    color: white;
-}
-
 .prompt-library-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -308,8 +254,9 @@
     padding: 16px;
     border-radius: 12px;
     cursor: pointer;
+    transition: var(--btn-transition);
 }
 
-.prompt-card:hover { border-color: var(--color-primary); }
+.prompt-card:hover { border-color: var(--color-primary); transform: translateY(-2px); }
 .prompt-card-label { font-weight: 700; color: var(--color-primary); }
 .prompt-card-text { font-size: 0.85rem; color: var(--color-text-subtle); margin-top: 8px; }
