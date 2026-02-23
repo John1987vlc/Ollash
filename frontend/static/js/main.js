@@ -393,4 +393,5 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize component managers
     if (window.ModalManager) ModalManager.init();
     if (window.ConfirmDialog) ConfirmDialog.init();
+    if (window.BenchmarkModal) BenchmarkModal.init();
 });
