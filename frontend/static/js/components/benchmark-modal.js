@@ -11,7 +11,7 @@ window.BenchmarkModal = (function() {
         resultsContainer = document.getElementById('modal-bench-results');
 
         if (startBtn) {
-            startBtn.addEventListener('click', runBenchmark);
+            startBtn.onclick = runBenchmark;
         }
 
         // Fetch models when modal opens
@@ -19,8 +19,9 @@ window.BenchmarkModal = (function() {
             btn.addEventListener('click', fetchModels);
         });
 
-        // Listen to global events to update modal results if open
+        // Listen to global events
         if (window.BenchmarkService) {
+            window.BenchmarkService.removeListener(appendResult); // Prevent duplicates
             window.BenchmarkService.addListener(appendResult);
         }
     }
@@ -31,24 +32,33 @@ window.BenchmarkModal = (function() {
         if (msg.type === 'model_start') {
             const p = document.createElement('p');
             p.className = 'bench-modal-log-model';
-            p.innerHTML = `<strong>> Model: ${msg.model}</strong>`;
+            p.style.fontWeight = 'bold';
+            p.style.color = 'var(--color-primary)';
+            p.style.marginTop = '10px';
+            p.innerHTML = `🤖 <strong>Model: ${msg.model}</strong>`;
             resultsContainer.appendChild(p);
         } else if (msg.type === 'task_start') {
             const p = document.createElement('p');
             p.className = 'bench-modal-log-task';
-            p.style.marginLeft = '10px';
+            p.style.marginLeft = '15px';
             p.style.fontSize = '0.8rem';
-            p.textContent = `  - ${msg.task}...`;
+            p.style.color = 'var(--color-text-muted)';
+            const pct = Math.round((msg.task_index / msg.total_tasks) * 100);
+            p.innerHTML = `📦 [${pct}%] ${msg.task}...`;
             resultsContainer.appendChild(p);
         } else if (msg.type === 'model_done') {
             const div = document.createElement('div');
             div.className = 'bench-result-entry';
-            div.innerHTML = `<strong>${msg.model}</strong>: ${msg.result.overall_status}`;
+            const isSuccess = msg.result.overall_status === 'Success';
+            const statusEmoji = isSuccess ? '✅' : '⚠️';
+            div.innerHTML = `<strong>${msg.model}</strong>: ${statusEmoji} ${msg.result.overall_status}`;
             resultsContainer.appendChild(div);
         } else if (msg.type === 'benchmark_done') {
             const div = document.createElement('div');
             div.className = 'success-msg';
-            div.textContent = 'Benchmark complete!';
+            div.style.textAlign = 'center';
+            div.style.padding = '10px';
+            div.innerHTML = '🏆 <strong>Benchmark complete!</strong>';
             resultsContainer.appendChild(div);
             if (startBtn) startBtn.disabled = false;
         }
@@ -93,7 +103,7 @@ window.BenchmarkModal = (function() {
             return;
         }
 
-        resultsContainer.innerHTML = '<p>Starting background run...</p>';
+        resultsContainer.innerHTML = '<p>🚀 Starting background run...</p>';
         if (startBtn) startBtn.disabled = true;
 
         const ollamaUrl = localStorage.getItem('ollash-ollama-url') || 'http://localhost:11434';

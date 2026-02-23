@@ -198,6 +198,7 @@ window.ProjectsModule = (function() {
     return {
         init: init,
         loadProject: loadProject,
+        refreshProjects: populateExistingProjects,
         getCurrentProject: () => currentProject,
         refreshFileTree: () => currentProject && fetchFileTree(currentProject)
     };

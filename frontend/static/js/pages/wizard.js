@@ -194,7 +194,17 @@ window.WizardModule = (function() {
             const response = await fetch('/api/projects/create', { method: 'POST', body: formData });
             const data = await response.json();
             if (data.status === 'started') {
-                startListening(currentProjectName);
+                // Redirect to projects view to see the backlog/logs
+                const projectsBtn = document.querySelector('.nav-item[data-view="projects"]');
+                if (projectsBtn) projectsBtn.click();
+                
+                // Select and load the new project
+                setTimeout(() => {
+                    if (window.ProjectsModule) {
+                        window.ProjectsModule.refreshProjects();
+                        window.ProjectsModule.loadProject(currentProjectName);
+                    }
+                }, 1000);
             } else {
                 alert(`Error: ${data.message}`);
             }

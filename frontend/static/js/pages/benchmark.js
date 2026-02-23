@@ -3,22 +3,55 @@
  * Uses global BenchmarkService for persistent tracking.
  */
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Elements
-    const benchOllamaUrl = document.getElementById('bench-ollama-url');
-    const benchFetchModels = document.getElementById('bench-fetch-models');
-    const benchModelList = document.getElementById('bench-model-list');
-    const benchStartBtn = document.getElementById('bench-start-btn');
-    const benchOutput = document.getElementById('bench-output');
-    const benchHistoryList = document.getElementById('bench-history-list');
-    
-    const evalPrompts = document.getElementById('eval-prompts');
-    const parallelEvalBtn = document.getElementById('parallel-eval-btn');
-    const comparisonView = document.getElementById('comparison-view');
-    const comparisonGrid = document.getElementById('comparison-grid');
-    const closeComparison = document.getElementById('close-comparison');
+window.BenchmarkModule = (function() {
+    let benchOllamaUrl, benchFetchModels, benchModelList, benchStartBtn, benchOutput, benchHistoryList;
+    let evalPrompts, parallelEvalBtn, comparisonView, comparisonGrid, closeComparison;
 
-    // --- Helpers ---
+    function init() {
+        // Elements
+        benchOllamaUrl = document.getElementById('bench-ollama-url');
+        benchFetchModels = document.getElementById('bench-fetch-models');
+        benchModelList = document.getElementById('bench-model-list');
+        benchStartBtn = document.getElementById('bench-start-btn');
+        benchOutput = document.getElementById('bench-output');
+        benchHistoryList = document.getElementById('bench-history-list');
+        
+        evalPrompts = document.getElementById('eval-prompts');
+        parallelEvalBtn = document.getElementById('parallel-eval-btn');
+        comparisonView = document.getElementById('comparison-view');
+        comparisonGrid = document.getElementById('comparison-grid');
+        closeComparison = document.getElementById('close-comparison');
+
+        if (!benchOutput) return;
+
+        // --- Events ---
+        if (benchFetchModels) benchFetchModels.onclick = fetchModels;
+        if (benchStartBtn) benchStartBtn.onclick = startBenchmark;
+        if (parallelEvalBtn) parallelEvalBtn.onclick = runParallelEval;
+        
+        if (closeComparison) {
+            closeComparison.onclick = () => {
+                comparisonView.style.display = 'none';
+                benchOutput.style.display = 'block';
+            };
+        }
+
+        // --- Listen to Global Benchmark Events ---
+        if (window.BenchmarkService) {
+            window.BenchmarkService.removeListener(appendLog); // Prevent duplicates
+            window.BenchmarkService.addListener(appendLog);
+        }
+
+        // Initial state check
+        if (window.BenchmarkService && window.BenchmarkService.isRunning) {
+            benchStartBtn.disabled = true;
+            benchOutput.innerHTML = '<p style="color:var(--color-primary)">🔄 A benchmark is running in background...</p>';
+        }
+
+        loadHistory();
+        console.log("🚀 BenchmarkModule initialized");
+    }
+
     function escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
@@ -32,36 +65,48 @@ document.addEventListener('DOMContentLoaded', () => {
             const p = document.createElement('p');
             p.className = 'bench-log-entry';
             p.style.fontWeight = '600';
-            p.textContent = `> Testing Model: ${msg.model || msg.message}`;
+            p.style.color = 'var(--color-primary)';
+            p.style.marginTop = '15px';
+            p.innerHTML = `🤖 <strong>Testing Model: ${msg.model || msg.message}</strong>`;
             benchOutput.appendChild(p);
         } else if (msg.type === 'task_start') {
             const p = document.createElement('p');
             p.className = 'bench-log-entry task-entry';
-            p.style.marginLeft = '15px';
+            p.style.marginLeft = '20px';
             p.style.fontSize = '0.85rem';
             p.style.color = 'var(--color-text-muted)';
-            p.textContent = `  - Task ${msg.task_index}/${msg.total_tasks}: ${msg.task}...`;
+            const pct = Math.round((msg.task_index / msg.total_tasks) * 100);
+            p.innerHTML = `📦 [${pct}%] Task ${msg.task_index}/${msg.total_tasks}: <span style="color:var(--color-text)">${msg.task}</span>...`;
             benchOutput.appendChild(p);
         } else if (msg.type === 'task_done') {
             const lastEntry = benchOutput.lastElementChild;
             if (lastEntry && lastEntry.classList.contains('task-entry')) {
-                lastEntry.textContent += ` [${msg.status}] (${msg.duration_sec.toFixed(1)}s)`;
-                if (msg.status !== 'Success') lastEntry.style.color = 'var(--color-error)';
+                const isSuccess = msg.status === 'Success';
+                const statusEmoji = isSuccess ? '✅' : '❌';
+                const color = isSuccess ? '#10b981' : '#ef4444';
+                lastEntry.innerHTML += ` <strong style="color:${color}">${statusEmoji} ${msg.status}</strong> <span style="font-size:0.7rem">(${msg.duration_sec.toFixed(1)}s)</span>`;
             }
         } else if (msg.type === 'model_done') {
             const div = document.createElement('div');
             div.className = 'stat-row';
-            div.style.background = 'rgba(16, 185, 129, 0.1)';
-            div.style.padding = '10px';
+            div.style.background = 'rgba(99, 102, 241, 0.05)';
+            div.style.border = '1px solid var(--color-primary)';
+            div.style.padding = '12px';
             div.style.borderRadius = '8px';
-            div.style.margin = '10px 0';
-            div.innerHTML = `<strong>${msg.model}</strong> completed. Success: ${msg.result.overall_status}`;
+            div.style.margin = '15px 0';
+            const status = msg.result.overall_status === 'Success' ? '✨ Success' : '⚠️ Partial Failure';
+            div.innerHTML = `<h4>📊 Model ${msg.model} Results</h4>
+                             <p>Status: <strong>${status}</strong> | Speed: <strong>${msg.result.tokens_per_second} t/s</strong></p>`;
             benchOutput.appendChild(div);
         } else if (msg.type === 'benchmark_done') {
             const div = document.createElement('div');
             div.className = 'success-msg';
-            div.style.marginTop = '20px';
-            div.textContent = 'Benchmark Suite Complete!';
+            div.style.marginTop = '25px';
+            div.style.padding = '20px';
+            div.style.background = 'rgba(16, 185, 129, 0.1)';
+            div.style.border = '1px solid #10b981';
+            div.style.textAlign = 'center';
+            div.innerHTML = `<h3>🏆 Benchmark Suite Complete!</h3><p>All models have been evaluated.</p>`;
             benchOutput.appendChild(div);
             loadHistory();
         }
@@ -144,15 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
             benchOutput.innerHTML = `<div class="error-msg">${escapeHtml(result.message)}</div>`;
             benchStartBtn.disabled = false;
         }
-    }
-
-    // --- Listen to Global Benchmark Events ---
-    window.BenchmarkService.addListener(appendLog);
-
-    // Initial state check
-    if (window.BenchmarkService.isRunning) {
-        benchStartBtn.disabled = true;
-        benchOutput.innerHTML = '<p>A benchmark is already running in background...</p>';
     }
 
     // --- Parallel Evaluation Logic ---
@@ -270,18 +306,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {}
     }
 
-    // --- Events ---
-    if (benchFetchModels) benchFetchModels.onclick = fetchModels;
-    if (benchStartBtn) benchStartBtn.onclick = startBenchmark;
-    if (parallelEvalBtn) parallelEvalBtn.onclick = runParallelEval;
-    
-    if (closeComparison) {
-        closeComparison.onclick = () => {
-            comparisonView.style.display = 'none';
-            benchOutput.style.display = 'block';
-        };
-    }
+    return {
+        init: init,
+        loadHistory: loadHistory
+    };
+})();
 
-    // Init
-    loadHistory();
+// Re-init when script loads (initial load)
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('benchmark-view')) {
+        BenchmarkModule.init();
+    }
 });
