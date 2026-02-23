@@ -1,31 +1,43 @@
 /**
- * Ollash Documentation Viewer
+ * Ollash Documentation Viewer Module
  * Manages dynamic documentation tree and content rendering.
  */
+window.DocsModule = (function() {
+    let docsNav, docsContent;
 
-document.addEventListener('DOMContentLoaded', () => {
-    const docsNav = document.getElementById('docs-nav');
-    const docsContent = document.getElementById('docs-content');
+    function init() {
+        docsNav = document.getElementById('docs-nav');
+        docsContent = document.getElementById('docs-content');
+        
+        if (!docsNav || !docsContent) {
+            console.debug("DocsModule elements missing (expected if not in docs view)");
+            return;
+        }
 
-    // Configure marked options
-    if (typeof marked !== 'undefined') {
-        marked.setOptions({
-            highlight: function(code, lang) {
-                if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
-                    return hljs.highlight(code, { language: lang }).value;
-                }
-                return code;
-            },
-            headerIds: true,
-            gfm: true,
-            breaks: true
-        });
+        // Configure marked options
+        if (typeof marked !== 'undefined') {
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
+                        return hljs.highlight(code, { language: lang }).value;
+                    }
+                    return code;
+                },
+                headerIds: true,
+                gfm: true,
+                breaks: true
+            });
+        }
+
+        loadDocsTree();
+        console.log("🚀 DocsModule initialized");
     }
 
     /**
      * Loads the documentation tree from the API.
      */
     async function loadDocsTree() {
+        if (!docsNav) return;
         try {
             const response = await fetch('/api/docs/tree');
             const tree = await response.json();
@@ -46,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Renders the documentation tree in the sidebar.
      */
     function renderDocsTree(tree) {
+        if (!docsNav) return;
         docsNav.innerHTML = '';
         
         tree.forEach(item => {
@@ -101,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Loads and renders the content of a document.
      */
     async function loadDocContent(path, name) {
+        if (!docsContent) return;
         docsContent.innerHTML = `<div class="loading-spinner"></div><p>Loading ${name}...</p>`;
         
         try {
@@ -125,7 +139,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             // Scroll to top
-            document.querySelector('.docs-main').scrollTop = 0;
+            const mainEl = document.querySelector('.docs-main');
+            if (mainEl) mainEl.scrollTop = 0;
             
         } catch (error) {
             console.error('Error loading doc content:', error);
@@ -133,6 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Initial load
-    loadDocsTree();
-});
+    return {
+        init: init,
+        loadDocs: loadDocsTree
+    };
+})();

@@ -35,6 +35,16 @@ document.addEventListener('DOMContentLoaded', function() {
         NotificationsModule.init();
     }
 
+    // Docs Module
+    if (typeof DocsModule !== 'undefined') {
+        DocsModule.init();
+    }
+
+    // Cost Module
+    if (typeof CostModule !== 'undefined') {
+        CostModule.init();
+    }
+
     // Chat Service Logic
     if (typeof ChatModule !== 'undefined') {
         ChatModule.init({
