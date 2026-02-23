@@ -3,7 +3,7 @@
  * Handles UI logic specific to the chat view (prompt library, agent cards, toolbox, etc.)
  */
 window.ChatPageModule = (function() {
-    let chatInput, chatMessages, sendBtn, promptLibraryToggle, promptLibraryPanel, promptCatBtns;
+    let chatInput, chatMessages, sendBtn, promptLibraryToggle, promptLibraryPanel;
     let toolboxContent, toolboxTotalCount, toolboxSearchInput;
 
     const PROMPT_LIBRARY = [
@@ -28,11 +28,78 @@ window.ChatPageModule = (function() {
         sendBtn = document.getElementById('send-btn');
         promptLibraryToggle = document.getElementById('toggle-prompt-library');
         promptLibraryPanel = document.getElementById('prompt-library-modal');
-        promptCatBtns = document.querySelectorAll('.prompt-cat-btn');
         
         toolboxContent = document.getElementById('toolbox-content');
         toolboxTotalCount = document.getElementById('toolbox-total-count');
         toolboxSearchInput = document.getElementById('toolbox-search-input');
+
+        // Modal Elements V2
+        const closePromptsBtn = document.getElementById('close-prompts-btn');
+        const openAddBtn = document.getElementById('open-add-prompt-btn');
+        const cancelAddBtn = document.getElementById('cancel-add-prompt');
+        const addFormOverlay = document.getElementById('add-prompt-form');
+        const addPromptBtn = document.getElementById('add-custom-prompt-btn');
+        const filterPills = document.querySelectorAll('.filter-pill');
+        const searchInput = document.getElementById('prompt-search-input');
+
+        if (promptLibraryToggle) {
+            promptLibraryToggle.onclick = () => {
+                promptLibraryPanel.style.display = 'flex';
+                renderPromptLibrary();
+            };
+        }
+
+        if (closePromptsBtn) {
+            closePromptsBtn.onclick = () => promptLibraryPanel.style.display = 'none';
+        }
+
+        if (openAddBtn) {
+            openAddBtn.onclick = () => addFormOverlay.style.display = 'flex';
+        }
+
+        if (cancelAddBtn) {
+            cancelAddBtn.onclick = () => addFormOverlay.style.display = 'none';
+        }
+
+        if (addPromptBtn) {
+            addPromptBtn.onclick = () => {
+                const label = document.getElementById('custom-prompt-label').value;
+                const prompt = document.getElementById('custom-prompt-text').value;
+                if (label && prompt) {
+                    PROMPT_LIBRARY.unshift({ category: 'custom', label, prompt, agent: 'orchestrator' });
+                    renderPromptLibrary();
+                    addFormOverlay.style.display = 'none';
+                    document.getElementById('custom-prompt-label').value = '';
+                    document.getElementById('custom-prompt-text').value = '';
+                }
+            };
+        }
+
+        if (searchInput) {
+            searchInput.oninput = (e) => renderPromptLibrary(getActiveFilters(), e.target.value.toLowerCase());
+        }
+
+        filterPills.forEach(pill => {
+            pill.onclick = function() {
+                const cat = this.dataset.cat;
+                if (cat === 'all') {
+                    filterPills.forEach(p => p.classList.remove('active'));
+                    this.classList.add('active');
+                } else {
+                    document.querySelector('.filter-pill[data-cat="all"]').classList.remove('active');
+                    this.classList.toggle('active');
+                    if (document.querySelectorAll('.filter-pill.active').length === 0) {
+                        document.querySelector('.filter-pill[data-cat="all"]').classList.add('active');
+                    }
+                }
+                renderPromptLibrary(getActiveFilters(), searchInput.value.toLowerCase());
+            };
+        });
+
+        function getActiveFilters() {
+            const active = Array.from(document.querySelectorAll('.filter-pill.active')).map(p => p.dataset.cat);
+            return active.includes('all') ? 'all' : active;
+        }
         
         // Attachments
         const fileInput = document.getElementById('chat-file-input');
@@ -65,50 +132,6 @@ window.ChatPageModule = (function() {
         const voiceBtn = document.getElementById('voice-input-btn');
         if (voiceBtn) voiceBtn.onclick = () => window.showMessage('Voice initialization...', 'info');
 
-        if (promptLibraryToggle) {
-            promptLibraryToggle.addEventListener('click', togglePromptLibrary);
-        }
-
-        const closePromptsBtn = document.getElementById('close-prompts-btn');
-        if (closePromptsBtn) {
-            closePromptsBtn.addEventListener('click', () => {
-                promptLibraryPanel.style.display = 'none';
-            });
-        }
-        
-        const searchInput = document.getElementById('prompt-search-input');
-        if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
-                renderPromptLibrary('all', e.target.value.toLowerCase());
-            });
-        }
-
-        const addCustomBtn = document.getElementById('add-custom-prompt-btn');
-        if (addCustomBtn) {
-            addCustomBtn.onclick = () => {
-                const label = document.getElementById('custom-prompt-label').value;
-                const prompt = document.getElementById('custom-prompt-text').value;
-                if (label && prompt) {
-                    PROMPT_LIBRARY.push({ category: 'custom', label, prompt, agent: 'orchestrator' });
-                    renderPromptLibrary();
-                    window.showMessage('Custom prompt added', 'success');
-                }
-            };
-        }
-
-        promptCatBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                promptCatBtns.forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                renderPromptLibrary(this.dataset.cat);
-            });
-        });
-
-        const addCollaboratorBtn = document.getElementById('add-collaborator-btn');
-        if (addCollaboratorBtn) {
-            addCollaboratorBtn.addEventListener('click', handleAddCollaborator);
-        }
-
         const clearChatBtn = document.getElementById('clear-chat-btn');
         if (clearChatBtn) {
             clearChatBtn.addEventListener('click', handleClearChat);
@@ -132,9 +155,7 @@ window.ChatPageModule = (function() {
             const resp = await fetch('/api/analysis/tools/definitions');
             if (!resp.ok) throw new Error('Failed to load tools');
             const data = await resp.json();
-            
             if (toolboxTotalCount) toolboxTotalCount.textContent = data.total_tools;
-            
             renderToolbox(data.categories);
         } catch (err) {
             toolboxContent.innerHTML = `<div class="error-msg">Error loading tools: ${err.message}</div>`;
@@ -144,40 +165,35 @@ window.ChatPageModule = (function() {
     function renderToolbox(categories) {
         if (!toolboxContent) return;
         toolboxContent.innerHTML = '';
-        
-        // Sort categories to show important ones first
         const sortedCats = Object.keys(categories).sort();
-        
         sortedCats.forEach(cat => {
             const tools = categories[cat];
             const catDiv = document.createElement('div');
-            catDiv.className = 'toolbox-category';
+            catDiv.className = 'toolbox-category collapsed';
             catDiv.innerHTML = `
                 <div class="toolbox-category-header">
-                    <span class="toolbox-category-name">${cat}</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="toolbox-chevron">›</span>
+                        <span class="toolbox-category-name">${cat}</span>
+                    </div>
                     <span class="toolbox-category-count">${tools.length}</span>
                 </div>
                 <div class="toolbox-category-items"></div>
             `;
-            
+            const header = catDiv.querySelector('.toolbox-category-header');
+            header.onclick = () => catDiv.classList.toggle('collapsed');
             const itemsContainer = catDiv.querySelector('.toolbox-category-items');
             tools.forEach(tool => {
                 const toolDiv = document.createElement('div');
                 toolDiv.className = 'toolbox-item';
                 toolDiv.title = tool.description;
-                toolDiv.innerHTML = `
-                    <div class="toolbox-item-name">${tool.name}</div>
-                    <div class="toolbox-item-desc">${tool.description}</div>
-                `;
-                toolDiv.addEventListener('click', () => {
-                    if (chatInput) {
-                        chatInput.value = `How do I use the ${tool.name} tool?`;
-                        chatInput.focus();
-                    }
+                toolDiv.innerHTML = `<div class="toolbox-item-name">${tool.name}</div><div class="toolbox-item-desc">${tool.description}</div>`;
+                toolDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (chatInput) { chatInput.value = `How do I use the ${tool.name} tool?`; chatInput.focus(); }
                 });
                 itemsContainer.appendChild(toolDiv);
             });
-            
             toolboxContent.appendChild(catDiv);
         });
     }
@@ -190,46 +206,26 @@ window.ChatPageModule = (function() {
             const matches = name.includes(query) || desc.includes(query);
             item.style.display = matches ? 'block' : 'none';
         });
-        
-        // Hide empty categories
         document.querySelectorAll('.toolbox-category').forEach(cat => {
             const visibleItems = cat.querySelectorAll('.toolbox-item[style="display: block;"]').length;
-            const allItems = cat.querySelectorAll('.toolbox-item').length;
-            const queryEmpty = query === '';
-            
-            if (queryEmpty) {
-                cat.style.display = 'block';
-            } else {
-                cat.style.display = visibleItems > 0 ? 'block' : 'none';
-            }
+            cat.style.display = (query === '' || visibleItems > 0) ? 'block' : 'none';
         });
     }
 
-    function togglePromptLibrary() {
-        if (!promptLibraryPanel) return;
-        const isHidden = promptLibraryPanel.style.display === 'none';
-        promptLibraryPanel.style.display = isHidden ? 'block' : 'none';
-        if (isHidden) {
-            promptLibraryPanel.classList.add('visible');
-            renderPromptLibrary();
-        } else {
-            promptLibraryPanel.classList.remove('visible');
-        }
-    }
-
-    function renderPromptLibrary(filter = 'all') {
-        const grid = document.getElementById('prompt-library-list');
-        if (!grid) return;
-        grid.innerHTML = '';
-        const filtered = filter === 'all' ? PROMPT_LIBRARY : PROMPT_LIBRARY.filter(p => p.category === filter);
+    function renderPromptLibrary(filter = 'all', query = '') {
+        const listContainer = document.getElementById('prompt-library-list');
+        if (!listContainer) return;
+        listContainer.innerHTML = '';
+        const filtered = PROMPT_LIBRARY.filter(p => {
+            const matchesCat = filter === 'all' || filter.includes(p.category);
+            const matchesSearch = p.label.toLowerCase().includes(query) || p.prompt.toLowerCase().includes(query);
+            return matchesCat && matchesSearch;
+        });
         filtered.forEach(p => {
-            const card = document.createElement('div');
-            card.className = 'prompt-card';
-            card.innerHTML = `
-                <div class="prompt-card-label">${escapeHtml(p.label)}</div>
-                <div class="prompt-card-cat">${escapeHtml(p.category)}</div>
-            `;
-            card.addEventListener('click', () => {
+            const item = document.createElement('div');
+            item.className = 'prompt-item-v2';
+            item.innerHTML = `<div class="prompt-item-header"><span class="prompt-item-title">${p.label}</span><span class="prompt-item-tag">${p.category}</span></div><div class="prompt-item-desc">${p.prompt}</div>`;
+            item.onclick = () => {
                 if (chatInput) {
                     chatInput.value = p.prompt;
                     chatInput.style.height = 'auto';
@@ -238,27 +234,23 @@ window.ChatPageModule = (function() {
                 }
                 const agentCard = document.querySelector(`.agent-card[data-agent="${p.agent}"]`);
                 if (agentCard) agentCard.click();
-                togglePromptLibrary();
-            });
-            grid.appendChild(card);
+                promptLibraryPanel.style.display = 'none';
+            };
+            listContainer.appendChild(item);
         });
-    }
-
-    function handleAddCollaborator() {
-        const agentType = prompt('Enter agent type to add (code, network, system, cybersecurity):');
-        if (agentType && window.ChatModule) {
-            window.ChatModule.sendChatMessage(`/add_collaborator ${agentType}`, 'orchestrator');
-        }
     }
 
     function handleClearChat() {
         if (confirm('Are you sure you want to clear the chat history?') && chatMessages) {
-            chatMessages.innerHTML = `
-                <div class="chat-welcome">
-                    <h2>Ollash Agent</h2>
-                    <p>Select a specialist or start typing to use the auto-routing orchestrator.</p>
-                </div>
-            `;
+            chatMessages.innerHTML = `<div class="chat-welcome"><h2>Ollash Agent</h2><p>Select a specialist or start typing...</p><div class="agent-cards"><button class="btn btn-card active" data-agent="orchestrator"><div class="agent-card-icon">🎯</div><div class="agent-card-title">Orchestrator</div></button><button class="btn btn-card" data-agent="code"><div class="agent-card-icon">💻</div><div class="agent-card-title">Code</div></button><button class="btn btn-card" data-agent="network"><div class="agent-card-icon">🌐</div><div class="agent-card-title">Network</div></button><button class="btn btn-card" data-agent="system"><div class="agent-card-icon">⚙️</div><div class="agent-card-title">System</div></button><button class="btn btn-card" data-agent="cybersecurity"><div class="agent-card-icon">🛡️</div><div class="agent-card-title">Security</div></button></div></div>`;
+            chatMessages.querySelectorAll('.btn-card').forEach(card => {
+                card.onclick = function() {
+                    const newAgent = this.dataset.agent;
+                    if (window.ChatModule) window.ChatModule.startNewSession(newAgent);
+                    chatMessages.querySelectorAll('.btn-card').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                };
+            });
         }
     }
 
@@ -268,7 +260,5 @@ window.ChatPageModule = (function() {
         return div.innerHTML;
     }
 
-    return {
-        init: init
-    };
+    return { init };
 })();

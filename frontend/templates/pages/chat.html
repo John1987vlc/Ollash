@@ -19,7 +19,7 @@
                                 <span id="chat-header-status" class="status-pill status-online">Active</span>
                             </div>
                             <div class="chat-header-actions">
-                                <button class="btn-icon" id="clear-chat-top-btn" title="Clear Chat">🗑️</button>
+                                <button class="btn btn-sm btn-secondary" id="back-to-welcome-btn">Volver</button>
                             </div>
                         </div>
 
@@ -101,7 +101,14 @@
                                     </button>
                                 </div>
                                 <div class="action-group">
-                                    <button class="btn-action-text" id="clear-chat-btn">Clear Thread</button>
+                                    <button class="btn-action" id="clear-chat-btn" title="Limpiar chat">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -125,7 +132,7 @@
                         <div class="chat-history-panel">
                             <div class="history-header">
                                 <h3>Past Conversations</h3>
-                                <button class="btn-icon-mini" id="refresh-history-btn" title="Refresh History">🔄</button>
+                                <button class="btn-badge-action" id="refresh-history-btn" title="Refresh History">Refresh</button>
                             </div>
                             <div class="history-list" id="chat-history-list">
                                 <div class="history-empty">No past sessions found.</div>
@@ -134,35 +141,56 @@
                     </div>
                 </div>
 
-                <!-- Prompt Library Modal Overlay -->
+                <!-- Modern Prompt Library Modal -->
                 <div id="prompt-library-modal" class="modal" role="dialog" aria-modal="true" style="display: none;">
-                    <div class="modal-content modal-wide">
-                        <div class="modal-header">
+                    <div class="modal-content prompt-library-container">
+                        <div class="modal-header no-border">
                             <h3>Prompt Library</h3>
-                            <button class="close-modal" id="close-prompts-btn">&times;</button>
+                            <button class="btn-close-ghost" id="close-prompts-btn" aria-label="Cerrar">&times;</button>
                         </div>
-                        <div class="prompt-library-body">
-                            <div class="prompt-search-bar">
-                                <input type="text" id="prompt-search-input" placeholder="Search prompts..." class="form-input">
+                        
+                        <div class="prompt-library-body-v2">
+                            <!-- 1. Search Bar 100% -->
+                            <div class="prompt-search-full">
+                                <input type="text" id="prompt-search-input" placeholder="Search for prompts..." class="form-input-modern">
                             </div>
-                            <div class="prompt-library-categories">
-                                <button class="prompt-cat-btn active" data-cat="all">All</button>
-                                <button class="prompt-cat-btn" data-cat="system">System</button>
-                                <button class="prompt-cat-btn" data-cat="network">Network</button>
-                                <button class="prompt-cat-btn" data-cat="security">Security</button>
-                                <button class="prompt-cat-btn" data-cat="code">Code</button>
+
+                            <!-- 2. Multi-select Filters -->
+                            <div class="prompt-filters-row">
+                                <span class="filter-label">Filter by:</span>
+                                <div class="filter-pills" id="prompt-category-filters">
+                                    <button class="filter-pill active" data-cat="all">All</button>
+                                    <button class="filter-pill" data-cat="system">System</button>
+                                    <button class="filter-pill" data-cat="network">Network</button>
+                                    <button class="filter-pill" data-cat="security">Security</button>
+                                    <button class="filter-pill" data-cat="code">Code</button>
+                                    <button class="filter-pill" data-cat="custom">My Prompts</button>
+                                </div>
                             </div>
-                            <div class="prompt-library-grid" id="prompt-library-list">
-                                <!-- Cards injected via JS -->
+
+                            <!-- 3. Central List -->
+                            <div class="prompt-list-scrollable" id="prompt-library-list">
+                                <!-- Prompt items injected here -->
                             </div>
-                            
-                            <div class="custom-prompt-add">
-                                <hr>
-                                <h4>Add Custom Prompt</h4>
-                                <div style="display: flex; gap: 10px; margin-top: 10px;">
-                                    <input type="text" id="custom-prompt-label" placeholder="Label (e.g. My Script)" class="form-input">
-                                    <input type="text" id="custom-prompt-text" placeholder="The prompt instruction..." class="form-input" style="flex: 2;">
-                                    <button class="btn-primary" id="add-custom-prompt-btn">Add to Library</button>
+
+                            <!-- 4. Add Button Bottom-Right -->
+                            <button class="btn-float-add" id="open-add-prompt-btn" title="Add New Prompt">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Hidden Add Form (Toggled via + button) -->
+                        <div id="add-prompt-form" class="add-prompt-form-overlay" style="display: none;">
+                            <div class="add-form-card">
+                                <h4>Create New Prompt</h4>
+                                <input type="text" id="custom-prompt-label" placeholder="Title..." class="form-input-modern">
+                                <textarea id="custom-prompt-text" placeholder="Prompt instruction..." rows="4" class="form-input-modern"></textarea>
+                                <div class="form-actions">
+                                    <button class="btn btn-ghost" id="cancel-add-prompt">Cancel</button>
+                                    <button class="btn btn-primary" id="add-custom-prompt-btn">Save Prompt</button>
                                 </div>
                             </div>
                         </div>

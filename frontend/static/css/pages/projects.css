@@ -1,3 +1,172 @@
+/* ==================== Modern Projects View ==================== */
+.project-selector-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 15px 24px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.selector-group {
+    flex: 1;
+    max-width: 400px;
+}
+
+.action-group-modern {
+    display: flex;
+    gap: 12px;
+}
+
+/* ==================== Agent Pipeline Stepper ==================== */
+.pipeline-container {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: var(--spacing-lg);
+}
+
+.pipeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.pipeline-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--color-text-subtle);
+}
+
+.pipeline-status {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    background: rgba(99, 102, 241, 0.1);
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+.pipeline-stepper {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    padding: 10px 0;
+}
+
+/* Connecting line */
+.pipeline-stepper::before {
+    content: '';
+    position: absolute;
+    top: 26px;
+    left: 40px;
+    right: 40px;
+    height: 2px;
+    background: var(--color-border);
+    z-index: 1;
+}
+
+.pipeline-step {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.step-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--color-surface-elevated);
+    border: 2px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.step-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--color-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: color 0.3s;
+}
+
+/* --- Pipeline States --- */
+
+/* Pending */
+.pipeline-step.pending .step-icon {
+    opacity: 0.5;
+}
+
+/* Active */
+.pipeline-step.active .step-icon {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+    transform: scale(1.2);
+}
+
+.pipeline-step.active .step-label {
+    color: var(--color-primary);
+}
+
+/* Completed */
+.pipeline-step.completed .step-icon {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    color: white;
+}
+
+.pipeline-step.completed .step-label {
+    color: var(--color-success);
+}
+
+/* Failed */
+.pipeline-step.failed .step-icon {
+    background: var(--color-error);
+    border-color: var(--color-error);
+    color: white;
+}
+
+.pipeline-step.failed .step-label {
+    color: var(--color-error);
+}
+
+/* Animation for current step */
+.pipeline-step.active .step-icon::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid var(--color-primary);
+    animation: stepPulse 2s infinite;
+}
+
+@keyframes stepPulse {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+
 /* ==================== Projects Workspace ==================== */
 .project-selector { display: flex; gap: var(--spacing-md); }
 .select-modern {
@@ -27,13 +196,31 @@
 .file-tree { flex: 1; overflow-y: auto; padding: var(--spacing-sm); }
 
 .file-tree-item {
-    display: flex; align-items: center; gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md); border-radius: var(--radius-sm);
-    cursor: pointer; transition: all 0.15s ease; font-size: 0.9rem;
-    color: var(--color-text-muted); margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer !important;
+    transition: all 0.15s ease;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    margin-bottom: 2px;
+    user-select: none;
 }
-.file-tree-item:hover { background: var(--color-surface-elevated); color: var(--color-text); }
-.file-tree-item.selected { background: rgba(99,102,241,0.15); color: var(--color-primary); }
+
+.file-tree-item:hover {
+    background: var(--color-surface-elevated);
+    color: var(--color-text);
+}
+
+.file-tree-item.selected {
+    background: var(--color-primary);
+    color: white !important;
+}
+
+.file-tree-item.selected .icon { color: white; }
+
 .file-tree-item.directory { font-weight: 500; color: var(--color-text); }
 .file-tree-item .icon { flex-shrink: 0; font-size: 1rem; }
 

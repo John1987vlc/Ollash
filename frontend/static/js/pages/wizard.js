@@ -1,285 +1,152 @@
 /**
- * Wizard Module for Project Creation
+ * Wizard Module for Ollash Project Creation
+ * Handles step navigation, template selection, and project generation trigger.
  */
 window.WizardModule = (function() {
-    let currentWizardStep = 1;
-    let selectedTemplate = 'default';
-    let isInitialized = false;
-    
-    // DOM Elements
-    let wizardSteps, wizardIndicators, wizardNextBtns, wizardBackBtns, wizardGenerateBtn;
-    let currentProjectName, currentProjectDescription, currentPythonVersion, currentLicenseType, currentIncludeDocker;
-    let currentGeneratedStructure, currentGeneratedReadme;
-    
-    const phases = [
-        { id: 'ProjectAnalysisPhase', label: 'Analysis' },
-        { id: 'ReadmeGenerationPhase', label: 'README' },
-        { id: 'StructureGenerationPhase', label: 'Structure' },
-        { id: 'LogicPlanningPhase', label: 'Logic' },
-        { id: 'StructurePreReviewPhase', label: 'Review 1' },
-        { id: 'EmptyFileScaffoldingPhase', label: 'Scaffold' },
-        { id: 'FileContentGenerationPhase', label: 'Generation' },
-        { id: 'FileRefinementPhase', label: 'Refine' },
-        { id: 'VerificationPhase', label: 'Verify' },
-        { id: 'SecurityScanPhase', label: 'Security' },
-        { id: 'LicenseCompliancePhase', label: 'License' },
-        { id: 'TestGenerationExecutionPhase', label: 'Tests' },
-        { id: 'SeniorReviewPhase', label: 'Final Review' }
-    ];
+    let state = {
+        currentStep: 1,
+        selectedTemplate: 'default',
+        elements: {}
+    };
 
     function init(elements) {
-        wizardSteps = elements.wizardSteps;
-        wizardIndicators = elements.wizardIndicators;
-        wizardNextBtns = elements.wizardNextBtns;
-        wizardBackBtns = elements.wizardBackBtns;
-        wizardGenerateBtn = elements.wizardGenerateBtn;
-
-        // Next button listeners
-        wizardNextBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (validateStep(currentWizardStep)) wizardGoTo(currentWizardStep + 1);
-            });
+        state.elements = elements;
+        
+        // Navigation Buttons
+        document.querySelectorAll('.wizard-next-btn').forEach(btn => {
+            btn.onclick = () => navigateToStep(state.currentStep + 1);
         });
 
-        // Back button listeners
-        wizardBackBtns.forEach(btn => {
-            btn.addEventListener('click', () => wizardGoTo(currentWizardStep - 1));
+        document.querySelectorAll('.wizard-back-btn').forEach(btn => {
+            btn.onclick = () => navigateToStep(state.currentStep - 1);
         });
-
-        if (wizardGenerateBtn) {
-            wizardGenerateBtn.addEventListener('click', handleGenerateStructureSubmit);
-        }
-
-        const confirmStructureBtn = document.getElementById('confirm-structure-btn');
-        if (confirmStructureBtn) {
-            confirmStructureBtn.addEventListener('click', handleConfirmAndGenerate);
-        }
 
         // Template Selection
-        document.querySelectorAll('.template-card').forEach(card => {
-            card.onclick = () => {
-                document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
-                card.classList.add('active');
-                selectedTemplate = card.dataset.template;
+        document.querySelectorAll('.template-card-v2').forEach(card => {
+            card.onclick = function() {
+                document.querySelectorAll('.template-card-v2').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                state.selectedTemplate = this.dataset.template;
             };
         });
 
-        // GitHub Maintenance UI Logic
-        const gitRepoUrlInput = document.getElementById('git-repo-url');
-        const autoImproveGroup = document.getElementById('auto-improve-group');
-        const autoImproveToggle = document.getElementById('auto-improve-enabled');
+        // Final Generate Button
+        const generateBtn = document.getElementById('wizard-generate');
+        if (generateBtn) {
+            generateBtn.onclick = triggerGeneration;
+        }
+
+        // --- Step 2 Logic ---
+        const loopsSlider = document.getElementById('refinement-loops');
+        const loopsBadge = document.getElementById('loops-value');
+        if (loopsSlider && loopsBadge) {
+            loopsSlider.oninput = function() {
+                loopsBadge.textContent = this.value;
+            };
+        }
+
+        const githubMode = document.getElementById('github-mode');
+        const githubFields = document.getElementById('github-fields');
+        const repoUrlField = document.getElementById('repo-url-field');
+        if (githubMode) {
+            githubMode.onchange = function() {
+                const val = this.value;
+                githubFields.style.display = val === 'none' ? 'none' : 'block';
+                repoUrlField.style.display = val === 'existing' ? 'block' : 'none';
+            };
+        }
+
+        const healingToggle = document.getElementById('auto-improve-enabled');
         const intervalGroup = document.getElementById('maintenance-interval-group');
-
-        if (gitRepoUrlInput && autoImproveGroup) {
-            gitRepoUrlInput.addEventListener('input', () => {
-                const hasUrl = gitRepoUrlInput.value.trim().length > 0;
-                autoImproveGroup.style.opacity = hasUrl ? '1' : '0.5';
-                autoImproveGroup.style.pointerEvents = hasUrl ? 'auto' : 'none';
-                if (!hasUrl) {
-                    if (autoImproveToggle) autoImproveToggle.checked = false;
-                    if (intervalGroup) intervalGroup.style.display = 'none';
-                }
-            });
-        }
-
-        if (autoImproveToggle && intervalGroup) {
-            autoImproveToggle.addEventListener('change', () => {
-                intervalGroup.style.display = autoImproveToggle.checked ? 'block' : 'none';
-            });
-        }
-
-        // GitHub Section Toggle
-        const githubHeader = document.getElementById('toggle-github-settings');
-        const githubContent = document.getElementById('github-settings-content');
-        if (githubHeader && githubContent) {
-            githubHeader.onclick = (e) => {
-                e.preventDefault();
-                const isHidden = githubContent.style.display === 'none' || githubContent.style.display === '';
-                githubContent.style.display = isHidden ? 'block' : 'none';
-                
-                const chevron = githubHeader.querySelector('.chevron');
-                if (chevron) {
-                    chevron.innerHTML = isHidden ? '&#x25BE;' : '&#x25B8;';
-                }
+        if (healingToggle) {
+            healingToggle.onchange = function() {
+                intervalGroup.style.display = this.checked ? 'block' : 'none';
             };
         }
-        isInitialized = true;
+
+        console.log("🚀 WizardModule V2 initialized");
     }
 
-    function wizardGoTo(step) {
-        if (step < 1 || step > wizardSteps.length) return;
-        wizardSteps.forEach((el, i) => el.classList.toggle('active', (i + 1) === step));
-        wizardIndicators.forEach((el, i) => {
-            el.classList.toggle('active', (i + 1) === step);
-            el.classList.toggle('completed', (i + 1) < step);
-        });
-        currentWizardStep = step;
-    }
-
-    function validateStep(step) {
-        if (step === 1) {
+    function navigateToStep(step) {
+        if (step < 1 || step > 3) return;
+        
+        // Simple validation for step 1
+        if (state.currentStep === 1 && step === 2) {
             const name = document.getElementById('project-name').value.trim();
-            if (!name) { alert("Please enter a project name."); return false; }
+            if (!name) {
+                window.NotificationToast?.show("Por favor, introduce un nombre para el proyecto", "error");
+                return;
+            }
         }
-        return true;
+
+        state.currentStep = step;
+
+        // Update UI Steps
+        document.querySelectorAll('.wizard-step').forEach((el, idx) => {
+            el.classList.toggle('active', (idx + 1) === step);
+        });
+
+        // Update Dots
+        document.querySelectorAll('.wizard-step-dot').forEach((dot, idx) => {
+            dot.classList.toggle('active', (idx + 1) === step);
+            dot.classList.toggle('completed', (idx + 1) < step);
+        });
     }
 
-    async function handleGenerateStructureSubmit(event) {
-        if (event) event.preventDefault();
-        currentProjectName = document.getElementById('project-name').value.trim();
-        currentProjectDescription = document.getElementById('project-description').value.trim();
-
-        if (!currentProjectName || !currentProjectDescription) {
-            alert('Please fill in both project name and description.');
+    async function triggerGeneration() {
+        const name = document.getElementById('project-name').value.trim();
+        const desc = document.getElementById('project-description').value.trim();
+        const pythonVersion = document.getElementById('python-version').value;
+        const license = document.getElementById('license-type').value;
+        const useDocker = document.getElementById('include-docker').checked;
+        
+        if (!name || !desc) {
+            window.NotificationToast?.show("Faltan campos obligatorios", "error");
             return;
         }
 
-        const formData = new FormData();
-        formData.append('project_name', currentProjectName);
-        formData.append('project_description', currentProjectDescription);
-        formData.append('template_name', selectedTemplate);
-        formData.append('python_version', document.getElementById('python-version').value);
-        formData.append('license_type', document.getElementById('license-type').value);
-        formData.append('include_docker', document.getElementById('include-docker').checked);
-        formData.append('include_terraform', document.getElementById('include-terraform').checked);
-
-        if (window.showMessage) window.showMessage('Generating project structure...', 'info');
-        wizardGenerateBtn.disabled = true;
+        const generateBtn = document.getElementById('wizard-generate');
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '✨ Generando...';
 
         try {
-            const response = await fetch('/api/projects/generate_structure', { method: 'POST', body: formData });
-            const data = await response.json();
-            if (data.status === 'structure_generated') {
-                document.dispatchEvent(new CustomEvent('structureGenerated', { detail: data }));
-            } else {
-                alert(`Error: ${data.message}`);
-            }
-        } catch (error) {
-            console.error('Error:', error);
-        } finally {
-            wizardGenerateBtn.disabled = false;
-        }
-    }
+            const response = await fetch('/api/auto_agent/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project_name: name,
+                    description: desc,
+                    python_version: pythonVersion,
+                    license: license,
+                    include_docker: useDocker,
+                    template: state.selectedTemplate
+                })
+            });
 
-    async function handleConfirmAndGenerate() {
-        const formData = new FormData();
-        formData.append('project_name', currentProjectName);
-        formData.append('project_description', currentProjectDescription);
-        formData.append('template_name', selectedTemplate);
-        formData.append('python_version', document.getElementById('python-version').value);
-        formData.append('license_type', document.getElementById('license-type').value);
-        formData.append('include_docker', document.getElementById('include-docker').checked);
-        formData.append('include_terraform', document.getElementById('include-terraform').checked);
-        
-        // Git settings — derive git_push automatically from whether a URL was provided
-        const gitRepoUrl = document.getElementById('git-repo-url')?.value?.trim() || '';
-        formData.append('git_repo_url', gitRepoUrl);
-        formData.append('git_token', document.getElementById('git-token')?.value || '');
-        formData.append('git_branch', document.getElementById('git-branch')?.value?.trim() || 'main');
-        formData.append('git_push', gitRepoUrl ? 'true' : 'false');
-        formData.append('git_auto_create', document.getElementById('git-auto-create')?.checked ? 'true' : 'false');
-
-        // Continuous Maintenance
-        const maintenanceEnabled = document.getElementById('auto-improve-enabled')?.checked;
-        formData.append('maintenance_enabled', maintenanceEnabled ? 'true' : 'false');
-        formData.append('maintenance_interval', document.getElementById('maintenance-interval')?.value || '1');
-
-        // Show pipeline UI
-        document.getElementById('generated-structure-section').style.display = 'none';
-        const pipelineView = document.getElementById('phase-pipeline-view');
-        pipelineView.classList.add('active');
-        renderPipeline();
-
-        try {
-            const response = await fetch('/api/projects/create', { method: 'POST', body: formData });
             const data = await response.json();
             if (data.status === 'started') {
-                // Redirect to projects view to see the backlog/logs
-                const projectsBtn = document.querySelector('.nav-item[data-view="projects"]');
-                if (projectsBtn) projectsBtn.click();
+                window.NotificationToast?.show("¡Proyecto iniciado! Redirigiendo...", "success");
                 
-                // Select and load the new project
+                // Use the global navigation to go to projects view
                 setTimeout(() => {
+                    const projectsNav = document.querySelector('[data-view="projects"]');
+                    if (projectsNav) projectsNav.click();
+                    
+                    // Trigger load in projects module
                     if (window.ProjectsModule) {
                         window.ProjectsModule.refreshProjects();
-                        window.ProjectsModule.loadProject(currentProjectName);
+                        setTimeout(() => window.ProjectsModule.loadProject(name), 1000);
                     }
-                }, 1000);
+                }, 1500);
             } else {
-                alert(`Error: ${data.message}`);
+                throw new Error(data.message);
             }
-        } catch (error) {
-            console.error('Error starting project creation:', error);
+        } catch (err) {
+            window.NotificationToast?.show(`Error: ${err.message}`, "error");
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '✨ Generar Estructura';
         }
     }
 
-    function renderPipeline() {
-        const container = document.getElementById('phase-steps-container');
-        container.innerHTML = '';
-        phases.forEach(phase => {
-            const step = document.createElement('div');
-            step.className = 'phase-step';
-            step.id = `phase-${phase.id}`;
-            step.innerHTML = `
-                <div class="phase-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                    </svg>
-                </div>
-                <div class="phase-label">${phase.label}</div>
-            `;
-            container.appendChild(step);
-        });
-    }
-
-    function startListening(projectName) {
-        const eventSource = new EventSource(`/api/projects/stream/${projectName}`);
-        const logContainer = document.getElementById('phase-log-mini');
-        
-        eventSource.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            const type = data.type || data.event;
-            
-            if (data.message) {
-                const entry = document.createElement('div');
-                entry.style.marginBottom = '4px';
-                entry.innerHTML = `<span style="color:var(--accent-primary)">[${new Date().toLocaleTimeString()}]</span> ${data.message}`;
-                logContainer.appendChild(entry);
-                logContainer.scrollTop = logContainer.scrollHeight;
-            }
-
-            if (type === 'milestone_started') {
-                const phaseId = data.phase;
-                document.querySelectorAll('.phase-step.active').forEach(s => {
-                    s.classList.remove('active');
-                    s.classList.add('completed');
-                });
-                const step = document.getElementById(`phase-${phaseId}`);
-                if (step) step.classList.add('active');
-            } else if (type === 'agent_board_update') {
-                if (window.KanbanBoard) {
-                    if (data.action === 'init_backlog') {
-                        window.KanbanBoard.initBacklog(data.tasks);
-                    } else if (data.action === 'move_task') {
-                        window.KanbanBoard.moveTask(data.task_id, data.new_status);
-                    }
-                }
-            } else if (type === 'project_complete' || type === 'stream_end') {
-                document.querySelectorAll('.phase-step.active').forEach(s => {
-                    s.classList.remove('active');
-                    s.classList.add('completed');
-                });
-                eventSource.close();
-            }
-        };
-        
-        eventSource.onerror = () => eventSource.close();
-    }
-
-    return {
-        init: init,
-        goTo: wizardGoTo,
-        get isInitialized() { return isInitialized; }
-    };
+    return { init };
 })();

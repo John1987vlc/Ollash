@@ -4,177 +4,177 @@
 {% endblock %}
 
 <div class="view" id="create-view">
-    <div class="page-header">
-        <div class="header-info">
-            <h1>Create New Project</h1>
-            <p>Step-by-step project creation wizard</p>
-        </div>
-    </div>
-
-    <div class="create-form-container">
-        <div class="wizard-container" id="wizard-container">
-            <div class="wizard-progress">
-                <div class="wizard-step-indicator active" data-step="1"><span>1</span> Name &amp; Template</div>
-                <div class="wizard-step-indicator" data-step="2"><span>2</span> Configuration</div>
-                <div class="wizard-step-indicator" data-step="3"><span>3</span> Description</div>
+    <div class="create-project-modern-container">
+        <div class="wizard-modern-card" id="wizard-container">
+            <!-- Progress Bar Minimalist -->
+            <div class="wizard-progress-v2">
+                <div class="wizard-step-dot active" data-step="1" title="Name & Template"></div>
+                <div class="wizard-step-dot" data-step="2" title="Configuration"></div>
+                <div class="wizard-step-dot" data-step="3" title="Description"></div>
             </div>
 
-            <!-- Step 1: Name + Template -->
+            <!-- Step 1: Identity -->
             <div class="wizard-step active" id="wizard-step-1">
-                <div class="form-group">
-                    <label for="project-name">Project Name</label>
-                    <input type="text" id="project-name" name="project_name"
-                           placeholder="e.g., my-awesome-app" required>
+                <div class="step-header-v2">
+                    <h2>¿Cómo se llamará tu proyecto?</h2>
+                    <p>Elige un nombre único y una base para empezar.</p>
                 </div>
-                <div class="template-selector">
-                    <h2>Choose a Project Template</h2>
-                    <div class="template-cards">
-                        <div class="template-card active" data-template="default">
-                            <h3>Default Project</h3>
-                            <p>A general-purpose project structure.</p>
+
+                <div class="form-group-huge">
+                    <input type="text" id="project-name" name="project_name"
+                           class="huge-input" placeholder="Nombre del proyecto..." required autofocus>
+                </div>
+
+                <div class="template-grid-modern">
+                    <div class="template-card-v2 active" data-template="default">
+                        <div class="tpl-icon">📁</div>
+                        <div class="tpl-info">
+                            <h4>Default</h4>
+                            <p>Estructura general</p>
                         </div>
-                        <div class="template-card" data-template="fastapi-backend">
-                            <h3>FastAPI Backend</h3>
-                            <p>Python backend with FastAPI and uvicorn.</p>
+                    </div>
+                    <div class="template-card-v2" data-template="fastapi-backend">
+                        <div class="tpl-icon">⚡</div>
+                        <div class="tpl-info">
+                            <h4>FastAPI</h4>
+                            <p>Backend robusto</p>
                         </div>
-                        <div class="template-card" data-template="react-frontend">
-                            <h3>React Frontend</h3>
-                            <p>Modern web frontend with React and Vite.</p>
+                    </div>
+                    <div class="template-card-v2" data-template="react-frontend">
+                        <div class="tpl-icon">⚛️</div>
+                        <div class="tpl-info">
+                            <h4>React</h4>
+                            <p>Frontend moderno</p>
                         </div>
-                        <div class="template-card" data-template="automation-script">
-                            <h3>Automation Script</h3>
-                            <p>A simple Python automation script.</p>
+                    </div>
+                    <div class="template-card-v2" data-template="automation-script">
+                        <div class="tpl-icon">🤖</div>
+                        <div class="tpl-info">
+                            <h4>Automation</h4>
+                            <p>Scripts útiles</p>
                         </div>
                     </div>
                 </div>
-                <div class="wizard-nav">
-                    <div></div>
-                    <button type="button" class="btn-primary wizard-next-btn" id="wizard-next-1">Next: Configuration &rarr;</button>
+
+                <div class="wizard-actions-v2">
+                    <button type="button" class="btn btn-lg btn-primary wizard-next-btn" id="wizard-next-1">Continuar &rarr;</button>
                 </div>
             </div>
 
-            <!-- Step 2: Tech Config -->
+            <!-- Step 2: Advanced Configuration -->
             <div class="wizard-step" id="wizard-step-2">
-                <div class="form-group">
-                    <label for="python-version">Python Version</label>
-                    <select id="python-version" name="python_version">
-                        <option value="3.12">Python 3.12 (Recommended)</option>
-                        <option value="3.11">Python 3.11</option>
-                        <option value="3.10">Python 3.10</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="license-type">License Type</label>
-                    <select id="license-type" name="license_type">
-                        <option value="MIT">MIT License (Permissive)</option>
-                        <option value="Apache-2.0">Apache License 2.0 (Permissive)</option>
-                        <option value="GPL-3.0">GPLv3 (Strong Copyleft)</option>
-                        <option value="None">No License</option>
-                    </select>
-                </div>
-                <div class="form-group toggle-group">
-                    <label for="include-docker">Include Docker support</label>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="include-docker" name="include_docker" checked>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="form-group toggle-group">
-                    <label for="include-terraform">Include Terraform (IaC)</label>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="include-terraform" name="include_terraform">
-                        <span class="slider round"></span>
-                    </label>
+                <div class="step-header-v2">
+                    <h2>Configuración del Agente</h2>
+                    <p>Define el comportamiento autónomo y las integraciones.</p>
                 </div>
 
-                <!-- GitHub Integration Section -->
-                <div class="github-integration-box" style="margin-top: var(--spacing-lg);">
-                    <div class="github-header" id="toggle-github-settings" style="cursor: pointer; padding: var(--spacing-md); background: var(--color-surface-elevated); border-radius: var(--radius-md); border: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: var(--spacing-sm); pointer-events: none;">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.041-1.416-4.041-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                            </svg>
-                            <span>GitHub Integration (Optional)</span>
+                <div class="wizard-grid-v2">
+                    <!-- Left Col: Infrastructure & Tech -->
+                    <div class="config-section">
+                        <h4>Stack & Infra</h4>
+                        <div class="form-group-modern">
+                            <label>Python Version</label>
+                            <select id="python-version" name="python_version" class="form-input-modern">
+                                <option value="3.12">Python 3.12 (Latest)</option>
+                                <option value="3.11">Python 3.11</option>
+                            </select>
                         </div>
-                        <span class="chevron" style="pointer-events: none;">&#x25B8;</span>
-                    </div>
-                    <div class="github-content" id="github-settings-content" style="display: none; padding: var(--spacing-md); border: 1px solid var(--color-border); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); background: rgba(0,0,0,0.1);">
-                        <p class="help-text" style="margin-bottom: var(--spacing-md);">For security reasons, we do not ask for direct credentials. Create an empty repository on GitHub and paste the URL here.</p>
                         
-                        <div class="form-group">
-                            <label for="git-repo-url">Git Repository URL</label>
-                            <input type="url" id="git-repo-url" name="git_repo_url" placeholder="https://github.com/user/my-project.git">
-                        </div>
-
-                        <div class="form-group toggle-group" style="margin-bottom: var(--spacing-md);">
-                            <div>
-                                <label style="margin-bottom: 0;">Auto-create repository</label>
-                                <p class="help-text" style="font-size: 0.75rem; margin-top: 4px;">Ollash will create a new private repository for you.</p>
+                        <div class="toggles-grid">
+                            <div class="toggle-card-mini">
+                                <span class="toggle-label">Dockerize</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="include-docker" checked>
+                                    <span class="slider round"></span>
+                                </label>
                             </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="git-auto-create" name="git_auto_create">
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="git-token">
-                                Git Access Token (PAT)
-                                <span class="tooltip-trigger" title="Required for automated pushes and PRs.">ⓘ</span>
-                            </label>
-                            <input type="password" id="git-token" name="git_token" placeholder="ghp_xxxxxxxxxxxx">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="git-branch">Git Branch</label>
-                            <input type="text" id="git-branch" name="git_branch" value="main">
-                        </div>
-
-                        <div class="form-group toggle-group" id="auto-improve-group" style="opacity: 0.5; pointer-events: none; margin-bottom: var(--spacing-sm);">
-                            <div>
-                                <label style="margin-bottom: 0;">Enable Continuous Maintenance</label>
-                                <p class="help-text" style="font-size: 0.75rem; margin-top: 4px;">The agent will periodically audit the repository for bugs.</p>
+                            <div class="toggle-card-mini">
+                                <span class="toggle-label">Terraform (IaC)</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="include-terraform">
+                                    <span class="slider round"></span>
+                                </label>
                             </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="auto-improve-enabled" name="auto_improve_enabled">
-                                <span class="slider round"></span>
-                            </label>
                         </div>
 
-                        <div class="form-group" id="maintenance-interval-group" style="display: none; margin-left: 20px; border-left: 2px solid var(--color-primary); padding-left: 15px; margin-bottom: var(--spacing-md);">
-                            <label for="maintenance-interval">Audit Interval (Hours)</label>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="number" id="maintenance-interval" name="maintenance_interval" value="1" min="1" max="24" class="form-control" style="width: 80px;">
-                                <span class="help-text">1 - 24 hours</span>
+                        <div class="form-group-modern" style="margin-top: 15px;">
+                            <label>Refinement Loops (1-5)</label>
+                            <div class="range-container">
+                                <input type="range" id="refinement-loops" min="1" max="5" value="1" class="range-input">
+                                <span id="loops-value" class="range-badge">1</span>
+                            </div>
+                            <p class="help-text">Veces que el agente revisará y pulirá el código.</p>
+                        </div>
+                    </div>
+
+                    <!-- Right Col: GitHub & Automation -->
+                    <div class="config-section">
+                        <h4>GitHub & Maintenance</h4>
+                        <div class="form-group-modern">
+                            <label>Integración GitHub</label>
+                            <select id="github-mode" class="form-input-modern">
+                                <option value="none">Sin GitHub (Local)</option>
+                                <option value="new">Crear Nuevo Repositorio Privado</option>
+                                <option value="existing">Usar Repositorio Existente</option>
+                            </select>
+                        </div>
+
+                        <div id="github-fields" style="display: none;">
+                            <div class="form-group-modern">
+                                <input type="password" id="git-token" placeholder="GitHub PAT (Token)..." class="form-input-modern">
+                            </div>
+                            <div id="repo-url-field" class="form-group-modern" style="display: none;">
+                                <input type="url" id="git-repo-url" placeholder="URL del Repositorio..." class="form-input-modern">
+                            </div>
+                        </div>
+
+                        <div class="maintenance-box">
+                            <div class="toggle-card-mini">
+                                <div class="toggle-info">
+                                    <span class="toggle-label">Auto-Healing Job</span>
+                                    <p class="help-text">Auditoría periódica de bugs.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="auto-improve-enabled">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div id="maintenance-interval-group" class="form-group-modern" style="display: none; padding-top: 10px;">
+                                <label>Intervalo (Horas)</label>
+                                <input type="number" id="maintenance-interval" value="1" min="1" max="24" class="form-input-modern" style="width: 80px;">
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="wizard-nav">
-                    <button type="button" class="btn-secondary wizard-back-btn" id="wizard-prev-2">&larr; Back</button>
-                    <button type="button" class="btn-primary wizard-next-btn" id="wizard-next-2">Next: Description &rarr;</button>
+                <div class="wizard-actions-v2">
+                    <button type="button" class="btn btn-lg btn-secondary wizard-back-btn" id="wizard-prev-2">Atrás</button>
+                    <button type="button" class="btn btn-lg btn-primary wizard-next-btn" id="wizard-next-2">Continuar &rarr;</button>
                 </div>
             </div>
 
             <!-- Step 3: Description -->
             <div class="wizard-step" id="wizard-step-3">
-                <div class="form-group">
-                    <label for="project-description">Project Description</label>
-                    <textarea id="project-description" name="project_description"
-                              rows="8" placeholder="Describe what your project should do, what features it needs, and any specific requirements..." required></textarea>
+                <div class="step-header-v2">
+                    <h2>¿Qué debe hacer el proyecto?</h2>
+                    <p>Describe las funcionalidades para que Ollash genere el código.</p>
                 </div>
-                <div class="wizard-nav">
-                    <button type="button" class="btn-secondary wizard-back-btn" id="wizard-prev-3">&larr; Back</button>
-                    <button type="button" class="btn-primary" id="wizard-generate">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                            <path d="M10 2L18 6V14L10 18L2 14V6L10 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
-                        </svg>
-                        <span>Generate Structure</span>
+
+                <div class="form-group-huge">
+                    <textarea id="project-description" name="project_description" 
+                              class="huge-textarea" placeholder="Describe tu proyecto con detalle..." required></textarea>
+                </div>
+
+                <div class="wizard-actions-v2">
+                    <button type="button" class="btn btn-lg btn-secondary wizard-back-btn" id="wizard-prev-3">Atrás</button>
+                    <button type="button" class="btn btn-lg btn-accent" id="wizard-generate">
+                        ✨ Generar Estructura
                     </button>
                 </div>
             </div>
         </div>
+    </div>
+</div>
 
         <!-- Agile Kanban Board (Hidden by default) -->
         <div id="kanban-board" class="kanban-board" style="display: none; margin-top: 30px;">
@@ -226,20 +226,21 @@
         </div>
 
         <div class="structure-actions" style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-md); align-items: center;">
-            <input type="text" id="add-path-input" placeholder="path/to/new/file.py" class="form-control" style="flex-grow: 1;">
-            <button type="button" class="btn-secondary" id="add-path-btn">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <input type="text" id="add-path-input" placeholder="path/to/new/file.py" class="form-input-modern" style="flex-grow: 1;">
+            <button type="button" class="btn btn-secondary" id="add-path-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
                 Add
             </button>
-            <button type="button" class="btn-primary" id="confirm-structure-btn">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M17 5L7 15L3 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <button type="button" class="btn btn-primary" id="confirm-structure-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
                 Confirm &amp; Generate
             </button>
-            <button type="button" class="btn-secondary" id="edit-structure-btn">
+            <button type="button" class="btn btn-ghost" id="edit-structure-btn">
                 Edit Structure
             </button>
         </div>

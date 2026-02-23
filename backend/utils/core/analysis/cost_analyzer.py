@@ -173,7 +173,7 @@ class CostAnalyzer:
             
             # Query for llm_response events which contain usage data
             query = "SELECT extra_data, timestamp FROM logs WHERE extra_data LIKE '%llm_response%'"
-            rows = db.query(query)
+            rows = db.fetch_all(query)
             
             loaded_count = 0
             for row in rows:

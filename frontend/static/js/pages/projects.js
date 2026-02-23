@@ -107,37 +107,38 @@ window.ProjectsModule = (function() {
     }
 
     function buildTree(items, container) {
-        // Sort: folders first
         const sorted = [...items].sort((a, b) => {
             if (a.type === b.type) return a.name.localeCompare(b.name);
             return a.type === 'directory' ? -1 : 1;
         });
 
         sorted.forEach(item => {
-            const li = document.createElement('li');
-            li.className = `tree-item ${item.type}`;
+            const li = document.createElement('div');
+            li.className = `file-tree-item ${item.type}`;
             li.dataset.path = item.path;
+            li.style.cursor = 'pointer';
             
-            const label = document.createElement('div');
-            label.className = 'tree-label';
             const icon = item.type === 'directory' ? '📁' : (window.Utils ? Utils.getFileIcon(item.name) : '📄');
-            label.innerHTML = `<span class="icon">${icon}</span> <span class="name">${item.name}</span>`;
+            li.innerHTML = `<span class="icon">${icon}</span> <span class="name">${item.name}</span>`;
             
-            li.appendChild(label);
             container.appendChild(li);
 
             if (item.type === 'directory' && item.children) {
-                const subUl = document.createElement('ul');
+                const subUl = document.createElement('div');
                 subUl.className = 'tree-sub';
-                li.appendChild(subUl);
+                subUl.style.display = 'none';
+                subUl.style.paddingLeft = '15px';
+                container.appendChild(subUl);
                 buildTree(item.children, subUl);
                 
-                label.onclick = (e) => {
+                li.onclick = (e) => {
                     e.stopPropagation();
-                    li.classList.toggle('expanded');
+                    const isExpanded = subUl.style.display === 'block';
+                    subUl.style.display = isExpanded ? 'none' : 'block';
+                    li.classList.toggle('expanded', !isExpanded);
                 };
             } else {
-                label.onclick = (e) => {
+                li.onclick = (e) => {
                     e.stopPropagation();
                     selectFile(li, item.path);
                 };
@@ -155,8 +156,38 @@ window.ProjectsModule = (function() {
         currentFilePath = path;
         if (currentFileNameSpan) currentFileNameSpan.textContent = path;
         
-        // Open in editor (tabs)
-        if (typeof createTab === 'function') createTab(path);
+        // Open code tab
+        const codeTabBtn = document.querySelector('.tab-btn[data-tab="code"]');
+        if (codeTabBtn) codeTabBtn.click();
+
+        // Load content
+        loadFileContent(path);
+    }
+
+    async function loadFileContent(path) {
+        if (!currentProject) return;
+        try {
+            const resp = await fetch(`/api/projects/${currentProject}/file?path=${encodeURIComponent(path)}`);
+            const data = await resp.json();
+            if (data.status === 'success' && window.editor) {
+                window.editor.setValue(data.content);
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    function setupTabListeners() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns.forEach(btn => {
+            btn.onclick = function() {
+                const tabId = this.dataset.tab;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                const target = document.getElementById(`${tabId}-tab`);
+                if (target) target.classList.add('active');
+            };
+        });
     }
 
     function startLogStream(projectName) {
@@ -172,12 +203,66 @@ window.ProjectsModule = (function() {
 
     function appendLog(data) {
         if (!agentLogs) return;
+        
+        // 1. Update Pipeline Visualization if phase data is present
+        if (data.phase_index !== undefined) {
+            updatePipeline(data.phase_index, data.status || 'active');
+        } else if (data.message) {
+            // Heuristic detection if phase_index is missing
+            detectPhaseFromMessage(data.message);
+        }
+
         const line = document.createElement('div');
         line.className = `log-line ${data.level?.toLowerCase() || 'info'}`;
         const ts = new Date().toLocaleTimeString();
         line.innerHTML = `<span class="log-ts">[${ts}]</span> <span class="log-msg">${escapeHtml(data.message)}</span>`;
         agentLogs.appendChild(line);
         agentLogs.scrollTop = agentLogs.scrollHeight;
+    }
+
+    function updatePipeline(index, status) {
+        const steps = document.querySelectorAll('.pipeline-step');
+        const overallStatus = document.getElementById('pipeline-overall-status');
+        
+        if (overallStatus) {
+            if (status === 'active') overallStatus.textContent = 'Running...';
+            else if (status === 'completed') overallStatus.textContent = 'Project Ready';
+            else if (status === 'failed') overallStatus.textContent = 'Error Detected';
+        }
+
+        steps.forEach(step => {
+            const stepIndex = parseInt(step.dataset.phase);
+            step.classList.remove('active', 'pending', 'completed', 'failed');
+            
+            if (stepIndex < index) {
+                step.classList.add('completed');
+                step.querySelector('.step-icon').textContent = '✓';
+            } else if (stepIndex === index) {
+                if (status === 'failed') {
+                    step.classList.add('failed');
+                    step.querySelector('.step-icon').textContent = '✕';
+                } else {
+                    step.classList.add('active');
+                    step.querySelector('.step-icon').textContent = index;
+                }
+            } else {
+                step.classList.add('pending');
+                step.querySelector('.step-icon').textContent = stepIndex;
+            }
+        });
+    }
+
+    function detectPhaseFromMessage(msg) {
+        const lower = msg.toLowerCase();
+        if (lower.includes("phase 1") || lower.includes("analyzing")) updatePipeline(1, 'active');
+        else if (lower.includes("phase 2") || lower.includes("planning")) updatePipeline(2, 'active');
+        else if (lower.includes("phase 3") || lower.includes("scaffolding")) updatePipeline(3, 'active');
+        else if (lower.includes("phase 4") || lower.includes("generating")) updatePipeline(4, 'active');
+        else if (lower.includes("phase 5") || lower.includes("refining")) updatePipeline(5, 'active');
+        else if (lower.includes("phase 6") || lower.includes("testing")) updatePipeline(6, 'active');
+        else if (lower.includes("phase 7") || lower.includes("security")) updatePipeline(7, 'active');
+        else if (lower.includes("phase 8") || lower.includes("finalizing")) updatePipeline(8, 'active');
+        else if (lower.includes("completed successfully")) updatePipeline(9, 'completed'); // Past last step
     }
 
     function setupTabListeners() {

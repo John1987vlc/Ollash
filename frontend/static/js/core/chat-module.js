@@ -64,8 +64,76 @@ const ChatModule = (function() {
         const refreshHistoryBtn = document.getElementById('refresh-history-btn');
         if (refreshHistoryBtn) refreshHistoryBtn.onclick = loadHistory;
 
+        const backBtn = document.getElementById('back-to-welcome-btn');
+        if (backBtn) {
+            backBtn.onclick = () => {
+                resetToWelcome();
+            };
+        }
+
         loadHistory();
         console.log("🚀 ChatModule: Initialized with History Support");
+    }
+
+    function resetToWelcome() {
+        state.currentSessionId = null;
+        state.messageCount = 0;
+        
+        // Restore Welcome UI
+        if (state.chatMessages) {
+            state.chatMessages.innerHTML = `
+                <div class="chat-welcome">
+                    <h2>Ollash Agent</h2>
+                    <p>Select a specialist or start typing to use the auto-routing orchestrator.</p>
+                    <div class="agent-cards">
+                        <button class="btn btn-card active" data-agent="orchestrator">
+                            <div class="agent-card-icon">🎯</div>
+                            <div class="agent-card-title">Orchestrator</div>
+                        </button>
+                        <button class="btn btn-card" data-agent="code">
+                            <div class="agent-card-icon">💻</div>
+                            <div class="agent-card-title">Code</div>
+                        </button>
+                        <button class="btn btn-card" data-agent="network">
+                            <div class="agent-card-icon">🌐</div>
+                            <div class="agent-card-title">Network</div>
+                        </button>
+                        <button class="btn btn-card" data-agent="system">
+                            <div class="agent-card-icon">⚙️</div>
+                            <div class="agent-card-title">System</div>
+                        </button>
+                        <button class="btn btn-card" data-agent="cybersecurity">
+                            <div class="agent-card-icon">🛡️</div>
+                            <div class="agent-card-title">Security</div>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Re-attach listeners to the new agent cards
+            state.chatMessages.querySelectorAll('.agent-card').forEach(card => {
+                card.onclick = function() {
+                    const newAgent = this.dataset.agent;
+                    updateHeader(newAgent, this.querySelector('.agent-card-icon')?.textContent);
+                    startNewSession(newAgent);
+                    
+                    state.chatMessages.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    state.selectedAgent = newAgent;
+                };
+            });
+        }
+
+        // Update Header to default
+        updateHeader('Orchestrator', '🎯');
+        loadHistory();
+    }
+
+    function updateHeader(name, icon) {
+        const headerName = document.getElementById('chat-header-agent-name');
+        const headerIcon = document.getElementById('chat-header-icon');
+        if (headerName) headerName.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+        if (headerIcon) headerIcon.textContent = icon || '🤖';
     }
 
     async function startNewSession(agentType) {
@@ -195,6 +263,7 @@ const ChatModule = (function() {
 
         source.onmessage = function(event) {
             const data = JSON.parse(event.data);
+            
             if (data.event === 'token') {
                 removeThinkingIndicator(thinkingId);
                 if (!agentBubble) agentBubble = appendMessage('assistant', '');
@@ -202,13 +271,23 @@ const ChatModule = (function() {
                 agentBubble.innerHTML = window.formatAnswer ? window.formatAnswer(contentBuffer) : contentBuffer;
                 scrollToBottom();
             } 
-            else if (data.event === 'done') {
+            else if (data.event === 'final_answer' || data.event === 'done') {
                 source.close();
+                removeThinkingIndicator(thinkingId);
+                
+                const finalContent = data.content || contentBuffer;
+                if (!agentBubble) {
+                    agentBubble = appendMessage('assistant', finalContent);
+                } else if (data.content) {
+                    agentBubble.innerHTML = window.formatAnswer ? window.formatAnswer(data.content) : data.content;
+                }
+                
                 finalizeResponse(agentBubble, data.metrics);
-                loadHistory(); // Refresh to update title if it was first message
+                loadHistory(); 
             }
             else if (data.event === 'error') {
                 source.close();
+                removeThinkingIndicator(thinkingId);
                 appendMessage('error', `Error: ${data.message}`);
                 setLoadingState(false);
             }

@@ -41,10 +41,15 @@
 {% endblock %}
 
 {% block scripts %}
+    <script src="{{ url_for('static', filename='js/pages/chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/projects.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/wizard.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/swarm.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/resilience.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/git.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/insights.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/security.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pages/benchmark.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/cicd.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pages/hil.js') }}"></script>
 {% endblock %}
