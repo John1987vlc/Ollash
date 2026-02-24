@@ -72,7 +72,18 @@ from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
 from backend.utils.domains.auto_generation.project_reviewer import ProjectReviewer
 from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
 from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
+from backend.utils.domains.auto_generation.code_patcher import CodePatcher
 from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
+
+# Domain Agent imports (Agent-per-Domain architecture)
+from backend.agents.domain_agents.architect_agent import ArchitectAgent
+from backend.agents.domain_agents.auditor_agent import AuditorAgent
+from backend.agents.domain_agents.developer_agent import DeveloperAgent
+from backend.agents.domain_agents.devops_agent import DevOpsAgent
+from backend.agents.domain_agent_orchestrator import DomainAgentOrchestrator
+from backend.agents.orchestrators.blackboard import Blackboard
+from backend.agents.orchestrators.self_healing_loop import SelfHealingLoop
+from backend.agents.orchestrators.tool_dispatcher import ToolDispatcher
 
 
 # ---------------------------------------------------------------------------
@@ -473,6 +484,123 @@ class AutoAgentContainer(containers.DeclarativeContainer):
 
 
 # ---------------------------------------------------------------------------
+# Domain Agents Container (Agent-per-Domain architecture — additive only)
+# ---------------------------------------------------------------------------
+
+
+class DomainAgentsContainer(containers.DeclarativeContainer):
+    """Container for the Agent-per-Domain architecture.
+
+    All providers here are ADDITIVE — no existing providers are modified.
+    Wired into ApplicationContainer as ``domain_agents``.
+    """
+
+    core = providers.Container(CoreContainer)
+    auto_agent_module = providers.Container(AutoAgentContainer)
+
+    # ------------------------------------------------------------------
+    # Shared orchestrator infrastructure
+    # ------------------------------------------------------------------
+    blackboard = providers.Singleton(
+        Blackboard,
+        event_publisher=core.logging.event_publisher,
+        logger=core.logging.logger,
+    )
+
+    tool_dispatcher = providers.Singleton(
+        ToolDispatcher,
+        event_publisher=core.logging.event_publisher,
+        logger=core.logging.logger,
+        max_batch_size=5,
+    )
+
+    self_healing_loop = providers.Singleton(
+        SelfHealingLoop,
+        error_knowledge_base=core.memory.error_knowledge_base,
+        contingency_planner=auto_agent_module.contingency_planner,
+        event_publisher=core.logging.event_publisher,
+        logger=core.logging.logger,
+        max_retries=2,
+    )
+
+    # ------------------------------------------------------------------
+    # Domain agents
+    # ------------------------------------------------------------------
+    architect_agent = providers.Factory(
+        ArchitectAgent,
+        dependency_graph=core.analysis.dependency_graph,
+        structure_generator=auto_agent_module.structure_generator,
+        prompt_loader=core.prompt_loader,
+        event_publisher=core.logging.event_publisher,
+        logger=core.logging.logger,
+        tool_dispatcher=tool_dispatcher,
+    )
+
+    auditor_agent = providers.Singleton(
+        AuditorAgent,
+        vulnerability_scanner=core.analysis.vulnerability_scanner,
+        code_quarantine=core.analysis.code_quarantine,
+        event_publisher=core.logging.event_publisher,
+        logger=core.logging.logger,
+        tool_dispatcher=tool_dispatcher,
+    )
+
+    devops_agent = providers.Factory(
+        DevOpsAgent,
+        infra_generator=auto_agent_module.infra_generator,
+        cicd_healer=auto_agent_module.cicd_healer,
+        event_publisher=core.logging.event_publisher,
+        logger=core.logging.logger,
+        tool_dispatcher=tool_dispatcher,
+    )
+
+    # Developer agent pool — list of DeveloperAgent instances, one per slot
+    developer_agent_pool = providers.Singleton(
+        lambda pool_size, file_gen, patcher, locked_fm, par_gen, ep, log, td, shl: [
+            DeveloperAgent(
+                file_content_generator=file_gen,
+                code_patcher=patcher,
+                locked_file_manager=locked_fm,
+                parallel_file_generator=par_gen,
+                event_publisher=ep,
+                logger=log,
+                tool_dispatcher=td,
+                self_healing_loop=shl,
+                instance_id=i,
+            )
+            for i in range(max(1, pool_size))
+        ],
+        pool_size=3,
+        file_gen=auto_agent_module.file_content_generator,
+        patcher=providers.Factory(CodePatcher),
+        locked_fm=core.storage.file_manager,
+        par_gen=core.parallel_generator,
+        ep=core.logging.event_publisher,
+        log=core.logging.logger,
+        td=tool_dispatcher,
+        shl=self_healing_loop,
+    )
+
+    # ------------------------------------------------------------------
+    # Orchestrator
+    # ------------------------------------------------------------------
+    domain_agent_orchestrator = providers.Factory(
+        DomainAgentOrchestrator,
+        architect_agent=architect_agent,
+        developer_agent_pool=developer_agent_pool,
+        devops_agent=devops_agent,
+        auditor_agent=auditor_agent,
+        blackboard=blackboard,
+        tool_dispatcher=tool_dispatcher,
+        self_healing_loop=self_healing_loop,
+        locked_file_manager=core.storage.file_manager,
+        event_publisher=core.logging.event_publisher,
+        logger=core.logging.logger,
+        generated_projects_dir=core.generated_projects_dir,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Application container (top-level)
 # ---------------------------------------------------------------------------
 
@@ -484,6 +612,13 @@ class ApplicationContainer(containers.DeclarativeContainer):
 
     core = providers.Container(CoreContainer, config=config)
     auto_agent_module = providers.Container(AutoAgentContainer, core=core)
+
+    # Agent-per-Domain architecture (additive — does not affect existing providers)
+    domain_agents = providers.Container(
+        DomainAgentsContainer,
+        core=core,
+        auto_agent_module=auto_agent_module,
+    )
 
 
 # Instantiate the main container

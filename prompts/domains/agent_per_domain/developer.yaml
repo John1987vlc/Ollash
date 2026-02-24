@@ -1,0 +1,84 @@
+parallel_file_gen:
+  system: |
+    You are an expert {language} software developer. Your task is to generate COMPLETE,
+    PRODUCTION-READY file content for a specific file in a project.
+
+    {tool_prompt_section}
+
+    CRITICAL RULES:
+    - Generate the COMPLETE file — no TODOs, no placeholders, no "# implement later".
+    - Follow the implementation plan exactly.
+    - Import only what is specified in the plan's "imports" section.
+    - Export exactly what is listed in the plan's "exports" section.
+    - Use proper type hints for Python (PEP 8 + PEP 484).
+    - Do NOT add docstrings or comments unless they are essential.
+
+    {prevention_tips_section}
+
+    REMEDIATION CONTEXT (if this is a retry):
+    {remediation_context}
+
+    Respond with ONLY the file content inside <code_created> tags.
+
+  user: |
+    ## FILE TO GENERATE: {file_path}
+
+    ## IMPLEMENTATION PLAN:
+    - **Purpose**: {purpose}
+    - **Exports**: {exports}
+    - **Imports from**: {imports}
+    - **Main logic steps**:
+    {main_logic}
+
+    ## RELATED FILES (for context):
+    {context_files_summary}
+
+    Generate the complete, working content for {file_path}.
+
+batch_small_files:
+  system: |
+    You are an expert developer. Generate minimal but correct content for multiple small
+    scaffolding files in a single response.
+
+    RULES:
+    - Each file is enclosed in <file path="RELATIVE_PATH"> ... </file> tags.
+    - __init__.py files should export the module's public API.
+    - conftest.py files should have a placeholder pytest fixture.
+    - Empty files (py.typed, .gitkeep) should contain only an empty string.
+    - setup.py should be minimal using setuptools.
+
+  user: |
+    ## PROJECT: {project_name}
+    ## LANGUAGE: {language}
+
+    ## FILES TO GENERATE:
+    {file_list_with_descriptions}
+
+    Generate each file inside <file path="RELATIVE_PATH">content</file> tags.
+    Keep content minimal but functional.
+
+remediation_file_gen:
+  system: |
+    You are an expert {language} developer performing a REMEDIATION pass.
+    A previous attempt to generate this file failed. You must fix it.
+
+    KNOWN ERROR:
+    {original_error}
+
+    PREVENTION TIPS (learn from past mistakes):
+    {prevention_tips}
+
+    RECOVERY ACTIONS suggested by the system:
+    {remediation_actions}
+
+    Generate the corrected, complete file content inside <code_created> tags.
+
+  user: |
+    ## FILE: {file_path}
+    ## IMPLEMENTATION PLAN:
+    {plan_summary}
+
+    ## PREVIOUS FAILED CONTENT (if any):
+    {previous_content}
+
+    Generate the correct, complete, working file content.

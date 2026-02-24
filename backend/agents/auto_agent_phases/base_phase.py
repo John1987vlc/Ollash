@@ -11,6 +11,19 @@ from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.interfaces.iagent_phase import IAgentPhase
 from backend.utils.core.exceptions import PipelinePhaseError
 
+# Human-readable descriptions reused by _get_tool_prompt_section()
+_PHASE_TOOL_DESCRIPTIONS: Dict[str, str] = {
+    "dependency_graph": "Analyse file import relationships",
+    "structure_generator": "Generate project directory structure",
+    "file_content_generator": "Generate file content from plan",
+    "code_patcher": "Apply targeted edits to existing files",
+    "rag_context_selector": "Select semantically relevant context files",
+    "infra_generator": "Generate Docker/CI/CD infrastructure files",
+    "cicd_healer": "Detect and fix CI/CD pipeline failures",
+    "vulnerability_scanner": "Scan code for security vulnerabilities",
+    "code_quarantine": "Isolate files with critical vulnerabilities",
+}
+
 
 class BasePhase(IAgentPhase):
     """Base class for all pipeline phases with shared boilerplate.
@@ -22,6 +35,12 @@ class BasePhase(IAgentPhase):
     phase_id: str = ""
     phase_label: str = ""
     category: str = "generation"
+
+    # Declare the tools this phase needs.  Domain agents and future phases can
+    # set this list to enable Dynamic Tool Injection — only the listed tools are
+    # included in the LLM system prompt, reducing token usage.
+    # Default is empty: no effect on existing phases.
+    REQUIRED_TOOLS: List[str] = []
 
     def __init__(self, context: PhaseContext):
         self.context = context
@@ -158,6 +177,23 @@ class BasePhase(IAgentPhase):
             message=f"{self.phase_label or self.phase_name} failed: {error}",
             status="error",
         )
+
+    def _get_tool_prompt_section(self) -> str:
+        """Build an 'AVAILABLE TOOLS' system-prompt section from REQUIRED_TOOLS.
+
+        Returns an empty string when ``REQUIRED_TOOLS`` is empty, so this
+        method is safe to call in any phase without affecting existing prompts.
+        Used by domain agents (and optionally by new phases) for Dynamic Tool
+        Injection — only the tools a phase actually needs appear in the LLM
+        context, reducing token waste.
+        """
+        if not self.REQUIRED_TOOLS:
+            return ""
+        lines = ["## AVAILABLE TOOLS"]
+        for tool_name in self.REQUIRED_TOOLS:
+            desc = _PHASE_TOOL_DESCRIPTIONS.get(tool_name, tool_name)
+            lines.append(f"- **{tool_name}**: {desc}")
+        return "\n".join(lines)
 
     def _write_file(
         self, project_root: Path, rel_path: str, content: str, generated_files: Dict[str, str], file_paths: List[str]
