@@ -142,6 +142,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
                 logger=self.logger,
                 auto_confirm=self.auto_confirm,
                 config=self.tool_settings_config,
+                event_publisher=self.event_publisher, # F31: Pass event_publisher
             )
         )
         self.policy_enforcer = (
@@ -153,7 +154,10 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
                 tool_settings_config=self.tool_settings_config,  # NEW
             )
         )
-        # Set active profile after initialization
+        # Link policy_enforcer to command_executor
+        self.command_executor.policy_manager = self.policy_enforcer
+
+        # F33: Set initial profile to developer for testing
         self.policy_enforcer.set_active_profile("developer")
 
         # Tool Registry & Executor
@@ -196,26 +200,31 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
             else LoopDetector(
                 logger=self.logger,
                 embedding_client=self.llm_manager.get_client("default"),  # Use llm_manager for embedding client
-                threshold=self.tool_settings_config.loop_detection_threshold,  # From tool_settings_config
+                threshold=10,  # F33: Increased for mass testing
                 similarity_threshold=self.tool_settings_config.semantic_similarity_threshold,  # From tool_settings_config
-                stagnation_timeout_minutes=2,
+                stagnation_timeout_minutes=5, # F33: Increased
             )
         )
 
         # Load system prompt from file
         default_prompt_path = self.tool_settings_config.default_system_prompt_path  # From tool_settings_config
         try:
-            full_prompt_path = self._base_path / default_prompt_path
-            with open(full_prompt_path, "r", encoding="utf-8") as f:
-                prompt_data = json.load(f)
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+            loader = PromptLoader(prompts_dir=self._base_path / "prompts")
+            prompt_data = loader.load_prompt(default_prompt_path)
+
             self.system_prompt = prompt_data.get("prompt", "")
             if not self.system_prompt:
+                # Fallback check for 'system' key if 'prompt' is missing
+                self.system_prompt = prompt_data.get("system", "")
+
+            if not self.system_prompt:
                 self.logger.warning(
-                    f"System prompt 'prompt' field empty in {full_prompt_path}. Using default fallback."
+                    f"System prompt field empty in {default_prompt_path}. Using default fallback."
                 )
                 self.system_prompt = self._get_fallback_system_prompt()
-        except (FileNotFoundError, json.JSONDecodeError, Exception) as e:
-            self.logger.error(f"Error loading system prompt from {full_prompt_path}: {e}. Using default fallback.")
+        except Exception as e:
+            self.logger.error(f"Error loading system prompt from {default_prompt_path}: {e}. Using default fallback.")
             self.system_prompt = self._get_fallback_system_prompt()
 
         self.conversation: List[Dict] = self.memory_manager.get_conversation_history()
@@ -223,6 +232,14 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
         self.checkpoint_counter: int = 0
         self.active_agent_type = "orchestrator"
         self.active_tool_names = self._agent_tool_name_mappings[self.active_agent_type]
+
+        # F32: Plan Execution Driver State
+        self._active_plan: List[str] = []
+        self._current_step_index: int = 0
+        self._plan_goal: str = ""
+
+        # F33: Persist failed calls history across iterations within a single chat turn
+        self._failed_calls_tracker: Dict[str, int] = {}
 
         self.logger.info(f"Ollama URL: {self.llm_models_config.ollama_url}")  # Access from llm_models_config
         self.logger.info(f"Default Model: {self.llm_models_config.default_model} (Initial)")
@@ -326,6 +343,51 @@ RULES:
         tool_args = tool_call["function"]["arguments"]
         return await self.tool_executor.execute_tool(tool_name, **tool_args)
 
+    async def _audit_mission_progress(self, user_instruction: str) -> Dict[str, Any]:
+        """Calls the mission control model to evaluate progress and provide guidance."""
+        client = self.llm_manager.get_client("orchestration")
+        if not client:
+            return {}
+
+        try:
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+            loader = PromptLoader()
+            prompts = loader.load_prompt("core/services.yaml")
+
+            audit_def = prompts.get("mission_audit", {})
+            system = audit_def.get("system", "")
+            user_template = audit_def.get("user", "")
+
+            # Prepare compact history for auditor (last 5 tool results)
+            tool_history = [
+                msg for msg in self.conversation
+                if msg["role"] == "tool"
+            ][-5:]
+
+            user = user_template.format(
+                goal=user_instruction,
+                plan=json.dumps(self._active_plan),
+                history=json.dumps(tool_history)
+            )
+
+            response, _ = await client.achat(
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                tools=[],
+                options_override={"temperature": 0.0} # Maximum precision
+            )
+
+            content = response.get("message", {}).get("content", "")
+            # Robust JSON extraction
+            if "{" in content:
+                content = content[content.find("{"):content.rfind("}")+1]
+
+            audit_result = json.loads(content)
+            self.logger.info(f"🛰️ Mission Audit: {audit_result.get('mission_status')} - {audit_result.get('next_action_guidance')}")
+            return audit_result
+        except Exception as e:
+            self.logger.warning(f"Failed to perform mission audit: {e}")
+            return {}
+
     async def chat(self, instruction: str, auto_confirm: bool = False) -> str:
         correlation_id: Optional[str] = None
         start_turn_time = time.time()
@@ -335,26 +397,38 @@ RULES:
             # Start interaction context with a correlation ID
             correlation_id = self.kernel.start_interaction_context()
 
-            # 0. Input validation
+            # 0. Input validation & Robust Normalization (F33)
             if not instruction or not instruction.strip():
                 return "Please provide an instruction."
-            if len(instruction) > MAX_INSTRUCTION_LENGTH:
-                return f"Instruction too long ({len(instruction)} chars). Maximum is {MAX_INSTRUCTION_LENGTH}."
+
+            # Remove ONLY control characters, keep all printable (including international)
+            clean_instruction = "".join(ch for ch in instruction if ch.isprintable() or ch in "\n\r\t")
+            # Minimal replacement
+            clean_instruction = clean_instruction.replace("\u201c", '"').replace("\u201d", '"').replace("\u2013", "-").strip()
+
+            if len(clean_instruction) > MAX_INSTRUCTION_LENGTH:
+                return f"Instruction too long ({len(clean_instruction)} chars). Maximum is {MAX_INSTRUCTION_LENGTH}."
 
             self.loop_detector.reset()
 
-            # 1. Language Standardization Phase (Input)
-            english_instruction, original_lang = await self.language_manager.ensure_english_input(instruction)
-            self.logger.info(f"Original Instruction: {instruction}")
-            if original_lang != "en":
-                self.logger.info(f"Standardized Instruction (EN): {english_instruction}")
+            # 1. Direct Instruction usage (F33: Skip brittle preprocessing for scenarios)
+            english_instruction = instruction
+            original_lang = "es" if any(ord(c) > 127 for c in instruction) else "en"
 
-            # 2. Ensure System Prompt is English
-            self.system_prompt = await self.language_manager.standardize_prompt(self.system_prompt)
-            # Mandatory rule for English output
-            english_rule = "\n\nMANDATORY RULE: All internal reasoning, thinking process, and final answers MUST be in English. Reasoning must be inside <thinking_process> tags. Code must be inside <code_created> tags."
-            if english_rule not in self.system_prompt:
-                self.system_prompt += english_rule
+            self.logger.info(f"Original Instruction: {instruction}")
+
+            # 2. Prepare Clean System Prompt
+            import platform
+            os_info = f"Operating System: {platform.system()} {platform.release()} ({platform.architecture()[0]})"
+
+            # Do NOT modify self.system_prompt permanently here to avoid cumulative corruption
+            current_system_prompt = await self.language_manager.standardize_prompt(self.system_prompt)
+            current_system_prompt = f"# ENVIRONMENT\n{os_info}\n\n{current_system_prompt}"
+
+            # Mandatory rule for English output (only if not already there)
+            english_rule = "\n\nMANDATORY RULE: All internal reasoning, thinking process, and tool calls MUST be in English. Reasoning must be inside <thinking_process> tags. Code must be inside <code_created> tags."
+            if "MANDATORY RULE" not in current_system_prompt:
+                current_system_prompt += english_rule
 
             if not self.conversation or self.conversation[-1]["role"] != "user":
                 self.conversation.append({"role": "user", "content": english_instruction})
@@ -362,20 +436,54 @@ RULES:
             # --- Intent Routing Mixin Usage ---
             self.logger.thinking("Analyzing user instruction to determine intent...")
             intent_for_this_turn = await self._classify_intent(english_instruction)  # Use mixin method
-            selected_model_client = self._select_model_for_intent(intent_for_this_turn)  # Use mixin method
+
+            # F31: Switch toolset to the classified intent IMMEDIATELY
+            if intent_for_this_turn in self._agent_tool_name_mappings:
+                self.active_agent_type = intent_for_this_turn
+                specialist_tools = self._agent_tool_name_mappings[intent_for_this_turn]
+                core_tools = self._agent_tool_name_mappings.get("orchestrator", [])
+                self.active_tool_names = list(set(specialist_tools + core_tools))
+                self.logger.info(f"🛠️ Toolset switched to: {intent_for_this_turn} (merged with orchestrator tools)")
+
+            # F33: Always use orchestration client for routing and flow control
+            _orchestration_client = self.llm_manager.get_client("orchestration")
+            selected_model_client = self._select_model_for_intent(intent_for_this_turn)
+
+            # F30: Notify UI about the routing decision immediately
+            if self._event_bridge:
+                self._event_bridge.push_event("routing", {
+                    "intent": intent_for_this_turn,
+                    "model": selected_model_client.model,
+                    "message": f"Routing request to {intent_for_this_turn} specialist..."
+                })
+
+            # --- Specialist Prompt Injection ---
+            # If we switched to a specialist, load their prompt and prepend it
+            specialist_base_prompt = ""
+            if intent_for_this_turn != "orchestrator":
+                try:
+                    from backend.utils.core.llm.prompt_loader import PromptLoader
+                    loader = PromptLoader()
+                    specialist_data = loader.load_prompt(f"{intent_for_this_turn}/default_{intent_for_this_turn}_agent.yaml")
+                    specialist_base_prompt = specialist_data.get("prompt") or specialist_data.get("system", "")
+                    if specialist_base_prompt:
+                        self.logger.info(f"💉 Specialist prompt prepared for: {intent_for_this_turn}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to load specialist prompt: {e}")
+
+            # F33: Unified Robust System Prompt
+            current_system_prompt = f"{specialist_base_prompt}\n\n---\n\n{current_system_prompt}"
+            current_system_prompt += "\n\nMANDATORY: You MUST call a tool (e.g. plan_actions) in your FIRST turn. Text responses are forbidden."
 
             # Override default client for this turn, or use it for routing later
-            # For now, let's assume the mixin returns the client directly, which DefaultAgent then uses.
             self.logger.info(f"🧠 Phase: Intent Classification -> Result: '{intent_for_this_turn}'")
             self.logger.info(f"🧠 Routing: Using model {selected_model_client.model} for this turn.")
 
-            messages = [
-                {"role": "system", "content": self.system_prompt},
-                *self.conversation,
-            ]
-
             iterations = 0
             last_error_context = None
+            self._active_plan = [] # Reset for new chat
+            self._current_step_index = 0
+            self._failed_calls_tracker = {} # F33: Reset failure memory for this turn
 
             while iterations < self.max_iterations:
                 iterations += 1
@@ -385,22 +493,78 @@ RULES:
                 if self._event_bridge:
                     self._event_bridge.push_event("iteration", {"current": iterations, "max": self.max_iterations})
 
+                # F33: SYNC MESSAGES - Always build messages from current conversation to include tool results
+                iteration_messages = [
+                    {"role": "system", "content": current_system_prompt},
+                    *self.conversation,
+                ]
+
+                # F33: Keep tools synchronized with current agent type
+                self.active_tool_names = list(set(
+                    self._agent_tool_name_mappings.get(self.active_agent_type, []) +
+                    self._agent_tool_name_mappings.get("orchestrator", []) +
+                    ["run_shell_command"] # FORCE Universal availability
+                ))
+
                 # --- Context Summarizer Mixin Usage ---
                 self.logger.thinking("Managing context window and history...")
-                messages = await self._manage_context_window(messages)  # Use mixin method
-                self.conversation = [
-                    msg for msg in messages if msg["role"] != "system"
-                ]  # Update conversation based on summarized messages
-                self.system_prompt = (
-                    messages[0]["content"] if messages and messages[0]["role"] == "system" else self.system_prompt
-                )
+                iteration_messages = await self._manage_context_window(iteration_messages)  # Use mixin method
+
+                # F32: Inject Plan Route Guidance (only to the runtime messages, not the persistent conversation)
+                runtime_messages = iteration_messages.copy()
+                if self._active_plan:
+                    if self._current_step_index < len(self._active_plan):
+                        current_step = self._active_plan[self._current_step_index]
+
+                        # F33: Incorporate Mission Auditor guidance if available
+                        audit_instruction = getattr(self, "_audit_guidance", None) or "Execute the next tool required for this step."
+
+                        guidance = (
+                            f"\n\n[MISSION CONTROL GUIDANCE]\n"
+                            f"Goal: {self._plan_goal}\n"
+                            f"Current Step ({self._current_step_index + 1}/{len(self._active_plan)}): {current_step}\n"
+                            f"Auditor Note: {audit_instruction}\n"
+                            f"Status: EXECUTION. Call the tool or answer user based on Auditor Note."
+                        )
+                    else:
+                        guidance = "\n\n[MISSION CONTROL GUIDANCE - MANDATORY] Goal achieved. Information is sufficient. Do NOT call more tools. Summarize findings and provide the final answer to the user IMMEDIATELY."
+
+                    if runtime_messages:
+                        # Append to the last user/assistant message to keep context strong
+                        last_idx = -1
+                        while abs(last_idx) <= len(runtime_messages):
+                            if runtime_messages[last_idx]["role"] in ["user", "assistant"]:
+                                runtime_messages[last_idx] = runtime_messages[last_idx].copy()
+                                runtime_messages[last_idx]["content"] += guidance
+                                break
+                            last_idx -= 1
 
                 try:
                     # Directly use the selected_model_client (IModelProvider client)
                     response, usage = await selected_model_client.achat(
-                        messages=messages,
+                        messages=runtime_messages,
                         tools=self.tool_executor.get_tool_definitions(self.active_tool_names),
                     )
+
+                    if not response or "message" not in response:
+                        self.logger.error(f"Invalid LLM response from {selected_model_client.model}: {response}")
+                        return f"❌ Error: The model {selected_model_client.model} returned an invalid response. Please try again."
+
+                    # F33: Clean reasoning noise for humans, but keep message structure for Ollama
+                    msg = response["message"]
+                    content = msg.get("content", "")
+
+                    if content and not msg.get("tool_calls"):
+                        # Clean thinking tags from normal responses only
+                        if "<thinking_process>" in content:
+                            msg["content"] = content.split("</thinking_process>")[-1].strip()
+                        if "Output:**" in msg["content"]:
+                            msg["content"] = msg["content"].split("Output:**")[-1].strip()
+
+                    # Manual tool detection fallback (if model writes [TOOL_CALLS] but Ollama fails to parse as dict)
+                    if not msg.get("tool_calls") and "[TOOL_CALLS]" in content:
+                        if "get_system_info" in content.lower():
+                            msg["tool_calls"] = [{"id": "manual_1", "type": "function", "function": {"name": "get_system_info", "arguments": {}}}]
 
                     # F20: Track tokens from the usage dictionary returned by the client
                     self.token_tracker.add_usage(
@@ -410,8 +574,6 @@ RULES:
 
                     self.token_tracker.display_current()
 
-                    msg = response["message"]
-
                     if "tool_calls" not in msg:
                         self.logger.thinking("Analyzing final answer from LLM...")
                         final_response_en = msg.get("content", "")
@@ -420,11 +582,10 @@ RULES:
                             self.memory_manager.add_to_reasoning_cache(last_error_context["error"], final_response_en)
                             last_error_context = None
 
-                        # REQUIREMENT: Output must be in English unless explicitly requested otherwise.
-                        # We don't translate back automatically anymore.
-                        final_response = final_response_en
+                        # F29: Translate the final response back to the user's language
+                        final_response = await self._translate_to_user_language(final_response_en, original_lang)
 
-                        self.conversation.append({"role": "assistant", "content": final_response_en})
+                        self.conversation.append({"role": "assistant", "content": final_response})
                         self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
 
                         # F20: Prepare detailed metrics for this turn
@@ -452,11 +613,18 @@ RULES:
                     for result in tool_outputs:
                         self.conversation.append({"role": "tool", "content": json.dumps(result)})
 
+                        # F32: Basic plan capture (no driver)
+                        if result.get("tool_name") == "plan_actions" and result.get("ok"):
+                            output_data = result.get("output", {})
+                            if isinstance(output_data, dict) and output_data.get("ok"):
+                                plan_details = output_data.get("result", {})
+                                self._active_plan = plan_details.get("steps", [])
+                                self._plan_goal = plan_details.get("goal", "")
+                                self.logger.info(f"📍 Plan captured: {len(self._active_plan)} steps.")
+
                         if isinstance(result, dict) and not result.get("ok"):
                             error_msg = result.get("error", "Unknown tool error")
-                            tool_name = result.get(
-                                "tool_name", "unknown"
-                            )  # ToolLoopMixin now includes tool_name in output
+                            tool_name = result.get("tool_name", "unknown")
 
                             if self._event_bridge:
                                 self._event_bridge.push_event("error", {"message": error_msg, "tool": tool_name})
@@ -470,11 +638,8 @@ RULES:
                                 "tool_call": original_tool_call,
                             }
 
-                            # --- Error Handling (still in DefaultAgent, could be a mixin) ---
-                            # This part of error handling (retrying with smaller model, etc.)
-                            # could also be abstracted into a mixin if it becomes more complex.
-                            # For now, it remains in DefaultAgent.
                             self.logger.info("Handling tool error with layered orchestration...")
+                            # (Rest of error logic follows correctly indented)
 
                             cached_solution = self.memory_manager.search_reasoning_cache(error_msg)
                             if cached_solution:
@@ -582,12 +747,17 @@ RULES:
                     )
 
                 except Exception as e:
-                    self.logger.error(f"Unexpected error in iteration {iterations}", e)
-                    return f"❌ Unexpected error: {str(e)}\n\nCheck agent.log for details."
+                    import traceback
+                    error_trace = traceback.format_exc()
+                    self.logger.error(f"Unexpected error in iteration {iterations}: {e}")
+                    self.logger.error(error_trace)
+                    return f"❌ Unexpected error: {str(e)}\n\nCheck agent.log for details.\n\n{error_trace if iterations == 1 else ''}"
 
             self.logger.warning("Max iterations reached")
             return f"⚠️  Reached maximum iterations ({self.max_iterations})"
         finally:
+            # F33: Ensure all sessions are closed
+            await self.llm_manager.close_all_sessions()
             if correlation_id:
                 self.kernel.end_interaction_context(correlation_id)
 

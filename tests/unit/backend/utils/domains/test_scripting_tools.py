@@ -23,9 +23,9 @@ def test_init_environment(scripting_tools):
 
 def test_write_script_auto_starts_sandbox(scripting_tools):
     scripting_tools.sandbox._is_active = False
-    
+
     result = scripting_tools.write_script("test.sh", "echo hi")
-    
+
     assert result["ok"] is True
     scripting_tools.sandbox.start.assert_called_once()
     scripting_tools.sandbox.write_file.assert_called_with("test.sh", "echo hi")
@@ -36,9 +36,9 @@ def test_execute_script_success(scripting_tools):
     scripting_tools.sandbox.execute_command.return_value = {
         "success": True, "exit_code": 0, "stdout": "output", "stderr": ""
     }
-    
+
     result = scripting_tools.execute_script("script.sh")
-    
+
     assert result["ok"] is True
     assert result["result"]["stdout"] == "output"
     # Verify command construction
@@ -47,9 +47,9 @@ def test_execute_script_success(scripting_tools):
 def test_execute_script_powershell(scripting_tools):
     scripting_tools.sandbox._is_active = True
     scripting_tools.sandbox.execute_command.return_value = {"success": True}
-    
+
     scripting_tools.execute_script("script.ps1")
-    
+
     scripting_tools.sandbox.execute_command.assert_called_with(["pwsh", "-File", "script.ps1"])
 
 def test_execute_script_not_initialized(scripting_tools):

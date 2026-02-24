@@ -1,4 +1,3 @@
-import pytest
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
 def test_remove_think_blocks():
@@ -33,7 +32,7 @@ def test_extract_json_with_comments_and_trailing_commas():
 def test_extract_json_from_tags():
     text = "<plan_json>{\"task\": \"build\"}</plan_json>"
     assert LLMResponseParser.extract_json(text) == {"task": "build"}
-    
+
     text_md = "<backlog_json>\n```json\n[{\"id\": 1}]\n```\n</backlog_json>"
     assert LLMResponseParser.extract_json(text_md) == [{"id": 1}]
 

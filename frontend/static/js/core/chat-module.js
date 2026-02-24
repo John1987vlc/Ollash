@@ -259,21 +259,82 @@ const ChatModule = (function() {
         const source = new EventSource(`/api/chat/stream/${sessionId}`);
         let agentBubble = null;
         let contentBuffer = "";
-        const thinkingId = showThinkingIndicator();
+        let thinkingIndicatorId = showThinkingIndicator();
+        let currentStatusEl = null;
 
         source.onmessage = function(event) {
-            const data = JSON.parse(event.data);
+            let data;
+            try {
+                data = JSON.parse(event.data);
+            } catch (e) {
+                console.error("Failed to parse SSE data:", event.data);
+                return;
+            }
             
-            if (data.event === 'token') {
-                removeThinkingIndicator(thinkingId);
+            // F18: Handle different event types from ChatEventBridge
+            const type = data.type;
+
+            if (type === 'token') {
+                if (thinkingIndicatorId) {
+                    removeThinkingIndicator(thinkingIndicatorId);
+                    thinkingIndicatorId = null;
+                }
                 if (!agentBubble) agentBubble = appendMessage('assistant', '');
                 contentBuffer += data.text;
                 agentBubble.innerHTML = window.formatAnswer ? window.formatAnswer(contentBuffer) : contentBuffer;
                 scrollToBottom();
             } 
-            else if (data.event === 'final_answer' || data.event === 'done') {
+            else if (type === 'thinking') {
+                updateThinkingStatus(data.message);
+            }
+            else if (type === 'routing') {
+                const intent = data.intent;
+                const message = data.message;
+                window.NotificationToast?.show(message, 'info');
+                updateThinkingStatus(message);
+                
+                // Update header if specialist is selected
+                const headerName = document.getElementById('chat-header-agent-name');
+                if (headerName && intent !== 'default') {
+                    headerName.textContent = intent.charAt(0).toUpperCase() + intent.slice(1);
+                }
+            }
+            else if (type === 'hil_request') {
+                const reqId = data.id;
+                const action = data.type;
+                const details = data.details || {};
+                
+                // Show confirmation bubble in chat
+                appendHILConfirmation(reqId, action, details);
+            }
+            else if (type === 'agent_switch') {
+                const agent = data.agent_type;
+                const reason = data.reason;
+                window.NotificationToast?.show(`Switched to ${agent} specialist`, 'info');
+                updateThinkingStatus(`Switching to ${agent} specialist: ${reason}`);
+                
+                // Update UI active card
+                document.querySelectorAll('.agent-card').forEach(c => {
+                    c.classList.toggle('active', c.dataset.agent === agent);
+                });
+                
+                // Update header
+                const headerName = document.getElementById('chat-header-agent-name');
+                if (headerName) headerName.textContent = agent.charAt(0).toUpperCase() + agent.slice(1);
+            }
+            else if (type === 'tool_start') {
+                updateThinkingStatus(`Executing tool: ${data.tool_name}...`);
+            }
+            else if (type === 'tool_end') {
+                const status = data.success ? 'Success' : 'Failed';
+                console.log(`Tool ${data.tool_name} finished: ${status}`);
+            }
+            else if (type === 'final_answer' || type === 'done') {
                 source.close();
-                removeThinkingIndicator(thinkingId);
+                if (thinkingIndicatorId) {
+                    removeThinkingIndicator(thinkingIndicatorId);
+                    thinkingIndicatorId = null;
+                }
                 
                 const finalContent = data.content || contentBuffer;
                 if (!agentBubble) {
@@ -285,15 +346,42 @@ const ChatModule = (function() {
                 finalizeResponse(agentBubble, data.metrics);
                 loadHistory(); 
             }
-            else if (data.event === 'error') {
+            else if (type === 'error') {
                 source.close();
-                removeThinkingIndicator(thinkingId);
+                if (thinkingIndicatorId) {
+                    removeThinkingIndicator(thinkingIndicatorId);
+                    thinkingIndicatorId = null;
+                }
                 appendMessage('error', `Error: ${data.message}`);
                 setLoadingState(false);
             }
         };
 
-        source.onerror = () => { source.close(); setLoadingState(false); };
+        source.onerror = () => { 
+            source.close(); 
+            setLoadingState(false); 
+            if (thinkingIndicatorId) {
+                removeThinkingIndicator(thinkingIndicatorId);
+                thinkingIndicatorId = null;
+            }
+        };
+
+        function updateThinkingStatus(message) {
+            const indicator = document.getElementById(thinkingIndicatorId);
+            if (indicator) {
+                let statusEl = indicator.querySelector('.thinking-status');
+                if (!statusEl) {
+                    statusEl = document.createElement('div');
+                    statusEl.className = 'thinking-status';
+                    statusEl.style.fontSize = '0.85em';
+                    statusEl.style.color = 'var(--color-text-muted)';
+                    statusEl.style.marginTop = '8px';
+                    statusEl.style.fontStyle = 'italic';
+                    indicator.querySelector('.message-bubble').appendChild(statusEl);
+                }
+                statusEl.textContent = message;
+            }
+        }
     }
 
     function finalizeResponse(bubble, metrics) {
@@ -320,6 +408,56 @@ const ChatModule = (function() {
         return bubble;
     }
 
+    function appendHILConfirmation(reqId, action, details) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-message system-message hil-message';
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble hil-bubble';
+        
+        let detailHtml = "";
+        if (action === 'run_shell_command') {
+            detailHtml = `<code class="hil-code">${details.command}</code>`;
+        } else if (action === 'write_file' || action === 'replace') {
+            detailHtml = `File: <span class="hil-path">${details.path || details.file_path}</span>`;
+        }
+
+        bubble.innerHTML = `
+            <div class="hil-header">⚠️ Permission Required</div>
+            <div class="hil-action">Agent wants to execute: <strong>${action}</strong></div>
+            <div class="hil-details">${detailHtml}</div>
+            <div class="hil-buttons">
+                <button class="btn btn-error btn-sm" onclick="ChatModule.respondHIL('${reqId}', 'reject')">Reject</button>
+                <button class="btn btn-success btn-sm" onclick="ChatModule.respondHIL('${reqId}', 'approve')">Approve</button>
+            </div>
+        `;
+        
+        msgDiv.appendChild(bubble);
+        state.chatMessages.appendChild(msgDiv);
+        scrollToBottom();
+    }
+
+    async function respondHIL(requestId, response) {
+        // Disable buttons in that bubble
+        const buttons = document.querySelectorAll('.hil-buttons button');
+        buttons.forEach(b => b.disabled = true);
+
+        try {
+            await fetch('/api/hil/respond', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    request_id: requestId,
+                    response: response,
+                    feedback: response === 'reject' ? 'Rejected via chat UI' : ''
+                })
+            });
+            window.NotificationToast?.show(`Action ${response}ed`, 'info');
+        } catch (e) {
+            window.NotificationToast?.show("Failed to send response", "error");
+        }
+    }
+
     function showThinkingIndicator() {
         const id = 'thinking-' + Date.now();
         const div = document.createElement('div');
@@ -344,7 +482,7 @@ const ChatModule = (function() {
         if (state.chatMessages) state.chatMessages.scrollTop = state.chatMessages.scrollHeight;
     }
 
-    return { init, sendChatMessage, appendMessage };
+    return { init, sendChatMessage, appendMessage, respondHIL };
 })();
 
 window.ChatModule = ChatModule;

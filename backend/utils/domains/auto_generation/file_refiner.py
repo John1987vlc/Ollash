@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.io.documentation_manager import DocumentationManager
@@ -54,11 +54,11 @@ class FileRefiner:
         remove_redundancy: bool = True
     ) -> Optional[str]:
         """
-        Aggressively simplifies a file to resolve persistent logic errors or 
+        Aggressively simplifies a file to resolve persistent logic errors or
         architectural complexity issues.
         """
         self.logger.info(f"  Aggressively simplifying {file_path}...")
-        
+
         # We use a specialized prompt for simplification
         system = "You are a Senior Architect focused on KISS (Keep It Simple, Stupid). Your goal is to simplify code, remove redundancy, and ensure it is 100% functional and error-free."
         user = f"""## TASK: Simplify the following file to improve stability and resolve issues.
@@ -86,14 +86,22 @@ FILE: {file_path}
             )
             raw = response_data["message"]["content"]
             simplified = self.parser.extract_raw_content(raw)
-            
+
             if simplified and len(simplified) > 20:
                 self.logger.info(f"    Successfully simplified {file_path}")
                 return simplified
         except Exception as e:
             self.logger.error(f"  Error simplifying {file_path}: {e}")
-            
+
         return None
+
+    def refine_file(
+        self,
+        file_path: str,
+        current_content: str,
+        readme_excerpt: str,
+        issues: Optional[list] = None,
+    ) -> Optional[str]:
         """Refine a single file. Returns refined content or None if refinement was worse.
 
         Args:

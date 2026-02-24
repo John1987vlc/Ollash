@@ -5,6 +5,14 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/projects.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auto-agent.css') }}">
+<!-- P1-P10 component styles -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/hitl-modal.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/diff-viewer.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/tool-belt.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/stream-panel.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/debate-room.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/visual-context.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/budget-meter.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -18,10 +26,27 @@
             <option value="">Select a project...</option>
         </select>
     </div>
+    <!-- P5 Budget Meter -->
+    <div class="budget-meter" id="budget-meter" title="Token budget usage" hidden>
+        <span class="budget-meter-label">Budget</span>
+        <div class="budget-meter-bar-wrap">
+            <div class="budget-meter-bar" id="budget-meter-bar"></div>
+        </div>
+        <span class="budget-meter-text" id="budget-meter-text">0 / 500k</span>
+    </div>
 </div>
 
+<!-- P1 HITL Modal -->
+{% include 'components/hitl_modal.html' %}
+
 <div class="project-workspace" id="project-workspace" style="display: none;">
-    
+
+    <!-- P4 Live streaming panels -->
+    <div id="stream-panels-container"></div>
+
+    <!-- P9 Agent swimlanes / Tool Belt -->
+    <div id="agent-swimlanes"></div>
+
     <!-- Agile Kanban Board (Hidden by default) -->
     <div id="kanban-board" class="kanban-board" style="display: none;">
         <div class="kanban-column" id="col-todo">
@@ -90,5 +115,11 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pages/projects.js') }}"></script>
+<!-- P1-P10 component scripts -->
+<script src="{{ url_for('static', filename='js/components/hitl-modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/diff-viewer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/tool-belt.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/stream-panel.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/debate-room.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/auto-agent.js') }}"></script>
 {% endblock %}

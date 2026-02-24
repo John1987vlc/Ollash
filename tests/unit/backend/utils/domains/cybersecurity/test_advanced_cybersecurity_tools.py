@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock
 from backend.utils.domains.cybersecurity.advanced_cybersecurity_tools import AdvancedCybersecurityTools
 from backend.utils.core.command_executor import ExecutionResult
@@ -32,9 +31,9 @@ class TestAdvancedCybersecurityTools:
     def test_detect_ioc_suspicious_process_linux(self, adv_tools, mock_exec):
         adv_tools.os_type = "Linux"
         mock_exec.execute.return_value = ExecutionResult(True, "user 123 0.0 0.0 nc.exe -l -p 4444", "", 0, "ps aux")
-        
+
         result = adv_tools.detect_ioc()
-        
+
         assert result["ok"] is True
         assert result["result"]["status"] == "iocs_detected"
         assert any(ioc["type"] == "suspicious_process" for ioc in result["result"]["iocs"])
@@ -43,11 +42,11 @@ class TestAdvancedCybersecurityTools:
         adv_tools.os_type = "Linux"
         target = tmp_path / "unsafe.txt"
         target.touch()
-        
+
         mock_exec.execute.return_value = ExecutionResult(True, "drwxrwxrwx 1 user group 0 Jan 1 00:00 directory", "", 0, "ls -ld")
-        
+
         result = adv_tools.analyze_permissions(str(target))
-        
+
         assert result["ok"] is True
         assert result["result"]["status"] == "permission_issues_detected"
         assert any("World-writable" in finding["finding"] for finding in result["result"]["findings"])

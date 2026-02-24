@@ -5,6 +5,7 @@ Monitors token consumption per phase/model and suggests lighter models
 for trivial tasks to optimize resource usage.
 """
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -170,11 +171,11 @@ class CostAnalyzer:
                 return
 
             db = self.logger.structured_logger.db
-            
+
             # Query for llm_response events which contain usage data
             query = "SELECT extra_data, timestamp FROM logs WHERE extra_data LIKE '%llm_response%'"
             rows = db.fetch_all(query)
-            
+
             loaded_count = 0
             for row in rows:
                 try:
@@ -193,11 +194,32 @@ class CostAnalyzer:
                         loaded_count += 1
                 except Exception:
                     continue
-            
+
             if loaded_count > 0:
                 self.logger.info(f"Loaded {loaded_count} historical cost records from database.")
         except Exception as e:
             self.logger.warning(f"Failed to load historical costs: {e}")
+
+    def get_total_tokens(self, project_name: Optional[str] = None) -> int:
+        """Return total tokens consumed, optionally filtered by project.
+
+        When *project_name* is provided, only records whose ``phase_name``
+        starts with ``project_name`` are counted (convention used by the DAG
+        orchestrator when recording per-node usage).
+
+        Args:
+            project_name: Optional project identifier prefix filter.
+
+        Returns:
+            Total token count (prompt + completion) across matching records.
+        """
+        if project_name is None:
+            return sum(r.total_tokens for r in self._records)
+        return sum(
+            r.total_tokens
+            for r in self._records
+            if r.phase_name.startswith(project_name)
+        )
 
     def record_usage(
         self,

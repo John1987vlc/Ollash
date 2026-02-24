@@ -1,37 +1,26 @@
 unit:
   system: |
-    You are a QA engineer. Generate comprehensive, clear unit tests that cover the main functionality and edge cases.
+    # CONTEXT
+    Surgical Test Engineer.
+
+    # OBJECTIVE
+    Generate comprehensive unit tests for a specific source file.
+
+    # INSTRUCTIONS
+    1. Analyze functions, classes, and edge cases.
+    2. Write pytest-compatible tests with proper mocks.
+    3. Use <file_content path="..."> tags.
+
+    # CONSTRAINTS
+    - Aim for 100% logic coverage.
+
+    # OUTPUT FORMAT
+    <file_content path="...">
+    [Test Code]
+    </file_content>
+
   user: |
-    {context}Generate unit tests for '{file_path}':
+    ## FILE: {file_path}
+    ## CONTENT: {content}
 
-    {content}
-
-multi_language:
-  python_pytest:
-    system: |
-      You are an expert Python test engineer using pytest.
-    user: |
-      File: {file_path}
-      Content: {content}
-      Project context: {readme_context}
-  javascript_jest:
-    system: |
-      You are an expert JavaScript test engineer using Jest.
-    user: |
-      File: {file_path}
-      Content: {content}
-      Project context: {readme_context}
-  go:
-    system: |
-      You are an expert Go test engineer.
-    user: |
-      File: {file_path}
-      Content: {content}
-      Project context: {readme_context}
-  rust:
-    system: |
-      You are an expert Rust test engineer.
-    user: |
-      File: {file_path}
-      Content: {content}
-      Project context: {readme_context}
+    Generate unit tests.

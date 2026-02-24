@@ -173,7 +173,7 @@ class CommandExecutor:
             return ExecutionResult(
                 success=False,
                 stdout="",
-                stderr=f"Comando no permitido: {' '.join(command_list) if isinstance(command_list, list) else command}",
+                stderr=f"Comando no permitido por política de seguridad: {' '.join(command_list) if isinstance(command_list, list) else command}. Por favor, explica al usuario por qué necesitas ejecutar este comando y solicita permiso.",
                 return_code=1,
                 command=command,
             )
@@ -385,7 +385,7 @@ except Exception as e:
             return ExecutionResult(
                 success=False,
                 stdout="",
-                stderr=f"Comando no permitido: {command_str}",
+                stderr=f"Comando no permitido por política de seguridad: {command_str}. Por favor, explica al usuario por qué necesitas ejecutar este comando y solicita permiso.",
                 return_code=1,
                 command=command_str,
             )

@@ -103,15 +103,29 @@ class ToolDispatcher:
         if tool_name not in self._registry:
             raise KeyError(f"Tool not registered: {tool_name!r}")
 
-        self._event_publisher.publish("tool_dispatched", tool=tool_name, args=args)
+        agent_id = args.get("_agent_id", "unknown")
+        task_id = args.get("_task_id", "")
+
+        self._event_publisher.publish(
+            "tool_dispatched",
+            tool=tool_name,
+            args={k: v for k, v in args.items() if not k.startswith("_")},
+        )
+        # P9 — Tool Belt UI: announce which tool is starting (for swimlane icons)
+        self._event_publisher.publish(
+            "tool_execution_started",
+            tool_name=tool_name,
+            agent_id=agent_id,
+            task_id=task_id,
+        )
 
         if fire_and_forget:
             asyncio.create_task(
-                self._execute_with_callback(tool_name, args, callback)
+                self._execute_with_callback(tool_name, args, callback, agent_id, task_id)
             )
             return None
 
-        return await self._execute_with_callback(tool_name, args, callback)
+        return await self._execute_with_callback(tool_name, args, callback, agent_id, task_id)
 
     async def dispatch_batch(
         self,
@@ -161,15 +175,27 @@ class ToolDispatcher:
         tool_name: str,
         args: Dict[str, Any],
         callback: Optional[Callable[[Any], None]],
+        agent_id: str = "unknown",
+        task_id: str = "",
     ) -> Optional[Any]:
         start = time.monotonic()
+        # Strip internal metadata keys before forwarding to the tool fn
+        clean_args = {k: v for k, v in args.items() if not k.startswith("_")}
         try:
             fn = self._registry[tool_name]
-            result = await fn(**args)
+            result = await fn(**clean_args)
             duration_ms = int((time.monotonic() - start) * 1000)
             self._event_publisher.publish(
                 "tool_completed",
                 tool=tool_name,
+                duration_ms=duration_ms,
+            )
+            # P9 — Tool Belt UI: announce tool completion with duration for tooltip
+            self._event_publisher.publish(
+                "tool_execution_completed",
+                tool_name=tool_name,
+                agent_id=agent_id,
+                task_id=task_id,
                 duration_ms=duration_ms,
             )
             if callback is not None:
@@ -183,4 +209,12 @@ class ToolDispatcher:
         except Exception as exc:
             self._logger.error(f"[ToolDispatcher] '{tool_name}' failed: {exc}")
             self._event_publisher.publish("tool_failed", tool=tool_name, error=str(exc))
+            self._event_publisher.publish(
+                "tool_execution_completed",
+                tool_name=tool_name,
+                agent_id=agent_id,
+                task_id=task_id,
+                duration_ms=int((time.monotonic() - start) * 1000),
+                error=str(exc),
+            )
             return None

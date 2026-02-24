@@ -17,13 +17,26 @@ class IntentRoutingMixin(ABC):
         Classifies the user's intent based on the prompt to route to the most
         suitable LLM model or tool chain.
         """
-        # This is a placeholder for actual intent classification logic.
-        # In a real scenario, this would involve an LLM call specifically
-        # tasked with classifying intent, or a rule-based system.
+        clean_input = prompt.strip().lower()
 
-        # For demonstration, we'll use a very simple heuristic or default.
-        # The actual implementation might use the 'orchestration' model or 'generalist'
-        # model provided by the llm_manager to classify intent.
+        # F33: Hardcoded Keyword Fallback (Prioritize precision for known IT tasks)
+        system_priority = ["ram", "cpu", "disk", "process", "os", "operating system", "sistema operativo", "hardware", "memoria", "disco"]
+        network_priority = ["ip address", "ping", "port", "dns", "mac address", "conexion", "network", "red", "ip pública"]
+        code_priority = ["python", "javascript", "code", "script", "refactor", "bug", "fix", "program", "function", "clase"]
+        git_priority = ["git", "commit", "push", "pull", "branch", "repo", "repository"]
+
+        if any(kw in clean_input for kw in system_priority):
+            self.logger.info("🎯 Intent auto-classified (Keyword): 'system'")
+            return "system"
+        if any(kw in clean_input for kw in network_priority):
+            self.logger.info("🎯 Intent auto-classified (Keyword): 'network'")
+            return "network"
+        if any(kw in clean_input for kw in git_priority):
+            self.logger.info("🎯 Intent auto-classified (Keyword): 'git'")
+            return "system" # Git is handled by system/orchestrator
+        if any(kw in clean_input for kw in code_priority):
+            self.logger.info("🎯 Intent auto-classified (Keyword): 'code'")
+            return "code"
 
         # Example: Using an orchestration model for intent classification
         orchestration_client = self.llm_manager.get_client("orchestration")
@@ -45,7 +58,21 @@ class IntentRoutingMixin(ABC):
                 # Extract intent from the response. The LLM is instructed to return only the intent string.
                 # Use .strip() to remove leading/trailing whitespace, and .lower() for case-insensitivity.
                 if response and response.get("message") and response["message"].get("content"):
-                    classified_intent = response["message"]["content"].strip().lower()
+                    raw_content = response["message"]["content"].strip().lower()
+
+                    # F33: Radical filtering of translation noise
+                    clean_content = raw_content
+                    if "**input language:**" in clean_content:
+                        # Try to extract content after the noise
+                        if "output:**" in clean_content:
+                            clean_content = clean_content.split("output:**", 1)[1].strip()
+                        else:
+                            clean_content = clean_content.split("**input language:**", 1)[1].strip()
+
+                    # Clean Markdown and quotes
+                    clean_content = clean_content.replace("*", "").replace("_", "").replace("'", "").replace("\"", "")
+
+                    self.logger.debug(f"🔍 Intent Router sanitized string: '{clean_content}'")
 
                     # Validate if the classified intent is one of the expected intents
                     valid_intents = [
@@ -61,16 +88,35 @@ class IntentRoutingMixin(ABC):
                         "analysing",
                         "writing",
                     ]
-                    if classified_intent in valid_intents:
+
+                    # F27: Search for the keyword within the string to handle extra conversational text
+                    classified_intent = "default"
+
+                    # SYSTEM PRIORITY (Highest)
+                    system_keywords = ["ram", "cpu", "disk", "process", "os", "sistema operativo", "operating system", "memoria", "hardware", "disco", "driver", "controlador"]
+                    # NETWORK PRIORITY
+                    network_keywords = ["ip", "ping", "port", "dns", "mac address", "conexion", "network", "red"]
+
+                    if any(kw in clean_content for kw in system_keywords):
+                        classified_intent = "system"
+                    elif any(kw in clean_content for kw in network_keywords):
+                        classified_intent = "network"
+                    else:
+                        for intent in valid_intents:
+                            if intent in clean_content:
+                                classified_intent = intent
+                                break
+
+                    if classified_intent != "default":
                         # F25: If it's prototyping or code, ensure we use the coder role
                         if classified_intent == "prototyping":
                             classified_intent = "code"
 
-                        self.logger.debug(f"Intent classified: {classified_intent} for prompt: {prompt[:50]}...")
+                        self.logger.info(f"🎯 Intent classified: '{classified_intent}' for prompt: '{prompt[:50]}...'")
                         return classified_intent
                     else:
                         self.logger.warning(
-                            f"LLM classified intent '{classified_intent}' is not a valid intent. Falling back to 'default'."
+                            f"LLM failed to provide a clear intent in: '{clean_content}'. Falling back to 'default'."
                         )
                         return "default"
                 else:
@@ -99,9 +145,9 @@ class IntentRoutingMixin(ABC):
             "intent_to_model_role_map",
             {
                 "code": "coder",
-                "network": "generalist",  # No specific network model in LLM_ROLES, fallback to generalist
-                "system": "generalist",  # No specific system model in LLM_ROLES, fallback to generalist
-                "cybersecurity": "generalist",  # No specific cybersecurity model in LLM_ROLES, fallback to generalist
+                "network": "network",
+                "system": "system",
+                "cybersecurity": "generalist",
                 "planning": "planner",
                 "general": "generalist",
                 "prototyping": "prototyper",

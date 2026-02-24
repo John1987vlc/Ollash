@@ -84,6 +84,12 @@ from backend.agents.domain_agent_orchestrator import DomainAgentOrchestrator
 from backend.agents.orchestrators.blackboard import Blackboard
 from backend.agents.orchestrators.self_healing_loop import SelfHealingLoop
 from backend.agents.orchestrators.tool_dispatcher import ToolDispatcher
+from backend.agents.orchestrators.debate_node_runner import DebateNodeRunner
+from backend.utils.domains.code.sandbox_runner import SandboxRunner
+from backend.utils.domains.git.git_auto_committer import GitAutoCommitter
+from backend.utils.core.io.checkpoint_manager import CheckpointManager
+from backend.utils.core.analysis.cost_analyzer import CostAnalyzer
+from backend.utils.core.system.metrics_database import MetricsDatabase
 
 
 # ---------------------------------------------------------------------------
@@ -536,6 +542,14 @@ class DomainAgentsContainer(containers.DeclarativeContainer):
         tool_dispatcher=tool_dispatcher,
     )
 
+    # ------------------------------------------------------------------
+    # P3 — Sandbox runner (empirical validation via ruff/mypy subprocess)
+    # ------------------------------------------------------------------
+    sandbox_runner = providers.Singleton(
+        SandboxRunner,
+        logger=core.logging.logger,
+    )
+
     auditor_agent = providers.Singleton(
         AuditorAgent,
         vulnerability_scanner=core.analysis.vulnerability_scanner,
@@ -543,6 +557,7 @@ class DomainAgentsContainer(containers.DeclarativeContainer):
         event_publisher=core.logging.event_publisher,
         logger=core.logging.logger,
         tool_dispatcher=tool_dispatcher,
+        sandbox_runner=sandbox_runner,
     )
 
     devops_agent = providers.Factory(
@@ -582,6 +597,36 @@ class DomainAgentsContainer(containers.DeclarativeContainer):
     )
 
     # ------------------------------------------------------------------
+    # P8 — Debate node runner (architect vs auditor by default)
+    # ------------------------------------------------------------------
+    debate_node_runner = providers.Factory(
+        DebateNodeRunner,
+        agent_a=architect_agent,
+        agent_b=auditor_agent,
+        event_publisher=core.logging.event_publisher,
+        logger=core.logging.logger,
+    )
+
+    # ------------------------------------------------------------------
+    # P2/P5/P10 — Checkpoint, cost analyser, metrics DB
+    # ------------------------------------------------------------------
+    checkpoint_manager = providers.Singleton(
+        CheckpointManager,
+        base_dir=core.ollash_root_dir,
+        logger=core.logging.logger,
+    )
+
+    cost_analyzer = providers.Singleton(
+        CostAnalyzer,
+        logger=core.logging.logger,
+    )
+
+    metrics_database = providers.Singleton(
+        MetricsDatabase,
+        db_path=core.ollash_root_dir,
+    )
+
+    # ------------------------------------------------------------------
     # Orchestrator
     # ------------------------------------------------------------------
     domain_agent_orchestrator = providers.Factory(
@@ -597,7 +642,15 @@ class DomainAgentsContainer(containers.DeclarativeContainer):
         event_publisher=core.logging.event_publisher,
         logger=core.logging.logger,
         generated_projects_dir=core.generated_projects_dir,
+        # P2/P5/P6/P8/P10 additions
+        checkpoint_manager=checkpoint_manager,
+        cost_analyzer=cost_analyzer,
+        metrics_database=metrics_database,
+        debate_node_runner=debate_node_runner,
     )
+
+    # Convenience alias used by blueprints
+    orchestrator = domain_agent_orchestrator
 
 
 # ---------------------------------------------------------------------------

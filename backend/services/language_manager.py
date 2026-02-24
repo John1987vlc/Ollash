@@ -22,20 +22,20 @@ class LanguageManager:
 
     async def ensure_english_input(self, text: str) -> Tuple[str, str]:
         """
-        Detects language and translates to English if necessary.
+        Detects language and translates to English ONLY if necessary.
         Returns (english_text, detected_lang_code).
         """
         if not text or not text.strip():
             return text, "en"
 
-        # Basic heuristic for non-English detection (high non-ASCII count)
-        is_likely_not_en = any(ord(c) > 127 for c in text[:500])
+        # F33: Refined heuristic. If it has very few non-ASCII chars, assume English passthrough
+        non_ascii_count = sum(1 for c in text if ord(c) > 127)
+        is_likely_not_en = non_ascii_count > 2 # Allow for a few special chars without translating
 
         if not is_likely_not_en:
-            # We still might want to "standardize" or "refine" the prompt even if it's English
             return text, "en"
 
-        logger.info("Detecting non-English input. Translating to English for internal processing...")
+        logger.info(f"Detecting non-English input ({non_ascii_count} non-ascii). Translating...")
 
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
@@ -52,8 +52,36 @@ class LanguageManager:
             response, _ = await client.achat(
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], tools=[]
             )
-            translated = response.get("message", {}).get("content", text).strip()
-            return translated, "detected"  # We don't necessarily need the exact code for internal use
+            raw_translated = response.get("message", {}).get("content", text).strip()
+
+            # F33: Radical cleaning of conversational noise
+            # 1. Remove common SLM preambles
+            noise_patterns = [
+                "Understood", "Please provide", "Here is", "Translation:",
+                "The translation is", "Translated text:", "Certainly", "Sure"
+            ]
+
+            cleaned = raw_translated
+            for pattern in noise_patterns:
+                if cleaned.startswith(pattern):
+                    # Try to find the actual content after a colon or just remove the line
+                    if ":" in cleaned:
+                        cleaned = cleaned.split(":", 1)[1].strip()
+                    else:
+                        lines = cleaned.split("\n")
+                        if len(lines) > 1:
+                            cleaned = "\n".join(lines[1:]).strip()
+
+            # 2. Strip quotes if the model wrapped the translation
+            if (cleaned.startswith('"') and cleaned.endswith('"')) or (cleaned.startswith("'") and cleaned.endswith("'")):
+                cleaned = cleaned[1:-1].strip()
+
+            # Final check: if cleaning emptied it or it still looks like noise, use original text
+            if not cleaned or "provide the text" in cleaned.lower():
+                logger.warning(f"Translation seems invalid, falling back to original: {cleaned}")
+                return text, "error"
+
+            return cleaned, "detected"
         except Exception as e:
             logger.error(f"Automatic translation failed: {e}")
             return text, "error"

@@ -1,5 +1,4 @@
-from typing import Optional, List, Dict, Any
-from pathlib import Path
+from typing import Optional, Dict, Any
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.tools.scripting_sandbox import ScriptingSandbox
 
@@ -9,7 +8,7 @@ class NetworkSandbox(ScriptingSandbox):
     Uses 'netshoot' image which contains:
     - tcpdump, tshark, nmap, scapy, iperf, mtr, dig, etc.
     """
-    
+
     def __init__(self, logger: Optional[AgentLogger] = None):
         # Using nicolaka/netshoot as the industry standard for network troubleshooting
         super().__init__(logger=logger, image="nicolaka/netshoot:latest")
@@ -19,7 +18,7 @@ class NetworkSandbox(ScriptingSandbox):
         # Wrap code to ensure scapy is imported
         full_code = f"from scapy.all import *\n{python_code}"
         self.write_file("scapy_task.py", full_code)
-        
+
         return self.execute_command(["python3", "scapy_task.py"])
 
     def run_nmap_scan(self, target: str, arguments: str = "-sV") -> Dict[str, Any]:

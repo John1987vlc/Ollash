@@ -1,6 +1,6 @@
 import ipaddress
 import re
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.tools.tool_decorator import ollash_tool
 
@@ -8,7 +8,7 @@ class NetworkEngineeringTools:
     """
     Advanced tools for Network Engineers: Subnetting, Config Auditing, and Troubleshooting.
     """
-    
+
     def __init__(self, logger: AgentLogger):
         self.logger = logger
 
@@ -28,13 +28,13 @@ class NetworkEngineeringTools:
         try:
             net = ipaddress.IPv4Network(network_cidr)
             subnets = list(net.subnets(new_prefix=new_prefix))
-            
+
             result = {
                 "base_network": network_cidr,
                 "total_subnets": len(subnets),
                 "subnets": []
             }
-            
+
             # Return first 16 subnets to avoid output flooding
             for s in subnets[:16]:
                 result["subnets"].append({
@@ -43,10 +43,10 @@ class NetworkEngineeringTools:
                     "usable_range": f"{s.network_address + 1} - {s.broadcast_address - 1}",
                     "total_hosts": s.num_addresses - 2
                 })
-            
+
             if len(subnets) > 16:
                 result["note"] = f"Showing first 16 subnets out of {len(subnets)}."
-                
+
             return {"ok": True, "result": result}
         except Exception as e:
             return {"ok": False, "error": str(e)}
@@ -65,7 +65,7 @@ class NetworkEngineeringTools:
         """Analyzes Cisco configuration for security issues."""
         self.logger.info("Auditing Cisco configuration...")
         findings = []
-        
+
         checks = {
             "No Password Encryption": r"no service password-encryption",
             "Telnet Enabled": r"transport input telnet",
@@ -74,7 +74,7 @@ class NetworkEngineeringTools:
             "HTTP Server Enabled": r"^ip http server",
             "SNMP Public Community": r"snmp-server community public"
         }
-        
+
         for issue, pattern in checks.items():
             if re.search(pattern, config_text, re.MULTILINE | re.IGNORECASE):
                 findings.append({
@@ -82,7 +82,7 @@ class NetworkEngineeringTools:
                     "severity": "high" if "password" in issue.lower() or "Telnet" in issue else "medium",
                     "recommendation": f"Disable or secure the {issue} setting."
                 })
-        
+
         return {
             "ok": True,
             "result": {

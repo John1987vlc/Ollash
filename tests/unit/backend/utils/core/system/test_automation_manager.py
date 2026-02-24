@@ -1,7 +1,6 @@
 """Unit tests for AutomationManager execution history (E6)."""
 
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from backend.utils.core.system.task_models import ExecutionRecord

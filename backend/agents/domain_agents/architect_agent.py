@@ -13,7 +13,9 @@ This agent only uses read/analysis tools — it never writes files directly.
 
 from __future__ import annotations
 
+import base64
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from backend.agents.domain_agents.base_domain_agent import BaseDomainAgent
@@ -69,14 +71,52 @@ class ArchitectAgent(BaseDomainAgent):
         project_description: str,
         project_name: str,
         blackboard: "Blackboard",
+        image_paths: Optional[List[Path]] = None,
     ) -> TaskDAG:
         """High-level entry point called by DomainAgentOrchestrator.
 
         Creates a synthetic ARCHITECT TaskNode, runs it, and returns the
         produced TaskDAG.
+
+        Args:
+            project_description: Natural language project request.
+            project_name:        Short project identifier.
+            blackboard:          Shared state store.
+            image_paths:         P7 — Optional list of image Paths (architecture
+                                 diagrams, wireframes). Encoded as base64 and
+                                 included in the LLM prompt if supported.
         """
         self._log_info(f"Planning DAG for project '{project_name}'")
         self._publish_event("architect_planning_started", project=project_name)
+
+        # P7 — Encode images and store in Blackboard for UI "Visual Context" panel
+        encoded_images: List[Dict[str, str]] = []
+        if image_paths:
+            for img_path in image_paths:
+                try:
+                    img_bytes = Path(img_path).read_bytes()
+                    suffix = Path(img_path).suffix.lower().lstrip(".")
+                    media_type = {
+                        "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                        "png": "image/png", "gif": "image/gif",
+                        "webp": "image/webp",
+                    }.get(suffix, "image/png")
+                    encoded_images.append({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": base64.b64encode(img_bytes).decode(),
+                        },
+                        "filename": Path(img_path).name,
+                    })
+                    self._log_debug(f"Encoded context image: {img_path}")
+                except Exception as exc:
+                    self._log_warning(f"Could not encode image '{img_path}': {exc}")
+
+        if encoded_images:
+            await blackboard.write("context_images", encoded_images, self.agent_id)
+            self._log_info(f"Stored {len(encoded_images)} context image(s) in Blackboard")
 
         node = TaskNode(
             id="__architect_plan__",
@@ -84,6 +124,7 @@ class ArchitectAgent(BaseDomainAgent):
             task_data={
                 "project_description": project_description,
                 "project_name": project_name,
+                "context_images": encoded_images,
             },
         )
         dag = await self.run(node, blackboard)

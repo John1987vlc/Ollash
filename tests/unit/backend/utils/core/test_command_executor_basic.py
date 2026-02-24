@@ -1,6 +1,4 @@
 import pytest
-import asyncio
-import os
 from backend.utils.core.command_executor import CommandExecutor, SandboxLevel
 from unittest.mock import MagicMock
 
@@ -36,10 +34,10 @@ def test_sandbox_disallowed_command(executor):
     # Setup sandbox with a policy manager that denies everything
     policy_mock = MagicMock()
     policy_mock.is_command_allowed.return_value = False
-    
+
     executor.sandbox = SandboxLevel.STRICT
     executor.policy_manager = policy_mock
-    
+
     result = executor.execute(["rm", "-rf", "/"])
     assert result.success is False
     assert "no permitido" in result.stderr.lower()

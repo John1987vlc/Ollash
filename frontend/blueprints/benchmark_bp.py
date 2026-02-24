@@ -138,7 +138,7 @@ def start_benchmark():
             except Exception:
                 pass
 
-            total_models = len(models)
+            _total_models = len(models)
             all_results = []
 
             # Define progress callback
@@ -148,7 +148,7 @@ def start_benchmark():
             # Run benchmark for all models with real-time updates
             benchmarker.results = []
             benchmarker.run_benchmark(models, callback=benchmark_callback)
-            
+
             all_results = benchmarker.results
 
             # F14: Generate Summary after all models are done

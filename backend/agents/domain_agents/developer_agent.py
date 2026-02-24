@@ -136,6 +136,7 @@ class DeveloperAgent(BaseDomainAgent):
                 is_remediation=is_remediation,
                 prevention_tips=prevention_tips,
                 remediation_actions=remediation_actions,
+                blackboard=blackboard,
             )
 
         if content is None:
@@ -173,8 +174,14 @@ class DeveloperAgent(BaseDomainAgent):
         is_remediation: bool = False,
         prevention_tips: str = "",
         remediation_actions: Optional[list] = None,
+        blackboard: Optional["Blackboard"] = None,
     ) -> Optional[str]:
-        """Generate a single file via EnhancedFileContentGenerator with fallback."""
+        """Generate a single file via EnhancedFileContentGenerator with fallback.
+
+        When *blackboard* is supplied and the generator supports streaming, each
+        token chunk is forwarded to ``blackboard.write_stream_chunk()`` so the
+        frontend can render live output via SSE.
+        """
         loop = asyncio.get_event_loop()
 
         effective_plan = dict(plan)
@@ -183,7 +190,31 @@ class DeveloperAgent(BaseDomainAgent):
         if prevention_tips:
             effective_plan["prevention_tips"] = prevention_tips
 
-        # Strategy 1: EnhancedFileContentGenerator.generate_file_with_plan()
+        # Strategy 1 (streaming): generate_file_with_plan_streaming()
+        if blackboard is not None and hasattr(
+            self._file_gen, "generate_file_with_plan_streaming"
+        ):
+            try:
+                async def _on_chunk(chunk: str) -> None:
+                    await blackboard.write_stream_chunk(file_path, chunk, self.agent_id)
+
+                content = await self._file_gen.generate_file_with_plan_streaming(
+                    file_path=file_path,
+                    logic_plan=effective_plan,
+                    project_description="",
+                    readme="",
+                    structure={},
+                    related_files=context_files,
+                    chunk_callback=_on_chunk,
+                )
+                if content:
+                    return content
+            except Exception as exc:
+                self._log_error(
+                    f"Streaming generation failed for '{file_path}': {exc}; falling back"
+                )
+
+        # Strategy 2 (sync): EnhancedFileContentGenerator.generate_file_with_plan()
         try:
             content = await loop.run_in_executor(
                 None,
@@ -203,7 +234,7 @@ class DeveloperAgent(BaseDomainAgent):
         except Exception as exc:
             self._log_error(f"generate_file_with_plan failed for '{file_path}': {exc}")
 
-        # Strategy 2: FileContentGenerator.generate_file()
+        # Strategy 3 (sync fallback): FileContentGenerator.generate_file()
         try:
             content = await loop.run_in_executor(
                 None,

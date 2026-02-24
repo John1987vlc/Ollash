@@ -205,6 +205,65 @@ class CheckpointManager:
         """List all checkpoints for a project."""
         return self.store.query(project_name=project_name)
 
+    # ------------------------------------------------------------------
+    # DAG checkpoint methods (Point 2 — Resilience)
+    # ------------------------------------------------------------------
+
+    def save_dag(
+        self,
+        project_name: str,
+        dag_dict: Dict[str, Any],
+        blackboard_dict: Dict[str, Any],
+    ) -> Path:
+        """Serialise a live TaskDAG + Blackboard snapshot to disk.
+
+        Written to ``.ollash/checkpoints/{project_name}/dag_latest.json``.
+        The file is overwritten on every call so it always reflects the
+        most recent consistent state.
+
+        Args:
+            project_name:    Short project identifier.
+            dag_dict:        Result of ``TaskDAG.to_dict()``.
+            blackboard_dict: Result of ``Blackboard.snapshot_serializable()``.
+
+        Returns:
+            Path to the written JSON file.
+        """
+        project_dir = self.base_dir / project_name
+        project_dir.mkdir(parents=True, exist_ok=True)
+        dag_path = project_dir / "dag_latest.json"
+
+        payload = {
+            "project_name": project_name,
+            "timestamp": datetime.now().isoformat(),
+            "dag": dag_dict,
+            "blackboard": blackboard_dict,
+        }
+        dag_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        self.logger.debug(f"[CheckpointManager] DAG checkpoint saved: {dag_path}")
+        return dag_path
+
+    def load_dag(self, project_name: str) -> Optional[Dict[str, Any]]:
+        """Load the latest DAG checkpoint for *project_name*.
+
+        Returns:
+            The parsed JSON dict with keys ``dag`` and ``blackboard``,
+            or None if no checkpoint exists.
+        """
+        dag_path = self.base_dir / project_name / "dag_latest.json"
+        if not dag_path.exists():
+            return None
+        try:
+            data = json.loads(dag_path.read_text(encoding="utf-8"))
+            self.logger.info(
+                f"[CheckpointManager] DAG checkpoint loaded: {project_name} "
+                f"(saved at {data.get('timestamp', 'unknown')})"
+            )
+            return data
+        except Exception as exc:
+            self.logger.warning(f"[CheckpointManager] Failed to load DAG checkpoint: {exc}")
+            return None
+
     def cleanup_old(self, max_age_days: int = 30) -> int:
         """Remove checkpoints older than max_age_days."""
         cutoff = datetime.now().timestamp() - (max_age_days * 86400)

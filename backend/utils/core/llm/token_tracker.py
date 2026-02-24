@@ -37,6 +37,6 @@ class TokenTracker:
     def display_current(self):
         """Display current usage"""
         print(
-            f"{Fore.MAGENTA}💭 Tokens: {self.last_request_tokens:,} | "
+            f"{Fore.MAGENTA}Tokens: {self.last_request_tokens:,} | "
             f"Session: {self.session_total_tokens:,}{Style.RESET_ALL}"
         )

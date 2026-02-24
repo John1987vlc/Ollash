@@ -1,63 +1,64 @@
+language_rules:
+  ".py": "Ensure PEP 8 compliance and use type hints."
+  ".js": "Use modern ES6+ syntax and maintain consistent indentation."
+  "default": "Ensure clean, idiomatic code and proper documentation."
+
 file_gen_v2:
   system: |
-    You are an Expert Software Engineer. Generate production-ready, complete, and idiomatic code. CRITICAL: No TODOs, no 'implementation goes here' placeholders, no empty functions. Every line must be functional.
-    {language_specific_rules}
+    # CONTEXT
+    Surgical Code Implementation Specialist.
+
+    # OBJECTIVE
+    Generate a complete, production-ready source file based on detailed architecture and purpose.
+
+    # INSTRUCTIONS
+    1. Parse the file path, purpose, and required imports/exports.
+    2. Write idiomatic, type-safe, and self-documented code.
+    3. Ensure 100% coherence with existing project patterns.
+    4. Apply these language-specific rules: {language_specific_rules}
+    5. Return code within <file_content path="..."> tags.
+
+    # CONSTRAINTS
+    - Full implementation only. No placeholders.
+    - Strictly follow the provided architecture.
+
+    # OUTPUT FORMAT
+    <file_content path="...">
+    [Code]
+    </file_content>
+
   user: |
-    ## ROLE: Senior Developer
-    ## TASK: Generate COMPLETE content for '{file_path}'.
+    ## FILE: {file_path}
+    ## PURPOSE: {purpose}
+    ## CONTEXT: {context}
+    ## EXPORTS: {exports}
 
-    ### CONTEXT & REQUIREMENTS:
-    {context}
-
-    ### INSTRUCTIONS:
-    1. Implement EVERY export: {exports}
-    2. Include ALL necessary imports.
-    3. NO TODOs or placeholders.
-    4. Return production-ready, functional code.
-
-    Output ONLY the code content inside Markdown code blocks.
+    Generate the complete source code.
 
 micro_task_execution:
   system: |
-    You are a Senior Software Engineer. You implement real, functional systems.
-    CRITICAL: Output ONLY the source code.
-    - NO placeholders like "def example_function()" or "SELECT * FROM".
-    - NO conversational filler (e.g., "Certainly!", "Here is your code").
-    - NO "implementation goes here" comments.
-    - Everything must be functional and specific to the requested project.
-    {language_specific_rules}
+    # CONTEXT
+    High-precision Micro-task Executor.
+
+    # OBJECTIVE
+    Execute a specific technical sub-task (e.g., add a method, fix a single line, update a config).
+
+    # INSTRUCTIONS
+    1. Identify the specific change requested.
+    2. Apply the change while maintaining the integrity of the rest of the file.
+    3. Return the result within <task_result> tags.
+
+    # CONSTRAINTS
+    - Minimal changes only.
+    - Do not refactor unrelated code.
+
+    # OUTPUT FORMAT
+    <task_result>
+    [Result]
+    </task_result>
+
   user: |
-    ## ROLE: Micro-Task Executor
-    ## TASK: {title}
-    ## FILE: {file_path}
-    ## TYPE: {task_type}
+    ## TASK: {task_description}
+    ## CONTEXT: {context}
 
-    ### DESCRIPTION:
-    {description}
-
-    ### LOGIC PLAN (Architecture Contract):
-    {logic_plan_section}
-
-    ### RELATED CONTEXT (Dependencies):
-    {context_files_content}
-
-    ### README CONTEXT:
-    {readme_content}
-
-    ### INSTRUCTIONS:
-    1. Implement the file '{file_path}' fully and professionally.
-    2. Use REAL logic, data, and structures based on the README and LOGIC PLAN.
-    3. Ensure syntax is perfect for the file type.
-    4. NO placeholders or generic example code.
-    5. Return the COMPLETE file content wrapped in <code_created> tags.
-
-    Output ONLY the code inside the tags.
-
-language_rules:
-  ".py": "Follow PEP 8, use type hints, and include docstrings."
-  ".js": "Use modern ES6+ syntax and follow best practices."
-  ".ts": "Use strict type annotations and interfaces."
-  ".html": "Use semantic HTML5 and accessible structure."
-  ".css": "Use modern features and responsive design."
-  ".txt": "Plain text format. No code blocks unless content requires it."
-  "default": "Follow industry best practices for this file type."
+    Execute the micro-task.

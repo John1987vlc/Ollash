@@ -15,10 +15,13 @@ concurrency:
 #
 # Execution graph:
 #
-#   lint ─────────────────────────────────────────────────── (informational)
+#   lint ──────────────────────────────────────────────────── (informational)
 #   unit-tests ──┬── integration-tests (parallel after unit pass)
 #                └── e2e-tests         (parallel after unit pass)
-#   security ─────────────────────────────────────────────── (informational)
+#   frontend-tests ────────────────────────────────────────── (parallel, Vitest)
+#   security ──────────────────────────────────────────────── (informational)
+#
+# If unit-tests fails → integration-tests & e2e-tests are skipped automatically.
 #
 # If unit-tests fails → integration-tests & e2e-tests are skipped automatically.
 # If lint fails → unit/integration/e2e still run (give full feedback quickly).
@@ -242,6 +245,43 @@ jobs:
         name: playwright-screenshots
         path: test-results/screenshots/
         retention-days: 7
+
+# ── Frontend Unit Tests — Vitest (starts immediately in parallel) ─────────────
+  frontend-tests:
+    name: Frontend Tests (Vitest)
+    runs-on: ubuntu-latest
+    # No dependency — runs in parallel with lint and unit-tests
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+        cache: "npm"
+
+    - name: Cache node_modules
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('package.json') }}
+        restore-keys: ${{ runner.os }}-node-
+
+    - name: Install Node dependencies
+      run: npm install
+
+    - name: Run Vitest (component unit tests)
+      run: npm run test -- --reporter=verbose
+      env:
+        CI: "true"
+
+    - name: Upload coverage report (frontend)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: vitest-coverage
+        path: coverage/
+        retention-days: 14
 
 # ── Security Scan (starts immediately in parallel, informational) ─────────────
   security:

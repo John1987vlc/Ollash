@@ -807,3 +807,154 @@ def get_project_git_status(project_name):
         )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# P6 — Git manifest & diff endpoints
+# ---------------------------------------------------------------------------
+
+
+def _project_root(project_name: str) -> Path:
+    """Return the absolute path to a generated project root."""
+    return _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/git/manifest")
+def get_git_manifest(project_name: str):
+    """Return git_manifest.json produced by GitAutoCommitter after a DAG run."""
+    manifest_path = _project_root(project_name) / "git_manifest.json"
+    if not manifest_path.exists():
+        return jsonify({"error": "No git manifest found for this project."}), 404
+    try:
+        import json
+        with open(manifest_path, "r", encoding="utf-8") as fh:
+            return jsonify(json.load(fh))
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/git/diff/<path:rel_path>")
+def get_file_diff(project_name: str, rel_path: str):
+    """Return the unified diff for a specific file at its most-recent commit."""
+    project_dir = _project_root(project_name)
+    if not project_dir.exists():
+        return jsonify({"error": "Project not found."}), 404
+
+    try:
+        from backend.utils.core.io.git_manager import GitManager
+        gm = GitManager(project_dir)
+
+        # Find the last commit that touched rel_path
+        result = gm._run_git("log", "--pretty=%H", "-1", "--", rel_path)
+        sha = result.get("output", "").strip() if result.get("success") else None
+
+        if not sha:
+            return jsonify({"diff": "", "sha": None, "message": "No commits for this file."})
+
+        diff = gm.show_unified(sha, rel_path, context_lines=5)
+        numstat = gm.show_numstat_for_commit(sha, rel_path)
+
+        return jsonify({
+            "sha": sha,
+            "rel_path": rel_path,
+            "diff": diff,
+            "lines_added": numstat.get("added", 0),
+            "lines_deleted": numstat.get("deleted", 0),
+        })
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+# ---------------------------------------------------------------------------
+# P2 — Checkpoint resume endpoint
+# ---------------------------------------------------------------------------
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/resume", methods=["POST"])
+def resume_project(project_name: str):
+    """Resume a paused / partially-failed DAG run from the latest checkpoint."""
+    def _run_resume():
+        try:
+            from backend.agents.domain_agent_orchestrator import DomainAgentOrchestrator
+            from backend.core.containers import main_container as mc
+            orch: DomainAgentOrchestrator = mc.domain_agents.orchestrator()
+            orch.event_publisher = _event_publisher
+
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(orch.resume(project_name))
+            loop.close()
+
+            _chat_event_bridge.push_event(
+                "stream_end", {"message": f"Project '{project_name}' resumed and completed."}
+            )
+        except Exception as exc:
+            _chat_event_bridge.push_event(
+                "error", {"message": f"Resume failed for '{project_name}': {exc}"}
+            )
+
+    threading.Thread(target=_run_resume, daemon=True).start()
+    return jsonify({"status": "started", "message": f"Resume started for '{project_name}'."})
+
+
+@auto_agent_bp.route("/api/projects/<project_name>/checkpoint")
+def get_checkpoint(project_name: str):
+    """Return the latest DAG checkpoint metadata for a project."""
+    try:
+        from backend.utils.core.io.checkpoint_manager import CheckpointManager
+        cm = CheckpointManager(_ollash_root_dir)
+        data = cm.load_dag(project_name)
+        if data is None:
+            return jsonify({"error": "No checkpoint found."}), 404
+        dag = data.get("dag", {})
+        nodes_summary = [
+            {
+                "id": n.get("id"),
+                "status": n.get("status"),
+                "agent_type": n.get("agent_type"),
+            }
+            for n in dag.get("nodes", [])
+        ]
+        return jsonify({
+            "project_name": project_name,
+            "timestamp": data.get("timestamp"),
+            "node_count": len(nodes_summary),
+            "nodes": nodes_summary,
+        })
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+# ---------------------------------------------------------------------------
+# P7 — Image upload for multimodal ArchitectAgent
+# ---------------------------------------------------------------------------
+
+
+@auto_agent_bp.route("/api/projects/images/upload", methods=["POST"])
+def upload_context_images():
+    """Accept multipart image uploads; stored under .ollash/uploads/.
+
+    Returns server-side paths that ``/api/projects/create`` can reference via
+    the ``image_paths`` form field (JSON-encoded list).
+    """
+    if "images" not in request.files:
+        return jsonify({"error": "No images field in request."}), 400
+
+    allowed_types = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+    upload_dir = _ollash_root_dir / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    saved = []
+    for uploaded_file in request.files.getlist("images"):
+        if uploaded_file.mimetype not in allowed_types:
+            continue
+        safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", uploaded_file.filename or "image")
+        dest = upload_dir / safe_name
+        uploaded_file.save(dest)
+        saved.append(str(dest))
+
+    if not saved:
+        return jsonify({"error": "No valid images uploaded."}), 400
+
+    return jsonify({"status": "ok", "paths": saved})

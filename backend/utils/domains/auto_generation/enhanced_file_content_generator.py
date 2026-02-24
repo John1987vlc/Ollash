@@ -2,7 +2,7 @@
 
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from backend.utils.core.llm.ollama_client import OllamaClient
 from backend.utils.core.system.agent_logger import AgentLogger
@@ -105,6 +105,95 @@ class EnhancedFileContentGenerator:
         self.logger.error(f"Failed to generate valid {file_path} after {self.max_retries} attempts")
         return self._generate_fallback_skeleton(file_path, purpose, exports, imports)
 
+    async def generate_file_with_plan_streaming(
+        self,
+        file_path: str,
+        logic_plan: Dict[str, Any],
+        project_description: str,
+        readme: str,
+        structure: Dict[str, Any],
+        related_files: Dict[str, str],
+        chunk_callback: Optional[Callable] = None,
+    ) -> str:
+        """Async streaming variant of ``generate_file_with_plan``.
+
+        Calls *chunk_callback* (sync or async) for each token chunk produced by
+        the LLM, enabling live streaming to the Blackboard / SSE frontend.
+        Falls back to the synchronous path on any error.
+
+        Args:
+            chunk_callback: Called with each streamed token chunk (str).
+                            May be an async coroutine function.
+
+        Returns:
+            Full generated file content (post-processed, same as sync version).
+        """
+        purpose = logic_plan.get("purpose", "")
+        exports = logic_plan.get("exports", [])
+        imports = logic_plan.get("imports", [])
+        main_logic = logic_plan.get("main_logic", [])
+        validation = logic_plan.get("validation", [])
+        dependencies = logic_plan.get("dependencies", [])
+
+        context = self._build_detailed_context(
+            file_path, purpose, exports, imports, main_logic,
+            validation, dependencies, related_files, readme, structure,
+        )
+
+        file_ext = Path(file_path).suffix
+        try:
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+
+            loader = PromptLoader()
+            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
+            lang_rules_map = prompts.get("language_rules", {})
+            lang_rule = lang_rules_map.get(file_ext, lang_rules_map.get("default", ""))
+            system_template = prompts.get("file_gen_v2", {}).get("system", "")
+            user_template = prompts.get("file_gen_v2", {}).get("user", "")
+            if not system_template or not user_template:
+                raise ValueError("Prompt templates not found")
+            system = system_template.format(language_specific_rules=lang_rule)
+            user = user_template.format(
+                file_path=file_path, context=context, exports=", ".join(exports)
+            )
+        except Exception as exc:
+            self.logger.warning(
+                f"[streaming] Prompt load failed for '{file_path}': {exc}; using sync fallback"
+            )
+            return self.generate_file_with_plan(
+                file_path=file_path,
+                logic_plan=logic_plan,
+                project_description=project_description,
+                readme=readme,
+                structure=structure,
+                related_files=related_files,
+            )
+
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        try:
+            result, _ = await self.llm_client.stream_chat(
+                messages=messages,
+                chunk_callback=chunk_callback,
+                options_override={"temperature": 0.2},
+            )
+            content = result.get("content", "")
+            return self.response_parser.extract_code_block(content) or content
+        except Exception as exc:
+            self.logger.warning(
+                f"[streaming] stream_chat failed for '{file_path}': {exc}; using sync fallback"
+            )
+            return self.generate_file_with_plan(
+                file_path=file_path,
+                logic_plan=logic_plan,
+                project_description=project_description,
+                readme=readme,
+                structure=structure,
+                related_files=related_files,
+            )
+
     def _build_detailed_context(
         self,
         file_path: str,
@@ -177,13 +266,22 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
             loader = PromptLoader()
             prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
 
+            if not prompts:
+                return self._generate_fallback_skeleton(file_path, purpose, exports, [])
+
             lang_rules_map = prompts.get("language_rules", {})
             lang_rule = lang_rules_map.get(file_ext, lang_rules_map.get("default", ""))
 
             system_template = prompts.get("file_gen_v2", {}).get("system", "")
+            if not system_template:
+                return self._generate_fallback_skeleton(file_path, purpose, exports, [])
+
             system = system_template.format(language_specific_rules=lang_rule)
 
             user_template = prompts.get("file_gen_v2", {}).get("user", "")
+            if not user_template:
+                return self._generate_fallback_skeleton(file_path, purpose, exports, [])
+
             user = user_template.format(file_path=file_path, context=context, exports=", ".join(exports))
 
             response_data, _ = self.llm_client.chat(

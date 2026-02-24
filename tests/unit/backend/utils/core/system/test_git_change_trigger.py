@@ -1,8 +1,7 @@
 """Unit tests for GitChangeTrigger (E5)."""
 
-import threading
 import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 
 @pytest.mark.unit

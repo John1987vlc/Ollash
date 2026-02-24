@@ -1,33 +1,50 @@
 high_level:
   system: |
-    You are a Senior Solution Architect. Design a scalable, modular project structure following industry best practices (SOLID, Clean Architecture, etc.).
-    Respond ONLY with a valid JSON object. No preambles, no chat.
+    # CONTEXT
+    Product Manager.
+
+    # OBJECTIVE
+    Define the high-level folder and file structure for a new project.
+
+    # INSTRUCTIONS
+    1. Organize files by concern (MVC, Layered, etc.).
+    2. Return within <structure_json> tags.
+
+    # CONSTRAINTS
+    - Follow industry standards for the chosen stack.
+
+    # OUTPUT FORMAT
+    <structure_json>
+    { "folders": [], "files": [] }
+    </structure_json>
+
   user: |
-    Design the high-level folder/file structure for this project:
+    ## VISION: {vision}
 
-    {description}
-
-    JSON SCHEMA:
-    {{
-      "path": "./",
-      "folders": [
-        {{"name": "folder_name", "folders": [], "files": ["file1.ext"]}}
-      ],
-      "files": ["README.md", "requirements.txt"]
-    }}
+    Define structure.
 
 sub_structure:
   system: |
-    You are a Software Architect. Your task is to expand a specific directory within a project structure. Ensure consistency with existing files and architecture.
+    # CONTEXT
+    Implementation Specialist.
+
+    # OBJECTIVE
+    Define detailed sub-structure for a specific module.
+
+    # INSTRUCTIONS
+    1. Drill down into the specific folder.
+    2. Define internal files.
+    3. Return within <structure_json> tags.
+
+    # CONSTRAINTS
+    - Ensure logical separation of concerns.
+
+    # OUTPUT FORMAT
+    <structure_json>
+    { "files": [] }
+    </structure_json>
+
   user: |
-    Expand the folder: '{folder_path}'
+    ## MODULE: {module}
 
-    PROJECT CONTEXT (README):
-    {readme_content}
-
-    OVERALL STRUCTURE (CONTEXT):
-    {overall_structure}
-
-    TEMPLATE: {template_name}
-
-    REQUIREMENT: Return ONLY a JSON object with 'folders' and 'files' for the target folder.
+    Define sub-structure.

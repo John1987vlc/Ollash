@@ -91,6 +91,45 @@ class GitManager:
             return result["output"].split("\n")
         return []
 
+    def init(self) -> Dict[str, Any]:
+        """Initialise a new git repository at repo_path."""
+        return self._run_git("init")
+
+    def config_local(self, key: str, value: str) -> Dict[str, Any]:
+        """Set a local git config value (--local scope, no global side-effects)."""
+        return self._run_git("config", "--local", key, value)
+
+    def show_unified(self, sha: str, rel_path: str, context_lines: int = 5) -> str:
+        """Return the unified diff for one file at a specific commit.
+
+        Args:
+            sha:           Short or long commit SHA.
+            rel_path:      Relative file path within the repo.
+            context_lines: Lines of context around each hunk (default 5).
+
+        Returns:
+            Raw unified diff string, empty string on failure.
+        """
+        result = self._run_git("show", f"--unified={context_lines}", sha, "--", rel_path)
+        return result.get("output", "") if result["success"] else ""
+
+    def show_numstat_for_commit(self, sha: str, rel_path: str) -> Dict[str, Any]:
+        """Return numstat for a single file at a specific commit.
+
+        Returns dict with keys: success, added (int), deleted (int).
+        """
+        result = self._run_git("show", "--numstat", "--format=", sha, "--", rel_path)
+        if not result["success"]:
+            return {"success": False, "added": 0, "deleted": 0}
+        for line in result["output"].splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 2:
+                try:
+                    return {"success": True, "added": int(parts[0]), "deleted": int(parts[1])}
+                except ValueError:
+                    pass
+        return {"success": True, "added": 0, "deleted": 0}
+
     def diff_numstat(self, path: str = None, staged: bool = False) -> Dict[str, Any]:
         """
         Obtiene el número de líneas añadidas/borradas y la lista de archivos afectados.

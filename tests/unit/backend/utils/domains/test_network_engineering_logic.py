@@ -55,17 +55,17 @@ def sandbox_tools(mock_logger):
 class TestNetworkSandboxTools:
     def test_run_scapy_simulation(self, sandbox_tools):
         sandbox_tools.sandbox.run_scapy_script.return_value = {"success": True, "stdout": "Sent 1 packets."}
-        
+
         result = sandbox_tools.run_scapy("send(IP(dst='8.8.8.8')/ICMP())")
-        
+
         assert result["ok"] is True
         sandbox_tools.sandbox.start.assert_called_once()
         sandbox_tools.sandbox.run_scapy_script.assert_called()
 
     def test_nmap_scan(self, sandbox_tools):
         sandbox_tools.sandbox.run_nmap_scan.return_value = {"success": True, "stdout": "Host is up"}
-        
+
         result = sandbox_tools.nmap_scan("127.0.0.1")
-        
+
         assert result["ok"] is True
         sandbox_tools.sandbox.run_nmap_scan.assert_called_with("127.0.0.1", "-F")

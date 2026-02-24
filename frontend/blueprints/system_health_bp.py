@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify
 import random
+import os
 
 system_health_bp = Blueprint("system_health", __name__, url_prefix="/api/health")
 
@@ -36,6 +37,15 @@ def get_system_health():
             ],
         }
     )
+
+
+@system_health_bp.route("/shutdown", methods=["POST", "GET"])
+def shutdown():
+    """Shuts down the server process."""
+    print("\n🛑 Shutdown requested via API...")
+    # Use os._exit to force immediate termination of all threads
+    os._exit(0)
+    return jsonify({"status": "shutdown_initiated"})
 
 
 def init_app(app):

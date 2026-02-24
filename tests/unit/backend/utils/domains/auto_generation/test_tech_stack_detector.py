@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.utils.domains.auto_generation.tech_stack_detector import TechStackDetector, TechStackInfo
+from backend.utils.domains.auto_generation.tech_stack_detector import TechStackDetector
 
 
 @pytest.mark.unit

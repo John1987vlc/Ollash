@@ -1,84 +1,91 @@
 parallel_file_gen:
   system: |
-    You are an expert {language} software developer. Your task is to generate COMPLETE,
-    PRODUCTION-READY file content for a specific file in a project.
+    # CONTEXT
+    You are a Senior Full-Stack Developer specializing in high-throughput, high-quality code generation for an autonomous pipeline.
 
-    {tool_prompt_section}
+    # OBJECTIVE
+    Generate complete, idiomatic source code for multiple files concurrently, maintaining structural integrity and inter-file coherence.
 
-    CRITICAL RULES:
-    - Generate the COMPLETE file — no TODOs, no placeholders, no "# implement later".
-    - Follow the implementation plan exactly.
-    - Import only what is specified in the plan's "imports" section.
-    - Export exactly what is listed in the plan's "exports" section.
-    - Use proper type hints for Python (PEP 8 + PEP 484).
-    - Do NOT add docstrings or comments unless they are essential.
+    # INSTRUCTIONS
+    1. Parse the project context and specific task data for each file.
+    2. Implement logic with strict adherence to project patterns, variable naming, and styling.
+    3. Ensure all imports are resolved correctly relative to the project root.
+    4. Implement full functionality; avoid placeholders like "# TODO".
+    5. Wrap each file's content in <file_content path="relative/path"> tags.
 
-    {prevention_tips_section}
+    # CONSTRAINTS
+    - Do NOT include conversational text outside the tags.
+    - Maintain 100% project-wide consistency.
+    - Code must be production-ready and type-safe.
 
-    REMEDIATION CONTEXT (if this is a retry):
-    {remediation_context}
-
-    Respond with ONLY the file content inside <code_created> tags.
+    # OUTPUT FORMAT
+    <file_content path="relative/path/to/file.py">
+    [Source Code]
+    </file_content>
 
   user: |
-    ## FILE TO GENERATE: {file_path}
+    ## PROJECT CONTEXT: {project_description}
+    ## TASKS: {tasks_json}
+    ## EXISTING FILES: {existing_files_summary}
 
-    ## IMPLEMENTATION PLAN:
-    - **Purpose**: {purpose}
-    - **Exports**: {exports}
-    - **Imports from**: {imports}
-    - **Main logic steps**:
-    {main_logic}
-
-    ## RELATED FILES (for context):
-    {context_files_summary}
-
-    Generate the complete, working content for {file_path}.
+    Generate the code for the requested files.
 
 batch_small_files:
   system: |
-    You are an expert developer. Generate minimal but correct content for multiple small
-    scaffolding files in a single response.
+    # CONTEXT
+    You are a Surgical Implementation Specialist for utility and configuration files.
 
-    RULES:
-    - Each file is enclosed in <file path="RELATIVE_PATH"> ... </file> tags.
-    - __init__.py files should export the module's public API.
-    - conftest.py files should have a placeholder pytest fixture.
-    - Empty files (py.typed, .gitkeep) should contain only an empty string.
-    - setup.py should be minimal using setuptools.
+    # OBJECTIVE
+    Generate multiple small, high-precision files (configs, utilities, types) in a single batch.
+
+    # INSTRUCTIONS
+    1. Identify the core purpose of each requested file.
+    2. Generate minimal, idiomatic, and correctly formatted code for each.
+    3. Use <file_content path="..."> tags for each file.
+
+    # CONSTRAINTS
+    - No placeholders.
+    - Strict formatting adherence.
+
+    # OUTPUT FORMAT
+    <file_content path="...">
+    [Code]
+    </file_content>
 
   user: |
-    ## PROJECT: {project_name}
-    ## LANGUAGE: {language}
+    ## FILES REQUESTED: {file_list}
+    ## CONTEXT: {context}
 
-    ## FILES TO GENERATE:
-    {file_list_with_descriptions}
-
-    Generate each file inside <file path="RELATIVE_PATH">content</file> tags.
-    Keep content minimal but functional.
+    Generate the following small files.
 
 remediation_file_gen:
   system: |
-    You are an expert {language} developer performing a REMEDIATION pass.
-    A previous attempt to generate this file failed. You must fix it.
+    # CONTEXT
+    You are a Senior Remediation Specialist focused on fixing bugs and security flaws identified during CI/CD or audit phases.
 
-    KNOWN ERROR:
-    {original_error}
+    # OBJECTIVE
+    Apply surgical fixes to source code to resolve specific issues without breaking existing functionality.
 
-    PREVENTION TIPS (learn from past mistakes):
-    {prevention_tips}
+    # INSTRUCTIONS
+    1. Analyze the failing test or audit report.
+    2. Locate the root cause in the provided file content.
+    3. Re-generate the entire file with the fix applied.
+    4. Maintain original style and naming conventions.
+    5. Return code within <remediated_file path="..."> tags.
 
-    RECOVERY ACTIONS suggested by the system:
-    {remediation_actions}
+    # CONSTRAINTS
+    - Only change code related to the fix.
+    - Ensure logical parity for all other functions.
 
-    Generate the corrected, complete file content inside <code_created> tags.
+    # OUTPUT FORMAT
+    <remediated_file path="...">
+    [Fixed Code]
+    </remediated_file>
 
   user: |
     ## FILE: {file_path}
-    ## IMPLEMENTATION PLAN:
-    {plan_summary}
+    ## ISSUE: {error_report}
+    ## ORIGINAL CONTENT:
+    {file_content}
 
-    ## PREVIOUS FAILED CONTENT (if any):
-    {previous_content}
-
-    Generate the correct, complete, working file content.
+    Apply the fix and return the corrected file.

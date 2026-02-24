@@ -1,12 +1,12 @@
 {
   "sandbox": "limited",
-  "max_context_tokens": 16384,
-  "summarize_threshold_ratio": 0.7,
-  "history_limit": 20,
+  "max_context_tokens": 32768,
+  "summarize_threshold_ratio": 0.99,
+  "history_limit": 200,
   "log_level": "debug",
   "log_file": "ollash.log",
   "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-  "default_system_prompt_path": "prompts/orchestrator/default_orchestrator.json",
+  "default_system_prompt_path": "orchestrator/default_orchestrator.yaml",
   "use_docker_sandbox": false,
   "rate_limiting": {
     "requests_per_minute": 300,

@@ -65,8 +65,7 @@ def load_role_prompt(role):
                 try:
                     with open(found[0], "r", encoding="utf-8") as f:
                         if ext == ".yaml":
-                            import yaml
-                            # Read raw text instead of just extracting a field, 
+                            # Read raw text instead of just extracting a field,
                             # to allow editing complex YAML structures.
                             f.seek(0)
                             raw_text = f.read()
@@ -86,7 +85,7 @@ def migrate_to_db():
     """Migrate all filesystem prompts to the database."""
     if not _repository or not _prompts_dir:
         return jsonify({"error": "Repository or prompts dir not available"}), 500
-    
+
     count = 0
     try:
         # Scan all yaml and json files
@@ -99,11 +98,11 @@ def migrate_to_db():
                     else:
                         data = json.load(fh)
                         content = data.get("prompt") or data.get("system_prompt") or json.dumps(data, indent=2)
-                    
+
                     # Only save if not already in DB or force update
                     _repository.save_prompt(role, content, is_active=True)
                     count += 1
-        
+
         return jsonify({"status": "success", "migrated": count})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

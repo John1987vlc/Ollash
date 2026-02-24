@@ -131,8 +131,15 @@ class SelfHealingLoop:
         )
         self._logger.debug(f"[SelfHealingLoop] Error pattern recorded: {pattern_id}")
 
-        # 2. Generate contingency plan
+        # 2. Generate contingency plan — prepend real sandbox errors if available
         issues = self._build_issues_from_node(failed_node)
+        sandbox_errors = blackboard.read(f"sandbox_errors/{failed_node.id}")
+        if sandbox_errors:
+            # Inject real compiler/linter traceback into the first issue
+            issues[0]["sandbox_traceback"] = sandbox_errors
+            self._logger.info(
+                f"[SelfHealingLoop] Injecting sandbox errors for '{failed_node.id}'"
+            )
         plan: Dict[str, Any] = {}
         try:
             plan = self._cp.generate_contingency_plan(

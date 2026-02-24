@@ -72,99 +72,78 @@ class SystemTools:
 
     @ollash_tool(
         name="get_system_info",
-        description="Retrieves general system information (OS, CPU, memory, uptime, etc.).",
-        parameters={"type": "object", "properties": {}},
+        description="Retrieves general system information (OS, CPU, memory, uptime, etc.) using native Python libraries.",
+        parameters={},
         toolset_id="system_tools",
         agent_types=["system"],
     )
     def get_system_info(self):
         """
-        Retrieves basic operating system and hardware information.
+        Retrieves basic operating system and hardware information using psutil.
         Returns structured JSON output.
         """
-        self.logger.info("ℹ️ Getting system information...")
-        command = ""
-        if self.os_type == "Windows":
-            command = 'powershell -command "Get-ComputerInfo | Select-Object -Property CsName, OsName, OsVersion, OsArchitecture, TotalPhysicalMemory, FreePhysicalMemory | ConvertTo-Json"'
-        elif self.os_type == "Linux":
-            command = "hostnamectl --json=pretty; lscpu --json=pretty; free --json"
-        elif self.os_type == "Darwin":  # macOS
-            # For macOS, getting structured JSON is harder from shell. Will parse text.
-            command = "sw_vers && sysctl -n machdep.cpu.brand_string && sysctl -n hw.memsize && sysctl -n hw.physicalcpu && sysctl -n hw.logicalcpu"
-        else:
-            return {
-                "ok": False,
-                "error": "Unsupported OS for get_system_info",
-                "details": self.os_type,
+        self.logger.info("info: Getting system information using psutil...")
+        import psutil
+        import platform
+        import time
+        from datetime import datetime
+
+        try:
+            # Memory Info
+            mem = psutil.virtual_memory()
+            swap = psutil.swap_memory()
+
+            # CPU Info
+            cpu_count_logical = psutil.cpu_count()
+            cpu_count_physical = psutil.cpu_count(logical=False)
+            cpu_freq = psutil.cpu_freq()
+
+            # OS / Boot Info
+            boot_time_timestamp = psutil.boot_time()
+            bt_obj = datetime.fromtimestamp(boot_time_timestamp)
+            uptime_seconds = time.time() - boot_time_timestamp
+
+            info = {
+                "os": {
+                    "system": platform.system(),
+                    "release": platform.release(),
+                    "version": platform.version(),
+                    "architecture": platform.architecture()[0],
+                    "machine": platform.machine(),
+                    "node": platform.node(),
+                },
+                "memory": {
+                    "total_bytes": mem.total,
+                    "available_bytes": mem.available,
+                    "used_bytes": mem.used,
+                    "free_bytes": mem.free,
+                    "percent_used": mem.percent,
+                    "swap_total_bytes": swap.total,
+                    "swap_free_bytes": swap.free,
+                },
+                "cpu": {
+                    "logical_cores": cpu_count_logical,
+                    "physical_cores": cpu_count_physical,
+                    "frequency_mhz": cpu_freq.current if cpu_freq else "N/A",
+                },
+                "status": {
+                    "boot_time": bt_obj.strftime("%Y-%m-%d %H:%M:%S"),
+                    "uptime_seconds": round(uptime_seconds, 2),
+                    "load_avg": getattr(psutil, "getloadavg", lambda: "N/A")()
+                }
             }
 
-        result = self.exec.execute(command)
+            self.logger.info("SUCCESS: System information retrieved successfully via psutil.")
+            return {"ok": True, "result": info}
 
-        parsed_output = {"os_type": self.os_type, "raw_output": result.stdout}
-
-        if result.success:
-            self.logger.info("✅ System information retrieved successfully.")
-            if self.os_type == "Windows" or self.os_type == "Linux":
-                try:
-                    # Linux commands produce multiple JSONs, Windows one.
-                    # Attempt to split if multiple JSON objects are concatenated for Linux
-                    if self.os_type == "Linux":
-                        json_parts = []
-                        # Basic attempt to split multiple JSON objects
-                        buffer = ""
-                        open_braces = 0
-                        for char in result.stdout:
-                            if char == "{":
-                                open_braces += 1
-                            elif char == "}":
-                                open_braces -= 1
-                            buffer += char
-                            if open_braces == 0 and buffer.strip():
-                                json_parts.append(json.loads(buffer))
-                                buffer = ""
-
-                        # Merge multiple JSON objects into one, prioritizing certain fields
-                        final_json = {}
-                        for part in json_parts:
-                            final_json.update(part)
-                        parsed_output["info"] = final_json
-                    else:  # Windows (single JSON output)
-                        parsed_output["info"] = json.loads(result.stdout)
-                except json.JSONDecodeError as e:
-                    self.logger.error(f"Failed to parse JSON system info: {e}")
-                    parsed_output["error_parsing_json"] = str(e)
-                    parsed_output["info"] = result.stdout  # Fallback to raw if parsing fails
-            elif self.os_type == "Darwin":
-                info_lines = result.stdout.splitlines()
-                mac_info = {}
-                for line in info_lines:
-                    if "ProductName" in line:
-                        mac_info["OsName"] = line.split(":")[-1].strip()
-                    elif "ProductVersion" in line:
-                        mac_info["OsVersion"] = line.split(":")[-1].strip()
-                    elif "BuildVersion" in line:
-                        mac_info["OsBuild"] = line.split(":")[-1].strip()
-                    elif "machdep.cpu.brand_string" in line:
-                        mac_info["CpuModel"] = line.split(":")[-1].strip()
-                    elif "hw.memsize" in line:
-                        mem_bytes = int(line.split(":")[-1].strip())
-                        mac_info["TotalPhysicalMemoryGB"] = round(mem_bytes / (1024**3), 2)
-                    elif "hw.physicalcpu" in line:
-                        mac_info["PhysicalCores"] = int(line.split(":")[-1].strip())
-                    elif "hw.logicalcpu" in line:
-                        mac_info["LogicalCores"] = int(line.split(":")[-1].strip())
-                parsed_output["info"] = mac_info
-
-            return {"ok": True, "result": parsed_output}
-        else:
-            self.logger.error(f"❌ Failed to get system information: {result.stderr}")
-            parsed_output["error"] = result.stderr
-            return {"ok": False, "result": parsed_output}
+        except Exception as e:
+            self.logger.error(f"FAILED to get system info via psutil: {e}")
+            return {"ok": False, "error": str(e)}
 
     @ollash_tool(
         name="list_processes",
         description="Lists currently running processes with their IDs, CPU/memory usage, and owner.",
-        parameters={"type": "object", "properties": {}},
+        parameters={},
         toolset_id="system_tools",
         agent_types=["system"],
     )

@@ -50,7 +50,7 @@ def get_tool_definitions():
 
             if category not in categorized:
                 categorized[category] = []
-            
+
             categorized[category].append({
                 "name": name,
                 "description": tool["function"]["description"]

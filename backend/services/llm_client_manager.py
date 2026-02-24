@@ -126,3 +126,9 @@ class LLMClientManager(IModelProvider):
     def release_all_vram(self):
         for client in self.clients_by_model.values():
             client.unload_model()
+
+    async def close_all_sessions(self):
+        """Asynchronously closes all active HTTP sessions for all clients."""
+        for model, client in self.clients_by_model.items():
+            await client.close()
+        self.clients_by_model.clear()

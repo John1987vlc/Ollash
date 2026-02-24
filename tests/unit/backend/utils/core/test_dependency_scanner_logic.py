@@ -1,4 +1,3 @@
-import pytest
 from backend.utils.core.analysis.scanners.dependency_scanner import (
     PythonDependencyScanner, NodeDependencyScanner, GoDependencyScanner, RustDependencyScanner
 )

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 @pytest.fixture
 def client(app):
@@ -24,12 +24,12 @@ def test_execute_code_python_success(mock_wasm, mock_docker, client):
         stderr="",
         duration_seconds=0.1
     )
-    
+
     payload = {
         "code": "print('hello world')",
         "language": "python"
     }
-    
+
     response = client.post("/sandbox/execute", json=payload)
     assert response.status_code == 200
     data = response.get_json()

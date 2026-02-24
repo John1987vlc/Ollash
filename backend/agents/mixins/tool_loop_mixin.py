@@ -30,6 +30,19 @@ class ToolLoopMixin(ABC):
             tool_name = tool_call["function"]["name"]
             tool_args = tool_call["function"]["arguments"]
 
+            # Create a signature for this call
+            call_sig = f"{tool_name}:{str(tool_args)}"
+
+            if self._failed_calls_tracker.get(call_sig, 0) > 2:
+                self.logger.warning(f"⚠️ Tool {tool_name} has failed multiple times with these args. Skipping to avoid infinite loop.")
+                tool_outputs.append({
+                    "tool_call_id": tool_call.get("id"),
+                    "output": f"Error: This exact tool call has failed {self._failed_calls_tracker[call_sig]} times. Please try a different approach or ask for help.",
+                    "ok": False,
+                    "tool_name": tool_name
+                })
+                continue
+
             # Update planning counter
             if tool_name in ["plan_actions", "analyze_project"]:
                 self._consecutive_planning_count += 1
@@ -60,7 +73,7 @@ class ToolLoopMixin(ABC):
             # Policy Enforcement & Confirmation Gate
             authorized, reason = self.policy_enforcer.authorize_tool_execution(
                 tool_name,
-                resource_path=tool_args.get("path", tool_args.get("file_path", tool_args.get("command", ""))),
+                resource_path=str(tool_args.get("path", tool_args.get("file_path", tool_args.get("command", "")))),
                 context=tool_args,
             )
 
@@ -68,7 +81,9 @@ class ToolLoopMixin(ABC):
                 self.logger.warning(f"Tool '{tool_name}' execution denied by policy: {reason}")
                 result_output = {
                     "tool_call_id": tool_call_id,
-                    "output": f"Tool '{tool_name}' execution denied by policy: {reason}",
+                    "output": f"Tool '{tool_name}' execution denied by policy: {reason}. If you need this permission, explain why to the user.",
+                    "ok": False,
+                    "tool_name": tool_name
                 }
                 tool_outputs.append(result_output)
                 self.tool_span_manager.end_span(
@@ -92,6 +107,8 @@ class ToolLoopMixin(ABC):
                     result_output = {
                         "tool_call_id": tool_call_id,
                         "output": f"Tool '{tool_name}' execution denied by user.",
+                        "ok": False,
+                        "tool_name": tool_name
                     }
                     tool_outputs.append(result_output)
                     self.tool_span_manager.end_span(
@@ -118,18 +135,26 @@ class ToolLoopMixin(ABC):
                 self.logger.debug(f"DEBUG - Tool '{tool_name}' output: {tool_execution_output}")
                 self.logger.info(f"✅ Tool '{tool_name}' executed successfully.")
 
+                # If tool output indicates failure (e.g. {"ok": False}), track it
+                is_ok = True
+                if isinstance(tool_execution_output, dict):
+                    is_ok = tool_execution_output.get("ok", True)
+
+                if not is_ok:
+                    self._failed_calls_tracker[call_sig] = self._failed_calls_tracker.get(call_sig, 0) + 1
+
                 result_output = {
                     "tool_call_id": tool_call_id,
                     "output": tool_execution_output,
-                    "ok": True,
+                    "ok": is_ok,
                     "tool_name": tool_name,
                 }
                 tool_outputs.append(result_output)
                 self.event_publisher.publish(
                     "tool_output",
-                    {"tool_name": tool_name, "output": tool_execution_output, "ok": True},
+                    {"tool_name": tool_name, "output": tool_execution_output, "ok": is_ok},
                 )
-                success = True
+                success = is_ok
             except Exception as e:
                 # F18: Detailed error for backend diagnostics
                 error_message = f"Error executing tool '{tool_name}': {str(e)}"
@@ -137,6 +162,9 @@ class ToolLoopMixin(ABC):
 
                 self.logger.error(f"❌ {error_message}")
                 self.logger.error(f"Traceback: {traceback.format_exc()}")
+
+                # Track exception as failure
+                self._failed_calls_tracker[call_sig] = self._failed_calls_tracker.get(call_sig, 0) + 1
 
                 # Sanitize output for frontend/LLM to prevent breaking loops or leaking paths
                 friendly_error = f"Tool '{tool_name}' failed. Check backend logs for details."
@@ -148,7 +176,7 @@ class ToolLoopMixin(ABC):
                 }
                 tool_outputs.append(result_output)
 
-                if self._event_bridge:
+                if hasattr(self, "_event_bridge") and self._event_bridge:
                     self._event_bridge.push_event("error", {"message": friendly_error, "tool": tool_name})
 
                 self.event_publisher.publish("tool_error", {"tool_name": tool_name, "error": str(e)})
@@ -172,7 +200,7 @@ class ToolLoopMixin(ABC):
                 )
                 # F19: Safe append to output regardless of type
                 current_output = tool_outputs[-1].get("output", "")
-                loop_msg = "\n[Loop detected. Aborting further tool execution.]"
+                loop_msg = "\n[Loop detected. Aborting further tool execution. Please ask the user for guidance.]"
 
                 if isinstance(current_output, str):
                     tool_outputs[-1]["output"] = current_output + loop_msg

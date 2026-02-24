@@ -66,9 +66,20 @@ class ChatSessionManager:
             bridge = ChatEventBridge(self.event_publisher)
             actual_project_root = project_path if project_path else str(self.ollash_root_dir)
 
+            # F31: Respect global auto_confirm setting from config
+            tool_config = self.ollash_root_dir / "backend" / "config" / "tool_settings.json"
+            auto_confirm = False
+            try:
+                import json
+                with open(tool_config, 'r') as f:
+                    config_data = json.load(f)
+                    auto_confirm = config_data.get("auto_confirm_tools", False)
+            except:
+                pass
+
             agent = DefaultAgent(
                 project_root=actual_project_root,
-                auto_confirm=True,
+                auto_confirm=auto_confirm,
                 base_path=self.ollash_root_dir,
                 event_bridge=bridge,
             )
@@ -117,7 +128,7 @@ class ChatSessionManager:
             "INSERT INTO chat_messages (session_id, role, content) VALUES (?, ?, ?)",
             (session_id, "user", message)
         )
-        
+
         # Update session title based on first message if it's default
         self.db.execute(
             "UPDATE chat_sessions SET title = ? WHERE id = ? AND title LIKE 'New %'",
@@ -127,8 +138,11 @@ class ChatSessionManager:
         def _run():
             import asyncio
             try:
+                # F31: Robust event loop management for background thread
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
+
+                # Use the thread-local loop to run the async chat
                 result = loop.run_until_complete(session.agent.chat(message))
 
                 content = ""
@@ -158,7 +172,7 @@ class ChatSessionManager:
     def delete_empty_sessions(self):
         """Deletes sessions that have no messages."""
         self.db.execute("""
-            DELETE FROM chat_sessions 
+            DELETE FROM chat_sessions
             WHERE id NOT IN (SELECT DISTINCT session_id FROM chat_messages)
         """)
 

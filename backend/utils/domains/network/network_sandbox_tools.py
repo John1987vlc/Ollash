@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.tools.tool_decorator import ollash_tool
 from backend.utils.core.tools.network_sandbox import NetworkSandbox
@@ -7,7 +7,7 @@ class NetworkSandboxTools:
     """
     Agent tools for running complex network tasks in an isolated environment.
     """
-    
+
     def __init__(self, logger: AgentLogger):
         self.logger = logger
         self.sandbox = NetworkSandbox(logger=logger)
@@ -26,7 +26,7 @@ class NetworkSandboxTools:
         try:
             if not self.sandbox._is_active:
                 self.sandbox.start()
-            
+
             result = self.sandbox.run_scapy_script(script)
             return {"ok": True, "result": result}
         except Exception as e:
@@ -47,7 +47,7 @@ class NetworkSandboxTools:
         try:
             if not self.sandbox._is_active:
                 self.sandbox.start()
-            
+
             result = self.sandbox.run_nmap_scan(target, args)
             return {"ok": True, "result": result}
         except Exception as e:

@@ -21,9 +21,15 @@ class AgentLogger:
     It delegates to a StructuredLogger instance provided at initialization.
     """
 
-    def __init__(self, structured_logger: StructuredLogger, logger_name: str = "OllashAgent"):
+    def __init__(
+        self,
+        structured_logger: StructuredLogger,
+        logger_name: str = "OllashAgent",
+        event_publisher: Optional[Any] = None,
+    ):
         self._logger = structured_logger.get_logger()
         self.name = logger_name  # Store name for specific agent identification if needed
+        self.event_publisher = event_publisher
 
     def _log_to_structured(self, level: int, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Helper to log to the underlying StructuredLogger, injecting correlation ID."""
@@ -39,6 +45,8 @@ class AgentLogger:
             f"{Fore.CYAN}{console_msg}{Style.RESET_ALL}",
             extra={"type": "tool_call", "tool_name": tool_name, "args": args},
         )
+        if self.event_publisher:
+            self.event_publisher.publish("tool_start", {"tool_name": tool_name, "args": args})
 
     def tool_result(
         self,
@@ -48,7 +56,7 @@ class AgentLogger:
         latency_ms: Optional[float] = None,
     ):
         """Log tool result"""
-        status = "✅ SUCCESS" if success else "❌ FAILED"
+        status = "SUCCESS" if success else "FAILED"
         color = Fore.GREEN if success else Fore.RED
 
         # F18: Simplified console message to avoid flooding
@@ -65,9 +73,14 @@ class AgentLogger:
             extra_data["latency_ms"] = latency_ms
         self.info(f"{color}{console_msg}{Style.RESET_ALL}", extra=extra_data)
 
+        if self.event_publisher:
+            self.event_publisher.publish("tool_end", {"tool_name": tool_name, "success": success, "result": result_preview})
+
     def thinking(self, message: str):
         """Log a Chain of Thought / Thinking step."""
-        self.info(f"{Fore.MAGENTA}🧠 Thinking: {message}{Style.RESET_ALL}")
+        self.info(f"{Fore.MAGENTA}Thinking: {message}{Style.RESET_ALL}")
+        if self.event_publisher:
+            self.event_publisher.publish("thinking", {"message": message})
 
     def api_request(self, messages_count: int, tools_count: int):
         """Log API request"""
@@ -109,7 +122,7 @@ class AgentLogger:
         **kwargs,
     ):
         """Log error with full traceback"""
-        console_msg = f"{Fore.RED}❌ ERROR: {error_msg}{Style.RESET_ALL}"
+        console_msg = f"{Fore.RED}ERROR: {error_msg}{Style.RESET_ALL}"
 
         # Merge exception into kwargs for structured logger if provided
         if exception:
@@ -124,9 +137,14 @@ class AgentLogger:
                 **kwargs,
             )
 
+        if self.event_publisher:
+            self.event_publisher.publish("error", {"message": error_msg})
+
     def info(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log info message"""
         self._log_to_structured(logging.INFO, msg, extra=extra, **kwargs)
+        if self.event_publisher:
+            self.event_publisher.publish("info", {"message": msg})
 
     def debug(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log debug message"""
@@ -134,5 +152,7 @@ class AgentLogger:
 
     def warning(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log warning message"""
-        console_msg = f"{Fore.YELLOW}⚠️  {msg}{Style.RESET_ALL}"
+        console_msg = f"{Fore.YELLOW}WARNING: {msg}{Style.RESET_ALL}"
         self._log_to_structured(logging.WARNING, console_msg, extra=extra, **kwargs)
+        if self.event_publisher:
+            self.event_publisher.publish("warning", {"message": msg})

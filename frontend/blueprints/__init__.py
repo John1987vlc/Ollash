@@ -37,6 +37,7 @@ from .knowledge_views import bp as knowledge_bp
 from .decisions_bp import decisions_bp
 from .tuning_bp import tuning_bp
 from .hil_bp import hil_bp
+from .analytics_bp import analytics_bp
 from .translator_bp import translator_bp
 from .policies_bp import policies_bp
 from .checkpoints_bp import checkpoints_bp
@@ -97,6 +98,7 @@ def register_blueprints(
         (decisions_bp, lambda: None),
         (tuning_bp, lambda: None),
         (hil_bp, lambda: None),
+        (analytics_bp, lambda: None),
         (translator_bp, lambda: None),
         (policies_bp, lambda: None),
         (checkpoints_bp, lambda: None),

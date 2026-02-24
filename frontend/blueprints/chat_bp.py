@@ -67,10 +67,10 @@ def list_sessions():
     """Returns a list of recent chat sessions."""
     if not _session_manager:
         return jsonify({"sessions": []})
-    
+
     # Cleanup empty sessions before listing
     _session_manager.delete_empty_sessions()
-    
+
     sessions = _session_manager.list_sessions()
     return jsonify({"sessions": [dict(s) for s in sessions]})
 
@@ -80,7 +80,7 @@ def get_session_history(session_id):
     """Returns the message history for a specific session."""
     if not _session_manager:
         return jsonify({"history": []})
-    
+
     history = _session_manager.get_session_history(session_id)
     return jsonify({"session_id": session_id, "history": [dict(h) for h in history]})
 
@@ -90,7 +90,7 @@ def delete_session(session_id):
     """Deletes a chat session."""
     if not _session_manager:
         return jsonify({"status": "error"}), 503
-    
+
     # Also delete from memory if active
     _session_manager.delete_session(session_id)
     # Delete from DB

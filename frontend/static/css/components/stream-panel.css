@@ -1,0 +1,92 @@
+/* =========================================================
+   Stream Panel — P4 Live Token Streaming
+   ========================================================= */
+
+#stream-panels-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-xl, 28px);
+}
+
+.stream-panel {
+    background: var(--color-surface);
+    border: 1px solid color-mix(in srgb, var(--agent-color, #6b7280) 40%, var(--color-border));
+    border-radius: var(--radius-md, 10px);
+    overflow: hidden;
+    transition: opacity 0.4s, transform 0.4s;
+}
+
+.stream-panel-dismissed { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+
+.stream-panel-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    padding: 6px var(--spacing-md, 16px);
+    background: color-mix(in srgb, var(--agent-color, #6b7280) 10%, var(--color-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--agent-color, #6b7280) 30%, var(--color-border));
+    font-size: 0.78rem;
+}
+
+.stream-panel-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--agent-color, #6b7280);
+    animation: sp-blink 1s ease-in-out infinite;
+}
+
+@keyframes sp-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.2; }
+}
+
+.stream-panel-agent {
+    font-family: var(--font-mono, monospace);
+    color: var(--agent-color, #6b7280);
+    font-weight: 600;
+}
+
+.stream-panel-path {
+    color: var(--color-text-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stream-panel-status {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.stream-panel-body {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+}
+
+.stream-panel-code {
+    margin: 0;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--color-text-primary);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.stream-cursor {
+    display: inline-block;
+    color: var(--agent-color, #6b7280);
+    animation: cursor-blink 0.8s step-end infinite;
+    font-weight: 700;
+    margin-left: 1px;
+}
+
+@keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}

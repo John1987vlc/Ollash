@@ -1,0 +1,38 @@
+<!-- HITL Modal Overlay — P1 Human-in-the-Loop -->
+<div id="hitl-modal-overlay" class="hitl-overlay" role="dialog" aria-modal="true"
+     aria-labelledby="hitl-modal-title" hidden>
+    <div class="hitl-modal" id="hitl-modal">
+        <div class="hitl-modal-header">
+            <div class="hitl-modal-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                Agent Pause
+            </div>
+            <div id="hitl-modal-agent" class="hitl-modal-agent-tag">developer_0</div>
+        </div>
+        <h2 class="hitl-modal-title" id="hitl-modal-title">Human Input Required</h2>
+        <p class="hitl-modal-question" id="hitl-modal-question">
+            The agent has a question for you.
+        </p>
+        <div class="hitl-modal-body">
+            <label class="hitl-label" for="hitl-answer-input">Your answer</label>
+            <textarea
+                id="hitl-answer-input"
+                class="hitl-textarea"
+                rows="4"
+                placeholder="Type your response here…"
+            ></textarea>
+        </div>
+        <div class="hitl-modal-footer">
+            <button class="btn btn-secondary" id="hitl-reject-btn">Reject / Skip</button>
+            <button class="btn btn-primary"   id="hitl-submit-btn">Submit Answer</button>
+        </div>
+        <div class="hitl-modal-task-meta">
+            Task ID: <code id="hitl-task-id-display">—</code>
+        </div>
+    </div>
+</div>

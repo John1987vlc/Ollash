@@ -27,6 +27,11 @@ def ollash_tool(
     """Decorator that registers a method as an Ollash tool."""
 
     def decorator(func: Callable) -> Callable:
+        # F29: Robust parameter handling. If parameters is a full schema object, extract properties.
+        final_properties = parameters
+        if isinstance(parameters, dict) and "properties" in parameters:
+            final_properties = parameters["properties"]
+
         tool_def = {
             "type": "function",
             "function": {
@@ -34,7 +39,7 @@ def ollash_tool(
                 "description": description,
                 "parameters": {
                     "type": "object",
-                    "properties": parameters,
+                    "properties": final_properties,
                     "required": required or [],
                 },
             },

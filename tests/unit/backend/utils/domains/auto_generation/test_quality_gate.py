@@ -2,7 +2,6 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from pathlib import Path
 
 
 @pytest.mark.unit
@@ -36,7 +35,6 @@ class TestQualityGate:
 
     def test_run_linter_returns_zero_when_not_installed(self, mock_logger, tmp_path):
         from backend.utils.domains.auto_generation.quality_gate import QualityGate
-        import subprocess
 
         gate = QualityGate(logger=mock_logger)
         with patch("subprocess.run", side_effect=FileNotFoundError("ruff not found")):
@@ -47,7 +45,7 @@ class TestQualityGate:
 
     @pytest.mark.asyncio
     async def test_run_quality_check_passes_when_all_ok(self, mock_logger, tmp_path):
-        from backend.utils.domains.auto_generation.quality_gate import QualityGate, QualityReport
+        from backend.utils.domains.auto_generation.quality_gate import QualityGate
         from backend.utils.core.tools.wasm_sandbox import TestResult
 
         gate = QualityGate(logger=mock_logger)

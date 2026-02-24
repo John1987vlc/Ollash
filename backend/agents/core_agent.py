@@ -69,6 +69,9 @@ class CoreAgent(ABC):
             config=self.config,
         )
         self.event_publisher = EventPublisher()
+        # Enable logger to publish events
+        self.logger.event_publisher = self.event_publisher
+
         self.cross_reference_analyzer = CrossReferenceAnalyzer(
             project_root=self.ollash_root_dir,
             logger=self.logger,

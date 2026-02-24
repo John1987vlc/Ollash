@@ -213,6 +213,64 @@ class Blackboard:
         return {k[len("generated_files/"):]: v for k, v in prefix_entries.items()}
 
     # ------------------------------------------------------------------
+    # Streaming (Point 4 — token streaming)
+    # ------------------------------------------------------------------
+
+    def write_stream_chunk(self, rel_path: str, chunk: str, agent_id: str) -> None:
+        """Append a streaming token chunk to the live buffer for *rel_path*.
+
+        Unlike ``write()``, this is synchronous and does NOT increment the
+        global version counter — it is optimised for high-frequency, low-cost
+        updates where every character counts more than consistency metadata.
+
+        The ``blackboard_stream_chunk`` event is published so the frontend
+        can append the chunk to the live code panel in real time.
+        """
+        key = f"streaming_files/{rel_path}"
+        entry = self._store.get(key)
+        if entry is None:
+            entry = BlackboardEntry(
+                key=key,
+                value=chunk,
+                agent_id=agent_id,
+                version=0,
+                invalidated=False,
+            )
+            self._store[key] = entry
+        else:
+            entry.value = (entry.value or "") + chunk
+
+        self._event_publisher.publish(
+            "blackboard_stream_chunk",
+            rel_path=rel_path,
+            chunk=chunk,
+            agent_id=agent_id,
+        )
+
+    # ------------------------------------------------------------------
+    # Serialisation helper (Point 2 — checkpointing)
+    # ------------------------------------------------------------------
+
+    def snapshot_serializable(self) -> Dict[str, Any]:
+        """Like ``snapshot()`` but converts non-JSON-serialisable values to str.
+
+        Used by ``CheckpointManager.save_dag()`` to persist the Blackboard
+        alongside the TaskDAG without risking ``json.dumps`` failures on
+        complex objects (TaskDAG instances, asyncio Locks, etc.).
+        """
+        result: Dict[str, Any] = {}
+        for entry in self._store.values():
+            if entry.invalidated:
+                continue
+            v = entry.value
+            if not isinstance(v, (str, int, float, bool, list, dict, type(None))):
+                v = str(v)
+            elif isinstance(v, list):
+                v = [x if isinstance(x, (str, int, float, bool, type(None))) else str(x) for x in v]
+            result[entry.key] = v
+        return result
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 

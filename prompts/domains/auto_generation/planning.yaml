@@ -1,124 +1,77 @@
-# Planning Phase Prompts
 architecture_planning_detailed:
   system: |
-    You are a Senior Software Architect. Your plans are the source of truth
-    for developers. Be precise, avoid ambiguity, and ensure every file has
-    a clear, non-empty implementation strategy. Focus on SOLID principles
-    and robust error handling.
+    # CONTEXT
+    Senior System Architect.
 
-    CRITICAL FORMATTING RULE:
-    1. Analyze the file category and required logic step-by-step inside <thinking_process> tags.
-    2. Provide the final plan as a JSON object inside <plan_json> tags.
-    3. NO explanations outside these tags.
+    # OBJECTIVE
+    Create a detailed architectural plan including component interaction and state flow.
+
+    # INSTRUCTIONS
+    1. Define core components.
+    2. Map data flow between components.
+    3. Return strictly as JSON within <plan_json> tags.
+
+    # CONSTRAINTS
+    - Ensure logical completeness.
+
+    # OUTPUT FORMAT
+    <plan_json>
+    { "architecture": { "components": [], "flow": [] } }
+    </plan_json>
+
   user: |
-    ## ROLE: Architecture Planner
-    ## TASK: Create implementation plans for {category} files.
+    ## VISION: {vision}
 
-    ### PROJECT CONTEXT:
-    {project_description}
-
-    ### FILES TO PLAN:
-    {files_list}
-
-    ### PLAN JSON SCHEMA (FOR EACH FILE):
-    {{
-      "path/to/file": {{
-        "purpose": "Definitive role of the file",
-        "exports": ["exact_func_name", "exact_class_name"],
-        "imports": ["dependency1", "dependency2"],
-        "main_logic": ["Step-by-step logic 1", "Step-by-step logic 2"],
-        "validation": ["Specific test 1", "Specific test 2"]
-      }}
-    }}
-
-    ### ALREADY PLANNED CONTRACTS (other files already planned — you MUST be compatible):
-    {already_planned_contracts}
-
-    ### INSTRUCTIONS:
-    1. Every file listed in 'FILES TO PLAN' MUST have a corresponding entry in the JSON object.
-    2. Inject the initial project intent into every plan to maintain consistency.
-    3. If your files import from a file listed in ALREADY PLANNED CONTRACTS, use EXACTLY the exports shown (same name, same type: class vs function).
-    4. If you need a symbol as a class in one file, it MUST be planned as a class in the file that defines it.
-    5. Follow the <thinking_process> and <plan_json> format strictly.
+    Plan the architecture.
 
 agile_backlog_planning:
   system: |
-    You are an Agile Product Owner and System Architect. Your goal is to break down a project into small, atomic, and independent micro-tasks (Backlog).
-    Each task must be small enough for a Small Language Model (SLM) to execute it perfectly in one go without losing context.
+    # CONTEXT
+    Agile Project Manager.
 
-    CRITICAL FORMATTING RULE:
-    1. Analyze the project and dependencies step-by-step inside <thinking_process> tags.
-    2. Provide the final backlog as a JSON array inside <backlog_json> tags.
-    3. NO explanations outside these tags.
+    # OBJECTIVE
+    Break down a project into a prioritized task backlog.
+
+    # INSTRUCTIONS
+    1. Identify user stories and technical tasks.
+    2. Assign priority levels.
+    3. Return within <backlog_json> tags.
+
+    # CONSTRAINTS
+    - Use standard Agile terminology.
+
+    # OUTPUT FORMAT
+    <backlog_json>
+    { "backlog": [ { "task": "string", "priority": "string" } ] }
+    </backlog_json>
+
   user: |
-    ## TASK: Generate an Agile Backlog of Micro-tasks for the project.
+    ## VISION: {vision}
 
-    ### PROJECT CONTEXT:
-    {project_description}
-
-    ### PROJECT STRUCTURE:
-    {initial_structure}
-
-    ### README:
-    {readme_content}
-
-    ### INSTRUCTIONS:
-    1. Breakdown the project into ATOMIC tasks. 
-    2. Each task should focus on ONE specific functionality or ONE file implementation/modification.
-    3. Tasks should be ordered by dependency.
-    4. Keep prompts SPECIFIC and SMALL.
-    5. Follow the <thinking_process> and <backlog_json> format strictly.
-
-    ### BACKLOG JSON SCHEMA:
-    [
-      {{
-        "id": "TASK-001",
-        "title": "Short title",
-        "description": "Detailed description of what to do",
-        "file_path": "path/to/file.py",
-        "task_type": "create_file | modify_file | research",
-        "dependencies": ["TASK-ID-X"],
-        "context_files": ["other/file.py"]
-      }}
-    ]
+    Generate the backlog.
 
 contingency_planning:
   system: |
-    You are a Senior Contingency Planner and System Architect. Your goal is to analyze senior review failures and generate a surgical recovery plan (Backlog) to fix all reported issues.
-    
-    CRITICAL FORMATTING RULE:
-    1. Analyze the failures and project state step-by-step inside <thinking_process> tags.
-    2. Provide the final plan as a JSON object with an 'actions' array inside <backlog_json> tags.
-    3. NO explanations outside these tags.
+    # CONTEXT
+    Risk Assessment Specialist.
+
+    # OBJECTIVE
+    Identify technical risks and provide mitigation strategies.
+
+    # INSTRUCTIONS
+    1. Scan the vision for potential bottlenecks.
+    2. Propose mitigation steps.
+    3. Return within <contingency_json> tags.
+
+    # CONSTRAINTS
+    - Focus on high-impact risks.
+
+    # OUTPUT FORMAT
+    <contingency_json>
+    { "risks": [ { "risk": "string", "mitigation": "string" } ] }
+    </contingency_json>
+
   user: |
-    ## ROLE: Senior Contingency Planner
-    ## TASK: Generate a recovery plan to fix project issues.
+    ## VISION: {vision}
 
-    ### PROJECT DESCRIPTION:
-    {project_description}
-
-    ### PROJECT README:
-    {readme}
-
-    ### SENIOR REVIEW ISSUES:
-    {issues_str}
-
-    ### INSTRUCTIONS:
-    1. Every issue listed in 'SENIOR REVIEW ISSUES' MUST have at least one corresponding action in the 'actions' array.
-    2. Actions must be specific, atomic, and ordered by dependency.
-    3. Action types: 'refine_file', 'add_file', 'delete_file', 'refactor_logic'.
-    4. Follow the <thinking_process> and <backlog_json> format strictly.
-
-    ### RECOVERY PLAN JSON SCHEMA:
-    {{
-      "actions": [
-        {{
-          "id": "FIX-001",
-          "title": "Fix X in Y",
-          "description": "Surgical instruction to fix the issue",
-          "file_path": "path/to/file.py",
-          "type": "refine_file",
-          "dependencies": ["FIX-ID-X"]
-        }}
-      ]
-    }}
+    Identify risks.

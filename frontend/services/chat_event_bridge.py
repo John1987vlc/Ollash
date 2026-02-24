@@ -50,6 +50,23 @@ class ChatEventBridge:
         self.event_publisher.subscribe("architect_planning_started", self.push_event)
         self.event_publisher.subscribe("architect_planning_completed", self.push_event)
         self.event_publisher.subscribe("file_generated", self.push_event)
+        # P1 — HITL
+        self.event_publisher.subscribe("hitl_requested", self.push_event)
+        self.event_publisher.subscribe("hil_response", self.push_event)
+        # P4 — Streaming token chunks
+        self.event_publisher.subscribe("blackboard_stream_chunk", self.push_event)
+        # P5 — Budget circuit breaker
+        self.event_publisher.subscribe("budget_exceeded", self.push_event)
+        # P6 — Git auto-commit
+        self.event_publisher.subscribe("file_committed", self.push_event)
+        # P8 — Debate nodes
+        self.event_publisher.subscribe("debate_round_completed", self.push_event)
+        self.event_publisher.subscribe("debate_consensus_reached", self.push_event)
+        # P3 — Sandbox linter audit
+        self.event_publisher.subscribe("audit_sandbox_result", self.push_event)
+        # P9 — Tool belt
+        self.event_publisher.subscribe("tool_execution_started", self.push_event)
+        self.event_publisher.subscribe("tool_execution_completed", self.push_event)
 
     def push_event(self, event_type: str, data: Optional[Dict[str, Any]] = None):
         """Push an event onto the queue (called from the agent thread)."""

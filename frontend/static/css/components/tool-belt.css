@@ -1,0 +1,95 @@
+/* =========================================================
+   Tool Belt — P9 Agent Swimlane UI
+   ========================================================= */
+
+#agent-swimlanes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-xl, 28px);
+}
+
+.tool-belt-lane {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md, 16px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md, 10px);
+    padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+    min-height: 48px;
+}
+
+.tool-belt-agent-name {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    min-width: 110px;
+    white-space: nowrap;
+}
+
+.tool-belt-tools {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.tool-belt-icon {
+    position: relative;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+    opacity: 0.45;
+    transition: opacity 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.tb-emoji { font-size: 1rem; line-height: 1; }
+
+/* Active — tool currently running */
+.tool-belt-icon.active {
+    opacity: 1;
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 70%, transparent);
+    transform: scale(1.15);
+    animation: tool-pulse 1.2s ease-in-out infinite;
+    border-color: var(--color-primary);
+}
+
+@keyframes tool-pulse {
+    0%, 100% { box-shadow: 0 0 8px  color-mix(in srgb, var(--color-primary) 50%, transparent); }
+    50%       { box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 90%, transparent); }
+}
+
+/* Done — recently completed */
+.tool-belt-icon.done {
+    opacity: 0.85;
+    border-color: #22c55e;
+    box-shadow: 0 0 8px color-mix(in srgb, #22c55e 40%, transparent);
+    transform: scale(1);
+}
+
+/* Tooltip */
+.tool-belt-tooltip {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    color: var(--color-text-primary);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 100;
+}
+
+.tool-belt-icon:hover .tool-belt-tooltip { opacity: 1; }

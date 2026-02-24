@@ -3,7 +3,7 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -339,7 +339,7 @@ class ModelBenchmarker:
                     task_output["validation_result"] = validation_result
 
                 outputs.append(task_output)
-                
+
                 if callback:
                     callback({
                         "type": "task_done",

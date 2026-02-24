@@ -74,19 +74,40 @@ class PromptLoader:
 
         # 3. Filesystem fallback
         file_path = self.prompts_dir / relative_path
+
+        # F29: More robust file finding - check if already absolute or relative to project root
         if not file_path.exists():
-            # Try with .yaml extension if missing
-            if not file_path.suffix:
+            # Try finding prompts/ in current directory if not found in default prompts_dir
+            alt_path = Path("prompts") / relative_path
+            if alt_path.exists():
+                file_path = alt_path
+            elif not file_path.suffix:
                 file_path = file_path.with_suffix(".yaml")
+                if not file_path.exists():
+                    # Last ditch effort: search for prompts dir
+                    possible_roots = [Path.cwd(), Path(__file__).parent.parent.parent.parent.parent]
+                    for root in possible_roots:
+                        candidate = root / "prompts" / relative_path
+                        if candidate.exists():
+                            file_path = candidate
+                            break
+                        candidate = root / "prompts" / (relative_path + ".yaml")
+                        if candidate.exists():
+                            file_path = candidate
+                            break
 
             if not file_path.exists():
-                logger.error(f"Prompt file not found: {file_path}")
+                logger.error(f"Prompt file not found: {file_path}. Current Dir: {Path.cwd()}")
                 return {}
 
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = yaml.safe_load(f)
                 self._cache[relative_path] = content
+
+                # F29: Unified structure handling.
+                # If it's a single prompt file (with 'prompt' key), return it as is.
+                # If it's a service map (multiple systems), return the whole dict.
                 return content
         except Exception as e:
             logger.error(f"Error loading prompt file {file_path}: {e}")

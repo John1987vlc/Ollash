@@ -24,6 +24,7 @@ from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScann
 from backend.utils.core.language_utils import LanguageUtils
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.system.event_publisher import EventPublisher
+from backend.utils.domains.code.sandbox_runner import SandboxRunner
 
 if TYPE_CHECKING:
     from backend.agents.orchestrators.blackboard import Blackboard
@@ -33,15 +34,21 @@ if TYPE_CHECKING:
 
 class AuditorAgent(BaseDomainAgent):
     """
-    AUDITOR domain agent — event-driven JIT scanning.
+    AUDITOR domain agent — event-driven JIT scanning + empirical linter sandbox.
 
     Subscribes to ``file_generated`` at construction time.  Each event
     triggers ``_audit_file()`` as an asyncio background task, so auditing
     never blocks the DeveloperAgent pool.
 
+    P3 (Empirical Validation): After static vulnerability scan, the SandboxRunner
+    executes ``ruff`` on the generated file. Real linter errors are written to
+    ``sandbox_errors/{rel_path}`` so SelfHealingLoop can inject them into the
+    contingency plan prompt, dramatically improving fix accuracy.
+
     Output keys written to Blackboard:
-        ``scan_results/{rel_path}``  — ScanResult per file
-        ``audit_summary``            — Aggregated stats after batch pass
+        ``scan_results/{rel_path}``   — ScanResult per file
+        ``sandbox_errors/{rel_path}`` — Real linter/type errors (if any)
+        ``audit_summary``             — Aggregated stats after batch pass
     """
 
     REQUIRED_TOOLS: List[str] = ["vulnerability_scanner", "code_quarantine"]
@@ -54,10 +61,12 @@ class AuditorAgent(BaseDomainAgent):
         event_publisher: EventPublisher,
         logger: AgentLogger,
         tool_dispatcher: "ToolDispatcher",
+        sandbox_runner: Optional[SandboxRunner] = None,
     ) -> None:
         super().__init__(event_publisher, logger, tool_dispatcher)
         self._vuln_scanner = vulnerability_scanner
         self._quarantine = code_quarantine
+        self._sandbox: Optional[SandboxRunner] = sandbox_runner
         self._blackboard: Optional["Blackboard"] = None
         self._event_loop: Optional[asyncio.AbstractEventLoop] = None
 
@@ -131,12 +140,39 @@ class AuditorAgent(BaseDomainAgent):
             self._log_error(f"VulnerabilityScanner failed on '{file_path}': {exc}")
             return
 
-        # Write results
+        # Write static scan results
         await self._blackboard.write(
             f"scan_results/{file_path}",
             scan_result,
             self.agent_id,
         )
+
+        # P3 — Empirical validation: run real linter in sandbox
+        if self._sandbox is not None:
+            try:
+                sandbox_result = await loop.run_in_executor(
+                    None,
+                    lambda: self._sandbox.run_linter(file_path, content),
+                )
+                self._publish_event(
+                    "audit_sandbox_result",
+                    rel_path=file_path,
+                    passed=sandbox_result.passed,
+                    tool=sandbox_result.tool,
+                    errors=sandbox_result.errors,
+                )
+                if not sandbox_result.passed and sandbox_result.errors:
+                    # Store real errors for SelfHealingLoop to inject into prompt
+                    await self._blackboard.write(
+                        f"sandbox_errors/{file_path}",
+                        "\n".join(sandbox_result.errors),
+                        self.agent_id,
+                    )
+                    self._log_debug(
+                        f"Sandbox: {len(sandbox_result.errors)} linter errors in '{file_path}'"
+                    )
+            except Exception as exc:
+                self._log_debug(f"Sandbox runner failed for '{file_path}': {exc}")
 
         # Check for critical findings
         has_critical = self._has_critical(scan_result)
