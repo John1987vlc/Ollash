@@ -253,6 +253,13 @@ class AuditorAgent(BaseDomainAgent):
     # Helpers
     # ------------------------------------------------------------------
 
+    def cleanup(self) -> None:
+        """Unsubscribe all event listeners to prevent memory leaks in long-running processes."""
+        try:
+            self._event_publisher.unsubscribe("file_generated", self._on_file_generated)
+        except (AttributeError, KeyError):
+            pass
+
     @staticmethod
     def _has_critical(scan_result: Any) -> bool:
         """Return True if the scan result contains any CRITICAL severity finding."""
@@ -260,7 +267,7 @@ class AuditorAgent(BaseDomainAgent):
             for vuln in (scan_result.vulnerabilities if hasattr(scan_result, "vulnerabilities") else []):
                 if hasattr(vuln, "severity") and vuln.severity.lower() == "critical":
                     return True
-        except Exception:
+        except (AttributeError, TypeError):
             pass
         return False
 
@@ -271,7 +278,7 @@ class AuditorAgent(BaseDomainAgent):
             for vuln in (scan_result.vulnerabilities if hasattr(scan_result, "vulnerabilities") else []):
                 if hasattr(vuln, "severity") and vuln.severity.lower() == "critical":
                     count += 1
-        except Exception:
+        except (AttributeError, TypeError):
             pass
         return count
 
@@ -284,7 +291,7 @@ class AuditorAgent(BaseDomainAgent):
             for vuln in (scan_result.vulnerabilities if hasattr(scan_result, "vulnerabilities") else []):
                 if hasattr(vuln, "severity"):
                     found.add(vuln.severity.lower())
-        except Exception:
+        except (AttributeError, TypeError):
             pass
         for sev in order:
             if sev in found:

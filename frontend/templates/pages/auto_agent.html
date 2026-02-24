@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/projects.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auto-agent.css') }}">
 <!-- P1-P10 component styles -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/generation-progress.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/hitl-modal.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/diff-viewer.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/tool-belt.css') }}">
@@ -38,6 +39,45 @@
 
 <!-- P1 HITL Modal -->
 {% include 'components/hitl_modal.html' %}
+
+<!-- Generation progress banner — shown while AutoAgent is running -->
+<div id="generation-progress-banner" class="generation-progress-banner" style="display: none;" role="status" aria-live="polite">
+    <div class="gen-progress-header">
+        <span class="gen-progress-spinner" aria-hidden="true"></span>
+        <span id="gen-progress-title">Generating project...</span>
+        <button class="btn-icon gen-progress-close" id="gen-progress-close" title="Dismiss" aria-label="Dismiss progress banner">&#x2715;</button>
+    </div>
+    <div class="gen-progress-steps">
+        <div class="gen-step" id="gen-step-planning" data-step="planning">
+            <span class="gen-step-icon">&#9679;</span>
+            <span class="gen-step-label">Planning</span>
+        </div>
+        <div class="gen-step-connector"></div>
+        <div class="gen-step" id="gen-step-generating" data-step="generating">
+            <span class="gen-step-icon">&#9679;</span>
+            <span class="gen-step-label">Generating</span>
+        </div>
+        <div class="gen-step-connector"></div>
+        <div class="gen-step" id="gen-step-reviewing" data-step="reviewing">
+            <span class="gen-step-icon">&#9679;</span>
+            <span class="gen-step-label">Reviewing</span>
+        </div>
+        <div class="gen-step-connector"></div>
+        <div class="gen-step" id="gen-step-testing" data-step="testing">
+            <span class="gen-step-icon">&#9679;</span>
+            <span class="gen-step-label">Testing</span>
+        </div>
+        <div class="gen-step-connector"></div>
+        <div class="gen-step" id="gen-step-done" data-step="done">
+            <span class="gen-step-icon">&#9679;</span>
+            <span class="gen-step-label">Done</span>
+        </div>
+    </div>
+    <div class="gen-progress-bar-wrap">
+        <div class="gen-progress-bar" id="gen-progress-bar" style="width: 0%"></div>
+    </div>
+    <div class="gen-progress-message" id="gen-progress-message"></div>
+</div>
 
 <div class="project-workspace" id="project-workspace" style="display: none;">
 

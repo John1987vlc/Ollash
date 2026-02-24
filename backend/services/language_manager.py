@@ -6,9 +6,14 @@ Handles automatic translation of inputs and ensuring outputs remain in English.
 """
 
 import logging
+import re
 from typing import Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# Pre-compiled pattern strips URLs, file paths, and technical tokens before
+# counting non-ASCII characters, reducing false-positive language detection.
+_NOISE_PATTERN = re.compile(r"https?://\S+|/[\w/.-]+|\S+\.\w{2,4}")
 
 
 class LanguageManager:
@@ -17,7 +22,7 @@ class LanguageManager:
     Mandatory for SLM/LLM reasoning accuracy.
     """
 
-    def __init__(self, llm_provider: Any):
+    def __init__(self, llm_provider: Any) -> None:
         self.llm_provider = llm_provider
 
     async def ensure_english_input(self, text: str) -> Tuple[str, str]:
@@ -28,14 +33,20 @@ class LanguageManager:
         if not text or not text.strip():
             return text, "en"
 
-        # F33: Refined heuristic. If it has very few non-ASCII chars, assume English passthrough
-        non_ascii_count = sum(1 for c in text if ord(c) > 127)
-        is_likely_not_en = non_ascii_count > 2 # Allow for a few special chars without translating
+        # Improved heuristic: strip URLs, file paths, and technical tokens first
+        # to avoid false positives from non-ASCII chars in those tokens.
+        # Also exclude Unicode emoji ranges (0x1F300-0x1FAFF).
+        text_filtered = _NOISE_PATTERN.sub("", text)
+        non_ascii_count = sum(
+            1 for c in text_filtered
+            if ord(c) > 127 and not (0x1F300 <= ord(c) <= 0x1FAFF)
+        )
+        is_likely_not_en = non_ascii_count > 3
 
         if not is_likely_not_en:
             return text, "en"
 
-        logger.info(f"Detecting non-English input ({non_ascii_count} non-ascii). Translating...")
+        logger.info(f"Detecting non-English input ({non_ascii_count} non-ASCII chars after filtering). Translating...")
 
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader

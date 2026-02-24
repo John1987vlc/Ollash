@@ -1,0 +1,144 @@
+/* Generation Progress Banner
+   Shown while AutoAgent runs a project creation pipeline.
+   Activated by auto-agent.js when /api/projects/create is called.
+*/
+
+.generation-progress-banner {
+    background: var(--color-surface, #1e1e2e);
+    border: 1px solid var(--color-border, #313244);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin: 0.75rem 0 1rem;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+    animation: gen-fade-in 0.2s ease;
+}
+
+@keyframes gen-fade-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Header row */
+.gen-progress-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.85rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-text, #cdd6f4);
+}
+
+.gen-progress-close {
+    margin-left: auto;
+    opacity: 0.55;
+    font-size: 0.8rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    padding: 0 0.25rem;
+}
+.gen-progress-close:hover { opacity: 1; }
+
+/* Spinner */
+.gen-progress-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--color-border, #313244);
+    border-top-color: var(--color-primary, #cba6f7);
+    border-radius: 50%;
+    animation: gen-spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+@keyframes gen-spin {
+    to { transform: rotate(360deg); }
+}
+/* Hide spinner when done */
+.generation-progress-banner.gen-done .gen-progress-spinner {
+    display: none;
+}
+
+/* Steps row */
+.gen-progress-steps {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.7rem;
+    gap: 0;
+}
+
+.gen-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 60px;
+    font-size: 0.72rem;
+    color: var(--color-text-muted, #6c7086);
+    transition: color 0.25s;
+}
+
+.gen-step-icon {
+    font-size: 0.6rem;
+    transition: color 0.25s, transform 0.2s;
+}
+
+.gen-step.active {
+    color: var(--color-primary, #cba6f7);
+}
+.gen-step.active .gen-step-icon {
+    transform: scale(1.35);
+}
+
+.gen-step.completed {
+    color: var(--color-green, #a6e3a1);
+}
+.gen-step.completed .gen-step-icon::before {
+    content: "✓";
+    font-size: 0.75rem;
+}
+
+.gen-step-connector {
+    flex: 1;
+    height: 1px;
+    background: var(--color-border, #313244);
+    margin: 0 4px;
+    margin-bottom: 14px; /* align with icons */
+    transition: background 0.3s;
+}
+.gen-step-connector.passed {
+    background: var(--color-green, #a6e3a1);
+}
+
+/* Progress bar */
+.gen-progress-bar-wrap {
+    background: var(--color-border, #313244);
+    border-radius: 4px;
+    height: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+.gen-progress-bar {
+    height: 100%;
+    background: var(--color-primary, #cba6f7);
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+.generation-progress-banner.gen-done .gen-progress-bar {
+    background: var(--color-green, #a6e3a1);
+}
+.generation-progress-banner.gen-error .gen-progress-bar {
+    background: var(--color-red, #f38ba8);
+}
+
+/* Status message */
+.gen-progress-message {
+    font-size: 0.78rem;
+    color: var(--color-text-muted, #6c7086);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 1.1em;
+}

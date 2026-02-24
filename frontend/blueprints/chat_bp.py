@@ -1,5 +1,7 @@
 """Blueprint for DefaultAgent interactive chat routes."""
 
+import threading
+
 from flask import Blueprint, Response, jsonify, request, stream_with_context, render_template
 
 from frontend.middleware import rate_limit_chat, require_api_key
@@ -68,8 +70,8 @@ def list_sessions():
     if not _session_manager:
         return jsonify({"sessions": []})
 
-    # Cleanup empty sessions before listing
-    _session_manager.delete_empty_sessions()
+    # Cleanup empty sessions in background to avoid blocking this request
+    threading.Thread(target=_session_manager.delete_empty_sessions, daemon=True).start()
 
     sessions = _session_manager.list_sessions()
     return jsonify({"sessions": [dict(s) for s in sessions]})

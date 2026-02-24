@@ -52,7 +52,7 @@ class CommandExecutor:
             try:
                 self.docker_client = docker.from_env()
                 self.logger.info("Docker client initialized successfully.")
-            except Exception as e:
+            except (docker.errors.DockerException, OSError) as e:
                 self.logger.error(f"Failed to initialize Docker client: {e}. Docker sandboxing will be disabled.")
                 self.use_docker_sandbox = False
 
@@ -226,7 +226,7 @@ class CommandExecutor:
                 return_code=1,
                 command=command,
             )
-        except Exception as e:
+        except (OSError, PermissionError, ValueError) as e:
             stderr_msg = str(e)
             if self.logger:
                 self.logger.error(
@@ -352,7 +352,7 @@ except Exception as e:
             stderr_msg = f"Docker API error: {e}"
             self.logger.error(stderr_msg)
             return ExecutionResult(False, "", stderr_msg, 1, command)
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             stderr_msg = f"Unexpected Docker execution error: {e}"
             self.logger.error(stderr_msg)
             return ExecutionResult(False, "", stderr_msg, 1, command)
@@ -423,7 +423,7 @@ except Exception as e:
                 return_code=1,
                 command=command_str,
             )
-        except Exception as e:
+        except (OSError, PermissionError, asyncio.CancelledError) as e:
             return ExecutionResult(
                 success=False,
                 stdout="",

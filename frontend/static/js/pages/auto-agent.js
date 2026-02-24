@@ -225,3 +225,134 @@ window.KanbanBoard = (function () {
     window._autoAgentEventHandler = handleAutoAgentEvent;
 
 })();
+
+// ---------------------------------------------------------------------------
+// Generation Progress Banner — shows pipeline stages during project creation
+// ---------------------------------------------------------------------------
+window.GenerationProgress = (function () {
+    'use strict';
+
+    const STEP_ORDER = ['planning', 'generating', 'reviewing', 'testing', 'done'];
+
+    // Maps SSE event types to pipeline step names
+    const EVENT_TO_STEP = {
+        'phase_started':        'generating',
+        'file_generated':       'generating',
+        'audit_completed':      'reviewing',
+        'audit_critical_found': 'reviewing',
+        'batch_audit_completed':'testing',
+        'stream_end':           'done',
+    };
+
+    // Maps step names to progress bar percentages
+    const STEP_PROGRESS = { planning: 10, generating: 40, reviewing: 70, testing: 90, done: 100 };
+
+    let _currentStep = null;
+
+    function _el(id) { return document.getElementById(id); }
+
+    function show(projectName) {
+        const banner = _el('generation-progress-banner');
+        if (!banner) return;
+        _currentStep = null;
+        _resetSteps();
+        banner.classList.remove('gen-done', 'gen-error');
+        banner.style.display = 'block';
+        const title = _el('gen-progress-title');
+        if (title) title.textContent = `Generating "${projectName}"…`;
+        _activateStep('planning');
+
+        // Dismiss button
+        const closeBtn = _el('gen-progress-close');
+        if (closeBtn) closeBtn.onclick = () => { banner.style.display = 'none'; };
+    }
+
+    function hide() {
+        const banner = _el('generation-progress-banner');
+        if (banner) banner.style.display = 'none';
+    }
+
+    function onEvent(eventType, data) {
+        const step = EVENT_TO_STEP[eventType];
+        if (!step) return;
+
+        const stepIndex = STEP_ORDER.indexOf(step);
+        const currentIndex = STEP_ORDER.indexOf(_currentStep || 'planning');
+        if (stepIndex < currentIndex) return; // never go backwards
+
+        _activateStep(step);
+
+        // Update message from event data
+        const msg = _el('gen-progress-message');
+        if (msg) {
+            if (data.message) msg.textContent = data.message;
+            else if (data.file_path) msg.textContent = `Generated: ${data.file_path}`;
+            else if (data.rel_path) msg.textContent = `Writing: ${data.rel_path}`;
+        }
+
+        if (step === 'done') {
+            const banner = _el('generation-progress-banner');
+            if (banner) banner.classList.add('gen-done');
+            const title = _el('gen-progress-title');
+            if (title) title.textContent = 'Project ready!';
+            // Auto-hide after 4 s
+            setTimeout(hide, 4000);
+        }
+    }
+
+    function onError(message) {
+        const banner = _el('generation-progress-banner');
+        if (!banner) return;
+        banner.classList.add('gen-error');
+        const title = _el('gen-progress-title');
+        if (title) title.textContent = 'Generation failed';
+        const msg = _el('gen-progress-message');
+        if (msg) msg.textContent = message || 'An error occurred.';
+        const bar = _el('gen-progress-bar');
+        if (bar) bar.style.width = '100%';
+    }
+
+    function _resetSteps() {
+        STEP_ORDER.forEach(s => {
+            const el = _el(`gen-step-${s}`);
+            if (el) el.classList.remove('active', 'completed');
+        });
+        document.querySelectorAll('.gen-step-connector').forEach(c => c.classList.remove('passed'));
+        const bar = _el('gen-progress-bar');
+        if (bar) bar.style.width = '0%';
+        const msg = _el('gen-progress-message');
+        if (msg) msg.textContent = '';
+    }
+
+    function _activateStep(step) {
+        const newIndex = STEP_ORDER.indexOf(step);
+        if (newIndex < 0) return;
+
+        STEP_ORDER.forEach((s, i) => {
+            const el = _el(`gen-step-${s}`);
+            if (!el) return;
+            if (i < newIndex) {
+                el.classList.remove('active');
+                el.classList.add('completed');
+            } else if (i === newIndex) {
+                el.classList.remove('completed');
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active', 'completed');
+            }
+        });
+
+        // Mark connectors between completed steps
+        const connectors = document.querySelectorAll('.gen-step-connector');
+        connectors.forEach((c, i) => {
+            c.classList.toggle('passed', i < newIndex);
+        });
+
+        const bar = _el('gen-progress-bar');
+        if (bar) bar.style.width = (STEP_PROGRESS[step] || 0) + '%';
+
+        _currentStep = step;
+    }
+
+    return { show, hide, onEvent, onError };
+})();

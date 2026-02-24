@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, render_template
+from flask import Blueprint, jsonify, request, render_template, current_app
 from werkzeug.utils import secure_filename
 from backend.core.containers import main_container
 
@@ -24,11 +24,17 @@ def list_documents():
         # Format for UI
         results = []
         if docs and "ids" in docs:
-            for i in range(len(docs["ids"])):
-                meta = docs["metadatas"][i] if docs["metadatas"] else {}
+            ids = docs.get("ids", [])
+            metas = docs.get("metadatas", [])
+            
+            for i in range(len(ids)):
+                meta = {}
+                if metas and i < len(metas) and metas[i]:
+                    meta = metas[i]
+                
                 results.append(
                     {
-                        "id": docs["ids"][i],
+                        "id": ids[i],
                         "filename": meta.get("filename", "Unknown"),
                         "source": meta.get("source", "Manual Upload"),
                         "timestamp": meta.get("timestamp", ""),
@@ -36,6 +42,8 @@ def list_documents():
                 )
         return jsonify({"documents": results})
     except Exception as e:
+        import traceback
+        current_app.logger.error(f"Error in list_documents: {str(e)}\n{traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 

@@ -281,7 +281,11 @@ const ChatModule = (function() {
                 }
                 if (!agentBubble) agentBubble = appendMessage('assistant', '');
                 contentBuffer += data.text;
-                agentBubble.innerHTML = window.formatAnswer ? window.formatAnswer(contentBuffer) : contentBuffer;
+                if (window.formatAnswer) {
+                    agentBubble.innerHTML = window.formatAnswer(contentBuffer); // sanitized by formatAnswer
+                } else {
+                    agentBubble.textContent = contentBuffer; // safe fallback: no HTML injection
+                }
                 scrollToBottom();
             } 
             else if (type === 'thinking') {
@@ -340,7 +344,11 @@ const ChatModule = (function() {
                 if (!agentBubble) {
                     agentBubble = appendMessage('assistant', finalContent);
                 } else if (data.content) {
-                    agentBubble.innerHTML = window.formatAnswer ? window.formatAnswer(data.content) : data.content;
+                    if (window.formatAnswer) {
+                        agentBubble.innerHTML = window.formatAnswer(data.content);
+                    } else {
+                        agentBubble.textContent = data.content;
+                    }
                 }
                 
                 finalizeResponse(agentBubble, data.metrics);

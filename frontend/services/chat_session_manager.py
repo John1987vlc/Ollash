@@ -20,6 +20,7 @@ class ChatSessionManager:
     """Manages active DefaultAgent chat sessions for the web UI."""
 
     MAX_SESSIONS = 5
+    MAX_MESSAGES_PER_SESSION = 200
 
     def __init__(self, ollash_root_dir: Path, event_publisher):
         self.ollash_root_dir = ollash_root_dir
@@ -157,6 +158,15 @@ class ChatSessionManager:
                 self.db.execute(
                     "INSERT INTO chat_messages (session_id, role, content) VALUES (?, ?, ?)",
                     (session_id, "assistant", content)
+                )
+
+                # Trim oldest messages to stay within per-session history limit
+                self.db.execute(
+                    """DELETE FROM chat_messages WHERE session_id = ? AND id NOT IN (
+                        SELECT id FROM chat_messages WHERE session_id = ?
+                        ORDER BY id DESC LIMIT ?
+                    )""",
+                    (session_id, session_id, ChatSessionManager.MAX_MESSAGES_PER_SESSION),
                 )
 
                 session.bridge.push_event("final_answer", {"content": content, "metrics": metrics})

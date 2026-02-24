@@ -201,4 +201,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     loadVectorDocs();
+
+    // Export for SPA router
+    window.loadKnowledgeData = () => {
+        const activeTab = document.querySelector('.k-tab.active')?.dataset.tab || 'vector';
+        if (activeTab === 'vector') loadVectorDocs();
+        if (activeTab === 'episodic') loadEpisodicMemory();
+        if (activeTab === 'errors') loadErrorKnowledge();
+    };
 });

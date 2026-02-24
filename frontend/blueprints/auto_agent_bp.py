@@ -3,6 +3,7 @@
 import io
 import os
 import re
+import shlex
 import subprocess
 import threading
 import zipfile
@@ -24,6 +25,41 @@ from backend.utils.core.tools.git_pr_tool import GitPRTool
 from backend.utils.core.system.task_scheduler import get_scheduler
 
 auto_agent_bp = Blueprint("auto_agent", __name__)
+
+# Precompiled pattern for safe filename sanitization (avoids recompiling on each call)
+_SAFE_FILENAME_RE = re.compile(r"[^a-zA-Z0-9._-]")
+
+# Magic byte signatures for allowed image types (validated server-side, not trusting client MIME)
+_IMAGE_MAGIC: Dict[bytes, str] = {
+    b"\x89PNG": "image/png",
+    b"\xff\xd8\xff": "image/jpeg",
+    b"GIF87a": "image/gif",
+    b"GIF89a": "image/gif",
+    b"RIFF": "image/webp",  # Must also check bytes 8-12 == b"WEBP"
+}
+
+
+def _validate_image_magic(file_storage) -> bool:
+    """Validate uploaded file content via magic bytes — client MIME type is not trusted."""
+    header = file_storage.stream.read(12)
+    file_storage.stream.seek(0)
+    for magic in _IMAGE_MAGIC:
+        if header.startswith(magic):
+            if magic == b"RIFF":
+                return header[8:12] == b"WEBP"
+            return True
+    return False
+
+
+def _safe_resolve(base: Path, relative: str) -> Path:
+    """Resolve a relative path under *base* and verify it stays within *base*.
+
+    Returns the resolved absolute Path or raises ValueError on traversal attempt.
+    """
+    resolved = (base / relative).resolve()
+    if not resolved.is_relative_to(base.resolve()):
+        raise ValueError(f"Path traversal attempt detected: '{relative}'")
+    return resolved
 
 
 def _parse_git_url(git_repo_url: str) -> Tuple[str, str]:
@@ -317,14 +353,13 @@ def read_file_content(project_name):
     if not file_path_relative:
         return jsonify({"status": "error", "message": "File path is required."}), 400
 
-    project_base_path = str(_ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name)
-    full_file_path = os.path.normpath(os.path.join(project_base_path, file_path_relative))
-
-    # Security: prevent directory traversal
-    if not full_file_path.startswith(project_base_path):
+    project_base_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+    try:
+        full_file_path = _safe_resolve(project_base_path, file_path_relative)
+    except ValueError:
         return jsonify({"status": "error", "message": "Invalid file path."}), 400
 
-    if not os.path.isfile(full_file_path):
+    if not full_file_path.is_file():
         return jsonify({"status": "error", "message": "File not found."}), 404
 
     try:
@@ -357,10 +392,9 @@ def save_file_content(project_name):
         return jsonify({"status": "error", "message": "Content is required."}), 400
 
     project_base_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
-    full_file_path = project_base_path / file_path_relative
-
-    # Security: prevent directory traversal
-    if not str(full_file_path).startswith(str(project_base_path)):
+    try:
+        full_file_path = _safe_resolve(project_base_path, file_path_relative)
+    except ValueError:
         return jsonify({"status": "error", "message": "Invalid file path."}), 400
 
     try:
@@ -388,16 +422,15 @@ def execute_command(project_name):
         return jsonify({"status": "error", "message": "Project not found."}), 404
 
     try:
-        # Execute the command in the project's directory
-        # Using shell=True for convenience, but consider security implications
-        # For production, might want to parse command and arguments explicitly
+        # Parse command string into a list to avoid shell injection (shell=False)
+        cmd_list = shlex.split(command) if isinstance(command, str) else command
         result = subprocess.run(
-            command,
-            shell=True,
+            cmd_list,
+            shell=False,
             capture_output=True,
             text=True,
             cwd=project_base_path,
-            check=False,  # Do not raise CalledProcessError for non-zero exit codes
+            check=False,
         )
         return jsonify(
             {
@@ -691,15 +724,15 @@ def delete_project_item(project_name):
         return jsonify({"status": "error", "message": "Path is required."}), 400
 
     project_base_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
-    full_path = os.path.normpath(os.path.join(project_base_path, path_relative))
-
-    if not str(full_path).startswith(str(project_base_path)):
+    try:
+        full_path = _safe_resolve(project_base_path, path_relative)
+    except ValueError:
         return jsonify({"status": "error", "message": "Invalid path."}), 400
 
     try:
-        if os.path.isfile(full_path):
-            os.remove(full_path)
-        elif os.path.isdir(full_path):
+        if full_path.is_file():
+            full_path.unlink()
+        elif full_path.is_dir():
             shutil.rmtree(full_path)
         else:
             return jsonify({"status": "error", "message": "Item not found."}), 404
@@ -720,16 +753,14 @@ def rename_project_item(project_name):
         return jsonify({"status": "error", "message": "Old and new paths are required."}), 400
 
     project_base_path = _ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
-    old_full_path = os.path.normpath(os.path.join(project_base_path, old_path_rel))
-    new_full_path = os.path.normpath(os.path.join(project_base_path, new_path_rel))
-
-    if not str(old_full_path).startswith(str(project_base_path)) or not str(new_full_path).startswith(
-        str(project_base_path)
-    ):
+    try:
+        old_full_path = _safe_resolve(project_base_path, old_path_rel)
+        new_full_path = _safe_resolve(project_base_path, new_path_rel)
+    except ValueError:
         return jsonify({"status": "error", "message": "Invalid path."}), 400
 
     try:
-        os.rename(old_full_path, new_full_path)
+        old_full_path.rename(new_full_path)
         return jsonify({"status": "success", "message": "Item renamed successfully."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -948,8 +979,10 @@ def upload_context_images():
     saved = []
     for uploaded_file in request.files.getlist("images"):
         if uploaded_file.mimetype not in allowed_types:
-            continue
-        safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", uploaded_file.filename or "image")
+            return jsonify({"error": f"Unsupported file type: {uploaded_file.mimetype}"}), 400
+        if not _validate_image_magic(uploaded_file):
+            return jsonify({"error": "File content does not match its declared MIME type."}), 400
+        safe_name = _SAFE_FILENAME_RE.sub("_", uploaded_file.filename or "image")
         dest = upload_dir / safe_name
         uploaded_file.save(dest)
         saved.append(str(dest))
