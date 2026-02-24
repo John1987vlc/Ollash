@@ -360,6 +360,8 @@ class TestGenerationExecutionPhase(IAgentPhase):
             ]
         )
         file_paths.extend([rp for rp in generated_test_files if rp not in file_paths])
+        # Merge test files into the unified output dict so callers receive all generated content
+        generated_files.update(generated_test_files)
 
         return generated_files, initial_structure, file_paths
 

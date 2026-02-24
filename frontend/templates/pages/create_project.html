@@ -79,6 +79,16 @@
                                 <option value="3.11">Python 3.11</option>
                             </select>
                         </div>
+                        <div class="form-group-modern">
+                            <label>Licencia</label>
+                            <select id="license-type" name="license_type" class="form-input-modern">
+                                <option value="MIT">MIT</option>
+                                <option value="Apache-2.0">Apache 2.0</option>
+                                <option value="GPL-3.0">GPL-3.0</option>
+                                <option value="BSD-3-Clause">BSD-3-Clause</option>
+                                <option value="Proprietary">Propietaria</option>
+                            </select>
+                        </div>
                         
                         <div class="toggles-grid">
                             <div class="toggle-card-mini">
@@ -147,6 +157,144 @@
                     </div>
                 </div>
 
+                <!-- Advanced Options Accordion -->
+                <details class="wizard-advanced-accordion" id="advanced-options">
+                    <summary class="wizard-accordion-summary">
+                        <span>⚙️ Opciones Avanzadas</span>
+                        <span class="accordion-arrow">▸</span>
+                    </summary>
+
+                    <div class="wizard-accordion-body">
+                        <!-- Sub-section: Agentes & Rendimiento -->
+                        <div class="accordion-section-grid">
+                            <div class="config-section">
+                                <h4>Agentes &amp; Rendimiento</h4>
+                                <div class="form-group-modern">
+                                    <label>Developer Agents en paralelo (1–5)</label>
+                                    <div class="range-container">
+                                        <input type="range" id="pool-size" min="1" max="5" value="3" class="range-input">
+                                        <span id="pool-size-value" class="range-badge">3</span>
+                                    </div>
+                                    <p class="help-text">Agentes que trabajan en paralelo en el DAG.</p>
+                                </div>
+                                <div class="form-group-modern">
+                                    <label>Timeout por tarea (seg)</label>
+                                    <input type="number" id="task-timeout" value="300" min="60" max="600" class="form-input-modern">
+                                    <p class="help-text">Máx. espera para respuesta del LLM por archivo.</p>
+                                </div>
+                                <div class="toggle-card-mini" style="margin-top: 8px;">
+                                    <div class="toggle-info">
+                                        <span class="toggle-label">Generación Paralela</span>
+                                        <p class="help-text">Archivos pequeños en batches.</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="parallel-generation">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Sub-section: Calidad & Seguridad -->
+                            <div class="config-section">
+                                <h4>Calidad &amp; Seguridad</h4>
+                                <div class="toggles-grid">
+                                    <div class="toggle-card-mini">
+                                        <span class="toggle-label">Security Scan</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="security-scanning" checked>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-card-mini">
+                                        <span class="toggle-label">Block on Critical</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="block-on-critical">
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-card-mini">
+                                        <span class="toggle-label">Checkpoint</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="checkpoint-enabled" checked>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-card-mini">
+                                        <span class="toggle-label">Cost Tracking</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="cost-tracking" checked>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-card-mini">
+                                        <span class="toggle-label">Senior PR Review</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="senior-review-pr">
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-card-mini">
+                                        <span class="toggle-label">GitHub Wiki</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="github-wiki">
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-card-mini">
+                                        <span class="toggle-label">GitHub Pages</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="github-pages">
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sub-section: Feature Flags -->
+                        <div class="config-section" style="margin-top: 16px;">
+                            <h4>Feature Flags</h4>
+                            <div class="toggles-grid">
+                                <div class="toggle-card-mini">
+                                    <span class="toggle-label">Feedback Refinement</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="feat-feedback-refinement">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-card-mini">
+                                    <span class="toggle-label">Refactoring Agent</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="feat-refactoring">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-card-mini">
+                                    <span class="toggle-label">Load Testing</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="feat-load-testing">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-card-mini">
+                                    <span class="toggle-label">Deep License Scan</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="feat-license-scan">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-card-mini">
+                                    <span class="toggle-label">CI/CD Auto-Healing</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="feat-cicd-healing">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
                 <div class="wizard-actions-v2">
                     <button type="button" class="btn btn-lg btn-secondary wizard-back-btn" id="wizard-prev-2">Atrás</button>
                     <button type="button" class="btn btn-lg btn-primary wizard-next-btn" id="wizard-next-2">Continuar &rarr;</button>
@@ -206,7 +354,7 @@
 
         <!-- Hidden form for backward compat -->
         <form id="create-project-form" class="create-form" style="display:none;">
-            <button type="submit" class="btn-primary"><span>Generate Project</span></button>
+            <button type="submit" class="btn btn-primary"><span>Generate Project</span></button>
         </form>
 
         <div id="status-message" class="status-message"></div>

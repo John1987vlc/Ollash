@@ -1,10 +1,9 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from backend.utils.core.tools.wasm_sandbox import TestResult
 
 @pytest.fixture
-def client(flask_app):
-    return flask_app.test_client()
+def client(app):
+    return app.test_client()
 
 def test_sandbox_page_loads(client):
     """Test that the sandbox playground UI renders."""
@@ -16,12 +15,12 @@ def test_sandbox_page_loads(client):
 @patch("frontend.blueprints.sandbox_bp.wasm_sandbox")
 def test_execute_code_python_success(mock_wasm, mock_docker, client):
     """Test successful Python code execution via Docker fallback."""
+    from backend.utils.core.tools.wasm_sandbox import TestResult as SandboxTestResult
     mock_docker.is_available = True
-    mock_docker.execute_in_container.return_value = TestResult(
+    mock_docker.execute_in_container.return_value = SandboxTestResult(
         success=True,
         exit_code=0,
-        stdout="hello world
-",
+        stdout="hello world\n",
         stderr="",
         duration_seconds=0.1
     )

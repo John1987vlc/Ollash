@@ -1,4 +1,31 @@
-/* ==================== Unified Button System ==================== */
+/* ==================== Unified Button System ====================
+ *
+ * Canonical button classes for all pages. Never redefine these in page-specific
+ * CSS files. Available variants:
+ *   .btn .btn-primary    — main CTA (indigo)
+ *   .btn .btn-secondary  — outline / subtle
+ *   .btn .btn-ghost      — transparent
+ *   .btn .btn-accent     — purple highlight
+ *   .btn .btn-danger     — destructive action (red)
+ *   .btn .btn-action     — toolbar micro-button
+ *   .btn .btn-sm / .btn-lg — size modifiers
+ * ================================================================ */
+
+/* Reset bare <button> and <input type="button/submit/reset"> to prevent
+ * browser-default Win95-style appearance. Apply .btn classes to style them. */
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    color: inherit;
+}
 
 :root {
     --btn-padding-y: 10px;
@@ -56,6 +83,16 @@
 .btn-secondary:hover {
     background: var(--color-surface-hover);
     border-color: var(--color-primary);
+}
+
+/* Danger: Destructive actions */
+.btn-danger {
+    background: var(--color-error);
+    color: white;
+}
+.btn-danger:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 /* Ghost: Transparent, background on hover */

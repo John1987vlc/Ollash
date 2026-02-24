@@ -86,7 +86,8 @@ class DomainAgentOrchestrator:
         self._event_publisher = event_publisher
         self._logger = logger
         self._generated_projects_dir = generated_projects_dir or Path(".ollash/generated_projects")
-        self._pool_index: int = 0  # Round-robin developer pool counter
+        # asyncio.Queue is populated lazily in run() once the event loop is running.
+        self._dev_queue: asyncio.Queue[DeveloperAgent] = asyncio.Queue()
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -129,17 +130,23 @@ class DomainAgentOrchestrator:
             blackboard=self._blackboard,
         )
 
-        # 3 — Wire AuditorAgent to the live event loop
+        # 3 — Populate the developer queue (must be done inside an async context)
+        while not self._dev_queue.empty():
+            self._dev_queue.get_nowait()
+        for dev in self._dev_pool:
+            self._dev_queue.put_nowait(dev)
+
+        # 4 — Wire AuditorAgent to the live event loop
         self._auditor.set_blackboard(self._blackboard)
         try:
             self._auditor.set_event_loop(asyncio.get_running_loop())
         except RuntimeError:
             pass
 
-        # 4 — Execute DAG
+        # 5 — Execute DAG
         await self._execution_loop(dag, pool_size)
 
-        # 5 — Finalise: write all files to disk
+        # 6 — Finalise: write all files to disk
         self._finalize(project_root, dag)
 
         self._event_publisher.publish(
@@ -192,7 +199,7 @@ class DomainAgentOrchestrator:
         in_flight: set = set()
 
         while not dag.is_complete():
-            ready = dag.get_ready_tasks()
+            ready = await dag.get_ready_tasks()
 
             for node in ready:
                 if node.id in in_flight:
@@ -231,9 +238,24 @@ class DomainAgentOrchestrator:
         readme: str = self._blackboard.read("readme_content", "")
         ctx_snapshot: Dict[str, Any] = copy.deepcopy(self._blackboard.snapshot())
 
+        # Notify UI that this task is starting
+        self._event_publisher.publish(
+            "task_status_changed",
+            task_id=node.id,
+            status=TaskStatus.IN_PROGRESS.value,
+            agent_type=node.agent_type.value,
+        )
+
         try:
             result = await self._route_to_agent(node)
             await dag.mark_complete(node.id, result)
+
+            self._event_publisher.publish(
+                "task_status_changed",
+                task_id=node.id,
+                status=TaskStatus.COMPLETED.value,
+                agent_type=node.agent_type.value,
+            )
 
             # Mark codebase as stable when all DEVELOPER nodes are done
             if node.agent_type == AgentType.DEVELOPER:
@@ -245,6 +267,14 @@ class DomainAgentOrchestrator:
             )
             node.error = str(exc)
             await dag.mark_failed(node.id, str(exc))
+
+            self._event_publisher.publish(
+                "task_status_changed",
+                task_id=node.id,
+                status=TaskStatus.FAILED.value,
+                agent_type=node.agent_type.value,
+                error=str(exc),
+            )
 
             # Self-healing: re-queue remediation
             try:
@@ -261,34 +291,68 @@ class DomainAgentOrchestrator:
                     f"[DomainOrchestrator] SelfHealingLoop failed for '{node.id}': {heal_exc}"
                 )
 
-    async def _route_to_agent(self, node: TaskNode) -> Any:
-        """Dispatch a node to the correct domain agent."""
+    async def _route_to_agent(self, node: TaskNode, timeout: float = 300.0) -> Any:
+        """Dispatch a node to the correct domain agent with a per-task timeout.
+
+        Developer agents are checked out from an ``asyncio.Queue`` so that a
+        busy agent is never assigned a second task while it is still running.
+        The agent is always returned to the queue in the ``finally`` block.
+
+        Args:
+            node: The task node to execute.
+            timeout: Maximum seconds to wait for the agent to finish (default 5 min).
+        """
         if node.agent_type == AgentType.ARCHITECT:
-            return await self._architect.run(node, self._blackboard)
+            try:
+                return await asyncio.wait_for(
+                    self._architect.run(node, self._blackboard), timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                raise RuntimeError(f"ARCHITECT task '{node.id}' timed out after {timeout}s")
 
         if node.agent_type == AgentType.DEVELOPER:
-            agent = self._get_next_developer()
-            return await agent.run(node, self._blackboard)
+            agent = await self._checkout_developer()
+            try:
+                return await asyncio.wait_for(
+                    agent.run(node, self._blackboard), timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                raise RuntimeError(f"DEVELOPER task '{node.id}' timed out after {timeout}s")
+            finally:
+                self._return_developer(agent)
 
         if node.agent_type == AgentType.DEVOPS:
-            return await self._devops.run(node, self._blackboard)
+            try:
+                return await asyncio.wait_for(
+                    self._devops.run(node, self._blackboard), timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                raise RuntimeError(f"DEVOPS task '{node.id}' timed out after {timeout}s")
 
         if node.agent_type == AgentType.AUDITOR:
-            return await self._auditor.run(node, self._blackboard)
+            try:
+                return await asyncio.wait_for(
+                    self._auditor.run(node, self._blackboard), timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                raise RuntimeError(f"AUDITOR task '{node.id}' timed out after {timeout}s")
 
         raise ValueError(f"Unknown agent type: {node.agent_type}")
 
     # ------------------------------------------------------------------
-    # Developer pool
+    # Developer queue helpers
     # ------------------------------------------------------------------
 
-    def _get_next_developer(self) -> DeveloperAgent:
-        """Round-robin selection from the developer pool."""
-        if not self._dev_pool:
-            raise RuntimeError("Developer agent pool is empty.")
-        agent = self._dev_pool[self._pool_index % len(self._dev_pool)]
-        self._pool_index += 1
-        return agent
+    async def _checkout_developer(self) -> DeveloperAgent:
+        """Claim the next available developer agent from the queue.
+
+        Blocks until one is free (all busy → waits for one to finish).
+        """
+        return await self._dev_queue.get()
+
+    def _return_developer(self, agent: DeveloperAgent) -> None:
+        """Return a developer agent to the available pool."""
+        self._dev_queue.put_nowait(agent)
 
     # ------------------------------------------------------------------
     # Stability gate

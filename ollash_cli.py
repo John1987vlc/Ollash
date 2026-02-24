@@ -31,18 +31,21 @@ def setup_global_configs(args):
     ollash_dir.mkdir(exist_ok=True)
 
 async def cmd_agent(args):
-    """Invoke the standard AutoAgent."""
-    main_container.wire(modules=["backend.agents.auto_agent"])
-    from backend.agents.auto_agent import AutoAgent
-    
+    """Invoke the multiagent DomainAgentOrchestrator (Agent-per-Domain architecture)."""
     try:
-        agent: AutoAgent = main_container.auto_agent_module.auto_agent()
-        print(f"[*] Starting AutoAgent for task: {args.task}")
-        
-        path = agent.run(
+        orchestrator = main_container.domain_agents.domain_agent_orchestrator()
+        pool_size: int = getattr(args, "pool_size", 3)
+        timeout: int = getattr(args, "timeout", 300)
+
+        print(f"[*] Starting DomainAgentOrchestrator for task: {args.task}")
+        print(f"    Pool size: {pool_size} developer agents | Task timeout: {timeout}s")
+
+        # Propagate per-task timeout into the orchestrator's _route_to_agent call by
+        # wrapping run() — the actual timeout is consumed inside _route_to_agent.
+        path = await orchestrator.run(
             project_description=args.task,
             project_name=args.name or "auto_project",
-            include_docker=True
+            pool_size=pool_size,
         )
         print(f"\n[+] Project generated successfully at: {path}")
     except Exception as e:
@@ -238,9 +241,26 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
     # agent <task>
-    agent_parser = subparsers.add_parser("agent", help="Invoke standard AutoAgent")
+    agent_parser = subparsers.add_parser(
+        "agent",
+        help="Generate a project using the multiagent DomainAgentOrchestrator",
+    )
     agent_parser.add_argument("task", help="Project description or task")
-    agent_parser.add_argument("--name", help="Project name")
+    agent_parser.add_argument("--name", help="Project name (default: auto_project)")
+    agent_parser.add_argument(
+        "--pool-size",
+        type=int,
+        default=3,
+        dest="pool_size",
+        help="Number of parallel Developer Agents (default: 3)",
+    )
+    agent_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=300,
+        dest="timeout",
+        help="Per-task LLM timeout in seconds (default: 300)",
+    )
     
     # swarm <task>
     swarm_parser = subparsers.add_parser("swarm", help="Invoke Cowork swarm implementation")

@@ -5,7 +5,7 @@
                 <h1>Git Control</h1>
                 <p class="subtitle" id="branch-info">Branch: --</p>
             </div>
-            <button class="btn-primary" data-modal-open="commit-modal">Stage & Commit</button>
+            <button class="btn btn-primary" data-modal-open="commit-modal">Stage & Commit</button>
         </div>
     </div>
 
@@ -15,7 +15,7 @@
             <div id="git-file-container" style="overflow-y:auto; flex:1;">
                 <!-- Files injected -->
             </div>
-            
+
             <div style="padding:15px; border-top:1px solid var(--color-border);">
                 <div style="font-weight:600; margin-bottom:5px;">Recent Log</div>
                 <div id="git-log" style="font-size:0.8rem; color:var(--color-text-muted);">
@@ -23,7 +23,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="diff-viewer" id="diff-content">
             Select a file to view changes...
         </div>
@@ -34,7 +34,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Commit Changes</h3>
-                <button class="btn-icon" data-modal-close>✕</button>
+                <button class="btn btn-ghost" data-modal-close>✕</button>
             </div>
             <div class="form-group">
                 <label>Commit Message</label>
@@ -44,8 +44,8 @@
                 </div>
             </div>
             <div class="form-actions">
-                <button class="btn-secondary" data-modal-close>Cancel</button>
-                <button class="btn-primary" id="perform-commit-btn">Commit</button>
+                <button class="btn btn-secondary" data-modal-close>Cancel</button>
+                <button class="btn btn-primary" id="perform-commit-btn">Commit</button>
             </div>
         </div>
     </div>

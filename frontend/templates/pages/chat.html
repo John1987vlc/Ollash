@@ -55,9 +55,9 @@
                         <!-- Redesigned Input Area -->
                         <div class="chat-input-area">
                             <div id="chat-attachment-preview" class="chat-attachment-preview" style="display: none;"></div>
-                            
+
                             <div class="chat-input-wrapper">
-                                <textarea id="chat-input" placeholder="Ask Ollash anything..." rows="1"></textarea>
+                                <textarea id="chat-input" class="form-textarea" placeholder="Ask Ollash anything..." rows="1"></textarea>
                                 <button id="send-btn" class="btn-send" title="Send">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -75,7 +75,7 @@
                                         <span>Clip</span>
                                     </button>
                                     <input type="file" id="chat-file-input" style="display: none;" accept="image/*,application/pdf">
-                                    
+
                                     <button class="btn-action" id="generate-assets-btn" title="Generate Image">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -122,7 +122,7 @@
                                 <span class="toolbox-badge" id="toolbox-total-count">0</span>
                             </div>
                             <div class="toolbox-search">
-                                <input type="text" id="toolbox-search-input" placeholder="Search tools...">
+                                <input type="text" id="toolbox-search-input" class="form-input" placeholder="Search tools...">
                             </div>
                             <div class="toolbox-content" id="toolbox-content">
                                 <div class="toolbox-loading">Loading tools...</div>
@@ -148,7 +148,7 @@
                             <h3>Prompt Library</h3>
                             <button class="btn-close-ghost" id="close-prompts-btn" aria-label="Cerrar">&times;</button>
                         </div>
-                        
+
                         <div class="prompt-library-body-v2">
                             <!-- 1. Search Bar 100% -->
                             <div class="prompt-search-full">

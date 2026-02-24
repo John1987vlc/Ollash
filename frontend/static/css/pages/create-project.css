@@ -243,3 +243,111 @@
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* --- Advanced Options Accordion --- */
+.wizard-advanced-accordion {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.wizard-accordion-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    cursor: pointer;
+    background: var(--color-surface-elevated);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    list-style: none;
+    user-select: none;
+    transition: background 0.2s, color 0.2s;
+}
+
+.wizard-accordion-summary:hover {
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+.wizard-advanced-accordion[open] .wizard-accordion-summary {
+    color: var(--color-primary);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.accordion-arrow {
+    transition: transform 0.25s;
+    font-size: 0.75rem;
+}
+
+.wizard-advanced-accordion[open] .accordion-arrow {
+    transform: rotate(90deg);
+}
+
+.wizard-accordion-body {
+    padding: 20px;
+    background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    animation: fadeIn 0.25s ease-out;
+}
+
+.accordion-section-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 0;
+}
+
+.toggle-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.toggle-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+/* Toggle Switch Component */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--color-border);
+    transition: 0.3s;
+}
+
+.slider.round { border-radius: 22px; }
+.slider.round::before { border-radius: 50%; }
+
+.slider::before {
+    position: absolute;
+    content: "";
+    height: 16px; width: 16px;
+    left: 3px; bottom: 3px;
+    background: white;
+    transition: 0.3s;
+}
+
+input:checked + .slider { background: var(--color-primary); }
+input:checked + .slider::before { transform: translateX(16px); }

@@ -68,7 +68,7 @@
 }
 
 .automation-card-meta-item {
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--spacing-sm);
     display: flex;
     gap: var(--spacing-sm);
     justify-content: space-between;
@@ -90,24 +90,6 @@
     margin-top: var(--spacing-md);
 }
 
-.automation-card-actions button {
-    flex: 1;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-elevated);
-    color: var(--color-text);
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.automation-card-actions button:hover {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: white;
-}
 
 /* ==================== Visual Builder (F18) ==================== */
 #visual-builder-container {
@@ -131,7 +113,7 @@
     background: var(--color-surface-elevated);
     border: 1px solid var(--color-border);
     border-radius: 50%;
-    margin-right: 8px;
+    margin-right: var(--spacing-sm);
     font-size: 0.8rem;
 }
 .vb-canvas {

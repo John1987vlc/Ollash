@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 from pathlib import Path
 from backend.agents.auto_agent_phases.infrastructure_generation_phase import InfrastructureGenerationPhase
 
@@ -22,7 +22,7 @@ async def test_infrastructure_generation_all_disabled(phase, mock_context):
     project_root = Path("/tmp/test")
     generated_files = {}
     file_paths = []
-    
+
     # Needs detection mock
     mock_context.infra_generator.detect_infra_needs.return_value = {
         "languages": ["python"], "databases": [], "has_web_server": False
@@ -48,7 +48,7 @@ async def test_infrastructure_generation_docker_enabled(phase, mock_context):
     project_root = Path("/tmp/test")
     generated_files = {}
     file_paths = []
-    
+
     mock_context.infra_generator.detect_infra_needs.return_value = {
         "languages": ["python"], "databases": [], "has_web_server": True
     }
@@ -73,7 +73,7 @@ async def test_infrastructure_generation_terraform_enabled(phase, mock_context):
     project_root = Path("/tmp/test")
     generated_files = {}
     file_paths = []
-    
+
     mock_context.infra_generator.detect_infra_needs.return_value = {
         "languages": ["python"], "databases": [], "has_web_server": True
     }

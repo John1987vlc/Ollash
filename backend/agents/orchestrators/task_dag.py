@@ -74,6 +74,11 @@ class TaskNode:
         }
 
 
+# Sentinel used as a default in get_ready_tasks dependency checks so we
+# never construct a full TaskNode just to evaluate a missing dep_id.
+_DUMMY_NODE = TaskNode(id="__dummy__", agent_type=AgentType.DEVELOPER)
+
+
 class TaskDAG:
     """
     Directed Acyclic Graph of TaskNodes for concurrent domain agent execution.
@@ -89,7 +94,7 @@ class TaskDAG:
         dag.add_task(TaskNode(id="main.py",  agent_type=AgentType.DEVELOPER,
                               dependencies=["utils.py"]))
         while not dag.is_complete():
-            for node in dag.get_ready_tasks():
+            for node in await dag.get_ready_tasks():
                 asyncio.create_task(agent.run(node, ...))
     """
 
@@ -131,28 +136,24 @@ class TaskDAG:
     def has_failures(self) -> bool:
         return any(n.status == TaskStatus.FAILED for n in self._nodes.values())
 
-    def get_ready_tasks(self) -> List[TaskNode]:
+    async def get_ready_tasks(self) -> List[TaskNode]:
         """Return PENDING nodes whose every dependency is COMPLETED.
 
-        Atomically marks returned nodes as READY so concurrent callers
-        do not double-schedule the same node.  The asyncio.Lock is acquired
-        synchronously via the event-loop-aware pattern; callers inside an
-        async context should call ``await dag._get_ready_tasks_async()``
-        for fully non-blocking behaviour.  In practice the lock hold time is
-        microseconds so the sync approach is acceptable.
+        Atomically marks returned nodes as READY under the asyncio.Lock so
+        that concurrent callers cannot double-schedule the same node.
         """
         ready: List[TaskNode] = []
-        for node in self._nodes.values():
-            if node.status != TaskStatus.PENDING:
-                continue
-            deps_done = all(
-                self._nodes.get(dep_id, TaskNode(id="", agent_type=AgentType.DEVELOPER)).status
-                == TaskStatus.COMPLETED
-                for dep_id in node.dependencies
-            )
-            if deps_done:
-                node.status = TaskStatus.READY
-                ready.append(node)
+        async with self._lock:
+            for node in self._nodes.values():
+                if node.status != TaskStatus.PENDING:
+                    continue
+                deps_done = all(
+                    self._nodes.get(dep_id, _DUMMY_NODE).status == TaskStatus.COMPLETED
+                    for dep_id in node.dependencies
+                )
+                if deps_done:
+                    node.status = TaskStatus.READY
+                    ready.append(node)
         return ready
 
     # ------------------------------------------------------------------

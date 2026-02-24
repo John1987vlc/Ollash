@@ -105,11 +105,18 @@ class TestDomainAgentOrchestrator:
         await orchestrator.run("build api", "myapi")
         assert mock_developer.run.called
 
-    def test_get_next_developer_round_robin(self, orchestrator, mock_developer):
-        dev1 = orchestrator._get_next_developer()
-        assert dev1 is mock_developer
+    @pytest.mark.asyncio
+    async def test_checkout_developer_returns_from_pool(self, orchestrator, mock_developer):
+        """Queue-based pool: checkout returns the developer and puts it back."""
+        orchestrator._dev_queue.put_nowait(mock_developer)
+        dev = await orchestrator._checkout_developer()
+        assert dev is mock_developer
 
-    def test_get_next_developer_empty_pool_raises(self, orchestrator):
-        orchestrator._dev_pool = []
-        with pytest.raises(RuntimeError):
-            orchestrator._get_next_developer()
+    @pytest.mark.asyncio
+    async def test_checkout_and_return_developer(self, orchestrator, mock_developer):
+        """Developer is returned to the queue after use."""
+        orchestrator._dev_queue.put_nowait(mock_developer)
+        dev = await orchestrator._checkout_developer()
+        assert orchestrator._dev_queue.empty()
+        orchestrator._return_developer(dev)
+        assert not orchestrator._dev_queue.empty()

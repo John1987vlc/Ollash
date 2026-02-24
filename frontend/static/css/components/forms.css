@@ -1,0 +1,154 @@
+/* ==================== Global Form Component System ====================
+ *
+ * Canonical form classes for all pages. Never redefine input/select/textarea
+ * appearance in page-specific CSS. Available classes:
+ *   .form-group      — vertical stack: label + input + hint
+ *   .form-row        — horizontal flex of .form-groups
+ *   .form-label      — styled label
+ *   .form-input      — text/number/password/url/email inputs
+ *   .form-select     — select element with custom arrow
+ *   .form-textarea   — textarea
+ *   .form-hint       — muted helper text below an input
+ *   .form-input-modern  — alias for .form-input (legacy compat)
+ * ================================================================ */
+
+/* Reset bare form elements to prevent browser defaults */
+input,
+select,
+textarea {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--color-text);
+}
+
+/* Remove default select arrow on older browsers */
+select {
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+/* --- Layout Helpers --- */
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+}
+
+.form-row .form-group {
+    flex: 1;
+    min-width: 180px;
+}
+
+/* --- Label --- */
+
+.form-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+}
+
+/* --- Inputs --- */
+
+.form-input,
+.form-input-modern {
+    width: 100%;
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 9px 14px;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+}
+
+.form-input:focus,
+.form-input-modern:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.form-input::placeholder,
+.form-input-modern::placeholder {
+    color: var(--color-text-subtle);
+}
+
+.form-input:disabled,
+.form-input-modern:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* --- Select --- */
+
+.form-select {
+    width: 100%;
+    background: var(--color-surface-elevated)
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a1a1aa' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")
+        no-repeat right 12px center;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 9px 36px 9px 14px;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+}
+
+.form-select:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+/* --- Textarea --- */
+
+.form-textarea {
+    width: 100%;
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 9px 14px;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    resize: vertical;
+    min-height: 100px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+    font-family: var(--font-body);
+}
+
+.form-textarea:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+/* --- Hint text --- */
+
+.form-hint {
+    font-size: 0.75rem;
+    color: var(--color-text-subtle);
+    line-height: 1.4;
+}
+
+/* --- Validation states --- */
+
+.form-input.is-error,
+.form-select.is-error,
+.form-textarea.is-error {
+    border-color: var(--color-error);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.form-hint.is-error {
+    color: var(--color-error);
+}

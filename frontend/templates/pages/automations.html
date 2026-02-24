@@ -12,19 +12,19 @@
                     <h1>Task Automations</h1>
                     <p class="subtitle">Schedule and manage automated monitoring tasks</p>
                     <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
-                        <button class="btn-primary btn-small" id="new-automation-btn">
+                        <button class="btn btn-primary btn-small" id="new-automation-btn">
                             <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                                 <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             </svg>
                             New Task
                         </button>
-                        <button class="btn-secondary btn-small" id="visual-builder-btn">
+                        <button class="btn btn-secondary btn-small" id="visual-builder-btn">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
                             </svg>
                             Visual Builder
                         </button>
-                        <button class="btn-secondary btn-small" id="automation-config-btn">
+                        <button class="btn btn-secondary btn-small" id="automation-config-btn">
                             <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                                 <path d="M10 6V14M6 10H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                                 <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
@@ -50,7 +50,7 @@
                     <div class="vb-canvas">
                         <div class="vb-card" id="vb-trigger-card">
                             <h4>Select Trigger</h4>
-                            <select id="vb-trigger-select" class="form-control">
+                            <select id="vb-trigger-select" class="form-select">
                                 <option value="">Choose Event...</option>
                                 <option value="test_failure">Test Failure</option>
                                 <option value="high_vulnerability">High Vulnerability Found</option>
@@ -61,7 +61,7 @@
                         <div class="vb-arrow">➜</div>
                         <div class="vb-card" id="vb-action-card">
                             <h4>Select Action</h4>
-                            <select id="vb-action-select" class="form-control">
+                            <select id="vb-action-select" class="form-select">
                                 <option value="">Choose Action...</option>
                                 <option value="run_agent">Run Agent Task</option>
                                 <option value="notify_webhook">Notify Webhook</option>
@@ -74,8 +74,8 @@
                         <!-- Dynamic config fields will be injected here -->
                     </div>
                     <div class="vb-actions">
-                        <button class="btn-secondary" id="vb-cancel-btn">Cancel</button>
-                        <button class="btn-primary" id="vb-save-btn">Save Automation</button>
+                        <button class="btn btn-secondary" id="vb-cancel-btn">Cancel</button>
+                        <button class="btn btn-primary" id="vb-save-btn">Save Automation</button>
                     </div>
                 </div>
             </div>

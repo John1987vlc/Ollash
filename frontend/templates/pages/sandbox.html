@@ -9,22 +9,22 @@
             <div style="display: flex; gap: var(--spacing-md); align-items: center;">
                 <span class="status-indicator status-online"></span>
                 <span style="font-size: 0.85rem; font-weight: 500;">Environment: <strong id="env-name">WASM/Docker Hybrid</strong></span>
-                
-                <select id="language-select" class="btn-secondary" style="padding: 4px 12px; font-size: 0.8rem;">
+
+                <select id="language-select" class="form-select" style="padding: 4px 12px; font-size: 0.8rem;">
                     <option value="python">Python 3.10</option>
                     <option value="javascript">Node.js 18</option>
                 </select>
             </div>
-            
+
             <div style="display: flex; gap: var(--spacing-sm);">
-                <button class="btn-secondary" id="clear-btn" style="padding: 6px 12px; font-size: 0.8rem;">Clear Output</button>
-                <button class="btn-secondary" id="reset-btn" style="padding: 6px 12px; font-size: 0.8rem;">Reset Code</button>
+                <button class="btn btn-secondary" id="clear-btn" style="padding: 6px 12px; font-size: 0.8rem;">Clear Output</button>
+                <button class="btn btn-secondary" id="reset-btn" style="padding: 6px 12px; font-size: 0.8rem;">Reset Code</button>
             </div>
         </div>
 
         <div class="sandbox-panels">
             <div id="monaco-editor-container"></div>
-            
+
             <div class="terminal-output" id="terminal-output">
                 <div class="terminal-header">
                     <span>TERMINAL OUTPUT</span>
@@ -35,7 +35,7 @@
         </div>
     </div>
 
-    <button class="btn-primary run-button btn-pulse" id="run-sandbox-btn">
+    <button class="btn btn-primary run-button btn-pulse" id="run-sandbox-btn">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M8 5v14l11-7z"></path>
         </svg>

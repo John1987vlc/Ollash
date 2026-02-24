@@ -137,10 +137,15 @@ class Blackboard:
     # Subscriptions (delegate to EventPublisher with key filtering)
     # ------------------------------------------------------------------
 
-    def subscribe(self, key: str, callback: Callable[[str, Any], None]) -> None:
+    def subscribe(self, key: str, callback: Callable[[str, Any], None]) -> Callable[[], None]:
         """Register *callback* to be called whenever *key* is updated.
 
         The callback signature is ``callback(key, new_value)``.
+
+        Returns:
+            A zero-argument callable that, when called, unregisters this
+            subscription.  Callers should invoke it when the subscriber is
+            destroyed to prevent memory leaks.
         """
 
         def _filter_callback(event_type: str, event_data: Dict[str, Any]) -> None:
@@ -153,8 +158,19 @@ class Blackboard:
 
         self._event_publisher.subscribe("blackboard_updated", _filter_callback)
 
-    def subscribe_prefix(self, prefix: str, callback: Callable[[str, Any], None]) -> None:
-        """Register *callback* for any key that starts with *prefix*."""
+        def _unsubscribe() -> None:
+            self._event_publisher.unsubscribe("blackboard_updated", _filter_callback)
+
+        return _unsubscribe
+
+    def subscribe_prefix(
+        self, prefix: str, callback: Callable[[str, Any], None]
+    ) -> Callable[[], None]:
+        """Register *callback* for any key that starts with *prefix*.
+
+        Returns:
+            A zero-argument callable that unregisters this subscription.
+        """
 
         def _filter_callback(event_type: str, event_data: Dict[str, Any]) -> None:
             k = event_data.get("key", "")
@@ -168,6 +184,11 @@ class Blackboard:
                     )
 
         self._event_publisher.subscribe("blackboard_updated", _filter_callback)
+
+        def _unsubscribe() -> None:
+            self._event_publisher.unsubscribe("blackboard_updated", _filter_callback)
+
+        return _unsubscribe
 
     # ------------------------------------------------------------------
     # Snapshot / bridging

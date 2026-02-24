@@ -55,11 +55,11 @@
 .insight-pill {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--spacing-sm);
     background: rgba(99, 102, 241, 0.1);
     color: var(--color-primary);
-    padding: 8px 16px;
-    border-radius: 20px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-xl);
     font-size: 0.9rem;
     font-weight: 500;
     margin-bottom: var(--spacing-md);

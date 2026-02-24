@@ -38,9 +38,18 @@ class ChatEventBridge:
         self.event_publisher.subscribe("iteration_start", self.push_event)
         self.event_publisher.subscribe("iteration_end", self.push_event)
         self.event_publisher.subscribe("error", self.push_event)
-        self.event_publisher.subscribe("info", self.push_event)  # General info messages
-        self.event_publisher.subscribe("warning", self.push_event)  # General warning messages
-        self.event_publisher.subscribe("debug", self.push_event)  # General debug messages
+        self.event_publisher.subscribe("info", self.push_event)
+        self.event_publisher.subscribe("warning", self.push_event)
+        self.event_publisher.subscribe("debug", self.push_event)
+        # Domain agent / multiagent events
+        self.event_publisher.subscribe("domain_orchestration_started", self.push_event)
+        self.event_publisher.subscribe("domain_orchestration_completed", self.push_event)
+        self.event_publisher.subscribe("task_status_changed", self.push_event)
+        self.event_publisher.subscribe("blackboard_updated", self.push_event)
+        self.event_publisher.subscribe("task_remediation_queued", self.push_event)
+        self.event_publisher.subscribe("architect_planning_started", self.push_event)
+        self.event_publisher.subscribe("architect_planning_completed", self.push_event)
+        self.event_publisher.subscribe("file_generated", self.push_event)
 
     def push_event(self, event_type: str, data: Optional[Dict[str, Any]] = None):
         """Push an event onto the queue (called from the agent thread)."""

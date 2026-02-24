@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 from unittest.mock import MagicMock
 import sys
 from flask import Flask
@@ -17,7 +18,7 @@ def mock_manager_instance():
 def app(mock_manager_instance, monkeypatch):
     """Create app and ensure the blueprint module uses the mocked manager instance."""
     app = Flask(__name__)
-    app.config.update({"TESTING": True, "ollash_root_dir": "/tmp/ollash", "SECRET_KEY": "test_secret"})
+    app.config.update({"TESTING": True, "ollash_root_dir": Path("/tmp/ollash"), "SECRET_KEY": "test_secret"})
 
     # RELIABLE PATCHING: Access the module through sys.modules to avoid Blueprint object shadowing
     target_module = sys.modules["frontend.blueprints.chat_bp"]

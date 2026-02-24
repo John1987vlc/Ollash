@@ -53,7 +53,7 @@ def test_select_related_files_heuristic(context):
     # Should prefer models.py when looking for context for app.py
     # because it has 'model' in name and is in same dir.
     context.rag_context_selector.select_relevant_files.return_value = None # Fallback to heuristic
-    
+
     related = context.select_related_files("src/app.py", generated_files)
     assert "src/models.py" in related
     assert "README.md" in related
@@ -66,9 +66,9 @@ def test_implement_plan_create_file(context):
     }
     files = {}
     file_paths = []
-    
+
     res_files, _, res_paths = context.implement_plan(plan, Path("/tmp"), "readme", {}, files, file_paths)
-    
+
     assert "new.txt" in res_files
     assert res_files["new.txt"] == "hello"
     assert "new.txt" in res_paths
@@ -82,8 +82,8 @@ def test_implement_plan_refine_file(context):
     }
     files = {"old.py": "print(1)"}
     context.file_refiner.refine_file.return_value = "print(2)"
-    
+
     res_files, _, _ = context.implement_plan(plan, Path("/tmp"), "readme", {}, files, [])
-    
+
     assert res_files["old.py"] == "print(2)"
     context.file_refiner.refine_file.assert_called_with("old.py", "print(1)", "readme", ["bug"])

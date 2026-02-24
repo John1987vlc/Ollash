@@ -13,7 +13,7 @@ concurrency:
 
 # ─── Jobs ────────────────────────────────────────────────────────────────────
 #
-# Execution graph (all 3 start immediately in parallel):
+# Execution graph:
 #
 #   lint ─────────────────────────────────────────────────── (informational)
 #   unit-tests ──┬── integration-tests (parallel after unit pass)
@@ -109,10 +109,20 @@ jobs:
     - name: Run unit tests with coverage
       run: |
         pytest tests/unit/ -n auto --dist=loadfile \
+          -m "not e2e" \
           --cov=backend --cov-report=xml --cov-report=html \
           -v --tb=short
       env:
         PYTHONPATH: .
+
+    - name: Clean up generated test artifacts
+      if: always()
+      run: |
+        # Remove any project directories generated during tests
+        rm -rf generated_projects/ .ollash/test_* test_root_e2e/ /tmp/ollash/ || true
+        # Remove pytest/coverage temp files that leak between runs
+        find . -name "*.candidate" -delete 2>/dev/null || true
+        find . -name ".pytest_tmp_*" -type d -exec rm -rf {} + 2>/dev/null || true
 
     - name: Upload coverage report (3.11 only)
       if: matrix.python-version == '3.11'
@@ -162,6 +172,12 @@ jobs:
       env:
         PYTHONPATH: .
 
+    - name: Clean up integration test artifacts
+      if: always()
+      run: |
+        rm -rf generated_projects/ .ollash/test_* test_root_e2e/ /tmp/ollash/ || true
+        find . -name "*.candidate" -delete 2>/dev/null || true
+
 # ── E2E Tests (starts after unit-tests pass, in parallel with integration) ───
   e2e-tests:
     name: E2E Tests (Playwright)
@@ -204,6 +220,12 @@ jobs:
       env:
         FLASK_ENV: testing
         PYTHONPATH: .
+
+    - name: Clean up E2E test artifacts
+      if: always()
+      run: |
+        rm -rf test_root_e2e/ generated_projects/ .ollash/test_* /tmp/ollash/ || true
+        find . -name "*.candidate" -delete 2>/dev/null || true
 
     - name: Upload Playwright traces on failure
       if: failure()
@@ -260,5 +282,6 @@ jobs:
         retention-days: 30
 
     - name: Safety dependency vulnerability scan
-      run: safety check -r requirements.txt --output text
+      # safety 3.x uses 'scan' instead of 'check'
+      run: safety scan -r requirements.txt --output text
       continue-on-error: true

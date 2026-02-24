@@ -33,18 +33,20 @@ class TestTaskDAG:
         with pytest.raises(ValueError, match="Duplicate"):
             dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
 
-    def test_get_ready_no_deps(self):
+    @pytest.mark.asyncio
+    async def test_get_ready_no_deps(self):
         dag = TaskDAG()
         dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
         dag.add_task(TaskNode(id="b.py", agent_type=AgentType.DEVELOPER, task_data={}))
-        ready = dag.get_ready_tasks()
+        ready = await dag.get_ready_tasks()
         assert len(ready) == 2
 
-    def test_get_ready_respects_deps(self):
+    @pytest.mark.asyncio
+    async def test_get_ready_respects_deps(self):
         dag = TaskDAG()
         dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
         dag.add_task(TaskNode(id="b.py", agent_type=AgentType.DEVELOPER, task_data={}, dependencies=["a.py"]))
-        ready = dag.get_ready_tasks()
+        ready = await dag.get_ready_tasks()
         assert len(ready) == 1
         assert ready[0].id == "a.py"
 
@@ -53,9 +55,9 @@ class TestTaskDAG:
         dag = TaskDAG()
         dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
         dag.add_task(TaskNode(id="b.py", agent_type=AgentType.DEVELOPER, task_data={}, dependencies=["a.py"]))
-        dag.get_ready_tasks()  # mark a.py READY
+        await dag.get_ready_tasks()  # mark a.py READY
         await dag.mark_complete("a.py", result="content")
-        ready = dag.get_ready_tasks()
+        ready = await dag.get_ready_tasks()
         assert any(n.id == "b.py" for n in ready)
 
     @pytest.mark.asyncio
@@ -75,7 +77,7 @@ class TestTaskDAG:
     async def test_is_complete_true_when_all_done(self):
         dag = TaskDAG()
         dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
-        dag.get_ready_tasks()
+        await dag.get_ready_tasks()
         await dag.mark_complete("a.py")
         assert dag.is_complete()
 

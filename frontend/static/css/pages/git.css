@@ -28,7 +28,7 @@
 }
 
 .git-item {
-    padding: 12px;
+    padding: var(--spacing-md);
     border-bottom: 1px solid var(--color-border);
     cursor: pointer;
     display: flex;

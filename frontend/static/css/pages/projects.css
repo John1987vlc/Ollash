@@ -3,8 +3,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 20px;
-    padding: 15px 24px;
+    gap: var(--spacing-xl);
+    padding: var(--spacing-lg) var(--spacing-xl);
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
@@ -18,7 +18,7 @@
 
 .action-group-modern {
     display: flex;
-    gap: 12px;
+    gap: var(--spacing-md);
 }
 
 /* ==================== Agent Pipeline Stepper ==================== */
@@ -26,7 +26,7 @@
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    padding: 20px 24px;
+    padding: var(--spacing-xl) var(--spacing-xl);
     margin-bottom: var(--spacing-lg);
 }
 
@@ -34,13 +34,13 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: var(--spacing-xl);
 }
 
 .pipeline-header h3 {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--spacing-sm);
     font-size: 0.9rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -52,15 +52,15 @@
     font-weight: 800;
     color: var(--color-primary);
     background: rgba(99, 102, 241, 0.1);
-    padding: 4px 12px;
-    border-radius: 20px;
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: var(--radius-xl);
 }
 
 .pipeline-stepper {
     display: flex;
     justify-content: space-between;
     position: relative;
-    padding: 10px 0;
+    padding: var(--spacing-md) 0;
 }
 
 /* Connecting line */
@@ -81,7 +81,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: var(--spacing-md);
     flex: 1;
 }
 
@@ -124,6 +124,7 @@
     box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
     transform: scale(1.2);
 }
+
 
 .pipeline-step.active .step-label {
     color: var(--color-primary);
@@ -199,7 +200,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: 8px 12px;
+    padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--radius-sm);
     cursor: pointer !important;
     transition: all 0.15s ease;

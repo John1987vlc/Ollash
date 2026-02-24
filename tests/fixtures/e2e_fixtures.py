@@ -65,6 +65,13 @@ def flask_server(server_port, project_root):
 
     yield
 
+    # ── Teardown: remove the temporary E2E root so no artifacts are left on disk
+    import shutil
+    try:
+        shutil.rmtree(test_root, ignore_errors=True)
+    except Exception:
+        pass
+
 
 # ── pytest hook for trace capture ────────────────────────────────────────────
 
