@@ -46,6 +46,13 @@ A rich, interactive Single Page Application built with Flask and Vanilla CSS:
 
 Ollash provides a powerful CLI to interact with its multi-agent swarm and utility tools.
 
+### 💬 Interactive Chat
+Enter an interactive chat session with specialized agents:
+```bash
+# Start a chat session similar to gemini-cli
+python ollash_cli.py chat
+```
+
 ### 🛠️ Project Generation (Multi-Agent Swarm)
 Kickstart a new project with parallel Developer Agents:
 ```bash
@@ -147,6 +154,22 @@ ollash/
 ├── prompts/            # System prompts for all agent roles
 └── .ollash/            # Local data (ChromaDB, logs, checkpoints)
 ```
+
+---
+
+## ⚡ Optimizaciones para Modelos Pequeños (≤4B)
+
+Ollash incluye infraestructura específica para que modelos pequeños (Qwen 2.5 3B, Ministral 3B, etc.) generen código de calidad sin saturar su ventana de contexto:
+
+| Optimización | Descripción |
+|---|---|
+| **1. Micro-Planner** | `DeveloperAgent` descompone cada archivo en 3–7 pasos atómicos antes de generarlo. El rol `nano_planner` recibe un prompt mínimo y devuelve un JSON array de pasos ordenados. |
+| **2. RAG de Firmas** | `PhaseContext.select_related_files(signatures_only=True)` extrae sólo cabeceras de funciones/clases (vía AST en Python, regex en JS/TS/Go/Rust) en lugar de enviar archivos completos como contexto. |
+| **3. Progress Injection** | `PhaseContext.update_step_progress()` registra el avance en un dict `step_progress`. `BasePhase._format_progress_context()` formatea ese estado y puede concatenarse a cualquier system prompt. |
+| **4. Chain of Thought (dual output)** | `LLMResponseParser.extract_thought_action()` parsea respuestas en formato `{"thought": ..., "action": ...}` o `<thought>...</thought><action>...</action>`, sin modificar los métodos existentes. |
+| **5. Roles Nano** | 3 roles ultra-focalizados (`nano_planner`, `nano_coder`, `nano_reviewer`) definidos en `prompts/domains/auto_generation/nano_roles.yaml` y mapeados en `backend/config/llm_models.json`. Cada rol tiene un prompt de sistema de <5 líneas. |
+| **6. Decision Blackboard** | `DecisionBlackboard` (SQLite WAL, `backend/utils/core/memory/`) persiste decisiones de diseño entre fases (`record_decision` / `format_for_prompt`). Se inyecta en `PhaseContext` y sobrevive al reinicio del proceso. |
+| **6b. Rescue Planning** | Cuando una fase falla, `AutoAgent._request_rescue_plan()` pide al LLM un array de 3 `RescuePhase` que se insertan dinámicamente en el pipeline para recuperar el estado. |
 
 ---
 

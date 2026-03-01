@@ -6,7 +6,7 @@ import asyncio
 import datetime
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from dependency_injector import providers
 from dependency_injector.wiring import Provide, inject
@@ -67,6 +67,59 @@ class TimedLogger:
 
     def __getattr__(self, name):
         return getattr(self._logger, name)
+
+
+class RescuePhase:
+    """A thin phase that executes a single LLM-generated rescue step (Mejora 6b).
+
+    Created dynamically by ``AutoAgent._request_rescue_plan()`` when a pipeline
+    phase fails. Logs the rescue step and publishes an ``rescue_step_executed``
+    event. Does NOT write files — it records the rescue context so subsequent
+    phases have a better chance of succeeding.
+    """
+
+    phase_id: str = "rescue"
+    phase_label: str = "Dynamic Rescue Step"
+    category: str = "rescue"
+
+    def __init__(
+        self,
+        phase_context: "PhaseContext",
+        step: str,
+        action: str,
+        step_index: int,
+    ) -> None:
+        self.context = phase_context
+        self._step = step
+        self._action = action
+        self._step_index = step_index
+        self.phase_id = f"rescue_{step_index}"
+        self.phase_label = f"Rescue Step {step_index}: {step[:60]}"
+
+    @property
+    def phase_name(self) -> str:
+        return self.phase_id
+
+    async def execute(
+        self,
+        project_description: str,
+        project_name: str,
+        project_root: Any,
+        readme_content: str,
+        initial_structure: Dict[str, Any],
+        generated_files: Dict[str, str],
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
+        file_paths: List[str] = kwargs.pop("file_paths", [])
+        self.context.logger.info(f"[RESCUE] Step {self._step_index}: {self._step} → Action: {self._action}")
+        self.context.event_publisher.publish(
+            "rescue_step_executed",
+            step=self._step,
+            action=self._action,
+            step_index=self._step_index,
+            phase=self.phase_id,
+        )
+        return generated_files, initial_structure, file_paths
 
 
 class AutoAgent(CoreAgent):
@@ -167,8 +220,7 @@ class AutoAgent(CoreAgent):
                     self.phase_context.last_execution_summary = last_summary
                     if last_summary and last_summary.status == "error":
                         self.logger.warning(
-                            f"Previous execution of task '{task_id}' failed: "
-                            + "; ".join(last_summary.errors)
+                            f"Previous execution of task '{task_id}' failed: " + "; ".join(last_summary.errors)
                         )
                 except Exception as exc:
                     self.logger.warning(f"Could not load last execution summary: {exc}")
@@ -265,6 +317,9 @@ class AutoAgent(CoreAgent):
 
         heartbeat_task = asyncio.create_task(heartbeat_loop())
 
+        # Mejora 6b: Convert to list so we can splice rescue phases in dynamically
+        phases = list(phases)
+
         try:
             for i, phase in enumerate(phases):
                 next_phase = phases[i + 1] if i + 1 < len(phases) else None
@@ -336,7 +391,16 @@ class AutoAgent(CoreAgent):
                             error=str(e),
                         )
                     self.event_publisher.publish("phase_error", phase=phase_name, error=str(e))
-                    raise
+
+                    # Mejora 6b: Attempt dynamic rescue planning before aborting
+                    rescue_phases = await self._request_rescue_plan(phase_name, str(e))
+                    if rescue_phases:
+                        self.logger.info(f"[RESCUE] Injecting {len(rescue_phases)} rescue steps after '{phase_name}'")
+                        # Splice rescue phases right after current index
+                        for offset, rp in enumerate(rescue_phases, start=1):
+                            phases.insert(i + offset, rp)
+                    else:
+                        raise
         finally:
             heartbeat_task.cancel()
             try:
@@ -345,6 +409,64 @@ class AutoAgent(CoreAgent):
                 pass
 
         return execution_plan
+
+    async def _request_rescue_plan(self, failed_phase_name: str, error: str) -> List["RescuePhase"]:
+        """Ask the LLM for a 3-step rescue plan and return RescuePhase instances (Mejora 6b).
+
+        The rescue plan asks for lightweight context-repair actions that do NOT write
+        files — they only log guidance so subsequent phases have richer context.
+
+        Falls back to an empty list if the LLM call fails for any reason (fail-safe).
+
+        Args:
+            failed_phase_name: Human-readable phase name that raised an exception.
+            error: Error message string (truncated to 500 chars in the prompt).
+
+        Returns:
+            List of up to 3 ``RescuePhase`` instances, or empty list on failure.
+        """
+        system_prompt = (
+            "You are a pipeline recovery expert. A phase in an AI code generation pipeline "
+            "has failed. Output a JSON array of exactly 3 lightweight recovery steps. "
+            "Each step is an object: "
+            '{"step": "short title (≤8 words)", "action": "concrete guidance for next phases"}. '
+            "Focus on context corrections, not file writes. Output JSON only."
+        )
+        user_prompt = (
+            f"Failed phase: {failed_phase_name}\nError: {error[:500]}\nOutput the JSON array of 3 rescue steps only."
+        )
+        try:
+            response_data, _ = self.llm_manager.get_client("planner").chat(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                tools=[],
+            )
+            from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
+            raw = response_data.get("message", {}).get("content", "")
+            steps = LLMResponseParser.extract_json(raw)
+            if not isinstance(steps, list):
+                self.logger.warning("[RESCUE] LLM returned non-list rescue plan; skipping rescue.")
+                return []
+
+            rescue_phases: List[RescuePhase] = []
+            for idx, step_data in enumerate(steps[:3], start=1):
+                if not isinstance(step_data, dict):
+                    continue
+                rescue_phases.append(
+                    RescuePhase(
+                        phase_context=self.phase_context,
+                        step=str(step_data.get("step", f"Rescue step {idx}")),
+                        action=str(step_data.get("action", "")),
+                        step_index=idx,
+                    )
+                )
+            return rescue_phases
+        except Exception as exc:
+            self.logger.warning(f"[RESCUE] Failed to get rescue plan: {exc}")
+            return []
 
     def _manage_github_issues(self, structure: Dict):
         """Implements the 'Dos Pasadas' logic for GitHub issues."""

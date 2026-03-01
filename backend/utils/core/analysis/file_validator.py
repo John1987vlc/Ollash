@@ -95,6 +95,27 @@ class FileValidator:
         """Validate a dict of {path: content}."""
         return [self.validate(path, content) for path, content in files.items()]
 
+    def validate_syntax_immediate(self, file_path: str, content: str) -> Optional[str]:
+        """Run a fast syntax-only validation after each micro-task step.
+
+        Intended for use in tight generation loops (e.g., micro-planner steps).
+        Returns None on success, or a short error message string on failure.
+        Does NOT run completeness or placeholder checks — only structural/syntax.
+
+        Args:
+            file_path: Relative path used to infer language.
+            content: File content to validate.
+
+        Returns:
+            None if content passes syntax validation, else an error string.
+        """
+        if not content or not content.strip():
+            return "Content is empty"
+        result = self.validate(file_path, content)
+        if result.status in (ValidationStatus.VALID, ValidationStatus.EMPTY):
+            return None
+        return result.message
+
     def check_content_completeness(self, file_path: str, content: str) -> Optional[str]:
         """Check if content has excessive placeholder/stub patterns."""
         if not content or not content.strip():

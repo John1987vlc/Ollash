@@ -195,6 +195,34 @@ class BasePhase(IAgentPhase):
             lines.append(f"- **{tool_name}**: {desc}")
         return "\n".join(lines)
 
+    def _format_progress_context(self) -> str:
+        """Return a progress-context string for injection into LLM system prompts (Mejora 3).
+
+        Produces a short Markdown section describing the current pipeline position,
+        which helps small models (≤4B) avoid repeating completed steps or skipping ahead.
+
+        Returns an empty string when no step tracking has been configured, so this is
+        safe to call from any phase without side effects.
+        """
+        progress = getattr(self.context, "step_progress", None)
+        if not progress or progress.get("total_steps", 0) == 0:
+            return ""
+
+        current = progress.get("current_step_index", 0)
+        total = progress.get("total_steps", 0)
+        completed = progress.get("completed_steps", [])
+        objective = progress.get("current_objective", "")
+
+        completed_str = ", ".join(str(s) for s in completed) if completed else "none"
+        lines = [
+            "\n## PROGRESS CONTEXT",
+            f"You are at step {current} of {total}.",
+            f"Completed steps: [{completed_str}].",
+        ]
+        if objective:
+            lines.append(f"Current objective: {objective}.")
+        return "\n".join(lines) + "\n"
+
     def _write_file(
         self, project_root: Path, rel_path: str, content: str, generated_files: Dict[str, str], file_paths: List[str]
     ) -> None:

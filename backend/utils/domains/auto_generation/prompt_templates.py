@@ -285,6 +285,24 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
+    def file_refinement(file_path: str, content: str, context: str = "") -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for general file refinement."""
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "refine", "domains/auto_generation/refinement.yaml", "refine"
+        )
+        user = user_template.format(file_path=file_path, content=content, context=context)
+        return system, user
+
+    @staticmethod
+    def file_refinement_with_issues(file_path: str, content: str, issues: str, context: str = "") -> Tuple[str, str]:
+        """Returns (system_prompt, user_prompt) for file refinement based on specific issues."""
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "refine_with_issues", "domains/auto_generation/refinement.yaml", "refine_with_issues"
+        )
+        user = user_template.format(file_path=file_path, content=content, issues=issues, context=context)
+        return system, user
+
+    @staticmethod
     def generate_unit_tests(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for unit test generation."""
         system, user_template = AutoGenPrompts._get_prompt_pair("unit", "domains/auto_generation/test_gen.yaml", "unit")
@@ -464,4 +482,75 @@ class AutoGenPrompts:
             f"EXISTING README:\n{existing_readme[:3000]}\n\n"
             "Return the updated README now."
         )
+        return system, user
+
+    # ------------------------------------------------------------------
+    # Nano Roles — ultra-focused prompts for small models (≤4B)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def nano_planner(project_name: str, project_description: str) -> Tuple[str, str]:
+        """Returns (system, user) for NanoPlanner: outputs only a JSON list of files to create.
+
+        Designed for small models (≤4B) that need a single, minimal task to perform.
+        """
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "nano_planner_prompt",
+            "domains/auto_generation/nano_roles.yaml",
+            "nano_planner_prompt",
+        )
+        user = user_template.format(
+            project_name=project_name,
+            project_description=project_description,
+        )
+        return system, user
+
+    @staticmethod
+    def nano_coder(
+        function_name: str,
+        signature: str,
+        docstring: str,
+        context_snippet: str = "",
+    ) -> Tuple[str, str]:
+        """Returns (system, user) for NanoCoder: writes the body of ONE specific function.
+
+        Designed for small models (≤4B) so that the model focuses on a single function,
+        reducing the risk of hallucinated structure or missing imports.
+
+        Args:
+            function_name: The name of the function to implement.
+            signature: Full signature string (e.g. "def foo(x: int, y: str) -> bool:").
+            docstring: Docstring describing what the function must do.
+            context_snippet: Optional snippet of existing code in the same file for context.
+        """
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "nano_coder_prompt",
+            "domains/auto_generation/nano_roles.yaml",
+            "nano_coder_prompt",
+        )
+        user = user_template.format(
+            function_name=function_name,
+            signature=signature,
+            docstring=docstring,
+            context_snippet=context_snippet or "(no context available)",
+        )
+        return system, user
+
+    @staticmethod
+    def nano_reviewer(language: str, code: str) -> Tuple[str, str]:
+        """Returns (system, user) for NanoReviewer: checks indentation and syntax only.
+
+        Designed for small models (≤4B). The reviewer's scope is intentionally minimal
+        so the model can reliably detect basic structural errors without semantic analysis.
+
+        Args:
+            language: Programming language name (e.g. "Python", "JavaScript").
+            code: Source code content to review.
+        """
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "nano_reviewer_prompt",
+            "domains/auto_generation/nano_roles.yaml",
+            "nano_reviewer_prompt",
+        )
+        user = user_template.format(language=language, code=code)
         return system, user

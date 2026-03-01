@@ -73,6 +73,7 @@ class DeveloperAgent(BaseDomainAgent):
         tool_dispatcher: "ToolDispatcher",
         self_healing_loop: Optional["SelfHealingLoop"] = None,
         instance_id: int = 0,
+        llm_client: Optional[Any] = None,
     ) -> None:
         super().__init__(event_publisher, logger, tool_dispatcher)
         self._file_gen = file_content_generator
@@ -82,6 +83,8 @@ class DeveloperAgent(BaseDomainAgent):
         self._healing_loop = self_healing_loop
         self.agent_id = f"developer_{instance_id}"
         self._instance_id = instance_id
+        # Mejora 1: LLM client for micro-step decomposition (nano_planner role)
+        self._llm_client = llm_client
 
     # ------------------------------------------------------------------
     # Public interface
@@ -107,15 +110,26 @@ class DeveloperAgent(BaseDomainAgent):
         prevention_tips: str = node.task_data.get("prevention_tips", "")
         remediation_actions: list = node.task_data.get("remediation_actions", [])
 
-        self._log_info(
-            f"Generating '{file_path}' "
-            f"{'[REMEDIATION]' if is_remediation else ''}"
-        )
+        self._log_info(f"Generating '{file_path}' {'[REMEDIATION]' if is_remediation else ''}")
 
         # Gather RAG context from already-generated files in Blackboard
         context_files: Dict[str, str] = self._get_context_files(
             file_path, node.task_data.get("context_deps", []), blackboard
         )
+
+        # Mejora 1: Micro-planner — decompose file into 3-7 atomic steps for small models
+        if not is_validation_fix and not self._is_small_file(file_path):
+            plan_steps = await self._decompose_micro_steps(file_path, plan)
+            if plan_steps:
+                node.task_data["plan_steps"] = plan_steps
+                self._log_info(f"Micro-steps for '{file_path}': {plan_steps}")
+                self._event_publisher.publish(
+                    "micro_steps_planned",
+                    file_path=file_path,
+                    agent_id=self.agent_id,
+                    steps=plan_steps,
+                    step_count=len(plan_steps),
+                )
 
         # Choose generation strategy
         if is_validation_fix:
@@ -137,17 +151,14 @@ class DeveloperAgent(BaseDomainAgent):
                 prevention_tips=prevention_tips,
                 remediation_actions=remediation_actions,
                 blackboard=blackboard,
+                plan_steps=node.task_data.get("plan_steps"),
             )
 
         if content is None:
-            raise RuntimeError(
-                f"DeveloperAgent failed to generate content for '{file_path}'"
-            )
+            raise RuntimeError(f"DeveloperAgent failed to generate content for '{file_path}'")
 
         # Write to Blackboard (async-safe)
-        await blackboard.write(
-            f"generated_files/{file_path}", content, self.agent_id
-        )
+        await blackboard.write(f"generated_files/{file_path}", content, self.agent_id)
 
         # Publish event — triggers AuditorAgent JIT audit
         self._event_publisher.publish(
@@ -166,6 +177,71 @@ class DeveloperAgent(BaseDomainAgent):
     # Generation strategies
     # ------------------------------------------------------------------
 
+    async def _decompose_micro_steps(
+        self,
+        file_path: str,
+        plan: Dict[str, Any],
+    ) -> List[str]:
+        """Run a step-decomposition LLM call that breaks a file into 3-7 micro-steps (Mejora 1).
+
+        Returns the micro-steps list. Falls back to a single-step list if the LLM
+        client is unavailable or the call fails. Ensures 3 ≤ len(steps) ≤ 7.
+
+        Args:
+            file_path: Target file path (used in fallback description).
+            plan: Logic plan dict with purpose, exports, and main_logic keys.
+
+        Returns:
+            List of micro-step description strings.
+        """
+        if self._llm_client is None:
+            return [f"Generate full content for {file_path}"]
+
+        purpose: str = plan.get("purpose", f"implement {file_path}")
+        main_logic: List[str] = plan.get("main_logic", [])
+        exports: List[str] = plan.get("exports", [])
+
+        system_prompt = (
+            "You are a senior engineer. Given a file's purpose, exports, and logic items, "
+            "decompose the implementation into 3 to 7 ordered micro-steps. "
+            "Each step is a single short sentence. Output a JSON array of strings only. "
+            'Example: ["Define imports", "Define Config dataclass", "Implement load_config()"]'
+        )
+        user_prompt = (
+            f"File: {file_path}\n"
+            f"Purpose: {purpose}\n"
+            f"Exports: {exports}\n"
+            f"Main logic: {main_logic}\n"
+            "Output JSON array only."
+        )
+
+        loop = asyncio.get_event_loop()
+        try:
+            response_data, _ = await loop.run_in_executor(
+                None,
+                lambda: self._llm_client.chat(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    tools=[],
+                ),
+            )
+            raw = response_data.get("message", {}).get("content", "")
+            from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
+            steps = LLMResponseParser.extract_json(raw)
+            if isinstance(steps, list) and all(isinstance(s, str) for s in steps):
+                steps = steps[:7]  # cap at 7
+                # pad to minimum 3
+                while len(steps) < 3:
+                    steps.append(f"Finalize {Path(file_path).name}")
+                return steps
+        except Exception as exc:
+            self._log_error(f"Micro-step decomposition failed for '{file_path}': {exc}")
+
+        return [f"Generate full content for {file_path}"]
+
     async def _generate_single_file(
         self,
         file_path: str,
@@ -175,12 +251,18 @@ class DeveloperAgent(BaseDomainAgent):
         prevention_tips: str = "",
         remediation_actions: Optional[list] = None,
         blackboard: Optional["Blackboard"] = None,
+        plan_steps: Optional[List[str]] = None,
     ) -> Optional[str]:
         """Generate a single file via EnhancedFileContentGenerator with fallback.
 
         When *blackboard* is supplied and the generator supports streaming, each
         token chunk is forwarded to ``blackboard.write_stream_chunk()`` so the
         frontend can render live output via SSE.
+
+        Args:
+            plan_steps: Optional micro-steps from ``_decompose_micro_steps()`` (Mejora 1).
+                        If provided, they are injected into the logic plan so the
+                        generator can use them to structure its output.
         """
         loop = asyncio.get_event_loop()
 
@@ -189,12 +271,13 @@ class DeveloperAgent(BaseDomainAgent):
             effective_plan["remediation_actions"] = remediation_actions
         if prevention_tips:
             effective_plan["prevention_tips"] = prevention_tips
+        if plan_steps:
+            effective_plan["plan_steps"] = plan_steps
 
         # Strategy 1 (streaming): generate_file_with_plan_streaming()
-        if blackboard is not None and hasattr(
-            self._file_gen, "generate_file_with_plan_streaming"
-        ):
+        if blackboard is not None and hasattr(self._file_gen, "generate_file_with_plan_streaming"):
             try:
+
                 async def _on_chunk(chunk: str) -> None:
                     await blackboard.write_stream_chunk(file_path, chunk, self.agent_id)
 
@@ -210,9 +293,7 @@ class DeveloperAgent(BaseDomainAgent):
                 if content:
                     return content
             except Exception as exc:
-                self._log_error(
-                    f"Streaming generation failed for '{file_path}': {exc}; falling back"
-                )
+                self._log_error(f"Streaming generation failed for '{file_path}': {exc}; falling back")
 
         # Strategy 2 (sync): EnhancedFileContentGenerator.generate_file_with_plan()
         try:
@@ -267,10 +348,7 @@ class DeveloperAgent(BaseDomainAgent):
             return ""
 
         if file_name == "conftest.py":
-            return (
-                "import pytest\n\n\n@pytest.fixture\n"
-                "def sample_fixture():\n    return {}\n"
-            )
+            return "import pytest\n\n\n@pytest.fixture\ndef sample_fixture():\n    return {}\n"
 
         if file_name in ("py.typed", ".gitkeep"):
             return ""

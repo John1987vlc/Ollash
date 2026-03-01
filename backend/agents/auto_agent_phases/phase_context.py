@@ -1,3 +1,5 @@
+import ast
+import re as _re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -39,6 +41,87 @@ from backend.utils.domains.auto_generation.structure_pre_reviewer import Structu
 from backend.core.language_standards import BACKEND_ROUTE_PATTERNS, DEPENDENCY_FILES, FRONTEND_EXTENSIONS
 from backend.utils.core.language_utils import LanguageUtils
 from backend.utils.core.io.project_ingestion_service import ProjectIngestionService
+from backend.utils.core.memory.decision_blackboard import DecisionBlackboard
+
+
+# ---------------------------------------------------------------------------
+# Mejora 2: Signature-Only RAG helpers (module-level, no I/O dependencies)
+# ---------------------------------------------------------------------------
+
+
+def _extract_signatures_regex(content: str, ext: str) -> List[str]:
+    """Regex-based signature extraction for non-Python or unparseable files."""
+    patterns: Dict[str, List[str]] = {
+        ".ts": [
+            r"^(?:export\s+)?(?:async\s+)?function\s+\w+\s*\([^)]*\)\s*(?::\s*\S+)?\s*\{",
+            r"^(?:export\s+)?(?:abstract\s+)?class\s+\w+(?:\s+extends\s+\w+)?(?:\s+implements\s+\S+)?\s*\{",
+            r"^\s*(?:public|private|protected)?\s*(?:async\s+)?\w+\s*\([^)]*\)\s*(?::\s*\S+)?\s*\{",
+        ],
+        ".js": [
+            r"^(?:export\s+)?(?:async\s+)?function\s+\w+\s*\([^)]*\)\s*\{",
+            r"^(?:export\s+)?class\s+\w+(?:\s+extends\s+\w+)?\s*\{",
+            r"^(?:const|let|var)\s+\w+\s*=\s*(?:async\s+)?\([^)]*\)\s*=>",
+        ],
+        ".go": [
+            r"^func\s+(?:\(\w+\s+\*?\w+\)\s+)?\w+\s*\([^)]*\)\s*(?:\([^)]*\)|\S+)?\s*\{",
+            r"^type\s+\w+\s+(?:struct|interface)\s*\{",
+        ],
+        ".rs": [
+            r"^pub\s+(?:async\s+)?fn\s+\w+.*?->",
+            r"^(?:pub\s+)?struct\s+\w+",
+            r"^(?:pub\s+)?trait\s+\w+",
+        ],
+    }
+    used = patterns.get(ext, [r"(?:function|class|def)\s+\w+\s*\("])
+    found: List[str] = []
+    for line in content.splitlines():
+        for pat in used:
+            if _re.match(pat, line.strip()):
+                found.append(line.rstrip())
+                break
+    return found
+
+
+def _extract_signatures(content: str, file_path: str) -> str:
+    """Extract function/class signatures from source code.
+
+    For Python files uses ``ast.parse()`` for accuracy; for other languages
+    uses regex heuristics. Returns ``content[:500]`` if no signatures are found,
+    so callers always receive something useful.
+
+    Args:
+        content: Source file content.
+        file_path: File path (used to infer language by extension).
+
+    Returns:
+        Newline-separated signature lines, or the first 500 chars as fallback.
+    """
+    ext = Path(file_path).suffix.lower()
+    lines: List[str] = []
+
+    if ext == ".py":
+        try:
+            tree = ast.parse(content)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+                    args_parts = []
+                    for arg in node.args.args:
+                        arg_str = arg.arg
+                        if arg.annotation:
+                            arg_str += f": {ast.unparse(arg.annotation)}"
+                        args_parts.append(arg_str)
+                    returns = f" -> {ast.unparse(node.returns)}" if node.returns else ""
+                    prefix = "async def " if isinstance(node, ast.AsyncFunctionDef) else "def "
+                    lines.append(f"{prefix}{node.name}({', '.join(args_parts)}){returns}:")
+                elif isinstance(node, ast.ClassDef):
+                    bases = ", ".join(ast.unparse(b) for b in node.bases)
+                    lines.append(f"class {node.name}({bases}):")
+        except SyntaxError:
+            lines = _extract_signatures_regex(content, ext)
+    else:
+        lines = _extract_signatures_regex(content, ext)
+
+    return "\n".join(lines) if lines else content[:500]
 
 
 class LLMSubContext:
@@ -153,6 +236,7 @@ class PhaseContext:
         export_manager: Optional[ExportManager] = None,
         infra_generator: Optional[InfraGenerator] = None,
         command_executor: Optional[CommandExecutor] = None,
+        decision_blackboard: Optional[DecisionBlackboard] = None,
     ):
         self.config = config
         self.logger = logger
@@ -194,6 +278,13 @@ class PhaseContext:
         self.infra_generator = infra_generator
         self.command_executor = command_executor
 
+        # Mejora 6a: Decision Blackboard — persists design decisions across phases
+        if decision_blackboard is not None:
+            self.decision_blackboard: DecisionBlackboard = decision_blackboard
+        else:
+            _db_path = ollash_root_dir / ".ollash" / "decisions.db"
+            self.decision_blackboard = DecisionBlackboard(_db_path)
+
         self.current_generated_files: Dict[str, str] = {}
         self.current_project_structure: Dict[str, Any] = {}
         self.current_file_paths: List[str] = []
@@ -202,6 +293,14 @@ class PhaseContext:
         self.backlog: List[Dict[str, Any]] = []
         self.ollama_context = None  # F40: KV Cache context
         self.last_model = None  # F40: Track model transitions
+
+        # Mejora 3: Step progress tracking for prompt injection
+        self.step_progress: Dict[str, Any] = {
+            "current_step_index": 0,
+            "total_steps": 0,
+            "completed_steps": [],
+            "current_objective": "",
+        }
 
         # E6: last execution history summary (set by AutoAgent from AutomationManager)
         self.last_execution_summary: Optional[Any] = None
@@ -239,8 +338,32 @@ class PhaseContext:
         self.current_file_paths = file_paths
         self.current_readme_content = readme_content
 
+    def update_step_progress(
+        self,
+        current_index: int,
+        total: int,
+        completed: List[str],
+        current_objective: str,
+    ) -> None:
+        """Update the step progress tracker used for prompt injection (Mejora 3).
+
+        Args:
+            current_index: 1-based index of the step just completed.
+            total: Total number of steps in this phase.
+            completed: List of completed step labels/IDs.
+            current_objective: Short description of what is being done next.
+        """
+        self.step_progress["current_step_index"] = current_index
+        self.step_progress["total_steps"] = total
+        self.step_progress["completed_steps"] = list(completed)
+        self.step_progress["current_objective"] = current_objective
+
     def select_related_files(
-        self, target_path: str, generated_files: Dict[str, str], max_files: int = 8
+        self,
+        target_path: str,
+        generated_files: Dict[str, str],
+        max_files: int = 8,
+        signatures_only: bool = False,
     ) -> Dict[str, str]:
         """Select contextually relevant files using semantic search (RAG).
 
@@ -248,12 +371,15 @@ class PhaseContext:
         then falls back to heuristic scoring if semantic selection unavailable.
 
         Args:
-            target_path: Path to file needing context
-            generated_files: All available generated files
-            max_files: Maximum context files to select
+            target_path: Path to file needing context.
+            generated_files: All available generated files.
+            max_files: Maximum context files to select.
+            signatures_only: If True, returns only function/class signatures instead of
+                full file content (Mejora 2). Reduces token usage for small models.
 
         Returns:
-            Dictionary of selected contextual files
+            Dictionary of selected contextual files, values are either full content
+            or signature-only strings depending on *signatures_only*.
         """
         if not generated_files:
             return {}
@@ -269,6 +395,8 @@ class PhaseContext:
 
             if context_files:
                 self.logger.info(f"🔍 Selected {len(context_files)} contextual files using RAG semantic search")
+                if signatures_only:
+                    return {p: _extract_signatures(c, p) for p, c in context_files.items()}
                 return context_files
         except Exception as e:
             self.logger.info(f"RAG selection unavailable, using heuristic scoring: {e}")
@@ -311,6 +439,8 @@ class PhaseContext:
 
         ranked = sorted(scored.keys(), key=lambda p: scored[p], reverse=True)
         selected = {p: generated_files[p] for p in ranked[:max_files]}
+        if signatures_only:
+            return {p: _extract_signatures(c, p) for p, c in selected.items()}
         return selected
 
     # ========== NEW HELPER METHODS MOVED FROM AutoAgent ==========
@@ -366,9 +496,7 @@ class PhaseContext:
                 if target_path and target_path in files:
                     try:
                         self.logger.info(f"    Refining {target_path} as part of contingency plan...")
-                        refined = self.file_refiner.refine_file(
-                            target_path, files[target_path], readme[:2000], issues
-                        )
+                        refined = self.file_refiner.refine_file(target_path, files[target_path], readme[:2000], issues)
                         if refined:
                             files[target_path] = refined
                             self.file_manager.write_file(project_root / target_path, refined)

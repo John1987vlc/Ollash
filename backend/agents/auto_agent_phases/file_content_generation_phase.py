@@ -56,14 +56,23 @@ class FileContentGenerationPhase(IAgentPhase):
 
         total_tasks = len(backlog)
         completed_tasks = 0
+        completed_task_ids: List[str] = []  # Mejora 3: track completed IDs for progress injection
 
         for task in backlog:
             task_id = task.get("id", "UNKNOWN")
             title = task.get("title", "Untitled")
-            file_path = task.get("file_path", "")
+
+            # F29: Ensure file_path is a string (handle cases where LLM might provide a list)
+            raw_file_path = task.get("file_path", "")
+            if isinstance(raw_file_path, list) and raw_file_path:
+                file_path = str(raw_file_path[0])
+            else:
+                file_path = str(raw_file_path)
+
             task_type = task.get("task_type", "create_file")
 
-            self.context.logger.info(f"  [Task {completed_tasks + 1}/{total_tasks}] {task_id}: {title}")
+            completed_tasks += 1
+            self.context.logger.info(f"  [Task {completed_tasks}/{total_tasks}] {task_id}: {title}")
 
             # CRITICAL: Binary Guard - Skip LLM call for binary files
             if self._is_binary_file(file_path):
@@ -73,7 +82,6 @@ class FileContentGenerationPhase(IAgentPhase):
                 self.context.event_publisher.publish(
                     "agent_board_update", action="move_task", task_id=task_id, new_status="done"
                 )
-                completed_tasks += 1
                 continue
 
             # Notify progress to Kanban Board
@@ -223,6 +231,17 @@ class FileContentGenerationPhase(IAgentPhase):
 
                     # Update internal status for manifest tracking
                     task["status"] = "done"
+
+                    # Mejora 3: Update step progress for prompt injection in subsequent LLM calls
+                    completed_task_ids.append(task_id)
+                    next_task_index = backlog.index(task) + 1
+                    next_title = backlog[next_task_index].get("title", "") if next_task_index < total_tasks else "done"
+                    self.context.update_step_progress(
+                        current_index=completed_tasks,
+                        total=total_tasks,
+                        completed=completed_task_ids,
+                        current_objective=next_title,
+                    )
 
                     self.context.event_publisher.publish(
                         "agent_board_update", action="move_task", task_id=task_id, new_status="done"
