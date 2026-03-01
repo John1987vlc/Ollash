@@ -318,6 +318,9 @@ class PhaseContext:
         self.tech_stack_info: Optional[Any] = None
         # E9: lazy-initialised sandbox validator (avoids import cycles)
         self._sandbox_validator: Optional[Any] = None
+        # ProjectTypeDetector result — set by ReadmeGenerationPhase (no LLM call)
+        # Carries detected project type and allowed file extensions for downstream enforcement
+        self.project_type_info: Optional[Any] = None
 
         # Sub-contexts for grouped access
         self.llm = LLMSubContext(llm_manager, response_parser, token_tracker)
@@ -427,16 +430,16 @@ class PhaseContext:
             self.logger.debug(f"[PredictiveCtx] Pre-fetch failed (non-fatal): {exc}")
 
     def _is_small_model(self, role: str = "coder") -> bool:
-        """Return True if the LLM for *role* has <= 4B parameters.
+        """Return True if the LLM for *role* has <= 8B parameters.
 
-        Inspects the model name string for size suffixes like '3b', '4b'.
+        Inspects the model name string for size suffixes like '3b', '4b', '7b', '8b'.
         Falls back to False (treat as large model) on any error.
 
         Args:
             role: Agent role whose client to inspect (default: "coder").
 
         Returns:
-            True if model parameter count is <= 4B, False otherwise.
+            True if model parameter count is <= 8B, False otherwise.
         """
         import re as _re_model
 
@@ -445,7 +448,7 @@ class PhaseContext:
             model_name = getattr(client, "model", "") or ""
             match = _re_model.search(r"(\d+(?:\.\d+)?)b", model_name.lower())
             if match:
-                return float(match.group(1)) <= 4.0
+                return float(match.group(1)) <= 8.0
         except Exception:
             pass
         return False

@@ -157,15 +157,15 @@ ollash/
 
 ---
 
-## ⚡ Optimizaciones para Modelos Pequeños (≤4B)
+## ⚡ Optimizaciones para Modelos Pequeños (≤8B)
 
-Ollash incluye 6 optimizaciones ortogonales diseñadas para que modelos pequeños (Qwen3 3B, Ministral 3B, etc.) generen código de calidad sin saturar su ventana de contexto ni reescribir código ya funcional.
+Ollash incluye 6 optimizaciones ortogonales diseñadas para que modelos pequeños (Qwen2.5-Coder 7B, Llama3.1 8B, Ministral 3B, etc.) generen código de calidad sin saturar su ventana de contexto ni reescribir código ya funcional.
 
 | # | Optimización | Descripción |
 |---|---|---|
 | **F1** | **Interface Skeleton Scaffolding** | Antes de generar implementaciones, `InterfaceScaffoldingPhase` crea archivos `.pyi` (Python) y `.d.ts` (TypeScript) a partir de los exports del `logic_plan`. El LLM solo "rellena los huecos" de un contrato ya definido. Cero llamadas al LLM — completamente determinístico. |
 | **F2** | **TDD Agéntico en Caliente** | Tras generar cada archivo `.py`, `FileContentGenerationPhase._run_tdd_loop()` genera un test mínimo con el prompt `tdd_minimal_test`, lo ejecuta con `pytest` en un directorio temporal y corrige el código si falla, con hasta 2 reintentos automáticos. |
-| **F3** | **API Maps (Compresión de Contexto)** | `PhaseContext.build_api_map()` precomputa un mapa `{ruta → firmas}` una sola vez por pasada. `_is_small_model()` detecta automáticamente modelos ≤4B (regex sobre el nombre del modelo) y activa `select_related_files(signatures_only=True)`, reduciendo el contexto a solo cabeceras de funciones/clases. |
+| **F3** | **API Maps (Compresión de Contexto)** | `PhaseContext.build_api_map()` precomputa un mapa `{ruta → firmas}` una sola vez por pasada. `_is_small_model()` detecta automáticamente modelos ≤8B (regex sobre el nombre del modelo) y activa `select_related_files(signatures_only=True)`, reduciendo el contexto a solo cabeceras de funciones/clases. |
 | **F4** | **Capas de Abstracción (TACTICAL/CRITIC)** | Dos nuevos tipos de agente en el swarm: `TacticalAgent` implementa una sola función por turno usando `ast` + `CodePatcher.apply_search_replace()` con contexto mínimo; `CriticAgent` escanea todos los archivos generados contra `ErrorKnowledgeBase` y escribe advertencias en el `Blackboard` bajo `critique/` — sin ninguna llamada al LLM. |
 | **F5** | **Blackboard como Memoria de Corto Plazo** | Tras completar cada nodo del `TaskDAG`, el agente escribe en el Blackboard una nota concisa (`context_notes/{node_id}`) con las librerías usadas y los exports creados. El `DomainAgentOrchestrator` inyecta las notas de dependencias directas como contexto previo en la tarea siguiente. |
 | **F6** | **Parches SEARCH/REPLACE (Diff Quirúrgico)** | `CodePatcher` soporta una nueva estrategia `search_replace` donde el LLM devuelve bloques `<<<SEARCH>>>...<<<REPLACE>>>...<<<END>>>`. `parse_search_replace_patch()` y `apply_search_replace()` aplican los cambios quirúrgicamente sin tocar el resto del archivo. `FileValidator.validate_patch_applicable()` verifica que el bloque buscado existe antes de modificar nada. |
@@ -175,7 +175,7 @@ Ollash incluye 6 optimizaciones ortogonales diseñadas para que modelos pequeño
 ```python
 # F3 se activa automáticamente según el tamaño del modelo configurado
 # en backend/config/llm_models.json para el rol "coder"
-phase_context._is_small_model("coder")  # → True si modelo ≤ 4B
+phase_context._is_small_model("coder")  # → True si modelo ≤ 8B (incluye 7B, 8B)
 
 # F1 se ejecuta automáticamente en el pipeline entre LogicPlanningPhase y StructurePreReviewPhase
 # F4 se activa cuando el ArchitectAgent emite nodos AgentType.TACTICAL o AgentType.CRITIC
@@ -184,9 +184,41 @@ phase_context._is_small_model("coder")  # → True si modelo ≤ 4B
 
 ---
 
+## 🔍 Project Type Detector — Generación Correcta por Tipo de Proyecto
+
+Ollash ahora detecta automáticamente el tipo de proyecto (frontend web, Python, Go, Rust, etc.) a partir de la descripción y el README generado, **sin llamadas al LLM**. Esto resuelve el problema de modelos pequeños que crean archivos `.py` para proyectos HTML/CSS/JS puros.
+
+### Cómo funciona
+
+1. `ReadmeGenerationPhase` llama a `ProjectTypeDetector.detect(description, readme)` tras generar el README
+2. El resultado (`ProjectTypeInfo`) se almacena en `PhaseContext.project_type_info` y en el `DecisionBlackboard`
+3. Las fases siguientes leen `project_type_info` y aplican restricciones de extensión:
+
+| Fase | Acción |
+|------|--------|
+| `StructureGenerationPhase` | Inyecta constraint en el prompt LLM + filtra el JSON resultante |
+| `EmptyFileScaffoldingPhase` | Filtra la estructura antes de crear archivos físicos |
+| `FileContentGenerationPhase` | Salta archivos con extensión no permitida (ExtensionGuard) |
+| `LLMResponseParser` | Usa `extract_code_block_for_file()` para preferir el bloque del lenguaje correcto |
+
+### Tipos de proyecto soportados
+
+| Tipo | Keywords detectados | Extensiones permitidas |
+|------|--------------------|-----------------------|
+| `frontend_web` | html, css, js, svg, vanilla, spa, no backend | `.html .css .js .svg .json .md ...` |
+| `react_app` | react, jsx, next.js, vite | `.jsx .tsx .js .ts .css ...` |
+| `typescript_app` | typescript, angular, vue, tsconfig | `.ts .tsx .js .json ...` |
+| `python_app` | python, flask, django, fastapi | `.py .pyi .toml .yaml ...` |
+| `go_service` | golang, go service, go.mod | `.go .mod .sum .yaml ...` |
+| `rust_project` | rust, cargo | `.rs .toml .lock ...` |
+| `node_backend` | node.js, express, koa, fastify | `.js .ts .json .mjs ...` |
+| `unknown` | (sin coincidencia) | Todas las extensiones comunes |
+
+---
+
 ## 🔬 Agent Reliability Pack — Small Model Closed-Loop Features
 
-Six orthogonal features that turn small Ollama models (≤4B/7B) into reliable code generators by adding self-correction, memory, predictive loading, chaos testing, live task visibility, and cognitive-load guards. All features are **fail-safe**: any exception inside them is swallowed so the existing pipeline is never aborted.
+Six orthogonal features that turn small Ollama models (≤8B — including 7B and 8B) into reliable code generators by adding self-correction, memory, predictive loading, chaos testing, live task visibility, and cognitive-load guards. All features are **fail-safe**: any exception inside them is swallowed so the existing pipeline is never aborted.
 
 | # | Feature | File | Default |
 |---|---------|------|---------|

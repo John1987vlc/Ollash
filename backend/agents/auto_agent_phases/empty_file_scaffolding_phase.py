@@ -29,6 +29,14 @@ class EmptyFileScaffoldingPhase(IAgentPhase):
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 3: Creating empty placeholders...")
         self.context.event_publisher.publish("phase_start", phase="3", message="Creating empty files")
 
+        # Safety net: filter disallowed extensions before creating physical files
+        _type_info = getattr(self.context, "project_type_info", None)
+        if _type_info and _type_info.project_type != "unknown" and _type_info.confidence >= 0.10:
+            initial_structure = StructureGenerator.filter_structure_by_extensions(
+                initial_structure, set(_type_info.allowed_extensions), self.context.logger
+            )
+            self.context.logger.info("[Phase3] Pre-filtered structure to allowed extensions before scaffolding.")
+
         StructureGenerator.create_empty_files(project_root, initial_structure)
 
         self.context.event_publisher.publish("phase_complete", phase="3", message="Empty files created")

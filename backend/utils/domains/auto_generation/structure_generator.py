@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
@@ -45,9 +45,23 @@ class StructureGenerator:
         python_version: str = "3.12",
         license_type: str = "MIT",
         include_docker: bool = False,
+        constraint_hint: str = "",
     ) -> dict:
-        """Generate a project structure starting from a template and then detailing it."""
+        """Generate a project structure starting from a template and then detailing it.
+
+        Args:
+            readme_content: The project README text used as context for the LLM.
+            max_retries: Number of LLM retry attempts per sub-structure.
+            template_name: Template to use for the base structure.
+            python_version: Python version string (used by Python templates).
+            license_type: License identifier for license file generation.
+            include_docker: Whether to include Docker-related files.
+            constraint_hint: Optional extension constraint text injected into prompts
+                (e.g. "ONLY use: .html .css .js — DO NOT create .py files").
+        """
         self.logger.info(f"  Generating structure for template: {template_name}")
+        # Store constraint so it propagates to sub-structure generation calls
+        self._constraint_hint = constraint_hint
 
         # F31: Start with a strong foundation from the template instead of letting LLM hallucinate complex nests
         base_structure = self.create_fallback_structure(
@@ -162,8 +176,10 @@ class StructureGenerator:
     ) -> dict:
         """Generates the immediate sub-folders and files for a specific folder path."""
         overall_structure_str = json.dumps(overall_structure, indent=2)
+        _hint = getattr(self, "_constraint_hint", "")
         system_prompt, user_prompt = AutoGenPrompts.sub_structure_generation(
-            folder_path, context_text, overall_structure_str, template_name
+            folder_path, context_text, overall_structure_str, template_name,
+            constraint_hint=_hint,
         )
 
         for attempt in range(max_retries):
@@ -276,8 +292,142 @@ class StructureGenerator:
         python_version: str = "3.12",
         license_type: str = "MIT",
         include_docker: bool = False,
+        project_type: str = "",
     ) -> dict:
-        """Create a basic fallback project structure when generation fails."""
-        # Simple static fallbacks omitted for brevity in response,
-        # but logic remains the same as previous version
-        return {"path": "./", "folders": [{"name": "src", "folders": [], "files": ["main.py"]}], "files": ["README.md"]}
+        """Create a basic fallback project structure when generation fails.
+
+        When *project_type* is provided (detected by :class:`ProjectTypeDetector`),
+        returns a type-appropriate scaffold instead of the default Python layout.
+
+        Args:
+            readme_content: Unused here but kept for API consistency.
+            template_name: Template identifier (passed through).
+            python_version: Python version string (used by Python fallback).
+            license_type: License identifier (unused in minimal fallback).
+            include_docker: Whether to add Docker files (unused in minimal fallback).
+            project_type: Short project-type identifier from ProjectTypeDetector
+                (e.g. ``'frontend_web'``, ``'react_app'``).
+        """
+        if project_type == "frontend_web":
+            return {
+                "path": "./",
+                "folders": [
+                    {
+                        "name": "src",
+                        "folders": [],
+                        "files": ["index.html", "styles.css", "app.js"],
+                    }
+                ],
+                "files": ["README.md", "index.html"],
+            }
+        if project_type in ("react_app", "typescript_app"):
+            return {
+                "path": "./",
+                "folders": [
+                    {
+                        "name": "src",
+                        "folders": [],
+                        "files": ["App.tsx", "index.tsx", "App.css"],
+                    }
+                ],
+                "files": ["README.md", "package.json", "tsconfig.json"],
+            }
+        if project_type == "node_backend":
+            return {
+                "path": "./",
+                "folders": [
+                    {
+                        "name": "src",
+                        "folders": [],
+                        "files": ["index.js", "app.js", "routes.js"],
+                    }
+                ],
+                "files": ["README.md", "package.json", ".env"],
+            }
+        if project_type == "go_service":
+            return {
+                "path": "./",
+                "folders": [
+                    {
+                        "name": "cmd",
+                        "folders": [],
+                        "files": ["main.go"],
+                    },
+                    {
+                        "name": "internal",
+                        "folders": [],
+                        "files": ["handler.go", "service.go"],
+                    },
+                ],
+                "files": ["README.md", "go.mod", "go.sum"],
+            }
+        if project_type == "rust_project":
+            return {
+                "path": "./",
+                "folders": [
+                    {
+                        "name": "src",
+                        "folders": [],
+                        "files": ["main.rs", "lib.rs"],
+                    }
+                ],
+                "files": ["README.md", "Cargo.toml"],
+            }
+        # Default: Python fallback
+        return {
+            "path": "./",
+            "folders": [{"name": "src", "folders": [], "files": ["main.py"]}],
+            "files": ["README.md"],
+        }
+
+    @staticmethod
+    def filter_structure_by_extensions(
+        structure: Dict[str, Any],
+        allowed_extensions: set,
+        logger: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Remove files with disallowed extensions from a structure dict (recursive).
+
+        Files without an extension (e.g. ``Makefile``, ``Dockerfile``) are always
+        kept. Only removes files whose dot-suffix is not in *allowed_extensions*.
+
+        Args:
+            structure: Project structure dict with ``"files"`` and ``"folders"`` keys.
+            allowed_extensions: Set of dot-prefixed extensions to keep (e.g. ``{".js", ".html"}``).
+            logger: Optional logger for warning messages about removed files.
+
+        Returns:
+            A deep copy of *structure* with disallowed files removed.
+        """
+
+        def _clean_files(files_list: list) -> list:
+            result = []
+            for item in files_list:
+                name = item.get("name") if isinstance(item, dict) else str(item)
+                if not name:
+                    continue
+                suffix = Path(name).suffix.lower()
+                # Keep files with no extension (Makefile, Dockerfile, etc.)
+                if suffix == "" or suffix in allowed_extensions:
+                    result.append(item)
+                else:
+                    if logger:
+                        logger.warning(
+                            f"[StructureFilter] Removed disallowed file: '{name}' "
+                            f"(extension '{suffix}' not in allowed list)"
+                        )
+            return result
+
+        def _clean(node: dict) -> dict:
+            node["files"] = _clean_files(node.get("files", []))
+            cleaned_folders = []
+            for folder in node.get("folders", []):
+                if isinstance(folder, dict):
+                    cleaned_folders.append(_clean(folder))
+                else:
+                    cleaned_folders.append(folder)
+            node["folders"] = cleaned_folders
+            return node
+
+        filtered = json.loads(json.dumps(structure))  # Deep copy
+        return _clean(filtered)

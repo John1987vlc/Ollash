@@ -41,6 +41,37 @@ class ReadmeGenerationPhase(IAgentPhase):
         full_readme_path = project_root / readme_file_path
         self.context.file_manager.write_file(full_readme_path, readme)  # Use file_manager
 
+        # Detect project type from description + generated README (zero LLM calls)
+        try:
+            from backend.utils.domains.auto_generation.project_type_detector import ProjectTypeDetector
+
+            _type_info = ProjectTypeDetector.detect(project_description, readme)
+            self.context.project_type_info = _type_info
+            if _type_info.project_type != "unknown":
+                self.context.logger.info(
+                    f"[ProjectTypeDetector] Detected: {_type_info.project_type} "
+                    f"(confidence={_type_info.confidence:.2f}), "
+                    f"allowed={sorted(_type_info.allowed_extensions)}"
+                )
+                self.context.decision_blackboard.record_decision(
+                    key="project_type",
+                    value=_type_info.project_type,
+                    context=f"Keywords: {', '.join(_type_info.detected_keywords[:5])}",
+                )
+                self.context.decision_blackboard.record_decision(
+                    key="allowed_extensions",
+                    value=",".join(sorted(_type_info.allowed_extensions)),
+                    context="File extension whitelist for this project type",
+                )
+            else:
+                self.context.logger.info(
+                    "[ProjectTypeDetector] Unknown project type — all extensions allowed."
+                )
+        except Exception as _det_exc:
+            self.context.logger.debug(
+                f"[ProjectTypeDetector] Detection failed (non-fatal): {_det_exc}"
+            )
+
         # F36: Index README for RAG support
         try:
             self.context.documentation_manager.index_documentation(full_readme_path)

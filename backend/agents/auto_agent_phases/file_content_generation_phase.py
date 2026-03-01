@@ -89,6 +89,26 @@ class FileContentGenerationPhase(IAgentPhase):
                 )
                 continue
 
+            # Extension guard: skip files whose extension is not allowed for the detected project type
+            _ptype = getattr(self.context, "project_type_info", None)
+            if _ptype and _ptype.project_type != "unknown" and _ptype.confidence >= 0.10:
+                from pathlib import Path as _Path
+                _suffix = _Path(file_path).suffix.lower()
+                if _suffix and _suffix not in _ptype.allowed_extensions:
+                    self.context.logger.warning(
+                        f"    [ExtensionGuard] Skipped '{file_path}': "
+                        f"extension '{_suffix}' not allowed for "
+                        f"project type '{_ptype.project_type}'"
+                    )
+                    generated_files[file_path] = ""
+                    self.context.event_publisher.publish(
+                        "agent_board_update",
+                        action="move_task",
+                        task_id=task_id,
+                        new_status="skipped_extension",
+                    )
+                    continue
+
             # Notify progress to Kanban Board
             self.context.event_publisher.publish(
                 "agent_board_update", action="move_task", task_id=task_id, new_status="in_progress"
@@ -221,7 +241,8 @@ class FileContentGenerationPhase(IAgentPhase):
                         if "```" in raw_response:
                             from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
-                            content = LLMResponseParser.extract_single_code_block(raw_response)
+                            # Use language-aware extraction to prefer the block matching the file extension
+                            content = LLMResponseParser.extract_code_block_for_file(raw_response, file_path)
                             if content:
                                 self.context.logger.info(
                                     f"    ⚠ Attempt {attempts}: Rescued code from markdown block (Missing XML tags)."

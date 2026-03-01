@@ -138,6 +138,75 @@ class TestOptEnabled:
 
 
 # ---------------------------------------------------------------------------
+# Tests: _is_small_model() — extended threshold (≤8B)
+# ---------------------------------------------------------------------------
+
+
+class TestIsSmallModelThreshold:
+    def _ctx_with_model(self, model_name: str) -> PhaseContext:
+        deps = _make_deps()
+        ctx = PhaseContext(**deps)
+        client_mock = MagicMock()
+        client_mock.model = model_name
+        ctx.llm_manager.get_client.return_value = client_mock
+        return ctx
+
+    @pytest.mark.unit
+    def test_3b_model_is_small(self):
+        ctx = self._ctx_with_model("ministral-3:3b")
+        assert ctx._is_small_model() is True
+
+    @pytest.mark.unit
+    def test_4b_model_is_small(self):
+        ctx = self._ctx_with_model("qwen2.5:4b")
+        assert ctx._is_small_model() is True
+
+    @pytest.mark.unit
+    def test_7b_model_is_small_after_threshold_change(self):
+        """7B models should now trigger small-model optimizations."""
+        ctx = self._ctx_with_model("qwen2.5-coder:7b")
+        assert ctx._is_small_model() is True
+
+    @pytest.mark.unit
+    def test_8b_model_is_small_after_threshold_change(self):
+        """8B models should now trigger small-model optimizations."""
+        ctx = self._ctx_with_model("llama3.1:8b")
+        assert ctx._is_small_model() is True
+
+    @pytest.mark.unit
+    def test_14b_model_is_not_small(self):
+        ctx = self._ctx_with_model("qwen2.5:14b")
+        assert ctx._is_small_model() is False
+
+    @pytest.mark.unit
+    def test_30b_model_is_not_small(self):
+        ctx = self._ctx_with_model("qwen3-coder:30b")
+        assert ctx._is_small_model() is False
+
+    @pytest.mark.unit
+    def test_7b_opts_are_enabled(self):
+        """All small-model opts should activate for a 7B model."""
+        ctx = self._ctx_with_model("qwen2.5-coder:7b")
+        ctx.config = {
+            "small_model_optimizations": {
+                "opt1_prompt_state_machine": True,
+                "opt2_micro_context_snapshot": True,
+                "opt4_incremental_backlog": True,
+            }
+        }
+        assert ctx._opt_enabled("opt1_prompt_state_machine") is True
+        assert ctx._opt_enabled("opt2_micro_context_snapshot") is True
+        assert ctx._opt_enabled("opt4_incremental_backlog") is True
+
+    @pytest.mark.unit
+    def test_14b_opts_are_disabled_regardless_of_config(self):
+        """Opts should NOT activate for a 14B model even if the config says True."""
+        ctx = self._ctx_with_model("qwen2.5:14b")
+        ctx.config = {"small_model_optimizations": {"opt1_prompt_state_machine": True}}
+        assert ctx._opt_enabled("opt1_prompt_state_machine") is False
+
+
+# ---------------------------------------------------------------------------
 # Tests: build_micro_context_snapshot() (Opt 2)
 # ---------------------------------------------------------------------------
 

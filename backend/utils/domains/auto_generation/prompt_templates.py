@@ -281,9 +281,22 @@ class AutoGenPrompts:
 
     @staticmethod
     def sub_structure_generation(
-        folder_path: str, readme_content: str, overall_structure: str, template_name: str
+        folder_path: str,
+        readme_content: str,
+        overall_structure: str,
+        template_name: str,
+        constraint_hint: str = "",
     ) -> Tuple[str, str]:
-        """Returns (system_prompt, user_prompt) for sub-structure generation."""
+        """Returns (system_prompt, user_prompt) for sub-structure generation.
+
+        Args:
+            folder_path: Path of the folder being expanded.
+            readme_content: Project README used as LLM context.
+            overall_structure: Current full structure JSON string.
+            template_name: Template identifier.
+            constraint_hint: Optional extension constraint injected at end of prompt
+                (e.g. "ONLY create files with: .html .css .js — DO NOT create .py").
+        """
         system, user_template = AutoGenPrompts._get_prompt_pair(
             "sub_structure", "domains/auto_generation/structure.yaml", "sub_structure"
         )
@@ -293,6 +306,8 @@ class AutoGenPrompts:
             overall_structure=overall_structure,
             template_name=template_name,
         )
+        if constraint_hint:
+            user += f"\n\n## EXTENSION CONSTRAINT (CRITICAL — DO NOT VIOLATE)\n{constraint_hint}"
         return system, user
 
     @staticmethod

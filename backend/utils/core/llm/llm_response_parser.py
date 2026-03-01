@@ -184,6 +184,105 @@ class LLMResponseParser:
         return current
 
     @staticmethod
+    def extract_code_block_for_file(text: str, file_path: str) -> str:
+        """Language-aware code block extractor for a specific target file.
+
+        When an LLM response contains multiple code blocks (common with verbose
+        small models), this method prefers the block whose language hint matches
+        the file extension rather than always taking the first block.
+
+        Matching table (extension → accepted language hints in order of preference):
+
+        =========  ================================
+        Extension  Accepted hints
+        =========  ================================
+        .js/.mjs   ``javascript``, ``js``
+        .jsx       ``jsx``, ``javascript``, ``js``
+        .ts/.tsx   ``typescript``, ``ts``
+        .html      ``html``
+        .css       ``css``
+        .py        ``python``, ``py``
+        .go        ``go``
+        .rs        ``rust``
+        .json      ``json``
+        .yaml      ``yaml``, ``yml``
+        .md        ``markdown``, ``md``
+        .sh        ``bash``, ``sh``, ``shell``
+        .svg       ``svg``, ``xml``
+        =========  ================================
+
+        When no language-matched block is found, falls back to the *largest*
+        non-empty block (which is more likely to be the actual implementation
+        than a short illustrative snippet). Ultimate fallback is
+        :meth:`extract_single_code_block`.
+
+        Args:
+            text: Raw LLM response (may contain ``<think>`` blocks, multiple
+                markdown fences, XML tags, etc.).
+            file_path: Relative or absolute path of the target file — only the
+                extension is used.
+
+        Returns:
+            Extracted and cleaned code string, or ``""`` if nothing was found.
+        """
+        if not text:
+            return ""
+
+        # Strip thinking blocks before analysing
+        cleaned, _ = LLMResponseParser.remove_think_blocks(text)
+
+        _EXT_TO_LANGS: dict[str, list[str]] = {
+            ".js": ["javascript", "js"],
+            ".mjs": ["javascript", "js"],
+            ".cjs": ["javascript", "js"],
+            ".jsx": ["jsx", "javascript", "js"],
+            ".ts": ["typescript", "ts"],
+            ".tsx": ["tsx", "typescript", "ts"],
+            ".html": ["html"],
+            ".css": ["css"],
+            ".scss": ["scss", "css"],
+            ".py": ["python", "py"],
+            ".go": ["go"],
+            ".rs": ["rust"],
+            ".java": ["java"],
+            ".json": ["json"],
+            ".yaml": ["yaml", "yml"],
+            ".yml": ["yaml", "yml"],
+            ".md": ["markdown", "md"],
+            ".sh": ["bash", "sh", "shell"],
+            ".bash": ["bash", "sh", "shell"],
+            ".toml": ["toml"],
+            ".xml": ["xml"],
+            ".svg": ["svg", "xml"],
+        }
+
+        ext = Path(file_path).suffix.lower()
+        lang_hints = _EXT_TO_LANGS.get(ext, [])
+
+        # Collect all fenced code blocks: (language_hint, content)
+        all_blocks = re.findall(r"```(\w*)\s*\n?([\s\S]*?)\n?\s*```", cleaned, re.S)
+
+        if not all_blocks:
+            # No fenced blocks — fall back to the standard extractor
+            return LLMResponseParser.extract_single_code_block(cleaned)
+
+        # Prefer the first block whose language hint matches the file extension
+        if lang_hints:
+            for hint, content in all_blocks:
+                if hint.lower() in lang_hints and content.strip():
+                    return content.strip()
+
+        # No language match — take the largest non-empty block
+        non_empty = [(h, c.strip()) for h, c in all_blocks if c.strip()]
+        if non_empty:
+            if len(non_empty) == 1:
+                return non_empty[0][1]
+            return max(non_empty, key=lambda x: len(x[1]))[1]
+
+        # Ultimate fallback
+        return LLMResponseParser.extract_single_code_block(cleaned)
+
+    @staticmethod
     def extract_json(response: str) -> Optional[Any]:
         """Extracts and parses JSON from an LLM response with aggressive repair."""
         if not response:
