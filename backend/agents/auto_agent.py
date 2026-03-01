@@ -383,6 +383,15 @@ class AutoAgent(CoreAgent):
                     if phase_name == "FileContentGenerationPhase":
                         self.logger.info("Cycle of Life: Phase completed, ready for verification.")
 
+                    # Feature 3: Predictive Context Loading — pre-fetch for next phase
+                    if next_phase is not None:
+                        try:
+                            self.phase_context.prefetch_context_for_phase(
+                                next_phase.__class__, generated_files
+                            )
+                        except Exception:
+                            pass
+
                 except Exception as e:
                     self.logger.error(f"Error in phase {phase_name}: {e}", exc_info=True)
                     if milestone_id:

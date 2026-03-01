@@ -12,6 +12,7 @@ from backend.agents.auto_agent_phases.dependency_reconciliation_phase import Dep
 from backend.agents.auto_agent_phases.documentation_deploy_phase import DocumentationDeployPhase
 from backend.agents.auto_agent_phases.empty_file_scaffolding_phase import EmptyFileScaffoldingPhase
 from backend.agents.auto_agent_phases.exhaustive_review_repair_phase import ExhaustiveReviewRepairPhase
+from backend.agents.auto_agent_phases.chaos_injection_phase import ChaosInjectionPhase
 from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
 from backend.agents.auto_agent_phases.file_refinement_phase import FileRefinementPhase
 from backend.agents.auto_agent_phases.final_review_phase import FinalReviewPhase
@@ -463,6 +464,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         providers.Factory(StructurePreReviewPhase, context=phase_context),
         providers.Factory(EmptyFileScaffoldingPhase, context=phase_context),
         providers.Factory(FileContentGenerationPhase, context=phase_context),
+        providers.Factory(ChaosInjectionPhase, context=phase_context),
         providers.Factory(FileRefinementPhase, context=phase_context),
         providers.Factory(JavaScriptOptimizationPhase, context=phase_context),
         providers.Factory(VerificationPhase, context=phase_context),

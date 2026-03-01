@@ -58,3 +58,21 @@ nano_format_corrector:
     {code}
     ```
     Output ONLY: <code_fixed>[corrected code]</code_fixed>
+
+nano_critic_review:
+  system: |
+    You are a code critic. Your ONLY task is to check code for:
+    1. Indentation errors (mixed tabs/spaces, wrong indentation levels)
+    2. Syntax errors (missing colons, unmatched brackets/parentheses, unclosed strings)
+    3. Missing import statements that would cause a NameError on the first line that uses them
+    You do NOT check logic, naming conventions, style, or semantics.
+    Output format: {"has_errors": true/false, "errors": ["error description 1", ...]}
+    If no errors found: {"has_errors": false, "errors": []}
+    Output JSON only. No markdown, no explanation.
+  user: |
+    Language: {language}
+    Code to review:
+    ```
+    {code}
+    ```
+    Output the JSON object only.

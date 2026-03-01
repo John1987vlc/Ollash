@@ -15,6 +15,7 @@ import datetime
 import uuid
 
 from flask import Blueprint, jsonify, request
+from typing import Optional
 
 hil_bp = Blueprint("hil", __name__)
 
@@ -168,6 +169,64 @@ def respond_hil():
 # ---------------------------------------------------------------------------
 # POST /api/hil/debug/add  (dev helper)
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/hil/edit-task/<task_id>  (Feature 5 — Micro-Level DAG Dashboard)
+# ---------------------------------------------------------------------------
+
+
+@hil_bp.route("/api/hil/edit-task/<task_id>", methods=["PUT"])
+def edit_task(task_id: str):
+    """Update the instruction of a PENDING DAG task node.
+
+    Allows the user to adjust a task's instruction in real-time before the
+    agent executes it (hot-edit from the DAG dashboard panel).
+
+    JSON body:
+        instruction  — new instruction string for ``node.task_data["instruction"]``
+
+    Returns:
+        ``{"status": "updated", "task_id": ..., "project": ...}`` on success.
+        ``{"error": "..."}`` with 400/404/409 on failure.
+    """
+    data = request.json or {}
+    new_instruction: str = data.get("instruction", "").strip()
+    if not new_instruction:
+        return jsonify({"error": "Missing or empty instruction field"}), 400
+
+    ao = _get_active_orchestrators()
+    if ao is None:
+        return jsonify({"error": "No active orchestrators found"}), 404
+
+    try:
+        from backend.agents.orchestrators.task_dag import TaskStatus
+
+        for project_name, orch in ao.list_active().items():
+            dag = getattr(orch, "_current_dag", None)
+            if dag is None and hasattr(orch, "get_dag"):
+                dag = orch.get_dag()
+            if dag is None:
+                continue
+            node = dag.get_node(task_id)
+            if node is not None:
+                if node.status != TaskStatus.PENDING:
+                    return jsonify(
+                        {
+                            "error": (
+                                f"Node '{task_id}' is not PENDING "
+                                f"(current status: {node.status.value})"
+                            )
+                        }
+                    ), 409
+                node.task_data["instruction"] = new_instruction
+                return jsonify(
+                    {"status": "updated", "task_id": task_id, "project": project_name}
+                )
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+    return jsonify({"error": f"Task '{task_id}' not found in any active DAG"}), 404
 
 
 @hil_bp.route("/api/hil/debug/add", methods=["POST"])

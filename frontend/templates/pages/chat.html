@@ -138,6 +138,18 @@
                                 <div class="history-empty">No past sessions found.</div>
                             </div>
                         </div>
+
+                        <!-- Feature 5: Live Task DAG Dashboard -->
+                        <div class="hitl-dag-panel" id="hitl-dag-panel">
+                            <div class="dag-panel-header" id="dag-panel-toggle" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:8px 12px;">
+                                <h3 style="margin:0; font-size:0.9rem;">Task DAG</h3>
+                                <span class="toolbox-badge" id="dag-node-count" title="Active nodes">0</span>
+                            </div>
+                            <div class="dag-panel-body" id="dag-panel-body" style="display:none; max-height:220px; overflow-y:auto; padding:4px 8px;">
+                                <div class="dag-empty" id="dag-empty-msg" style="font-size:0.8rem; color:var(--color-text-muted); padding:8px;">No active tasks.</div>
+                                <div id="dag-node-list"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

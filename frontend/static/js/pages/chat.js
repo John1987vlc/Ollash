@@ -274,3 +274,82 @@ window.ChatPageModule = (function() {
 
     return { init };
 })();
+
+// Feature 5: Live Task DAG Dashboard
+window.DagPanel = (function () {
+    const _nodes = {};
+
+    function updateNode(data) {
+        const taskId = data.task_id || data.id;
+        if (!taskId) return;
+        _nodes[taskId] = {
+            id: taskId,
+            status: data.status || 'unknown',
+            agent_type: data.agent_type || '',
+        };
+        _render();
+    }
+
+    function _render() {
+        const list = document.getElementById('dag-node-list');
+        const empty = document.getElementById('dag-empty-msg');
+        const counter = document.getElementById('dag-node-count');
+        if (!list) return;
+        const nodeArr = Object.values(_nodes);
+        if (counter) counter.textContent = nodeArr.length;
+        if (nodeArr.length === 0) {
+            if (empty) empty.style.display = '';
+            list.innerHTML = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        list.innerHTML = nodeArr.map(n => {
+            const isPending = n.status === 'PENDING';
+            const editBtn = isPending
+                ? `<button class="btn-badge-action" style="font-size:0.7rem;padding:2px 5px;" onclick="window.DagPanel.editInstruction('${_esc(n.id)}')">Edit</button>`
+                : '';
+            return `<div class="dag-node-card" style="font-size:0.78rem;padding:4px 6px;border-left:3px solid var(--color-accent,#7c3aed);margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${_esc(n.id)}">${_esc(n.id)}</span>
+                <span class="toolbox-badge" style="font-size:0.65rem;">${_esc(n.status)}</span>
+                ${editBtn}
+            </div>`;
+        }).join('');
+    }
+
+    function editInstruction(taskId) {
+        const newInstruction = prompt('Edit task instruction:');
+        if (!newInstruction || !newInstruction.trim()) return;
+        fetch('/api/hil/edit-task/' + encodeURIComponent(taskId), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instruction: newInstruction.trim() }),
+        })
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'updated') {
+                    window.NotificationToast?.show('Task instruction updated', 'success');
+                } else {
+                    window.NotificationToast?.show('Could not update: ' + d.error, 'error');
+                }
+            })
+            .catch(() => window.NotificationToast?.show('Network error updating task', 'error'));
+    }
+
+    function _esc(str) {
+        const d = document.createElement('div');
+        d.textContent = String(str);
+        return d.innerHTML;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const toggle = document.getElementById('dag-panel-toggle');
+        const body = document.getElementById('dag-panel-body');
+        if (toggle && body) {
+            toggle.addEventListener('click', () => {
+                body.style.display = body.style.display === 'none' ? 'block' : 'none';
+            });
+        }
+    });
+
+    return { updateNode, editInstruction };
+})();

@@ -114,6 +114,7 @@ class AutoGenPrompts:
         logic_plan_section: str = "",
         allowed_actions: Optional[str] = None,
         anti_pattern_warnings: str = "",
+        few_shot_section: str = "",
     ) -> Tuple[str, str]:
         """Returns (system, user) for a single micro-task execution.
 
@@ -122,6 +123,8 @@ class AutoGenPrompts:
                 action list so the model must choose from a closed set.
             anti_pattern_warnings: If non-empty (Opt 5), prepended with an
                 ``EVITAR_ESTOS_ERRORES:`` header and injected into the prompt.
+            few_shot_section: If non-empty (Feature 2), injects validated
+                examples from previous successful generations.
         """
         system, user_template = AutoGenPrompts._get_prompt_pair(
             "micro_task_execution", "domains/auto_generation/code_gen.yaml", "micro_task_execution"
@@ -132,6 +135,8 @@ class AutoGenPrompts:
             actions_block = f"\n\n## ALLOWED ACTIONS (choose exactly one):\n{allowed_actions}"
         # Opt 5: build anti-pattern block
         anti_block = f"\n\nEVITAR_ESTOS_ERRORES:\n{anti_pattern_warnings}" if anti_pattern_warnings else ""
+        # Feature 2: few-shot examples block
+        few_shot_block = f"\n\n{few_shot_section}" if few_shot_section else ""
         user = user_template.format(
             title=title,
             description=description,
@@ -142,6 +147,7 @@ class AutoGenPrompts:
             logic_plan_section=logic_plan_section,
             allowed_actions=actions_block,
             anti_pattern_warnings=anti_block,
+            few_shot_section=few_shot_block,
         )
         return system, user
 
@@ -622,6 +628,25 @@ class AutoGenPrompts:
             "nano_reviewer_prompt",
             "domains/auto_generation/nano_roles.yaml",
             "nano_reviewer_prompt",
+        )
+        user = user_template.format(language=language, code=code)
+        return system, user
+
+    @staticmethod
+    def nano_critic_review(language: str, code: str) -> Tuple[str, str]:
+        """Returns (system, user) for the Critic-Correction Loop.
+
+        Extends ``nano_reviewer`` with a missing-import check to enable
+        closed-loop auto-correction after file generation (Feature 1).
+
+        Args:
+            language: Programming language name (e.g. ``"python"``).
+            code: Generated source code to audit.
+        """
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "nano_critic_review",
+            "domains/auto_generation/nano_roles.yaml",
+            "nano_critic_review",
         )
         user = user_template.format(language=language, code=code)
         return system, user

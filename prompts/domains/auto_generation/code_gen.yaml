@@ -96,5 +96,5 @@ micro_task_execution:
 
     ## RELATED FILES CONTEXT (Skeletons):
     {context_files_content}
-    {allowed_actions}{anti_pattern_warnings}
+    {allowed_actions}{anti_pattern_warnings}{few_shot_section}
     Implement the complete file now.

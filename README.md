@@ -184,6 +184,70 @@ phase_context._is_small_model("coder")  # → True si modelo ≤ 4B
 
 ---
 
+## 🔬 Agent Reliability Pack — Small Model Closed-Loop Features
+
+Six orthogonal features that turn small Ollama models (≤4B/7B) into reliable code generators by adding self-correction, memory, predictive loading, chaos testing, live task visibility, and cognitive-load guards. All features are **fail-safe**: any exception inside them is swallowed so the existing pipeline is never aborted.
+
+| # | Feature | File | Default |
+|---|---------|------|---------|
+| **R1** | **Critic-Correction Closed Loop** | `backend/utils/core/analysis/critic_loop.py` | ✅ enabled |
+| **R2** | **Few-Shot Dynamic Store** | `backend/utils/core/memory/fragment_cache.py` | ✅ enabled |
+| **R3** | **Predictive Context Loading** | `backend/agents/auto_agent_phases/phase_context.py` | ✅ always-on |
+| **R4** | **Chaos Engineering Mode** | `backend/agents/auto_agent_phases/chaos_injection_phase.py` | ❌ disabled |
+| **R5** | **HITL Micro-Level DAG Dashboard** | `frontend/blueprints/hil_bp.py` · `chat.js` | ✅ always-on |
+| **R6** | **Context Saturation Alerts** | `backend/utils/core/llm/context_saturation.py` | ✅ enabled |
+
+### R1 — Critic-Correction Closed Loop
+
+After each file is generated and shadow-validated, a second nano-LLM call checks for syntax errors, missing imports, and indentation issues. If errors are found the feedback is injected as `last_error` and the generation retries (max 2 additional attempts). The critic never aborts the pipeline — on any exception it returns `None` and generation proceeds normally.
+
+```json
+// backend/config/agent_features.json
+"critic_loop": { "enabled": true }
+```
+
+### R2 — Few-Shot Dynamic Store
+
+Every file that passes all validations is stored in `FragmentCache` as a `successful_task_example` keyed by language and purpose. Before generating the next file the system queries for the top-2 keyword-overlap examples and injects them into the prompt as few-shot demonstrations.
+
+```json
+"few_shot_store": { "enabled": true }
+```
+
+### R3 — Predictive Context Loading
+
+After each pipeline phase completes, `AutoAgent` peeks at the next phase class and pre-computes API-map signatures (function/class headers) for every file the next phase is likely to read. Results are stored in `PhaseContext.prefetched_context`. `FileContentGenerationPhase` checks this cache first, skipping redundant `select_related_files()` calls on cache hits.
+
+### R4 — Chaos Engineering Mode
+
+`ChaosInjectionPhase` runs after `FileContentGenerationPhase` and intentionally corrupts a configurable fraction of generated files (removes a random import, renames a local variable to `__chaos_<name>_x`). The downstream `ShadowEvaluator` and `ExhaustiveReviewRepairPhase` must detect and heal these faults. Disabled by default; enable only in test environments.
+
+```json
+"chaos_engineering": { "enabled": false, "injection_rate": 0.2 }
+```
+
+### R5 — HITL Micro-Level DAG Dashboard
+
+A collapsible panel in the chat UI shows every `TaskDAG` node in real-time via `task_status_changed` SSE events. PENDING nodes expose an **Edit Instruction** button that calls:
+
+```http
+PUT /api/hil/edit-task/<task_id>
+Content-Type: application/json
+{"instruction": "use asyncpg instead of psycopg2"}
+```
+
+Returns `409` if the node is no longer PENDING, `404` if not found.
+
+### R6 — Context Saturation Alerts
+
+Before every `OllamaClient.achat()` / `chat()` call the prompt length is estimated (`word_count × 1.3` tokens) and compared to the inferred model context window (parsed from the model name: `3b`→4096, `7b`→8192, `14b`→16384, `30b`→32768, `70b`→65536). If usage exceeds the configured threshold a `context_saturation_alert` event is published → SSE → browser toast.
+
+```json
+"context_saturation": { "enabled": true, "threshold": 0.6 }
+```
+
+---
+
 ## 🛡️ Security & Safety
 Ollash is built with security in mind. It includes a **Policy Enforcer** that intercepts all system commands, a **Code Quarantine** for analyzing suspicious snippets, and a **Vulnerability Scanner** to ensure generated code follows best practices.
 

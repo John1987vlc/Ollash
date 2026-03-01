@@ -309,6 +309,9 @@ class PhaseContext:
         # F3: Pre-computed API map {file_path → signature summary} for token compression
         self.api_map: Dict[str, str] = {}
 
+        # Feature 3: Pre-fetched context cache for predictive loading
+        self.prefetched_context: Dict[str, str] = {}
+
         # E6: last execution history summary (set by AutoAgent from AutomationManager)
         self.last_execution_summary: Optional[Any] = None
         # E2: detected tech stack information (set by ProjectAnalysisPhase)
@@ -384,6 +387,44 @@ class PhaseContext:
                 continue
             self.api_map[path] = _extract_signatures(content, path)
         self.logger.info(f"[PhaseContext] API map built: {len(self.api_map)} entries")
+
+    def prefetch_context_for_phase(
+        self,
+        next_phase_class: type,
+        generated_files: Dict[str, str],
+    ) -> None:
+        """Pre-compute API map signatures for files the next phase will likely need.
+
+        Called by AutoAgent after each phase completes.  Only populates the cache
+        when *next_phase_class* is ``FileContentGenerationPhase`` and the
+        ``logic_plan`` is already available.  All errors are silently ignored —
+        pre-fetch must never abort the pipeline.
+
+        Results are stored in ``self.prefetched_context`` keyed by file path.
+        """
+        try:
+            from backend.agents.auto_agent_phases.file_content_generation_phase import (
+                FileContentGenerationPhase,
+            )
+
+            if next_phase_class is not FileContentGenerationPhase:
+                return
+
+            upcoming_paths = list(self.logic_plan.keys())
+            added = 0
+            for path in upcoming_paths:
+                if path in self.prefetched_context:
+                    continue  # Already cached
+                content = generated_files.get(path, "")
+                if content:
+                    self.prefetched_context[path] = _extract_signatures(content, path)
+                    added += 1
+            if added:
+                self.logger.info(
+                    f"[PredictiveCtx] Pre-fetched {added} entries for FileContentGenerationPhase"
+                )
+        except Exception as exc:
+            self.logger.debug(f"[PredictiveCtx] Pre-fetch failed (non-fatal): {exc}")
 
     def _is_small_model(self, role: str = "coder") -> bool:
         """Return True if the LLM for *role* has <= 4B parameters.

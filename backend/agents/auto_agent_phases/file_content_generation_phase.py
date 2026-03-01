@@ -96,7 +96,12 @@ class FileContentGenerationPhase(IAgentPhase):
 
             try:
                 # 1. Distilled Context Preparation (Opt 2: micro-snapshot for small models)
-                if self.context._opt_enabled("opt2_micro_context_snapshot"):
+                # Feature 3: Check predictive pre-fetch cache first
+                _prefetched = getattr(self.context, "prefetched_context", {})
+                if _prefetched and file_path in _prefetched:
+                    raw_context_files = {file_path: _prefetched[file_path]}
+                    self.context.logger.info(f"  [PredictiveCtx] Cache hit for '{file_path}'")
+                elif self.context._opt_enabled("opt2_micro_context_snapshot"):
                     raw_context_files = self.context.build_micro_context_snapshot(file_path)
                 else:
                     raw_context_files = self.context.select_related_files(
@@ -132,6 +137,29 @@ class FileContentGenerationPhase(IAgentPhase):
                     except Exception:
                         pass
 
+                # Feature 2: Few-Shot Dynamic Store — query before generation
+                few_shot_section = ""
+                few_shot_cfg = getattr(self.context, "config", {})
+                if isinstance(few_shot_cfg, dict):
+                    few_shot_cfg = few_shot_cfg.get("few_shot_store", {})
+                else:
+                    few_shot_cfg = {}
+                if few_shot_cfg.get("enabled", True):
+                    try:
+                        _fs_language = self.context.infer_language(file_path)
+                        _fs_purpose = task.get("description", title)
+                        _examples = self.context.fragment_cache.get_similar_examples(
+                            language=_fs_language, purpose=_fs_purpose, max_examples=2
+                        )
+                        if _examples:
+                            _lines = ["## FEW-SHOT EXAMPLES (similar past successful files):"]
+                            for _ex_purpose, _ex_code in _examples:
+                                _lines.append(f"### Purpose: {_ex_purpose}")
+                                _lines.append(f"```\n{_ex_code[:800]}\n```")
+                            few_shot_section = "\n".join(_lines)
+                    except Exception:
+                        pass
+
                 # 2. Construct Sniper Prompt with XML requirements
                 system_prompt, user_prompt = AutoGenPrompts.micro_task_execution(
                     title=title,
@@ -143,6 +171,7 @@ class FileContentGenerationPhase(IAgentPhase):
                     logic_plan_section=logic_plan_section,
                     allowed_actions=allowed_actions,
                     anti_pattern_warnings=anti_pattern_warnings,
+                    few_shot_section=few_shot_section,
                 )
 
                 content = ""
@@ -226,6 +255,31 @@ class FileContentGenerationPhase(IAgentPhase):
                         except Exception:
                             pass
 
+                    # Feature 1: Critic-Correction Closed Loop
+                    critic_cfg = getattr(self.context, "config", {})
+                    if isinstance(critic_cfg, dict):
+                        critic_cfg = critic_cfg.get("critic_loop", {})
+                    else:
+                        critic_cfg = {}
+                    if critic_cfg.get("enabled", True):
+                        try:
+                            from backend.utils.core.analysis.critic_loop import CriticLoop
+                            if not hasattr(self, "_critic_loop"):
+                                self._critic_loop = CriticLoop(
+                                    self.context.llm_manager, self.context.logger
+                                )
+                            _lang = self.context.infer_language(file_path)
+                            _critic_feedback = self._critic_loop.review(file_path, content, _lang)
+                            if _critic_feedback:
+                                last_error = f"CRITIC FEEDBACK: {_critic_feedback}"
+                                self.context.logger.info(
+                                    f"    [Critic] Issues in '{file_path}': {_critic_feedback}"
+                                )
+                                content = ""
+                                continue
+                        except Exception:
+                            pass  # Critic must never abort generation
+
                     # Opt 3: Exit Contract — structural validation before syntax check
                     if self.context._opt_enabled("opt3_exit_contract") and task_type:
                         contract_error = self._check_output_contract(file_path, content, task_type)
@@ -292,6 +346,22 @@ class FileContentGenerationPhase(IAgentPhase):
                     generated_files[file_path] = content
                     self.context.file_manager.write_file(project_root / file_path, content)
                     completed_tasks += 1
+
+                    # Feature 2: Store as successful example for future few-shot use
+                    _store_cfg = getattr(self.context, "config", {})
+                    if isinstance(_store_cfg, dict):
+                        _store_cfg = _store_cfg.get("few_shot_store", {})
+                    else:
+                        _store_cfg = {}
+                    if _store_cfg.get("enabled", True):
+                        try:
+                            _s_language = self.context.infer_language(file_path)
+                            _s_purpose = task.get("description", title)
+                            self.context.fragment_cache.store_example(
+                                language=_s_language, purpose=_s_purpose, code=content
+                            )
+                        except Exception:
+                            pass
 
                     # Update internal status for manifest tracking
                     task["status"] = "done"
