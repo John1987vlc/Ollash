@@ -7,7 +7,6 @@ Includes endpoints for:
 """
 
 import json
-import os
 import queue
 import threading
 import time
@@ -50,12 +49,15 @@ def list_models():
     if not ollama_url:
         try:
             config = current_app.config.get("config", {})
+            import os
+
             ollama_url = os.environ.get(
-                "OLLASH_OLLAMA_URL",
-                config.get("ollama_url", "http://localhost:11434"),
+                "OLLAMA_URL", os.environ.get("OLLASH_OLLAMA_URL", config.get("ollama_url", "http://127.0.0.1:11434"))
             )
         except Exception:
-            ollama_url = "http://localhost:11434"
+            ollama_url = "http://127.0.0.1:11434"
+
+    ollama_url = ollama_url.rstrip("/")
 
     try:
         resp = requests.get(f"{ollama_url}/api/tags", timeout=10)

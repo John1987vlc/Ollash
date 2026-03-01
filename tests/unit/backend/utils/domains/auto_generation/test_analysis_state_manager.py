@@ -107,12 +107,20 @@ class TestAnalysisStateManager:
         assert merged["total_lines_of_code"] == 13  # 8 + 5
 
     def test_merge_analysis_deduplicates_patterns(self, manager):
-        previous = {"file_details": [], "total_lines_of_code": 0,
-                    "files_by_type": {}, "code_patterns": ["type_hints", "async_patterns"],
-                    "dependencies": []}
-        delta = {"file_details": [], "total_lines_of_code": 0,
-                 "files_by_type": {}, "code_patterns": ["type_hints", "error_handling"],
-                 "dependencies": []}
+        previous = {
+            "file_details": [],
+            "total_lines_of_code": 0,
+            "files_by_type": {},
+            "code_patterns": ["type_hints", "async_patterns"],
+            "dependencies": [],
+        }
+        delta = {
+            "file_details": [],
+            "total_lines_of_code": 0,
+            "files_by_type": {},
+            "code_patterns": ["type_hints", "error_handling"],
+            "dependencies": [],
+        }
 
         merged = manager.merge_analysis(previous, delta, set())
 

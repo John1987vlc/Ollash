@@ -9,6 +9,8 @@ import logging
 import re
 from typing import Any, Optional, Tuple
 
+from backend.utils.core.llm.prompt_loader import PromptLoader
+
 logger = logging.getLogger(__name__)
 
 # Pre-compiled pattern strips URLs, file paths, and technical tokens before
@@ -37,10 +39,7 @@ class LanguageManager:
         # to avoid false positives from non-ASCII chars in those tokens.
         # Also exclude Unicode emoji ranges (0x1F300-0x1FAFF).
         text_filtered = _NOISE_PATTERN.sub("", text)
-        non_ascii_count = sum(
-            1 for c in text_filtered
-            if ord(c) > 127 and not (0x1F300 <= ord(c) <= 0x1FAFF)
-        )
+        non_ascii_count = sum(1 for c in text_filtered if ord(c) > 127 and not (0x1F300 <= ord(c) <= 0x1FAFF))
         is_likely_not_en = non_ascii_count > 3
 
         if not is_likely_not_en:
@@ -49,8 +48,6 @@ class LanguageManager:
         logger.info(f"Detecting non-English input ({non_ascii_count} non-ASCII chars after filtering). Translating...")
 
         try:
-            from backend.utils.core.llm.prompt_loader import PromptLoader
-
             loader = PromptLoader()
             prompts = loader.load_prompt("core/services.yaml")
 
@@ -68,8 +65,14 @@ class LanguageManager:
             # F33: Radical cleaning of conversational noise
             # 1. Remove common SLM preambles
             noise_patterns = [
-                "Understood", "Please provide", "Here is", "Translation:",
-                "The translation is", "Translated text:", "Certainly", "Sure"
+                "Understood",
+                "Please provide",
+                "Here is",
+                "Translation:",
+                "The translation is",
+                "Translated text:",
+                "Certainly",
+                "Sure",
             ]
 
             cleaned = raw_translated
@@ -84,7 +87,9 @@ class LanguageManager:
                             cleaned = "\n".join(lines[1:]).strip()
 
             # 2. Strip quotes if the model wrapped the translation
-            if (cleaned.startswith('"') and cleaned.endswith('"')) or (cleaned.startswith("'") and cleaned.endswith("'")):
+            if (cleaned.startswith('"') and cleaned.endswith('"')) or (
+                cleaned.startswith("'") and cleaned.endswith("'")
+            ):
                 cleaned = cleaned[1:-1].strip()
 
             # Final check: if cleaning emptied it or it still looks like noise, use original text

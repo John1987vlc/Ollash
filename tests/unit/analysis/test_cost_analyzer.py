@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock
 from backend.utils.core.analysis.cost_analyzer import CostAnalyzer
 
+
 def test_cost_analyzer_report_generation():
     """Verifica que el generador de informes de coste calcule correctamente los tokens."""
     mock_logger = MagicMock()
@@ -16,16 +17,15 @@ def test_cost_analyzer_report_generation():
     assert report.total_requests == 1
     assert "qwen3" in report.usage_by_model
 
+
 def test_cost_analyzer_historical_load_mapping():
     """Verifica que el mapeo de registros desde la base de datos sea correcto."""
     mock_logger = MagicMock()
     fake_db_row = {
-        "extra_data": json.dumps({
-            "type": "llm_response",
-            "model": "gpt-oss",
-            "usage": {"prompt_tokens": 10, "completion_tokens": 20}
-        }),
-        "timestamp": "2026-02-23 20:00:00"
+        "extra_data": json.dumps(
+            {"type": "llm_response", "model": "gpt-oss", "usage": {"prompt_tokens": 10, "completion_tokens": 20}}
+        ),
+        "timestamp": "2026-02-23 20:00:00",
     }
     mock_logger.structured_logger.db.fetch_all.return_value = [fake_db_row]
 

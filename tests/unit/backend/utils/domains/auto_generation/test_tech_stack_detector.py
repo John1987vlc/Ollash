@@ -26,6 +26,7 @@ class TestTechStackDetector:
 
     def test_detect_react_from_package_json(self):
         import json
+
         pkg = json.dumps({"dependencies": {"react": "^18.2.0", "react-dom": "^18.2.0"}})
         info = TechStackDetector().detect({"package.json": pkg})
 
@@ -34,6 +35,7 @@ class TestTechStackDetector:
 
     def test_detect_nextjs_from_package_json(self):
         import json
+
         pkg = json.dumps({"dependencies": {"next": "14.0.0", "react": "^18.0.0"}})
         info = TechStackDetector().detect({"package.json": pkg})
 

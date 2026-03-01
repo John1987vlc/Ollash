@@ -27,7 +27,6 @@ Usage::
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -146,13 +145,9 @@ class GitAutoCommitter:
                 if record is not None:
                     manifest.commits.append(record)
             except Exception as exc:
-                self._logger.error(
-                    f"[GitAutoCommitter] Failed to commit '{rel_path}': {exc}"
-                )
+                self._logger.error(f"[GitAutoCommitter] Failed to commit '{rel_path}': {exc}")
 
-        self._logger.info(
-            f"[GitAutoCommitter] {len(manifest.commits)} commits for '{project_name}'"
-        )
+        self._logger.info(f"[GitAutoCommitter] {len(manifest.commits)} commits for '{project_name}'")
         return manifest
 
     # ------------------------------------------------------------------
@@ -168,13 +163,9 @@ class GitAutoCommitter:
         if not git_dir.exists():
             result = self._git._run_git("init")
             if not result.get("success"):
-                self._logger.error(
-                    f"[GitAutoCommitter] git init failed: {result.get('error', '')}"
-                )
+                self._logger.error(f"[GitAutoCommitter] git init failed: {result.get('error', '')}")
                 return False
-            self._logger.info(
-                f"[GitAutoCommitter] git init at {self._project_root}"
-            )
+            self._logger.info(f"[GitAutoCommitter] git init at {self._project_root}")
         return True
 
     def _configure_repo_identity(self) -> None:
@@ -190,10 +181,7 @@ class GitAutoCommitter:
         # Stage the file
         add_result = self._git._run_git("add", rel_path)
         if not add_result.get("success"):
-            self._logger.warning(
-                f"[GitAutoCommitter] git add failed for '{rel_path}': "
-                f"{add_result.get('error', '')}"
-            )
+            self._logger.warning(f"[GitAutoCommitter] git add failed for '{rel_path}': {add_result.get('error', '')}")
             return None
 
         # Skip if nothing staged
@@ -207,9 +195,7 @@ class GitAutoCommitter:
             err = commit_result.get("output", "") + commit_result.get("error", "")
             if "nothing to commit" in err:
                 return None
-            self._logger.error(
-                f"[GitAutoCommitter] commit failed for '{rel_path}': {err}"
-            )
+            self._logger.error(f"[GitAutoCommitter] commit failed for '{rel_path}': {err}")
             return None
 
         sha_result = self._git._run_git("rev-parse", "--short", "HEAD")
@@ -241,9 +227,7 @@ class GitAutoCommitter:
                     {
                         "role": "user",
                         "content": (
-                            f"File: {rel_path}\n"
-                            f"Agent: {agent_type}\n"
-                            f"Content (first 400 chars):\n{content[:400]}"
+                            f"File: {rel_path}\nAgent: {agent_type}\nContent (first 400 chars):\n{content[:400]}"
                         ),
                     },
                 ]
@@ -258,9 +242,7 @@ class GitAutoCommitter:
                 self._logger.debug(f"[GitAutoCommitter] LLM message gen failed: {exc}")
 
         stem = Path(rel_path).stem
-        return self._TEMPLATE_MESSAGE.format(
-            stem=stem, agent_type=agent_type.lower()
-        )
+        return self._TEMPLATE_MESSAGE.format(stem=stem, agent_type=agent_type.lower())
 
     @staticmethod
     def _parse_numstat_line(numstat_output: str) -> tuple:

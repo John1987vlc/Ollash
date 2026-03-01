@@ -7,6 +7,7 @@ Scenario:
   3. Verify the preview thumbnail appears.
   4. Mock POST /api/projects/images/upload and verify the call is made.
 """
+
 from __future__ import annotations
 
 import json
@@ -169,10 +170,12 @@ def test_file_input_upload_calls_api(page: Page) -> None:
     captured: list = []
 
     def handle_upload(route):
-        captured.append({
-            "method": route.request.method,
-            "url": route.request.url,
-        })
+        captured.append(
+            {
+                "method": route.request.method,
+                "url": route.request.url,
+            }
+        )
         route.fulfill(
             status=200,
             content_type="application/json",

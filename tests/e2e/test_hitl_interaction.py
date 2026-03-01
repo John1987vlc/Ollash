@@ -10,6 +10,7 @@ Scenario:
 
 All network calls are intercepted via page.route() — no real server needed.
 """
+
 from __future__ import annotations
 
 import json

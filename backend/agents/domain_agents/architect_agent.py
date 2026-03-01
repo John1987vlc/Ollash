@@ -97,19 +97,23 @@ class ArchitectAgent(BaseDomainAgent):
                     img_bytes = Path(img_path).read_bytes()
                     suffix = Path(img_path).suffix.lower().lstrip(".")
                     media_type = {
-                        "jpg": "image/jpeg", "jpeg": "image/jpeg",
-                        "png": "image/png", "gif": "image/gif",
+                        "jpg": "image/jpeg",
+                        "jpeg": "image/jpeg",
+                        "png": "image/png",
+                        "gif": "image/gif",
                         "webp": "image/webp",
                     }.get(suffix, "image/png")
-                    encoded_images.append({
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": media_type,
-                            "data": base64.b64encode(img_bytes).decode(),
-                        },
-                        "filename": Path(img_path).name,
-                    })
+                    encoded_images.append(
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": base64.b64encode(img_bytes).decode(),
+                            },
+                            "filename": Path(img_path).name,
+                        }
+                    )
                     self._log_debug(f"Encoded context image: {img_path}")
                 except Exception as exc:
                     self._log_warning(f"Could not encode image '{img_path}': {exc}")
@@ -141,17 +145,13 @@ class ArchitectAgent(BaseDomainAgent):
         structure = blackboard.read("project_structure")
         if structure is None:
             self._log_info("Generating project structure…")
-            structure = await self._generate_structure(
-                project_description, project_name, readme_content
-            )
+            structure = await self._generate_structure(project_description, project_name, readme_content)
             await blackboard.write("project_structure", structure, self.agent_id)
 
         # Step 2 — Build dependency graph
         self._dep_graph.build_from_structure(structure, readme_content)
         generation_order: List[str] = self._dep_graph.get_generation_order()
-        self._log_debug(
-            f"Dependency graph: {len(generation_order)} files in generation order"
-        )
+        self._log_debug(f"Dependency graph: {len(generation_order)} files in generation order")
 
         # Step 3 — Build the DAG
         dag = self._build_dag(generation_order, structure)

@@ -32,6 +32,8 @@ from backend.utils.core.system.confirmation_manager import ConfirmationManager  
 from backend.utils.core.io.file_manager import FileManager
 from backend.utils.core.io.git_manager import GitManager
 from backend.utils.core.llm.llm_recorder import LLMRecorder  # NEW
+from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+from backend.utils.core.llm.prompt_loader import PromptLoader
 from backend.utils.core.system.loop_detector import LoopDetector
 from backend.utils.core.memory.memory_manager import MemoryManager
 from backend.utils.core.system.permission_profiles import PolicyEnforcer  # Used for confirmation gates policies
@@ -142,7 +144,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
                 logger=self.logger,
                 auto_confirm=self.auto_confirm,
                 config=self.tool_settings_config,
-                event_publisher=self.event_publisher, # F31: Pass event_publisher
+                event_publisher=self.event_publisher,  # F31: Pass event_publisher
             )
         )
         self.policy_enforcer = (
@@ -202,14 +204,13 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
                 embedding_client=self.llm_manager.get_client("default"),  # Use llm_manager for embedding client
                 threshold=10,  # F33: Increased for mass testing
                 similarity_threshold=self.tool_settings_config.semantic_similarity_threshold,  # From tool_settings_config
-                stagnation_timeout_minutes=5, # F33: Increased
+                stagnation_timeout_minutes=5,  # F33: Increased
             )
         )
 
         # Load system prompt from file
         default_prompt_path = self.tool_settings_config.default_system_prompt_path  # From tool_settings_config
         try:
-            from backend.utils.core.llm.prompt_loader import PromptLoader
             loader = PromptLoader(prompts_dir=self._base_path / "prompts")
             prompt_data = loader.load_prompt(default_prompt_path)
 
@@ -219,15 +220,13 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
                 self.system_prompt = prompt_data.get("system", "")
 
             if not self.system_prompt:
-                self.logger.warning(
-                    f"System prompt field empty in {default_prompt_path}. Using default fallback."
-                )
+                self.logger.warning(f"System prompt field empty in {default_prompt_path}. Using default fallback.")
                 self.system_prompt = self._get_fallback_system_prompt()
         except Exception as e:
             self.logger.error(f"Error loading system prompt from {default_prompt_path}: {e}. Using default fallback.")
             self.system_prompt = self._get_fallback_system_prompt()
 
-        self.conversation: List[Dict] = self.memory_manager.get_conversation_history()
+        self.conversation: List[Dict] = []
         self.domain_context_memory: Dict[str, str] = self.memory_manager.get_domain_context_memory()
         self.checkpoint_counter: int = 0
         self.active_agent_type = "orchestrator"
@@ -274,8 +273,6 @@ RULES:
         self.logger.info("Refining user instruction...")
 
         try:
-            from backend.utils.core.llm.prompt_loader import PromptLoader
-
             loader = PromptLoader()
             prompts = loader.load_prompt("core/services.yaml")
 
@@ -302,8 +299,6 @@ RULES:
             return text
 
         try:
-            from backend.utils.core.llm.prompt_loader import PromptLoader
-
             loader = PromptLoader()
             _prompts = loader.load_prompt("core/services.yaml")
 
@@ -350,7 +345,6 @@ RULES:
             return {}
 
         try:
-            from backend.utils.core.llm.prompt_loader import PromptLoader
             loader = PromptLoader()
             prompts = loader.load_prompt("core/services.yaml")
 
@@ -359,34 +353,97 @@ RULES:
             user_template = audit_def.get("user", "")
 
             # Prepare compact history for auditor (last 5 tool results)
-            tool_history = [
-                msg for msg in self.conversation
-                if msg["role"] == "tool"
-            ][-5:]
+            tool_history = [msg for msg in self.conversation if msg["role"] == "tool"][-5:]
 
             user = user_template.format(
-                goal=user_instruction,
-                plan=json.dumps(self._active_plan),
-                history=json.dumps(tool_history)
+                goal=user_instruction, plan=json.dumps(self._active_plan), history=json.dumps(tool_history)
             )
 
             response, _ = await client.achat(
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
                 tools=[],
-                options_override={"temperature": 0.0} # Maximum precision
+                options_override={"temperature": 0.0},  # Maximum precision
             )
 
             content = response.get("message", {}).get("content", "")
             # Robust JSON extraction
             if "{" in content:
-                content = content[content.find("{"):content.rfind("}")+1]
+                content = content[content.find("{") : content.rfind("}") + 1]
 
             audit_result = json.loads(content)
-            self.logger.info(f"🛰️ Mission Audit: {audit_result.get('mission_status')} - {audit_result.get('next_action_guidance')}")
+            self.logger.info(
+                f"🛰️ Mission Audit: {audit_result.get('mission_status')} - {audit_result.get('next_action_guidance')}"
+            )
             return audit_result
         except Exception as e:
             self.logger.warning(f"Failed to perform mission audit: {e}")
             return {}
+
+    async def _select_dynamic_tools(self, user_instruction: str) -> List[str]:
+        """
+        Intermediary step: Selects the most relevant tools for the current prompt
+        to minimize context overhead.
+        """
+        client = self.llm_manager.get_client("orchestration")
+        if not client:
+            return self.active_tool_names
+
+        try:
+            # 1. Get lightweight summaries of currently active toolset
+            summaries = self.tool_executor.tool_registry.get_tool_summaries(self.active_tool_names)
+
+            # 2. Prepare Tool Selection Prompt
+            loader = PromptLoader()
+            prompts = loader.load_prompt("core/services.yaml")
+
+            sel_def = prompts.get("tool_selection", {})
+            system = sel_def.get("system", "")
+            user_template = sel_def.get("user", "")
+
+            user = user_template.format(text=user_instruction, tools=json.dumps(summaries, indent=2))
+
+            response, _ = await client.achat(
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], tools=[]
+            )
+
+            if response and response.get("message") and response["message"].get("content"):
+                content = response["message"]["content"].strip()
+                # Clean potential markdown noise
+                clean_json, _ = LLMResponseParser.remove_think_blocks(content)
+                clean_json = clean_json.replace("```json", "").replace("```", "").strip()
+
+                try:
+                    selected = json.loads(clean_json)
+                except:
+                    # Fallback for Malformed JSON from some SMLs
+                    selected = [t for t in self.active_tool_names if t in clean_json]
+
+                if isinstance(selected, list):
+                    # F33: Safety - Always ensure core orchestration and shell tools are present if they were in the original set
+                    mandatory = [
+                        "plan_actions",
+                        "select_agent_type",
+                        "run_shell_command",
+                        "run_command",
+                        "analyze_project",
+                        "traceroute_host",
+                    ]
+                    for tool in mandatory:
+                        if tool in self.active_tool_names and tool not in selected:
+                            selected.append(tool)
+
+                    # Filter only valid tools from the active set
+                    final_tools = [t for t in selected if t in self.active_tool_names]
+
+                    self.logger.info(
+                        f"🎯 JIT Tool Selection: {len(final_tools)}/{len(self.active_tool_names)} tools enabled."
+                    )
+                    return final_tools
+
+        except Exception as e:
+            self.logger.warning(f"Tool Selection failed: {e}. Falling back to full toolset.")
+
+        return self.active_tool_names
 
     async def chat(self, instruction: str, auto_confirm: bool = False) -> str:
         correlation_id: Optional[str] = None
@@ -404,7 +461,9 @@ RULES:
             # Remove ONLY control characters, keep all printable (including international)
             clean_instruction = "".join(ch for ch in instruction if ch.isprintable() or ch in "\n\r\t")
             # Minimal replacement
-            clean_instruction = clean_instruction.replace("\u201c", '"').replace("\u201d", '"').replace("\u2013", "-").strip()
+            clean_instruction = (
+                clean_instruction.replace("\u201c", '"').replace("\u201d", '"').replace("\u2013", "-").strip()
+            )
 
             if len(clean_instruction) > MAX_INSTRUCTION_LENGTH:
                 return f"Instruction too long ({len(clean_instruction)} chars). Maximum is {MAX_INSTRUCTION_LENGTH}."
@@ -419,31 +478,51 @@ RULES:
 
             # 2. Prepare Clean System Prompt
             import platform
-            os_info = f"Operating System: {platform.system()} {platform.release()} ({platform.architecture()[0]})"
+
+            os_name = platform.system()
+            os_release = platform.release()
+            shell_name = "PowerShell" if os_name == "Windows" else "Bash"
+            os_info = f"Current Operating System: {os_name} {os_release}. ACTIVE SHELL: {shell_name}"
 
             # Do NOT modify self.system_prompt permanently here to avoid cumulative corruption
             current_system_prompt = await self.language_manager.standardize_prompt(self.system_prompt)
-            current_system_prompt = f"# ENVIRONMENT\n{os_info}\n\n{current_system_prompt}"
+            current_system_prompt = (
+                "# MANDATORY: DATA FRESHNESS\n"
+                "Technical data (IPs, processes, files, disk space) from conversation history may be STALE. Always run tools to get the CURRENT state if the user asks for it.\n\n"
+            ) + (
+                f"# CRITICAL ENVIRONMENT INFO\n"
+                f"You are running on: {os_info}\n"
+                f"Available tools are context-aware for this OS. Always prioritize {shell_name} commands if on {os_name}.\n\n"
+                f"{current_system_prompt}"
+            )
 
             # Mandatory rule for English output (only if not already there)
             english_rule = "\n\nMANDATORY RULE: All internal reasoning, thinking process, and tool calls MUST be in English. Reasoning must be inside <thinking_process> tags. Code must be inside <code_created> tags."
             if "MANDATORY RULE" not in current_system_prompt:
                 current_system_prompt += english_rule
 
+            # F33: Explicit Shell Syntax Rule
+            shell_rule = f"\n\n# SHELL SYNTAX RULE\nSince you are on {os_name}, you MUST use {shell_name} syntax for all run_command calls. Do not use Bash features (like 'for' loops or pipes) if you are on Windows unless they are supported by PowerShell."
+            current_system_prompt += shell_rule
+
             if not self.conversation or self.conversation[-1]["role"] != "user":
                 self.conversation.append({"role": "user", "content": english_instruction})
 
             # --- Intent Routing Mixin Usage ---
-            self.logger.thinking("Analyzing user instruction to determine intent...")
             intent_for_this_turn = await self._classify_intent(english_instruction)  # Use mixin method
 
             # F31: Switch toolset to the classified intent IMMEDIATELY
-            if intent_for_this_turn in self._agent_tool_name_mappings:
-                self.active_agent_type = intent_for_this_turn
-                specialist_tools = self._agent_tool_name_mappings[intent_for_this_turn]
+
+            # F31: Switch toolset to the classified intent (or reset to orchestrator)
+            target_agent = (
+                intent_for_this_turn if intent_for_this_turn in self._agent_tool_name_mappings else "orchestrator"
+            )
+            if target_agent in self._agent_tool_name_mappings:
+                self.active_agent_type = target_agent
+                specialist_tools = self._agent_tool_name_mappings[target_agent]
                 core_tools = self._agent_tool_name_mappings.get("orchestrator", [])
                 self.active_tool_names = list(set(specialist_tools + core_tools))
-                self.logger.info(f"🛠️ Toolset switched to: {intent_for_this_turn} (merged with orchestrator tools)")
+                self.logger.info(f"🛠️ Toolset switched to: {target_agent} (merged with orchestrator tools)")
 
             # F33: Always use orchestration client for routing and flow control
             _orchestration_client = self.llm_manager.get_client("orchestration")
@@ -451,20 +530,24 @@ RULES:
 
             # F30: Notify UI about the routing decision immediately
             if self._event_bridge:
-                self._event_bridge.push_event("routing", {
-                    "intent": intent_for_this_turn,
-                    "model": selected_model_client.model,
-                    "message": f"Routing request to {intent_for_this_turn} specialist..."
-                })
+                self._event_bridge.push_event(
+                    "routing",
+                    {
+                        "intent": intent_for_this_turn,
+                        "model": selected_model_client.model,
+                        "message": f"Routing request to {intent_for_this_turn} specialist...",
+                    },
+                )
 
             # --- Specialist Prompt Injection ---
             # If we switched to a specialist, load their prompt and prepend it
             specialist_base_prompt = ""
             if intent_for_this_turn != "orchestrator":
                 try:
-                    from backend.utils.core.llm.prompt_loader import PromptLoader
                     loader = PromptLoader()
-                    specialist_data = loader.load_prompt(f"{intent_for_this_turn}/default_{intent_for_this_turn}_agent.yaml")
+                    specialist_data = loader.load_prompt(
+                        f"{intent_for_this_turn}/default_{intent_for_this_turn}_agent.yaml"
+                    )
                     specialist_base_prompt = specialist_data.get("prompt") or specialist_data.get("system", "")
                     if specialist_base_prompt:
                         self.logger.info(f"💉 Specialist prompt prepared for: {intent_for_this_turn}")
@@ -472,7 +555,19 @@ RULES:
                     self.logger.warning(f"Failed to load specialist prompt: {e}")
 
             # F33: Unified Robust System Prompt
-            current_system_prompt = f"{specialist_base_prompt}\n\n---\n\n{current_system_prompt}"
+
+            # F31: Clean unified prompt - if specialist, prioritize their context
+            if specialist_base_prompt:
+                # Remove redundant "You are..." context from base prompt to avoid confusion
+                # We assume the base prompt has instructions and rules we want to keep
+                clean_base = current_system_prompt
+                # Remove redundant headers to keep only technical rules for the specialist
+                if "RULES:" in clean_base:
+                    clean_base = "RULES:\n" + clean_base.split("RULES:", 1)[-1]
+                elif "# INSTRUCTIONS" in clean_base:
+                    clean_base = "# INSTRUCTIONS\n" + clean_base.split("# INSTRUCTIONS", 1)[-1]
+                current_system_prompt = f"{specialist_base_prompt}\n\n---\n\n{clean_base}"
+
             current_system_prompt += "\n\nMANDATORY: You MUST call a tool (e.g. plan_actions) in your FIRST turn. Text responses are forbidden."
 
             # Override default client for this turn, or use it for routing later
@@ -481,9 +576,14 @@ RULES:
 
             iterations = 0
             last_error_context = None
-            self._active_plan = [] # Reset for new chat
+            self._active_plan = []  # Reset for new chat
             self._current_step_index = 0
-            self._failed_calls_tracker = {} # F33: Reset failure memory for this turn
+            self._failed_calls_tracker = {}  # F33: Reset failure memory for this turn
+
+            # F33: State trackers to avoid redundant operations in loop
+            last_jit_agent_type = None
+            current_turn_tools = []
+            cached_memory_context = None
 
             while iterations < self.max_iterations:
                 iterations += 1
@@ -493,21 +593,61 @@ RULES:
                 if self._event_bridge:
                     self._event_bridge.push_event("iteration", {"current": iterations, "max": self.max_iterations})
 
-                # F33: SYNC MESSAGES - Always build messages from current conversation to include tool results
+                # F33: JIT Tool Selection - Only re-select if agent type changed or first iteration
+                if self.active_agent_type != last_jit_agent_type:
+                    current_turn_tools = await self._select_dynamic_tools(english_instruction)
+                    last_jit_agent_type = self.active_agent_type
+
+                # F31: Strictly limit session window to last 10 messages for extreme focus
+                session_history = self.conversation[-10:]
+
+                # F33: Clean old Guidance noise from session history before sending to LLM
+                # This prevents "Guidance Stack" where old instructions pollute the context
+                cleaned_history = []
+                for msg in session_history:
+                    clean_msg = msg.copy()
+                    if isinstance(clean_msg.get("content"), str):
+                        # Strip all legacy guidance blocks
+                        if "[MISSION CONTROL GUIDANCE]" in clean_msg["content"]:
+                            clean_msg["content"] = clean_msg["content"].split("[MISSION CONTROL GUIDANCE]")[0].strip()
+                        if "[MISSION CONTROL GUIDANCE - MANDATORY]" in clean_msg["content"]:
+                            clean_msg["content"] = (
+                                clean_msg["content"].split("[MISSION CONTROL GUIDANCE - MANDATORY]")[0].strip()
+                            )
+                    cleaned_history.append(clean_msg)
+
+                # F31: Retrieval from Long-Term Memory - Only search once per turn
+                if cached_memory_context is None:
+                    try:
+                        self.logger.info("🧠 Searching memory for relevant patterns...")
+                        query = english_instruction
+                        past_context = self.memory_manager.search_message_memory(query, threshold=0.4)
+                        if past_context:
+                            cached_memory_context = (
+                                f"\n\n[PAST INTERACTION CONTEXT - DO NOT ASSUME VALUES ARE CURRENT]\n{past_context}\n"
+                            )
+                            self.logger.info("🛰️ Relevant past context injected.")
+                        else:
+                            cached_memory_context = ""  # Mark as searched but empty
+                    except Exception:
+                        cached_memory_context = ""
+
                 iteration_messages = [
-                    {"role": "system", "content": current_system_prompt},
-                    *self.conversation,
+                    {"role": "system", "content": current_system_prompt + (cached_memory_context or "")},
+                    *cleaned_history,
                 ]
 
                 # F33: Keep tools synchronized with current agent type
-                self.active_tool_names = list(set(
-                    self._agent_tool_name_mappings.get(self.active_agent_type, []) +
-                    self._agent_tool_name_mappings.get("orchestrator", []) +
-                    ["run_shell_command"] # FORCE Universal availability
-                ))
+                self.active_tool_names = list(
+                    set(
+                        self._agent_tool_name_mappings.get(self.active_agent_type, [])
+                        + self._agent_tool_name_mappings.get("orchestrator", [])
+                        + ["run_shell_command"]  # FORCE Universal availability
+                    )
+                )
 
+                self.logger.debug(f"Context depth: {len(iteration_messages)} messages")
                 # --- Context Summarizer Mixin Usage ---
-                self.logger.thinking("Managing context window and history...")
                 iteration_messages = await self._manage_context_window(iteration_messages)  # Use mixin method
 
                 # F32: Inject Plan Route Guidance (only to the runtime messages, not the persistent conversation)
@@ -517,7 +657,9 @@ RULES:
                         current_step = self._active_plan[self._current_step_index]
 
                         # F33: Incorporate Mission Auditor guidance if available
-                        audit_instruction = getattr(self, "_audit_guidance", None) or "Execute the next tool required for this step."
+                        audit_instruction = (
+                            getattr(self, "_audit_guidance", None) or "Execute the next tool required for this step."
+                        )
 
                         guidance = (
                             f"\n\n[MISSION CONTROL GUIDANCE]\n"
@@ -540,31 +682,76 @@ RULES:
                             last_idx -= 1
 
                 try:
-                    # Directly use the selected_model_client (IModelProvider client)
-                    response, usage = await selected_model_client.achat(
-                        messages=runtime_messages,
-                        tools=self.tool_executor.get_tool_definitions(self.active_tool_names),
+                    self.logger.debug(f"Total prompt messages sent to LLM: {len(runtime_messages)}")
+                    # F33: Use streaming to show CoT in real-time
+                    self.logger.info(f"📡 Calling {selected_model_client.model}...")
+
+                    full_content = ""
+                    usage = {"prompt_tokens": 0, "completion_tokens": 0}
+                    is_inside_thinking = False
+
+                    async def stream_callback(chunk: str):
+                        nonlocal full_content, is_inside_thinking
+                        full_content += chunk
+
+                        # Detect thinking tags to emit real-time events
+                        if "<thinking_process>" in chunk:
+                            is_inside_thinking = True
+                        if "</thinking_process>" in chunk:
+                            is_inside_thinking = False
+
+                        if is_inside_thinking and self.event_publisher:
+                            # Clean the tags from the emitted token
+                            token = chunk.replace("<thinking_process>", "").replace("</thinking_process>", "")
+                            if token:
+                                self.event_publisher.publish("thinking_token", {"token": token})
+
+                    # F31: Get schema-valid tools for this turn ONLY
+                    turn_tool_definitions = self.tool_executor.get_tool_definitions(current_turn_tools)
+
+                    # Perform streaming chat
+                    stream_result, usage = await selected_model_client.stream_chat(
+                        messages=runtime_messages, tools=turn_tool_definitions, chunk_callback=stream_callback
                     )
 
-                    if not response or "message" not in response:
-                        self.logger.error(f"Invalid LLM response from {selected_model_client.model}: {response}")
-                        return f"❌ Error: The model {selected_model_client.model} returned an invalid response. Please try again."
+                    # Manual tool detection in the full content (Ollama stream doesn't support tools easily in some versions)
+                    # For robust tool support with stream, we often need to parse the final result.
+                    # If we need tool support, achat is safer, but for "thinking" stream is better.
+                    # Let's fallback to achat if tools are needed, or parse tools from content.
+
+                    # Actually, some versions of Ollama don't support "tools" parameter with "stream: true".
+                    # Let's check if the model attempted a tool call via manual parsing if needed.
+                    msg = {
+                        "role": "assistant",
+                        "content": stream_result.get("content", ""),
+                        "tool_calls": stream_result.get("tool_calls", []),
+                    }
+
+                    # Simple heuristic: if it looks like a tool call but it's just text, try to fix it
+                    if "[TOOL_CALL" in msg["content"]:
+                        # This logic will be handled by the response cleanup below
+                        pass
 
                     # F33: Clean reasoning noise for humans, but keep message structure for Ollama
-                    msg = response["message"]
                     content = msg.get("content", "")
 
                     if content and not msg.get("tool_calls"):
-                        # Clean thinking tags from normal responses only
-                        if "<thinking_process>" in content:
-                            msg["content"] = content.split("</thinking_process>")[-1].strip()
+                        # F33: Use shared parser for consistency
+                        cleaned_content, _ = LLMResponseParser.remove_think_blocks(content)
+
+                        # Only update if there is actual text left, otherwise keep original to avoid empty UI
+                        if cleaned_content.strip():
+                            msg["content"] = cleaned_content
+
+                        # Extra cleaning for legacy noise
                         if "Output:**" in msg["content"]:
                             msg["content"] = msg["content"].split("Output:**")[-1].strip()
-
-                    # Manual tool detection fallback (if model writes [TOOL_CALLS] but Ollama fails to parse as dict)
-                    if not msg.get("tool_calls") and "[TOOL_CALLS]" in content:
-                        if "get_system_info" in content.lower():
-                            msg["tool_calls"] = [{"id": "manual_1", "type": "function", "function": {"name": "get_system_info", "arguments": {}}}]
+                    # F31: Robust Manual tool detection fallback using unified parser
+                    if not msg.get("tool_calls"):
+                        extracted_calls = LLMResponseParser.parse_tool_calls(content)
+                        if extracted_calls:
+                            msg["tool_calls"] = extracted_calls
+                            self.logger.info(f"?? Parsed {len(extracted_calls)} tool call(s) from text output.")
 
                     # F20: Track tokens from the usage dictionary returned by the client
                     self.token_tracker.add_usage(
@@ -582,8 +769,17 @@ RULES:
                             self.memory_manager.add_to_reasoning_cache(last_error_context["error"], final_response_en)
                             last_error_context = None
 
-                        # F29: Translate the final response back to the user's language
-                        final_response = await self._translate_to_user_language(final_response_en, original_lang)
+                        # F33: Technical Passthrough - Do not translate if response contains code or tool blocks
+                        # to avoid "translation manual" hallucinations.
+                        is_technical = (
+                            "```" in final_response_en or "[TOOL" in final_response_en or "{" in final_response_en
+                        )
+
+                        if is_technical:
+                            final_response = final_response_en
+                        else:
+                            # F29: Translate the final response back to the user's language
+                            final_response = await self._translate_to_user_language(final_response_en, original_lang)
 
                         self.conversation.append({"role": "assistant", "content": final_response})
                         self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
@@ -665,8 +861,6 @@ RULES:
                             correction_client = self.llm_manager.get_client("self_correction")
                             if correction_client:
                                 try:
-                                    from backend.utils.core.llm.prompt_loader import PromptLoader
-
                                     loader = PromptLoader()
                                     prompts = loader.load_prompt("core/services.yaml")
 
@@ -748,6 +942,7 @@ RULES:
 
                 except Exception as e:
                     import traceback
+
                     error_trace = traceback.format_exc()
                     self.logger.error(f"Unexpected error in iteration {iterations}: {e}")
                     self.logger.error(error_trace)

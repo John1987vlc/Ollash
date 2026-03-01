@@ -2,18 +2,21 @@ import pytest
 from unittest.mock import MagicMock
 from backend.utils.domains.auto_generation.file_refiner import FileRefiner
 
+
 @pytest.fixture
 def mock_deps():
     return {
         "llm_client": MagicMock(),
         "logger": MagicMock(),
         "response_parser": MagicMock(),
-        "documentation_manager": MagicMock()
+        "documentation_manager": MagicMock(),
     }
+
 
 @pytest.fixture
 def refiner(mock_deps):
     return FileRefiner(**mock_deps)
+
 
 def test_simplify_file_content_success(refiner, mock_deps):
     mock_deps["llm_client"].chat.return_value = ({"message": {"content": "```python\ndef simplified(): pass\n```"}}, {})
@@ -23,6 +26,7 @@ def test_simplify_file_content_success(refiner, mock_deps):
 
     assert result == "def simplified(): pass"
     mock_deps["llm_client"].chat.assert_called()
+
 
 def test_simplify_file_content_failure(refiner, mock_deps):
     # Simulate LLM error

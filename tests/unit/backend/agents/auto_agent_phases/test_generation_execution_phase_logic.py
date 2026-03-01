@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from backend.agents.auto_agent_phases.generation_execution_phase import TestGenerationExecutionPhase as PhaseUnderTest
 
+
 @pytest.fixture
 def mock_context():
     ctx = MagicMock()
@@ -16,9 +17,11 @@ def mock_context():
     ctx.error_knowledge_base = MagicMock()
     return ctx
 
+
 @pytest.fixture
 def phase_instance(mock_context):
     return PhaseUnderTest(mock_context)
+
 
 @pytest.mark.asyncio
 async def test_execute_test_generation_success(phase_instance, mock_context):
@@ -28,14 +31,13 @@ async def test_execute_test_generation_success(phase_instance, mock_context):
     generated_files = {"src/app.py": "print(1)"}
     project_root = Path("/tmp/proj")
 
-    res_files, _, _ = await phase_instance.execute(
-        "desc", "name", project_root, "readme", {}, generated_files
-    )
+    res_files, _, _ = await phase_instance.execute("desc", "name", project_root, "readme", {}, generated_files)
 
     assert "tests/test_app.py" in res_files
     assert res_files["tests/test_app.py"] == "def test_app(): pass"
     assert mock_context.test_generator.generate_tests.called
     assert mock_context.test_generator.execute_tests.called
+
 
 @pytest.mark.asyncio
 async def test_execute_fails_if_no_tests_generated(phase_instance, mock_context):

@@ -28,9 +28,14 @@ class StructuredLogger:
         self,
         log_file_path: Path,  # Kept for compatibility but used to derive DB path
         logger_name: str = "ollash",
-        log_level: str = "INFO",
+        log_level: Optional[str] = None,
     ):
         self._logger = logging.getLogger(logger_name)
+
+        import os
+
+        if log_level is None:
+            log_level = os.environ.get("OLLASH_LOG_LEVEL", "INFO")
         self._logger.setLevel(log_level.upper())
         self._logger.propagate = False
 

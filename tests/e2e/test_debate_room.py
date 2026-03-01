@@ -7,6 +7,7 @@ Scenario:
   3. Verify split-screen opens, agent messages appear on correct sides,
      and consensus banner shows.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,10 +20,7 @@ from playwright.sync_api import Page, expect
 # HTML template
 # ---------------------------------------------------------------------------
 
-_COMPONENT_PATH = (
-    Path(__file__).parent.parent.parent
-    / "frontend/static/js/components/debate-room.js"
-)
+_COMPONENT_PATH = Path(__file__).parent.parent.parent / "frontend/static/js/components/debate-room.js"
 
 
 def _build_html() -> str:

@@ -1,6 +1,8 @@
 from abc import ABC
 from typing import Any, Optional
 
+from backend.utils.core.llm.prompt_loader import PromptLoader
+
 
 class IntentRoutingMixin(ABC):
     """
@@ -19,31 +21,80 @@ class IntentRoutingMixin(ABC):
         """
         clean_input = prompt.strip().lower()
 
-        # F33: Hardcoded Keyword Fallback (Prioritize precision for known IT tasks)
-        system_priority = ["ram", "cpu", "disk", "process", "os", "operating system", "sistema operativo", "hardware", "memoria", "disco"]
-        network_priority = ["ip address", "ping", "port", "dns", "mac address", "conexion", "network", "red", "ip pública"]
-        code_priority = ["python", "javascript", "code", "script", "refactor", "bug", "fix", "program", "function", "clase"]
-        git_priority = ["git", "commit", "push", "pull", "branch", "repo", "repository"]
+        # F33: STRICT IT Specialist Bypass (Zero-LLM overhead for common tasks)
+        # These keywords trigger an immediate route to specialists to avoid classification hallucination.
+        system_priority = [
+            "ram",
+            "cpu",
+            "disk",
+            "process",
+            "os",
+            "operating system",
+            "sistema operativo",
+            "hardware",
+            "memoria",
+            "disco",
+            "system info",
+            "versión",
+            "que hay dentro",
+            "archivo",
+            "carpeta",
+        ]
+        network_priority = [
+            "ip address",
+            "ping",
+            "port",
+            "dns",
+            "mac address",
+            "conexion",
+            "network",
+            "red",
+            "ip pública",
+            "mi ip",
+            "what is my ip",
+            "traceroute",
+            "tracert",
+            "saltos",
+            "hops",
+        ]
+        code_priority = [
+            "python",
+            "javascript",
+            "code",
+            "script",
+            "refactor",
+            "bug",
+            "fix",
+            "program",
+            "function",
+            "clase",
+            "desarrolla",
+            "crea un",
+            "haz un script",
+            ".py",
+            ".js",
+            ".java",
+            ".go",
+        ]
+        git_priority = ["git", "commit", "push", "pull", "branch", "repo", "repository", "clona"]
 
-        if any(kw in clean_input for kw in system_priority):
-            self.logger.info("🎯 Intent auto-classified (Keyword): 'system'")
-            return "system"
         if any(kw in clean_input for kw in network_priority):
-            self.logger.info("🎯 Intent auto-classified (Keyword): 'network'")
+            self.logger.info("🎯 Intent auto-classified (Network Specialist Bypass): 'network'")
             return "network"
+        if any(kw in clean_input for kw in system_priority):
+            self.logger.info("🎯 Intent auto-classified (System Specialist Bypass): 'system'")
+            return "system"
         if any(kw in clean_input for kw in git_priority):
-            self.logger.info("🎯 Intent auto-classified (Keyword): 'git'")
-            return "system" # Git is handled by system/orchestrator
+            self.logger.info("🎯 Intent auto-classified (Git Bypass): 'system'")
+            return "system"
         if any(kw in clean_input for kw in code_priority):
-            self.logger.info("🎯 Intent auto-classified (Keyword): 'code'")
+            self.logger.info("🎯 Intent auto-classified (Code Bypass): 'code'")
             return "code"
 
         # Example: Using an orchestration model for intent classification
         orchestration_client = self.llm_manager.get_client("orchestration")
         if orchestration_client:
             try:
-                from backend.utils.core.llm.prompt_loader import PromptLoader
-
                 loader = PromptLoader()
                 prompts = loader.load_prompt("core/services.yaml")
 
@@ -70,7 +121,7 @@ class IntentRoutingMixin(ABC):
                             clean_content = clean_content.split("**input language:**", 1)[1].strip()
 
                     # Clean Markdown and quotes
-                    clean_content = clean_content.replace("*", "").replace("_", "").replace("'", "").replace("\"", "")
+                    clean_content = clean_content.replace("*", "").replace("_", "").replace("'", "").replace('"', "")
 
                     self.logger.debug(f"🔍 Intent Router sanitized string: '{clean_content}'")
 
@@ -93,7 +144,20 @@ class IntentRoutingMixin(ABC):
                     classified_intent = "default"
 
                     # SYSTEM PRIORITY (Highest)
-                    system_keywords = ["ram", "cpu", "disk", "process", "os", "sistema operativo", "operating system", "memoria", "hardware", "disco", "driver", "controlador"]
+                    system_keywords = [
+                        "ram",
+                        "cpu",
+                        "disk",
+                        "process",
+                        "os",
+                        "sistema operativo",
+                        "operating system",
+                        "memoria",
+                        "hardware",
+                        "disco",
+                        "driver",
+                        "controlador",
+                    ]
                     # NETWORK PRIORITY
                     network_keywords = ["ip", "ping", "port", "dns", "mac address", "conexion", "network", "red"]
 

@@ -9,6 +9,7 @@ Scenario:
 
 All network calls are intercepted — no running server required.
 """
+
 from __future__ import annotations
 
 import json

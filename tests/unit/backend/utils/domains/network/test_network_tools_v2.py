@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 from backend.utils.domains.network.network_tools import NetworkTools
 
+
 class TestNetworkToolsUnit:
     """
     Unit tests for NetworkTools to ensure inputs/outputs are correct.
@@ -9,17 +10,11 @@ class TestNetworkToolsUnit:
 
     @pytest.fixture
     def mock_deps(self):
-        return {
-            "exec": MagicMock(),
-            "logger": MagicMock()
-        }
+        return {"exec": MagicMock(), "logger": MagicMock()}
 
     @pytest.fixture
     def network_tools(self, mock_deps):
-        return NetworkTools(
-            command_executor=mock_deps["exec"],
-            logger=mock_deps["logger"]
-        )
+        return NetworkTools(command_executor=mock_deps["exec"], logger=mock_deps["logger"])
 
     def test_ping_host_success(self, network_tools, mock_deps):
         """Validates ping_host formats command correctly and parses success."""

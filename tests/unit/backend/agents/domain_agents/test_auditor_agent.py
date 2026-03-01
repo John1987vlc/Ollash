@@ -1,4 +1,5 @@
 """Unit tests for AuditorAgent."""
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from backend.agents.domain_agents.auditor_agent import AuditorAgent
@@ -45,9 +46,7 @@ def auditor(mock_vuln_scanner):
 @pytest.mark.unit
 class TestAuditorAgent:
     def test_subscribes_to_file_generated_on_init(self, auditor):
-        auditor._event_publisher.subscribe.assert_called_with(
-            "file_generated", auditor._on_file_generated
-        )
+        auditor._event_publisher.subscribe.assert_called_with("file_generated", auditor._on_file_generated)
 
     @pytest.mark.asyncio
     async def test_audit_file_writes_scan_result(self, auditor, mock_scan_result_clean):

@@ -211,42 +211,63 @@ class StructureGenerator:
         regardless of the OS (avoids Windows backslash mismatch).
         """
         file_paths = []
-        for file_name in json_structure.get("files", []):
-            file_paths.append((Path(current_path) / file_name).as_posix())
+        for file_item in json_structure.get("files", []):
+            # Handle cases where LLM incorrectly returns a dict instead of a string for a file
+            if isinstance(file_item, dict):
+                file_name = file_item.get("name")
+            else:
+                file_name = str(file_item)
+
+            if file_name:
+                file_paths.append((Path(current_path) / file_name).as_posix())
 
         for folder_data in json_structure.get("folders", []):
-            folder_name = folder_data.get("name")
-            if folder_name:
+            # Handle cases where LLM incorrectly returns a string instead of a dict for a folder
+            if isinstance(folder_data, str):
+                folder_name = folder_data
                 new_path = (Path(current_path) / folder_name).as_posix()
-                file_paths.extend(StructureGenerator.extract_file_paths(folder_data, new_path))
+                # We can't recurse if it's just a string, but we record the path
+            elif isinstance(folder_data, dict):
+                folder_name = folder_data.get("name")
+                if folder_name:
+                    new_path = (Path(current_path) / folder_name).as_posix()
+                    file_paths.extend(StructureGenerator.extract_file_paths(folder_data, new_path))
 
         return file_paths
 
     @staticmethod
     def create_empty_files(project_root: Path, json_structure: dict, current_path: str = ""):
         """Create empty placeholder files based on the JSON structure."""
-        for file_name in json_structure.get("files", []):
-            file_path = project_root / current_path / file_name
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            if not file_path.exists():
-                try:
-                    file_path.touch()
-                except Exception:
-                    continue
+        for file_item in json_structure.get("files", []):
+            # Handle cases where LLM incorrectly returns a dict instead of a string for a file
+            if isinstance(file_item, dict):
+                file_name = file_item.get("name")
+            else:
+                file_name = str(file_item)
+
+            if file_name:
+                file_path = project_root / current_path / file_name
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                if not file_path.exists():
+                    try:
+                        file_path.touch()
+                    except Exception:
+                        continue
 
         for folder_data in json_structure.get("folders", []):
-            folder_name = folder_data.get("name")
-            if folder_name:
-                new_path_full = project_root / current_path / folder_name
-                try:
-                    new_path_full.mkdir(parents=True, exist_ok=True)
-                    StructureGenerator.create_empty_files(
-                        project_root,
-                        folder_data,
-                        str(new_path_full.relative_to(project_root)),
-                    )
-                except Exception:
-                    continue
+            if isinstance(folder_data, dict):
+                folder_name = folder_data.get("name")
+                if folder_name:
+                    new_path_full = project_root / current_path / folder_name
+                    try:
+                        new_path_full.mkdir(parents=True, exist_ok=True)
+                        StructureGenerator.create_empty_files(
+                            project_root,
+                            folder_data,
+                            str(new_path_full.relative_to(project_root)),
+                        )
+                    except Exception:
+                        continue
 
     @staticmethod
     def create_fallback_structure(

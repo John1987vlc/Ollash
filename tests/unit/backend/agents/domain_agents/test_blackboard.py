@@ -1,4 +1,5 @@
 """Unit tests for Blackboard."""
+
 import pytest
 from unittest.mock import MagicMock
 from backend.agents.orchestrators.blackboard import Blackboard
@@ -43,9 +44,7 @@ class TestBlackboard:
         await blackboard.write("key", "val", "a")
         blackboard._event_publisher.publish.reset_mock()
         await blackboard.invalidate("key", "b")
-        blackboard._event_publisher.publish.assert_called_with(
-            "blackboard_invalidated", key="key", agent_id="b"
-        )
+        blackboard._event_publisher.publish.assert_called_with("blackboard_invalidated", key="key", agent_id="b")
 
     @pytest.mark.asyncio
     async def test_snapshot_excludes_invalidated(self, blackboard):

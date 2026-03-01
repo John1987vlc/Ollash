@@ -120,9 +120,7 @@ class ToolDispatcher:
         )
 
         if fire_and_forget:
-            asyncio.create_task(
-                self._execute_with_callback(tool_name, args, callback, agent_id, task_id)
-            )
+            asyncio.create_task(self._execute_with_callback(tool_name, args, callback, agent_id, task_id))
             return None
 
         return await self._execute_with_callback(tool_name, args, callback, agent_id, task_id)
@@ -143,10 +141,7 @@ class ToolDispatcher:
             List of results in the same order as the input, None for failures.
         """
         results: List[Optional[Any]] = [None] * len(tool_calls)
-        chunks = [
-            tool_calls[i: i + self._max_batch_size]
-            for i in range(0, len(tool_calls), self._max_batch_size)
-        ]
+        chunks = [tool_calls[i : i + self._max_batch_size] for i in range(0, len(tool_calls), self._max_batch_size)]
 
         offset = 0
         for chunk in chunks:
@@ -156,9 +151,7 @@ class ToolDispatcher:
             )
             for i, res in enumerate(chunk_results):
                 if isinstance(res, Exception):
-                    self._logger.error(
-                        f"[ToolDispatcher] batch call {chunk[i][0]} failed: {res}"
-                    )
+                    self._logger.error(f"[ToolDispatcher] batch call {chunk[i][0]} failed: {res}")
                     results[offset + i] = None
                 else:
                     results[offset + i] = res
@@ -202,9 +195,7 @@ class ToolDispatcher:
                 try:
                     callback(result)
                 except Exception as cb_exc:
-                    self._logger.warning(
-                        f"[ToolDispatcher] callback for '{tool_name}' raised: {cb_exc}"
-                    )
+                    self._logger.warning(f"[ToolDispatcher] callback for '{tool_name}' raised: {cb_exc}")
             return result
         except Exception as exc:
             self._logger.error(f"[ToolDispatcher] '{tool_name}' failed: {exc}")

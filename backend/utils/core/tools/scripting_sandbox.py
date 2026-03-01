@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.exceptions import SandboxUnavailableError
 
+
 class ScriptingSandbox:
     """
     A persistent Docker sandbox for interactive script development and testing.
@@ -43,24 +44,35 @@ class ScriptingSandbox:
             # Start container in detached mode, keeping it alive with tail -f /dev/null
             subprocess.run(
                 [
-                    "docker", "run", "-d", "--rm",
-                    "--name", self.container_name,
-                    "--network", "none", # Network isolation for safety
-                    "--memory", "512m",
-                    "--cpus", "1",
-                    "-v", f"{abs_work_dir}:/workspace",
-                    "-w", "/workspace",
+                    "docker",
+                    "run",
+                    "-d",
+                    "--rm",
+                    "--name",
+                    self.container_name,
+                    "--network",
+                    "none",  # Network isolation for safety
+                    "--memory",
+                    "512m",
+                    "--cpus",
+                    "1",
+                    "-v",
+                    f"{abs_work_dir}:/workspace",
+                    "-w",
+                    "/workspace",
                     self.image,
-                    "tail", "-f", "/dev/null"
+                    "tail",
+                    "-f",
+                    "/dev/null",
                 ],
                 check=True,
-                capture_output=True
+                capture_output=True,
             )
             self._is_active = True
         except subprocess.CalledProcessError as e:
             if self.logger:
                 self.logger.error(f"Failed to start sandbox: {e.stderr.decode()}")
-            self.stop() # Cleanup if failed
+            self.stop()  # Cleanup if failed
             raise SandboxUnavailableError(["docker"])
 
     def stop(self) -> None:
@@ -93,7 +105,7 @@ class ScriptingSandbox:
         target_path = self.work_dir / filename
         # Security check: ensure path is within work_dir
         if not str(target_path.resolve()).startswith(str(self.work_dir.resolve())):
-             raise ValueError(f"Invalid filename: {filename}")
+            raise ValueError(f"Invalid filename: {filename}")
 
         target_path.parent.mkdir(parents=True, exist_ok=True)
         with open(target_path, "w", encoding="utf-8", newline="\n") as f:
@@ -111,33 +123,23 @@ class ScriptingSandbox:
             # use docker exec to run command in existing container
             exec_cmd = ["docker", "exec", self.container_name] + command
 
-            result = subprocess.run(
-                exec_cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
+            result = subprocess.run(exec_cmd, capture_output=True, text=True, timeout=timeout)
 
             return {
                 "success": result.returncode == 0,
                 "exit_code": result.returncode,
                 "stdout": result.stdout,
-                "stderr": result.stderr
+                "stderr": result.stderr,
             }
         except subprocess.TimeoutExpired:
             return {
                 "success": False,
                 "exit_code": -1,
                 "stdout": "",
-                "stderr": f"Execution timed out after {timeout} seconds"
+                "stderr": f"Execution timed out after {timeout} seconds",
             }
         except Exception as e:
-            return {
-                "success": False,
-                "exit_code": -1,
-                "stdout": "",
-                "stderr": str(e)
-            }
+            return {"success": False, "exit_code": -1, "stdout": "", "stderr": str(e)}
 
     def _check_docker(self):
         try:

@@ -101,9 +101,7 @@ class QualityGate:
                 report.tests_failed = test_result.tests_failed
                 report.test_output = test_result.stdout[:2000]
                 if test_result.tests_failed > 0:
-                    failure_reasons.append(
-                        f"{test_result.tests_failed} test(s) failed"
-                    )
+                    failure_reasons.append(f"{test_result.tests_failed} test(s) failed")
                     # Extract first failing test name if possible
                     for line in test_result.stdout.splitlines():
                         if "FAILED" in line:

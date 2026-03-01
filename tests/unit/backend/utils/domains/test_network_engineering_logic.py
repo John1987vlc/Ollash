@@ -3,13 +3,16 @@ from unittest.mock import MagicMock, patch
 from backend.utils.domains.network.network_engineering_tools import NetworkEngineeringTools
 from backend.utils.domains.network.network_sandbox_tools import NetworkSandboxTools
 
+
 @pytest.fixture
 def mock_logger():
     return MagicMock()
 
+
 @pytest.fixture
 def eng_tools(mock_logger):
     return NetworkEngineeringTools(mock_logger)
+
 
 class TestNetworkEngineeringTools:
     def test_calculate_subnets_basic(self, eng_tools):
@@ -44,6 +47,7 @@ class TestNetworkEngineeringTools:
         assert result["ok"] is True
         assert result["result"]["status"] == "secure"
 
+
 @pytest.fixture
 def sandbox_tools(mock_logger):
     with patch("backend.utils.domains.network.network_sandbox_tools.NetworkSandbox") as MockSandbox:
@@ -51,6 +55,7 @@ def sandbox_tools(mock_logger):
         tools.sandbox = MockSandbox.return_value
         tools.sandbox._is_active = False
         return tools
+
 
 class TestNetworkSandboxTools:
     def test_run_scapy_simulation(self, sandbox_tools):

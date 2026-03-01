@@ -84,8 +84,7 @@ class GitChangeTrigger:
         )
         self._thread.start()
         self.logger.info(
-            f"GitChangeTrigger started (poll={self.poll_interval}s, "
-            f"threshold={self.min_changed_lines} lines)"
+            f"GitChangeTrigger started (poll={self.poll_interval}s, threshold={self.min_changed_lines} lines)"
         )
 
     def stop(self) -> None:
@@ -107,16 +106,13 @@ class GitChangeTrigger:
                     delta = total - self._last_known_total
                     if delta > self.min_changed_lines:
                         self.logger.info(
-                            f"GitChangeTrigger: {delta} new lines changed "
-                            f"(total={total}), firing callback"
+                            f"GitChangeTrigger: {delta} new lines changed (total={total}), firing callback"
                         )
                         self._last_known_total = total
                         try:
                             self.callback()
                         except Exception as callback_exc:
-                            self.logger.error(
-                                f"GitChangeTrigger: callback raised an exception: {callback_exc}"
-                            )
+                            self.logger.error(f"GitChangeTrigger: callback raised an exception: {callback_exc}")
             except Exception as poll_exc:
                 # Swallow errors silently to keep the daemon alive
                 self.logger.warning(f"GitChangeTrigger: poll error (non-fatal): {poll_exc}")

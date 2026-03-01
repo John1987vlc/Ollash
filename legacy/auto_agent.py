@@ -162,41 +162,44 @@ def main():
     main_container.wire(modules=[__name__, "backend.agents.auto_agent"])
     p = argparse.ArgumentParser()
     p.add_argument("--description", required=True); p.add_argument("--name", default="MagicCloneJS")
-    p.add_argument("--repo-url", required=True); p.add_argument("--github-token", required=True)
+    p.add_argument("--repo-url", default=None); p.add_argument("--github-token", default=None)
     p.add_argument("--git-auto-create", action="store_true", help="Create GitHub repository if it doesn't exist")
-    p.add_argument("--maintenance-interval", type=int, choices=range(1, 25), help="Enable maintenance mode every N hours (1-24)")
+    p.add_argument("--num-refine-loops", type=int, default=1); p.add_argument("--maintenance-interval", type=int, choices=range(1, 25), help="Enable maintenance mode every N hours (1-24)")
     args, _ = p.parse_known_args()
 
+    start_time = time.time()
     try:
         agent = main_container.auto_agent_module.auto_agent()
         project_root = agent.generated_projects_dir / args.name
-        git_manager = GitLifecycleManager(args.repo_url, args.github_token, project_root)
+        git_manager = GitLifecycleManager(args.repo_url, args.github_token, project_root) if args.repo_url and args.github_token else None
 
         # Parse org from URL
-        from urllib.parse import urlparse
-        parsed = urlparse(args.repo_url)
-        parts = [p for p in parsed.path.strip("/").split("/") if p]
-        org = parts[0] if len(parts) >= 2 else None
+        org = None
+        if args.repo_url:
+            from urllib.parse import urlparse
+            parsed = urlparse(args.repo_url)
+            parts = [p for p in parsed.path.strip("/").split("/") if p]
+            org = parts[0] if len(parts) >= 2 else None
 
-        git_manager.setup(create_if_missing=args.git_auto_create, org=org, repo_name=args.name)
+        if git_manager: git_manager.setup(create_if_missing=args.git_auto_create, org=org, repo_name=args.name)
 
         def on_event(event_type, event_data):
             if event_type == "phase_complete" and str(event_data.get("phase")) == "1":
-                git_manager.log("📝 Secretary Agent drafting initial vision description...")
+                if git_manager: git_manager.log("📝 Secretary Agent drafting initial vision description...")
                 initial_msg = "Initial project vision and README"
                 try:
                     from backend.utils.core.llm.prompt_loader import PromptLoader
                     loader = PromptLoader()
                     prompts = loader.load_prompt("domains/auto_generation/vision.yaml")
-                    
+
                     system = prompts.get("initial_vision", {}).get("system", "")
                     user_template = prompts.get("initial_vision", {}).get("user", "")
-                    
+
                     user = user_template.format(
                         project_name=args.name,
                         project_description=args.description
                     )
-                    
+
                     res, _ = agent.llm_manager.get_client("writer").chat([
                         {"role": "system", "content": system},
                         {"role": "user", "content": user}
@@ -204,37 +207,37 @@ def main():
                     initial_msg = res.get("content", initial_msg).strip()
                 except: pass
 
-                git_manager.run(["git", "add", "README.md"], "Add README")
-                git_manager.run(["git", "commit", "-m", initial_msg], "Initial Commit")
-                git_manager.run(["git", "push", "-u", "origin", "main", "--force"], "Initial Push")
+                if git_manager: git_manager.run(["git", "add", "README.md"], "Add README")
+                if git_manager: git_manager.run(["git", "commit", "-m", initial_msg], "Initial Commit")
+                if git_manager: git_manager.run(["git", "push", "-u", "origin", "main", "--force"], "Initial Push")
 
             if event_type == "agent_board_update" and event_data.get("new_status") == "done":
                 task_id = event_data.get("task_id")
                 backlog = getattr(agent.phase_context, "backlog", [])
-                
+
                 # Calculate Semantic Version (v0.1.X)
                 # Count already finished tasks + current one
                 done_count = len([t for t in backlog if t.get("status") == "done"])
                 version = f"v0.1.{done_count}"
-                
+
                 task = next((t for t in backlog if t["id"] == task_id), None)
-                if task: 
+                if task:
                     # Get issue number from context mapping
                     issue_mapping = getattr(agent.phase_context, "issue_mapping", {})
                     issue_number = issue_mapping.get(task_id)
-                    
+
                     # Store current version in context for manifest
                     agent.phase_context.current_version = version
-                    
-                    git_manager.handle_task_completion(
-                        task_id=task_id, 
-                        file_path=task["file_path"], 
+
+                    if git_manager: git_manager.handle_task_completion(
+                        task_id=task_id,
+                        file_path=task["file_path"],
                         task_desc=task.get("description", "No description"),
                         issue_number=issue_number,
                         agent=agent,
                         version=version
                     )
-                    
+
                     # NEW: Update and Sync OLLASH.md manifest
                     try:
                         import nest_asyncio
@@ -242,9 +245,9 @@ def main():
                         loop = asyncio.get_event_loop()
                         manifest_content = loop.run_until_complete(agent._update_ollash_manifest(current_task_id=task_id))
                         if manifest_content:
-                            git_manager.sync_ollash_manifest(manifest_content)
+                            if git_manager: git_manager.sync_ollash_manifest(manifest_content)
                     except Exception as e:
-                        git_manager.log(f"⚠️ Manifest Sync Error: {e}")
+                        if git_manager: git_manager.log(f"⚠️ Manifest Sync Error: {e}")
         agent.phase_context.event_publisher.subscribe("phase_complete", on_event)
         agent.phase_context.event_publisher.subscribe("agent_board_update", on_event)
 
@@ -252,25 +255,35 @@ def main():
         agent.run(
             project_description=args.description,
             project_name=args.name,
-            num_refine_loops=1, # At least 1 refinement for quality
-            github_integration=True,
+            num_refine_loops=args.num_refine_loops,
+            github_integration=bool(args.github_token),
             github_token=args.github_token
         )
 
+        # Display Final Summary
+        duration = time.time() - start_time
+        print(f"\n\033[92m{'=' * 60}")
+        print(f"✅ PROJECT GENERATION COMPLETE")
+        print(f"⏱️  Total Duration: {duration/60:.2f} minutes")
+        if hasattr(agent, 'token_tracker'):
+            print(agent.token_tracker.get_session_summary())
+        print(f"{'=' * 60}\033[0m\n")
+
         # Maintenance Mode
+
         if args.maintenance_interval:
             from backend.utils.core.system.task_scheduler import get_scheduler
             scheduler = get_scheduler()
 
             async def maintenance_job(tid, tdata):
-                git_manager.log(f"⏰ Maintenance cycle started (Every {args.maintenance_interval}h)")
+                if git_manager: git_manager.log(f"⏰ Maintenance cycle started (Every {args.maintenance_interval}h)")
                 # Run the agent in maintenance mode (only refinement/audit)
                 agent.run(
                     project_description=args.description,
                     project_name=args.name,
-                    num_refine_loops=1,
+                    num_refine_loops=args.num_refine_loops,
                     maintenance_mode=True,
-                    github_integration=True,
+                    github_integration=bool(args.github_token),
                     github_token=args.github_token
                 )
 
@@ -282,7 +295,7 @@ def main():
                 "agent": "orchestrator"
             })
 
-            git_manager.log(f"🚀 Continuous Maintenance scheduled every {args.maintenance_interval} hours. Press Ctrl+C to stop.")
+            if git_manager: git_manager.log(f"🚀 Continuous Maintenance scheduled every {args.maintenance_interval} hours. Press Ctrl+C to stop.")
             while True:
                 time.sleep(10)
 

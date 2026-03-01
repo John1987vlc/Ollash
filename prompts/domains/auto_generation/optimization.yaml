@@ -8,22 +8,23 @@ html_js_dom_fix:
 
     # INSTRUCTIONS
     1. Identify mismatched IDs, classes, or event listeners.
-    2. Correct the logic to ensure perfect DOM-JS binding.
-    3. Use <optimized_file path="..."> tags.
+    2. Correct the HTML to ensure all IDs required by the JS are present.
+    3. Return the complete updated HTML within <code_created> tags.
 
     # CONSTRAINTS
     - Do not break existing UI styles.
 
     # OUTPUT FORMAT
-    <optimized_file path="...">
-    [Fixed Code]
-    </optimized_file>
+    <code_created>
+    [Fixed HTML]
+    </code_created>
 
   user: |
-    ## HTML: {html_content}
-    ## JS: {js_content}
+    ## MISSING IDs: {missing_ids}
+    ## CURRENT HTML: 
+    {html}
 
-    Optimize the binding.
+    Update the HTML to include the missing IDs.
 
 cross_js_coherence:
   system: |
@@ -35,18 +36,19 @@ cross_js_coherence:
 
     # INSTRUCTIONS
     1. Check for conflicting state variables or redundant functions.
-    2. Unify logic flow.
-    3. Use <optimized_file path="..."> tags.
+    2. Unify logic flow and ensure functions called in one module are exported/present in others.
+    3. Return fixes for specific files using <fix file="path"> tags.
 
     # CONSTRAINTS
     - Maintain modularity.
 
     # OUTPUT FORMAT
-    <optimized_file path="...">
-    [Unified Logic]
-    </optimized_file>
+    <fix file="src/path/to/file.js">
+    [Fixed Code]
+    </fix>
 
   user: |
-    ## MODULES: {js_files}
+    ## PROJECT SUMMARY (JS FILES):
+    {project_summary}
 
-    Ensure coherence.
+    Ensure functional coherence across all modules.

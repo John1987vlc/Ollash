@@ -4,6 +4,7 @@ from playwright.sync_api import Page, expect
 # Base URL - assuming Flask is running on localhost:5000
 BASE_URL = "http://localhost:5000"
 
+
 def test_spa_navigation_and_header(page: Page):
     page.goto(BASE_URL)
     page.wait_for_load_state("networkidle")
@@ -12,6 +13,7 @@ def test_spa_navigation_and_header(page: Page):
     page.click("button[data-view='projects']")
     expect(page.locator("#current-view-title")).to_contain_text("Proyectos")
     expect(page.locator("#projects-view")).to_be_visible()
+
 
 def test_chat_agent_selection(page: Page):
     page.goto(BASE_URL)
@@ -26,6 +28,7 @@ def test_chat_agent_selection(page: Page):
     # Header should update
     expect(page.locator("#chat-header-agent-name")).to_have_text("Code")
 
+
 def test_prompt_library_v2(page: Page):
     page.goto(BASE_URL)
     page.click("#toggle-prompt-library")
@@ -38,6 +41,7 @@ def test_prompt_library_v2(page: Page):
     # Close
     page.click("#close-prompts-btn", force=True)
     expect(page.locator("#prompt-library-modal")).to_be_hidden()
+
 
 def test_wizard_basic_flow(page: Page):
     page.goto(BASE_URL)

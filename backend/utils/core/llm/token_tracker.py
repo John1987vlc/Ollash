@@ -10,11 +10,13 @@ class TokenTracker:
         self.session_total_tokens = 0
         self.request_count = 0
         self.last_request_tokens = 0
+        self.last_prompt_tokens = 0
 
     def add_usage(self, prompt_tokens: int, completion_tokens: int):
         """Add token usage from a request"""
         self.session_prompt_tokens += prompt_tokens
         self.session_completion_tokens += completion_tokens
+        self.last_prompt_tokens = prompt_tokens
         total = prompt_tokens + completion_tokens
         self.session_total_tokens += total
         self.last_request_tokens = total

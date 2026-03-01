@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -43,6 +44,8 @@ class MemoryManager:
         # Reasoning Cache (ChromaDB) - Use central manager to avoid conflicts
         self.chroma_client = ChromaClientManager.get_client(self.config, self.project_root)
         self.reasoning_cache_collection = self.chroma_client.get_or_create_collection(name="reasoning_cache")
+        self.message_memory_collection = self.chroma_client.get_or_create_collection(name="message_memory")
+        self.message_memory_collection = self.chroma_client.get_or_create_collection(name="message_memory")
 
         # Accept injected clients or create fallback instances
         models_config = self.config.get("models", {})
@@ -148,8 +151,15 @@ class MemoryManager:
     # ----------------------------------------------------------------
 
     def update_conversation_history(self, history: List[Dict]):
-        """Updates and saves the conversation history."""
+        """Updates and saves the conversation history and persists to semantic memory."""
         self.set("conversation_history", history)
+        # Push only the latest interaction turn to semantic memory
+        if history and len(history) >= 2:
+            user_msg = history[-2].get("content", "")
+            agent_msg = history[-1].get("content", "")
+            if user_msg and agent_msg:
+                turn_text = f"Turn Context:\nUser Instruction: {user_msg}\nAgent Response: {agent_msg}"
+                self.add_to_message_memory(turn_text)
 
     def get_conversation_history(self) -> List[Dict]:
         """Retrieves the conversation history."""
@@ -316,6 +326,37 @@ class MemoryManager:
                     self.logger.info(f"Evicted {len(all_items['ids'])} old entries from reasoning cache (LRU).")
         except Exception as e:
             self.logger.error(f"Failed to evict reasoning cache: {e}")
+
+    def search_message_memory(self, query: str, threshold: float = 0.5, max_results: int = 3) -> str:
+        """Searches message history by similarity and returns a concatenated text."""
+        try:
+            query_embedding = self.embedding_client.get_embedding(query)
+            results = self.message_memory_collection.query(query_embeddings=[query_embedding], n_results=max_results)
+
+            if not results or not results["documents"]:
+                return ""
+
+            summarized = []
+            for i, doc in enumerate(results["documents"][0]):
+                summarized.append(doc)
+
+            return "\n---\n".join(summarized)
+        except Exception as e:
+            self.logger.warning(f"Failed to search message memory: {e}")
+            return ""
+
+    def add_to_message_memory(self, content: str, metadata: Dict[str, Any] = None):
+        """Adds a message/interaction to the semantic memory."""
+        if not content or not content.strip():
+            return
+        try:
+            embedding = self.embedding_client.get_embedding(content)
+            msg_id = str(uuid.uuid4())
+            self.message_memory_collection.add(
+                embeddings=[embedding], documents=[content], metadatas=[metadata or {}], ids=[msg_id]
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to add to message memory: {e}")
 
     def search_reasoning_cache(self, error: str, threshold: float = 0.95) -> str | None:
         """Searches for a similar error in the reasoning cache and returns a solution if found."""

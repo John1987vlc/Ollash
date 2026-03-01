@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from backend.agents.auto_agent import AutoAgent
 
+
 @pytest.fixture
 def mock_deps():
     return {
@@ -12,14 +13,16 @@ def mock_deps():
         "kernel": MagicMock(),
         "llm_manager": MagicMock(),
         "llm_recorder": MagicMock(),
-        "dependency_scanner": MagicMock()
+        "dependency_scanner": MagicMock(),
     }
+
 
 @pytest.fixture
 def agent(mock_deps):
     mock_deps["kernel"].get_full_config.return_value = {"models": {"writer": "qwen"}}
     mock_deps["phase_context"].generated_projects_dir = Path("/tmp/projects")
     return AutoAgent(**mock_deps)
+
 
 def test_manage_github_issues_basic(agent):
     agent.git_tool = MagicMock()
@@ -28,16 +31,17 @@ def test_manage_github_issues_basic(agent):
     structure = {
         "tasks": [
             {"id": "T1", "title": "Task 1", "description": "Desc 1"},
-            {"id": "T2", "title": "Task 2", "description": "Desc 2", "dependencies": ["T1"]}
+            {"id": "T2", "title": "Task 2", "description": "Desc 2", "dependencies": ["T1"]},
         ]
     }
-    agent.phase_context.backlog = [] # Use structure
+    agent.phase_context.backlog = []  # Use structure
 
     agent._manage_github_issues(structure)
 
     assert agent.git_tool.create_issue.call_count == 2
     # Verify linking call (second pass)
     agent.git_tool.update_issue_body.assert_called_with(123, "Desc 2\n\n🚫 Blocked by: #123")
+
 
 @pytest.mark.asyncio
 async def test_update_ollash_manifest(agent):
@@ -51,6 +55,7 @@ async def test_update_ollash_manifest(agent):
     content = await agent._update_ollash_manifest("T1")
     assert content == "# Manifest content"
     agent.llm_manager.get_client.assert_called_with("writer")
+
 
 def test_finalize_project(agent):
     execution_plan = MagicMock()

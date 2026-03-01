@@ -86,7 +86,6 @@ from backend.agents.orchestrators.self_healing_loop import SelfHealingLoop
 from backend.agents.orchestrators.tool_dispatcher import ToolDispatcher
 from backend.agents.orchestrators.debate_node_runner import DebateNodeRunner
 from backend.utils.domains.code.sandbox_runner import SandboxRunner
-from backend.utils.domains.git.git_auto_committer import GitAutoCommitter
 from backend.utils.core.io.checkpoint_manager import CheckpointManager
 from backend.utils.core.analysis.cost_analyzer import CostAnalyzer
 from backend.utils.core.system.metrics_database import MetricsDatabase

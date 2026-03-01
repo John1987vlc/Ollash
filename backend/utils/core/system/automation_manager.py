@@ -191,7 +191,9 @@ class AutomationManager:
                     duration = (datetime.now() - start).total_seconds()
                     self.record_execution(
                         task_id,
-                        ExecutionRecord(status="skipped", summary="Threshold check: no action needed", duration_seconds=duration),
+                        ExecutionRecord(
+                            status="skipped", summary="Threshold check: no action needed", duration_seconds=duration
+                        ),
                     )
                     return
 
@@ -243,7 +245,7 @@ class AutomationManager:
             history.append(record.model_dump())
             # Keep only the most recent MAX_HISTORY_PER_TASK entries
             if len(history) > self.MAX_HISTORY_PER_TASK:
-                task["execution_history"] = history[-self.MAX_HISTORY_PER_TASK:]
+                task["execution_history"] = history[-self.MAX_HISTORY_PER_TASK :]
             # Update convenience fields
             if record.status == "success":
                 task["last_success"] = record.timestamp

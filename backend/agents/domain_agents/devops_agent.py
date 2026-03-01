@@ -80,10 +80,7 @@ class DevOpsAgent(BaseDomainAgent):
         project_description: str = blackboard.read("project_description", "")
         generated_files: Dict[str, str] = blackboard.get_all_generated_files()
 
-        self._log_info(
-            f"Generating infrastructure for '{project_name}' "
-            f"({len(generated_files)} source files)"
-        )
+        self._log_info(f"Generating infrastructure for '{project_name}' ({len(generated_files)} source files)")
         self._publish_event("devops_started", project=project_name)
 
         infra_files: Dict[str, str] = {}

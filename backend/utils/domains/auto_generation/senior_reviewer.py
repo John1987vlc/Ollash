@@ -69,7 +69,8 @@ class SeniorReviewer:
             tools=[],
             options_override=self.options,
         )
-        raw_review = response_data["message"]["content"]
+        # Use flattened content or nested structure safely
+        raw_review = response_data.get("content", "") or response_data.get("message", {}).get("content", "")
 
         review_results = self.parser.extract_json(raw_review)
 

@@ -184,8 +184,7 @@ class TaskDAG:
                 if node.status != TaskStatus.PENDING:
                     continue
                 deps_done = all(
-                    self._nodes.get(dep_id, _DUMMY_NODE).status == TaskStatus.COMPLETED
-                    for dep_id in node.dependencies
+                    self._nodes.get(dep_id, _DUMMY_NODE).status == TaskStatus.COMPLETED for dep_id in node.dependencies
                 )
                 if deps_done:
                     node.status = TaskStatus.READY

@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 from backend.utils.domains.code.file_system_tools import FileSystemTools
 
+
 class TestFileSystemToolsUnit:
     """
     Unit tests for FileSystemTools to ensure inputs/outputs are correct.
@@ -14,12 +15,7 @@ class TestFileSystemToolsUnit:
         executor.auto_confirm_minor_writes = True
         executor.write_auto_confirm_lines_threshold = 10
 
-        return {
-            "file_manager": MagicMock(),
-            "logger": MagicMock(),
-            "tool_executor": executor,
-            "tmp_path": tmp_path
-        }
+        return {"file_manager": MagicMock(), "logger": MagicMock(), "tool_executor": executor, "tmp_path": tmp_path}
 
     @pytest.fixture
     def fs_tools(self, mock_deps):
@@ -28,7 +24,7 @@ class TestFileSystemToolsUnit:
             project_root=mock_deps["tmp_path"],
             file_manager=mock_deps["file_manager"],
             logger=mock_deps["logger"],
-            tool_executor=mock_deps["tool_executor"]
+            tool_executor=mock_deps["tool_executor"],
         )
         return tools
 

@@ -1,4 +1,5 @@
 """Unit tests for DeveloperAgent."""
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from backend.agents.domain_agents.developer_agent import DeveloperAgent
@@ -41,8 +42,7 @@ class TestDeveloperAgent:
     @pytest.mark.asyncio
     async def test_run_returns_file_dict(self, developer, mock_blackboard):
         node = TaskNode(
-            id="src/main.py", agent_type=AgentType.DEVELOPER,
-            task_data={"file_path": "src/main.py", "plan": {}}
+            id="src/main.py", agent_type=AgentType.DEVELOPER, task_data={"file_path": "src/main.py", "plan": {}}
         )
         result = await developer.run(node, mock_blackboard)
         assert "src/main.py" in result
@@ -51,8 +51,7 @@ class TestDeveloperAgent:
     @pytest.mark.asyncio
     async def test_run_writes_to_blackboard(self, developer, mock_blackboard):
         node = TaskNode(
-            id="src/main.py", agent_type=AgentType.DEVELOPER,
-            task_data={"file_path": "src/main.py", "plan": {}}
+            id="src/main.py", agent_type=AgentType.DEVELOPER, task_data={"file_path": "src/main.py", "plan": {}}
         )
         await developer.run(node, mock_blackboard)
         mock_blackboard.write.assert_called_once()
@@ -62,8 +61,7 @@ class TestDeveloperAgent:
     @pytest.mark.asyncio
     async def test_run_publishes_file_generated_event(self, developer, mock_blackboard):
         node = TaskNode(
-            id="src/main.py", agent_type=AgentType.DEVELOPER,
-            task_data={"file_path": "src/main.py", "plan": {}}
+            id="src/main.py", agent_type=AgentType.DEVELOPER, task_data={"file_path": "src/main.py", "plan": {}}
         )
         await developer.run(node, mock_blackboard)
         developer._event_publisher.publish.assert_called_with(
@@ -78,8 +76,7 @@ class TestDeveloperAgent:
     @pytest.mark.asyncio
     async def test_small_file_init_py_returns_empty(self, developer, mock_blackboard):
         node = TaskNode(
-            id="src/__init__.py", agent_type=AgentType.DEVELOPER,
-            task_data={"file_path": "src/__init__.py", "plan": {}}
+            id="src/__init__.py", agent_type=AgentType.DEVELOPER, task_data={"file_path": "src/__init__.py", "plan": {}}
         )
         result = await developer.run(node, mock_blackboard)
         content = result["src/__init__.py"]

@@ -4,25 +4,47 @@ architecture_planning_detailed:
     Senior System Architect.
 
     # OBJECTIVE
-    Create a detailed architectural plan including component interaction and state flow.
+    Create a detailed implementation plan for a specific category of files.
+    For each file, define its purpose, exports, imports, main logic steps, and validation criteria.
 
     # INSTRUCTIONS
-    1. Define core components.
-    2. Map data flow between components.
-    3. Return strictly as JSON within <plan_json> tags.
+    1. Analyze the project description and the specific files to plan.
+    2. Consider already planned contracts from other files to ensure consistency.
+    3. Return a JSON object where keys are file paths and values are their detailed plans.
+    4. Return strictly within <plan_json> tags.
 
     # CONSTRAINTS
-    - Ensure logical completeness.
+    - DO NOT create new project structures inside sub-folders (avoid project-within-project).
+    - Focus ONLY on the files listed in 'FILES TO PLAN'.
+    - Use absolute relative paths (from project root) for all file references.
+    - Ensure logical separation of concerns.
 
     # OUTPUT FORMAT
     <plan_json>
-    { "architecture": { "components": [], "flow": [] } }
+    {
+      "file_path_1": {
+        "purpose": "...",
+        "exports": ["func1", "ClassA"],
+        "imports": ["file_path_2"],
+        "main_logic": ["Step 1", "Step 2"],
+        "validation": ["Check X", "Test Y"],
+        "dependencies": ["file_path_2"]
+      }
+    }
     </plan_json>
 
   user: |
-    ## VISION: {vision}
+    ## CATEGORY: {category}
+    ## PROJECT DESCRIPTION:
+    {project_description}
 
-    Plan the architecture.
+    ## FILES TO PLAN:
+    {files_list}
+
+    ## ALREADY PLANNED CONTRACTS (Context):
+    {already_planned_contracts}
+
+    Plan the implementation for these files.
 
 agile_backlog_planning:
   system: |
@@ -30,25 +52,41 @@ agile_backlog_planning:
     Agile Project Manager.
 
     # OBJECTIVE
-    Break down a project into a prioritized task backlog.
+    Break down the project into a prioritized list of micro-tasks (backlog).
+    Each task should focus on implementing or refining a specific file.
 
     # INSTRUCTIONS
-    1. Identify user stories and technical tasks.
-    2. Assign priority levels.
-    3. Return within <backlog_json> tags.
-
-    # CONSTRAINTS
-    - Use standard Agile terminology.
+    1. Review the README and project structure.
+    2. Create a list of tasks with unique IDs (e.g., TASK-001).
+    3. Specify task type (create_file, refine_file), title, description, and dependencies.
+    4. Return within <backlog_json> tags.
 
     # OUTPUT FORMAT
     <backlog_json>
-    { "backlog": [ { "task": "string", "priority": "string" } ] }
+    [
+      {
+        "id": "TASK-001",
+        "title": "...",
+        "description": "...",
+        "file_path": "...",
+        "task_type": "create_file",
+        "dependencies": [],
+        "context_files": ["README.md"]
+      }
+    ]
     </backlog_json>
 
   user: |
-    ## VISION: {vision}
+    ## PROJECT DESCRIPTION:
+    {project_description}
 
-    Generate the backlog.
+    ## README CONTEXT:
+    {readme_content}
+
+    ## PROJECT STRUCTURE:
+    {initial_structure}
+
+    Generate the prioritized backlog.
 
 contingency_planning:
   system: |
@@ -56,22 +94,29 @@ contingency_planning:
     Risk Assessment Specialist.
 
     # OBJECTIVE
-    Identify technical risks and provide mitigation strategies.
+    Identify technical risks and provide mitigation strategies based on reported issues.
 
     # INSTRUCTIONS
-    1. Scan the vision for potential bottlenecks.
-    2. Propose mitigation steps.
+    1. Scan the reported issues and project context.
+    2. Propose concrete mitigation steps (actions like create_file, modify_file).
     3. Return within <contingency_json> tags.
-
-    # CONSTRAINTS
-    - Focus on high-impact risks.
 
     # OUTPUT FORMAT
     <contingency_json>
-    { "risks": [ { "risk": "string", "mitigation": "string" } ] }
+    {
+      "risks": [ { "risk": "...", "mitigation": "..." } ],
+      "actions": [ { "type": "create_file", "path": "...", "content": "..." } ]
+    }
     </contingency_json>
 
   user: |
-    ## VISION: {vision}
+    ## PROJECT DESCRIPTION:
+    {project_description}
 
-    Identify risks.
+    ## README CONTEXT:
+    {readme}
+
+    ## REPORTED ISSUES:
+    {issues_str}
+
+    Identify risks and generate a contingency plan.

@@ -16,7 +16,9 @@ class TestAutomationManagerExecutionHistory:
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         tasks_file = config_dir / "tasks.json"
-        tasks_file.write_text('{"tasks": [{"task_id": "t1", "name": "Task One", "enabled": true, "schedule": {"type": "interval", "interval_minutes": 60}}]}')
+        tasks_file.write_text(
+            '{"tasks": [{"task_id": "t1", "name": "Task One", "enabled": true, "schedule": {"type": "interval", "interval_minutes": 60}}]}'
+        )
 
         mock_event_publisher = MagicMock()
         mock_logger = MagicMock()

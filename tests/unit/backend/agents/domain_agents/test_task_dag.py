@@ -1,8 +1,7 @@
 """Unit tests for TaskDAG."""
+
 import pytest
-from backend.agents.orchestrators.task_dag import (
-    AgentType, CyclicDependencyError, TaskDAG, TaskNode, TaskStatus
-)
+from backend.agents.orchestrators.task_dag import AgentType, CyclicDependencyError, TaskDAG, TaskNode, TaskStatus
 
 
 @pytest.mark.unit

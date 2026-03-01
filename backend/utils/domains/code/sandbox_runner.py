@@ -40,8 +40,8 @@ class SandboxResult:
     """Result of a sandbox linter execution."""
 
     passed: bool
-    tool: str                          # "ruff" | "mypy" | "unavailable"
-    output: str                        # Combined stdout + stderr
+    tool: str  # "ruff" | "mypy" | "unavailable"
+    output: str  # Combined stdout + stderr
     errors: List[str] = field(default_factory=list)  # Parsed error lines
     file_path: str = ""
 
@@ -124,8 +124,7 @@ class SandboxRunner:
 
             tool = "ruff+mypy" if (self._run_mypy and self._mypy_available()) else "ruff"
             self._logger.debug(
-                f"[SandboxRunner] {tool} on '{rel_path}': "
-                f"{'PASS' if passed else f'FAIL ({len(errors)} errors)'}"
+                f"[SandboxRunner] {tool} on '{rel_path}': {'PASS' if passed else f'FAIL ({len(errors)} errors)'}"
             )
             return SandboxResult(
                 passed=passed,
@@ -193,8 +192,4 @@ class SandboxRunner:
     @staticmethod
     def _parse_mypy_errors(output: str, rel_path: str) -> List[str]:
         """Extract error lines from mypy output."""
-        return [
-            line.strip()
-            for line in output.splitlines()
-            if "error:" in line or "note:" in line
-        ]
+        return [line.strip() for line in output.splitlines() if "error:" in line or "note:" in line]

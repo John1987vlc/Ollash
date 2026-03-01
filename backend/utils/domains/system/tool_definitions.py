@@ -171,6 +171,42 @@ SYSTEM_TOOL_DEFINITIONS: List[Dict] = [
     {
         "type": "function",
         "function": {
+            "name": "search_files_advanced",
+            "description": "Searches for files based on advanced criteria like size, extension, and date. Highly efficient for finding large files.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "root_path": {
+                        "type": "string",
+                        "description": "Directory to start search from (e.g. 'C:\\', '/').",
+                    },
+                    "min_size_mb": {
+                        "type": "number",
+                        "description": "Minimum file size in Megabytes.",
+                    },
+                    "max_size_mb": {
+                        "type": "number",
+                        "description": "Maximum file size in Megabytes.",
+                    },
+                    "extension": {
+                        "type": "string",
+                        "description": "File extension to filter by (e.g., '.log').",
+                    },
+                    "modified_since_days": {
+                        "type": "integer",
+                        "description": "Modified in the last N days.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max results (default 50).",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "cleanup_environment",
             "description": "Destroys the sandbox environment and all files within it.",
             "parameters": {"type": "object", "properties": {}},

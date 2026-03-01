@@ -36,7 +36,7 @@ class Config:
         self.CONFIG_DIR = self.PROJECT_ROOT / "backend" / "config"
 
         # --- Load simple key-value settings ---
-        self.OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        self.OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
         self.DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen3-coder:30b")
         self.DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", 600))
         self.DEFAULT_TEMPERATURE = float(os.getenv("DEFAULT_TEMPERATURE", 0.1))

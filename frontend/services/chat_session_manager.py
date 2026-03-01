@@ -32,6 +32,7 @@ class ChatSessionManager:
     def _init_db(self):
         """Initialize chat persistence tables."""
         from backend.utils.core.system.db.sqlite_manager import DatabaseManager
+
         db_path = self.ollash_root_dir / ".ollash" / "logs.db"
         self.db = DatabaseManager(db_path)
         with self.db.get_connection() as conn:
@@ -72,7 +73,8 @@ class ChatSessionManager:
             auto_confirm = False
             try:
                 import json
-                with open(tool_config, 'r') as f:
+
+                with open(tool_config, "r") as f:
                     config_data = json.load(f)
                     auto_confirm = config_data.get("auto_confirm_tools", False)
             except:
@@ -91,7 +93,7 @@ class ChatSessionManager:
             # Save session to DB
             self.db.execute(
                 "INSERT INTO chat_sessions (id, agent_type, project_path, title) VALUES (?, ?, ?, ?)",
-                (session_id, agent_type or "orchestrator", actual_project_root, f"New {agent_type or 'Chat'}")
+                (session_id, agent_type or "orchestrator", actual_project_root, f"New {agent_type or 'Chat'}"),
             )
 
             self.sessions[session_id] = ChatSession(
@@ -107,15 +109,14 @@ class ChatSessionManager:
     def list_sessions(self, limit: int = 20):
         """Returns a list of recent chat sessions from DB."""
         return self.db.fetch_all(
-            "SELECT id, agent_type, created_at, title FROM chat_sessions ORDER BY created_at DESC LIMIT ?",
-            (limit,)
+            "SELECT id, agent_type, created_at, title FROM chat_sessions ORDER BY created_at DESC LIMIT ?", (limit,)
         )
 
     def get_session_history(self, session_id: str):
         """Returns all messages for a given session."""
         return self.db.fetch_all(
             "SELECT role, content, timestamp FROM chat_messages WHERE session_id = ? ORDER BY timestamp ASC",
-            (session_id,)
+            (session_id,),
         )
 
     def send_message(self, session_id: str, message: str):
@@ -126,18 +127,17 @@ class ChatSessionManager:
 
         # Persist user message
         self.db.execute(
-            "INSERT INTO chat_messages (session_id, role, content) VALUES (?, ?, ?)",
-            (session_id, "user", message)
+            "INSERT INTO chat_messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "user", message)
         )
 
         # Update session title based on first message if it's default
         self.db.execute(
-            "UPDATE chat_sessions SET title = ? WHERE id = ? AND title LIKE 'New %'",
-            (message[:30] + "...", session_id)
+            "UPDATE chat_sessions SET title = ? WHERE id = ? AND title LIKE 'New %'", (message[:30] + "...", session_id)
         )
 
         def _run():
             import asyncio
+
             try:
                 # F31: Robust event loop management for background thread
                 loop = asyncio.new_event_loop()
@@ -157,7 +157,7 @@ class ChatSessionManager:
                 # Persist assistant response
                 self.db.execute(
                     "INSERT INTO chat_messages (session_id, role, content) VALUES (?, ?, ?)",
-                    (session_id, "assistant", content)
+                    (session_id, "assistant", content),
                 )
 
                 # Trim oldest messages to stay within per-session history limit

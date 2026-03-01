@@ -138,9 +138,15 @@ class CommandExecutor:
         execution_dir = dir_path or self.working_dir
 
         if isinstance(command, str):
-            # Special handling for Windows PowerShell calls
-            if os.name == "nt" and command.strip().lower().startswith("powershell"):
-                use_shell = True  # PowerShell requires shell=True for some complex cmdlets via string
+            # Special handling for Windows shell builtins and PowerShell calls
+            cmd_lower = command.strip().lower()
+            is_ps = cmd_lower.startswith("powershell")
+            is_builtin = os.name == "nt" and any(
+                cmd_lower.startswith(b) for b in ["dir ", "echo ", "cls ", "copy ", "del ", "move ", "type ", "mkdir "]
+            )
+
+            if is_ps or is_builtin:
+                use_shell = True
                 command_list = command  # Pass as string
             else:
                 try:

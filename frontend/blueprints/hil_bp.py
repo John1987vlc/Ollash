@@ -26,10 +26,12 @@ _pending_requests: dict = {}
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_active_orchestrators():
     """Return the ActiveOrchestrators singleton if available."""
     try:
         from backend.agents.orchestrators.active_orchestrators import ActiveOrchestrators
+
         return ActiveOrchestrators()
     except Exception:
         return None
@@ -38,6 +40,7 @@ def _get_active_orchestrators():
 # ---------------------------------------------------------------------------
 # GET /api/hil/pending
 # ---------------------------------------------------------------------------
+
 
 @hil_bp.route("/api/hil/pending", methods=["GET"])
 def get_pending():
@@ -90,6 +93,7 @@ def get_pending():
 # POST /api/hil/respond
 # ---------------------------------------------------------------------------
 
+
 @hil_bp.route("/api/hil/respond", methods=["POST"])
 def respond_hil():
     """Submit a response to a HITL request.
@@ -123,14 +127,14 @@ def respond_hil():
                 node = dag.get_node(request_id)
                 if node is not None:
                     import asyncio
+
                     loop = getattr(orch, "_loop", None)
                     if loop and loop.is_running():
-                        asyncio.run_coroutine_threadsafe(
-                            dag.mark_unblocked(request_id, answer), loop
-                        )
+                        asyncio.run_coroutine_threadsafe(dag.mark_unblocked(request_id, answer), loop)
                     else:
                         # Best-effort synchronous fallback
                         from backend.agents.orchestrators.task_dag import TaskStatus
+
                         node.hitl_answer = answer
                         node.status = TaskStatus.PENDING
                     unblocked = True
@@ -148,6 +152,7 @@ def respond_hil():
     # Publish event regardless (existing subscribers may handle it)
     try:
         from backend.utils.core.system.event_publisher import EventPublisher
+
         EventPublisher().publish(
             "hil_response",
             request_id=request_id,
@@ -163,6 +168,7 @@ def respond_hil():
 # ---------------------------------------------------------------------------
 # POST /api/hil/debug/add  (dev helper)
 # ---------------------------------------------------------------------------
+
 
 @hil_bp.route("/api/hil/debug/add", methods=["POST"])
 def add_debug_request():

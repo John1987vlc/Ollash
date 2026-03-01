@@ -1,4 +1,5 @@
 """Unit tests for SelfHealingLoop."""
+
 import pytest
 from unittest.mock import MagicMock
 from backend.agents.orchestrators.self_healing_loop import SelfHealingLoop
@@ -16,9 +17,7 @@ def mock_ekb():
 @pytest.fixture
 def mock_cp():
     cp = MagicMock()
-    cp.generate_contingency_plan.return_value = {
-        "actions": [{"type": "modify_file", "path": "src/a.py"}]
-    }
+    cp.generate_contingency_plan.return_value = {"actions": [{"type": "modify_file", "path": "src/a.py"}]}
     return cp
 
 
@@ -39,16 +38,13 @@ class TestSelfHealingLoop:
     async def test_handle_failure_creates_remediation_node(self, healing_loop, mock_ekb, mock_cp):
         dag = TaskDAG()
         failed_node = TaskNode(
-            id="src/a.py", agent_type=AgentType.DEVELOPER,
-            task_data={"file_path": "src/a.py"}, error="SyntaxError"
+            id="src/a.py", agent_type=AgentType.DEVELOPER, task_data={"file_path": "src/a.py"}, error="SyntaxError"
         )
         dag.add_task(failed_node)
         bb = MagicMock()
         bb.snapshot.return_value = {}
 
-        result = await healing_loop.handle_failure(
-            failed_node, dag, bb, "build api", "# README"
-        )
+        result = await healing_loop.handle_failure(failed_node, dag, bb, "build api", "# README")
 
         assert result.success is True
         assert "remediate_src/a.py" in result.remediation_task_id
@@ -61,24 +57,17 @@ class TestSelfHealingLoop:
         failed_node = TaskNode(id="x.py", agent_type=AgentType.DEVELOPER, task_data={}, error="err")
         dag.add_task(failed_node)
 
-        result = await healing_loop.handle_failure(
-            failed_node, dag, MagicMock(), "desc", "readme"
-        )
+        result = await healing_loop.handle_failure(failed_node, dag, MagicMock(), "desc", "readme")
 
         assert dag.get_node(result.remediation_task_id) is not None
 
     @pytest.mark.asyncio
     async def test_no_remediation_after_max_retries(self, healing_loop, mock_ekb, mock_cp):
         dag = TaskDAG()
-        exhausted = TaskNode(
-            id="z.py", agent_type=AgentType.DEVELOPER,
-            task_data={}, error="err", retry_count=2
-        )
+        exhausted = TaskNode(id="z.py", agent_type=AgentType.DEVELOPER, task_data={}, error="err", retry_count=2)
         dag.add_task(exhausted)
 
-        result = await healing_loop.handle_failure(
-            exhausted, dag, MagicMock(), "desc", "readme"
-        )
+        result = await healing_loop.handle_failure(exhausted, dag, MagicMock(), "desc", "readme")
 
         assert result.success is False
         assert result.error is not None

@@ -136,8 +136,16 @@ class EnhancedFileContentGenerator:
         dependencies = logic_plan.get("dependencies", [])
 
         context = self._build_detailed_context(
-            file_path, purpose, exports, imports, main_logic,
-            validation, dependencies, related_files, readme, structure,
+            file_path,
+            purpose,
+            exports,
+            imports,
+            main_logic,
+            validation,
+            dependencies,
+            related_files,
+            readme,
+            structure,
         )
 
         file_ext = Path(file_path).suffix
@@ -153,13 +161,9 @@ class EnhancedFileContentGenerator:
             if not system_template or not user_template:
                 raise ValueError("Prompt templates not found")
             system = system_template.format(language_specific_rules=lang_rule)
-            user = user_template.format(
-                file_path=file_path, context=context, exports=", ".join(exports)
-            )
+            user = user_template.format(file_path=file_path, context=context, exports=", ".join(exports))
         except Exception as exc:
-            self.logger.warning(
-                f"[streaming] Prompt load failed for '{file_path}': {exc}; using sync fallback"
-            )
+            self.logger.warning(f"[streaming] Prompt load failed for '{file_path}': {exc}; using sync fallback")
             return self.generate_file_with_plan(
                 file_path=file_path,
                 logic_plan=logic_plan,
@@ -182,9 +186,7 @@ class EnhancedFileContentGenerator:
             content = result.get("content", "")
             return self.response_parser.extract_code_block(content) or content
         except Exception as exc:
-            self.logger.warning(
-                f"[streaming] stream_chat failed for '{file_path}': {exc}; using sync fallback"
-            )
+            self.logger.warning(f"[streaming] stream_chat failed for '{file_path}': {exc}; using sync fallback")
             return self.generate_file_with_plan(
                 file_path=file_path,
                 logic_plan=logic_plan,

@@ -3,9 +3,11 @@ import sqlite3
 from unittest.mock import MagicMock
 from frontend.services.chat_session_manager import ChatSessionManager
 
+
 @pytest.fixture
 def temp_db_path(tmp_path):
     return tmp_path
+
 
 def test_chat_session_manager_db_initialization(temp_db_path):
     """Verifica que el manager cree las tablas de persistencia al iniciarse."""
@@ -18,6 +20,7 @@ def test_chat_session_manager_db_initialization(temp_db_path):
     assert cursor.fetchone() is not None
     conn.close()
 
+
 def test_chat_session_creation_and_retrieval(temp_db_path):
     """Verifica la creación de sesiones y su recuperación desde memoria/DB."""
     manager = ChatSessionManager(temp_db_path, MagicMock())
@@ -27,4 +30,4 @@ def test_chat_session_creation_and_retrieval(temp_db_path):
     assert manager.get_session(session_id) is not None
 
     sessions = manager.list_sessions()
-    assert any(s['id'] == session_id for s in sessions)
+    assert any(s["id"] == session_id for s in sessions)

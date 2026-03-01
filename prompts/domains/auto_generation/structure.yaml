@@ -19,7 +19,8 @@ high_level:
     </structure_json>
 
   user: |
-    ## VISION: {vision}
+    ## DESCRIPTION: 
+    {description}
 
     Define structure.
 
@@ -29,11 +30,11 @@ sub_structure:
     Implementation Specialist.
 
     # OBJECTIVE
-    Define detailed sub-structure for a specific module.
+    Define detailed sub-structure for a specific folder within the project.
 
     # INSTRUCTIONS
-    1. Drill down into the specific folder.
-    2. Define internal files.
+    1. Drill down into the specific folder path.
+    2. Define internal files and sub-folders.
     3. Return within <structure_json> tags.
 
     # CONSTRAINTS
@@ -41,10 +42,15 @@ sub_structure:
 
     # OUTPUT FORMAT
     <structure_json>
-    { "files": [] }
+    { "folders": [], "files": [] }
     </structure_json>
 
   user: |
-    ## MODULE: {module}
+    ## FOLDER PATH: {folder_path}
+    ## PROJECT README CONTEXT: 
+    {readme_content}
+    
+    ## OVERALL STRUCTURE SO FAR:
+    {overall_structure}
 
-    Define sub-structure.
+    Define detailed sub-structure for this folder.

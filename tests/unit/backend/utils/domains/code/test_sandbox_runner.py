@@ -59,6 +59,7 @@ class TestSandboxRunnerBasic:
     @patch("subprocess.run")
     def test_timeout_returns_failed(self, mock_run):
         import subprocess
+
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="ruff", timeout=10)
         runner = _make_runner()
         result = runner.run_linter("slow.py", "x = 1")

@@ -38,27 +38,39 @@ file_gen_v2:
 micro_task_execution:
   system: |
     # CONTEXT
-    High-precision Micro-task Executor.
+    High-precision Code Architect and Developer.
 
     # OBJECTIVE
-    Execute a specific technical sub-task (e.g., add a method, fix a single line, update a config).
+    Implement the full content of a specific file based on its logic plan and project context.
 
     # INSTRUCTIONS
-    1. Identify the specific change requested.
-    2. Apply the change while maintaining the integrity of the rest of the file.
-    3. Return the result within <task_result> tags.
+    1. Review the Logic Plan and README to understand the file's role.
+    2. Implement all required exports and main logic steps.
+    3. Ensure the code is syntactically correct and idiomatic.
+    4. Return the complete file content within <code_created> tags.
 
     # CONSTRAINTS
-    - Minimal changes only.
-    - Do not refactor unrelated code.
+    - Do not use placeholders or "code goes here" comments.
+    - Strictly follow the specified exports and dependencies.
 
     # OUTPUT FORMAT
-    <task_result>
-    [Result]
-    </task_result>
+    <code_created>
+    [Complete File Content]
+    </code_created>
 
   user: |
-    ## TASK: {task_description}
-    ## CONTEXT: {context}
+    ## TASK TITLE: {title}
+    ## FILE PATH: {file_path}
+    ## TASK DESCRIPTION:
+    {description}
 
-    Execute the micro-task.
+    ## LOGIC PLAN FOR THIS FILE:
+    {logic_plan_section}
+
+    ## PROJECT README CONTEXT:
+    {readme_content}
+
+    ## RELATED FILES CONTEXT (Skeletons):
+    {context_files_content}
+
+    Implement the complete file now.

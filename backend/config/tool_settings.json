@@ -1,7 +1,7 @@
 {
   "sandbox": "limited",
-  "max_context_tokens": 32768,
-  "summarize_threshold_ratio": 0.99,
+  "max_context_tokens": 16384,
+  "summarize_threshold_ratio": 0.85,
   "history_limit": 200,
   "log_level": "debug",
   "log_file": "ollash.log",

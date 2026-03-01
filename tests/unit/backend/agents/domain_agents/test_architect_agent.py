@@ -1,4 +1,5 @@
 """Unit tests for ArchitectAgent."""
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from backend.agents.domain_agents.architect_agent import ArchitectAgent
@@ -19,7 +20,7 @@ def mock_structure_gen():
     sg = MagicMock()
     sg.generate.return_value = {
         "folders": [{"name": "src", "files": ["utils.py", "main.py"], "folders": []}],
-        "files": []
+        "files": [],
     }
     return sg
 

@@ -248,9 +248,7 @@ class IterativeImprovementPhase(IAgentPhase):
     # E3: Quality gate helpers
     # ------------------------------------------------------------------
 
-    async def _run_quality_check(
-        self, project_root: Path, generated_files: Dict[str, str]
-    ) -> QualityReport:
+    async def _run_quality_check(self, project_root: Path, generated_files: Dict[str, str]) -> QualityReport:
         """Run tests and linter via QualityGate; publish a quality_check event."""
         language = self._detect_primary_language(generated_files)
         gate = QualityGate(logger=self.context.logger)
@@ -266,9 +264,7 @@ class IterativeImprovementPhase(IAgentPhase):
             if report.overall_pass:
                 self.context.logger.info("  Quality gate: PASSED")
             else:
-                self.context.logger.warning(
-                    "  Quality gate: FAILED — " + "; ".join(report.failure_reasons[:3])
-                )
+                self.context.logger.warning("  Quality gate: FAILED — " + "; ".join(report.failure_reasons[:3]))
         except Exception as exc:
             self.context.logger.warning(f"  Quality gate check failed (non-critical): {exc}")
             report = QualityReport(overall_pass=True)  # Fail open
@@ -339,9 +335,7 @@ class IterativeImprovementPhase(IAgentPhase):
         return generated_files
 
     @staticmethod
-    def _identify_failing_files(
-        report: QualityReport, generated_files: Dict[str, str]
-    ) -> List[str]:
+    def _identify_failing_files(report: QualityReport, generated_files: Dict[str, str]) -> List[str]:
         """Identify file paths mentioned in quality failure output."""
         failing: List[str] = []
         combined = " ".join(report.failure_reasons) + " " + report.linter_output + " " + report.test_output
@@ -350,10 +344,7 @@ class IterativeImprovementPhase(IAgentPhase):
                 failing.append(path)
         # Fall back to all Python/JS source files if nothing specific found
         if not failing:
-            failing = [
-                p for p in generated_files
-                if p.endswith((".py", ".js", ".ts")) and "test" not in p.lower()
-            ][:5]
+            failing = [p for p in generated_files if p.endswith((".py", ".js", ".ts")) and "test" not in p.lower()][:5]
         return failing
 
     @staticmethod
@@ -379,13 +370,9 @@ class IterativeImprovementPhase(IAgentPhase):
             # Lazily cache the validator on the context to avoid re-instantiation
             if self.context._sandbox_validator is None:
                 self.context._sandbox_validator = SandboxValidator(logger=self.context.logger)
-            return self.context._sandbox_validator.validate_and_write(
-                file_path, content, self.context.file_manager
-            )
+            return self.context._sandbox_validator.validate_and_write(file_path, content, self.context.file_manager)
         except Exception as exc:
-            self.context.logger.warning(
-                f"  SandboxValidator unavailable, writing directly: {exc}"
-            )
+            self.context.logger.warning(f"  SandboxValidator unavailable, writing directly: {exc}")
             self.context.file_manager.write_file(file_path, content)
             # Return a minimal approved result so callers don't need to handle None
             from backend.utils.domains.auto_generation.sandbox_validator import ValidationResult

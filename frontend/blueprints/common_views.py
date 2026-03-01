@@ -167,14 +167,19 @@ def status():
         config = current_app.config.get("config", {})
         import os
 
+        # Prioritize central OLLAMA_URL and fall back to OLLASH_OLLAMA_URL or default
         ollama_url = os.environ.get(
-            "OLLASH_OLLAMA_URL",
-            config.get("ollama_url", "http://localhost:11434"),
+            "OLLAMA_URL", os.environ.get("OLLASH_OLLAMA_URL", config.get("ollama_url", "http://127.0.0.1:11434"))
         )
+        # Ensure URL is clean
+        ollama_url = ollama_url.rstrip("/")
+
         resp = requests.get(f"{ollama_url}/api/tags", timeout=5)
+        resp.raise_for_status()
+
         models = [m["name"] for m in resp.json().get("models", [])]
         return jsonify({"status": "ok", "ollama_url": ollama_url, "models": models})
-    except requests.ConnectionError:
-        return jsonify({"status": "error", "message": "Cannot connect to Ollama"}), 503
+    except (requests.ConnectionError, requests.Timeout):
+        return jsonify({"status": "error", "message": "Cannot connect to Ollama (Connection Refused or Timeout)"}), 503
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

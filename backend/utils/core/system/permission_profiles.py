@@ -220,7 +220,7 @@ class PermissionProfileManager:
         dev_profile.add_rule(
             PermissionRule(
                 permission=Permission.EXECUTE,
-                path_pattern=r".*", # Temporarily allow all for dev escalation tests
+                path_pattern=r".*",  # Temporarily allow all for dev escalation tests
                 grant=True,
                 reason="Allow full system discovery commands when escalated to developer",
             )

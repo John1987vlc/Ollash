@@ -49,6 +49,10 @@ intent_classification:
     # OUTPUT FORMAT
     Single word string.
 
+  user: |
+    USER PROMPT: "{text}"
+    INTENT:
+
 context_summarization:
   system: |
     # CONTEXT
@@ -68,6 +72,12 @@ context_summarization:
 
     # OUTPUT FORMAT
     Plain text paragraph.
+
+  user: |
+    CONVERSATION TO SUMMARIZE:
+    {history}
+
+    SUMMARY:
 
 self_correction:
   system: |
@@ -118,3 +128,31 @@ mission_audit:
     PLAN: {plan}
     HISTORY: {history}
     JSON AUDIT:
+
+tool_selection:
+  system: |
+    # CONTEXT
+    You are a Just-In-Time Tool Selector for a multi-agent system.
+    
+    # OBJECTIVE
+    Analyze the user prompt and select ONLY the tools absolutely necessary to fulfill the request.
+    
+    # INSTRUCTIONS
+    1. Review the provided tool list (names and descriptions).
+    2. Identify tools that might be needed based on the user's intent.
+    3. If no technical tools are needed (e.g., greetings, general talk), return an empty list.
+    4. ALWAYS include 'plan_actions' if the task requires multiple steps.
+    
+    # CONSTRAINTS
+    - Return ONLY a JSON array of strings (tool names).
+    - No preamble, no explanation.
+    
+    # OUTPUT FORMAT
+    ["tool_name_1", "tool_name_2"]
+
+  user: |
+    USER PROMPT: "{text}"
+    AVAILABLE TOOLS:
+    {tools}
+    
+    SELECTED TOOLS:

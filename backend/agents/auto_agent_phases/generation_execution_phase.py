@@ -113,20 +113,19 @@ class TestGenerationExecutionPhase(IAgentPhase):
 
         # Verify MVP requirement: at least one test file generated
         if len(generated_test_files) < self.MIN_TEST_FILES_REQUIRED:
-            self.context.logger.error(
-                f"❌ MVP REQUIREMENT FAILED: No test files generated. "
+            self.context.logger.warning(
+                f"⚠️ MVP REQUIREMENT NOT MET: No test files generated. "
                 f"Expected at least {self.MIN_TEST_FILES_REQUIRED}, got {len(generated_test_files)}"
             )
             self.context.event_publisher.publish(
-                "mvp_requirement_failed",
+                "mvp_requirement_warning",
                 requirement="test_generation",
-                message="No test files were generated. Tests are mandatory for MVP.",
+                message="No test files were generated. This deviates from MVP standards.",
             )
-            raise RuntimeError(
-                f"MVP Requirement Failed: Must generate at least {self.MIN_TEST_FILES_REQUIRED} test file(s)"
-            )
-
-        self.context.logger.info(f"✅ Generated {len(generated_test_files)} test files (MVP requirement met)")
+            # F29: Don't raise RuntimeError here, allow the cycle to finish so the user can see the partial results
+            # and we can perform post-mortem analysis.
+        else:
+            self.context.logger.info(f"✅ Generated {len(generated_test_files)} test files (MVP requirement met)")
 
         # Step 2: Generate integration tests if applicable
         if len(files_by_language) > 1 or any(lang in files_by_language for lang in ["javascript", "go", "java"]):

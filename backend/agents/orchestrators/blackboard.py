@@ -163,9 +163,7 @@ class Blackboard:
 
         return _unsubscribe
 
-    def subscribe_prefix(
-        self, prefix: str, callback: Callable[[str, Any], None]
-    ) -> Callable[[], None]:
+    def subscribe_prefix(self, prefix: str, callback: Callable[[str, Any], None]) -> Callable[[], None]:
         """Register *callback* for any key that starts with *prefix*.
 
         Returns:
@@ -179,9 +177,7 @@ class Blackboard:
                 try:
                     callback(k, value)
                 except Exception as exc:
-                    self._logger.warning(
-                        f"[Blackboard] prefix subscriber error for '{k}': {exc}"
-                    )
+                    self._logger.warning(f"[Blackboard] prefix subscriber error for '{k}': {exc}")
 
         self._event_publisher.subscribe("blackboard_updated", _filter_callback)
 
@@ -200,17 +196,13 @@ class Blackboard:
         Used by ``SelfHealingLoop`` to create an isolated context snapshot
         for remediation agents so they don't mutate live state.
         """
-        return {
-            entry.key: copy.deepcopy(entry.value)
-            for entry in self._store.values()
-            if not entry.invalidated
-        }
+        return {entry.key: copy.deepcopy(entry.value) for entry in self._store.values() if not entry.invalidated}
 
     def get_all_generated_files(self) -> Dict[str, str]:
         """Convenience method: return all entries written under generated_files/."""
         prefix_entries = self.read_prefix("generated_files/")
         # Keys are "generated_files/{rel_path}" — strip the prefix
-        return {k[len("generated_files/"):]: v for k, v in prefix_entries.items()}
+        return {k[len("generated_files/") :]: v for k, v in prefix_entries.items()}
 
     # ------------------------------------------------------------------
     # Streaming (Point 4 — token streaming)

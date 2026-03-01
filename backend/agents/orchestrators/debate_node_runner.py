@@ -45,8 +45,15 @@ if TYPE_CHECKING:
 
 
 _CONSENSUS_KEYWORDS = [
-    "i agree", "agreed", "consensus", "we should go with", "final decision",
-    "both agree", "concuerdo", "de acuerdo", "decisión final",
+    "i agree",
+    "agreed",
+    "consensus",
+    "we should go with",
+    "final decision",
+    "both agree",
+    "concuerdo",
+    "de acuerdo",
+    "decisión final",
 ]
 
 
@@ -92,10 +99,7 @@ class DebateNodeRunner:
         topic: str = node.task_data.get("topic", node.id)
         max_rounds: int = node.debate_rounds or self._max_rounds
 
-        self._logger.info(
-            f"[DebateNodeRunner] Starting debate on '{topic}' "
-            f"({max_rounds} max rounds)"
-        )
+        self._logger.info(f"[DebateNodeRunner] Starting debate on '{topic}' ({max_rounds} max rounds)")
 
         history: List[str] = []
         consensus: Optional[str] = None
@@ -154,17 +158,14 @@ class DebateNodeRunner:
             # Check for consensus
             if self._detect_consensus(arg_a, arg_b):
                 consensus = arg_b  # Last statement is the agreed position
-                self._logger.info(
-                    f"[DebateNodeRunner] Consensus reached in round {round_num}"
-                )
+                self._logger.info(f"[DebateNodeRunner] Consensus reached in round {round_num}")
                 break
 
         if consensus is None:
             # No consensus — use the final Agent B statement as the decision
             consensus = history[-1] if history else f"No consensus on: {topic}"
             self._logger.warning(
-                f"[DebateNodeRunner] No consensus after {max_rounds} rounds — "
-                "using final Agent B statement."
+                f"[DebateNodeRunner] No consensus after {max_rounds} rounds — using final Agent B statement."
             )
 
         await blackboard.write(f"debate/{node.id}/consensus", consensus, "debate_runner")

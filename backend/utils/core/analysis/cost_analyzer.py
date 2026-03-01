@@ -188,7 +188,7 @@ class CostAnalyzer:
                             task_type=data.get("task_type", "generation"),
                             prompt_tokens=usage.get("prompt_tokens", 0),
                             completion_tokens=usage.get("completion_tokens", 0),
-                            timestamp=row["timestamp"]
+                            timestamp=row["timestamp"],
                         )
                         self._records.append(record)
                         loaded_count += 1
@@ -215,11 +215,7 @@ class CostAnalyzer:
         """
         if project_name is None:
             return sum(r.total_tokens for r in self._records)
-        return sum(
-            r.total_tokens
-            for r in self._records
-            if r.phase_name.startswith(project_name)
-        )
+        return sum(r.total_tokens for r in self._records if r.phase_name.startswith(project_name))
 
     def record_usage(
         self,

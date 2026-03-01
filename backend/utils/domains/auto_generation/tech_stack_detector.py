@@ -141,9 +141,7 @@ class TechStackDetector:
                 info.primary_language = "rust"
 
         # Detect framework from aggregated deps
-        framework_name, framework_version = self._detect_framework(
-            all_deps, info.primary_language
-        )
+        framework_name, framework_version = self._detect_framework(all_deps, info.primary_language)
         info.framework = framework_name
         info.framework_version = framework_version
 
@@ -228,9 +226,7 @@ class TechStackDetector:
         except (ImportError, Exception):
             # Regex fallback for older Python versions
             # Find [tool.poetry.dependencies]
-            poetry_block = re.search(
-                r"\[tool\.poetry\.dependencies\](.*?)(?=\[|\Z)", content, re.DOTALL
-            )
+            poetry_block = re.search(r"\[tool\.poetry\.dependencies\](.*?)(?=\[|\Z)", content, re.DOTALL)
             if poetry_block:
                 build_tool = "poetry"
                 for line in poetry_block.group(1).splitlines():
@@ -299,7 +295,9 @@ class TechStackDetector:
             if in_deps and stripped.startswith("[") and stripped != "[dependencies]":
                 break
             if in_deps:
-                m = re.match(r'([a-z][a-z0-9_\-]*)\s*=\s*(?:"([\d\.]+)"|\{.*?version\s*=\s*"([\d\.]+)")', stripped, re.I)
+                m = re.match(
+                    r'([a-z][a-z0-9_\-]*)\s*=\s*(?:"([\d\.]+)"|\{.*?version\s*=\s*"([\d\.]+)")', stripped, re.I
+                )
                 if m:
                     deps[m.group(1).lower()] = m.group(2) or m.group(3) or ""
         return deps
@@ -308,13 +306,9 @@ class TechStackDetector:
     # Framework / test detection
     # ------------------------------------------------------------------
 
-    def _detect_framework(
-        self, deps: Dict[str, str], language: str
-    ) -> Tuple[str, Optional[str]]:
+    def _detect_framework(self, deps: Dict[str, str], language: str) -> Tuple[str, Optional[str]]:
         """Return (framework_name, version_or_None) from dep map."""
-        candidates = (
-            self._PYTHON_FRAMEWORKS if language == "python" else self._JS_FRAMEWORKS
-        )
+        candidates = self._PYTHON_FRAMEWORKS if language == "python" else self._JS_FRAMEWORKS
         for dep_key, label in candidates:
             if dep_key in deps:
                 version = deps[dep_key] or None

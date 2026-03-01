@@ -53,10 +53,7 @@ def _mock_sse_events(page: Page, events: list) -> None:
     """Mock Server-Sent Events for orchestration progress."""
 
     def handle(route):
-        body = "\n".join(
-            f"event: {e['event']}\ndata: {json.dumps(e['data'])}\n"
-            for e in events
-        )
+        body = "\n".join(f"event: {e['event']}\ndata: {json.dumps(e['data'])}\n" for e in events)
         route.fulfill(
             status=200,
             content_type="text/event-stream",

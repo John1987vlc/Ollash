@@ -1,5 +1,6 @@
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
+
 def test_remove_think_blocks():
     text = "<think>deep reasoning</think>actual response"
     cleaned, thought = LLMResponseParser.remove_think_blocks(text)
@@ -10,6 +11,7 @@ def test_remove_think_blocks():
     cleaned, thought = LLMResponseParser.remove_think_blocks(text_proc)
     assert cleaned == "Done."
     assert thought == "step by step"
+
 
 def test_extract_json_with_comments_and_trailing_commas():
     # Test step 5 heuristic: rescue JSON with JS comments and trailing commas
@@ -23,18 +25,16 @@ def test_extract_json_with_comments_and_trailing_commas():
     Hope it works!
     """
     result = LLMResponseParser.extract_json(text)
-    assert result == {
-        "name": "ollash",
-        "version": "1.0",
-        "features": ["auto", "chat"]
-    }
+    assert result == {"name": "ollash", "version": "1.0", "features": ["auto", "chat"]}
+
 
 def test_extract_json_from_tags():
-    text = "<plan_json>{\"task\": \"build\"}</plan_json>"
+    text = '<plan_json>{"task": "build"}</plan_json>'
     assert LLMResponseParser.extract_json(text) == {"task": "build"}
 
-    text_md = "<backlog_json>\n```json\n[{\"id\": 1}]\n```\n</backlog_json>"
+    text_md = '<backlog_json>\n```json\n[{"id": 1}]\n```\n</backlog_json>'
     assert LLMResponseParser.extract_json(text_md) == [{"id": 1}]
+
 
 def test_extract_multiple_files_variations():
     response = """
@@ -50,6 +50,7 @@ def test_extract_multiple_files_variations():
     files = LLMResponseParser.extract_multiple_files(response)
     assert files["src/main.py"] == "print(1)"
     assert files["README.md"] == "# Hello"
+
 
 def test_extract_multiple_files_no_filename_in_block():
     # Filename outside the block

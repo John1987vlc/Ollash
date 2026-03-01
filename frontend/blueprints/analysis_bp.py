@@ -51,15 +51,9 @@ def get_tool_definitions():
             if category not in categorized:
                 categorized[category] = []
 
-            categorized[category].append({
-                "name": name,
-                "description": tool["function"]["description"]
-            })
+            categorized[category].append({"name": name, "description": tool["function"]["description"]})
 
-        return jsonify({
-            "total_tools": total_count,
-            "categories": categorized
-        }), 200
+        return jsonify({"total_tools": total_count, "categories": categorized}), 200
 
     except Exception as e:
         current_app.logger.error(f"Error getting tool definitions: {e}")

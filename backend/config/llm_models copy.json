@@ -1,0 +1,23 @@
+{
+    "ollama_url": "http://localhost:11434",
+    "default_model": "ministral-3:8b",
+    "default_timeout": 600,
+    "default_temperature": 0.4,
+    "embedding": "qwen3-embedding:4b",
+    "agent_roles": {
+        "planner": "ministral-3:8b",
+        "prototyper": "qwen3-coder:30b",
+        "coder": "qwen3-coder:30b",
+        "generalist": "ministral-3:8b",
+        "suggester": "qwen3-coder:30b",
+        "improvement_planner": "ministral-3:8b",
+        "senior_reviewer": "qwen3-coder:30b",
+        "test_generator": "qwen3-coder:30b",
+        "orchestration": "ministral-3:8b",
+        "analyst": "qwen3-coder:30b",
+        "writer": "ministral-3:8b",
+        "self_correction": "ministral-3:8b",
+        "network": "ministral-3:8b",
+        "system": "ministral-3:8b"
+    }
+}

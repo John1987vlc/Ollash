@@ -79,9 +79,7 @@ class SandboxValidator:
         # Step 1: local syntax check
         ok, reason = self._syntax_check(suffix, content)
         if not ok:
-            self.logger.warning(
-                f"SandboxValidator: syntax check failed for {file_path}: {reason}"
-            )
+            self.logger.warning(f"SandboxValidator: syntax check failed for {file_path}: {reason}")
             candidate = str(file_path) + ".candidate"
             try:
                 file_manager.write_file(candidate, content)
@@ -98,9 +96,7 @@ class SandboxValidator:
         if suffix == ".py":
             docker_ok, docker_reason = self._docker_validate(content)
             if not docker_ok:
-                self.logger.warning(
-                    f"SandboxValidator: Docker validation failed for {file_path}: {docker_reason}"
-                )
+                self.logger.warning(f"SandboxValidator: Docker validation failed for {file_path}: {docker_reason}")
                 candidate = str(file_path) + ".candidate"
                 try:
                     file_manager.write_file(candidate, content)
@@ -138,9 +134,7 @@ class SandboxValidator:
             return True, "no syntax check for extension"
 
         try:
-            with tempfile.NamedTemporaryFile(
-                suffix=suffix, mode="w", encoding="utf-8", delete=False
-            ) as tmp:
+            with tempfile.NamedTemporaryFile(suffix=suffix, mode="w", encoding="utf-8", delete=False) as tmp:
                 tmp.write(content)
                 tmp_path = tmp.name
 
@@ -160,9 +154,7 @@ class SandboxValidator:
 
         except FileNotFoundError:
             # Interpreter not installed — fail-open
-            self.logger.warning(
-                f"SandboxValidator: interpreter not found for {suffix}, skipping syntax check"
-            )
+            self.logger.warning(f"SandboxValidator: interpreter not found for {suffix}, skipping syntax check")
             return True, "interpreter not available"
         except subprocess.TimeoutExpired:
             self.logger.warning(f"SandboxValidator: syntax check timed out for {suffix}")
@@ -190,9 +182,7 @@ class SandboxValidator:
             return True, "sandbox import error"
 
         try:
-            with tempfile.NamedTemporaryFile(
-                suffix=".py", mode="w", encoding="utf-8", delete=False
-            ) as tmp:
+            with tempfile.NamedTemporaryFile(suffix=".py", mode="w", encoding="utf-8", delete=False) as tmp:
                 tmp.write(content)
                 tmp_path = tmp.name
 

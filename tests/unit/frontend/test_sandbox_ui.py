@@ -1,6 +1,7 @@
 import pytest
 from playwright.sync_api import expect
 
+
 @pytest.mark.e2e
 def test_sandbox_ui_initialization(page, base_url):
     """Test that the sandbox view loads and initializes Monaco."""
@@ -21,6 +22,7 @@ def test_sandbox_ui_initialization(page, base_url):
     # Check if we can see default code (this is tricky with Monaco, but we can check the window object)
     editor_exists = page.evaluate("window.ollashSandboxEditor !== null")
     assert editor_exists is True
+
 
 @pytest.mark.e2e
 def test_sandbox_execution_error_no_code(page, base_url):

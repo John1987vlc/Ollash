@@ -85,10 +85,7 @@ class PlanningTools:
 
         # F28: Notify UI about the switch for visual feedback
         if hasattr(self.agent_instance, "event_publisher") and self.agent_instance.event_publisher:
-            self.agent_instance.event_publisher.publish("agent_switch", {
-                "agent_type": agent_type,
-                "reason": reason
-            })
+            self.agent_instance.event_publisher.publish("agent_switch", {"agent_type": agent_type, "reason": reason})
 
         # This tool's actual logic (changing agent type) is handled by the calling agent (DefaultAgent)
         return {
@@ -117,8 +114,7 @@ class PlanningTools:
 
         # This will trigger the ConfirmationManager via HIL
         confirmed = await self.agent_instance.confirmation_manager.request_confirmation(
-            "permission_escalation",
-            {"command": command, "reason": reason}
+            "permission_escalation", {"command": command, "reason": reason}
         )
 
         if confirmed:
@@ -126,12 +122,12 @@ class PlanningTools:
             self.agent_instance.policy_enforcer.set_active_profile("developer")
             return {
                 "ok": True,
-                "result": "Permission GRANTED. You can now retry the command. Your profile has been upgraded to 'developer'."
+                "result": "Permission GRANTED. You can now retry the command. Your profile has been upgraded to 'developer'.",
             }
         else:
             return {
                 "ok": False,
-                "error": "Permission DENIED by user. You must find an alternative way or explain why the mission cannot continue."
+                "error": "Permission DENIED by user. You must find an alternative way or explain why the mission cannot continue.",
             }
 
     @ollash_tool(

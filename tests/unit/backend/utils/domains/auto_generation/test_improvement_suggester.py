@@ -2,21 +2,20 @@ import pytest
 from unittest.mock import MagicMock
 from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
 
+
 @pytest.fixture
 def mock_deps():
-    return {
-        "llm_client": MagicMock(),
-        "logger": MagicMock(),
-        "response_parser": MagicMock()
-    }
+    return {"llm_client": MagicMock(), "logger": MagicMock(), "response_parser": MagicMock()}
+
 
 @pytest.fixture
 def suggester(mock_deps):
     return ImprovementSuggester(**mock_deps)
 
+
 @pytest.mark.unit
 def test_suggest_improvements(suggester, mock_deps):
-    mock_deps["llm_client"].chat.return_value = ({"message": {"content": '- suggestion 1\n- suggestion 2'}}, {})
+    mock_deps["llm_client"].chat.return_value = ({"message": {"content": "- suggestion 1\n- suggestion 2"}}, {})
 
     suggestions = suggester.suggest_improvements("desc", "readme", {}, {}, 1)
 

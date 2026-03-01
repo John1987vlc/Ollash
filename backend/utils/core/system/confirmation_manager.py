@@ -60,7 +60,20 @@ class ConfirmationManager:
         # Generate a unique request ID
         req_id = str(uuid.uuid4())[:8]
 
-        # 1. Notify via EventPublisher for Web UI
+        # 1. Prepare for response BEFORE publishing request to avoid race conditions
+        event = asyncio.Event()
+        if self.event_publisher:
+            self._pending_responses[req_id] = event
+
+            def on_hil_response(event_type, event_data):
+                data = event_data  # The publisher passes event_type and event_data
+                if data.get("request_id") == req_id:
+                    self._responses_data[req_id] = data
+                    event.set()
+
+            self.event_publisher.subscribe("hil_response", on_hil_response)
+
+        # 2. Notify via EventPublisher for Web UI/CLI
         if self.event_publisher:
             hil_data = {
                 "id": req_id,
@@ -68,31 +81,16 @@ class ConfirmationManager:
                 "title": f"Confirm Action: {action}",
                 "details": details,
                 "timestamp": datetime.datetime.now().isoformat(),
-                "agent": "DefaultAgent"
+                "agent": "DefaultAgent",
             }
-
-            # Use the dedicated HIL blueprint storage if possible, or just publish
-            # For now, we publish a specific hil_request event
             self.event_publisher.publish("hil_request", hil_data)
-            self.logger.info(f"HIL Request sent to UI: {req_id}")
+            self.logger.info(f"HIL Request sent to UI/CLI: {req_id}")
 
-        # 2. Log to console
+        # 3. Log to console (always, for visibility)
         self._log_confirmation_details(action, details)
 
-        # 3. Wait for response
+        # 4. Wait for response
         if self.event_publisher:
-            # Async wait for HIL response via event loop
-            event = asyncio.Event()
-            self._pending_responses[req_id] = event
-
-            # We subscribe to hil_response locally for this manager
-            def on_hil_response(ev_type, data):
-                if data.get("request_id") == req_id:
-                    self._responses_data[req_id] = data
-                    event.set()
-
-            self.event_publisher.subscribe("hil_response", on_hil_response)
-
             try:
                 # Wait with timeout (e.g. 5 minutes)
                 await asyncio.wait_for(event.wait(), timeout=300)
@@ -112,6 +110,7 @@ class ConfirmationManager:
                 # Cleanup
                 self._pending_responses.pop(req_id, None)
                 self._responses_data.pop(req_id, None)
+                self.event_publisher.unsubscribe("hil_response", on_hil_response)
         else:
             # Fallback to blocking CLI input if no event publisher
             return self._ask_blocking_input(action, details)
@@ -128,16 +127,23 @@ class ConfirmationManager:
             if "content" in details:
                 self.logger.info(f"📏 Size: {len(str(details['content']))} characters")
 
-        elif action == "run_shell_command":
-            self.logger.info(f"💻 Command: {Fore.RED}{details.get('command')}{Style.RESET_ALL}")
+        elif action in ["run_shell_command", "run_command", "execute_script"]:
+            cmd = details.get("command") or details.get("filename", "N/A")
+            self.logger.info(f"💻 Action: {Fore.RED}{cmd}{Style.RESET_ALL}")
+            if "args" in details:
+                self.logger.info(f"🔢 Args: {details['args']}")
 
         self.logger.info(f"{Fore.YELLOW}{'=' * 60}{Style.RESET_ALL}")
 
     def _ask_blocking_input(self, action: str, details: Dict) -> bool:
         """Classic blocking input for CLI mode."""
+        print(f"\n{Fore.YELLOW}🤔 [Confirmation Required]{Style.RESET_ALL}")
         while True:
-            response = input(f"{Fore.GREEN}Proceed? (yes/no): {Style.RESET_ALL}").strip().lower()
+            response = input(f"{Fore.GREEN}Proceed with {action}? (y/n/cancel): {Style.RESET_ALL}").strip().lower()
             if response in ["yes", "y", "si", "s"]:
                 return True
             elif response in ["no", "n"]:
+                return False
+            elif response in ["c", "cancel"]:
+                self.logger.warning("Operation cancelled by user.")
                 return False

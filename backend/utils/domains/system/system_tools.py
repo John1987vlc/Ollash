@@ -71,11 +71,41 @@ class SystemTools:
             return {"ok": True, "all_models_stats": all_stats}
 
     @ollash_tool(
+        name="find_large_files",
+        description="Finds files larger than a specific size in a given directory.",
+        parameters={
+            "directory": {
+                "type": "string",
+                "description": "The directory to search in (e.g., C:\\ on Windows, / on Linux)",
+            },
+            "min_size_mb": {"type": "integer", "description": "Minimum file size in MB (e.g., 1024 for 1GB)"},
+            "limit": {"type": "integer", "description": "Maximum number of files to return (default 20)"},
+        },
+        required=["directory", "min_size_mb"],
+        toolset_id="system_tools",
+        agent_types=["system", "orchestrator"],
+    )
+    async def find_large_files(self, directory: str, min_size_mb: int, limit: int = 20):
+        """Finds large files using OS-optimized commands."""
+        self.logger.info(f"Searching for files > {min_size_mb}MB in {directory}...")
+        import platform
+
+        if platform.system() == "Windows":
+            min_bytes = min_size_mb * 1024 * 1024
+            ps_cmd = f"Get-ChildItem -Path '{directory}' -File -Recurse -ErrorAction SilentlyContinue | Where-Object {{ $_.Length -gt {min_bytes} }} | Select-Object FullName, @{{Name='SizeMB';Expression={{[math]::Round($_.Length / 1MB, 2)}}}} | Sort-Object Length -Descending | Select-Object -First {limit} | ConvertTo-Json"
+            return await self.exec.run_shell_command(f'powershell -Command "{ps_cmd}"')
+        else:
+            find_cmd = (
+                f"find {directory} -type f -size +{min_size_mb}M -exec ls -lh {{}} + 2>/dev/null | head -n {limit}"
+            )
+            return await self.exec.run_shell_command(find_cmd)
+
+    @ollash_tool(
         name="get_system_info",
         description="Retrieves general system information (OS, CPU, memory, uptime, etc.) using native Python libraries.",
         parameters={},
         toolset_id="system_tools",
-        agent_types=["system"],
+        agent_types=["system", "orchestrator"],
     )
     def get_system_info(self):
         """
@@ -129,8 +159,8 @@ class SystemTools:
                 "status": {
                     "boot_time": bt_obj.strftime("%Y-%m-%d %H:%M:%S"),
                     "uptime_seconds": round(uptime_seconds, 2),
-                    "load_avg": getattr(psutil, "getloadavg", lambda: "N/A")()
-                }
+                    "load_avg": getattr(psutil, "getloadavg", lambda: "N/A")(),
+                },
             }
 
             self.logger.info("SUCCESS: System information retrieved successfully via psutil.")

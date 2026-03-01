@@ -92,6 +92,14 @@ def get_discovered_definitions() -> List[Dict]:
     return list(_DISCOVERED_DEFINITIONS)
 
 
+def get_discovered_summaries() -> List[Dict]:
+    """Returns only names and descriptions of all discovered tools for lightweight selection."""
+    return [
+        {"name": info["definition"]["function"]["name"], "description": info["definition"]["function"]["description"]}
+        for info in _DISCOVERED_TOOLS.values()
+    ]
+
+
 def get_async_eligible_tools() -> List[str]:
     """Returns a list of tool names that are marked as safe for async execution."""
     return list(_ASYNC_ELIGIBLE_TOOLS)

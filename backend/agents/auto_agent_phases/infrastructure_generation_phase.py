@@ -40,7 +40,7 @@ class InfrastructureGenerationPhase(IAgentPhase):
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         file_paths = kwargs.get("file_paths", [])
         include_docker = kwargs.get("include_docker", False)
-        include_terraform = kwargs.get("include_terraform", False) # New flag
+        include_terraform = kwargs.get("include_terraform", False)  # New flag
 
         if not self.context.infra_generator:
             self.context.logger.warning("Infrastructure phase: Skipped (InfraGenerator not available)")
@@ -191,7 +191,9 @@ jobs:
 {test_steps}
 """
 
-    def _generate_deploy_workflow(self, needs: Dict[str, Any], language: str, project_name: str, include_docker: bool = True) -> str:
+    def _generate_deploy_workflow(
+        self, needs: Dict[str, Any], language: str, project_name: str, include_docker: bool = True
+    ) -> str:
         """Generate GitHub Actions deploy workflow based on detected stack."""
         install_step = {
             "python": """      - uses: actions/setup-python@v5

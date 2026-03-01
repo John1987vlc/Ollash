@@ -41,9 +41,7 @@ class ImprovementSuggester:
         if not self.vulnerability_scanner or not current_files:
             return None
         try:
-            report = self.vulnerability_scanner.scan_project(
-                current_files, block_on_critical=False
-            )
+            report = self.vulnerability_scanner.scan_project(current_files, block_on_critical=False)
             if report.total_vulnerabilities == 0:
                 return None
             top_vulns = [
@@ -88,7 +86,11 @@ class ImprovementSuggester:
             )
 
         system, user = AutoGenPrompts.suggest_improvements_prompt(
-            project_description, readme_content, json_structure, current_files, loop_num,
+            project_description,
+            readme_content,
+            json_structure,
+            current_files,
+            loop_num,
             risk_context=risk_context,
         )
         response_data, _ = self.llm_client.chat(

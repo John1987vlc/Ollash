@@ -6,6 +6,7 @@ Scenario:
   2. Tests verify: hunk rendering, line colors, empty state,
      and the loadForFile() async fetch flow (mocked via page.route).
 """
+
 from __future__ import annotations
 
 import json
@@ -19,10 +20,7 @@ from playwright.sync_api import Page, expect
 # HTML template — inlines real diff-viewer.js source
 # ---------------------------------------------------------------------------
 
-_COMPONENT_PATH = (
-    Path(__file__).parent.parent.parent
-    / "frontend/static/js/components/diff-viewer.js"
-)
+_COMPONENT_PATH = Path(__file__).parent.parent.parent / "frontend/static/js/components/diff-viewer.js"
 
 
 def _build_html() -> str:

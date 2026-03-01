@@ -1,8 +1,7 @@
 """Unit tests — OllamaClient.stream_chat (P4)."""
 
-import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 

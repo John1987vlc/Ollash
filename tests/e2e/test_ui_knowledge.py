@@ -2,6 +2,7 @@ import pytest
 import re
 from playwright.sync_api import expect
 
+
 @pytest.mark.e2e
 def test_knowledge_view_loads(page, base_url):
     """Verifies that the Knowledge Base (Intelligence Hub) view loads correctly."""
@@ -36,16 +37,16 @@ def test_knowledge_view_loads(page, base_url):
     # 7. Check for placeholder or documents (since it's a fresh test, likely placeholder)
     # The loadVectorDocs fetch will happen now.
     # If it fails with 500, we might see the error message in the console or UI.
-    
+
     # Wait for fetch to complete (or fail)
     page.wait_for_timeout(1000)
-    
+
     # If the 500 error happens, the JS should handle it and show "Failed to load"
     # based on my previous read of knowledge.js
     # kbDocGrid.innerHTML = '<p class="placeholder">Failed to load knowledge base.</p>';
-    
+
     # Verify we are NOT seeing the "Failed to load" message
     expect(page.locator("#kb-doc-grid")).not_to_contain_text("Failed to load knowledge base.")
-    
+
     # It should either show "No documents indexed yet." or actual documents.
     expect(page.locator("#kb-doc-grid")).to_be_visible()

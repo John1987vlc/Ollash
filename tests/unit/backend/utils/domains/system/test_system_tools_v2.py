@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from backend.utils.domains.system.system_tools import SystemTools
 
+
 class TestSystemToolsUnit:
     """
     Unit tests for SystemTools to ensure inputs/outputs are correct.
@@ -9,12 +10,7 @@ class TestSystemToolsUnit:
 
     @pytest.fixture
     def mock_deps(self):
-        return {
-            "exec": MagicMock(),
-            "file_manager": MagicMock(),
-            "logger": MagicMock(),
-            "agent": MagicMock()
-        }
+        return {"exec": MagicMock(), "file_manager": MagicMock(), "logger": MagicMock(), "agent": MagicMock()}
 
     @pytest.fixture
     def system_tools(self, mock_deps):
@@ -22,18 +18,19 @@ class TestSystemToolsUnit:
             command_executor=mock_deps["exec"],
             file_manager=mock_deps["file_manager"],
             logger=mock_deps["logger"],
-            agent_instance=mock_deps["agent"]
+            agent_instance=mock_deps["agent"],
         )
 
     def test_get_system_info_success(self, system_tools):
         """Validates that get_system_info (psutil) returns correct structure."""
-        with patch('psutil.virtual_memory') as mock_vm, \
-             patch('psutil.cpu_count') as mock_cpu, \
-             patch('platform.system') as mock_sys, \
-             patch('psutil.swap_memory') as mock_swap, \
-             patch('psutil.boot_time') as mock_boot, \
-             patch('psutil.cpu_freq') as mock_freq:
-
+        with (
+            patch("psutil.virtual_memory") as mock_vm,
+            patch("psutil.cpu_count") as mock_cpu,
+            patch("platform.system") as mock_sys,
+            patch("psutil.swap_memory") as mock_swap,
+            patch("psutil.boot_time") as mock_boot,
+            patch("psutil.cpu_freq") as mock_freq,
+        ):
             # Setup mocks
             mock_vm.return_value.total = 16000000000
             mock_vm.return_value.available = 8000000000

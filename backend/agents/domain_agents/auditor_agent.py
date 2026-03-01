@@ -89,9 +89,7 @@ class AuditorAgent(BaseDomainAgent):
     # JIT subscription callback (synchronous — EventPublisher requirement)
     # ------------------------------------------------------------------
 
-    def _on_file_generated(
-        self, event_type: str, event_data: Dict[str, Any]
-    ) -> None:
+    def _on_file_generated(self, event_type: str, event_data: Dict[str, Any]) -> None:
         """EventPublisher callback — synchronous.
 
         Schedules the async audit as a background task so it does not block
@@ -111,9 +109,7 @@ class AuditorAgent(BaseDomainAgent):
             if loop.is_running():
                 loop.create_task(self._audit_file(file_path, content))
             else:
-                self._log_warning(
-                    f"Event loop not running; skipping JIT audit for '{file_path}'"
-                )
+                self._log_warning(f"Event loop not running; skipping JIT audit for '{file_path}'")
         except RuntimeError:
             # No event loop in this thread (e.g. sync test context)
             pass
@@ -168,9 +164,7 @@ class AuditorAgent(BaseDomainAgent):
                         "\n".join(sandbox_result.errors),
                         self.agent_id,
                     )
-                    self._log_debug(
-                        f"Sandbox: {len(sandbox_result.errors)} linter errors in '{file_path}'"
-                    )
+                    self._log_debug(f"Sandbox: {len(sandbox_result.errors)} linter errors in '{file_path}'")
             except Exception as exc:
                 self._log_debug(f"Sandbox runner failed for '{file_path}': {exc}")
 
@@ -243,10 +237,7 @@ class AuditorAgent(BaseDomainAgent):
         }
         await blackboard.write("audit_summary", summary, self.agent_id)
         self._publish_event("batch_audit_completed", **summary)
-        self._log_info(
-            f"Batch audit complete: {scanned} files scanned, "
-            f"{len(critical_files)} critical issues."
-        )
+        self._log_info(f"Batch audit complete: {scanned} files scanned, {len(critical_files)} critical issues.")
         return summary
 
     # ------------------------------------------------------------------
@@ -264,7 +255,7 @@ class AuditorAgent(BaseDomainAgent):
     def _has_critical(scan_result: Any) -> bool:
         """Return True if the scan result contains any CRITICAL severity finding."""
         try:
-            for vuln in (scan_result.vulnerabilities if hasattr(scan_result, "vulnerabilities") else []):
+            for vuln in scan_result.vulnerabilities if hasattr(scan_result, "vulnerabilities") else []:
                 if hasattr(vuln, "severity") and vuln.severity.lower() == "critical":
                     return True
         except (AttributeError, TypeError):
@@ -275,7 +266,7 @@ class AuditorAgent(BaseDomainAgent):
     def _count_critical(scan_result: Any) -> int:
         count = 0
         try:
-            for vuln in (scan_result.vulnerabilities if hasattr(scan_result, "vulnerabilities") else []):
+            for vuln in scan_result.vulnerabilities if hasattr(scan_result, "vulnerabilities") else []:
                 if hasattr(vuln, "severity") and vuln.severity.lower() == "critical":
                     count += 1
         except (AttributeError, TypeError):
@@ -288,7 +279,7 @@ class AuditorAgent(BaseDomainAgent):
         order = ["critical", "high", "medium", "low", "info"]
         found = set()
         try:
-            for vuln in (scan_result.vulnerabilities if hasattr(scan_result, "vulnerabilities") else []):
+            for vuln in scan_result.vulnerabilities if hasattr(scan_result, "vulnerabilities") else []:
                 if hasattr(vuln, "severity"):
                     found.add(vuln.severity.lower())
         except (AttributeError, TypeError):

@@ -9,6 +9,7 @@ def setup_app_config(app, ollash_root_dir: Path):
     """Combines centralized config and injects it into Flask app config."""
 
     combined_config = {
+        "ollama_url": central_config.OLLAMA_URL,
         **(central_config.TOOL_SETTINGS or {}),
         **(central_config.LLM_MODELS or {}),
         **(central_config.AGENT_FEATURES or {}),

@@ -3,23 +3,28 @@ from unittest.mock import MagicMock
 from backend.utils.domains.network.network_tools import NetworkTools
 from backend.utils.domains.network.advanced_network_tools import AdvancedNetworkTools
 
+
 @pytest.fixture
 def mock_exec():
     executor = MagicMock()
     executor.execute.return_value = MagicMock(success=True, stdout="", stderr="")
     return executor
 
+
 @pytest.fixture
 def mock_logger():
     return MagicMock()
+
 
 @pytest.fixture
 def network_tools(mock_exec, mock_logger):
     return NetworkTools(mock_exec, mock_logger)
 
+
 @pytest.fixture
 def advanced_network_tools(mock_exec, mock_logger):
     return AdvancedNetworkTools(mock_exec, mock_logger)
+
 
 class TestNetworkTools:
     def test_ping_host_linux_success(self, network_tools, mock_exec):
@@ -27,7 +32,7 @@ class TestNetworkTools:
         mock_exec.execute.return_value = MagicMock(
             success=True,
             stdout="""4 packets transmitted, 4 received, 0% packet loss, time 3003ms
-rtt min/avg/max/mdev = 10.123/15.456/20.789/2.000 ms"""
+rtt min/avg/max/mdev = 10.123/15.456/20.789/2.000 ms""",
         )
 
         result = network_tools.ping_host("google.com")
@@ -42,7 +47,7 @@ rtt min/avg/max/mdev = 10.123/15.456/20.789/2.000 ms"""
         mock_exec.execute.return_value = MagicMock(
             success=True,
             stdout="""Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),
-Minimum = 10ms, Maximum = 20ms, Average = 15ms"""
+Minimum = 10ms, Maximum = 20ms, Average = 15ms""",
         )
 
         result = network_tools.ping_host("google.com")
@@ -55,9 +60,7 @@ Minimum = 10ms, Maximum = 20ms, Average = 15ms"""
     def test_check_port_status_linux_open(self, network_tools, mock_exec):
         network_tools.os_type = "Linux"
         mock_exec.execute.return_value = MagicMock(
-            success=True,
-            stdout="Connection to 127.0.0.1 80 port [tcp/http] succeeded!",
-            stderr=""
+            success=True, stdout="Connection to 127.0.0.1 80 port [tcp/http] succeeded!", stderr=""
         )
 
         result = network_tools.check_port_status("127.0.0.1", 80)
@@ -69,7 +72,7 @@ Minimum = 10ms, Maximum = 20ms, Average = 15ms"""
         mock_exec.execute.return_value = MagicMock(
             success=True,
             stdout="""Proto Local Address          Foreign Address        State
-TCP   127.0.0.1:8000         0.0.0.0:0              LISTENING"""
+TCP   127.0.0.1:8000         0.0.0.0:0              LISTENING""",
         )
 
         result = network_tools.list_active_connections()
@@ -79,14 +82,21 @@ TCP   127.0.0.1:8000         0.0.0.0:0              LISTENING"""
         assert result["result"]["connections"][0]["protocol"] == "TCP"
         assert result["result"]["connections"][0]["state"] == "LISTENING"
 
+
 class TestAdvancedNetworkTools:
     def test_analyze_network_latency_linux_success(self, advanced_network_tools, mock_exec):
         advanced_network_tools.os_type = "Linux"
         mock_exec.execute.side_effect = [
-            MagicMock(success=True, stdout="""4 packets transmitted, 4 received, 0% packet loss
-rtt min/avg/max/mdev = 10/15/20/2 ms"""),
-            MagicMock(success=True, stdout=""" 1  router (192.168.1.1) 1.0 ms
- 2  isp (1.2.3.4) 10.0 ms""")
+            MagicMock(
+                success=True,
+                stdout="""4 packets transmitted, 4 received, 0% packet loss
+rtt min/avg/max/mdev = 10/15/20/2 ms""",
+            ),
+            MagicMock(
+                success=True,
+                stdout=""" 1  router (192.168.1.1) 1.0 ms
+ 2  isp (1.2.3.4) 10.0 ms""",
+            ),
         ]
 
         result = advanced_network_tools.analyze_network_latency("google.com")
@@ -98,8 +108,7 @@ rtt min/avg/max/mdev = 10/15/20/2 ms"""),
     def test_detect_unexpected_services_linux_nmap(self, advanced_network_tools, mock_exec):
         advanced_network_tools.os_type = "Linux"
         mock_exec.execute.return_value = MagicMock(
-            success=True,
-            stdout="Host: 192.168.1.1 () Ports: 22/open/tcp//ssh///, 80/open/tcp//http///"
+            success=True, stdout="Host: 192.168.1.1 () Ports: 22/open/tcp//ssh///, 80/open/tcp//http///"
         )
 
         result = advanced_network_tools.detect_unexpected_services("192.168.1.1", [80])
@@ -112,7 +121,7 @@ rtt min/avg/max/mdev = 10/15/20/2 ms"""),
         advanced_network_tools.os_type = "Linux"
         mock_exec.execute.side_effect = [
             MagicMock(success=True, stdout="inet 192.168.1.10/24 brd 192.168.1.255 scope global eth0"),
-            MagicMock(success=True, stdout="? (192.168.1.1) at 00:11:22:33:44:55 [ether] on eth0")
+            MagicMock(success=True, stdout="? (192.168.1.1) at 00:11:22:33:44:55 [ether] on eth0"),
         ]
 
         result = advanced_network_tools.map_internal_network()

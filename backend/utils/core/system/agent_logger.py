@@ -74,7 +74,9 @@ class AgentLogger:
         self.info(f"{color}{console_msg}{Style.RESET_ALL}", extra=extra_data)
 
         if self.event_publisher:
-            self.event_publisher.publish("tool_end", {"tool_name": tool_name, "success": success, "result": result_preview})
+            self.event_publisher.publish(
+                "tool_end", {"tool_name": tool_name, "success": success, "result": result_preview}
+            )
 
     def thinking(self, message: str):
         """Log a Chain of Thought / Thinking step."""

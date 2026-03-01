@@ -72,7 +72,9 @@ def load_role_prompt(role):
                             return jsonify({"role": role, "prompt": raw_text, "source": "filesystem"})
                         else:
                             content = json.load(f)
-                            text = content.get("prompt") or content.get("system_prompt") or json.dumps(content, indent=2)
+                            text = (
+                                content.get("prompt") or content.get("system_prompt") or json.dumps(content, indent=2)
+                            )
                             return jsonify({"role": role, "prompt": text, "source": "filesystem"})
                 except Exception as e:
                     return jsonify({"error": str(e)}), 500

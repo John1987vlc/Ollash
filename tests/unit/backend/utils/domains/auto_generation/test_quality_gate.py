@@ -50,12 +50,19 @@ class TestQualityGate:
 
         gate = QualityGate(logger=mock_logger)
         passing_test_result = TestResult(
-            success=True, exit_code=0, stdout="5 passed", stderr="", duration_seconds=1.0,
-            tests_passed=5, tests_failed=0
+            success=True,
+            exit_code=0,
+            stdout="5 passed",
+            stderr="",
+            duration_seconds=1.0,
+            tests_passed=5,
+            tests_failed=0,
         )
 
-        with patch.object(gate, "run_linter", return_value=(0, "")), \
-             patch.object(gate, "_run_tests", new=AsyncMock(return_value=passing_test_result)):
+        with (
+            patch.object(gate, "run_linter", return_value=(0, "")),
+            patch.object(gate, "_run_tests", new=AsyncMock(return_value=passing_test_result)),
+        ):
             report = await gate.run_quality_check(tmp_path)
 
         assert report.overall_pass is True
@@ -69,12 +76,19 @@ class TestQualityGate:
 
         gate = QualityGate(logger=mock_logger)
         failing_test_result = TestResult(
-            success=False, exit_code=1, stdout="2 failed", stderr="", duration_seconds=1.0,
-            tests_passed=3, tests_failed=2
+            success=False,
+            exit_code=1,
+            stdout="2 failed",
+            stderr="",
+            duration_seconds=1.0,
+            tests_passed=3,
+            tests_failed=2,
         )
 
-        with patch.object(gate, "run_linter", return_value=(0, "")), \
-             patch.object(gate, "_run_tests", new=AsyncMock(return_value=failing_test_result)):
+        with (
+            patch.object(gate, "run_linter", return_value=(0, "")),
+            patch.object(gate, "_run_tests", new=AsyncMock(return_value=failing_test_result)),
+        ):
             report = await gate.run_quality_check(tmp_path)
 
         assert report.overall_pass is False
@@ -88,12 +102,19 @@ class TestQualityGate:
 
         gate = QualityGate(logger=mock_logger)
         passing_test_result = TestResult(
-            success=True, exit_code=0, stdout="1 passed", stderr="", duration_seconds=0.5,
-            tests_passed=1, tests_failed=0
+            success=True,
+            exit_code=0,
+            stdout="1 passed",
+            stderr="",
+            duration_seconds=0.5,
+            tests_passed=1,
+            tests_failed=0,
         )
 
-        with patch.object(gate, "run_linter", return_value=(3, "3 errors found")), \
-             patch.object(gate, "_run_tests", new=AsyncMock(return_value=passing_test_result)):
+        with (
+            patch.object(gate, "run_linter", return_value=(3, "3 errors found")),
+            patch.object(gate, "_run_tests", new=AsyncMock(return_value=passing_test_result)),
+        ):
             report = await gate.run_quality_check(tmp_path)
 
         assert report.overall_pass is False

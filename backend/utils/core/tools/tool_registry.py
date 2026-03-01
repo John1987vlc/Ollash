@@ -16,6 +16,7 @@ from .tool_decorator import (
     get_async_eligible_tools,
     get_discovered_agent_tools,
     get_discovered_definitions,
+    get_discovered_summaries,
     get_discovered_tool_mapping,
 )
 
@@ -264,11 +265,23 @@ class ToolRegistry:
                 definitions.append(tool_def)
         return definitions
 
+    def get_tool_summaries(self, active_tool_names: Optional[List[str]] = None) -> List[Dict]:
+        """Returns lightweight (name, description) summaries of tools."""
+        self._initialize_if_needed()
+        all_summaries = get_discovered_summaries()
+        if active_tool_names is None:
+            return all_summaries
+
+        return [s for s in all_summaries if s["name"] in active_tool_names]
+
     def get_callable_tool_function(self, tool_name: str, agent_instance: Any) -> Callable:
         """
         Retrieves the callable function for a given tool, lazily instantiating its toolset if necessary.
         """
-        toolset_identifier, method_name_in_toolset = self.get_tool_mapping().get(tool_name)
+        mapping = self.get_tool_mapping().get(tool_name)
+        if not mapping:
+            raise ValueError(f"Tool '{tool_name}' not found in any registered toolset.")
+        toolset_identifier, method_name_in_toolset = mapping
 
         if toolset_identifier not in self._loaded_toolsets:
             toolset_config = self._toolset_configs.get(toolset_identifier)

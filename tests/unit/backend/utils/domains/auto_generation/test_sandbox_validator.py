@@ -25,8 +25,10 @@ class TestSandboxValidator:
         file_manager = MagicMock()
         content = "x = 1\n"
 
-        with patch.object(validator, "_syntax_check", return_value=(True, "ok")), \
-             patch.object(validator, "_docker_validate", return_value=(True, "ok")):
+        with (
+            patch.object(validator, "_syntax_check", return_value=(True, "ok")),
+            patch.object(validator, "_docker_validate", return_value=(True, "ok")),
+        ):
             result = validator.validate_and_write(tmp_path / "app.py", content, file_manager)
 
         assert result.approved is True
@@ -70,8 +72,10 @@ class TestSandboxValidator:
         validator, _ = _make_validator()
         file_manager = MagicMock()
 
-        with patch.object(validator, "_syntax_check", return_value=(True, "ok")), \
-             patch.object(validator, "_docker_validate", return_value=(False, "import error")):
+        with (
+            patch.object(validator, "_syntax_check", return_value=(True, "ok")),
+            patch.object(validator, "_docker_validate", return_value=(False, "import error")),
+        ):
             result = validator.validate_and_write(tmp_path / "app.py", "import missing_pkg\n", file_manager)
 
         assert result.approved is False
@@ -122,9 +126,7 @@ class TestSandboxValidator:
         """WasmSandbox.is_available=False → fail-open."""
         validator, _ = _make_validator()
         # WasmSandbox is imported locally inside _docker_validate; patch at source module
-        with patch(
-            "backend.utils.core.tools.wasm_sandbox.WasmSandbox"
-        ) as MockSandbox:
+        with patch("backend.utils.core.tools.wasm_sandbox.WasmSandbox") as MockSandbox:
             MockSandbox.return_value.is_available = False
             ok, reason = validator._docker_validate("x = 1\n")
         assert ok is True
@@ -134,28 +136,23 @@ class TestSandboxValidator:
         validator, _ = _make_validator()
         # Simulate an import error by making the module raise on access
         import backend.utils.core.tools.wasm_sandbox as wasm_mod
+
         with patch.object(wasm_mod, "WasmSandbox", side_effect=ImportError("no wasm")):
             ok, _ = validator._docker_validate("x = 1\n")
         assert ok is True
 
     def test_docker_validate_fails_when_compile_fails(self):
         validator, _ = _make_validator()
-        with patch(
-            "backend.utils.core.tools.wasm_sandbox.WasmSandbox"
-        ) as MockSandbox:
+        with patch("backend.utils.core.tools.wasm_sandbox.WasmSandbox") as MockSandbox:
             MockSandbox.return_value.is_available = True
             with patch("subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(
-                    returncode=1, stdout="", stderr="SyntaxError at line 1"
-                )
+                mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="SyntaxError at line 1")
                 ok, reason = validator._docker_validate("def bad(:\n")
         assert ok is False
 
     def test_docker_validate_returns_true_on_timeout(self):
         validator, _ = _make_validator()
-        with patch(
-            "backend.utils.core.tools.wasm_sandbox.WasmSandbox"
-        ) as MockSandbox:
+        with patch("backend.utils.core.tools.wasm_sandbox.WasmSandbox") as MockSandbox:
             MockSandbox.return_value.is_available = True
             with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("python", 30)):
                 ok, _ = validator._docker_validate("x = 1\n")
@@ -170,8 +167,10 @@ class TestSandboxValidator:
         file_manager = MagicMock()
         docker_mock = MagicMock(return_value=(False, "fail"))
 
-        with patch.object(validator, "_syntax_check", return_value=(True, "ok")), \
-             patch.object(validator, "_docker_validate", docker_mock):
+        with (
+            patch.object(validator, "_syntax_check", return_value=(True, "ok")),
+            patch.object(validator, "_docker_validate", docker_mock),
+        ):
             validator.validate_and_write(tmp_path / "style.css", "body {}", file_manager)
 
         docker_mock.assert_not_called()

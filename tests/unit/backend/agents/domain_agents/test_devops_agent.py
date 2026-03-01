@@ -1,4 +1,5 @@
 """Unit tests for DevOpsAgent."""
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from backend.agents.domain_agents.devops_agent import DevOpsAgent
@@ -18,6 +19,7 @@ def mock_infra_gen():
 @pytest.fixture
 def mock_blackboard_stable():
     bb = MagicMock()
+
     def bb_read(key, default=None):
         data = {
             "codebase_stable": True,
@@ -26,6 +28,7 @@ def mock_blackboard_stable():
             "ci_failures": None,
         }
         return data.get(key, default)
+
     bb.read = bb_read
     bb.write = AsyncMock()
     bb.get_all_generated_files.return_value = {"src/main.py": "def main(): pass"}

@@ -2,6 +2,7 @@ from typing import Optional, Dict, Any
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.tools.scripting_sandbox import ScriptingSandbox
 
+
 class NetworkSandbox(ScriptingSandbox):
     """
     Specialized sandbox for Network Engineering.
@@ -24,5 +25,6 @@ class NetworkSandbox(ScriptingSandbox):
     def run_nmap_scan(self, target: str, arguments: str = "-sV") -> Dict[str, Any]:
         """Runs an nmap scan inside the sandbox."""
         import shlex
+
         cmd = ["nmap"] + shlex.split(arguments) + [target]
         return self.execute_command(cmd, timeout=300)

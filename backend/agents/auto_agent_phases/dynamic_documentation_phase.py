@@ -81,9 +81,7 @@ class DynamicDocumentationPhase(IAgentPhase):
                 self.context.file_manager.write_file(project_root / "ROADMAP.md", roadmap_content)
                 self.context.logger.info(f"  PHASE {self.PHASE_NAME}: ROADMAP.md updated")
             except Exception as exc:
-                self.context.logger.warning(
-                    f"  PHASE {self.PHASE_NAME}: ROADMAP update failed (non-critical): {exc}"
-                )
+                self.context.logger.warning(f"  PHASE {self.PHASE_NAME}: ROADMAP update failed (non-critical): {exc}")
 
         # 3. Update README.md "## Last Auto-Update" section
         try:
@@ -97,9 +95,7 @@ class DynamicDocumentationPhase(IAgentPhase):
             self.context.file_manager.write_file(project_root / "README.md", updated_readme)
             self.context.logger.info(f"  PHASE {self.PHASE_NAME}: README.md Last Auto-Update section refreshed")
         except Exception as exc:
-            self.context.logger.warning(
-                f"  PHASE {self.PHASE_NAME}: README update failed (non-critical): {exc}"
-            )
+            self.context.logger.warning(f"  PHASE {self.PHASE_NAME}: README update failed (non-critical): {exc}")
 
         self.context.event_publisher.publish(
             "phase_complete",

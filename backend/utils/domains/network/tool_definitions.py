@@ -36,7 +36,7 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
                     },
                     "max_hops": {
                         "type": "integer",
-                        "description": "Optional: Maximum number of hops to search for the target. Defaults to 30.",
+                        "description": "Optional: Maximum number of hops to search for the target. Defaults to 15.",
                     },
                 },
                 "required": ["host"],
@@ -132,8 +132,14 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "network_cidr": {"type": "string", "description": "The base network in CIDR notation (e.g., '192.168.1.0/24')"},
-                    "new_prefix": {"type": "integer", "description": "The prefix length for the new subnets (e.g., 26)"}
+                    "network_cidr": {
+                        "type": "string",
+                        "description": "The base network in CIDR notation (e.g., '192.168.1.0/24')",
+                    },
+                    "new_prefix": {
+                        "type": "integer",
+                        "description": "The prefix length for the new subnets (e.g., 26)",
+                    },
                 },
                 "required": ["network_cidr", "new_prefix"],
             },
@@ -146,9 +152,7 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
             "description": "Audits a Cisco IOS configuration snippet for common security misconfigurations.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "config_text": {"type": "string", "description": "The configuration snippet to audit."}
-                },
+                "properties": {"config_text": {"type": "string", "description": "The configuration snippet to audit."}},
                 "required": ["config_text"],
             },
         },
@@ -160,9 +164,7 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
             "description": "Executes a Scapy Python script to simulate network traffic or analyze packets.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "script": {"type": "string", "description": "Python code using Scapy"}
-                },
+                "properties": {"script": {"type": "string", "description": "Python code using Scapy"}},
                 "required": ["script"],
             },
         },
@@ -176,7 +178,7 @@ NETWORK_TOOL_DEFINITIONS: List[Dict] = [
                 "type": "object",
                 "properties": {
                     "target": {"type": "string", "description": "Target IP or hostname."},
-                    "args": {"type": "string", "description": "Nmap arguments (e.g., '-sV -T4 -Pn')."}
+                    "args": {"type": "string", "description": "Nmap arguments (e.g., '-sV -T4 -Pn')."},
                 },
                 "required": ["target"],
             },

@@ -2,46 +2,31 @@ from abc import ABC
 import json
 from typing import Dict, List
 
-import tiktoken  # For token counting (example)
+from backend.utils.core.llm.prompt_loader import PromptLoader
 
 
 class ContextSummarizerMixin(ABC):
     """
     Mixin for managing context window and automatic summarization.
-    Assumes the inheriting class provides:
-    - self.logger (AgentLogger)
-    - self.get_config_value (method from AgentKernel/ConfigLoader)
-    - self.llm_manager (IModelProvider)
-    - self.token_tracker (TokenTracker)
-    - self.event_publisher (EventPublisher)
     """
-
-    # Placeholder for a simple token counter. In a real system, this would be more robust.
-    def _count_tokens(self, text: str) -> int:
-        """Counts tokens in a given text using a basic heuristic or a proper tokenizer."""
-        if not text:
-            return 0
-        try:
-            # Attempt to use tiktoken if available and configured
-            encoding_name = self.config.get("token_encoding_name", "cl100k_base")
-            encoding = tiktoken.get_encoding(encoding_name)
-            return len(encoding.encode(text))
-        except Exception:
-            # F24: Better heuristic: 1 token approx 3.5 chars for code/technical text
-            return len(text) // 3
 
     async def _manage_context_window(self, messages: List[Dict]) -> List[Dict]:
         """
-        Manages the context window by summarizing older messages if token capacity
-        exceeds a configured threshold.
+        Manages the context window by summarizing older messages if the LAST
+        Ollama request indicated we are near the capacity.
         """
-        max_tokens = self.config.get("max_context_tokens", 2048)
-        summarize_threshold = self.config.get("summarize_threshold_ratio", 0.7)
+        # Get the real token count from the last Ollama response
+        current_tokens = getattr(self.token_tracker, "last_prompt_tokens", 0)
 
-        # F24: More accurate message string representation for counting
-        full_conversation_text = json.dumps(messages)
-        current_tokens = self._count_tokens(full_conversation_text)
+        # Standard configuration
+        max_tokens = 16000
+        summarize_threshold = 0.85
 
+        if hasattr(self, "tool_settings_config"):
+            max_tokens = getattr(self.tool_settings_config, "max_context_tokens", 16000)
+            summarize_threshold = getattr(self.tool_settings_config, "summarize_threshold_ratio", 0.85)
+
+        # If the last response was already too big, summarize now before the next one
         if current_tokens < max_tokens * summarize_threshold:
             return messages  # No summarization needed yet
 
@@ -73,8 +58,6 @@ class ContextSummarizerMixin(ABC):
             return ([system_prompt] if system_prompt else []) + messages[-2:]
 
         try:
-            from backend.utils.core.llm.prompt_loader import PromptLoader
-
             loader = PromptLoader()
             prompts = loader.load_prompt("core/services.yaml")
 
@@ -99,8 +82,7 @@ class ContextSummarizerMixin(ABC):
             )
             summarized_messages.extend(remaining_messages)
 
-            tokens_after = self._count_tokens(json.dumps(summarized_messages))
-            self.logger.info(f"Context compressed: {current_tokens} -> {tokens_after} tokens.")
+            self.logger.info(f"Context compressed: {current_tokens} tokens have been summarized.")
             return summarized_messages
 
         except Exception as e:

@@ -1,6 +1,7 @@
 import pytest
 from backend.utils.core.tools.tool_decorator import get_discovered_definitions
 
+
 @pytest.mark.manual
 def test_validate_all_tool_definitions():
     """
@@ -31,6 +32,7 @@ def test_validate_all_tool_definitions():
         pytest.fail("\n".join(errors))
     else:
         print("\n✅ All tool definitions are structurally valid.")
+
 
 if __name__ == "__main__":
     # To run: pytest tests/manual/test_tool_definitions.py -m manual -s

@@ -43,6 +43,21 @@ class CommandLineTools:
             return {"ok": False, "error": str(e)}
 
     @ollash_tool(
+        name="run_shell_command",
+        description="Executes a raw shell command. Alias for run_command.",
+        parameters={
+            "command": {"type": "string", "description": "The shell command to execute."},
+            "timeout": {"type": "integer", "description": "Max time in seconds."},
+        },
+        toolset_id="command_line_tools",
+        agent_types=["code", "system", "cybersecurity", "orchestrator", "network"],
+        required=["command"],
+    )
+    def run_shell_command(self, command: str, timeout: int = 60):
+        """Alias for run_command to satisfy universal naming conventions."""
+        return self.run_command(command, timeout)
+
+    @ollash_tool(
         name="run_tests",
         description="Runs a specified set of tests or all tests in the project. Useful for verifying changes.",
         parameters={

@@ -33,7 +33,11 @@ def get_swarm_managers():
         llm_recorder = LLMRecorder(agent_logger)
 
         # Ollama Client
-        ollama_url = os.environ.get("OLLASH_OLLAMA_URL", config.get("ollama_url", "http://localhost:11434"))
+        ollama_url = os.environ.get(
+            "OLLAMA_URL", os.environ.get("OLLASH_OLLAMA_URL", config.get("ollama_url", "http://127.0.0.1:11434"))
+        )
+        ollama_url = ollama_url.rstrip("/")
+
         ollama_client = OllamaClient(
             url=ollama_url,
             model=config.get("model", "qwen3-coder:30b"),

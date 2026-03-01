@@ -858,6 +858,7 @@ def get_git_manifest(project_name: str):
         return jsonify({"error": "No git manifest found for this project."}), 404
     try:
         import json
+
         with open(manifest_path, "r", encoding="utf-8") as fh:
             return jsonify(json.load(fh))
     except Exception as exc:
@@ -873,6 +874,7 @@ def get_file_diff(project_name: str, rel_path: str):
 
     try:
         from backend.utils.core.io.git_manager import GitManager
+
         gm = GitManager(project_dir)
 
         # Find the last commit that touched rel_path
@@ -885,13 +887,15 @@ def get_file_diff(project_name: str, rel_path: str):
         diff = gm.show_unified(sha, rel_path, context_lines=5)
         numstat = gm.show_numstat_for_commit(sha, rel_path)
 
-        return jsonify({
-            "sha": sha,
-            "rel_path": rel_path,
-            "diff": diff,
-            "lines_added": numstat.get("added", 0),
-            "lines_deleted": numstat.get("deleted", 0),
-        })
+        return jsonify(
+            {
+                "sha": sha,
+                "rel_path": rel_path,
+                "diff": diff,
+                "lines_added": numstat.get("added", 0),
+                "lines_deleted": numstat.get("deleted", 0),
+            }
+        )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
@@ -904,26 +908,25 @@ def get_file_diff(project_name: str, rel_path: str):
 @auto_agent_bp.route("/api/projects/<project_name>/resume", methods=["POST"])
 def resume_project(project_name: str):
     """Resume a paused / partially-failed DAG run from the latest checkpoint."""
+
     def _run_resume():
         try:
             from backend.agents.domain_agent_orchestrator import DomainAgentOrchestrator
             from backend.core.containers import main_container as mc
+
             orch: DomainAgentOrchestrator = mc.domain_agents.orchestrator()
             orch.event_publisher = _event_publisher
 
             import asyncio
+
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             loop.run_until_complete(orch.resume(project_name))
             loop.close()
 
-            _chat_event_bridge.push_event(
-                "stream_end", {"message": f"Project '{project_name}' resumed and completed."}
-            )
+            _chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' resumed and completed."})
         except Exception as exc:
-            _chat_event_bridge.push_event(
-                "error", {"message": f"Resume failed for '{project_name}': {exc}"}
-            )
+            _chat_event_bridge.push_event("error", {"message": f"Resume failed for '{project_name}': {exc}"})
 
     threading.Thread(target=_run_resume, daemon=True).start()
     return jsonify({"status": "started", "message": f"Resume started for '{project_name}'."})
@@ -934,6 +937,7 @@ def get_checkpoint(project_name: str):
     """Return the latest DAG checkpoint metadata for a project."""
     try:
         from backend.utils.core.io.checkpoint_manager import CheckpointManager
+
         cm = CheckpointManager(_ollash_root_dir)
         data = cm.load_dag(project_name)
         if data is None:
@@ -947,12 +951,14 @@ def get_checkpoint(project_name: str):
             }
             for n in dag.get("nodes", [])
         ]
-        return jsonify({
-            "project_name": project_name,
-            "timestamp": data.get("timestamp"),
-            "node_count": len(nodes_summary),
-            "nodes": nodes_summary,
-        })
+        return jsonify(
+            {
+                "project_name": project_name,
+                "timestamp": data.get("timestamp"),
+                "node_count": len(nodes_summary),
+                "nodes": nodes_summary,
+            }
+        )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 

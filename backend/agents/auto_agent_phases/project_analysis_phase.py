@@ -60,9 +60,7 @@ class ProjectAnalysisPhase(IAgentPhase):
         if prev_snapshot is not None:
             changed_files = state_mgr.compute_changed_files(generated_files, prev_snapshot)
             if not changed_files:
-                self.context.logger.info(
-                    "  No file changes since last analysis. Reusing cached analysis."
-                )
+                self.context.logger.info("  No file changes since last analysis. Reusing cached analysis.")
                 codebase_analysis = prev_snapshot.full_analysis
                 used_cache = True
                 delta_files_analyzed = 0

@@ -1,4 +1,5 @@
 """Unit tests for DomainAgentOrchestrator."""
+
 from pathlib import Path
 import pytest
 from unittest.mock import MagicMock, AsyncMock
@@ -8,18 +9,11 @@ from backend.agents.orchestrators.task_dag import AgentType, TaskDAG, TaskNode
 
 def make_simple_dag():
     dag = TaskDAG()
-    dag.add_task(TaskNode(
-        id="src/main.py", agent_type=AgentType.DEVELOPER,
-        task_data={"file_path": "src/main.py"}
-    ))
-    dag.add_task(TaskNode(
-        id="__devops__", agent_type=AgentType.DEVOPS,
-        task_data={}, dependencies=["src/main.py"]
-    ))
-    dag.add_task(TaskNode(
-        id="__auditor_final__", agent_type=AgentType.AUDITOR,
-        task_data={}, dependencies=["__devops__"]
-    ))
+    dag.add_task(TaskNode(id="src/main.py", agent_type=AgentType.DEVELOPER, task_data={"file_path": "src/main.py"}))
+    dag.add_task(TaskNode(id="__devops__", agent_type=AgentType.DEVOPS, task_data={}, dependencies=["src/main.py"]))
+    dag.add_task(
+        TaskNode(id="__auditor_final__", agent_type=AgentType.AUDITOR, task_data={}, dependencies=["__devops__"])
+    )
     return dag
 
 

@@ -112,14 +112,14 @@ class NetworkTools:
             },
             "max_hops": {
                 "type": "integer",
-                "description": "Optional: Maximum number of hops to search for the target. Defaults to 30.",
+                "description": "Optional: Maximum number of hops to search for the target. Defaults to 15.",
             },
         },
         toolset_id="network_tools",
         agent_types=["network"],
         required=["host"],
     )
-    def traceroute_host(self, host: str, max_hops: int = 30):
+    def traceroute_host(self, host: str, max_hops: int = 15):
         """
         Traces the network path to a specified host (IP address or hostname).
         Returns structured JSON output including hops and their response times.
@@ -131,7 +131,8 @@ class NetworkTools:
         else:  # Linux or macOS
             command = f"traceroute -m {max_hops} {host}"
 
-        result = self.exec.execute(command)
+        # F33: Increase timeout explicitly for traceroute as it's a long-running operation
+        result = self.exec.execute(command, timeout=300)
 
         parsed_output = {"host": host, "hops": [], "raw_output": result.stdout}
 

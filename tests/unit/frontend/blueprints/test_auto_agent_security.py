@@ -138,15 +138,9 @@ class TestExecuteCommandNoShell:
         # Extract until the next top-level def/class (rough but sufficient)
         fn_body = source[start : source.find("\n@auto_agent_bp", start)]
 
-        assert "shell=True" not in fn_body, (
-            "execute_command must not use shell=True (command injection risk)"
-        )
-        assert "shell=False" in fn_body, (
-            "execute_command must explicitly pass shell=False to subprocess.run"
-        )
-        assert "shlex.split" in fn_body, (
-            "execute_command must use shlex.split to parse the command string safely"
-        )
+        assert "shell=True" not in fn_body, "execute_command must not use shell=True (command injection risk)"
+        assert "shell=False" in fn_body, "execute_command must explicitly pass shell=False to subprocess.run"
+        assert "shlex.split" in fn_body, "execute_command must use shlex.split to parse the command string safely"
 
     @pytest.mark.parametrize(
         "injection_payload",
@@ -175,6 +169,4 @@ class TestExecuteCommandNoShell:
         for special in [";", "&&", "|", "`"]:
             if special in injection_payload:
                 # They must appear as individual list elements (not concatenated)
-                assert any(special in p for p in parts), (
-                    f"Expected '{special}' to remain as a literal token in {parts}"
-                )
+                assert any(special in p for p in parts), f"Expected '{special}' to remain as a literal token in {parts}"

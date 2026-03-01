@@ -13,9 +13,13 @@ def _make_context(tmp_path: Path) -> MagicMock:
     ctx.file_manager = MagicMock()
     ctx.file_manager.write_file = MagicMock(return_value="ok")
     ctx.project_planner = MagicMock()
-    ctx.project_planner.generate_changelog_entry = MagicMock(return_value="## [Auto-2024-01-01]\n\n### Changed\n- stuff\n")
+    ctx.project_planner.generate_changelog_entry = MagicMock(
+        return_value="## [Auto-2024-01-01]\n\n### Changed\n- stuff\n"
+    )
     ctx.project_planner.generate_roadmap = MagicMock(return_value="# Roadmap\n\n## Current Focus\n- improve stuff\n")
-    ctx.project_planner.update_readme_summary = MagicMock(return_value="# MyProject\n\n## Last Auto-Update\n- updated\n")
+    ctx.project_planner.update_readme_summary = MagicMock(
+        return_value="# MyProject\n\n## Last Auto-Update\n- updated\n"
+    )
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
     return ctx

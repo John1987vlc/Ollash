@@ -2,6 +2,7 @@ import pytest
 import re
 from playwright.sync_api import expect
 
+
 @pytest.mark.e2e
 def test_full_sidebar_navigation(page, base_url):
     """
@@ -35,7 +36,7 @@ def test_full_sidebar_navigation(page, base_url):
         ("audit", "audit-view"),
         ("policies", "policies-view"),
         ("benchmark", "benchmark-view"),
-        ("settings", "settings-view")
+        ("settings", "settings-view"),
     ]
 
     for view_id, container_id in nav_items:
@@ -52,7 +53,7 @@ def test_full_sidebar_navigation(page, base_url):
                 header.click(force=True)
 
         nav_item.click(force=True)
-        page.wait_for_timeout(200) # Small pause for transition
+        page.wait_for_timeout(200)  # Small pause for transition
 
         # Verify the view container becomes active
         expect(page.locator(f"#{container_id}")).to_be_visible()

@@ -10,8 +10,7 @@ Endpoints:
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from flask import Blueprint, current_app, jsonify, render_template
 
@@ -59,9 +58,7 @@ def list_projects():
         return jsonify([])
 
     try:
-        records: List[Dict[str, Any]] = db.get_metric_history(
-            "dag", "project_completed", hours=24 * 365, limit=50
-        )
+        records: List[Dict[str, Any]] = db.get_metric_history("dag", "project_completed", hours=24 * 365, limit=50)
 
         projects = []
         for r in records:
@@ -91,9 +88,7 @@ def project_detail(project_name: str):
         return jsonify([])
 
     try:
-        records: List[Dict[str, Any]] = db.get_metric_history(
-            "dag", "node_completed", hours=24 * 365, limit=500
-        )
+        records: List[Dict[str, Any]] = db.get_metric_history("dag", "node_completed", hours=24 * 365, limit=500)
 
         nodes = []
         for r in records:
@@ -175,9 +170,7 @@ def summary():
         return jsonify(totals)
 
     try:
-        proj_records = db.get_metric_history(
-            "dag", "project_completed", hours=24 * 365
-        )
+        proj_records = db.get_metric_history("dag", "project_completed", hours=24 * 365)
         for r in proj_records:
             val = r.get("value", {})
             totals["total_projects"] += 1
@@ -185,15 +178,11 @@ def summary():
             totals["total_files"] += val.get("total_files", 0)
             totals["total_failed"] += val.get("failed_count", 0)
 
-        node_records = db.get_metric_history(
-            "dag", "node_completed", hours=24 * 365
-        )
+        node_records = db.get_metric_history("dag", "node_completed", hours=24 * 365)
         for r in node_records:
             val = r.get("value", {})
             agent_type = val.get("agent_type", "unknown")
-            totals["agent_type_counts"][agent_type] = (
-                totals["agent_type_counts"].get(agent_type, 0) + 1
-            )
+            totals["agent_type_counts"][agent_type] = totals["agent_type_counts"].get(agent_type, 0) + 1
 
     except Exception:
         pass

@@ -47,12 +47,7 @@ class FileRefiner:
         self.documentation_manager = documentation_manager
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def simplify_file_content(
-        self,
-        file_path: str,
-        content: str,
-        remove_redundancy: bool = True
-    ) -> Optional[str]:
+    def simplify_file_content(self, file_path: str, content: str, remove_redundancy: bool = True) -> Optional[str]:
         """
         Aggressively simplifies a file to resolve persistent logic errors or
         architectural complexity issues.

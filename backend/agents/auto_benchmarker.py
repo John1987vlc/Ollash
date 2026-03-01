@@ -233,13 +233,15 @@ class ModelBenchmarker:
                 heartbeat.start()
 
                 if callback:
-                    callback({
-                        "type": "task_start",
-                        "model": model_name,
-                        "task": task_name,
-                        "task_index": task_idx,
-                        "total_tasks": total_tasks
-                    })
+                    callback(
+                        {
+                            "type": "task_start",
+                            "model": model_name,
+                            "task": task_name,
+                            "task_index": task_idx,
+                            "total_tasks": total_tasks,
+                        }
+                    )
 
                 try:
                     creation_prompt = (
@@ -341,13 +343,15 @@ class ModelBenchmarker:
                 outputs.append(task_output)
 
                 if callback:
-                    callback({
-                        "type": "task_done",
-                        "model": model_name,
-                        "task": task_name,
-                        "status": task_status,
-                        "duration_sec": task_elapsed
-                    })
+                    callback(
+                        {
+                            "type": "task_done",
+                            "model": model_name,
+                            "task": task_name,
+                            "status": task_status,
+                            "duration_sec": task_elapsed,
+                        }
+                    )
 
             # F13: Unload model from RAM after finishing all tasks for this model
             client.unload_model()
@@ -407,11 +411,7 @@ class ModelBenchmarker:
             }
 
             if callback:
-                callback({
-                    "type": "model_done",
-                    "model": model_name,
-                    "result": model_result
-                })
+                callback({"type": "model_done", "model": model_name, "result": model_result})
 
             self.results.append(model_result)
 

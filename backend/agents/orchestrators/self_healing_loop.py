@@ -137,9 +137,7 @@ class SelfHealingLoop:
         if sandbox_errors:
             # Inject real compiler/linter traceback into the first issue
             issues[0]["sandbox_traceback"] = sandbox_errors
-            self._logger.info(
-                f"[SelfHealingLoop] Injecting sandbox errors for '{failed_node.id}'"
-            )
+            self._logger.info(f"[SelfHealingLoop] Injecting sandbox errors for '{failed_node.id}'")
         plan: Dict[str, Any] = {}
         try:
             plan = self._cp.generate_contingency_plan(
@@ -179,9 +177,7 @@ class SelfHealingLoop:
             pattern_id=pattern_id,
         )
 
-        self._logger.info(
-            f"[SelfHealingLoop] Remediation task '{remediation_node.id}' queued."
-        )
+        self._logger.info(f"[SelfHealingLoop] Remediation task '{remediation_node.id}' queued.")
 
         return RemediationResult(
             success=True,
@@ -206,9 +202,7 @@ class SelfHealingLoop:
         """
         from backend.agents.orchestrators.task_dag import AgentType, TaskNode
 
-        self._logger.info(
-            f"[SelfHealingLoop] FileValidator failure on '{file_path}': {error[:80]}"
-        )
+        self._logger.info(f"[SelfHealingLoop] FileValidator failure on '{file_path}': {error[:80]}")
 
         pattern_id = self._ekb.record_error(
             file_path=file_path,
@@ -233,9 +227,7 @@ class SelfHealingLoop:
                     "original_content": content,
                     "validation_error": error,
                     "prevention_tips": prevention_tips,
-                    "remediation_actions": [
-                        {"type": "fix_syntax", "path": file_path, "error": error}
-                    ],
+                    "remediation_actions": [{"type": "fix_syntax", "path": file_path, "error": error}],
                 },
                 dependencies=[],
                 retry_count=1,

@@ -3,6 +3,7 @@ from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.tools.tool_decorator import ollash_tool
 from backend.utils.core.tools.scripting_sandbox import ScriptingSandbox
 
+
 class ScriptingTools:
     """
     Tools for creating, testing, and verifying scripts in an isolated environment.
@@ -34,11 +35,11 @@ class ScriptingTools:
         description="Writes content to a script file in the sandbox.",
         parameters={
             "filename": {"type": "string", "description": "Name of the file (e.g., test.ps1, script.sh)"},
-            "content": {"type": "string", "description": "The content of the script."}
+            "content": {"type": "string", "description": "The content of the script."},
         },
         toolset_id="scripting_tools",
         agent_types=["system"],
-        required=["filename", "content"]
+        required=["filename", "content"],
     )
     def write_script(self, filename: str, content: str) -> Dict[str, Any]:
         try:
@@ -60,11 +61,11 @@ class ScriptingTools:
         description="Executes a script in the sandbox and returns the output.",
         parameters={
             "filename": {"type": "string", "description": "The file to execute."},
-            "args": {"type": "array", "items": {"type": "string"}, "description": "Arguments for the script."}
+            "args": {"type": "array", "items": {"type": "string"}, "description": "Arguments for the script."},
         },
         toolset_id="scripting_tools",
         agent_types=["system"],
-        required=["filename"]
+        required=["filename"],
     )
     def execute_script(self, filename: str, args: Optional[list] = None) -> Dict[str, Any]:
         try:
@@ -83,10 +84,7 @@ class ScriptingTools:
                 cmd = ["sh", filename] + args if not filename.startswith("./") else [filename] + args
 
             result = self.sandbox.execute_command(cmd)
-            return {
-                "ok": True,
-                "result": result
-            }
+            return {"ok": True, "result": result}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 

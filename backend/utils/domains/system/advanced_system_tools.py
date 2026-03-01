@@ -1,7 +1,10 @@
 import json
 import platform
 import re
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+
+from backend.utils.core.tools.tool_decorator import ollash_tool
 
 
 class AdvancedSystemTools:
@@ -9,6 +12,127 @@ class AdvancedSystemTools:
         self.exec = command_executor  # Stored CommandExecutor
         self.logger = logger
         self.os_type = platform.system()  # "Windows", "Linux", "Darwin" (macOS)
+
+    @ollash_tool(
+        name="search_files_advanced",
+        description="Searches for files based on advanced criteria like size, extension, and date. Highly efficient for finding large files.",
+        parameters={
+            "root_path": {
+                "type": "string",
+                "description": "Directory to start search from. Defaults to system root or current drive.",
+            },
+            "min_size_mb": {
+                "type": "number",
+                "description": "Minimum file size in Megabytes.",
+            },
+            "max_size_mb": {
+                "type": "number",
+                "description": "Maximum file size in Megabytes.",
+            },
+            "extension": {
+                "type": "string",
+                "description": "File extension to filter by (e.g., '.log', '.zip').",
+            },
+            "modified_since_days": {
+                "type": "integer",
+                "description": "Find files modified in the last N days.",
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Maximum number of results to return. Defaults to 50.",
+            },
+        },
+        toolset_id="advanced_system_tools",
+        agent_types=["system", "orchestrator"],
+    )
+    def search_files_advanced(
+        self,
+        root_path: Optional[str] = None,
+        min_size_mb: Optional[float] = None,
+        max_size_mb: Optional[float] = None,
+        extension: Optional[str] = None,
+        modified_since_days: Optional[int] = None,
+        limit: int = 50,
+    ) -> Dict:
+        """
+        Efficiently searches for files using Python's os.walk.
+        Avoids shell command overhead and parsing issues.
+        """
+        import os
+        import time
+        from datetime import datetime
+
+        self.logger.info(
+            f"🔍 Searching for files: size > {min_size_mb}MB, ext={extension} in {root_path or 'default root'}"
+        )
+
+        if not root_path:
+            root_path = "C:\\" if self.os_type == "Windows" else "/"
+
+        # Verify path exists
+        if not os.path.exists(root_path):
+            return {"ok": False, "error": f"Path not found: {root_path}"}
+
+        results = []
+        min_bytes = (min_size_mb * 1024 * 1024) if min_size_mb else None
+        max_bytes = (max_size_mb * 1024 * 1024) if max_size_mb else None
+
+        cutoff_time = None
+        if modified_since_days:
+            cutoff_time = time.time() - (modified_since_days * 86400)
+
+        try:
+            for root, dirs, files in os.walk(root_path):
+                # Skip known heavy/system dirs if scanning root to avoid huge delay
+                if root_path in ["C:\\", "/"]:
+                    if any(d in root for d in ["$Recycle.Bin", "System Volume Information", "/proc", "/sys", "/dev"]):
+                        continue
+
+                for name in files:
+                    file_path = os.path.join(root, name)
+                    try:
+                        # Use os.stat for efficiency
+                        stat = os.stat(file_path)
+
+                        # Apply filters
+                        if min_bytes and stat.st_size < min_bytes:
+                            continue
+                        if max_bytes and stat.st_size > max_bytes:
+                            continue
+                        if extension and not name.lower().endswith(extension.lower()):
+                            continue
+                        if cutoff_time and stat.st_mtime < cutoff_time:
+                            continue
+
+                        results.append(
+                            {
+                                "path": file_path,
+                                "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                            }
+                        )
+
+                        if len(results) >= limit:
+                            break
+                    except (PermissionError, OSError):
+                        continue  # Skip inaccessible files
+
+                if len(results) >= limit:
+                    break
+
+            # Sort by size descending
+            results.sort(key=lambda x: x["size_mb"], reverse=True)
+
+            return {
+                "ok": True,
+                "count": len(results),
+                "files": results,
+                "note": "Search limited to first 50 matches for performance." if len(results) == limit else "",
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error during advanced file search: {e}")
+            return {"ok": False, "error": str(e)}
 
     def check_disk_health(self) -> Dict:
         """

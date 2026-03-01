@@ -171,9 +171,7 @@ class DomainAgentOrchestrator:
 
         try:
             # 1 — Initialise shared Blackboard keys
-            project_root = await self._initialize(
-                project_description, project_name, readme_content
-            )
+            project_root = await self._initialize(project_description, project_name, readme_content)
 
             # 2 — Architect produces the TaskDAG (with optional images P7)
             dag = await self._architect.plan_dag(
@@ -217,10 +215,7 @@ class DomainAgentOrchestrator:
                 stats=dag.stats(),
                 git_committed=git_committed,
             )
-            self._logger.info(
-                f"[DomainOrchestrator] Project '{project_name}' complete. "
-                f"Stats: {dag.stats()}"
-            )
+            self._logger.info(f"[DomainOrchestrator] Project '{project_name}' complete. Stats: {dag.stats()}")
             return project_root
 
         finally:
@@ -357,9 +352,7 @@ class DomainAgentOrchestrator:
                 in_flight.add(node.id)
                 await dag.mark_in_progress(node.id)
 
-                task = asyncio.create_task(
-                    self._dispatch_with_semaphore(node, dag, semaphore)
-                )
+                task = asyncio.create_task(self._dispatch_with_semaphore(node, dag, semaphore))
                 task.add_done_callback(lambda t, nid=node.id: in_flight.discard(nid))
 
             # P1 — Re-queue nodes that have been answered by the user
@@ -431,9 +424,7 @@ class DomainAgentOrchestrator:
 
         except HITLPauseException as hitl_exc:
             # P1 — Agent requested human input: pause node, keep DAG running
-            self._logger.info(
-                f"[DomainOrchestrator] HITL pause on '{node.id}': {hitl_exc.question}"
-            )
+            self._logger.info(f"[DomainOrchestrator] HITL pause on '{node.id}': {hitl_exc.question}")
             await dag.mark_waiting(node.id, hitl_exc.question)
             self._event_publisher.publish(
                 "hitl_requested",
@@ -444,9 +435,7 @@ class DomainAgentOrchestrator:
             )
 
         except Exception as exc:
-            self._logger.error(
-                f"[DomainOrchestrator] Task '{node.id}' failed: {exc}"
-            )
+            self._logger.error(f"[DomainOrchestrator] Task '{node.id}' failed: {exc}")
             node.error = str(exc)
             await dag.mark_failed(node.id, str(exc))
 
@@ -469,26 +458,20 @@ class DomainAgentOrchestrator:
                     phase_context_snapshot=ctx_snapshot,
                 )
             except Exception as heal_exc:
-                self._logger.error(
-                    f"[DomainOrchestrator] SelfHealingLoop failed for '{node.id}': {heal_exc}"
-                )
+                self._logger.error(f"[DomainOrchestrator] SelfHealingLoop failed for '{node.id}': {heal_exc}")
 
     async def _route_to_agent(self, node: TaskNode, timeout: float = 300.0) -> Any:
         """Dispatch a node to the correct domain agent with a per-task timeout."""
         if node.agent_type == AgentType.ARCHITECT:
             try:
-                return await asyncio.wait_for(
-                    self._architect.run(node, self._blackboard), timeout=timeout
-                )
+                return await asyncio.wait_for(self._architect.run(node, self._blackboard), timeout=timeout)
             except asyncio.TimeoutError:
                 raise RuntimeError(f"ARCHITECT task '{node.id}' timed out after {timeout}s")
 
         if node.agent_type == AgentType.DEVELOPER:
             agent = await self._checkout_developer()
             try:
-                return await asyncio.wait_for(
-                    agent.run(node, self._blackboard), timeout=timeout
-                )
+                return await asyncio.wait_for(agent.run(node, self._blackboard), timeout=timeout)
             except asyncio.TimeoutError:
                 raise RuntimeError(f"DEVELOPER task '{node.id}' timed out after {timeout}s")
             finally:
@@ -496,17 +479,13 @@ class DomainAgentOrchestrator:
 
         if node.agent_type == AgentType.DEVOPS:
             try:
-                return await asyncio.wait_for(
-                    self._devops.run(node, self._blackboard), timeout=timeout
-                )
+                return await asyncio.wait_for(self._devops.run(node, self._blackboard), timeout=timeout)
             except asyncio.TimeoutError:
                 raise RuntimeError(f"DEVOPS task '{node.id}' timed out after {timeout}s")
 
         if node.agent_type == AgentType.AUDITOR:
             try:
-                return await asyncio.wait_for(
-                    self._auditor.run(node, self._blackboard), timeout=timeout
-                )
+                return await asyncio.wait_for(self._auditor.run(node, self._blackboard), timeout=timeout)
             except asyncio.TimeoutError:
                 raise RuntimeError(f"AUDITOR task '{node.id}' timed out after {timeout}s")
 
@@ -515,9 +494,7 @@ class DomainAgentOrchestrator:
             if self._debate_runner is None:
                 raise RuntimeError("DEBATE node requires a DebateNodeRunner (not configured)")
             try:
-                return await asyncio.wait_for(
-                    self._debate_runner.run(node, self._blackboard), timeout=timeout
-                )
+                return await asyncio.wait_for(self._debate_runner.run(node, self._blackboard), timeout=timeout)
             except asyncio.TimeoutError:
                 raise RuntimeError(f"DEBATE task '{node.id}' timed out after {timeout}s")
 
@@ -542,17 +519,11 @@ class DomainAgentOrchestrator:
     def _check_and_set_stable(self, dag: TaskDAG) -> None:
         """Set codebase_stable=True when all DEVELOPER nodes have completed."""
         all_dev_done = all(
-            n.status == TaskStatus.COMPLETED
-            for n in dag.all_nodes()
-            if n.agent_type == AgentType.DEVELOPER
+            n.status == TaskStatus.COMPLETED for n in dag.all_nodes() if n.agent_type == AgentType.DEVELOPER
         )
         if all_dev_done and not self._blackboard.read("codebase_stable"):
-            asyncio.create_task(
-                self._blackboard.write("codebase_stable", True, "orchestrator")
-            )
-            self._logger.info(
-                "[DomainOrchestrator] All DEVELOPER tasks done — codebase_stable=True"
-            )
+            asyncio.create_task(self._blackboard.write("codebase_stable", True, "orchestrator"))
+            self._logger.info("[DomainOrchestrator] All DEVELOPER tasks done — codebase_stable=True")
 
     # ------------------------------------------------------------------
     # Budget control (Point 5)
@@ -567,10 +538,7 @@ class DomainAgentOrchestrator:
 
     async def _apply_budget_pause(self, dag: TaskDAG) -> None:
         """Pause all PENDING nodes as WAITING_FOR_USER due to budget limit."""
-        question = (
-            f"Budget limit of {self._budget_limit_tokens:,} tokens reached. "
-            "Continue generating?"
-        )
+        question = f"Budget limit of {self._budget_limit_tokens:,} tokens reached. Continue generating?"
         for node in dag.all_nodes():
             if node.status == TaskStatus.PENDING:
                 await dag.mark_waiting(node.id, question)
@@ -579,9 +547,7 @@ class DomainAgentOrchestrator:
             project_name=self._current_project_name,
             limit=self._budget_limit_tokens,
         )
-        self._logger.warning(
-            f"[DomainOrchestrator] Budget limit ({self._budget_limit_tokens:,} tokens) reached"
-        )
+        self._logger.warning(f"[DomainOrchestrator] Budget limit ({self._budget_limit_tokens:,} tokens) reached")
 
     # ------------------------------------------------------------------
     # Finalisation
@@ -593,9 +559,7 @@ class DomainAgentOrchestrator:
         infra = self._blackboard.read_prefix("infra_files/")
         all_files: Dict[str, str] = {}
         all_files.update(generated)
-        all_files.update(
-            {k[len("infra_files/"):]: v for k, v in infra.items()}
-        )
+        all_files.update({k[len("infra_files/") :]: v for k, v in infra.items()})
 
         for rel_path, content in all_files.items():
             if not isinstance(content, str):
@@ -605,9 +569,7 @@ class DomainAgentOrchestrator:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 self._file_manager.write_file(str(dest), content)
             except Exception as exc:
-                self._logger.error(
-                    f"[DomainOrchestrator] Failed to write '{rel_path}': {exc}"
-                )
+                self._logger.error(f"[DomainOrchestrator] Failed to write '{rel_path}': {exc}")
 
         stats = dag.stats()
         self._logger.info(
@@ -653,37 +615,41 @@ class DomainAgentOrchestrator:
                 if node.agent_type == AgentType.DEVELOPER:
                     rel_path = node.task_data.get("file_path", node.id)
                     if rel_path not in seen and rel_path in all_files:
-                        ordered_files.append({
-                            "rel_path": rel_path,
-                            "agent_type": node.agent_type.value,
-                            "content": all_files.get(rel_path, ""),
-                        })
+                        ordered_files.append(
+                            {
+                                "rel_path": rel_path,
+                                "agent_type": node.agent_type.value,
+                                "content": all_files.get(rel_path, ""),
+                            }
+                        )
                         seen.add(rel_path)
                 elif node.agent_type == AgentType.DEVOPS:
                     infra = self._blackboard.read_prefix("infra_files/")
                     for key, content in infra.items():
-                        rel = key[len("infra_files/"):]
+                        rel = key[len("infra_files/") :]
                         if rel not in seen:
-                            ordered_files.append({
-                                "rel_path": rel,
-                                "agent_type": node.agent_type.value,
-                                "content": content,
-                            })
+                            ordered_files.append(
+                                {
+                                    "rel_path": rel,
+                                    "agent_type": node.agent_type.value,
+                                    "content": content,
+                                }
+                            )
                             seen.add(rel)
 
             # Any remaining files not yet seen (infra, etc.)
             for rel_path, content in all_files.items():
                 if rel_path not in seen:
-                    ordered_files.append({
-                        "rel_path": rel_path,
-                        "agent_type": "DEVELOPER",
-                        "content": content,
-                    })
+                    ordered_files.append(
+                        {
+                            "rel_path": rel_path,
+                            "agent_type": "DEVELOPER",
+                            "content": content,
+                        }
+                    )
 
             committer = self._git_committer_factory(project_root)
-            manifest = await asyncio.to_thread(
-                committer.commit_all, ordered_files, project_name
-            )
+            manifest = await asyncio.to_thread(committer.commit_all, ordered_files, project_name)
 
             manifest_path = project_root / "git_manifest.json"
             manifest_json = json.dumps(manifest.to_dict(), indent=2, ensure_ascii=False)
@@ -696,9 +662,7 @@ class DomainAgentOrchestrator:
                 total_commits=len(manifest.commits),
                 repo_initialised=manifest.repo_initialised,
             )
-            self._logger.info(
-                f"[DomainOrchestrator] Git: {len(manifest.commits)} commits in {project_root}"
-            )
+            self._logger.info(f"[DomainOrchestrator] Git: {len(manifest.commits)} commits in {project_root}")
             return manifest
 
         except Exception as exc:
@@ -747,16 +711,11 @@ class DomainAgentOrchestrator:
         except Exception as exc:
             self._logger.debug(f"[DomainOrchestrator] Metrics record failed: {exc}")
 
-    def _record_project_metrics(
-        self, project_name: str, dag: TaskDAG, file_count: int
-    ) -> None:
+    def _record_project_metrics(self, project_name: str, dag: TaskDAG, file_count: int) -> None:
         if self._metrics_database is None:
             return
         stats = dag.stats()
-        total_tokens = (
-            self._cost_analyzer.get_total_tokens(project_name)
-            if self._cost_analyzer else 0
-        )
+        total_tokens = self._cost_analyzer.get_total_tokens(project_name) if self._cost_analyzer else 0
         try:
             self._metrics_database.record_metric(
                 category="dag",

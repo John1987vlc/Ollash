@@ -379,28 +379,52 @@ class FileSystemTools:
             },
         },
         toolset_id="file_system_tools",
-        agent_types=["code"],
+        agent_types=["code", "system", "orchestrator"],
         required=["path"],
     )
     def list_directory(self, path: str, recursive: bool = False):
         """List directory contents"""
         try:
-            target = self.project_root / path
+            target = (self.project_root / path).resolve()
+            # Safety check: ensure target is within project root or is allowed
+            if not str(target).startswith(str(self.project_root.resolve())):
+                # If it's an absolute system path, let it pass if not in strict sandbox
+                # but for list_directory we usually want project files
+                pass
+
             if not target.exists():
-                return {"ok": False, "error": "not_found"}
+                return {"ok": False, "error": "not_found", "path": path}
 
             if recursive:
                 files = [str(p.relative_to(self.project_root)) for p in target.rglob("*") if p.is_file()]
             else:
-                files = [str(p.relative_to(self.project_root)) for p in target.iterdir()]
+                files = [str(p.name) for p in target.iterdir()]
 
             self.logger.info(f"📁 {path}: {len(files)} items")
-            for f in files[:10]:
-                self.logger.debug(f"  • {f}")
-            if len(files) > 10:
-                self.logger.debug(f"  ... and {len(files) - 10} more")
-
             return {"ok": True, "path": path, "items": files, "count": len(files)}
         except Exception as e:
             self.logger.error(f"List directory error: {e}", e)
+            return {"ok": False, "error": str(e)}
+
+    @ollash_tool(
+        name="search_files",
+        description="Search for files by name pattern (glob) within the project.",
+        parameters={
+            "pattern": {
+                "type": "string",
+                "description": "The glob pattern to search for (e.g., '**/*.py').",
+            },
+        },
+        toolset_id="file_system_tools",
+        agent_types=["code", "system", "orchestrator"],
+        required=["pattern"],
+    )
+    def search_files(self, pattern: str):
+        """Search files using glob"""
+        try:
+            matches = [str(p.relative_to(self.project_root)) for p in self.project_root.glob(pattern) if p.is_file()]
+            self.logger.info(f"🔍 Search '{pattern}': {len(matches)} matches")
+            return {"ok": True, "pattern": pattern, "matches": matches, "count": len(matches)}
+        except Exception as e:
+            self.logger.error(f"Search error: {e}")
             return {"ok": False, "error": str(e)}

@@ -62,9 +62,7 @@ class AnalysisSnapshot:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AnalysisSnapshot":
-        snapshots = {
-            k: FileSnapshot.from_dict(v) for k, v in data.get("file_snapshots", {}).items()
-        }
+        snapshots = {k: FileSnapshot.from_dict(v) for k, v in data.get("file_snapshots", {}).items()}
         return cls(
             timestamp=data.get("timestamp", ""),
             project_name=data.get("project_name", ""),
@@ -217,19 +215,13 @@ class AnalysisStateManager:
 
         # Merge files_by_type (add delta counts to previous)
         for lang, count in delta_analysis.get("files_by_type", {}).items():
-            merged.setdefault("files_by_type", {})[lang] = (
-                merged.get("files_by_type", {}).get(lang, 0) + count
-            )
+            merged.setdefault("files_by_type", {})[lang] = merged.get("files_by_type", {}).get(lang, 0) + count
 
         # Deduplicate code_patterns and dependencies
-        combined_patterns = list(set(
-            merged.get("code_patterns", []) + delta_analysis.get("code_patterns", [])
-        ))
+        combined_patterns = list(set(merged.get("code_patterns", []) + delta_analysis.get("code_patterns", [])))
         merged["code_patterns"] = combined_patterns
 
-        combined_deps = list(set(
-            merged.get("dependencies", []) + delta_analysis.get("dependencies", [])
-        ))
+        combined_deps = list(set(merged.get("dependencies", []) + delta_analysis.get("dependencies", [])))
         merged["dependencies"] = combined_deps
 
         # Overwrite tech_stack if delta has it
