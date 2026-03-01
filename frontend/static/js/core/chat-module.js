@@ -363,6 +363,18 @@ const ChatModule = (function() {
                 appendMessage('error', `Error: ${data.message}`);
                 setLoadingState(false);
             }
+            // Feature 6 — Context saturation alert
+            else if (type === 'context_saturation_alert') {
+                window.NotificationToast?.show(data.warning, 'warning');
+            }
+            // Feature 4 — Chaos fault injected notification
+            else if (type === 'chaos_fault_injected') {
+                window.NotificationToast?.show(`[Chaos] ${data.fault_description}`, 'warning');
+            }
+            // Feature 5 — Live DAG node status update
+            else if (type === 'task_status_changed') {
+                if (window.DagPanel) window.DagPanel.updateNode(data);
+            }
         };
 
         source.onerror = () => { 

@@ -10,7 +10,7 @@ import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.system.db.sqlite_manager import DatabaseManager
@@ -35,6 +35,7 @@ class FragmentCache:
         "logging_setup": "Logging initialization patterns",
         "dependency_declaration": "Package/library declarations",
         "config_template": "Configuration file templates",
+        "successful_task_example": "Validated generated file paired with its generation purpose",
     }
 
     def __init__(
@@ -215,3 +216,67 @@ class FragmentCache:
 
     def set_favorite(self, key: str, is_favorite: bool):
         self.db.execute("UPDATE fragments SET is_favorite = ? WHERE key = ?", (is_favorite, key))
+
+    # ------------------------------------------------------------------
+    # Feature 2: Few-Shot Dynamic Store
+    # ------------------------------------------------------------------
+
+    def store_example(self, language: str, purpose: str, code: str) -> None:
+        """Store a validated (purpose, code) pair as a few-shot example.
+
+        Silently ignores empty inputs. The ``purpose`` string is used as the
+        context key so that keyword-overlap retrieval works correctly.
+
+        Args:
+            language: Programming language (e.g. ``"python"``).
+            purpose: Short description of what the file does.
+            code: Validated generated source code.
+        """
+        if not purpose or not code:
+            return
+        self.set(
+            fragment_type="successful_task_example",
+            language=language,
+            content=code,
+            context=purpose,
+            metadata={"purpose": purpose},
+        )
+
+    def get_similar_examples(
+        self,
+        language: str,
+        purpose: str,
+        max_examples: int = 2,
+    ) -> List[Tuple[str, str]]:
+        """Retrieve up to *max_examples* few-shot examples by keyword overlap.
+
+        Scores each stored example by the number of words its purpose shares
+        with *purpose*, then returns the top matches sorted descending.
+
+        Args:
+            language: Programming language to filter by.
+            purpose: Description of the current task.
+            max_examples: Maximum number of examples to return.
+
+        Returns:
+            List of ``(stored_purpose, code)`` tuples, best match first.
+            Returns an empty list when no matching examples are found.
+        """
+        rows = self.db.fetch_all(
+            "SELECT content, metadata FROM fragments "
+            "WHERE fragment_type = ? AND language = ?",
+            ("successful_task_example", language),
+        )
+        scored: List[Tuple[int, str, str]] = []
+        purpose_words = set(purpose.lower().split())
+        for row in rows:
+            try:
+                meta = json.loads(row["metadata"])
+                stored_purpose: str = meta.get("purpose", "")
+                overlap = len(purpose_words & set(stored_purpose.lower().split()))
+                if overlap > 0:
+                    scored.append((overlap, stored_purpose, row["content"]))
+            except Exception:
+                continue
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [(p, c) for _, p, c in scored[:max_examples]]

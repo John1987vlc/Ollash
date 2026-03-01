@@ -38,5 +38,19 @@
     "opt4_incremental_backlog": true,
     "opt5_anti_pattern_injection": true,
     "opt6_active_shadow": true
+  },
+  "critic_loop": {
+    "enabled": true
+  },
+  "few_shot_store": {
+    "enabled": true
+  },
+  "chaos_engineering": {
+    "enabled": false,
+    "injection_rate": 0.2
+  },
+  "context_saturation": {
+    "enabled": true,
+    "threshold": 0.6
   }
 }

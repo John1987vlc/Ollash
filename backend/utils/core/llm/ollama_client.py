@@ -47,6 +47,22 @@ class OllamaClient:
                     self._aiohttp_session = aiohttp.ClientSession()
         return self._aiohttp_session
 
+    def _check_saturation(self, messages: list) -> None:
+        """Publish a context_saturation_alert event if prompt nears the model's window."""
+        try:
+            from backend.utils.core.llm.context_saturation import check_context_saturation
+
+            full_text = " ".join(m.get("content", "") for m in messages if isinstance(m, dict))
+            warning = check_context_saturation(full_text, self.model)
+            if warning and self.logger.event_publisher:
+                self.logger.event_publisher.publish(
+                    "context_saturation_alert",
+                    model=self.model,
+                    warning=warning,
+                )
+        except Exception:
+            pass  # Saturation check must never abort LLM calls
+
     async def achat(self, messages, tools=None, options_override=None, context=None):
         import time
 
@@ -58,6 +74,9 @@ class OllamaClient:
             opts.update(options_override)
         if hasattr(self, "_keep_alive"):
             opts["keep_alive"] = self._keep_alive
+
+        # Feature 6: Context saturation check
+        self._check_saturation(messages)
 
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False, "options": opts}
         if context:
@@ -132,6 +151,9 @@ class OllamaClient:
             opts.update(options_override)
         if hasattr(self, "_keep_alive"):
             opts["keep_alive"] = self._keep_alive
+
+        # Feature 6: Context saturation check
+        self._check_saturation(messages)
 
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False, "options": opts}
         if context:

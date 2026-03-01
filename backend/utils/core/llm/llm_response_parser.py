@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional, Any
 import json
 import re
 import time
@@ -15,8 +15,6 @@ class LLMResponseParser:
         tool_calls = []
 
         # Format 1: [TOOL_CALL: name{"arg": "val"}] or [TOOL_CALL: name(args)]
-        # This is common in smaller models or specific instructions.
-        # Non-greedy .*? for arguments, handling both closed and unclosed brackets.
         matches = re.finditer(r"\[TOOL_CALL:\s*(\w+)\s*(\{.*?\})(?:\]|$)", text, re.S)
         for i, m in enumerate(matches):
             name = m.group(1)
@@ -31,9 +29,7 @@ class LLMResponseParser:
                     }
                 )
             except:
-                # Try a very loose JSON extraction if direct load fails
                 try:
-                    # Fix unescaped backslashes before space or end of string common in paths C:\
                     fixed_args = re.sub(r"\\(\s|$)", r"\\\\\1", raw_args)
                     args = json.loads(fixed_args)
                     tool_calls.append(
@@ -62,7 +58,7 @@ class LLMResponseParser:
             except:
                 continue
 
-        # Format 3: Raw JSON object that looks like a tool call if it is the only thing in the block
+        # Format 3: Raw JSON object
         if not tool_calls:
             potential_json = LLMResponseParser.extract_json(text)
             if (
@@ -84,10 +80,10 @@ class LLMResponseParser:
         return tool_calls
 
     @staticmethod
-    def remove_think_blocks(response):
+    def remove_think_blocks(response: str) -> Tuple[str, str]:
+        """Removes <think> blocks and returns (cleaned_text, extracted_thought)."""
         if not response:
             return "", ""
-        # Match both <thinking_process> and <proceso_de_pensamiento> to be safe with smaller models
         match = re.search(
             r"<(?:think|thinking_process|proceso_de_pensamiento)>([\s\S]*?)(?:</(?:think|thinking_process|proceso_de_pensamiento)>|$)",
             response,
@@ -95,15 +91,20 @@ class LLMResponseParser:
         )
         if not match:
             return response, ""
-        return re.sub(
+        cleaned = re.sub(
             r"<(?:think|thinking_process|proceso_de_pensamiento)>[\s\S]*?(?:</(?:think|thinking_process|proceso_de_pensamiento)>|$)",
             "",
             response,
             flags=re.I,
-        ).strip(), match.group(1).strip()
+        ).strip()
+        return cleaned, match.group(1).strip()
 
     @staticmethod
-    def extract_raw_content(response):
+    def extract_raw_content(response: str) -> str:
+        """
+        Extracts the main content from an LLM response, handling tags and markdown.
+        Designed to be extremely robust against nested wrappers and conversational noise.
+        """
         if not response:
             return ""
 
@@ -112,81 +113,97 @@ class LLMResponseParser:
         if not cleaned.strip():
             return ""
 
-        # 2. Try to extract from specific code-wrapping tags (case-insensitive)
-        tag_match = re.search(
-            r"<(?:code_created|plan_json|backlog_json|structure_json|contingency_json)>([\s\S]*?)(?:</(?:code_created|plan_json|backlog_json|structure_json|contingency_json)>|$)",
-            cleaned,
-            re.I,
-        )
-
-        if tag_match:
-            # If tags are present, ONLY take what's inside
-            content = tag_match.group(1).strip()
-            # If there's a markdown block inside the tags, extract it
-            if "```" in content:
-                return LLMResponseParser.extract_single_code_block(content)
-            return content
-
-        # 3. If no tags, fall back to standard extraction
-        if "```" in cleaned:
-            return LLMResponseParser.extract_single_code_block(cleaned)
-
-        return cleaned.strip()
+        # 2. Use the aggressive iterative extractor
+        return LLMResponseParser.extract_single_code_block(cleaned)
 
     @staticmethod
-    def extract_single_code_block(response):
-        cleaned, _ = LLMResponseParser.remove_think_blocks(response)
-        # More robust regex: \n? after opening, \n? before closing
-        match = re.search(r"```(?:\w+)?\s*\n?([\s\S]*?)\n?\s*```", cleaned)
-        if match:
-            return match.group(1).strip()
-        cleaned = cleaned.strip()
-        if cleaned.startswith("```"):
-            lines = cleaned.splitlines()
-            if len(lines) > 0:
-                cleaned = "\n".join(lines[1:])
-        if cleaned.endswith("```"):
-            lines = cleaned.splitlines()
-            if len(lines) > 0 and lines[-1].strip() == "```":
-                cleaned = "\n".join(lines[:-1])
-        return cleaned.strip()
+    def extract_single_code_block(text: str) -> str:
+        """
+        Aggressively strips markdown markers and XML-style tags from text.
+        Iteratively removes wrappers until no more wrapping artifacts are detected.
+        """
+        if not text:
+            return ""
+        
+        current = text.strip()
+        tag_names = ["code_created", "plan_json", "backlog_json", "structure_json", "contingency_json", "review_json", "senior_review_json"]
+        
+        # Iterative cleaning to handle nested wrappers (e.g. <tag>```js\ncode\n```</tag>)
+        for _ in range(5):
+            old = current
+            
+            # A. XML Tags wrapping the whole thing
+            tag_pattern = r"^<(" + "|".join(tag_names) + r")[^>]*>([\s\S]*?)(?:</\1>|$)"
+            tag_match = re.search(tag_pattern, current, re.I | re.S)
+            if tag_match:
+                current = tag_match.group(2).strip()
+                if current != old: continue
+
+            # B. Markdown blocks wrapping the whole thing
+            # Strict wrapping from ^ to $
+            md_wrap_match = re.search(r"^```(?:\w+)?\s*\n?([\s\S]*?)\n?\s*```$", current, re.S)
+            if md_wrap_match:
+                current = md_wrap_match.group(1).strip()
+                # Remove lang ID if it's the only thing on the first line
+                lines = current.splitlines()
+                if lines and not lines[0].strip().startswith("```"):
+                    if re.match(r"^[a-zA-Z0-9+#-]+$", lines[0].strip()):
+                        current = "\n".join(lines[1:]).strip()
+                if current != old: continue
+            
+            # C. Conversational text + block fallback
+            # If not perfectly wrapped, try to find the FIRST discrete block
+            if "```" in current:
+                blocks = re.findall(r"```(?:\w+)?\s*\n?([\s\S]*?)\n?\s*```", current, re.S)
+                if blocks:
+                    # Take the first non-empty block
+                    non_empty = [b.strip() for b in blocks if b.strip()]
+                    if non_empty:
+                        # Recursive call to strip any wrappers inside this block
+                        candidate = non_empty[0]
+                        # Only take it if it was clearly meant to be a block (surrounded by conversational text)
+                        # or if it's our only option.
+                        if len(blocks) == 1:
+                            # Heuristic: strip if there's conversational prefix
+                            prefix = current[:current.find("```")].strip()
+                            if prefix and not prefix.startswith(("#", "import", "from", "package", "name:")):
+                                current = candidate
+                                if current != old: continue
+
+            break # No more changes possible
+        
+        # D. Final surgical tag removal for unclosed tags at the very start/end
+        lines = current.splitlines()
+        if lines:
+            if re.match(r"^<(" + "|".join(tag_names) + r")[^>]*>$", lines[0].strip(), re.I):
+                lines = lines[1:]
+            if lines and re.match(r"^</(" + "|".join(tag_names) + r")>$", lines[-1].strip(), re.I):
+                lines = lines[:-1]
+            current = "\n".join(lines).strip()
+                
+        return current
 
     @staticmethod
-    def extract_json(response):
+    def extract_json(response: str) -> Optional[Any]:
+        """Extracts and parses JSON from an LLM response with aggressive repair."""
         if not response:
             return None
 
-        # 1. Intentar extraer de tags específicos (case-insensitive)
-        tag_match = re.search(
-            r"<(?:plan_json|backlog_json|code_created|senior_review_json|tool_call|structure_json|contingency_json)>([\s\S]*?)(?:</(?:plan_json|backlog_json|code_created|senior_review_json|tool_call|structure_json|contingency_json)>|$)",
-            response,
-            re.I,
-        )
+        # 1. Standard cleaning
+        cleaned, _ = LLMResponseParser.remove_think_blocks(response)
+        
+        # 2. Extract content using the aggressive logic
+        json_text = LLMResponseParser.extract_single_code_block(cleaned)
 
-        content_to_parse = response
-        if tag_match:
-            content_to_parse = tag_match.group(1).strip()
-            # Limpiar posibles bloques de código dentro de los tags
-            content_to_parse = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", content_to_parse, flags=re.M).strip()
-
-        # 2. Limpieza estándar (remover bloques de pensamiento)
-        cleaned, _ = LLMResponseParser.remove_think_blocks(content_to_parse)
-
-        # Limpieza de bloques de código si no se usaron tags
-        if not tag_match:
-            cleaned = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", cleaned.strip(), flags=re.M).strip()
-
-        # 3. Reparación agresiva de caracteres y formato
-        repaired = LLMResponseParser._repair_json_string(cleaned)
+        # 3. Aggressive character and format repair
+        repaired = LLMResponseParser._repair_json_string(json_text)
 
         # 4. Multi-attempt parsing
         result = None
-
-        # Attempt A: Direct parse
         try:
             result = json.loads(repaired)
         except:
-            # Attempt B: Heuristic search for { } or [ ]
+            # Heuristic search for first [ or { and corresponding closer
             fb = repaired.find("[")
             fbr = repaired.find("{")
 
@@ -206,30 +223,16 @@ class LLMResponseParser:
                     pass
 
         # 5. SURGICAL EXTRACTION (The "flattening" logic)
-        # Si el resultado es un dict con una sola clave interesante, o una envoltura conocida, devolver el interior
         if isinstance(result, dict):
-            # Claves de envoltura comunes que los modelos suelen añadir
             wrappers = [
-                "backlog",
-                "tasks",
-                "files",
-                "folders",
-                "plan",
-                "architecture",
-                "structure",
-                "risks",
-                "items",
-                "logic_plan",
+                "backlog", "tasks", "files", "folders", "plan",
+                "architecture", "structure", "risks", "items", "logic_plan",
             ]
-
             for key in wrappers:
                 if key in result and isinstance(result[key], (list, dict)):
-                    # Si es la única clave, o si las otras claves son metadatos pequeños (strings/ints)
                     other_keys = [k for k in result.keys() if k != key]
                     if not other_keys or all(not isinstance(result[k], (list, dict)) for k in other_keys):
                         return result[key]
-
-            # Si el dict es muy pequeño (1-2 claves) y una de ellas es una lista, devolver la lista
             if len(result) <= 2:
                 for val in result.values():
                     if isinstance(val, list) and len(val) > 0:
@@ -242,59 +245,37 @@ class LLMResponseParser:
         """Applies multiple heuristics to fix common LLM JSON errors."""
         if not s:
             return s
-
-        # 1. Basic cleanup of encoding artifacts and smart quotes
+        
+        # Basic cleanup of encoding artifacts and smart quotes
         s = s.replace("â€\u009d", '"').replace("â€œ", '"').replace("â€™", "'").replace("â€˜", "'")
         s = s.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-
-        # 2. Remove comments (MUST do this before fixing newlines)
+        
+        # Remove comments
         s = re.sub(r"//.*$", "", s, flags=re.M)
         s = re.sub(r"/\*[\s\S]*?\*/", "", s)
-
-        # 3. Fix literal newlines inside strings
+        
+        # Fix literal newlines inside strings
         def fix_newlines(match):
             return match.group(0).replace("\n", "\\n").replace("\r", "")
-
         s = re.sub(r'"[\s\S]*?"', fix_newlines, s)
-
-        # 4. Fix hallucinated notes in parentheses inside arrays or after values
-        # e.g., ["path" (note)] -> ["path"] or {"key": "val" (note)} -> {"key": "val"}
+        
+        # Fix hallucinated notes in parentheses after values
         s = re.sub(r'("[\s\S]*?")\s*\([\s\S]*?\)', r"\1", s)
-
-        # 5. Remove trailing commas before closing braces/brackets
+        
+        # Remove trailing commas
         s = re.sub(r",\s*([\]}])", r"\1", s)
-
-        # 6. Fix unescaped backslashes (common in Windows paths)
-        # Only fix if not already part of an escape sequence
+        
+        # Fix unescaped backslashes (common in Windows paths)
         s = re.sub(r'\\(?!["\\/bfnrtu])', r"\\\\", s)
-
-        # 7. Final pass: ensure we don't have control characters that break JSON
-        # Replace literal tabs with spaces, etc.
+        
+        # Final cleanup
         s = s.replace("\t", "    ")
-
+        
         return s.strip()
 
     @staticmethod
     def extract_thought_action(response: str) -> Tuple[str, str]:
-        """Extract (thought, action) from an LLM response supporting two formats.
-
-        Format 1 — JSON object:
-            {"thought": "...", "action": "..."}
-
-        Format 2 — XML-style tags:
-            <thought>...</thought><action>...</action>
-
-        If neither format matches, returns ("", cleaned_response) so the caller
-        can still use the full response as the action.
-
-        This method is ADDITIVE and does NOT replace any existing parsing method.
-
-        Args:
-            response: Raw LLM response string.
-
-        Returns:
-            Tuple of (thought_str, action_str). Both may be empty strings.
-        """
+        """Extract (thought, action) from an LLM response."""
         if not response:
             return ("", "")
 
@@ -320,11 +301,13 @@ class LLMResponseParser:
         return ("", cleaned.strip())
 
     @staticmethod
-    def extract_multiple_files(response):
+    def extract_multiple_files(response: str) -> Dict[str, str]:
+        """Extracts multiple files from a single response using # filename: markers."""
         cleaned, _ = LLMResponseParser.remove_think_blocks(response)
         files = {}
         lines = cleaned.splitlines()
         content, name, in_block, pot_name = [], None, False, None
+        
         for line in lines:
             stripped = line.strip()
             if not in_block:
@@ -332,10 +315,11 @@ class LLMResponseParser:
                 if m:
                     pot_name = Path(m.group(1).strip()).as_posix().replace("..", "").lstrip("/")
                     continue
+            
             if stripped.startswith("```"):
                 if in_block:
                     if name:
-                        files[name] = "\n".join(content).strip()
+                        files[name] = LLMResponseParser.extract_single_code_block("\n".join(content))
                     content, name, in_block, pot_name = [], None, False, None
                 else:
                     in_block = True
@@ -348,6 +332,8 @@ class LLMResponseParser:
                     name = Path(stripped.split(":", 1)[1].strip()).as_posix().replace("..", "").lstrip("/")
                 else:
                     content.append(line)
+                    
         if in_block and name:
-            files[name] = "\n".join(content).strip()
+            files[name] = LLMResponseParser.extract_single_code_block("\n".join(content))
+            
         return files
