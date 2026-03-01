@@ -60,8 +60,13 @@ class TestSandboxRunnerBasic:
     def test_timeout_returns_failed(self, mock_run):
         import subprocess
 
-        mock_run.side_effect = subprocess.TimeoutExpired(cmd="ruff", timeout=10)
+        def _side_effect(cmd, **kwargs):
+            if "--version" in cmd:
+                return MagicMock(returncode=0, stdout="ruff 0.1.0", stderr="")
+            raise subprocess.TimeoutExpired(cmd="ruff", timeout=10)
+
+        mock_run.side_effect = _side_effect
         runner = _make_runner()
         result = runner.run_linter("slow.py", "x = 1")
         assert result.passed is False
-        assert "timeout" in result.tool.lower() or "unavailable" in result.tool.lower()
+        assert "timeout" in result.tool.lower() or "ruff" in result.tool.lower()

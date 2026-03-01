@@ -42,28 +42,37 @@ def advanced_system_tools(mock_exec, mock_logger):
 
 
 class TestSystemTools:
-    def test_get_system_info_windows(self, system_tools, mock_exec):
-        system_tools.os_type = "Windows"
-        mock_exec.execute.return_value = MagicMock(
-            success=True, stdout=json.dumps({"CsName": "TEST-PC", "OsName": "Windows 11"})
-        )
+    def test_get_system_info_returns_ok(self, system_tools):
+        import unittest.mock as um
 
-        result = system_tools.get_system_info()
+        mock_mem = MagicMock(total=8 * 2**30, available=4 * 2**30, used=4 * 2**30, free=4 * 2**30, percent=50.0)
+        mock_swap = MagicMock(total=2 * 2**30, free=1 * 2**30)
+        mock_freq = MagicMock(current=2400.0)
+
+        with (
+            um.patch("psutil.virtual_memory", return_value=mock_mem),
+            um.patch("psutil.swap_memory", return_value=mock_swap),
+            um.patch("psutil.cpu_count", return_value=4),
+            um.patch("psutil.cpu_freq", return_value=mock_freq),
+            um.patch("psutil.boot_time", return_value=0.0),
+            um.patch("platform.system", return_value="Linux"),
+            um.patch("platform.release", return_value="5.15"),
+            um.patch("platform.version", return_value="#1 SMP"),
+            um.patch("platform.architecture", return_value=("64bit", "")),
+            um.patch("platform.machine", return_value="x86_64"),
+            um.patch("platform.node", return_value="test-host"),
+        ):
+            result = system_tools.get_system_info()
 
         assert result["ok"] is True
-        assert result["result"]["info"]["OsName"] == "Windows 11"
-        mock_exec.execute.assert_called()
+        assert result["result"]["os"]["system"] == "Linux"
+        assert result["result"]["memory"]["percent_used"] == 50.0
+        assert result["result"]["cpu"]["logical_cores"] == 4
 
-    def test_get_system_info_linux(self, system_tools, mock_exec):
-        system_tools.os_type = "Linux"
-        # Linux returns multiple JSON objects concatenated
-        mock_exec.execute.return_value = MagicMock(success=True, stdout='{"hostname": "test-linux"}{"cpu": "intel"}')
-
-        result = system_tools.get_system_info()
-
-        assert result["ok"] is True
-        assert result["result"]["info"]["hostname"] == "test-linux"
-        assert result["result"]["info"]["cpu"] == "intel"
+    def test_get_system_info_psutil_error(self, system_tools):
+        with patch("psutil.virtual_memory", side_effect=RuntimeError("psutil fail")):
+            result = system_tools.get_system_info()
+        assert result["ok"] is False
 
     def test_list_processes_linux(self, system_tools, mock_exec):
         system_tools.os_type = "Linux"

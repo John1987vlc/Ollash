@@ -74,9 +74,14 @@ class LogicPlanningPhase(IAgentPhase):
         self.context.file_manager.write_file(plan_file, json.dumps(logic_plan, indent=2))
         generated_files["IMPLEMENTATION_PLAN.json"] = json.dumps(logic_plan, indent=2)
 
-        # NEW: Generate Agile Backlog
+        # NEW: Generate Agile Backlog (Opt 4: incremental mode for small models)
         self.context.logger.info("  Generating Agile Backlog of micro-tasks...")
-        backlog = await self._generate_backlog(project_description, readme_content, initial_structure)
+        if self.context._opt_enabled("opt4_incremental_backlog"):
+            backlog = await self._generate_backlog_incrementally(
+                project_description, readme_content, initial_structure
+            )
+        else:
+            backlog = await self._generate_backlog(project_description, readme_content, initial_structure)
 
         backlog_file = project_root / "BACKLOG.json"
         self.context.file_manager.write_file(backlog_file, json.dumps(backlog, indent=2))
@@ -97,6 +102,116 @@ class LogicPlanningPhase(IAgentPhase):
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5 complete: Plans and Backlog created.")
 
         return generated_files, initial_structure, file_paths
+
+    async def _generate_backlog_incrementally(
+        self,
+        project_description: str,
+        readme_content: str,
+        initial_structure: Dict,
+        max_tasks: int = 30,
+    ) -> List[Dict]:
+        """Generate the Agile backlog ONE micro-task at a time (Opt 4).
+
+        Instead of asking the model for the full backlog in one shot (which overloads
+        3B models), this method iteratively asks for the NEXT task based on what has
+        been generated so far. The Blackboard / DecisionBlackboard is used as
+        short-term memory between iterations.
+
+        Falls back to :meth:`_generate_backlog` if zero tasks are produced.
+
+        Args:
+            project_description: High-level project description.
+            readme_content: README context (truncated).
+            initial_structure: Project file tree dict.
+            max_tasks: Hard ceiling to prevent infinite loops (default 30).
+
+        Returns:
+            List of micro-task dicts, each with ``id``, ``title``, ``file_path``,
+            ``task_type``, and ``dependencies``.
+        """
+        from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+        from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
+
+        backlog: List[Dict] = []
+        structure_str = json.dumps(initial_structure, indent=2)
+
+        self.context.logger.info("  [Opt4] Using incremental backlog generation...")
+
+        while len(backlog) < max_tasks:
+            system_prompt, user_prompt = AutoGenPrompts.next_backlog_task(
+                project_description=project_description,
+                initial_structure=structure_str,
+                backlog_so_far=backlog,
+            )
+            try:
+                response_data, _ = self.context.llm_manager.get_client("planner").chat(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    tools=[],
+                    options_override={"temperature": 0.1},
+                )
+                response_text = response_data.get("content", "")
+
+                # Extract task from <task_json>...</task_json>
+                import re as _re
+                tag_match = _re.search(
+                    r"<task_json>([\s\S]*?)(?:</task_json>|$)", response_text, _re.IGNORECASE
+                )
+                raw = tag_match.group(1).strip() if tag_match else response_text
+                task_data = LLMResponseParser.extract_json(raw)
+
+                if not isinstance(task_data, dict):
+                    self.context.logger.info(
+                        f"  [Opt4] Unexpected response type — stopping incremental loop."
+                    )
+                    break
+
+                # Completion signal
+                if task_data.get("complete"):
+                    self.context.logger.info(
+                        f"  [Opt4] Model signalled completion after {len(backlog)} tasks."
+                    )
+                    break
+
+                file_path = task_data.get("file_path", "")
+                if not file_path:
+                    self.context.logger.info("  [Opt4] Task missing file_path — skipping.")
+                    continue
+
+                # Auto-assign ID if missing
+                if "id" not in task_data:
+                    task_data["id"] = f"TASK-{len(backlog) + 1:03d}"
+
+                backlog.append(task_data)
+
+                # Record decision for cross-phase memory
+                try:
+                    self.context.decision_blackboard.record_decision(
+                        key=f"backlog_task_{task_data['id']}",
+                        value=json.dumps(task_data),
+                        context=f"Incremental backlog task {task_data['id']}",
+                    )
+                except Exception:
+                    pass
+
+                self.context.logger.info(
+                    f"  [Opt4] Task {task_data['id']}: {task_data.get('title', file_path)}"
+                )
+
+            except Exception as exc:
+                self.context.logger.warning(f"  [Opt4] Incremental step failed: {exc}")
+                break
+
+        if not backlog:
+            self.context.logger.info(
+                "  [Opt4] No tasks produced incrementally — falling back to batch generation."
+            )
+            return await self._generate_backlog(project_description, readme_content, initial_structure)
+
+        self.context.logger.info(f"  [Opt4] Incremental backlog complete: {len(backlog)} tasks.")
+        return backlog
 
     async def _generate_backlog(
         self, project_description: str, readme_content: str, initial_structure: Dict

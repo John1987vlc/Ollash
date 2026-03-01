@@ -3,14 +3,19 @@
 Runs alongside the production pipeline, logging model outputs and
 comparing against a critic model's corrections. When correction rate
 exceeds a threshold, the model's affinity score is reduced.
+
+Also provides *active* shadow validation (Opt 6): a lightweight format
+check that calls the nano_format_corrector role when the main model
+produces structurally invalid output.
 """
 
+import ast
 import hashlib
 import json
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from backend.utils.core.system.agent_logger import AgentLogger
 
@@ -193,6 +198,127 @@ class ShadowEvaluator:
             "critic_threshold": self.critic_threshold,
             "models": models,
         }
+
+    # ------------------------------------------------------------------
+    # Opt 6: Active shadow validation
+    # ------------------------------------------------------------------
+
+    def _check_format(self, content: str, language: str) -> str:
+        """Check whether *content* is structurally valid for *language*.
+
+        Uses fast, zero-LLM checks:
+        - Python: ``ast.parse()``
+        - JSON: ``json.loads()``
+        - JS/TS: brace-balance heuristic
+        - Other languages: always passes (returns empty string)
+
+        Args:
+            content: Source code or text to validate.
+            language: Lowercase language name or file extension (e.g. ``"python"``, ``".py"``).
+
+        Returns:
+            Empty string if valid, or a short error description if invalid.
+        """
+        lang = language.lstrip(".").lower()
+        if lang == "python" or lang == "py":
+            try:
+                ast.parse(content)
+                return ""
+            except SyntaxError as exc:
+                return f"Python SyntaxError: {exc.msg} (line {exc.lineno})"
+        if lang == "json":
+            try:
+                json.loads(content)
+                return ""
+            except json.JSONDecodeError as exc:
+                return f"JSON parse error: {exc.msg} at position {exc.pos}"
+        if lang in ("javascript", "js", "typescript", "ts"):
+            opens = content.count("{")
+            closes = content.count("}")
+            if opens != closes:
+                return f"Unbalanced braces: {opens} open vs {closes} close"
+            return ""
+        return ""
+
+    def active_shadow_validate(
+        self,
+        file_path: str,
+        content: str,
+        language: str,
+        llm_manager: Any,
+        logger: Any,
+    ) -> Tuple[str, bool]:
+        """Validate output format and repair it using the nano_format_corrector role (Opt 6).
+
+        Runs ``_check_format()`` on *content*. If a format error is found,
+        calls the ``nano_format_corrector`` LLM role to fix ONLY the structural
+        issue.  Falls back to returning the original content on any error.
+
+        Args:
+            file_path: Path of the file being generated (for log context).
+            content: Generated source code to validate.
+            language: Programming language of *content*.
+            llm_manager: ``IModelProvider`` instance with ``get_client(role)``.
+            logger: ``AgentLogger`` (or any object with ``.info()`` / ``.error()``).
+
+        Returns:
+            Tuple ``(possibly_repaired_content, was_repaired)``.
+            ``was_repaired`` is ``True`` only if the nano model was invoked and
+            returned valid corrected code.
+        """
+        from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
+        from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
+        format_error = self._check_format(content, language)
+        if not format_error:
+            return content, False
+
+        logger.info(
+            f"[Opt6] Format error in '{file_path}': {format_error}. "
+            "Calling nano_format_corrector..."
+        )
+
+        try:
+            system_prompt, user_prompt = AutoGenPrompts.nano_format_corrector(
+                language=language,
+                format_error=format_error,
+                code=content,
+            )
+            client = llm_manager.get_client("nano_reviewer")
+            response_data, _ = client.chat(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                tools=[],
+                options_override={"temperature": 0.0},
+            )
+            raw = response_data.get("content", "")
+            # Extract <code_fixed>...</code_fixed>
+            import re as _re
+            match = _re.search(r"<code_fixed>(.*?)</code_fixed>", raw, _re.DOTALL | _re.IGNORECASE)
+            if match:
+                repaired = match.group(1).strip()
+                # Verify repair actually fixed the issue
+                if not self._check_format(repaired, language):
+                    logger.info(f"[Opt6] Format repair successful for '{file_path}'")
+                    self.record_shadow_log(
+                        ShadowLog(
+                            timestamp=time.time(),
+                            phase_name="file_content_generation",
+                            model_name=getattr(client, "model", "unknown"),
+                            input_hash=hashlib.md5(content.encode()).hexdigest(),
+                            output_preview=content[:500],
+                            critic_correction=repaired[:500],
+                            correction_severity=0.3,
+                        )
+                    )
+                    return repaired, True
+            logger.info(f"[Opt6] Format repair did not resolve the issue for '{file_path}', using original")
+        except Exception as exc:
+            logger.error(f"[Opt6] nano_format_corrector failed for '{file_path}': {exc}")
+
+        return content, False
 
     def _persist_logs(self) -> None:
         """Save logs to JSON file in log_dir."""

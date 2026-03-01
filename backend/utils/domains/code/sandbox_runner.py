@@ -98,7 +98,7 @@ class SandboxRunner:
             tmp_file.write_text(content, encoding="utf-8")
 
             result = subprocess.run(
-                ["ruff", "check", "--select", "E,F,W", "--output-format", "text", str(tmp_file)],
+                ["ruff", "check", "--select", "E,F,W", "--output-format", "concise", str(tmp_file)],
                 capture_output=True,
                 text=True,
                 timeout=self._timeout,

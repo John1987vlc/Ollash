@@ -11,10 +11,9 @@ class TestTaskDAGHITL:
 
     def _make_dag(self) -> TaskDAG:
         dag = TaskDAG()
-        dag.add_node(
+        dag.add_task(
             TaskNode(
                 id="node_a",
-                task_description="Generate foo.py",
                 agent_type=AgentType.DEVELOPER,
                 task_data={"file_path": "foo.py"},
             )
@@ -41,10 +40,9 @@ class TestTaskDAGHITL:
     @pytest.mark.asyncio
     async def test_get_waiting_nodes_returns_only_waiting(self):
         dag = self._make_dag()
-        dag.add_node(
+        dag.add_task(
             TaskNode(
                 id="node_b",
-                task_description="Generate bar.py",
                 agent_type=AgentType.DEVELOPER,
                 task_data={"file_path": "bar.py"},
             )
@@ -76,18 +74,16 @@ class TestTaskDAGSerialization:
 
     def _make_dag(self) -> TaskDAG:
         dag = TaskDAG()
-        dag.add_node(
+        dag.add_task(
             TaskNode(
                 id="n1",
-                task_description="Write models.py",
                 agent_type=AgentType.DEVELOPER,
                 task_data={"file_path": "models.py"},
             )
         )
-        dag.add_node(
+        dag.add_task(
             TaskNode(
                 id="n2",
-                task_description="Setup infra",
                 agent_type=AgentType.DEVOPS,
                 task_data={},
                 dependencies=["n1"],
@@ -99,8 +95,8 @@ class TestTaskDAGSerialization:
         dag = self._make_dag()
         d = dag.to_dict()
         dag2 = TaskDAG.from_dict(d)
-        assert "n1" in [n.id for n in dag2.nodes]
-        assert "n2" in [n.id for n in dag2.nodes]
+        assert "n1" in [n.id for n in dag2.all_nodes()]
+        assert "n2" in [n.id for n in dag2.all_nodes()]
 
     def test_round_trip_preserves_dependencies(self):
         dag = self._make_dag()

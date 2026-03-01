@@ -52,6 +52,7 @@ from backend.utils.core.memory.fragment_cache import FragmentCache
 from backend.utils.core.memory.episodic_memory import EpisodicMemory
 from backend.utils.core.analysis.shadow_evaluator import ShadowEvaluator
 from backend.utils.core.llm.llm_recorder import LLMRecorder
+from backend.utils.core.llm.token_tracker import TokenTracker
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 from backend.utils.core.llm.parallel_generator import ParallelFileGenerator
 from backend.utils.core.llm.prompt_repository import PromptRepository
@@ -268,6 +269,7 @@ class CoreContainer(containers.DeclarativeContainer):
 
     # Shared cross-cutting providers (used by AutoAgent and multiple sub-systems)
     llm_recorder = providers.Singleton(LLMRecorder, logger=logging.logger)
+    token_tracker = providers.Singleton(TokenTracker)
 
     prompt_loader = providers.Singleton(
         PromptLoader,
@@ -316,6 +318,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         tool_settings=core.logging.tool_settings_config,
         logger=core.logging.logger,
         recorder=core.llm_recorder,
+        token_tracker=core.token_tracker,
     )
 
     # --- Specialized Service Providers ---

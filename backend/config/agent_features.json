@@ -30,5 +30,13 @@
     "enabled": false,
     "language": "es-ES",
     "max_duration_seconds": 60
+  },
+  "small_model_optimizations": {
+    "opt1_prompt_state_machine": true,
+    "opt2_micro_context_snapshot": true,
+    "opt3_exit_contract": true,
+    "opt4_incremental_backlog": true,
+    "opt5_anti_pattern_injection": true,
+    "opt6_active_shadow": true
   }
 }

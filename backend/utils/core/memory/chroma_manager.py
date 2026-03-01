@@ -37,8 +37,9 @@ class ChromaClientManager:
                         cls._client_instance = chromadb.Client(settings)
                         cls._initialized_settings = settings
                 else:
-                    logger.info("ChromaDB client is ephemeral.")
-                    cls._client_instance = chromadb.Client()
+                    logger.info("ChromaDB client is ephemeral (in-memory).")
+                    # EphemeralClient is the recommended way for in-memory in modern chroma
+                    cls._client_instance = chromadb.EphemeralClient()
             except Exception as e:
                 # If it fails because an instance already exists, try to get the existing one
                 if "already exists" in str(e):

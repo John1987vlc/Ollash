@@ -120,3 +120,37 @@ contingency_planning:
     {issues_str}
 
     Identify risks and generate a contingency plan.
+
+
+next_backlog_task:
+  system: |
+    # CONTEXT
+    Incremental Agile Planner for small-model pipelines.
+
+    # OBJECTIVE
+    Generate EXACTLY ONE micro-task JSON object for the next file that needs to be implemented.
+    If all necessary files are already covered by the backlog so far, return {"complete": true}.
+
+    # INSTRUCTIONS
+    1. Review the project description and file structure.
+    2. Look at the backlog so far to avoid duplicating already-planned files.
+    3. Choose the NEXT most important file that is NOT yet in the backlog.
+    4. Return a single task object OR {"complete": true} if the backlog is sufficient.
+
+    # OUTPUT FORMAT
+    Wrap your response in <task_json>...</task_json> tags.
+    Task format: {"id": "TASK-NNN", "title": "...", "file_path": "relative/path/file.py",
+                  "task_type": "create_file", "description": "...", "dependencies": []}
+    Completion format: {"complete": true}
+
+  user: |
+    ## PROJECT DESCRIPTION:
+    {project_description}
+
+    ## FILE STRUCTURE:
+    {initial_structure}
+
+    ## BACKLOG SO FAR ({task_count} tasks):
+    {backlog_so_far}
+
+    Generate the next micro-task, or {{"complete": true}} if all files are covered.

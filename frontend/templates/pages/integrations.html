@@ -53,11 +53,11 @@
 </div>
 
 <!-- Trigger Config Modal -->
-<div id="trigger-modal" class="modal" style="display: none;">
+<div id="trigger-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="trigger-modal-title" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Configure Automation Rule</h3>
-            <button class="close-modal" onclick="closeTriggerModal()">&times;</button>
+            <h3 id="trigger-modal-title">Configure Automation Rule</h3>
+            <button class="close-modal" aria-label="Close" onclick="closeTriggerModal()">&times;</button>
         </div>
         <form id="trigger-form">
             <div class="form-group">

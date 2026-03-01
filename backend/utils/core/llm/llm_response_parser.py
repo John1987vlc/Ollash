@@ -104,11 +104,33 @@ class LLMResponseParser:
 
     @staticmethod
     def extract_raw_content(response):
+        if not response:
+            return ""
+
+        # 1. Clean thinking blocks first
         cleaned, _ = LLMResponseParser.remove_think_blocks(response)
         if not cleaned.strip():
             return ""
+
+        # 2. Try to extract from specific code-wrapping tags (case-insensitive)
+        tag_match = re.search(
+            r"<(?:code_created|plan_json|backlog_json|structure_json|contingency_json)>([\s\S]*?)(?:</(?:code_created|plan_json|backlog_json|structure_json|contingency_json)>|$)",
+            cleaned,
+            re.I,
+        )
+
+        if tag_match:
+            # If tags are present, ONLY take what's inside
+            content = tag_match.group(1).strip()
+            # If there's a markdown block inside the tags, extract it
+            if "```" in content:
+                return LLMResponseParser.extract_single_code_block(content)
+            return content
+
+        # 3. If no tags, fall back to standard extraction
         if "```" in cleaned:
             return LLMResponseParser.extract_single_code_block(cleaned)
+
         return cleaned.strip()
 
     @staticmethod

@@ -79,7 +79,8 @@ window.HITLModal = (function() {
 
   async function _respond(approved) {
     const answer = answerEl ? answerEl.value : '';
-    await fetch('/api/hil/respond', {
+    // Use absolute URL for the mock to avoid "Failed to parse URL" in about:blank
+    await fetch('http://localhost/api/hil/respond', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ request_id: _taskId, answer, approved }),

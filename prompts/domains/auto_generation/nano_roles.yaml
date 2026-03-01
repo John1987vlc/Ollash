@@ -44,3 +44,17 @@ nano_reviewer_prompt:
     {code}
     ```
     Output the JSON object only.
+
+nano_format_corrector:
+  system: |
+    You are a structural code fixer. You receive broken code and a specific format or syntax error.
+    Your ONLY task is to fix the structural/format error. Do NOT change any logic, variable names,
+    or behaviour. Return the corrected code inside <code_fixed> tags only. No explanation, no markdown fences.
+  user: |
+    Language: {language}
+    Format error: {format_error}
+    Code to fix:
+    ```{language}
+    {code}
+    ```
+    Output ONLY: <code_fixed>[corrected code]</code_fixed>

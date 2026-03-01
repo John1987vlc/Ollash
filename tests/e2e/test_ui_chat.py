@@ -61,12 +61,12 @@ def test_agent_cards_interactivity(page, base_url):
     page.goto(base_url)
     page.locator(".nav-item[data-view='chat']").click()
 
-    expect(page.locator(".agent-card").first).to_be_visible()
-    page.locator(".agent-card").first.click()
+    expect(page.locator(".btn-card").first).to_be_visible()
+    page.locator(".btn-card").first.click()
 
     import re
 
-    expect(page.locator(".agent-card").first).to_have_class(re.compile(r"active"))
+    expect(page.locator(".btn-card").first).to_have_class(re.compile(r"active"))
 
 
 @pytest.mark.e2e
@@ -92,6 +92,9 @@ def test_clear_chat_shows_confirmation_modal(page, base_url):
     # Custom confirmation modal must appear
     confirm_modal = page.locator("#confirm-modal")
     expect(confirm_modal).to_be_visible(timeout=2000)
+
+    # Verify message content
+    expect(page.locator("#confirm-modal-message")).to_contain_text("clear")
 
     # Dismiss by clicking Cancel so we don't clear actual content
     page.locator("#confirm-modal-cancel").click()

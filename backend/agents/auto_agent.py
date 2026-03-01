@@ -31,6 +31,7 @@ from backend.utils.core.system.execution_plan import ExecutionPlan
 
 # Core utilities
 from backend.utils.core.llm.llm_recorder import LLMRecorder
+from backend.utils.core.llm.token_tracker import TokenTracker
 from backend.utils.core.tools.git_pr_tool import GitPRTool
 
 
@@ -140,6 +141,7 @@ class AutoAgent(CoreAgent):
         llm_manager: Optional[IModelProvider] = Provide["auto_agent_module.llm_manager"],
         llm_recorder: Optional[LLMRecorder] = Provide["core.llm_recorder"],
         dependency_scanner: Optional[DependencyScanner] = Provide["core.analysis.dependency_scanner"],
+        token_tracker: Optional[TokenTracker] = Provide["core.token_tracker"],
         **kwargs,
     ):
         super().__init__(
@@ -148,6 +150,7 @@ class AutoAgent(CoreAgent):
             llm_manager=llm_manager,
             llm_recorder=llm_recorder,
             dependency_scanner=dependency_scanner,
+            token_tracker=token_tracker,
         )
 
         self.config = self.kernel.get_full_config()

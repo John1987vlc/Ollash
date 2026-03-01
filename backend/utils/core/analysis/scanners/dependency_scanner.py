@@ -330,7 +330,7 @@ class GoDependencyScanner(LanguageDependencyScanner):
                         modules.add(match.group(2))
 
         # Filter out stdlib and relative imports, and ensure it looks like a third-party module (contains '/')
-        return {m for m in modules if m not in stdlib and "/" in m and not m.startswith(".")}
+        return {m for m in modules if m.split("/")[0] not in stdlib and "/" in m and not m.startswith(".")}
 
     def reconcile(
         self,

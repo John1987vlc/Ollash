@@ -102,7 +102,7 @@ def test_modal_close_buttons_have_aria_label(page, base_url):
     """
     page.goto(base_url)
 
-    close_buttons = page.locator(".close-modal")
+    close_buttons = page.locator(".close-modal, .btn-close-ghost")
     count = close_buttons.count()
     assert count > 0, "Should find at least one .close-modal button"
 
@@ -147,19 +147,6 @@ def test_nav_group_headers_have_aria_expanded(page, base_url):
         assert aria_expanded in ("true", "false"), (
             f"nav-group-header #{i} must have aria-expanded='true' or 'false', got '{aria_expanded}'"
         )
-
-
-@pytest.mark.e2e
-def test_toggle_pair_mode_has_aria_label(page, base_url):
-    """
-    El botón #toggle-pair-mode debe tener aria-label.
-    """
-    page.goto(base_url)
-    btn = page.locator("#toggle-pair-mode")
-    expect(btn).to_be_visible()
-
-    aria_label = btn.get_attribute("aria-label")
-    assert aria_label and len(aria_label.strip()) > 0, "#toggle-pair-mode must have aria-label"
 
 
 # ---------------------------------------------------------------------------

@@ -172,7 +172,7 @@ class MultiLanguageTestGenerator:
         project_root: Path,
         readme_context: str,
         services: Optional[List[Dict[str, str]]] = None,
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> Tuple[Optional[str], Optional[str], str]:
         """
         Generate integration tests and docker-compose orchestration.
 
@@ -182,15 +182,30 @@ class MultiLanguageTestGenerator:
             services: List of services with names and ports
 
         Returns:
-            (integration_test_content, docker_compose_test_content)
+            (integration_test_content, docker_compose_test_content, extension)
         """
         self.logger.info("Generating integration tests...")
 
         # Scan project to find services and APIs
         services = services or self._detect_services(project_root, readme_context)
+        
+        # Detect primary language to determine extension
+        primary_lang = "python"
+        extension = ".py"
+        
+        # Heuristic for extension
+        all_files = list(project_root.rglob("*"))
+        js_count = len([f for f in all_files if f.suffix in ('.js', '.ts', '.jsx', '.tsx')])
+        py_count = len([f for f in all_files if f.suffix == '.py'])
+        
+        if js_count > py_count:
+            primary_lang = "javascript"
+            extension = ".js"
+        elif py_count > js_count:
+            primary_lang = "python"
+            extension = ".py"
 
-        system_prompt = """You are an expert test architect.
-Create comprehensive integration tests that validate service interactions."""
+        system_prompt = f"You are an expert test architect. Create comprehensive {primary_lang} integration tests."
 
         user_prompt = f"""Create integration tests for this project:
 
@@ -203,7 +218,7 @@ Include:
 3. Error handling and edge cases
 4. Load scenarios
 
-Format as a single test file with clear organization."""
+Format as a single test file with clear organization. Use {primary_lang} syntax."""
 
         try:
             response_data, _ = self.llm_client.chat(
@@ -220,11 +235,11 @@ Format as a single test file with clear organization."""
             # Generate docker-compose for test orchestration
             docker_compose = self._generate_test_docker_compose(services)
 
-            return (test_content, docker_compose)
+            return (test_content, docker_compose, extension)
 
         except Exception as e:
             self.logger.error(f"Error generating integration tests: {e}")
-            return (None, None)
+            return (None, None, extension)
 
     def execute_tests(
         self,

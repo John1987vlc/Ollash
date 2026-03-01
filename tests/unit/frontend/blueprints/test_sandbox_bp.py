@@ -1,5 +1,6 @@
+import sys
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 
 @pytest.fixture
@@ -14,25 +15,26 @@ def test_sandbox_page_loads(client):
     assert b"Safe Execution Sandbox" in response.data
 
 
-@patch("frontend.blueprints.sandbox_bp.docker_sandbox")
-@patch("frontend.blueprints.sandbox_bp.wasm_sandbox")
-def test_execute_code_python_success(mock_wasm, mock_docker, client):
+def test_execute_code_python_success(client):
     """Test successful Python code execution via Docker fallback."""
     from backend.utils.core.tools.wasm_sandbox import TestResult as SandboxTestResult
 
+    _sbp_mod = sys.modules["frontend.blueprints.sandbox_bp"]
+    mock_docker = MagicMock()
     mock_docker.is_available = True
     mock_docker.execute_in_container.return_value = SandboxTestResult(
         success=True, exit_code=0, stdout="hello world\n", stderr="", duration_seconds=0.1
     )
+    mock_wasm = MagicMock()
 
-    payload = {"code": "print('hello world')", "language": "python"}
-
-    response = client.post("/sandbox/execute", json=payload)
-    assert response.status_code == 200
-    data = response.get_json()
-    assert data["status"] == "success"
-    assert "hello world" in data["output"]
-    assert data["duration"] == 0.1
+    with patch.object(_sbp_mod, "docker_sandbox", mock_docker), patch.object(_sbp_mod, "wasm_sandbox", mock_wasm):
+        payload = {"code": "print('hello world')", "language": "python"}
+        response = client.post("/sandbox/execute", json=payload)
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["status"] == "success"
+        assert "hello world" in data["output"]
+        assert data["duration"] == 0.1
 
 
 def test_execute_code_missing_code(client):
@@ -42,11 +44,14 @@ def test_execute_code_missing_code(client):
     assert b"No code provided" in response.data
 
 
-@patch("frontend.blueprints.sandbox_bp.docker_sandbox")
-@patch("frontend.blueprints.sandbox_bp.wasm_sandbox")
-def test_execute_code_unsupported_language(mock_wasm, mock_docker, client):
+def test_execute_code_unsupported_language(client):
     """Test error handling for unsupported languages."""
-    payload = {"code": "some code", "language": "cobol"}
-    response = client.post("/sandbox/execute", json=payload)
-    assert response.status_code == 400
-    assert b"not supported" in response.data
+    _sbp_mod = sys.modules["frontend.blueprints.sandbox_bp"]
+    mock_docker = MagicMock()
+    mock_wasm = MagicMock()
+
+    with patch.object(_sbp_mod, "docker_sandbox", mock_docker), patch.object(_sbp_mod, "wasm_sandbox", mock_wasm):
+        payload = {"code": "some code", "language": "cobol"}
+        response = client.post("/sandbox/execute", json=payload)
+        assert response.status_code == 400
+        assert b"not supported" in response.data

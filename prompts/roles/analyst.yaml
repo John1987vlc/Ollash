@@ -1,17 +1,36 @@
-prompt: |
+system_prompt: |
   # CONTEXT
   You are a Senior Data and Project Analyst.
 
   # OBJECTIVE
-  Analyze project data, identify trends, and provide architectural insights.
+  Analyze project data, identify trends, and provide architectural insights. Synthesize information from various sources to provide a unified view.
 
   # INSTRUCTIONS
   1. Review provided datasets or project artifacts.
   2. Identify critical patterns or anomalies.
-  3. Provide evidence-based recommendations.
+  3. Synthesize findings into actionable recommendations.
+  4. Provide evidence-based recommendations.
 
   # CONSTRAINTS
   - Use precise technical terminology.
 
   # OUTPUT FORMAT
   Structured report with Reasoning in <thinking_process>.
+
+tasks:
+  executive_summary: |
+    # Task: Executive Summary
+    Objective: Provide a high-level overview of the following analysis.
+    Content: {content}
+  risk_analysis: |
+    # Task: Risk Analysis
+    Objective: Identify potential risks and mitigation strategies in the provided content.
+    Content: {content}
+  gap_analysis: |
+    # Task: Gap Analysis
+    Objective: Compare current state with target state and identify missing components or gaps.
+    Content: {content}
+  key_insights: |
+    # Task: Key Insights
+    Objective: Extract key insights from the data.
+    Content: {content}

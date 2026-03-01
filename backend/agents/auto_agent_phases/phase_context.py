@@ -31,6 +31,7 @@ from backend.utils.domains.auto_generation.improvement_planner import Improvemen
 from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
 from backend.utils.domains.auto_generation.infra_generator import InfraGenerator
 from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
+from backend.utils.core.llm.token_tracker import TokenTracker
 
 # Specialized AutoAgent services
 from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
@@ -127,9 +128,10 @@ def _extract_signatures(content: str, file_path: str) -> str:
 class LLMSubContext:
     """Sub-context for LLM-related services."""
 
-    def __init__(self, llm_manager: "IModelProvider", response_parser: "LLMResponseParser"):
+    def __init__(self, llm_manager: "IModelProvider", response_parser: "LLMResponseParser", token_tracker: Optional[TokenTracker] = None):
         self.manager = llm_manager
         self.response_parser = response_parser
+        self.token_tracker = token_tracker
 
 
 class FileSubContext:
@@ -237,6 +239,7 @@ class PhaseContext:
         infra_generator: Optional[InfraGenerator] = None,
         command_executor: Optional[CommandExecutor] = None,
         decision_blackboard: Optional[DecisionBlackboard] = None,
+        token_tracker: Optional[TokenTracker] = None,
     ):
         self.config = config
         self.logger = logger
@@ -256,6 +259,7 @@ class PhaseContext:
         self.policy_enforcer = policy_enforcer
         self.rag_context_selector = rag_context_selector  # NEW
         self.auto_agent = auto_agent
+        self.token_tracker = token_tracker
 
         self.project_planner = project_planner
         self.structure_generator = structure_generator
@@ -313,7 +317,7 @@ class PhaseContext:
         self._sandbox_validator: Optional[Any] = None
 
         # Sub-contexts for grouped access
-        self.llm = LLMSubContext(llm_manager, response_parser)
+        self.llm = LLMSubContext(llm_manager, response_parser, token_tracker)
         self.files_ctx = FileSubContext(
             file_manager, file_validator, file_content_generator, file_refiner, file_completeness_checker
         )
@@ -551,6 +555,92 @@ class PhaseContext:
                         self.logger.error(f"Error refining {target_path}: {e}")
 
         return files, structure, file_paths
+
+    def _opt_enabled(self, opt_name: str) -> bool:
+        """Return True only if the current coder model is ≤4B AND the feature flag is on.
+
+        All 6 small-model optimizations are gated through this method so they
+        never activate when a large model (>4B) is in use.
+
+        Args:
+            opt_name: Key from ``agent_features.json`` ``small_model_optimizations`` dict,
+                e.g. ``"opt1_prompt_state_machine"``.
+
+        Returns:
+            True if small model detected AND flag is enabled (defaults to True if missing).
+        """
+        if not self._is_small_model():
+            return False
+        opts = self.config.get("small_model_optimizations", {})
+        return bool(opts.get(opt_name, True))
+
+    def _truncate_snapshot(self, snapshot: Dict[str, str], max_tokens: int) -> Dict[str, str]:
+        """Proportionally trim snapshot values so the total fits within *max_tokens*.
+
+        Uses a rough 4-chars-per-token estimate. When the total exceeds the
+        budget, each value is shortened proportionally.
+
+        Args:
+            snapshot: Dict of file paths to content strings.
+            max_tokens: Soft cap on total output length (in tokens).
+
+        Returns:
+            Snapshot with values truncated as needed.
+        """
+        if not snapshot:
+            return snapshot
+        chars_budget = max_tokens * 4
+        total_chars = sum(len(v) for v in snapshot.values())
+        if total_chars <= chars_budget:
+            return snapshot
+        ratio = chars_budget / total_chars
+        return {k: v[: max(50, int(len(v) * ratio))] for k, v in snapshot.items()}
+
+    def build_micro_context_snapshot(
+        self,
+        target_file: str,
+        max_tokens: int = 1000,
+    ) -> Dict[str, str]:
+        """Return a minimal context snapshot for small-model generation (Opt 2).
+
+        Fetches the ≤2 direct dependencies of *target_file* from the
+        DependencyGraph, extracts only their signatures, then enforces a
+        hard token cap. Falls back to ``select_related_files()`` when the
+        graph returns nothing useful.
+
+        Args:
+            target_file: File currently being generated.
+            max_tokens: Hard cap on total context size (default 1000 tokens ≈ 4000 chars).
+
+        Returns:
+            Dict of {file_path: signature_string} for the ≤2 closest deps.
+        """
+        try:
+            dep_files = self.dependency_graph.get_context_for_file(target_file, max_depth=1)[:2]
+        except Exception:
+            dep_files = []
+
+        snapshot: Dict[str, str] = {}
+        for dep in dep_files:
+            content = self.current_generated_files.get(dep, "")
+            if content:
+                snapshot[dep] = _extract_signatures(content, dep)
+
+        if not snapshot:
+            # Fallback: signature-only RAG selection with max 2 files
+            snapshot = self.select_related_files(
+                target_file,
+                self.current_generated_files,
+                max_files=2,
+                signatures_only=True,
+            )
+
+        result = self._truncate_snapshot(snapshot, max_tokens)
+        self.logger.info(
+            f"[Opt2] Micro-context snapshot for '{target_file}': "
+            f"{len(result)} files, ~{sum(len(v) for v in result.values()) // 4} tokens"
+        )
+        return result
 
     def ingest_existing_project(self, project_path: Path) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         """Load an existing project into the agent's state.

@@ -241,7 +241,19 @@ window.ChatPageModule = (function() {
     }
 
     function handleClearChat() {
-        if (confirm('Are you sure you want to clear the chat history?') && chatMessages) {
+        if (window.ConfirmDialog) {
+            window.ConfirmDialog.ask('Are you sure you want to clear the chat history?').then((confirmed) => {
+                if (confirmed) {
+                    performClearChat();
+                }
+            });
+        } else if (confirm('Are you sure you want to clear the chat history?')) {
+            performClearChat();
+        }
+    }
+
+    function performClearChat() {
+        if (chatMessages) {
             chatMessages.innerHTML = `<div class="chat-welcome"><h2>Ollash Agent</h2><p>Select a specialist or start typing...</p><div class="agent-cards"><button class="btn btn-card active" data-agent="orchestrator"><div class="agent-card-icon">🎯</div><div class="agent-card-title">Orchestrator</div></button><button class="btn btn-card" data-agent="code"><div class="agent-card-icon">💻</div><div class="agent-card-title">Code</div></button><button class="btn btn-card" data-agent="network"><div class="agent-card-icon">🌐</div><div class="agent-card-title">Network</div></button><button class="btn btn-card" data-agent="system"><div class="agent-card-icon">⚙️</div><div class="agent-card-title">System</div></button><button class="btn btn-card" data-agent="cybersecurity"><div class="agent-card-icon">🛡️</div><div class="agent-card-title">Security</div></button></div></div>`;
             chatMessages.querySelectorAll('.btn-card').forEach(card => {
                 card.onclick = function() {

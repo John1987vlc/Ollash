@@ -59,7 +59,7 @@ class TestCostBlueprint:
         assert data["total_cost"] == 1.25
 
     def test_get_cost_report_unavailable(self, client, bp_module, monkeypatch):
-        monkeypatch.setattr(bp_module, "_cost_analyzer", None)
+        monkeypatch.setattr(bp_module, "get_cost_analyzer", lambda: None)
         response = client.get("/api/costs/report")
         assert response.status_code == 503
 

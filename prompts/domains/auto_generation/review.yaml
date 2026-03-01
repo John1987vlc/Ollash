@@ -73,7 +73,7 @@ senior_review:
     </review_json>
 
   user: |
-    ## CODE: {content}
+    ## CODE: {project_summary}
 
     Perform the review.
 

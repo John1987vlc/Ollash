@@ -11,6 +11,7 @@ PROMPTS_DIR = "./prompts"
 REQUIRED_HEADERS = ["# CONTEXT", "# OBJECTIVE", "# INSTRUCTIONS", "# CONSTRAINTS", "# OUTPUT FORMAT"]
 FORBIDDEN_FUZZY_WORDS = ["maybe", "try to", "approximately", "sort of", "usually", "as possible"]
 
+
 class PromptValidator:
     def __init__(self):
         self.errors = []
@@ -49,21 +50,21 @@ class PromptValidator:
     def process_file(self, file_path):
         rel_path = os.path.relpath(file_path, PROMPTS_DIR)
         print(f"\n{Fore.CYAN}🔍 Analyzing: {rel_path}")
-        
+
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
-            
+
             # Handle both single prompt files and service maps
             if isinstance(data, dict):
-                if 'prompt' in data:
-                    score = self.validate_content(rel_path, data['prompt'])
+                if "prompt" in data:
+                    score = self.validate_content(rel_path, data["prompt"])
                 else:
                     # Nested services (like services.yaml)
                     scores = []
                     for key, sub_data in data.items():
-                        if isinstance(sub_data, dict) and 'system' in sub_data:
-                            scores.append(self.validate_content(f"{rel_path}->{key}", sub_data['system']))
+                        if isinstance(sub_data, dict) and "system" in sub_data:
+                            scores.append(self.validate_content(f"{rel_path}->{key}", sub_data["system"]))
                     score = sum(scores) / len(scores) if scores else 0
             else:
                 score = 0
@@ -82,13 +83,13 @@ class PromptValidator:
 
         for root, _, files in os.walk(PROMPTS_DIR):
             for file in files:
-                if file.endswith(('.yaml', '.yml')):
+                if file.endswith((".yaml", ".yml")):
                     self.process_file(os.path.join(root, file))
 
-        print(f"\n{Fore.MAGENTA}{'='*40}")
+        print(f"\n{Fore.MAGENTA}{'=' * 40}")
         print(f"{Fore.MAGENTA}REPORT SUMMARY")
-        print(f"{Fore.MAGENTA}{'='*40}")
-        
+        print(f"{Fore.MAGENTA}{'=' * 40}")
+
         for w in self.warnings:
             print(f"{Fore.YELLOW}⚠️  {w}")
         for e in self.errors:
@@ -100,6 +101,7 @@ class PromptValidator:
         else:
             print(f"\n{Fore.GREEN}All prompts passed structural validation.")
             sys.exit(0)
+
 
 if __name__ == "__main__":
     PromptValidator().run()

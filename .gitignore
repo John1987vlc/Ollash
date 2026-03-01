@@ -85,3 +85,4 @@ test_summary.txt
 # Local DBs
 episodic_index.db
 
+node_modules/

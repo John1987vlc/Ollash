@@ -11,6 +11,15 @@ from backend.utils.core.llm.prompt_loader import PromptLoader
 logger = logging.getLogger(__name__)
 
 
+# Opt 1: Allowed actions per task type for Prompt-as-a-State-Machine
+TASK_TYPE_ALLOWED_ACTIONS: Dict[str, List[str]] = {
+    "define_imports": ["EMIT_IMPORTS", "REPORT_MISSING_DEP", "REQUEST_CLARIFICATION"],
+    "implement_function": ["EMIT_CODE", "EMIT_CODE_WITH_TODO", "REPORT_AMBIGUITY"],
+    "write_tests": ["EMIT_TEST_CODE", "SKIP_UNTESTABLE", "REQUEST_CLARIFICATION"],
+    "write_config": ["EMIT_CONFIG", "USE_DEFAULTS", "REPORT_MISSING_ENV"],
+}
+
+
 class AutoGenPrompts:
     """Static methods for generating prompts for various auto-generation phases.
     Now integrated with PromptRepository for dynamic editing and versioning.
@@ -103,11 +112,26 @@ class AutoGenPrompts:
         readme_content: str,
         context_files_content: str,
         logic_plan_section: str = "",
+        allowed_actions: Optional[str] = None,
+        anti_pattern_warnings: str = "",
     ) -> Tuple[str, str]:
-        """Returns (system, user) for a single micro-task execution."""
+        """Returns (system, user) for a single micro-task execution.
+
+        Args:
+            allowed_actions: If provided (Opt 1), appended as a constrained
+                action list so the model must choose from a closed set.
+            anti_pattern_warnings: If non-empty (Opt 5), prepended with an
+                ``EVITAR_ESTOS_ERRORES:`` header and injected into the prompt.
+        """
         system, user_template = AutoGenPrompts._get_prompt_pair(
             "micro_task_execution", "domains/auto_generation/code_gen.yaml", "micro_task_execution"
         )
+        # Opt 1: build allowed-actions block
+        actions_block = ""
+        if allowed_actions:
+            actions_block = f"\n\n## ALLOWED ACTIONS (choose exactly one):\n{allowed_actions}"
+        # Opt 5: build anti-pattern block
+        anti_block = f"\n\nEVITAR_ESTOS_ERRORES:\n{anti_pattern_warnings}" if anti_pattern_warnings else ""
         user = user_template.format(
             title=title,
             description=description,
@@ -116,6 +140,53 @@ class AutoGenPrompts:
             readme_content=readme_content,
             context_files_content=context_files_content,
             logic_plan_section=logic_plan_section,
+            allowed_actions=actions_block,
+            anti_pattern_warnings=anti_block,
+        )
+        return system, user
+
+    @staticmethod
+    def next_backlog_task(
+        project_description: str,
+        initial_structure: str,
+        backlog_so_far: List[Dict[str, Any]],
+    ) -> Tuple[str, str]:
+        """Returns (system, user) for incremental backlog generation (Opt 4).
+
+        Each call asks the LLM for exactly ONE next micro-task given the tasks
+        generated so far, or ``{"complete": true}`` when no more tasks are needed.
+        """
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "next_backlog_task", "domains/auto_generation/planning.yaml", "next_backlog_task"
+        )
+        import json as _json
+        backlog_json = _json.dumps(backlog_so_far, ensure_ascii=False, indent=2)
+        user = user_template.format(
+            project_description=project_description,
+            initial_structure=initial_structure,
+            task_count=len(backlog_so_far),
+            backlog_so_far=backlog_json,
+        )
+        return system, user
+
+    @staticmethod
+    def nano_format_corrector(
+        language: str,
+        format_error: str,
+        code: str,
+    ) -> Tuple[str, str]:
+        """Returns (system, user) for format-only correction by nano_reviewer (Opt 6).
+
+        The model must fix ONLY the structural/format error and return the
+        corrected code inside ``<code_fixed>`` tags.
+        """
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "nano_format_corrector", "domains/auto_generation/nano_roles.yaml", "nano_format_corrector"
+        )
+        user = user_template.format(
+            language=language,
+            format_error=format_error,
+            code=code,
         )
         return system, user
 

@@ -2,16 +2,30 @@ import json
 import asyncio
 import aiohttp
 import requests
+import time
+from typing import Optional, Dict, List, Any
+from backend.utils.core.llm.token_tracker import TokenTracker
 
 
 class OllamaClient:
-    def __init__(self, url, model, timeout, logger, config, llm_recorder, model_health_monitor=None):
+    def __init__(
+        self,
+        url,
+        model,
+        timeout,
+        logger,
+        config,
+        llm_recorder,
+        model_health_monitor=None,
+        token_tracker: Optional[TokenTracker] = None,
+    ):
         self.base_url = str(url).rstrip("/")
         self.chat_url = f"{self.base_url}/api/chat"
         self.model = model.strip()
         self.logger = logger
         self.config = config
         self._llm_recorder = llm_recorder
+        self.token_tracker = token_tracker
         self.timeout = timeout
         self.http_session = requests.Session()
         self._aiohttp_session = None
@@ -52,7 +66,10 @@ class OllamaClient:
         # Debug logging before request
         if self.logger.event_publisher:
             self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
-        self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
+        try:
+            self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
+        except (TypeError, ValueError):
+            self.logger.debug(f"DEBUG - LLM Payload for {self.model}: (not serializable)")
 
         if self._llm_recorder:
             self._llm_recorder.record_request(self.model, messages, tools, opts)
@@ -74,10 +91,15 @@ class OllamaClient:
                 res = data.copy()
                 res["content"] = data.get("message", {}).get("content", "")
 
+                prompt_tokens = data.get("prompt_eval_count", 0)
+                completion_tokens = data.get("eval_count", 0)
                 usage = {
-                    "prompt_tokens": data.get("prompt_eval_count", 0),
-                    "completion_tokens": data.get("eval_count", 0),
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
                 }
+
+                if self.token_tracker:
+                    self.token_tracker.add_usage(prompt_tokens, completion_tokens)
 
                 if self._llm_recorder:
                     self._llm_recorder.record_response(self.model, res, usage, latency, True)
@@ -118,7 +140,10 @@ class OllamaClient:
         # Debug logging before request
         if self.logger.event_publisher:
             self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
-        self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
+        try:
+            self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
+        except (TypeError, ValueError):
+            self.logger.debug(f"DEBUG - LLM Payload for {self.model}: (not serializable)")
 
         if self._llm_recorder:
             self._llm_recorder.record_request(self.model, messages, tools, opts)
@@ -137,7 +162,12 @@ class OllamaClient:
             res = data.copy()
             res["content"] = data.get("message", {}).get("content", "")
 
-            usage = {"prompt_tokens": data.get("prompt_eval_count", 0), "completion_tokens": data.get("eval_count", 0)}
+            prompt_tokens = data.get("prompt_eval_count", 0)
+            completion_tokens = data.get("eval_count", 0)
+            usage = {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens}
+
+            if self.token_tracker:
+                self.token_tracker.add_usage(prompt_tokens, completion_tokens)
 
             if self._llm_recorder:
                 self._llm_recorder.record_response(self.model, res, usage, latency, True)
@@ -187,7 +217,10 @@ class OllamaClient:
         # Debug logging before request
         if self.logger.event_publisher:
             self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
-        self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
+        try:
+            self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
+        except (TypeError, ValueError):
+            self.logger.debug(f"DEBUG - LLM Payload for {self.model}: (not serializable)")
 
         if self._llm_recorder:
             self._llm_recorder.record_request(self.model, messages, [], opts)
@@ -227,6 +260,8 @@ class OllamaClient:
                                 "prompt_tokens": data.get("prompt_eval_count", 0),
                                 "completion_tokens": data.get("eval_count", 0),
                             }
+                            if self.token_tracker:
+                                self.token_tracker.add_usage(usage["prompt_tokens"], usage["completion_tokens"])
                     except Exception:
                         continue
 

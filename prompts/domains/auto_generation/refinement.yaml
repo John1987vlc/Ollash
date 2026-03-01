@@ -15,6 +15,9 @@ refine:
     # CONSTRAINTS
     - Do not use placeholders.
     - Full implementation only.
+    - [JAVASCRIPT] NEVER use implicit global variables. ALL variables must be declared with `const`, `let`, or `var`.
+    - [YAML/YML] Ensure valid indentation and avoid using mapping values where they are not allowed.
+    - No conversational text outside the tags.
 
     # OUTPUT FORMAT
     <code_created>
@@ -46,6 +49,8 @@ refine_with_issues:
     # CONSTRAINTS
     - Strictly address the reported issues.
     - No conversational output.
+    - [JAVASCRIPT] NEVER use implicit global variables. Declare everything.
+    - [YAML/YML] Strictly follow YAML standards.
 
     # OUTPUT FORMAT
     <code_created>
@@ -75,6 +80,11 @@ fix:
     1. Analyze the ERROR message and the current CONTENT.
     2. Apply the minimal necessary fix to make the code valid.
     3. Return the complete corrected content within <code_created> tags.
+
+    # CONSTRAINTS
+    - [JAVASCRIPT] Fix all implicit global variable warnings by adding proper declarations.
+    - [YAML/YML] Fix all indentation and mapping errors.
+    - No conversational text.
 
     # OUTPUT FORMAT
     <code_created>

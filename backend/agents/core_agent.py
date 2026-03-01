@@ -45,6 +45,7 @@ class CoreAgent(ABC):
         llm_manager: LLMClientManager = None,
         llm_recorder: LLMRecorder = None,
         dependency_scanner: DependencyScanner = None,
+        token_tracker: TokenTracker = None,
     ):
         self.kernel = kernel
         self.ollash_root_dir = self.kernel.ollash_root_dir
@@ -52,7 +53,7 @@ class CoreAgent(ABC):
         self.logger = self.kernel.get_logger()
         self.llm_recorder = llm_recorder if llm_recorder else LLMRecorder(logger=self.logger)
 
-        self.token_tracker = TokenTracker()
+        self.token_tracker = token_tracker if token_tracker else TokenTracker()
         self.response_parser = LLMResponseParser()
 
         self.command_executor = CommandExecutor(

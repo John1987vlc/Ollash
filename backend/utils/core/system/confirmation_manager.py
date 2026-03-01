@@ -115,6 +115,14 @@ class ConfirmationManager:
             # Fallback to blocking CLI input if no event publisher
             return self._ask_blocking_input(action, details)
 
+    def _ask_confirmation(self, action: str, details: Dict) -> bool:
+        """Synchronous confirmation gate (CLI mode only)."""
+        if self.auto_confirm:
+            self.logger.info(f"Auto-confirming action: {action}")
+            return True
+        self._log_confirmation_details(action, details)
+        return self._ask_blocking_input(action, details)
+
     def _log_confirmation_details(self, action: str, details: Dict):
         """Helper to log pretty confirmation details to console."""
         self.logger.info(f"\n{Fore.YELLOW}{'=' * 60}")
@@ -132,6 +140,10 @@ class ConfirmationManager:
             self.logger.info(f"💻 Action: {Fore.RED}{cmd}{Style.RESET_ALL}")
             if "args" in details:
                 self.logger.info(f"🔢 Args: {details['args']}")
+
+        elif action == "git_commit":
+            message = details.get("message", "N/A")
+            self.logger.info(f"💾 Message: {Fore.CYAN}{message}{Style.RESET_ALL}")
 
         self.logger.info(f"{Fore.YELLOW}{'=' * 60}{Style.RESET_ALL}")
 

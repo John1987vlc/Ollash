@@ -9,6 +9,7 @@ from backend.interfaces.imodel_provider import IModelProvider
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.llm.llm_recorder import LLMRecorder
 from backend.utils.core.llm.ollama_client import OllamaClient
+from backend.utils.core.llm.token_tracker import TokenTracker
 
 
 class LLMClientManager(IModelProvider):
@@ -23,11 +24,13 @@ class LLMClientManager(IModelProvider):
         tool_settings: ToolSettingsConfig,
         logger: AgentLogger,
         recorder: Optional[LLMRecorder] = None,
+        token_tracker: Optional[TokenTracker] = None,
     ):
         self.config = config
         self.tool_settings = tool_settings
         self.logger = logger
         self.recorder = recorder
+        self.token_tracker = token_tracker
         self.clients_by_model: Dict[str, OllamaClient] = {}
         self.logger.info("LLMClientManager initialized.")
         self._log_role_assignments()
@@ -70,6 +73,7 @@ class LLMClientManager(IModelProvider):
             logger=self.logger,
             config=self.tool_settings.model_dump(),  # Pass tool settings
             llm_recorder=self.recorder,
+            token_tracker=self.token_tracker,
         )
 
         self.clients_by_model[model_name] = new_client
@@ -104,6 +108,7 @@ class LLMClientManager(IModelProvider):
             logger=self.logger,
             config=self.tool_settings.model_dump(),
             llm_recorder=self.recorder,
+            token_tracker=self.token_tracker,
         )
         self.clients_by_model[vision_model] = new_client
         return new_client

@@ -134,17 +134,18 @@ class TestGenerationExecutionPhase(IAgentPhase):
                 (
                     integration_test_content,
                     docker_compose_content,
+                    extension,
                 ) = self.context.test_generator.generate_integration_tests(project_root, readme_content)
 
                 if integration_test_content:
-                    integration_test_path = project_root / "tests" / "integration_tests.py"
+                    integration_test_path = project_root / "tests" / f"integration_tests{extension}"
                     integration_test_path.parent.mkdir(parents=True, exist_ok=True)
                     self.context.file_manager.write_file(integration_test_path, integration_test_content)
                     generated_test_files[str(integration_test_path.relative_to(project_root))] = (
                         integration_test_content
                     )
                     test_file_paths.append(integration_test_path)
-                    self.context.logger.info("    ✅ Integration tests generated")
+                    self.context.logger.info(f"    ✅ Integration tests generated: {integration_test_path.name}")
 
                 if docker_compose_content:
                     docker_compose_path = project_root / "docker-compose.test.yml"

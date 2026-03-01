@@ -198,13 +198,14 @@ def test_file_input_upload_calls_api(page: Page) -> None:
             const formData = new FormData();
             formData.append('images', file);
             formData.append('project_name', projectName);
-            const r = await fetch('/api/projects/images/upload', {
+            const r = await fetch('http://localhost/api/projects/images/upload', {
                 method: 'POST', body: formData
             });
             const data = await r.json();
             document.getElementById('upload-status').textContent = data.status;
             return data;
         };
+
     }""")
 
     page.evaluate("() => window.uploadImages('demo_app')")

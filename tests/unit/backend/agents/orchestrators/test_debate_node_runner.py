@@ -30,9 +30,8 @@ def _make_runner(max_rounds: int = 2) -> DebateNodeRunner:
 def _make_node() -> TaskNode:
     return TaskNode(
         id="debate_arch",
-        task_description="Architecture decision: PostgreSQL vs SQLite",
         agent_type=AgentType.DEBATE,
-        task_data={"topic": "Choose DB engine"},
+        task_data={"topic": "Choose DB engine", "description": "Architecture decision: PostgreSQL vs SQLite"},
     )
 
 

@@ -88,6 +88,17 @@ class SeniorReviewer:
                 "issues": [],
             }
 
+        # Ensure review_results is a dictionary
+        if isinstance(review_results, list):
+            if len(review_results) > 0 and isinstance(review_results[0], dict):
+                review_results = review_results[0]
+            else:
+                return {
+                    "status": "failed",
+                    "summary": "LLM returned a JSON list instead of an object.",
+                    "issues": [],
+                }
+
         # Ensure 'status', 'summary', and 'issues' keys are present
         review_results.setdefault("status", "failed")
         review_results.setdefault("summary", "Review completed.")

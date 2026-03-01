@@ -110,7 +110,7 @@ def test_debate_room_agent_b_messages_appear_in_panel_b(page: Page) -> None:
     panel_b = page.locator("#debate-messages-b")
     bubbles = panel_b.locator(".debate-bubble")
     expect(bubbles).to_have_count(1)
-    expect(bubbles.first()).to_contain_text("Consider a monolith first.")
+    expect(bubbles.first).to_contain_text("Consider a monolith first.")
 
 
 @pytest.mark.e2e
@@ -186,5 +186,5 @@ def test_debate_room_round_number_shown_in_bubble(page: Page) -> None:
         window.DebateRoom.appendMessage(3, 'a', 'arch', 'Third round proposal');
     }""")
 
-    meta = page.locator(".debate-bubble-meta").first()
+    meta = page.locator(".debate-bubble-meta").first
     expect(meta).to_contain_text("Round 3")

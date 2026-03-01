@@ -95,15 +95,42 @@ class FileContentGenerationPhase(IAgentPhase):
             )
 
             try:
-                # 1. Distilled Context Preparation (F3: signatures_only for small models)
-                raw_context_files = self.context.select_related_files(
-                    file_path, generated_files, signatures_only=_use_signatures
-                )
+                # 1. Distilled Context Preparation (Opt 2: micro-snapshot for small models)
+                if self.context._opt_enabled("opt2_micro_context_snapshot"):
+                    raw_context_files = self.context.build_micro_context_snapshot(file_path)
+                else:
+                    raw_context_files = self.context.select_related_files(
+                        file_path, generated_files, signatures_only=_use_signatures
+                    )
                 context_files_content = ContextDistiller.distill_batch(raw_context_files)
 
                 # 1b. Inject logic plan for this file (Fix 1)
                 file_logic_plan = getattr(self.context, "logic_plan", {}).get(file_path, {})
                 logic_plan_section = self._format_logic_plan_for_prompt(file_logic_plan)
+
+                # Opt 1: Build allowed-actions block from task_type
+                allowed_actions: str | None = None
+                if self.context._opt_enabled("opt1_prompt_state_machine"):
+                    from backend.utils.domains.auto_generation.prompt_templates import TASK_TYPE_ALLOWED_ACTIONS
+                    actions = TASK_TYPE_ALLOWED_ACTIONS.get(task_type)
+                    if actions:
+                        allowed_actions = "\n".join(f"  - {a}" for a in actions)
+
+                # Opt 5: Query ErrorKnowledgeBase for anti-pattern warnings
+                anti_pattern_warnings = ""
+                if self.context._opt_enabled("opt5_anti_pattern_injection"):
+                    try:
+                        language = self.context.infer_language(file_path)
+                        warnings_text = self.context.error_knowledge_base.get_prevention_warnings(
+                            file_path, project_type=project_name, language=language
+                        )
+                        if warnings_text:
+                            anti_pattern_warnings = warnings_text
+                            self.context.logger.info(
+                                f"[Opt5] Anti-pattern warnings injected for '{file_path}'"
+                            )
+                    except Exception:
+                        pass
 
                 # 2. Construct Sniper Prompt with XML requirements
                 system_prompt, user_prompt = AutoGenPrompts.micro_task_execution(
@@ -114,6 +141,8 @@ class FileContentGenerationPhase(IAgentPhase):
                     readme_content=readme_content[:1000],
                     context_files_content=context_files_content[:4000],
                     logic_plan_section=logic_plan_section,
+                    allowed_actions=allowed_actions,
+                    anti_pattern_warnings=anti_pattern_warnings,
                 )
 
                 content = ""
@@ -183,6 +212,30 @@ class FileContentGenerationPhase(IAgentPhase):
                         content = codigo_match.group(1).strip()
                     # Clean residual markdown if the SLM included it inside tags
                     content = re.sub(r"```(?:\w+)?\n?", "", content).replace("```", "").strip()
+
+                    # Opt 6: Active shadow validation — format check + nano repair
+                    if self.context._opt_enabled("opt6_active_shadow"):
+                        try:
+                            lang = self.context.infer_language(file_path)
+                            shadow = getattr(self.context, "shadow_evaluator", None)
+                            if shadow is not None:
+                                content, _ = shadow.active_shadow_validate(
+                                    file_path, content, lang,
+                                    self.context.llm_manager, self.context.logger,
+                                )
+                        except Exception:
+                            pass
+
+                    # Opt 3: Exit Contract — structural validation before syntax check
+                    if self.context._opt_enabled("opt3_exit_contract") and task_type:
+                        contract_error = self._check_output_contract(file_path, content, task_type)
+                        if contract_error:
+                            last_error = f"CONTRACT VIOLATION: {contract_error}"
+                            self.context.logger.warning(
+                                f"    ⚠ Attempt {attempts} contract violation: {contract_error}"
+                            )
+                            content = ""
+                            continue
 
                     # 5. AST/Syntax Validation
                     validation_result = self.context.files_ctx.validator.validate(file_path, content)
@@ -522,6 +575,76 @@ class FileContentGenerationPhase(IAgentPhase):
         except Exception as exc:
             self.context.logger.debug(f"  [TDD] Correction LLM call failed: {exc}")
             return content
+
+    def _check_output_contract(self, file_path: str, content: str, task_type: str) -> str:
+        """Validate that *content* respects the structural contract for *task_type* (Opt 3).
+
+        Checks structural constraints — NOT logic correctness:
+        - ``define_imports``: must not contain function or class definitions
+        - ``implement_function``: must contain at least one function or class definition
+        - ``write_tests``: must contain at least one ``test_`` prefixed identifier
+
+        Uses ``ast.parse`` for Python files; regex heuristics for others.
+
+        Args:
+            file_path: Path of the file being generated (used to select checker).
+            content: Generated code to validate.
+            task_type: Backlog task type string.
+
+        Returns:
+            Empty string if the contract is satisfied, or a short error description.
+        """
+        import ast as _ast
+        import re as _re
+
+        if not content:
+            return ""
+
+        is_python = file_path.endswith(".py")
+
+        if task_type == "define_imports":
+            if is_python:
+                try:
+                    tree = _ast.parse(content)
+                    for node in _ast.walk(tree):
+                        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef)):
+                            return (
+                                "define_imports step must contain ONLY import statements — "
+                                "no function or class definitions allowed."
+                            )
+                except SyntaxError:
+                    pass  # Syntax validation handles this separately
+            else:
+                if _re.search(r"\b(function|class|def)\s+\w+", content):
+                    return (
+                        "define_imports step must contain ONLY import statements — "
+                        "no function or class definitions allowed."
+                    )
+
+        elif task_type == "implement_function":
+            if is_python:
+                try:
+                    tree = _ast.parse(content)
+                    has_def = any(
+                        isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef))
+                        for n in _ast.walk(tree)
+                    )
+                    if not has_def:
+                        return "implement_function step must contain at least one function or class definition."
+                except SyntaxError:
+                    pass
+            else:
+                if not _re.search(r"\b(function|class|def)\s+\w+", content):
+                    return "implement_function step must contain at least one function or class definition."
+
+        elif task_type == "write_tests":
+            if not _re.search(r"\btest_\w+", content):
+                return (
+                    "write_tests step must contain at least one test function "
+                    "(name must start with 'test_')."
+                )
+
+        return ""
 
     def _topological_sort(self, backlog: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Sort backlog tasks in dependency order using Kahn's algorithm (Fix 3).

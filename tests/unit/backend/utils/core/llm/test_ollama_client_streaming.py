@@ -42,7 +42,7 @@ class TestOllamaClientStreamChat:
         mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
         mock_resp.__aexit__ = AsyncMock(return_value=False)
 
-        async def _iter_lines():
+        async def _iter_lines(self):
             for line in ndjson_data.split(b"\n"):
                 yield line
 
@@ -80,7 +80,7 @@ class TestOllamaClientStreamChat:
         mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
         mock_resp.__aexit__ = AsyncMock(return_value=False)
 
-        async def _iter_lines():
+        async def _iter_lines(self):
             for line in ndjson_data.split(b"\n"):
                 yield line
 

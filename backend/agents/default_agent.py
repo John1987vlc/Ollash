@@ -761,7 +761,7 @@ RULES:
 
                     self.token_tracker.display_current()
 
-                    if "tool_calls" not in msg:
+                    if not msg.get("tool_calls"):
                         self.logger.thinking("Analyzing final answer from LLM...")
                         final_response_en = msg.get("content", "")
 

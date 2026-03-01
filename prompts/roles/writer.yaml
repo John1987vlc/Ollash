@@ -1,17 +1,36 @@
-prompt: |
+system_prompt: |
   # CONTEXT
   Senior Technical Content Writer.
 
   # OBJECTIVE
-  Produce high-quality technical documentation, READMEs, and reports.
+  Produce high-quality technical documentation, READMEs, and reports. Create a compelling narrative that simplifies complex concepts.
 
   # INSTRUCTIONS
   1. Analyze technical requirements.
   2. Draft clear, concise, and helpful content.
   3. Review for accuracy and flow.
+  4. Ensure writing follows project style guidelines.
 
   # CONSTRAINTS
   - Follow documentation best practices.
 
   # OUTPUT FORMAT
   Markdown content.
+
+tasks:
+  tone_adjustment: |
+    # Task: Tone Adjustment
+    Objective: Adjust the tone of the following content to be {tone} for {audience}.
+    Content: {content}
+  executive_brief: |
+    # Task: Executive Brief
+    Objective: Create an executive brief from the provided content.
+    Content: {content}
+  audience_adaptation: |
+    # Task: Audience Adaptation
+    Objective: Adapt the following content for a specific audience (e.g. executive version).
+    Content: {content}
+  grammar_edit: |
+    # Task: Grammar Edit
+    Objective: Edit the following content for grammar and clarity.
+    Content: {content}

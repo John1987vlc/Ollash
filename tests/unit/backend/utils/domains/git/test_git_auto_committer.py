@@ -81,7 +81,7 @@ class TestGitAutoCommitterInit:
         # Create fake file
         (tmp_path / "main.py").write_text("print('hello')")
 
-        ordered = [("main.py", "DEVELOPER", "print('hello')")]
+        ordered = [{"rel_path": "main.py", "agent_type": "DEVELOPER", "content": "print('hello')"}]
         manifest = c.commit_all(ordered, "testproject")
         assert isinstance(manifest, GitManifest)
         assert manifest.project_name == "testproject"

@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from backend.agents.auto_agent import AutoAgent
 
 
@@ -50,9 +50,24 @@ async def test_update_ollash_manifest(agent):
     agent.llm_manager.get_client.return_value = mock_writer
 
     agent.phase_context.backlog = [{"status": "done", "github_number": 1}]
-    agent.phase_context.initial_exec_params = {"project_name": "test"}
+    agent.phase_context.initial_exec_params = {"project_name": "test", "project_description": "desc"}
+    agent.phase_context.current_version = "v0.1.0"
 
-    content = await agent._update_ollash_manifest("T1")
+    mock_prompts = {
+        "generate_manifest": {
+            "system": "You are a manifest writer.",
+            "user": (
+                "Project: {project_name}, Desc: {project_description}, "
+                "Backlog: {backlog_summary}, Task: {current_task}, "
+                "Version: {current_version}, Next: {next_tag}, Decisions: {last_decisions}"
+            ),
+        }
+    }
+
+    with patch("backend.utils.core.llm.prompt_loader.PromptLoader") as mock_loader_cls:
+        mock_loader_cls.return_value.load_prompt.return_value = mock_prompts
+        content = await agent._update_ollash_manifest("T1")
+
     assert content == "# Manifest content"
     agent.llm_manager.get_client.assert_called_with("writer")
 

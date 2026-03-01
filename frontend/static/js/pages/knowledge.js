@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         kbDocGrid.innerHTML = '<p class="placeholder">Loading knowledge base...</p>';
         try {
             const response = await fetch('/api/knowledge/documents');
+            if (!response.ok) throw new Error('HTTP ' + response.status);
             const data = await response.json();
             
             if (data.documents && data.documents.length > 0) {

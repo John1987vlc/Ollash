@@ -48,6 +48,9 @@ class FileCommitRecord:
     lines_deleted: int
     unified_diff: str
 
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
 
 @dataclass
 class GitManifest:
