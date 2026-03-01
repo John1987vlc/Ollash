@@ -302,6 +302,9 @@ class PhaseContext:
             "current_objective": "",
         }
 
+        # F3: Pre-computed API map {file_path → signature summary} for token compression
+        self.api_map: Dict[str, str] = {}
+
         # E6: last execution history summary (set by AutoAgent from AutomationManager)
         self.last_execution_summary: Optional[Any] = None
         # E2: detected tech stack information (set by ProjectAnalysisPhase)
@@ -357,6 +360,50 @@ class PhaseContext:
         self.step_progress["total_steps"] = total
         self.step_progress["completed_steps"] = list(completed)
         self.step_progress["current_objective"] = current_objective
+
+    def build_api_map(self, generated_files: Dict[str, str]) -> None:
+        """Pre-compute signature-only summaries for all generated source files.
+
+        Stores results in ``self.api_map`` keyed by file path.
+        Call this ONCE at the start of FileContentGenerationPhase.
+        Non-source files (.md, .json, .yaml, etc.) are skipped.
+
+        Args:
+            generated_files: The current dict of all generated file contents.
+        """
+        _SOURCE_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java"}
+        self.api_map.clear()
+        for path, content in generated_files.items():
+            if not content:
+                continue
+            if Path(path).suffix.lower() not in _SOURCE_EXTS:
+                continue
+            self.api_map[path] = _extract_signatures(content, path)
+        self.logger.info(f"[PhaseContext] API map built: {len(self.api_map)} entries")
+
+    def _is_small_model(self, role: str = "coder") -> bool:
+        """Return True if the LLM for *role* has <= 4B parameters.
+
+        Inspects the model name string for size suffixes like '3b', '4b'.
+        Falls back to False (treat as large model) on any error.
+
+        Args:
+            role: Agent role whose client to inspect (default: "coder").
+
+        Returns:
+            True if model parameter count is <= 4B, False otherwise.
+        """
+        import re as _re_model
+
+        try:
+            client = self.llm_manager.get_client(role)
+            model_name = getattr(client, "model", "") or ""
+            match = _re_model.search(r"(\d+(?:\.\d+)?)b", model_name.lower())
+            if match:
+                return float(match.group(1)) <= 4.0
+        except Exception:
+            pass
+        return False
 
     def select_related_files(
         self,

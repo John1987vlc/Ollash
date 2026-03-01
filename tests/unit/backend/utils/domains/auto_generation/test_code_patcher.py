@@ -125,3 +125,86 @@ class TestEditExistingFile:
         result = patcher.edit_existing_file("f.py", content, "# README", issues, "partial")
         assert isinstance(result, str)
         assert len(result) > 0
+
+
+# ---------------------------------------------------------------------------
+# F6: SEARCH/REPLACE patch utilities
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestParseSearchReplacePatch:
+    def test_parse_valid_single_block(self, patcher):
+        text = "<<<SEARCH>>>\nold code\n<<<REPLACE>>>\nnew code\n<<<END>>>"
+        patches = patcher.parse_search_replace_patch(text)
+        assert len(patches) == 1
+        assert patches[0][0] == "old code\n"
+        assert patches[0][1] == "new code\n"
+
+    def test_parse_valid_two_blocks(self, patcher):
+        text = (
+            "<<<SEARCH>>>\nfoo\n<<<REPLACE>>>\nbar\n<<<END>>>"
+            "\n"
+            "<<<SEARCH>>>\nbaz\n<<<REPLACE>>>\nqux\n<<<END>>>"
+        )
+        patches = patcher.parse_search_replace_patch(text)
+        assert len(patches) == 2
+
+    def test_parse_no_blocks_returns_empty(self, patcher):
+        patches = patcher.parse_search_replace_patch("No blocks here at all.")
+        assert patches == []
+
+    def test_parse_ignores_incomplete_blocks(self, patcher):
+        text = "<<<SEARCH>>>\nfoo\n<<<REPLACE>>>\n"  # Missing <<<END>>>
+        patches = patcher.parse_search_replace_patch(text)
+        assert patches == []
+
+
+@pytest.mark.unit
+class TestApplySearchReplace:
+    def test_apply_success(self, patcher):
+        content = "def foo():\n    pass\n"
+        patches = [("    pass\n", "    return 42\n")]
+        modified, failed = patcher.apply_search_replace(content, patches)
+        assert "return 42" in modified
+        assert failed == []
+
+    def test_apply_missing_search_goes_to_failed(self, patcher):
+        content = "def foo():\n    pass\n"
+        patches = [("NOT_IN_FILE", "replacement")]
+        modified, failed = patcher.apply_search_replace(content, patches)
+        assert modified == content  # Unchanged
+        assert len(failed) == 1
+
+    def test_apply_multiple_patches_one_fails(self, patcher):
+        content = "line1\nline2\n"
+        patches = [("line1\n", "LINE_ONE\n"), ("MISSING", "x")]
+        modified, failed = patcher.apply_search_replace(content, patches)
+        assert "LINE_ONE" in modified
+        assert len(failed) == 1
+
+    def test_apply_replaces_only_first_occurrence(self, patcher):
+        content = "x\nx\nx\n"
+        patches = [("x\n", "y\n")]
+        modified, _ = patcher.apply_search_replace(content, patches)
+        assert modified.count("y") == 1
+        assert modified.count("x") == 2
+
+
+@pytest.mark.unit
+class TestValidatePatchApplicable:
+    def test_returns_true_when_search_found(self):
+        from backend.utils.core.analysis.file_validator import FileValidator
+
+        assert FileValidator.validate_patch_applicable("abc def ghi", "def") is True
+
+    def test_returns_false_when_search_not_found(self):
+        from backend.utils.core.analysis.file_validator import FileValidator
+
+        assert FileValidator.validate_patch_applicable("abc def ghi", "xyz") is False
+
+    def test_exact_whitespace_matters(self):
+        from backend.utils.core.analysis.file_validator import FileValidator
+
+        assert FileValidator.validate_patch_applicable("a  b", "a b") is False
+        assert FileValidator.validate_patch_applicable("a  b", "a  b") is True

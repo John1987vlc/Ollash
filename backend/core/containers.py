@@ -20,6 +20,7 @@ from backend.agents.auto_agent_phases.dynamic_documentation_phase import Dynamic
 from backend.agents.auto_agent_phases.iterative_improvement_phase import IterativeImprovementPhase
 from backend.agents.auto_agent_phases.javascript_optimization_phase import JavaScriptOptimizationPhase
 from backend.agents.auto_agent_phases.license_compliance_phase import LicenseCompliancePhase
+from backend.agents.auto_agent_phases.interface_scaffolding_phase import InterfaceScaffoldingPhase
 from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
 
 # Agent Phases
@@ -455,6 +456,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         providers.Factory(ReadmeGenerationPhase, context=phase_context),
         providers.Factory(StructureGenerationPhase, context=phase_context),
         providers.Factory(LogicPlanningPhase, context=phase_context),
+        providers.Factory(InterfaceScaffoldingPhase, context=phase_context),
         providers.Factory(StructurePreReviewPhase, context=phase_context),
         providers.Factory(EmptyFileScaffoldingPhase, context=phase_context),
         providers.Factory(FileContentGenerationPhase, context=phase_context),

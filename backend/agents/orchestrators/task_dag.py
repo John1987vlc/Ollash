@@ -23,6 +23,9 @@ class AgentType(str, Enum):
     DEVOPS = "DEVOPS"
     AUDITOR = "AUDITOR"
     DEBATE = "DEBATE"
+    # F4: Granularity sub-roles for small model specialisation
+    TACTICAL = "TACTICAL"   # Single-function implementation (prohibits touching other functions)
+    CRITIC = "CRITIC"       # Error pattern detection via ErrorKnowledgeBase (no LLM calls)
 
 
 class TaskStatus(str, Enum):
@@ -73,6 +76,9 @@ class TaskNode:
     hitl_answer: Optional[str] = None
     debate_agents: List[str] = field(default_factory=list)
     debate_rounds: int = 3
+    # F5: Short-term memory note written by the agent after task completion.
+    # Injected as context into the next dependent task's messages.
+    context_note: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         result_preview = ""
@@ -91,6 +97,7 @@ class TaskNode:
             "hitl_answer": self.hitl_answer,
             "debate_agents": self.debate_agents,
             "debate_rounds": self.debate_rounds,
+            "context_note": self.context_note,
             "result_preview": result_preview,
         }
 
@@ -109,6 +116,7 @@ class TaskNode:
             hitl_answer=data.get("hitl_answer"),
             debate_agents=data.get("debate_agents", []),
             debate_rounds=data.get("debate_rounds", 3),
+            context_note=data.get("context_note"),
         )
 
 

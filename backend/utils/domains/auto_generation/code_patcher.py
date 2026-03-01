@@ -7,7 +7,8 @@ a EnhancedFileContentGenerator.
 """
 
 import difflib
-from typing import Dict, List, Optional
+import re as _re_patch
+from typing import Dict, List, Optional, Tuple
 
 from backend.utils.core.llm.ollama_client import OllamaClient
 from backend.utils.core.system.agent_logger import AgentLogger
@@ -61,7 +62,122 @@ class CodePatcher:
             return self._apply_partial_edits(file_path, current_content, readme, issues_to_fix)
         elif edit_strategy == "merge":
             return self._merge_original_with_improvements(file_path, current_content, readme)
+        elif edit_strategy == "search_replace":
+            return self._apply_search_replace_strategy(file_path, current_content, readme, issues_to_fix)
         else:
+            return current_content
+
+    # ------------------------------------------------------------------
+    # F6: SEARCH/REPLACE patch utilities
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def parse_search_replace_patch(text: str) -> List[Tuple[str, str]]:
+        """Parse SEARCH/REPLACE blocks from raw LLM output.
+
+        Expected format per block::
+
+            <<<SEARCH>>>
+            <exact text to find>
+            <<<REPLACE>>>
+            <replacement text>
+            <<<END>>>
+
+        Args:
+            text: Raw LLM response text.
+
+        Returns:
+            List of ``(search_block, replace_block)`` tuples.
+            Returns an empty list if no valid blocks are found.
+        """
+        pattern = _re_patch.compile(
+            r"<<<SEARCH>>>\n(.*?)<<<REPLACE>>>\n(.*?)<<<END>>>",
+            _re_patch.DOTALL,
+        )
+        return [(m.group(1), m.group(2)) for m in pattern.finditer(text)]
+
+    def apply_search_replace(
+        self,
+        file_content: str,
+        patches: List[Tuple[str, str]],
+    ) -> Tuple[str, List[str]]:
+        """Apply a list of ``(search, replace)`` patches to *file_content*.
+
+        Each SEARCH block must appear verbatim in the file. Patches where the
+        SEARCH text is not found are skipped and recorded in *failed*.
+
+        Args:
+            file_content: Current file text.
+            patches: List of ``(search_block, replace_block)`` pairs.
+
+        Returns:
+            ``(modified_content, failed_search_blocks)`` where
+            *failed_search_blocks* contains SEARCH strings that were not found.
+        """
+        result = file_content
+        failed: List[str] = []
+        for search, replace in patches:
+            if search in result:
+                result = result.replace(search, replace, 1)
+                self.logger.info(
+                    f"  SEARCH/REPLACE applied: {len(search)} chars -> {len(replace)} chars"
+                )
+            else:
+                self.logger.warning(
+                    f"  SEARCH block not found in file ({len(search)} chars). Skipping patch."
+                )
+                failed.append(search)
+        return result, failed
+
+    def _apply_search_replace_strategy(
+        self,
+        file_path: str,
+        current_content: str,
+        readme: str,
+        issues_to_fix: Optional[List[Dict]] = None,
+    ) -> str:
+        """Prompt the LLM for SEARCH/REPLACE patches and apply them safely.
+
+        Falls back to *current_content* if no valid blocks are produced or an
+        error occurs — ensuring the file is never left in a broken state.
+        """
+        try:
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+
+            loader = PromptLoader()
+            prompts = loader.load_prompt("domains/auto_generation/code_repair.yaml")
+            system = prompts.get("search_replace_edit", {}).get("system", "")
+            user_template = prompts.get("search_replace_edit", {}).get("user", "")
+            issues_str = "\n".join(
+                f"- {i.get('description', '')}" for i in (issues_to_fix or [])
+            )
+            user = user_template.format(
+                file_path=file_path,
+                current_content=current_content[:6000],
+                issues=issues_str or "General improvement",
+                readme=readme[:300],
+            )
+            response_data, _ = self.llm_client.chat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                tools=[],
+                options_override={"temperature": 0.1},
+            )
+            raw = response_data.get("content", "")
+            patches = self.parse_search_replace_patch(raw)
+            if not patches:
+                self.logger.warning(f"  No SEARCH/REPLACE blocks found for {file_path}")
+                return current_content
+            modified, failed = self.apply_search_replace(current_content, patches)
+            if failed:
+                self.logger.warning(
+                    f"  {len(failed)}/{len(patches)} patches failed for {file_path}"
+                )
+            return modified
+        except Exception as e:
+            self.logger.error(f"SEARCH/REPLACE strategy failed for {file_path}: {e}")
             return current_content
 
     def _apply_partial_edits(

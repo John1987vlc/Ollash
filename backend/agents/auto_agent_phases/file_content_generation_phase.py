@@ -36,6 +36,11 @@ class FileContentGenerationPhase(IAgentPhase):
             "phase_start", phase="4", message="Starting iterative micro-task execution with XML/AST validation"
         )
 
+        # F3: Build API map once for token-efficient context on small models
+        if generated_files:
+            self.context.build_api_map(generated_files)
+        _use_signatures = self.context._is_small_model("coder")
+
         backlog = getattr(self.context, "backlog", [])
         if not backlog and hasattr(self.context, "logic_plan"):
             for i, (path, plan) in enumerate(self.context.logic_plan.items()):
@@ -90,8 +95,10 @@ class FileContentGenerationPhase(IAgentPhase):
             )
 
             try:
-                # 1. Distilled Context Preparation
-                raw_context_files = self.context.select_related_files(file_path, generated_files)
+                # 1. Distilled Context Preparation (F3: signatures_only for small models)
+                raw_context_files = self.context.select_related_files(
+                    file_path, generated_files, signatures_only=_use_signatures
+                )
                 context_files_content = ContextDistiller.distill_batch(raw_context_files)
 
                 # 1b. Inject logic plan for this file (Fix 1)
@@ -222,6 +229,10 @@ class FileContentGenerationPhase(IAgentPhase):
                         )
                         if attempts < max_attempts:
                             content = ""  # Reset to force retry
+
+                # F2: TDD Agéntico — run a minimal unit test and auto-correct on failure
+                if content and file_path.endswith(".py"):
+                    content = self._run_tdd_loop(file_path, content)
 
                 # 6. Final Save and Notification
                 if content:
@@ -365,6 +376,152 @@ class FileContentGenerationPhase(IAgentPhase):
             for step in main_logic:
                 lines.append(f"  {step}")
         return "\n".join(lines) if lines else "(Plan has no structured details)"
+
+    def _run_tdd_loop(self, file_path: str, content: str, max_retries: int = 2) -> str:
+        """F2: TDD Agéntico — generate a minimal unit test, run it, auto-correct on failure.
+
+        Only operates on Python files. For all other file types the content is
+        returned unchanged immediately.
+
+        Args:
+            file_path: Relative path of the source file being generated.
+            content: Generated source code to validate via testing.
+            max_retries: Maximum correction attempts on test failure.
+
+        Returns:
+            Potentially corrected content, or the original if tests pass or
+            if test generation/execution encounters an unrecoverable error.
+        """
+        import subprocess
+        import tempfile
+
+        if not file_path.endswith(".py"):
+            return content
+
+        try:
+            test_code = self._generate_minimal_test(file_path, content)
+            if not test_code:
+                return content
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                from pathlib import Path as _Path
+
+                tmp_path = _Path(tmpdir)
+                # Write source module
+                src_file = tmp_path / "src_module.py"
+                src_file.write_text(content, encoding="utf-8")
+                # Write minimal test
+                test_file = tmp_path / "test_minimal.py"
+                test_file.write_text(test_code, encoding="utf-8")
+
+                for attempt in range(1, max_retries + 1):
+                    result = subprocess.run(
+                        ["python", "-m", "pytest", str(test_file), "-x", "--tb=short", "-q"],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        cwd=str(tmp_path),
+                    )
+                    if result.returncode == 0:
+                        self.context.logger.info(
+                            f"  [TDD] Tests passed for {file_path} (attempt {attempt})"
+                        )
+                        break
+
+                    error_output = (result.stdout + result.stderr)[-1500:]
+                    self.context.logger.info(
+                        f"  [TDD] Test failed (attempt {attempt}/{max_retries}), correcting..."
+                    )
+                    content = self._correct_via_tdd_error(file_path, content, error_output)
+                    src_file.write_text(content, encoding="utf-8")
+
+        except subprocess.TimeoutExpired:
+            self.context.logger.warning(f"  [TDD] Test execution timed out for {file_path} — skipping")
+        except FileNotFoundError:
+            self.context.logger.warning("  [TDD] pytest not available — skipping TDD loop")
+        except Exception as exc:
+            self.context.logger.warning(f"  [TDD] Unexpected error for {file_path}: {exc}")
+
+        return content
+
+    def _generate_minimal_test(self, file_path: str, content: str) -> str:
+        """Ask the LLM for a single unit test for the most complex function in *content*."""
+        try:
+            import ast as _ast
+
+            tree = _ast.parse(content)
+            func_names = [
+                node.name
+                for node in _ast.walk(tree)
+                if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+                and not node.name.startswith("_")
+            ]
+            if not func_names:
+                return ""
+            # Pick the function with the most lines as heuristic for "most complex"
+            target_func = func_names[0]
+        except SyntaxError:
+            return ""
+
+        try:
+            from backend.utils.core.llm.prompt_loader import PromptLoader
+
+            loader = PromptLoader()
+            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
+            system = prompts.get("tdd_minimal_test", {}).get("system", "")
+            user_template = prompts.get("tdd_minimal_test", {}).get("user", "")
+            if not system or not user_template:
+                return ""
+            user = user_template.format(
+                file_path="src_module.py",
+                file_content=content[:3000],
+                function_to_test=target_func,
+            )
+            response_data, _ = self.context.llm_manager.get_client("coder").chat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                tools=[],
+                options_override={"temperature": 0.1},
+            )
+            raw = response_data.get("content", "")
+            import re as _re
+
+            match = _re.search(r"```(?:python)?\n(.*?)```", raw, _re.DOTALL)
+            return match.group(1).strip() if match else raw.strip()
+        except Exception as exc:
+            self.context.logger.debug(f"  [TDD] Test generation failed: {exc}")
+            return ""
+
+    def _correct_via_tdd_error(self, file_path: str, content: str, error_output: str) -> str:
+        """Ask the LLM to fix *content* given the pytest *error_output*."""
+        try:
+            correction_prompt = (
+                f"The following Python code failed its unit test.\n\n"
+                f"FILE: {file_path}\n"
+                f"CODE:\n```python\n{content[:3000]}\n```\n\n"
+                f"TEST ERROR OUTPUT:\n{error_output}\n\n"
+                f"Fix ONLY the code that caused the test to fail. "
+                f"Return the corrected Python code inside ```python ... ``` tags."
+            )
+            response_data, _ = self.context.llm_manager.get_client("coder").chat(
+                messages=[
+                    {"role": "system", "content": "You are a Python debugging expert."},
+                    {"role": "user", "content": correction_prompt},
+                ],
+                tools=[],
+                options_override={"temperature": 0.1},
+            )
+            raw = response_data.get("content", "")
+            import re as _re
+
+            match = _re.search(r"```(?:python)?\n(.*?)```", raw, _re.DOTALL)
+            corrected = match.group(1).strip() if match else ""
+            return corrected if len(corrected) > 20 else content
+        except Exception as exc:
+            self.context.logger.debug(f"  [TDD] Correction LLM call failed: {exc}")
+            return content
 
     def _topological_sort(self, backlog: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Sort backlog tasks in dependency order using Kahn's algorithm (Fix 3).

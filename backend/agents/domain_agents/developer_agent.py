@@ -152,6 +152,7 @@ class DeveloperAgent(BaseDomainAgent):
                 remediation_actions=remediation_actions,
                 blackboard=blackboard,
                 plan_steps=node.task_data.get("plan_steps"),
+                previous_context=node.task_data.get("previous_context", ""),
             )
 
         if content is None:
@@ -171,7 +172,17 @@ class DeveloperAgent(BaseDomainAgent):
         )
 
         self._log_debug(f"'{file_path}' generated ({len(content)} chars).")
-        return {file_path: content}
+
+        # F5: Build a short-term memory note for downstream tasks
+        exports_hint = ", ".join(plan.get("exports", [])[:5]) if plan else ""
+        imports_hint = ", ".join(plan.get("imports", [])[:5]) if plan else ""
+        context_note = (
+            f"Completed: {file_path}\n"
+            f"Exports: {exports_hint or '(see file)'}\n"
+            f"Imports used: {imports_hint or '(see file)'}\n"
+            f"Downstream tasks should import from: {file_path}"
+        )
+        return {file_path: content, "context_note": context_note}
 
     # ------------------------------------------------------------------
     # Generation strategies
@@ -252,6 +263,7 @@ class DeveloperAgent(BaseDomainAgent):
         remediation_actions: Optional[list] = None,
         blackboard: Optional["Blackboard"] = None,
         plan_steps: Optional[List[str]] = None,
+        previous_context: str = "",
     ) -> Optional[str]:
         """Generate a single file via EnhancedFileContentGenerator with fallback.
 
@@ -271,6 +283,9 @@ class DeveloperAgent(BaseDomainAgent):
             effective_plan["remediation_actions"] = remediation_actions
         if prevention_tips:
             effective_plan["prevention_tips"] = prevention_tips
+        # F5: Inject short-term memory note from completed dependency tasks
+        if previous_context:
+            effective_plan["previous_step_context"] = previous_context
         if plan_steps:
             effective_plan["plan_steps"] = plan_steps
 

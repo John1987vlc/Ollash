@@ -116,6 +116,22 @@ class FileValidator:
             return None
         return result.message
 
+    @staticmethod
+    def validate_patch_applicable(file_content: str, search_block: str) -> bool:
+        """Check whether a SEARCH block verbatim-matches somewhere in *file_content*.
+
+        Used by the F6 SEARCH/REPLACE patch system to verify applicability
+        before touching the filesystem.
+
+        Args:
+            file_content: Current file text.
+            search_block: The exact string the patch wants to replace.
+
+        Returns:
+            True if *search_block* is found verbatim in *file_content*.
+        """
+        return search_block in file_content
+
     def check_content_completeness(self, file_path: str, content: str) -> Optional[str]:
         """Check if content has excessive placeholder/stub patterns."""
         if not content or not content.strip():

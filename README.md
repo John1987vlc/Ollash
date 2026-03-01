@@ -159,17 +159,28 @@ ollash/
 
 ## ⚡ Optimizaciones para Modelos Pequeños (≤4B)
 
-Ollash incluye infraestructura específica para que modelos pequeños (Qwen 2.5 3B, Ministral 3B, etc.) generen código de calidad sin saturar su ventana de contexto:
+Ollash incluye 6 optimizaciones ortogonales diseñadas para que modelos pequeños (Qwen3 3B, Ministral 3B, etc.) generen código de calidad sin saturar su ventana de contexto ni reescribir código ya funcional.
 
-| Optimización | Descripción |
-|---|---|
-| **1. Micro-Planner** | `DeveloperAgent` descompone cada archivo en 3–7 pasos atómicos antes de generarlo. El rol `nano_planner` recibe un prompt mínimo y devuelve un JSON array de pasos ordenados. |
-| **2. RAG de Firmas** | `PhaseContext.select_related_files(signatures_only=True)` extrae sólo cabeceras de funciones/clases (vía AST en Python, regex en JS/TS/Go/Rust) en lugar de enviar archivos completos como contexto. |
-| **3. Progress Injection** | `PhaseContext.update_step_progress()` registra el avance en un dict `step_progress`. `BasePhase._format_progress_context()` formatea ese estado y puede concatenarse a cualquier system prompt. |
-| **4. Chain of Thought (dual output)** | `LLMResponseParser.extract_thought_action()` parsea respuestas en formato `{"thought": ..., "action": ...}` o `<thought>...</thought><action>...</action>`, sin modificar los métodos existentes. |
-| **5. Roles Nano** | 3 roles ultra-focalizados (`nano_planner`, `nano_coder`, `nano_reviewer`) definidos en `prompts/domains/auto_generation/nano_roles.yaml` y mapeados en `backend/config/llm_models.json`. Cada rol tiene un prompt de sistema de <5 líneas. |
-| **6. Decision Blackboard** | `DecisionBlackboard` (SQLite WAL, `backend/utils/core/memory/`) persiste decisiones de diseño entre fases (`record_decision` / `format_for_prompt`). Se inyecta en `PhaseContext` y sobrevive al reinicio del proceso. |
-| **6b. Rescue Planning** | Cuando una fase falla, `AutoAgent._request_rescue_plan()` pide al LLM un array de 3 `RescuePhase` que se insertan dinámicamente en el pipeline para recuperar el estado. |
+| # | Optimización | Descripción |
+|---|---|---|
+| **F1** | **Interface Skeleton Scaffolding** | Antes de generar implementaciones, `InterfaceScaffoldingPhase` crea archivos `.pyi` (Python) y `.d.ts` (TypeScript) a partir de los exports del `logic_plan`. El LLM solo "rellena los huecos" de un contrato ya definido. Cero llamadas al LLM — completamente determinístico. |
+| **F2** | **TDD Agéntico en Caliente** | Tras generar cada archivo `.py`, `FileContentGenerationPhase._run_tdd_loop()` genera un test mínimo con el prompt `tdd_minimal_test`, lo ejecuta con `pytest` en un directorio temporal y corrige el código si falla, con hasta 2 reintentos automáticos. |
+| **F3** | **API Maps (Compresión de Contexto)** | `PhaseContext.build_api_map()` precomputa un mapa `{ruta → firmas}` una sola vez por pasada. `_is_small_model()` detecta automáticamente modelos ≤4B (regex sobre el nombre del modelo) y activa `select_related_files(signatures_only=True)`, reduciendo el contexto a solo cabeceras de funciones/clases. |
+| **F4** | **Capas de Abstracción (TACTICAL/CRITIC)** | Dos nuevos tipos de agente en el swarm: `TacticalAgent` implementa una sola función por turno usando `ast` + `CodePatcher.apply_search_replace()` con contexto mínimo; `CriticAgent` escanea todos los archivos generados contra `ErrorKnowledgeBase` y escribe advertencias en el `Blackboard` bajo `critique/` — sin ninguna llamada al LLM. |
+| **F5** | **Blackboard como Memoria de Corto Plazo** | Tras completar cada nodo del `TaskDAG`, el agente escribe en el Blackboard una nota concisa (`context_notes/{node_id}`) con las librerías usadas y los exports creados. El `DomainAgentOrchestrator` inyecta las notas de dependencias directas como contexto previo en la tarea siguiente. |
+| **F6** | **Parches SEARCH/REPLACE (Diff Quirúrgico)** | `CodePatcher` soporta una nueva estrategia `search_replace` donde el LLM devuelve bloques `<<<SEARCH>>>...<<<REPLACE>>>...<<<END>>>`. `parse_search_replace_patch()` y `apply_search_replace()` aplican los cambios quirúrgicamente sin tocar el resto del archivo. `FileValidator.validate_patch_applicable()` verifica que el bloque buscado existe antes de modificar nada. |
+
+### Activación automática
+
+```python
+# F3 se activa automáticamente según el tamaño del modelo configurado
+# en backend/config/llm_models.json para el rol "coder"
+phase_context._is_small_model("coder")  # → True si modelo ≤ 4B
+
+# F1 se ejecuta automáticamente en el pipeline entre LogicPlanningPhase y StructurePreReviewPhase
+# F4 se activa cuando el ArchitectAgent emite nodos AgentType.TACTICAL o AgentType.CRITIC
+# F5 y F6 son siempre activos — forman parte del flujo estándar del swarm
+```
 
 ---
 

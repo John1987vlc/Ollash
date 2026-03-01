@@ -109,6 +109,8 @@ class DomainAgentOrchestrator:
         metrics_database: Optional[Any] = None,
         debate_node_runner: Optional[Any] = None,
         budget_limit_tokens: int = 500_000,
+        tactical_agent: Optional[Any] = None,
+        critic_agent: Optional[Any] = None,
     ) -> None:
         self._architect = architect_agent
         self._dev_pool = developer_agent_pool
@@ -126,6 +128,9 @@ class DomainAgentOrchestrator:
         self._cost_analyzer = cost_analyzer
         self._metrics_database = metrics_database
         self._debate_runner = debate_node_runner
+        # F4: Granularity sub-roles
+        self._tactical = tactical_agent
+        self._critic = critic_agent
         self._budget_limit_tokens = budget_limit_tokens
         # asyncio.Queue is populated lazily in run() once the event loop is running.
         self._dev_queue: asyncio.Queue[DeveloperAgent] = asyncio.Queue()
@@ -398,9 +403,25 @@ class DomainAgentOrchestrator:
             agent_type=node.agent_type.value,
         )
 
+        # F5: Inject context notes from completed dependency nodes
+        dep_notes = [
+            self._blackboard.read(f"context_notes/{dep}")
+            for dep in node.dependencies
+            if self._blackboard.read(f"context_notes/{dep}")
+        ]
+        if dep_notes:
+            node.task_data["previous_context"] = "\n---\n".join(dep_notes)
+
         try:
             result = await self._route_to_agent(node)
             await dag.mark_complete(node.id, result)
+
+            # F5: Persist the agent's context note to Blackboard for downstream tasks
+            if isinstance(result, dict) and result.get("context_note"):
+                await self._blackboard.write(
+                    f"context_notes/{node.id}", result["context_note"], node.id
+                )
+                node.context_note = result["context_note"]
 
             duration_ms = int((time.monotonic() - node_start_time) * 1000)
 
@@ -497,6 +518,23 @@ class DomainAgentOrchestrator:
                 return await asyncio.wait_for(self._debate_runner.run(node, self._blackboard), timeout=timeout)
             except asyncio.TimeoutError:
                 raise RuntimeError(f"DEBATE task '{node.id}' timed out after {timeout}s")
+
+        # F4: Granularity sub-roles
+        if node.agent_type == AgentType.TACTICAL:
+            if self._tactical is None:
+                raise RuntimeError("TACTICAL node requires a TacticalAgent (not configured)")
+            try:
+                return await asyncio.wait_for(self._tactical.run(node, self._blackboard), timeout=timeout)
+            except asyncio.TimeoutError:
+                raise RuntimeError(f"TACTICAL task '{node.id}' timed out after {timeout}s")
+
+        if node.agent_type == AgentType.CRITIC:
+            if self._critic is None:
+                raise RuntimeError("CRITIC node requires a CriticAgent (not configured)")
+            try:
+                return await asyncio.wait_for(self._critic.run(node, self._blackboard), timeout=timeout)
+            except asyncio.TimeoutError:
+                raise RuntimeError(f"CRITIC task '{node.id}' timed out after {timeout}s")
 
         raise ValueError(f"Unknown agent type: {node.agent_type}")
 

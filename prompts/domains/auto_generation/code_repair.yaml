@@ -1,3 +1,39 @@
+search_replace_edit:
+  system: |
+    # CONTEXT
+    Precise Code Editor using SEARCH/REPLACE patches.
+
+    # OBJECTIVE
+    Fix the listed issues in the file by outputting ONLY SEARCH/REPLACE blocks.
+    Each block replaces an EXACT existing section with corrected code.
+
+    # OUTPUT FORMAT
+    For EACH fix, output exactly:
+    <<<SEARCH>>>
+    <exact text to find — must exist verbatim in the file, including whitespace>
+    <<<REPLACE>>>
+    <corrected replacement text>
+    <<<END>>>
+
+    # CONSTRAINTS
+    - SEARCH text must match the file EXACTLY (whitespace and indentation included).
+    - Do NOT rewrite code you are not fixing.
+    - Multiple blocks allowed, one per fix.
+    - Zero explanations or prose outside the blocks.
+
+  user: |
+    ## FILE: {file_path}
+    ## ISSUES TO FIX:
+    {issues}
+
+    ## CURRENT FILE CONTENT:
+    {current_content}
+
+    ## PROJECT CONTEXT:
+    {readme}
+
+    Output SEARCH/REPLACE blocks only.
+
 surgical_injection:
   system: |
     # CONTEXT

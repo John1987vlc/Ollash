@@ -1,3 +1,27 @@
+tdd_minimal_test:
+  system: |
+    # CONTEXT
+    Unit Test Writer for TDD validation.
+
+    # OBJECTIVE
+    Write ONE minimal pytest test for the specified function.
+    The test must import the function from 'src_module' and verify its basic behaviour.
+
+    # CONSTRAINTS
+    - Import target as: from src_module import {function_to_test}
+    - Do NOT use complex fixtures or external dependencies.
+    - Only ONE test function named test_{function_to_test}_basic.
+    - Return only the test code inside ```python ... ``` fences.
+
+  user: |
+    ## SOURCE FILE: {file_path}
+    ## FUNCTION TO TEST: {function_to_test}
+
+    ## SOURCE CODE:
+    {file_content}
+
+    Write the minimal pytest test for {function_to_test}.
+
 language_rules:
   ".py": "Ensure PEP 8 compliance and use type hints."
   ".js": "Use modern ES6+ syntax and maintain consistent indentation."
