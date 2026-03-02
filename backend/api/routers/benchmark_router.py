@@ -1,5 +1,5 @@
 """
-benchmark_router — migrated from benchmark_bp.py.
+benchmark_router - migrated from benchmark_bp.py.
 TODO: Migrate route logic from frontend/blueprints/benchmark_bp.py
 """
 
@@ -10,5 +10,5 @@ router = APIRouter(prefix="/api/benchmark", tags=["benchmark"])
 
 @router.get("/")
 async def benchmark_index():
-    """Index endpoint — implement from benchmark_bp.py."""
+    """Index endpoint - implement from benchmark_bp.py."""
     return {"status": "ok", "router": "benchmark"}

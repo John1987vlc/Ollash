@@ -1,5 +1,5 @@
 """
-analytics_router — migrated from analytics_bp.py.
+analytics_router - migrated from analytics_bp.py.
 TODO: Migrate route logic from frontend/blueprints/analytics_bp.py
 """
 
@@ -10,5 +10,5 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 @router.get("/")
 async def analytics_index():
-    """Index endpoint — implement from analytics_bp.py."""
+    """Index endpoint - implement from analytics_bp.py."""
     return {"status": "ok", "router": "analytics"}

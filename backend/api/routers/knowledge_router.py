@@ -1,5 +1,5 @@
 """
-knowledge_router — migrated from knowledge_bp.py.
+knowledge_router - migrated from knowledge_bp.py.
 TODO: Migrate route logic from frontend/blueprints/knowledge_bp.py
 """
 
@@ -10,5 +10,5 @@ router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
 @router.get("/")
 async def knowledge_index():
-    """Index endpoint — implement from knowledge_bp.py."""
+    """Index endpoint - implement from knowledge_bp.py."""
     return {"status": "ok", "router": "knowledge"}
