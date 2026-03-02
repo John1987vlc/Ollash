@@ -82,7 +82,7 @@ class TestValidateContent:
     def test_only_one_validate_content_method_exists(self):
         """Regression: ensure the merge artifact (duplicate) has been removed."""
         import inspect
-        import backend.utils.domains.auto_generation.enhanced_file_content_generator as mod
+        import backend.utils.domains.auto_generation.generation.enhanced_file_content_generator as mod
 
         source = inspect.getsource(mod)
         assert source.count("def _validate_content") == 1, (
@@ -92,7 +92,7 @@ class TestValidateContent:
     def test_only_one_fallback_skeleton_method_exists(self):
         """Regression: ensure the duplicate _generate_fallback_skeleton has been removed."""
         import inspect
-        import backend.utils.domains.auto_generation.enhanced_file_content_generator as mod
+        import backend.utils.domains.auto_generation.generation.enhanced_file_content_generator as mod
 
         source = inspect.getsource(mod)
         assert source.count("def _generate_fallback_skeleton") == 1, (
@@ -102,7 +102,7 @@ class TestValidateContent:
     def test_import_re_at_module_level_not_inside_loop(self):
         """Regression: import re must be at module level, not inside a loop."""
         import inspect
-        import backend.utils.domains.auto_generation.enhanced_file_content_generator as mod
+        import backend.utils.domains.auto_generation.generation.enhanced_file_content_generator as mod
 
         source = inspect.getsource(mod)
         # The top-level import should appear before class definition

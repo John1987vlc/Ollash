@@ -96,3 +96,34 @@ DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_TIMEOUT = 300
 DEFAULT_MAX_TOKENS = 4096
 DEFAULT_TEMPERATURE = 0.5
+
+# --------------- Project Type Detection Constants ---------------
+
+# Minimum confidence for ProjectTypeDetector to enforce extension filtering
+MIN_TYPE_DETECTION_CONFIDENCE: float = 0.10
+
+# --------------- Small-Model Constants ---------------
+
+# Models with ≤ this many billion parameters are considered "small"
+SMALL_MODEL_MAX_PARAMS_B: float = 8.0
+
+# --------------- Retry Policy Constants ---------------
+
+DEFAULT_RETRY_ATTEMPTS: int = 3
+DEFAULT_RETRY_BASE_DELAY: float = 1.0
+DEFAULT_RETRY_MAX_DELAY: float = 30.0
+DEFAULT_RETRY_BACKOFF: float = 2.0
+
+# --------------- Placeholder / Skeleton Patterns ---------------
+
+# Patterns that indicate a file was not properly generated (used by validators)
+PLACEHOLDER_PATTERNS: tuple = (
+    "pass",
+    "TODO",
+    "raise NotImplementedError",
+    "...",
+    "placeholder",
+    "# implement",
+    "# fill in",
+    "return None  # stub",
+)

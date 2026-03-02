@@ -1,3 +1,4 @@
+import asyncio
 import shutil
 from pathlib import Path
 from typing import Any, Dict, List
@@ -61,3 +62,19 @@ class FileManager:
                 "es_dir": file_path.is_dir(),
             }
         return {"error": "Archivo no encontrado"}
+
+    # ------------------------------------------------------------------
+    # Async variants (non-blocking wrappers around sync methods)
+    # ------------------------------------------------------------------
+
+    async def write_file_async(self, path: str, content: str) -> str:
+        """Non-blocking write using asyncio.to_thread."""
+        return await asyncio.to_thread(self.write_file, path, content)
+
+    async def read_file_async(self, path: str) -> str:
+        """Non-blocking read using asyncio.to_thread."""
+        return await asyncio.to_thread(self.read_file, path)
+
+    async def delete_file_async(self, path: str) -> str:
+        """Non-blocking delete using asyncio.to_thread."""
+        return await asyncio.to_thread(self.delete_file, path)

@@ -1,6 +1,14 @@
+import warnings
+
 import pytest
 from unittest.mock import MagicMock
-from backend.utils.domains.auto_generation.file_content_generator import FileContentGenerator
+
+# FileContentGenerator is deprecated — suppress the warning in this legacy test module
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    from backend.utils.domains.auto_generation.file_content_generator import FileContentGenerator
 
 
 @pytest.fixture

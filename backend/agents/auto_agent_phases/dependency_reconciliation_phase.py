@@ -31,7 +31,7 @@ class DependencyReconciliationPhase(IAgentPhase):
 
         # Opt 5: Capture pre-reconciliation imports to detect mismatches for ErrorKnowledgeBase
         imports_before: Dict[str, Any] = {}
-        if self.context._opt_enabled("opt5_anti_pattern_injection"):
+        if self.context._is_small_model() or self.context._opt_enabled("opt5_anti_pattern_injection"):
             try:
                 imports_before = self.context.dependency_scanner.scan_all_imports(generated_files)
             except Exception:
@@ -42,7 +42,7 @@ class DependencyReconciliationPhase(IAgentPhase):
         generated_files = self.context.dependency_scanner.reconcile_dependencies(generated_files, project_root)
 
         # Opt 5: Record any newly-added packages as anti-patterns in ErrorKnowledgeBase
-        if self.context._opt_enabled("opt5_anti_pattern_injection") and imports_before:
+        if (self.context._is_small_model() or self.context._opt_enabled("opt5_anti_pattern_injection")) and imports_before:
             try:
                 imports_after = self.context.dependency_scanner.scan_all_imports(generated_files)
                 for lang, pkgs_after in imports_after.items():

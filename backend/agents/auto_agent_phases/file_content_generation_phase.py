@@ -143,7 +143,7 @@ class FileContentGenerationPhase(IAgentPhase):
 
                 # Opt 5: Query ErrorKnowledgeBase for anti-pattern warnings
                 anti_pattern_warnings = ""
-                if self.context._opt_enabled("opt5_anti_pattern_injection"):
+                if self.context._is_small_model() or self.context._opt_enabled("opt5_anti_pattern_injection"):
                     try:
                         language = self.context.infer_language(file_path)
                         warnings_text = self.context.error_knowledge_base.get_prevention_warnings(
