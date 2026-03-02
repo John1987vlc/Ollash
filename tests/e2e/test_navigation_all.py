@@ -51,7 +51,7 @@ def test_full_sidebar_navigation(page, base_url):
                 # If it's not expanded, click to expand
                 if "expanded" not in (group.get_attribute("class") or ""):
                     header.click(force=True)
-                    page.wait_for_timeout(500) # Wait for animation
+                    page.wait_for_timeout(500)  # Wait for animation
 
         try:
             nav_item.click(force=True, timeout=5000)

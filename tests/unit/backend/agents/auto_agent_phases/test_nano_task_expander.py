@@ -41,12 +41,7 @@ class TestNanoTaskExpanderExpand:
         assert NanoTaskExpander.expand(task, "key: value") == []
 
     def test_python_stubs_extracted(self):
-        content = (
-            "def add(x: int, y: int) -> int:\n"
-            "    pass\n\n"
-            "def subtract(x: int, y: int) -> int:\n"
-            "    pass\n"
-        )
+        content = "def add(x: int, y: int) -> int:\n    pass\n\ndef subtract(x: int, y: int) -> int:\n    pass\n"
         tasks = NanoTaskExpander.expand(_base_task(), content)
         assert len(tasks) == 2
         names = {t["function_name"] for t in tasks}

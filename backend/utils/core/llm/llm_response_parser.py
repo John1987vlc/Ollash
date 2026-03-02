@@ -126,7 +126,15 @@ class LLMResponseParser:
             return ""
 
         current = text.strip()
-        tag_names = ["code_created", "plan_json", "backlog_json", "structure_json", "contingency_json", "review_json", "senior_review_json"]
+        tag_names = [
+            "code_created",
+            "plan_json",
+            "backlog_json",
+            "structure_json",
+            "contingency_json",
+            "review_json",
+            "senior_review_json",
+        ]
 
         # Iterative cleaning to handle nested wrappers (e.g. <tag>```js\ncode\n```</tag>)
         for _ in range(5):
@@ -137,7 +145,8 @@ class LLMResponseParser:
             tag_match = re.search(tag_pattern, current, re.I | re.S)
             if tag_match:
                 current = tag_match.group(2).strip()
-                if current != old: continue
+                if current != old:
+                    continue
 
             # B. Markdown blocks wrapping the whole thing
             # Strict wrapping from ^ to $
@@ -149,7 +158,8 @@ class LLMResponseParser:
                 if lines and not lines[0].strip().startswith("```"):
                     if re.match(r"^[a-zA-Z0-9+#-]+$", lines[0].strip()):
                         current = "\n".join(lines[1:]).strip()
-                if current != old: continue
+                if current != old:
+                    continue
 
             # C. Conversational text + block fallback
             # If not perfectly wrapped, try to find the FIRST discrete block
@@ -165,12 +175,13 @@ class LLMResponseParser:
                         # or if it's our only option.
                         if len(blocks) == 1:
                             # Heuristic: strip if there's conversational prefix
-                            prefix = current[:current.find("```")].strip()
+                            prefix = current[: current.find("```")].strip()
                             if prefix and not prefix.startswith(("#", "import", "from", "package", "name:")):
                                 current = candidate
-                                if current != old: continue
+                                if current != old:
+                                    continue
 
-            break # No more changes possible
+            break  # No more changes possible
 
         # D. Final surgical tag removal for unclosed tags at the very start/end
         lines = current.splitlines()
@@ -324,8 +335,16 @@ class LLMResponseParser:
         # 5. SURGICAL EXTRACTION (The "flattening" logic)
         if isinstance(result, dict):
             wrappers = [
-                "backlog", "tasks", "files", "folders", "plan",
-                "architecture", "structure", "risks", "items", "logic_plan",
+                "backlog",
+                "tasks",
+                "files",
+                "folders",
+                "plan",
+                "architecture",
+                "structure",
+                "risks",
+                "items",
+                "logic_plan",
             ]
             for key in wrappers:
                 if key in result and isinstance(result[key], (list, dict)):
@@ -356,6 +375,7 @@ class LLMResponseParser:
         # Fix literal newlines inside strings
         def fix_newlines(match):
             return match.group(0).replace("\n", "\\n").replace("\r", "")
+
         s = re.sub(r'"[\s\S]*?"', fix_newlines, s)
 
         # Fix hallucinated notes in parentheses after values

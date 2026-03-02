@@ -49,7 +49,12 @@ from backend.utils.domains.auto_generation.utilities.signature_extractor import 
 class LLMSubContext:
     """Sub-context for LLM-related services."""
 
-    def __init__(self, llm_manager: "IModelProvider", response_parser: "LLMResponseParser", token_tracker: Optional[TokenTracker] = None):
+    def __init__(
+        self,
+        llm_manager: "IModelProvider",
+        response_parser: "LLMResponseParser",
+        token_tracker: Optional[TokenTracker] = None,
+    ):
         self.manager = llm_manager
         self.response_parser = response_parser
         self.token_tracker = token_tracker
@@ -344,9 +349,7 @@ class PhaseContext:
                     self.prefetched_context[path] = _extract_signatures(content, path)
                     added += 1
             if added:
-                self.logger.info(
-                    f"[PredictiveCtx] Pre-fetched {added} entries for FileContentGenerationPhase"
-                )
+                self.logger.info(f"[PredictiveCtx] Pre-fetched {added} entries for FileContentGenerationPhase")
         except Exception as exc:
             self.logger.debug(f"[PredictiveCtx] Pre-fetch failed (non-fatal): {exc}")
 

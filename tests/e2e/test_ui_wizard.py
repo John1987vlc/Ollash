@@ -47,18 +47,14 @@ def test_project_wizard_flow(page: Page, base_url: str) -> None:
         lambda route: route.fulfill(
             status=200,
             content_type="application/json",
-            body=json.dumps({"status": "started", "project_name": "E2E-Wizard-Project"})
+            body=json.dumps({"status": "started", "project_name": "E2E-Wizard-Project"}),
         ),
     )
 
     # Mock SSE endpoint
     page.route(
         "**/api/projects/stream/*",
-        lambda route: route.fulfill(
-            status=200,
-            content_type="text/event-stream",
-            body="data: {\"status\": \"ok\"}\n\n"
-        )
+        lambda route: route.fulfill(status=200, content_type="text/event-stream", body='data: {"status": "ok"}\n\n'),
     )
 
     # Click Generate

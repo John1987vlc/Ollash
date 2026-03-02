@@ -142,11 +142,7 @@ class TestParseSearchReplacePatch:
         assert patches[0][1] == "new code\n"
 
     def test_parse_valid_two_blocks(self, patcher):
-        text = (
-            "<<<SEARCH>>>\nfoo\n<<<REPLACE>>>\nbar\n<<<END>>>"
-            "\n"
-            "<<<SEARCH>>>\nbaz\n<<<REPLACE>>>\nqux\n<<<END>>>"
-        )
+        text = "<<<SEARCH>>>\nfoo\n<<<REPLACE>>>\nbar\n<<<END>>>\n<<<SEARCH>>>\nbaz\n<<<REPLACE>>>\nqux\n<<<END>>>"
         patches = patcher.parse_search_replace_patch(text)
         assert len(patches) == 2
 

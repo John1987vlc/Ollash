@@ -64,13 +64,9 @@ class ReadmeGenerationPhase(IAgentPhase):
                     context="File extension whitelist for this project type",
                 )
             else:
-                self.context.logger.info(
-                    "[ProjectTypeDetector] Unknown project type — all extensions allowed."
-                )
+                self.context.logger.info("[ProjectTypeDetector] Unknown project type — all extensions allowed.")
         except Exception as _det_exc:
-            self.context.logger.debug(
-                f"[ProjectTypeDetector] Detection failed (non-fatal): {_det_exc}"
-            )
+            self.context.logger.debug(f"[ProjectTypeDetector] Detection failed (non-fatal): {_det_exc}")
 
         # F36: Index README for RAG support
         try:

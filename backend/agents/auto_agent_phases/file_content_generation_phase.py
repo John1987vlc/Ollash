@@ -66,9 +66,7 @@ class FileContentGenerationPhase(BasePhase):
                     _sub = NanoTaskExpander.expand(_task, generated_files.get(_fp, ""))
                     if _sub:
                         expanded_backlog.extend(_sub)
-                        self.context.logger.info(
-                            f"  [NanoExpander] '{_fp}' → {len(_sub)} per-function nano-tasks"
-                        )
+                        self.context.logger.info(f"  [NanoExpander] '{_fp}' → {len(_sub)} per-function nano-tasks")
                         continue
                 expanded_backlog.append(_task)
             # Re-sort after expansion so new sub-task deps are respected
@@ -108,6 +106,7 @@ class FileContentGenerationPhase(BasePhase):
             _ptype = getattr(self.context, "project_type_info", None)
             if _ptype and _ptype.project_type != "unknown" and _ptype.confidence >= 0.10:
                 from pathlib import Path as _Path
+
                 _suffix = _Path(file_path).suffix.lower()
                 if _suffix and _suffix not in _ptype.allowed_extensions:
                     self.context.logger.warning(
@@ -232,8 +231,11 @@ class FileContentGenerationPhase(BasePhase):
                             shadow = getattr(self.context, "shadow_evaluator", None)
                             if shadow is not None:
                                 content, _ = shadow.active_shadow_validate(
-                                    file_path, content, lang,
-                                    self.context.llm_manager, self.context.logger,
+                                    file_path,
+                                    content,
+                                    lang,
+                                    self.context.llm_manager,
+                                    self.context.logger,
                                 )
                         except Exception:
                             pass
@@ -247,17 +249,14 @@ class FileContentGenerationPhase(BasePhase):
                     if critic_cfg.get("enabled", True):
                         try:
                             from backend.utils.core.analysis.critic_loop import CriticLoop
+
                             if not hasattr(self, "_critic_loop"):
-                                self._critic_loop = CriticLoop(
-                                    self.context.llm_manager, self.context.logger
-                                )
+                                self._critic_loop = CriticLoop(self.context.llm_manager, self.context.logger)
                             _lang = self.context.infer_language(file_path)
                             _critic_feedback = self._critic_loop.review(file_path, content, _lang)
                             if _critic_feedback:
                                 last_error = f"CRITIC FEEDBACK: {_critic_feedback}"
-                                self.context.logger.info(
-                                    f"    [Critic] Issues in '{file_path}': {_critic_feedback}"
-                                )
+                                self.context.logger.info(f"    [Critic] Issues in '{file_path}': {_critic_feedback}")
                                 content = ""
                                 continue
                         except Exception:
@@ -394,6 +393,7 @@ class FileContentGenerationPhase(BasePhase):
         allowed_actions: str | None = None
         if self.context._opt_enabled("opt1_prompt_state_machine"):
             from backend.utils.domains.auto_generation.prompt_templates import TASK_TYPE_ALLOWED_ACTIONS
+
             actions = TASK_TYPE_ALLOWED_ACTIONS.get(task_type)
             if actions:
                 allowed_actions = "\n".join(f"  - {a}" for a in actions)
@@ -471,9 +471,7 @@ class FileContentGenerationPhase(BasePhase):
             try:
                 _s_language = self.context.infer_language(file_path)
                 _s_purpose = task.get("description", title)
-                self.context.fragment_cache.store_example(
-                    language=_s_language, purpose=_s_purpose, code=content
-                )
+                self.context.fragment_cache.store_example(language=_s_language, purpose=_s_purpose, code=content)
             except Exception:
                 pass
 
@@ -482,9 +480,7 @@ class FileContentGenerationPhase(BasePhase):
         # Update step progress for prompt injection in subsequent LLM calls
         completed_task_ids.append(task_id)
         next_task_index = backlog.index(task) + 1
-        next_title = (
-            backlog[next_task_index].get("title", "") if next_task_index < total_tasks else "done"
-        )
+        next_title = backlog[next_task_index].get("title", "") if next_task_index < total_tasks else "done"
         self.context.update_step_progress(
             current_index=completed_tasks,
             total=total_tasks,
@@ -645,15 +641,11 @@ class FileContentGenerationPhase(BasePhase):
                         cwd=str(tmp_path),
                     )
                     if result.returncode == 0:
-                        self.context.logger.info(
-                            f"  [TDD] Tests passed for {file_path} (attempt {attempt})"
-                        )
+                        self.context.logger.info(f"  [TDD] Tests passed for {file_path} (attempt {attempt})")
                         break
 
                     error_output = (result.stdout + result.stderr)[-1500:]
-                    self.context.logger.info(
-                        f"  [TDD] Test failed (attempt {attempt}/{max_retries}), correcting..."
-                    )
+                    self.context.logger.info(f"  [TDD] Test failed (attempt {attempt}/{max_retries}), correcting...")
                     content = self._correct_via_tdd_error(file_path, content, error_output)
                     src_file.write_text(content, encoding="utf-8")
 
@@ -675,8 +667,7 @@ class FileContentGenerationPhase(BasePhase):
             func_names = [
                 node.name
                 for node in _ast.walk(tree)
-                if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef))
-                and not node.name.startswith("_")
+                if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)) and not node.name.startswith("_")
             ]
             if not func_names:
                 return ""
@@ -795,8 +786,7 @@ class FileContentGenerationPhase(BasePhase):
                 try:
                     tree = _ast.parse(content)
                     has_def = any(
-                        isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef))
-                        for n in _ast.walk(tree)
+                        isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef)) for n in _ast.walk(tree)
                     )
                     if not has_def:
                         return "implement_function step must contain at least one function or class definition."
@@ -808,10 +798,7 @@ class FileContentGenerationPhase(BasePhase):
 
         elif task_type == "write_tests":
             if not _re.search(r"\btest_\w+", content):
-                return (
-                    "write_tests step must contain at least one test function "
-                    "(name must start with 'test_')."
-                )
+                return "write_tests step must contain at least one test function (name must start with 'test_')."
 
         return ""
 

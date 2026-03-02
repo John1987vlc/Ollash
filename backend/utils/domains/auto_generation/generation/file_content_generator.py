@@ -5,6 +5,7 @@
     :class:`~backend.utils.domains.auto_generation.generation.enhanced_file_content_generator.EnhancedFileContentGenerator`
     for all new code. This class will be removed in a future release.
 """
+
 import warnings
 import json
 from pathlib import Path  # Added for Path.suffix

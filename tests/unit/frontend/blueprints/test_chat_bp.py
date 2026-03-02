@@ -38,6 +38,7 @@ def app(mock_manager, tmp_path):
 
     # Inject mock session manager into the chat router module
     import backend.api.routers.chat_router as chat_mod
+
     chat_mod._session_manager = mock_manager
 
     yield _app
@@ -71,9 +72,7 @@ class TestChatRouter:
         existing_session = MagicMock()
         mock_manager.get_session.return_value = existing_session
 
-        response = client.post(
-            "/api/chat", json={"message": "Msg 2", "session_id": "s-123"}
-        )
+        response = client.post("/api/chat", json={"message": "Msg 2", "session_id": "s-123"})
 
         assert response.status_code == 200
         mock_manager.send_message.assert_called_once_with("s-123", "Msg 2")

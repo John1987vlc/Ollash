@@ -119,13 +119,9 @@ class CodePatcher:
         for search, replace in patches:
             if search in result:
                 result = result.replace(search, replace, 1)
-                self.logger.info(
-                    f"  SEARCH/REPLACE applied: {len(search)} chars -> {len(replace)} chars"
-                )
+                self.logger.info(f"  SEARCH/REPLACE applied: {len(search)} chars -> {len(replace)} chars")
             else:
-                self.logger.warning(
-                    f"  SEARCH block not found in file ({len(search)} chars). Skipping patch."
-                )
+                self.logger.warning(f"  SEARCH block not found in file ({len(search)} chars). Skipping patch.")
                 failed.append(search)
         return result, failed
 
@@ -148,9 +144,7 @@ class CodePatcher:
             prompts = loader.load_prompt("domains/auto_generation/code_repair.yaml")
             system = prompts.get("search_replace_edit", {}).get("system", "")
             user_template = prompts.get("search_replace_edit", {}).get("user", "")
-            issues_str = "\n".join(
-                f"- {i.get('description', '')}" for i in (issues_to_fix or [])
-            )
+            issues_str = "\n".join(f"- {i.get('description', '')}" for i in (issues_to_fix or []))
             user = user_template.format(
                 file_path=file_path,
                 current_content=current_content[:6000],
@@ -172,9 +166,7 @@ class CodePatcher:
                 return current_content
             modified, failed = self.apply_search_replace(current_content, patches)
             if failed:
-                self.logger.warning(
-                    f"  {len(failed)}/{len(patches)} patches failed for {file_path}"
-                )
+                self.logger.warning(f"  {len(failed)}/{len(patches)} patches failed for {file_path}")
             return modified
         except Exception as e:
             self.logger.error(f"SEARCH/REPLACE strategy failed for {file_path}: {e}")

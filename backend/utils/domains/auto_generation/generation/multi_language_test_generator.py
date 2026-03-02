@@ -195,8 +195,8 @@ class MultiLanguageTestGenerator:
 
         # Heuristic for extension
         all_files = list(project_root.rglob("*"))
-        js_count = len([f for f in all_files if f.suffix in ('.js', '.ts', '.jsx', '.tsx')])
-        py_count = len([f for f in all_files if f.suffix == '.py'])
+        js_count = len([f for f in all_files if f.suffix in (".js", ".ts", ".jsx", ".tsx")])
+        py_count = len([f for f in all_files if f.suffix == ".py"])
 
         if js_count > py_count:
             primary_lang = "javascript"

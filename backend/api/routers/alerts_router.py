@@ -27,17 +27,13 @@ async def _alert_event_generator(event_publisher) -> AsyncIterator[str]:
 
     def _callback(event_type: str, event_data: dict) -> None:
         # Called from the sync EventPublisher; bridge into the asyncio queue
-        loop.call_soon_threadsafe(
-            event_queue.put_nowait, (event_type, event_data)
-        )
+        loop.call_soon_threadsafe(event_queue.put_nowait, (event_type, event_data))
 
     event_publisher.subscribe("ui_alert", _callback)
     try:
         while True:
             try:
-                event_type, event_data = await asyncio.wait_for(
-                    event_queue.get(), timeout=30.0
-                )
+                event_type, event_data = await asyncio.wait_for(event_queue.get(), timeout=30.0)
                 data = json.dumps(event_data)
                 yield f"event: {event_type}\ndata: {data}\n\n"
             except asyncio.TimeoutError:

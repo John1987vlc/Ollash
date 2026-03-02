@@ -421,7 +421,11 @@ const ChatModule = (function() {
         msgDiv.className = `chat-message ${role}-message`;
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble';
-        bubble.innerHTML = (role === 'assistant' && window.formatAnswer) ? window.formatAnswer(content) : content;
+        if (role === 'assistant' && window.formatAnswer) {
+            bubble.innerHTML = window.formatAnswer(content);
+        } else {
+            bubble.textContent = content;
+        }
         msgDiv.appendChild(bubble);
         state.chatMessages.appendChild(msgDiv);
         scrollToBottom();

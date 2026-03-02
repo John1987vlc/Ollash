@@ -116,14 +116,13 @@ class TestActiveShadowValidate:
         )
         with MagicMock() as mock_prompts:
             import backend.utils.domains.auto_generation.prompt_templates as pt
+
             orig = pt.AutoGenPrompts.nano_format_corrector
             pt.AutoGenPrompts.nano_format_corrector = staticmethod(
                 lambda **kwargs: ("sys", "usr")  # noqa: ARG005
             )
             try:
-                result, repaired = shadow.active_shadow_validate(
-                    "f.py", broken, "python", mock_llm, MagicMock()
-                )
+                result, repaired = shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
             finally:
                 pt.AutoGenPrompts.nano_format_corrector = orig
 
@@ -136,12 +135,11 @@ class TestActiveShadowValidate:
         mock_llm.get_client.return_value.chat.side_effect = RuntimeError("network down")
 
         import backend.utils.domains.auto_generation.prompt_templates as pt
+
         orig = pt.AutoGenPrompts.nano_format_corrector
         pt.AutoGenPrompts.nano_format_corrector = staticmethod(lambda **kwargs: ("sys", "usr"))
         try:
-            result, repaired = shadow.active_shadow_validate(
-                "f.py", broken, "python", mock_llm, MagicMock()
-            )
+            result, repaired = shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
         finally:
             pt.AutoGenPrompts.nano_format_corrector = orig
 
@@ -158,12 +156,11 @@ class TestActiveShadowValidate:
             {},
         )
         import backend.utils.domains.auto_generation.prompt_templates as pt
+
         orig = pt.AutoGenPrompts.nano_format_corrector
         pt.AutoGenPrompts.nano_format_corrector = staticmethod(lambda **kwargs: ("sys", "usr"))
         try:
-            result, repaired = shadow.active_shadow_validate(
-                "f.py", broken, "python", mock_llm, MagicMock()
-            )
+            result, repaired = shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
         finally:
             pt.AutoGenPrompts.nano_format_corrector = orig
 
@@ -189,6 +186,7 @@ class TestActiveShadowValidate:
         initial_log_count = len(shadow._logs)
 
         import backend.utils.domains.auto_generation.prompt_templates as pt
+
         orig = pt.AutoGenPrompts.nano_format_corrector
         pt.AutoGenPrompts.nano_format_corrector = staticmethod(lambda **kwargs: ("sys", "usr"))
         try:

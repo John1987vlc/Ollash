@@ -55,7 +55,7 @@ class RetryPolicy:
 
     def _delay_for(self, attempt: int) -> float:
         """Return the sleep duration for a given (0-based) attempt index."""
-        return min(self.base_delay * (self.backoff_factor ** attempt), self.max_delay)
+        return min(self.base_delay * (self.backoff_factor**attempt), self.max_delay)
 
     # ------------------------------------------------------------------
     # Synchronous execution

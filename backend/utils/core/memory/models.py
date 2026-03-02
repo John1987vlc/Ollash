@@ -25,6 +25,4 @@ class FragmentModel(Base):
     metadata: Mapped[str] = mapped_column(Text, default="{}")
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    __table_args__ = (
-        Index("idx_fragments_type", "fragment_type", "language"),
-    )
+    __table_args__ = (Index("idx_fragments_type", "fragment_type", "language"),)

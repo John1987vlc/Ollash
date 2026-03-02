@@ -138,7 +138,7 @@ class TacticalAgent(BaseDomainAgent):
                 and hasattr(node, "end_lineno")
             ):
                 start = node.lineno - 1  # 0-indexed
-                end = node.end_lineno    # inclusive, 1-indexed -> exclusive in slice
+                end = node.end_lineno  # inclusive, 1-indexed -> exclusive in slice
                 return "".join(lines[start:end])
         return ""
 

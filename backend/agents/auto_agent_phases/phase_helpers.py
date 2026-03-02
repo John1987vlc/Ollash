@@ -24,11 +24,7 @@ def get_type_info_if_active(context: Any) -> Optional[Any]:
     otherwise ``None``.
     """
     info = getattr(context, "project_type_info", None)
-    if (
-        info is not None
-        and info.project_type != "unknown"
-        and info.confidence >= MIN_TYPE_DETECTION_CONFIDENCE
-    ):
+    if info is not None and info.project_type != "unknown" and info.confidence >= MIN_TYPE_DETECTION_CONFIDENCE:
         return info
     return None
 
@@ -61,6 +57,4 @@ def filter_structure_by_type(
 
     from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
 
-    return StructureGenerator.filter_structure_by_extensions(
-        structure, set(info.allowed_extensions), logger
-    )
+    return StructureGenerator.filter_structure_by_extensions(structure, set(info.allowed_extensions), logger)

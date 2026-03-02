@@ -211,17 +211,10 @@ def edit_task(task_id: str):
             if node is not None:
                 if node.status != TaskStatus.PENDING:
                     return jsonify(
-                        {
-                            "error": (
-                                f"Node '{task_id}' is not PENDING "
-                                f"(current status: {node.status.value})"
-                            )
-                        }
+                        {"error": (f"Node '{task_id}' is not PENDING (current status: {node.status.value})")}
                     ), 409
                 node.task_data["instruction"] = new_instruction
-                return jsonify(
-                    {"status": "updated", "task_id": task_id, "project": project_name}
-                )
+                return jsonify({"status": "updated", "task_id": task_id, "project": project_name})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 

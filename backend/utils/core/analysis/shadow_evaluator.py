@@ -272,10 +272,7 @@ class ShadowEvaluator:
         if not format_error:
             return content, False
 
-        logger.info(
-            f"[Opt6] Format error in '{file_path}': {format_error}. "
-            "Calling nano_format_corrector..."
-        )
+        logger.info(f"[Opt6] Format error in '{file_path}': {format_error}. Calling nano_format_corrector...")
 
         try:
             system_prompt, user_prompt = AutoGenPrompts.nano_format_corrector(
@@ -295,6 +292,7 @@ class ShadowEvaluator:
             raw = response_data.get("content", "")
             # Extract <code_fixed>...</code_fixed>
             import re as _re
+
             match = _re.search(r"<code_fixed>(.*?)</code_fixed>", raw, _re.DOTALL | _re.IGNORECASE)
             if match:
                 repaired = match.group(1).strip()

@@ -55,9 +55,7 @@ class TestCriticAgentRun:
         assert mock_ekb.query_similar_errors.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_writes_critique_to_blackboard_when_patterns_found(
-        self, agent, blackboard, node, mock_ekb
-    ):
+    async def test_writes_critique_to_blackboard_when_patterns_found(self, agent, blackboard, node, mock_ekb):
         blackboard.get_all_generated_files.return_value = {"src/app.py": "code"}
         pattern = MagicMock()
         pattern.prevention_tip = "Avoid mutable default args"

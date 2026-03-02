@@ -63,8 +63,5 @@ def check_context_saturation(prompt: str, model_name: str) -> Optional[str]:
 
     if saturation > _SATURATION_THRESHOLD:
         pct = int(saturation * 100)
-        return (
-            f"Context saturation: {pct}% of {model_name}'s "
-            f"{context_window}-token window estimated in use."
-        )
+        return f"Context saturation: {pct}% of {model_name}'s {context_window}-token window estimated in use."
     return None

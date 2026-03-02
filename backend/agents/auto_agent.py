@@ -232,8 +232,7 @@ class AutoAgent(CoreAgent):
                 _SLIM_SKIP = (DynamicDocumentationPhase, CICDHealingPhase)
                 filtered = [p for p in self.phases if not isinstance(p, _SLIM_SKIP)]
                 self.logger.info(
-                    f"[AdaptivePipeline] slim tier — skipping {len(self.phases) - len(filtered)} "
-                    f"doc/CI phases"
+                    f"[AdaptivePipeline] slim tier — skipping {len(self.phases) - len(filtered)} doc/CI phases"
                 )
                 return filtered
 
@@ -241,9 +240,7 @@ class AutoAgent(CoreAgent):
             return list(self.phases)
 
         except Exception as exc:
-            self.logger.warning(
-                f"[AdaptivePipeline] Phase filter failed ({exc}), using all phases"
-            )
+            self.logger.warning(f"[AdaptivePipeline] Phase filter failed ({exc}), using all phases")
             return list(self.phases)
 
     def run(self, project_description: str, project_name: str = "new_project", **kwargs) -> Path:
@@ -447,9 +444,7 @@ class AutoAgent(CoreAgent):
                     # Feature 3: Predictive Context Loading — pre-fetch for next phase
                     if next_phase is not None:
                         try:
-                            self.phase_context.prefetch_context_for_phase(
-                                next_phase.__class__, generated_files
-                            )
+                            self.phase_context.prefetch_context_for_phase(next_phase.__class__, generated_files)
                         except Exception:
                             pass
 

@@ -47,6 +47,7 @@ _IMAGE_MAGIC: Dict[bytes, str] = {
 # Security helpers (preserved from Flask blueprint)
 # ---------------------------------------------------------------------------
 
+
 def _safe_resolve(base: Path, relative: str) -> Path:
     """Resolve relative path and verify it stays within base (path traversal protection)."""
     resolved = (base / relative).resolve()
@@ -69,6 +70,7 @@ def _validate_image_magic(data: bytes) -> bool:
 # ---------------------------------------------------------------------------
 # Project creation & streaming
 # ---------------------------------------------------------------------------
+
 
 @router.post("/api/projects/create")
 async def create_project(
@@ -124,9 +126,7 @@ async def stream_project_logs(project_name: str, request: Request):
     async def _gen() -> AsyncIterator[str]:
         while True:
             try:
-                chunk = await loop.run_in_executor(
-                    None, next, iter(chat_event_bridge.iter_events())
-                )
+                chunk = await loop.run_in_executor(None, next, iter(chat_event_bridge.iter_events()))
                 yield chunk
             except StopIteration:
                 break
@@ -141,6 +141,7 @@ async def stream_project_logs(project_name: str, request: Request):
 # ---------------------------------------------------------------------------
 # File operations
 # ---------------------------------------------------------------------------
+
 
 class FilePathRequest(BaseModel):
     file_path_relative: str
@@ -193,6 +194,7 @@ async def save_file_content(
 # Image upload
 # ---------------------------------------------------------------------------
 
+
 @router.post("/api/projects/images/upload")
 async def upload_context_images(
     files: List[UploadFile] = File(...),
@@ -222,6 +224,7 @@ async def upload_context_images(
 # ---------------------------------------------------------------------------
 # Command execution
 # ---------------------------------------------------------------------------
+
 
 class CommandRequest(BaseModel):
     command: str
@@ -262,6 +265,7 @@ async def execute_command(project_name: str, body: CommandRequest, request: Requ
 # Clone repository
 # ---------------------------------------------------------------------------
 
+
 class CloneRequest(BaseModel):
     git_url: str
     project_name: Optional[str] = None
@@ -289,7 +293,9 @@ async def clone_project(body: CloneRequest, request: Request):
     try:
         result = subprocess.run(
             ["git", "clone", body.git_url, str(target)],
-            capture_output=True, text=True, timeout=300,
+            capture_output=True,
+            text=True,
+            timeout=300,
         )
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail=f"Clone failed: {result.stderr.strip()}")
@@ -301,6 +307,7 @@ async def clone_project(body: CloneRequest, request: Request):
 # ---------------------------------------------------------------------------
 # Export to ZIP
 # ---------------------------------------------------------------------------
+
 
 @router.get("/api/projects/{project_name}/export")
 async def export_project_zip(project_name: str, request: Request):
@@ -326,6 +333,7 @@ async def export_project_zip(project_name: str, request: Request):
     memory_file.seek(0)
 
     from fastapi.responses import Response
+
     return Response(
         content=memory_file.read(),
         media_type="application/zip",
@@ -337,6 +345,7 @@ async def export_project_zip(project_name: str, request: Request):
 # Project listing and deletion
 # ---------------------------------------------------------------------------
 
+
 @router.get("/api/projects")
 async def list_projects(request: Request):
     ollash_root_dir = request.app.state.ollash_root_dir
@@ -345,11 +354,13 @@ async def list_projects(request: Request):
     if projects_dir.exists():
         for p in sorted(projects_dir.iterdir()):
             if p.is_dir():
-                projects.append({
-                    "name": p.name,
-                    "path": str(p),
-                    "modified": p.stat().st_mtime,
-                })
+                projects.append(
+                    {
+                        "name": p.name,
+                        "path": str(p),
+                        "modified": p.stat().st_mtime,
+                    }
+                )
     return {"projects": projects}
 
 
@@ -369,12 +380,14 @@ async def delete_project(project_name: str, request: Request):
 # Resume from checkpoint
 # ---------------------------------------------------------------------------
 
+
 @router.post("/api/projects/{project_name}/resume")
 async def resume_project(project_name: str, background_tasks: BackgroundTasks, request: Request):
     event_publisher = request.app.state.event_publisher
 
     async def _run_resume():
         from backend.agents.domain_agent_orchestrator import DomainAgentOrchestrator
+
         orch: DomainAgentOrchestrator = main_container.domain_agents.orchestrator()
         orch.event_publisher = event_publisher
         await orch.resume(project_name)
@@ -387,9 +400,11 @@ async def resume_project(project_name: str, background_tasks: BackgroundTasks, r
 # Checkpoint
 # ---------------------------------------------------------------------------
 
+
 @router.get("/api/projects/{project_name}/checkpoint")
 async def get_checkpoint(project_name: str, request: Request):
     from backend.utils.core.io.checkpoint_manager import CheckpointManager
+
     ollash_root_dir = request.app.state.ollash_root_dir
     cm = CheckpointManager(ollash_root_dir / ".ollash" / "checkpoints", logger=None)
     data = cm.load_dag(project_name)
@@ -402,6 +417,7 @@ async def get_checkpoint(project_name: str, request: Request):
 # Git status
 # ---------------------------------------------------------------------------
 
+
 @router.get("/api/projects/{project_name}/git_status")
 async def get_project_git_status(project_name: str, request: Request):
     ollash_root_dir = request.app.state.ollash_root_dir
@@ -410,6 +426,7 @@ async def get_project_git_status(project_name: str, request: Request):
         raise HTTPException(status_code=404, detail="Project not found.")
     try:
         from backend.utils.domains.git.git_pr_tool import GitPRTool
+
         logger = main_container.core.logging.logger()
         git_tool = GitPRTool(str(project_path), logger)
         prs = git_tool.list_open_prs()

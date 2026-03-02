@@ -87,29 +87,20 @@ class TestExtractCodeBlockForFile:
 
     @pytest.mark.unit
     def test_selects_html_block_for_html_file(self):
-        response = (
-            "Example JSON:\n```json\n{}\n```\n\n"
-            "The HTML:\n```html\n<!DOCTYPE html>\n<html></html>\n```"
-        )
+        response = "Example JSON:\n```json\n{}\n```\n\nThe HTML:\n```html\n<!DOCTYPE html>\n<html></html>\n```"
         result = LLMResponseParser.extract_code_block_for_file(response, "index.html")
         assert "DOCTYPE" in result
 
     @pytest.mark.unit
     def test_selects_python_block_for_py_file(self):
-        response = (
-            "Usage example:\n```bash\npython main.py\n```\n\n"
-            "Implementation:\n```python\ndef main(): pass\n```"
-        )
+        response = "Usage example:\n```bash\npython main.py\n```\n\nImplementation:\n```python\ndef main(): pass\n```"
         result = LLMResponseParser.extract_code_block_for_file(response, "src/main.py")
         assert "def main" in result
         assert "python main.py" not in result
 
     @pytest.mark.unit
     def test_selects_css_block_for_css_file(self):
-        response = (
-            "```html\n<div class='box'></div>\n```\n"
-            "```css\n.box { color: red; }\n```"
-        )
+        response = "```html\n<div class='box'></div>\n```\n```css\n.box { color: red; }\n```"
         result = LLMResponseParser.extract_code_block_for_file(response, "styles.css")
         assert ".box" in result
         assert "<div" not in result
@@ -117,10 +108,7 @@ class TestExtractCodeBlockForFile:
     @pytest.mark.unit
     def test_fallback_largest_block_when_no_hint_match(self):
         """No language hint matches .js → take the largest block."""
-        response = (
-            "```bash\ncd /tmp\n```\n\n"
-            "```\nconst x = 1;\nconst y = 2;\nfunction add(a, b) { return a + b; }\n```"
-        )
+        response = "```bash\ncd /tmp\n```\n\n```\nconst x = 1;\nconst y = 2;\nfunction add(a, b) { return a + b; }\n```"
         result = LLMResponseParser.extract_code_block_for_file(response, "utils.js")
         assert "function add" in result
 
@@ -136,10 +124,7 @@ class TestExtractCodeBlockForFile:
 
     @pytest.mark.unit
     def test_think_blocks_stripped_before_selection(self):
-        response = (
-            "<think>I should write JS code here</think>\n"
-            "```javascript\nconst x = 1;\n```"
-        )
+        response = "<think>I should write JS code here</think>\n```javascript\nconst x = 1;\n```"
         result = LLMResponseParser.extract_code_block_for_file(response, "app.js")
         assert "const x" in result
         assert "think" not in result.lower()
@@ -154,9 +139,6 @@ class TestExtractCodeBlockForFile:
 
     @pytest.mark.unit
     def test_typescript_hints_match_ts_file(self):
-        response = (
-            "```javascript\nvar x = 1;\n```\n"
-            "```typescript\nconst x: number = 1;\n```"
-        )
+        response = "```javascript\nvar x = 1;\n```\n```typescript\nconst x: number = 1;\n```"
         result = LLMResponseParser.extract_code_block_for_file(response, "app.ts")
         assert "number" in result

@@ -22,6 +22,7 @@ def service_error_handler(fn):
     Re-raises HTTPException as-is so intentional 4xx/5xx codes pass through.
     All other exceptions are logged and converted to a generic 500.
     """
+
     @wraps(fn)
     async def wrapper(*args, **kwargs):
         try:
@@ -31,6 +32,7 @@ def service_error_handler(fn):
         except Exception as exc:
             logger.error("Unhandled error in %s: %s", fn.__name__, exc)
             raise HTTPException(status_code=500, detail=str(exc))
+
     return wrapper
 
 

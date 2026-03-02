@@ -76,9 +76,7 @@ class LogicPlanningPhase(BasePhase):
         # NEW: Generate Agile Backlog (Opt 4: incremental mode for small models)
         self.context.logger.info("  Generating Agile Backlog of micro-tasks...")
         if self.context._opt_enabled("opt4_incremental_backlog"):
-            backlog = await self._generate_backlog_incrementally(
-                project_description, readme_content, initial_structure
-            )
+            backlog = await self._generate_backlog_incrementally(project_description, readme_content, initial_structure)
         else:
             backlog = await self._generate_backlog(project_description, readme_content, initial_structure)
 
@@ -152,23 +150,18 @@ class LogicPlanningPhase(BasePhase):
 
                 # Extract task from <task_json>...</task_json>
                 import re as _re
-                tag_match = _re.search(
-                    r"<task_json>([\s\S]*?)(?:</task_json>|$)", response_text, _re.IGNORECASE
-                )
+
+                tag_match = _re.search(r"<task_json>([\s\S]*?)(?:</task_json>|$)", response_text, _re.IGNORECASE)
                 raw = tag_match.group(1).strip() if tag_match else response_text
                 task_data = LLMResponseParser.extract_json(raw)
 
                 if not isinstance(task_data, dict):
-                    self.context.logger.info(
-                        "  [Opt4] Unexpected response type — stopping incremental loop."
-                    )
+                    self.context.logger.info("  [Opt4] Unexpected response type — stopping incremental loop.")
                     break
 
                 # Completion signal
                 if task_data.get("complete"):
-                    self.context.logger.info(
-                        f"  [Opt4] Model signalled completion after {len(backlog)} tasks."
-                    )
+                    self.context.logger.info(f"  [Opt4] Model signalled completion after {len(backlog)} tasks.")
                     break
 
                 file_path = task_data.get("file_path", "")
@@ -192,18 +185,14 @@ class LogicPlanningPhase(BasePhase):
                 except Exception:
                     pass
 
-                self.context.logger.info(
-                    f"  [Opt4] Task {task_data['id']}: {task_data.get('title', file_path)}"
-                )
+                self.context.logger.info(f"  [Opt4] Task {task_data['id']}: {task_data.get('title', file_path)}")
 
             except Exception as exc:
                 self.context.logger.warning(f"  [Opt4] Incremental step failed: {exc}")
                 break
 
         if not backlog:
-            self.context.logger.info(
-                "  [Opt4] No tasks produced incrementally — falling back to batch generation."
-            )
+            self.context.logger.info("  [Opt4] No tasks produced incrementally — falling back to batch generation.")
             return await self._generate_backlog(project_description, readme_content, initial_structure)
 
         self.context.logger.info(f"  [Opt4] Incremental backlog complete: {len(backlog)} tasks.")

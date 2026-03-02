@@ -87,9 +87,7 @@ class FragmentCache:
                 is_favorite BOOLEAN DEFAULT 0
             )
         """)
-        await self.db.execute(
-            "CREATE INDEX IF NOT EXISTS idx_fragments_type ON fragments(fragment_type, language)"
-        )
+        await self.db.execute("CREATE INDEX IF NOT EXISTS idx_fragments_type ON fragments(fragment_type, language)")
 
     def _generate_cache_key(self, fragment_type: str, language: str, context_hash: str = "") -> str:
         """Generate a unique cache key."""
@@ -105,9 +103,7 @@ class FragmentCache:
         context_hash = self._compute_context_hash(context) if context else ""
         cache_key = self._generate_cache_key(fragment_type, language, context_hash)
 
-        row = await self.db.fetch_one(
-            "SELECT * FROM fragments WHERE key = :key", {"key": cache_key}
-        )
+        row = await self.db.fetch_one("SELECT * FROM fragments WHERE key = :key", {"key": cache_key})
 
         if row:
             content = row["content"]
@@ -117,9 +113,7 @@ class FragmentCache:
                 return None
             if self.logger:
                 self.logger.debug(f"Fragment cache HIT for {cache_key}")
-            await self.db.execute(
-                "UPDATE fragments SET hits = hits + 1 WHERE key = :key", {"key": cache_key}
-            )
+            await self.db.execute("UPDATE fragments SET hits = hits + 1 WHERE key = :key", {"key": cache_key})
             return content
 
         if self.logger:

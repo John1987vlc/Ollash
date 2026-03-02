@@ -21,11 +21,7 @@ def _make_context(model_name: str = "ministral-3:3b", opts: dict | None = None):
     client = MagicMock()
     client.model = model_name
     ctx.llm_manager.get_client.return_value = client
-    ctx.config = {
-        "small_model_optimizations": opts
-        if opts is not None
-        else {"opt4_incremental_backlog": True}
-    }
+    ctx.config = {"small_model_optimizations": opts if opts is not None else {"opt4_incremental_backlog": True}}
     ctx.decision_blackboard.record_decision.return_value = None
     ctx.logger = MagicMock()
     ctx.generated_projects_dir = Path("/tmp/projects")
@@ -81,9 +77,7 @@ class TestGenerateBacklogIncrementally:
             "backend.utils.domains.auto_generation.prompt_templates.AutoGenPrompts.next_backlog_task",
             return_value=("sys", "usr"),
         ):
-            backlog = await phase._generate_backlog_incrementally(
-                "Test project", "README", {"files": []}, max_tasks=30
-            )
+            backlog = await phase._generate_backlog_incrementally("Test project", "README", {"files": []}, max_tasks=30)
 
         assert len(backlog) == 2
         assert backlog[0]["id"] == "TASK-001"
@@ -105,9 +99,7 @@ class TestGenerateBacklogIncrementally:
             return_value=("sys", "usr"),
         ):
             with patch.object(phase, "_generate_backlog", AsyncMock(return_value=fallback_backlog)):
-                backlog = await phase._generate_backlog_incrementally(
-                    "Test", "README", {}, max_tasks=30
-                )
+                backlog = await phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
 
         assert backlog == fallback_backlog
 
@@ -125,9 +117,7 @@ class TestGenerateBacklogIncrementally:
             "backend.utils.domains.auto_generation.prompt_templates.AutoGenPrompts.next_backlog_task",
             return_value=("sys", "usr"),
         ):
-            backlog = await phase._generate_backlog_incrementally(
-                "Test", "README", {}, max_tasks=3
-            )
+            backlog = await phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=3)
 
         # Should stop at 3 (max_tasks)
         assert len(backlog) <= 3
@@ -151,9 +141,7 @@ class TestGenerateBacklogIncrementally:
             "backend.utils.domains.auto_generation.prompt_templates.AutoGenPrompts.next_backlog_task",
             return_value=("sys", "usr"),
         ):
-            backlog = await phase._generate_backlog_incrementally(
-                "Test", "README", {}, max_tasks=30
-            )
+            backlog = await phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
 
         # Only the task with file_path should be in backlog
         assert len(backlog) == 1
@@ -201,9 +189,7 @@ class TestGenerateBacklogIncrementally:
             "backend.utils.domains.auto_generation.prompt_templates.AutoGenPrompts.next_backlog_task",
             return_value=("sys", "usr"),
         ):
-            backlog = await phase._generate_backlog_incrementally(
-                "Test", "README", {}, max_tasks=30
-            )
+            backlog = await phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
 
         # Should have the 1 successful task
         assert len(backlog) == 1

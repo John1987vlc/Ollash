@@ -24,9 +24,7 @@ class TestCriticLoopReview:
         assert result is None
 
     def test_errors_returns_joined_string(self):
-        critic = self._make_critic(
-            '{"has_errors": true, "errors": ["Missing colon on line 2", "Indentation error"]}'
-        )
+        critic = self._make_critic('{"has_errors": true, "errors": ["Missing colon on line 2", "Indentation error"]}')
         result = critic.review("test.py", "def foo()\n  pass", "python")
         assert result is not None
         assert "Missing colon" in result
@@ -59,15 +57,11 @@ class TestCriticLoopReview:
         assert result is None
 
     def test_errors_list_is_semicolon_joined(self):
-        critic = self._make_critic(
-            '{"has_errors": true, "errors": ["err1", "err2", "err3"]}'
-        )
+        critic = self._make_critic('{"has_errors": true, "errors": ["err1", "err2", "err3"]}')
         result = critic.review("test.py", "x = 1", "python")
         assert result == "err1; err2; err3"
 
     def test_markdown_fenced_json_is_parsed(self):
-        critic = self._make_critic(
-            "```json\n{\"has_errors\": false, \"errors\": []}\n```"
-        )
+        critic = self._make_critic('```json\n{"has_errors": false, "errors": []}\n```')
         result = critic.review("test.py", "x = 1", "python")
         assert result is None

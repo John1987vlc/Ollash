@@ -24,6 +24,7 @@ def _get_session_manager(request: Request):
     global _session_manager
     if _session_manager is None:
         from backend.services.chat_session_manager import ChatSessionManager
+
         _session_manager = ChatSessionManager(
             request.app.state.ollash_root_dir,
             request.app.state.event_publisher,
@@ -35,6 +36,7 @@ def _get_session_manager(request: Request):
 # Request schemas
 # ---------------------------------------------------------------------------
 
+
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
@@ -45,6 +47,7 @@ class ChatRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/api/chat")
 async def send_chat(

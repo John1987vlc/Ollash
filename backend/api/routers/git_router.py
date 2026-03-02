@@ -80,7 +80,5 @@ async def commit_changes(body: GitCommitRequest):
 @service_error_handler
 async def get_log():
     """Return the last 5 commit log entries."""
-    log = await asyncio.to_thread(
-        _run_git, ["log", "-n", "5", "--pretty=format:%h - %s (%cr) <%an>"]
-    )
+    log = await asyncio.to_thread(_run_git, ["log", "-n", "5", "--pretty=format:%h - %s (%cr) <%an>"])
     return {"log": log.get("stdout", "").splitlines()}

@@ -88,9 +88,7 @@ class TestFilterStructureByType:
             mock_filter.return_value = {"path": "./", "files": ["index.html"], "folders": []}
             result = filter_structure_by_type(ctx, structure)
 
-        mock_filter.assert_called_once_with(
-            structure, {".html", ".css"}, None
-        )
+        mock_filter.assert_called_once_with(structure, {".html", ".css"}, None)
 
     @pytest.mark.unit
     def test_passes_logger_through(self):

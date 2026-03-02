@@ -112,9 +112,7 @@ class TestRunPhase:
 
     @pytest.mark.asyncio
     async def test_skips_file_with_no_exports(self, phase, context, tmp_path):
-        context.logic_plan = {
-            "src/empty.py": {"exports": [], "imports": []}
-        }
+        context.logic_plan = {"src/empty.py": {"exports": [], "imports": []}}
         gf, _, fp = await phase.run(
             project_description="test",
             project_name="test",

@@ -56,10 +56,7 @@ class TestChaosInjectionPhase:
         files = {"app.py": "import os\nimport sys\ndef foo():\n    my_var = 1\n"}
         self._run(phase, files)
         # At least one chaos event should have been published
-        calls = [
-            c for c in ctx.event_publisher.publish.call_args_list
-            if c[0][0] == "chaos_fault_injected"
-        ]
+        calls = [c for c in ctx.event_publisher.publish.call_args_list if c[0][0] == "chaos_fault_injected"]
         assert len(calls) >= 1
 
     def test_phase_skips_empty_content(self):

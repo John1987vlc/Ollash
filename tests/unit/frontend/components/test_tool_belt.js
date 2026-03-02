@@ -105,9 +105,14 @@ describe('ToolBelt.onToolCompleted', () => {
         vi.useFakeTimers();
     });
 
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     it('removes active class and adds done class', () => {
-        window.ToolBelt.onToolStarted({ agent_id: 'dev_0', tool_name: 'rag_context_selector', task_id: 't1' });
-        window.ToolBelt.onToolCompleted({ agent_id: 'dev_0', tool_name: 'rag_context_selector', duration_ms: 120 });
+        // Unique agent_id per test to avoid _lanes state leaking between tests
+        window.ToolBelt.onToolStarted({ agent_id: 'completed_a', tool_name: 'rag_context_selector', task_id: 't1' });
+        window.ToolBelt.onToolCompleted({ agent_id: 'completed_a', tool_name: 'rag_context_selector', duration_ms: 120 });
 
         const icon = document.querySelector('.tool-belt-icon');
         expect(icon.classList.contains('active')).toBe(false);
@@ -115,19 +120,21 @@ describe('ToolBelt.onToolCompleted', () => {
     });
 
     it('removes done class after 3 seconds', () => {
-        window.ToolBelt.onToolStarted({ agent_id: 'dev_0', tool_name: 'code_patcher', task_id: 't2' });
-        window.ToolBelt.onToolCompleted({ agent_id: 'dev_0', tool_name: 'code_patcher', duration_ms: 50 });
+        window.ToolBelt.onToolStarted({ agent_id: 'completed_b', tool_name: 'code_patcher', task_id: 't2' });
+        window.ToolBelt.onToolCompleted({ agent_id: 'completed_b', tool_name: 'code_patcher', duration_ms: 50 });
 
         vi.advanceTimersByTime(3001);
-        const icon = document.querySelector('.tool-belt-icon');
+        const icon = document.querySelector('[data-agent-id="completed_b"] .tool-belt-icon');
+        expect(icon).not.toBeNull();
         expect(icon.classList.contains('done')).toBe(false);
     });
 
     it('updates tooltip with duration when duration_ms is provided', () => {
-        window.ToolBelt.onToolStarted({ agent_id: 'dev_0', tool_name: 'vulnerability_scanner', task_id: 't3' });
-        window.ToolBelt.onToolCompleted({ agent_id: 'dev_0', tool_name: 'vulnerability_scanner', duration_ms: 250 });
+        window.ToolBelt.onToolStarted({ agent_id: 'completed_c', tool_name: 'vulnerability_scanner', task_id: 't3' });
+        window.ToolBelt.onToolCompleted({ agent_id: 'completed_c', tool_name: 'vulnerability_scanner', duration_ms: 250 });
 
-        const tip = document.querySelector('.tool-belt-tooltip');
+        const tip = document.querySelector('[data-agent-id="completed_c"] .tool-belt-tooltip');
+        expect(tip).not.toBeNull();
         expect(tip.textContent).toContain('250ms');
     });
 
@@ -152,11 +159,11 @@ describe('ToolBelt.clearLane', () => {
     });
 
     it('removes the lane element from the DOM', () => {
-        window.ToolBelt.onToolStarted({ agent_id: 'dev_0', tool_name: 'file_content_generator', task_id: 't1' });
-        expect(document.querySelector('[data-agent-id="dev_0"]')).not.toBeNull();
+        window.ToolBelt.onToolStarted({ agent_id: 'clear_dev', tool_name: 'file_content_generator', task_id: 't1' });
+        expect(document.querySelector('[data-agent-id="clear_dev"]')).not.toBeNull();
 
-        window.ToolBelt.clearLane('dev_0');
-        expect(document.querySelector('[data-agent-id="dev_0"]')).toBeNull();
+        window.ToolBelt.clearLane('clear_dev');
+        expect(document.querySelector('[data-agent-id="clear_dev"]')).toBeNull();
     });
 
     it('is a no-op for a non-existent lane', () => {

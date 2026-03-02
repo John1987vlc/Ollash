@@ -70,9 +70,7 @@ class ChaosInjectionPhase(BasePhase):
                     self.context.file_manager.write_file(project_root / file_path, corrupted)
                 except Exception:
                     pass
-                self.context.logger.info(
-                    f"[Chaos] Injected fault into '{file_path}': {description}"
-                )
+                self.context.logger.info(f"[Chaos] Injected fault into '{file_path}': {description}")
                 self.context.event_publisher.publish(
                     "chaos_fault_injected",
                     file_path=file_path,
@@ -81,7 +79,6 @@ class ChaosInjectionPhase(BasePhase):
                 injected_count += 1
 
         self.context.logger.info(
-            f"[Chaos] Injection complete: {injected_count} file(s) corrupted out of "
-            f"{len(generated_files)} total"
+            f"[Chaos] Injection complete: {injected_count} file(s) corrupted out of {len(generated_files)} total"
         )
         return generated_files, initial_structure, file_paths

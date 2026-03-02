@@ -76,8 +76,7 @@ class CheckpointStore:
             )
         """)
         await self.db.execute(
-            "CREATE INDEX IF NOT EXISTS idx_checkpoints_project "
-            "ON checkpoints(project_name, phase_index)"
+            "CREATE INDEX IF NOT EXISTS idx_checkpoints_project ON checkpoints(project_name, phase_index)"
         )
 
     async def index_checkpoint(self, checkpoint: "Checkpoint", json_path: Path) -> None:
@@ -119,9 +118,7 @@ class CheckpointStore:
         return row["max_idx"] if row and row["max_idx"] is not None else None
 
     async def delete_project(self, project_name: str) -> None:
-        await self.db.execute(
-            "DELETE FROM checkpoints WHERE project_name = :p0", (project_name,)
-        )
+        await self.db.execute("DELETE FROM checkpoints WHERE project_name = :p0", (project_name,))
 
 
 class CheckpointManager:
@@ -295,6 +292,7 @@ class CheckpointManager:
 
     async def cleanup_old(self, max_age_days: int = 30) -> int:
         """Remove checkpoints older than max_age_days (non-blocking)."""
+
         def _cleanup() -> int:
             cutoff = datetime.now().timestamp() - (max_age_days * 86400)
             removed = 0

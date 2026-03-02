@@ -219,9 +219,7 @@ class TestBuildMicroContextSnapshot:
             "models.py": "class User: pass",
             "config.py": "DEBUG = True",
         }
-        small_model_context.dependency_graph.get_context_for_file.return_value = [
-            "utils.py", "models.py", "config.py"
-        ]
+        small_model_context.dependency_graph.get_context_for_file.return_value = ["utils.py", "models.py", "config.py"]
         snapshot = small_model_context.build_micro_context_snapshot("app.py")
         assert len(snapshot) <= 2
 
@@ -237,9 +235,7 @@ class TestBuildMicroContextSnapshot:
     @pytest.mark.unit
     def test_falls_back_when_graph_returns_nothing(self, small_model_context):
         small_model_context.dependency_graph.get_context_for_file.return_value = []
-        small_model_context.rag_context_selector.select_relevant_files.return_value = {
-            "utils.py": "def f(): pass"
-        }
+        small_model_context.rag_context_selector.select_relevant_files.return_value = {"utils.py": "def f(): pass"}
         snapshot = small_model_context.build_micro_context_snapshot("app.py")
         # Fallback path is select_related_files which calls rag_context_selector
         assert isinstance(snapshot, dict)

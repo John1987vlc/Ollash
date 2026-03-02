@@ -418,9 +418,7 @@ class DomainAgentOrchestrator:
 
             # F5: Persist the agent's context note to Blackboard for downstream tasks
             if isinstance(result, dict) and result.get("context_note"):
-                await self._blackboard.write(
-                    f"context_notes/{node.id}", result["context_note"], node.id
-                )
+                await self._blackboard.write(f"context_notes/{node.id}", result["context_note"], node.id)
                 node.context_note = result["context_note"]
 
             duration_ms = int((time.monotonic() - node_start_time) * 1000)

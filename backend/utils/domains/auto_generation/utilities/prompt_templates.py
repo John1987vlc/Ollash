@@ -172,6 +172,7 @@ class AutoGenPrompts:
             "next_backlog_task", "domains/auto_generation/planning.yaml", "next_backlog_task"
         )
         import json as _json
+
         backlog_json = _json.dumps(backlog_so_far, ensure_ascii=False, indent=2)
         user = user_template.format(
             project_description=project_description,

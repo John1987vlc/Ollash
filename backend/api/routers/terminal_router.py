@@ -64,9 +64,7 @@ async def terminal_ws(websocket: WebSocket):
             await websocket.send_text(f"\r\n$ {message}\r\n")
 
             try:
-                output = await asyncio.to_thread(
-                    _run_command, message, working_dir, allowed_dirs
-                )
+                output = await asyncio.to_thread(_run_command, message, working_dir, allowed_dirs)
                 await websocket.send_text(output)
             except Exception as exc:
                 await websocket.send_text(f"\r\nError: {exc}\r\n")

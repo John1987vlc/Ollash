@@ -24,8 +24,8 @@ class AgentType(str, Enum):
     AUDITOR = "AUDITOR"
     DEBATE = "DEBATE"
     # F4: Granularity sub-roles for small model specialisation
-    TACTICAL = "TACTICAL"   # Single-function implementation (prohibits touching other functions)
-    CRITIC = "CRITIC"       # Error pattern detection via ErrorKnowledgeBase (no LLM calls)
+    TACTICAL = "TACTICAL"  # Single-function implementation (prohibits touching other functions)
+    CRITIC = "CRITIC"  # Error pattern detection via ErrorKnowledgeBase (no LLM calls)
 
 
 class TaskStatus(str, Enum):

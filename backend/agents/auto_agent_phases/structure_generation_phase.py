@@ -40,17 +40,14 @@ class StructureGenerationPhase(IAgentPhase):
         _constraint_hint = ""
         if _type_info and _type_info.project_type != "unknown" and _type_info.confidence >= 0.10:
             _allowed_exts = sorted(_type_info.allowed_extensions)
-            _forbidden_text = ProjectTypeDetector.get_forbidden_extensions_text(
-                _type_info.allowed_extensions
-            )
+            _forbidden_text = ProjectTypeDetector.get_forbidden_extensions_text(_type_info.allowed_extensions)
             _constraint_hint = (
                 f"ONLY create files with these extensions: {', '.join(_allowed_exts)}. "
                 + (f"DO NOT create files with: {_forbidden_text}. " if _forbidden_text else "")
                 + f"This is a {_type_info.project_type.replace('_', ' ')} project."
             )
             self.context.logger.info(
-                f"[Phase2] Applying extension constraint for '{_type_info.project_type}': "
-                f"{_allowed_exts}"
+                f"[Phase2] Applying extension constraint for '{_type_info.project_type}': {_allowed_exts}"
             )
 
         structure = self.context.structure_generator.generate(

@@ -66,6 +66,7 @@ describe('ChatModule – sendChatMessage', () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+        vi.unstubAllGlobals();
     });
 
     it('does not send when message is empty string', async () => {

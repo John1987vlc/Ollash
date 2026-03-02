@@ -4,6 +4,7 @@ from backend.utils.core.llm.ollama_client import OllamaClient
 from backend.services.llm_client_manager import LLMClientManager
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
+
 def test_token_tracker_propagation():
     # 1. Setup
     tracker = TokenTracker()
@@ -19,7 +20,7 @@ def test_token_tracker_propagation():
         logger=logger,
         config={},
         llm_recorder=recorder,
-        token_tracker=tracker
+        token_tracker=tracker,
     )
     assert client.token_tracker == tracker
 
@@ -33,11 +34,7 @@ def test_token_tracker_propagation():
     tool_settings.model_dump.return_value = {}
 
     manager = LLMClientManager(
-        config=models_config,
-        tool_settings=tool_settings,
-        logger=logger,
-        recorder=recorder,
-        token_tracker=tracker
+        config=models_config, tool_settings=tool_settings, logger=logger, recorder=recorder, token_tracker=tracker
     )
 
     assert manager.token_tracker == tracker
@@ -45,6 +42,7 @@ def test_token_tracker_propagation():
     # Get a client and verify it has the tracker
     coder_client = manager.get_client("coder")
     assert coder_client.token_tracker == tracker
+
 
 def test_phase_context_propagation(tmp_path):
     tracker = TokenTracker()
@@ -86,7 +84,7 @@ def test_phase_context_propagation(tmp_path):
         structure_pre_reviewer=MagicMock(),
         generated_projects_dir=tmp_path / "gen",
         decision_blackboard=blackboard,
-        token_tracker=tracker
+        token_tracker=tracker,
     )
 
     assert context.token_tracker == tracker

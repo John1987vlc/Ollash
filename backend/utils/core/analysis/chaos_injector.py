@@ -79,15 +79,9 @@ class ChaosInjector:
         """Remove one import/include line chosen at random."""
         lines = content.splitlines(keepends=True)
         if language in ("python", "py"):
-            import_lines = [
-                i for i, ln in enumerate(lines) if re.match(r"^\s*(?:import|from)\s+\S+", ln)
-            ]
+            import_lines = [i for i, ln in enumerate(lines) if re.match(r"^\s*(?:import|from)\s+\S+", ln)]
         else:
-            import_lines = [
-                i
-                for i, ln in enumerate(lines)
-                if re.match(r"^\s*(?:import|require|#include)\s+", ln)
-            ]
+            import_lines = [i for i, ln in enumerate(lines) if re.match(r"^\s*(?:import|require|#include)\s+", ln)]
 
         if not import_lines:
             return content, ""
@@ -99,9 +93,7 @@ class ChaosInjector:
 
     def _rename_local_variable(self, content: str, language: str) -> Tuple[str, str]:
         """Rename the first local variable assignment to a nonsense name."""
-        _PROTECTED = frozenset(
-            {"self", "cls", "this", "return", "True", "False", "None", "true", "false", "null"}
-        )
+        _PROTECTED = frozenset({"self", "cls", "this", "return", "True", "False", "None", "true", "false", "null"})
 
         if language in ("python", "py"):
             match = re.search(r"\n[ \t]{4,}([a-zA-Z_]\w*)\s*=\s*", content)

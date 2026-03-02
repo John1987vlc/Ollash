@@ -83,9 +83,7 @@ def flask_server(server_port, project_root):
         delay = min(delay * 2, 1.0)
     else:
         proc.terminate()
-        raise RuntimeError(
-            f"E2E uvicorn server did not respond on {url} within 20 seconds."
-        )
+        raise RuntimeError(f"E2E uvicorn server did not respond on {url} within 20 seconds.")
 
     yield
 
@@ -121,9 +119,7 @@ def page(context, flask_server, request):
     _page = context.new_page()
     _page.on(
         "console",
-        lambda msg: print(f"BROWSER CONSOLE [{msg.type}]: {msg.text}")
-        if msg.type == "error"
-        else None,
+        lambda msg: print(f"BROWSER CONSOLE [{msg.type}]: {msg.text}") if msg.type == "error" else None,
     )
     _page.on("pageerror", lambda exc: print(f"BROWSER PAGE ERROR: {exc}"))
 
@@ -134,9 +130,7 @@ def page(context, flask_server, request):
     if test_failed:
         trace_dir = Path("test-results/traces")
         trace_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = (
-            request.node.name.replace("/", "_").replace("[", "_").replace("]", "_")
-        )
+        safe_name = request.node.name.replace("/", "_").replace("[", "_").replace("]", "_")
         context.tracing.stop(path=str(trace_dir / f"{safe_name}.zip"))
     else:
         context.tracing.stop()

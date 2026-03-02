@@ -42,6 +42,7 @@ def default_agent(mock_kernel, tmp_path):
 
     # Reset PromptLoader singleton to ensure it uses the correct prompts_dir
     from backend.utils.core.llm.prompt_loader import PromptLoader
+
     PromptLoader._instance = None
 
     # Use ExitStack to handle many patches

@@ -47,7 +47,6 @@ ENV PYTHONUNBUFFERED=1
 COPY backend /app/backend
 COPY frontend /app/frontend
 COPY legacy /app/legacy
-COPY docs /app/docs
 COPY *.py /app/
 COPY .env.example /app/.env.example
 COPY Makefile /app/Makefile

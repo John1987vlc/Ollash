@@ -180,7 +180,10 @@ class StructureGenerator:
         overall_structure_str = json.dumps(overall_structure, indent=2)
         _hint = getattr(self, "_constraint_hint", "")
         system_prompt, user_prompt = AutoGenPrompts.sub_structure_generation(
-            folder_path, context_text, overall_structure_str, template_name,
+            folder_path,
+            context_text,
+            overall_structure_str,
+            template_name,
             constraint_hint=_hint,
         )
 

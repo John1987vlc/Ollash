@@ -38,6 +38,7 @@ def get_templates() -> Jinja2Templates:
 # Lifespan (startup + shutdown)
 # ---------------------------------------------------------------------------
 
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     """Application lifespan: initialize services on startup, cleanup on shutdown."""
@@ -90,6 +91,7 @@ def _wire_di_container(app: FastAPI) -> None:
 # App factory
 # ---------------------------------------------------------------------------
 
+
 def create_app(ollash_root_dir: Path | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
     global templates
@@ -118,6 +120,7 @@ def create_app(ollash_root_dir: Path | None = None) -> FastAPI:
     # Register Vite asset URL helper as template global
     from backend.api.vite import asset_url
     import os
+
     templates.env.globals["asset_url"] = asset_url
     templates.env.globals["use_vite"] = os.getenv("USE_VITE_ASSETS", "false").lower() == "true"
 
@@ -176,18 +179,51 @@ def _register_routers(app: FastAPI) -> None:
     from backend.api.routers.pages_router import router as pages_router
 
     routers = [
-        health_router, chat_router, alerts_router, auto_agent_router,
-        analysis_router, benchmark_router, audit_router, checkpoints_router,
-        cicd_router, knowledge_graph_router, learning_router, metrics_router,
-        artifacts_router, swarm_router, terminal_router, export_router,
-        cost_router, plugins_router, refinement_router, phase6_router,
-        multimodal_router, triggers_router, monitors_router, automations_router,
-        hil_router, project_graph_router, analytics_router, common_router,
-        cybersecurity_router, prompt_studio_router, pair_programming_router,
-        knowledge_router, operations_router, webhooks_router, git_router,
-        tuning_router, resilience_router, refactor_router, sandbox_router,
-        fragments_router, decisions_router, policies_router, insights_router,
-        translator_router, pages_router,
+        health_router,
+        chat_router,
+        alerts_router,
+        auto_agent_router,
+        analysis_router,
+        benchmark_router,
+        audit_router,
+        checkpoints_router,
+        cicd_router,
+        knowledge_graph_router,
+        learning_router,
+        metrics_router,
+        artifacts_router,
+        swarm_router,
+        terminal_router,
+        export_router,
+        cost_router,
+        plugins_router,
+        refinement_router,
+        phase6_router,
+        multimodal_router,
+        triggers_router,
+        monitors_router,
+        automations_router,
+        hil_router,
+        project_graph_router,
+        analytics_router,
+        common_router,
+        cybersecurity_router,
+        prompt_studio_router,
+        pair_programming_router,
+        knowledge_router,
+        operations_router,
+        webhooks_router,
+        git_router,
+        tuning_router,
+        resilience_router,
+        refactor_router,
+        sandbox_router,
+        fragments_router,
+        decisions_router,
+        policies_router,
+        insights_router,
+        translator_router,
+        pages_router,
     ]
 
     for router in routers:

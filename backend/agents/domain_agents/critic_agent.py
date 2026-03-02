@@ -96,9 +96,7 @@ class CriticAgent(BaseDomainAgent):
                 "pattern_count": len(patterns),
             }
             await blackboard.write(f"critique/{file_path}", report, self.agent_id)
-            self._log_info(
-                f"[Critic] {file_path}: {len(warnings)} prevention tip(s) written"
-            )
+            self._log_info(f"[Critic] {file_path}: {len(warnings)} prevention tip(s) written")
             critique_count += 1
             total_warnings += len(warnings)
 
@@ -109,9 +107,7 @@ class CriticAgent(BaseDomainAgent):
             files_with_warnings=critique_count,
             total_warnings=total_warnings,
         )
-        self._log_info(
-            f"[Critic] Scan complete: {critique_count}/{len(generated)} files have warnings"
-        )
+        self._log_info(f"[Critic] Scan complete: {critique_count}/{len(generated)} files have warnings")
 
         context_note = (
             f"Critic scan complete. "
