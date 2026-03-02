@@ -11,7 +11,7 @@ import pytest
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from backend.utils.core.analysis.validators.javascript_validator import JavascriptValidator
+from backend.utils.core.analysis.validators.javascript_validator import JavascriptValidator  # noqa: E402
 
 
 @pytest.mark.unit
