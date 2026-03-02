@@ -1,23 +1,23 @@
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from backend.agents.auto_agent_phases.base_phase import BasePhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
-from backend.interfaces.iagent_phase import IAgentPhase
 from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 from backend.utils.core.analysis.context_distiller import ContextDistiller
 
 
-class FileContentGenerationPhase(IAgentPhase):
+class FileContentGenerationPhase(BasePhase):
     """
     Phase 4: Generates the content for all planned files, potentially in parallel.
     NOW USES LOGIC PLANS for more accurate, complete implementations.
     Handles dependency awareness, incremental validation, and error logging.
     """
 
-    def __init__(self, context: PhaseContext):
-        self.context = context
+    phase_id = "4"
+    phase_label = "File Content Generation"
 
-    async def execute(
+    async def run(
         self,
         project_description: str,
         project_name: str,
@@ -25,15 +25,11 @@ class FileContentGenerationPhase(IAgentPhase):
         readme_content: str,
         initial_structure: Dict[str, Any],
         generated_files: Dict[str, str],
+        file_paths: List[str],
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        file_paths = kwargs.get("file_paths", [])
-
         self.context.logger.info(
             f"[PROJECT_NAME:{project_name}] PHASE 4: Executing Agile Backlog with Self-Reflection..."
-        )
-        self.context.event_publisher.publish(
-            "phase_start", phase="4", message="Starting iterative micro-task execution with XML/AST validation"
         )
 
         # F3: Build API map once for token-efficient context on small models
@@ -58,6 +54,26 @@ class FileContentGenerationPhase(IAgentPhase):
 
         # Sort backlog respecting declared dependencies (Fix 3)
         backlog = self._topological_sort(backlog)
+
+        # Nano tier: pre-expand implement_function tasks into per-function sub-tasks
+        if self.context._is_small_model():
+            from backend.agents.auto_agent_phases.nano_task_expander import NanoTaskExpander
+
+            expanded_backlog: List[Dict[str, Any]] = []
+            for _task in backlog:
+                _tp = _task.get("task_type", "")
+                _fp = str(_task.get("file_path", ""))
+                if _tp == "implement_function":
+                    _sub = NanoTaskExpander.expand(_task, generated_files.get(_fp, ""))
+                    if _sub:
+                        expanded_backlog.extend(_sub)
+                        self.context.logger.info(
+                            f"  [NanoExpander] '{_fp}' → {len(_sub)} per-function nano-tasks"
+                        )
+                        continue
+                expanded_backlog.append(_task)
+            # Re-sort after expansion so new sub-task deps are respected
+            backlog = self._topological_sort(expanded_backlog)
 
         total_tasks = len(backlog)
         completed_tasks = 0
@@ -115,72 +131,18 @@ class FileContentGenerationPhase(IAgentPhase):
             )
 
             try:
-                # 1. Distilled Context Preparation (Opt 2: micro-snapshot for small models)
-                # Feature 3: Check predictive pre-fetch cache first
-                _prefetched = getattr(self.context, "prefetched_context", {})
-                if _prefetched and file_path in _prefetched:
-                    raw_context_files = {file_path: _prefetched[file_path]}
-                    self.context.logger.info(f"  [PredictiveCtx] Cache hit for '{file_path}'")
-                elif self.context._opt_enabled("opt2_micro_context_snapshot"):
-                    raw_context_files = self.context.build_micro_context_snapshot(file_path)
-                else:
-                    raw_context_files = self.context.select_related_files(
-                        file_path, generated_files, signatures_only=_use_signatures
-                    )
-                context_files_content = ContextDistiller.distill_batch(raw_context_files)
+                # 1. Prepare context + build prompts
+                ctx_data = self._prepare_task_context(
+                    task=task,
+                    file_path=file_path,
+                    task_type=task_type,
+                    generated_files=generated_files,
+                    readme_content=readme_content,
+                    project_name=project_name,
+                    _use_signatures=_use_signatures,
+                )
+                context_files_content = ctx_data["context_files_content"]
 
-                # 1b. Inject logic plan for this file (Fix 1)
-                file_logic_plan = getattr(self.context, "logic_plan", {}).get(file_path, {})
-                logic_plan_section = self._format_logic_plan_for_prompt(file_logic_plan)
-
-                # Opt 1: Build allowed-actions block from task_type
-                allowed_actions: str | None = None
-                if self.context._opt_enabled("opt1_prompt_state_machine"):
-                    from backend.utils.domains.auto_generation.prompt_templates import TASK_TYPE_ALLOWED_ACTIONS
-                    actions = TASK_TYPE_ALLOWED_ACTIONS.get(task_type)
-                    if actions:
-                        allowed_actions = "\n".join(f"  - {a}" for a in actions)
-
-                # Opt 5: Query ErrorKnowledgeBase for anti-pattern warnings
-                anti_pattern_warnings = ""
-                if self.context._is_small_model() or self.context._opt_enabled("opt5_anti_pattern_injection"):
-                    try:
-                        language = self.context.infer_language(file_path)
-                        warnings_text = self.context.error_knowledge_base.get_prevention_warnings(
-                            file_path, project_type=project_name, language=language
-                        )
-                        if warnings_text:
-                            anti_pattern_warnings = warnings_text
-                            self.context.logger.info(
-                                f"[Opt5] Anti-pattern warnings injected for '{file_path}'"
-                            )
-                    except Exception:
-                        pass
-
-                # Feature 2: Few-Shot Dynamic Store — query before generation
-                few_shot_section = ""
-                few_shot_cfg = getattr(self.context, "config", {})
-                if isinstance(few_shot_cfg, dict):
-                    few_shot_cfg = few_shot_cfg.get("few_shot_store", {})
-                else:
-                    few_shot_cfg = {}
-                if few_shot_cfg.get("enabled", True):
-                    try:
-                        _fs_language = self.context.infer_language(file_path)
-                        _fs_purpose = task.get("description", title)
-                        _examples = self.context.fragment_cache.get_similar_examples(
-                            language=_fs_language, purpose=_fs_purpose, max_examples=2
-                        )
-                        if _examples:
-                            _lines = ["## FEW-SHOT EXAMPLES (similar past successful files):"]
-                            for _ex_purpose, _ex_code in _examples:
-                                _lines.append(f"### Purpose: {_ex_purpose}")
-                                _lines.append(f"```\n{_ex_code[:800]}\n```")
-                            few_shot_section = "\n".join(_lines)
-                    except Exception:
-                        pass
-
-                # 2. Construct Sniper Prompt with XML requirements
                 system_prompt, user_prompt = AutoGenPrompts.micro_task_execution(
                     title=title,
                     description=task.get("description", ""),
@@ -188,10 +150,10 @@ class FileContentGenerationPhase(IAgentPhase):
                     task_type=task_type,
                     readme_content=readme_content[:1000],
                     context_files_content=context_files_content[:4000],
-                    logic_plan_section=logic_plan_section,
-                    allowed_actions=allowed_actions,
-                    anti_pattern_warnings=anti_pattern_warnings,
-                    few_shot_section=few_shot_section,
+                    logic_plan_section=ctx_data["logic_plan_section"],
+                    allowed_actions=ctx_data["allowed_actions"],
+                    anti_pattern_warnings=ctx_data["anti_pattern_warnings"],
+                    few_shot_section=ctx_data["few_shot_section"],
                 )
 
                 content = ""
@@ -217,8 +179,9 @@ class FileContentGenerationPhase(IAgentPhase):
 
                         current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}{cot_instruction}"
 
-                    # 3. LLM Call
-                    response_data, _ = self.context.llm_manager.get_client("coder").chat(
+                    # 3. LLM Call — use nano_coder role for ≤8B models
+                    _coder_role = "nano_coder" if self.context._is_small_model() else "coder"
+                    response_data, _ = self.context.llm_manager.get_client(_coder_role).chat(
                         messages=[
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": current_user_prompt},
@@ -364,42 +327,18 @@ class FileContentGenerationPhase(IAgentPhase):
 
                 # 6. Final Save and Notification
                 if content:
-                    generated_files[file_path] = content
-                    self.context.file_manager.write_file(project_root / file_path, content)
-                    completed_tasks += 1
-
-                    # Feature 2: Store as successful example for future few-shot use
-                    _store_cfg = getattr(self.context, "config", {})
-                    if isinstance(_store_cfg, dict):
-                        _store_cfg = _store_cfg.get("few_shot_store", {})
-                    else:
-                        _store_cfg = {}
-                    if _store_cfg.get("enabled", True):
-                        try:
-                            _s_language = self.context.infer_language(file_path)
-                            _s_purpose = task.get("description", title)
-                            self.context.fragment_cache.store_example(
-                                language=_s_language, purpose=_s_purpose, code=content
-                            )
-                        except Exception:
-                            pass
-
-                    # Update internal status for manifest tracking
-                    task["status"] = "done"
-
-                    # Mejora 3: Update step progress for prompt injection in subsequent LLM calls
-                    completed_task_ids.append(task_id)
-                    next_task_index = backlog.index(task) + 1
-                    next_title = backlog[next_task_index].get("title", "") if next_task_index < total_tasks else "done"
-                    self.context.update_step_progress(
-                        current_index=completed_tasks,
-                        total=total_tasks,
-                        completed=completed_task_ids,
-                        current_objective=next_title,
-                    )
-
-                    self.context.event_publisher.publish(
-                        "agent_board_update", action="move_task", task_id=task_id, new_status="done"
+                    self._save_task_result(
+                        file_path=file_path,
+                        content=content,
+                        task=task,
+                        task_id=task_id,
+                        title=title,
+                        project_root=project_root,
+                        generated_files=generated_files,
+                        backlog=backlog,
+                        completed_task_ids=completed_task_ids,
+                        completed_tasks=completed_tasks,
+                        total_tasks=total_tasks,
                     )
                 else:
                     self.context.logger.error(f"    ✖ Task {task_id} failed after {max_attempts} attempts.")
@@ -409,14 +348,154 @@ class FileContentGenerationPhase(IAgentPhase):
                 # Record error in knowledge base
                 self.context.error_knowledge_base.record_error(file_path, "micro_task_failure", str(e), task_id, title)
 
-        self.context.event_publisher.publish(
-            "phase_complete",
-            phase="4",
-            message=f"Agile execution finished: {completed_tasks}/{total_tasks} tasks completed",
+        self.context.logger.info(
+            f"[PROJECT_NAME:{project_name}] PHASE 4: "
+            f"Agile execution finished — {completed_tasks}/{total_tasks} tasks completed."
         )
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 4 complete.")
 
         return generated_files, initial_structure, file_paths
+
+    def _prepare_task_context(
+        self,
+        task: Dict[str, Any],
+        file_path: str,
+        task_type: str,
+        generated_files: Dict[str, str],
+        readme_content: str,
+        project_name: str,
+        _use_signatures: bool,
+    ) -> Dict[str, Any]:
+        """Build the context dict needed to construct prompts for a single task.
+
+        Returns a dict with keys:
+        - ``context_files_content``: distilled related-file content
+        - ``logic_plan_section``: formatted logic plan for this file
+        - ``allowed_actions``: optional allowed-actions string (Opt 1)
+        - ``anti_pattern_warnings``: optional warnings string (Opt 5)
+        - ``few_shot_section``: optional few-shot examples block
+        """
+        # 1a. Select related files (prefer predictive pre-fetch, then micro-snapshot, then standard)
+        _prefetched = getattr(self.context, "prefetched_context", {})
+        if _prefetched and file_path in _prefetched:
+            raw_context_files = {file_path: _prefetched[file_path]}
+            self.context.logger.info(f"  [PredictiveCtx] Cache hit for '{file_path}'")
+        elif self.context._opt_enabled("opt2_micro_context_snapshot"):
+            raw_context_files = self.context.build_micro_context_snapshot(file_path)
+        else:
+            raw_context_files = self.context.select_related_files(
+                file_path, generated_files, signatures_only=_use_signatures
+            )
+        context_files_content = ContextDistiller.distill_batch(raw_context_files)
+
+        # 1b. Logic plan for this file
+        file_logic_plan = getattr(self.context, "logic_plan", {}).get(file_path, {})
+        logic_plan_section = self._format_logic_plan_for_prompt(file_logic_plan)
+
+        # Opt 1: Allowed-actions block from task_type
+        allowed_actions: str | None = None
+        if self.context._opt_enabled("opt1_prompt_state_machine"):
+            from backend.utils.domains.auto_generation.prompt_templates import TASK_TYPE_ALLOWED_ACTIONS
+            actions = TASK_TYPE_ALLOWED_ACTIONS.get(task_type)
+            if actions:
+                allowed_actions = "\n".join(f"  - {a}" for a in actions)
+
+        # Opt 5: Anti-pattern warnings from ErrorKnowledgeBase
+        anti_pattern_warnings = ""
+        if self.context._is_small_model() or self.context._opt_enabled("opt5_anti_pattern_injection"):
+            try:
+                language = self.context.infer_language(file_path)
+                warnings_text = self.context.error_knowledge_base.get_prevention_warnings(
+                    file_path, project_type=project_name, language=language
+                )
+                if warnings_text:
+                    anti_pattern_warnings = warnings_text
+                    self.context.logger.info(f"[Opt5] Anti-pattern warnings injected for '{file_path}'")
+            except Exception:
+                pass
+
+        # Feature 2: Few-shot examples from fragment store
+        few_shot_section = ""
+        _few_shot_cfg = getattr(self.context, "config", {})
+        if isinstance(_few_shot_cfg, dict):
+            _few_shot_cfg = _few_shot_cfg.get("few_shot_store", {})
+        else:
+            _few_shot_cfg = {}
+        if _few_shot_cfg.get("enabled", True):
+            try:
+                _fs_language = self.context.infer_language(file_path)
+                _fs_purpose = task.get("description", task.get("title", ""))
+                _examples = self.context.fragment_cache.get_similar_examples(
+                    language=_fs_language, purpose=_fs_purpose, max_examples=2
+                )
+                if _examples:
+                    _lines = ["## FEW-SHOT EXAMPLES (similar past successful files):"]
+                    for _ex_purpose, _ex_code in _examples:
+                        _lines.append(f"### Purpose: {_ex_purpose}")
+                        _lines.append(f"```\n{_ex_code[:800]}\n```")
+                    few_shot_section = "\n".join(_lines)
+            except Exception:
+                pass
+
+        return {
+            "context_files_content": context_files_content,
+            "logic_plan_section": logic_plan_section,
+            "allowed_actions": allowed_actions,
+            "anti_pattern_warnings": anti_pattern_warnings,
+            "few_shot_section": few_shot_section,
+        }
+
+    def _save_task_result(
+        self,
+        file_path: str,
+        content: str,
+        task: Dict[str, Any],
+        task_id: str,
+        title: str,
+        project_root: Path,
+        generated_files: Dict[str, str],
+        backlog: List[Dict[str, Any]],
+        completed_task_ids: List[str],
+        completed_tasks: int,
+        total_tasks: int,
+    ) -> None:
+        """Persist a successfully generated file and update progress tracking."""
+        generated_files[file_path] = content
+        self.context.file_manager.write_file(project_root / file_path, content)
+
+        # Feature 2: Store as successful example for future few-shot use
+        _store_cfg = getattr(self.context, "config", {})
+        if isinstance(_store_cfg, dict):
+            _store_cfg = _store_cfg.get("few_shot_store", {})
+        else:
+            _store_cfg = {}
+        if _store_cfg.get("enabled", True):
+            try:
+                _s_language = self.context.infer_language(file_path)
+                _s_purpose = task.get("description", title)
+                self.context.fragment_cache.store_example(
+                    language=_s_language, purpose=_s_purpose, code=content
+                )
+            except Exception:
+                pass
+
+        task["status"] = "done"
+
+        # Update step progress for prompt injection in subsequent LLM calls
+        completed_task_ids.append(task_id)
+        next_task_index = backlog.index(task) + 1
+        next_title = (
+            backlog[next_task_index].get("title", "") if next_task_index < total_tasks else "done"
+        )
+        self.context.update_step_progress(
+            current_index=completed_tasks,
+            total=total_tasks,
+            completed=completed_task_ids,
+            current_objective=next_title,
+        )
+
+        self.context.event_publisher.publish(
+            "agent_board_update", action="move_task", task_id=task_id, new_status="done"
+        )
 
     async def _generate_with_plan(
         self,

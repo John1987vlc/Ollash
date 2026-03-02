@@ -3,6 +3,7 @@ Refactored AutoGenPrompts to use centralized YAML prompts.
 Maintains the same interface while loading text from /prompts/domains/auto_generation/*.yaml.
 """
 
+import inspect
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -55,6 +56,11 @@ class AutoGenPrompts:
         repo = cls._get_repository()
         if repo:
             active_prompt = repo.get_active_prompt(role)
+            # get_active_prompt may be async (SQLAlchemy migration). When called
+            # from a sync context, close the coroutine and fall through to YAML.
+            if inspect.isawaitable(active_prompt):
+                active_prompt.close()
+                active_prompt = None
             if active_prompt:
                 # If stored as JSON in DB, parse it
                 try:

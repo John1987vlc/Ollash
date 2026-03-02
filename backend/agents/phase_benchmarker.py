@@ -183,7 +183,7 @@ class PhaseBenchmarker:
                             score += 0.2
                 else:
                     score -= 0.4
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError, IndexError):
                 score -= 0.5
 
         # Code content: completeness

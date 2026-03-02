@@ -4,12 +4,12 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from backend.agents.auto_agent_phases.base_phase import BasePhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
-from backend.interfaces.iagent_phase import IAgentPhase
 from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 
 
-class LogicPlanningPhase(IAgentPhase):
+class LogicPlanningPhase(BasePhase):
     """
     Phase 2.5 (between Structure and FileContentGeneration):
     Creates a detailed implementation plan for each file, specifying:
@@ -21,10 +21,10 @@ class LogicPlanningPhase(IAgentPhase):
     This plan is then used by FileContentGenerationPhase to generate accurate content.
     """
 
-    def __init__(self, context: PhaseContext):
-        self.context = context
+    phase_id = "2.5"
+    phase_label = "Logic Planning"
 
-    async def execute(
+    async def run(
         self,
         project_description: str,
         project_name: str,
@@ -32,13 +32,12 @@ class LogicPlanningPhase(IAgentPhase):
         readme_content: str,
         initial_structure: Dict[str, Any],
         generated_files: Dict[str, str],
+        file_paths: List[str],
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        file_paths = kwargs.get("file_paths", [])
         self.context.logger.info(
             f"[PROJECT_NAME:{project_name}] PHASE 2.5: Creating detailed logic plans for {len(file_paths)} files..."
         )
-        self.context.event_publisher.publish("phase_start", phase="2.5", message="Creating logic implementation plans")
 
         logic_plan = {}
 
@@ -50,8 +49,9 @@ class LogicPlanningPhase(IAgentPhase):
         already_planned_contracts: Dict[str, List[str]] = {}
 
         for category, files in files_by_category.items():
-            # F32: Increase limit to 15 files per category for better coverage
-            files_to_plan = files[:15]
+            # Nano tier: cap at 5 files/category to avoid overwhelming small models
+            _max_files = 5 if self.context._is_small_model() else 15
+            files_to_plan = files[:_max_files]
             self.context.logger.info(f"  Planning {category}: {len(files_to_plan)} files (limited from {len(files)})")
 
             # Generate a plan for this category, passing already-planned contracts
@@ -94,12 +94,9 @@ class LogicPlanningPhase(IAgentPhase):
         # Publish event for UI Kanban initialization
         self.context.event_publisher.publish("agent_board_update", action="init_backlog", tasks=backlog)
 
-        self.context.event_publisher.publish(
-            "phase_complete",
-            phase="2.5",
-            message=f"Logic plan and Backlog ({len(backlog)} tasks) created",
+        self.context.logger.info(
+            f"[PROJECT_NAME:{project_name}] PHASE 2.5: Logic plan and Backlog ({len(backlog)} tasks) created."
         )
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5 complete: Plans and Backlog created.")
 
         return generated_files, initial_structure, file_paths
 

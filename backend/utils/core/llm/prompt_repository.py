@@ -1,34 +1,48 @@
-import sqlite3
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+
+from backend.utils.core.system.db.engine import make_async_engine, make_session_factory
+from backend.utils.core.system.db.sqlite_manager import AsyncDatabaseManager
+
 logger = logging.getLogger(__name__)
 
 
 class PromptRepository:
-    def __init__(self, db_path: Path):
-        self.db_path = db_path
-        self._init_db()
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        session_factory: Optional[async_sessionmaker[AsyncSession]] = None,
+    ):
+        if session_factory is not None:
+            self._session_factory = session_factory
+        else:
+            if not db_path:
+                db_path = Path(".ollash/prompt_history.db")
+            engine = make_async_engine(db_path)
+            self._session_factory = make_session_factory(engine)
 
-    def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS prompts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent_role TEXT NOT NULL,
-                    prompt_text TEXT NOT NULL,
-                    version INTEGER NOT NULL,
-                    created_at TEXT NOT NULL,
-                    is_active INTEGER DEFAULT 0
-                )
-            """)
-            conn.commit()
+        self.db = AsyncDatabaseManager(self._session_factory)
 
-    def migrate_from_json(self, prompts_dir: Path):
-        """Migrate existing prompts from JSON files to SQLite."""
+    async def _init_db(self) -> None:
+        """Initialize the prompts table (idempotent, call once at startup)."""
+        await self.db.execute("""
+            CREATE TABLE IF NOT EXISTS prompts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_role TEXT NOT NULL,
+                prompt_text TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                is_active INTEGER DEFAULT 0
+            )
+        """)
+
+    async def migrate_from_json(self, prompts_dir: Path) -> None:
+        """Migrate existing prompts from JSON files to the database."""
         for json_file in prompts_dir.glob("**/*.json"):
             try:
                 role = json_file.stem
@@ -36,45 +50,67 @@ class PromptRepository:
                     content = json.load(f)
                     text = content.get("system_prompt") or content.get("prompt", "")
                     if text:
-                        self.save_prompt(role, text, is_active=True)
+                        await self.save_prompt(role, text, is_active=True)
             except Exception as e:
                 logger.error(f"Error migrating {json_file}: {e}")
 
-    def save_prompt(self, role: str, text: str, is_active: bool = False) -> int:
-        with sqlite3.connect(self.db_path) as conn:
-            # Get latest version
-            cursor = conn.execute("SELECT MAX(version) FROM prompts WHERE agent_role = ?", (role,))
-            row = cursor.fetchone()
-            next_version = (row[0] or 0) + 1
+    async def save_prompt(self, role: str, text: str, is_active: bool = False) -> Optional[int]:
+        row = await self.db.fetch_one(
+            "SELECT MAX(version) as max_ver FROM prompts WHERE agent_role = :agent_role",
+            {"agent_role": role},
+        )
+        next_version = (row["max_ver"] or 0) + 1 if row else 1
 
-            if is_active:
-                conn.execute("UPDATE prompts SET is_active = 0 WHERE agent_role = ?", (role,))
-
-            cursor = conn.execute(
-                "INSERT INTO prompts (agent_role, prompt_text, version, created_at, is_active) VALUES (?, ?, ?, ?, ?)",
-                (role, text, next_version, datetime.now().isoformat(), 1 if is_active else 0),
+        if is_active:
+            await self.db.execute(
+                "UPDATE prompts SET is_active = 0 WHERE agent_role = :agent_role",
+                {"agent_role": role},
             )
-            return cursor.lastrowid
 
-    def get_active_prompt(self, role: str) -> Optional[str]:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute("SELECT prompt_text FROM prompts WHERE agent_role = ? AND is_active = 1", (role,))
-            row = cursor.fetchone()
-            return row[0] if row else None
+        await self.db.execute(
+            "INSERT INTO prompts (agent_role, prompt_text, version, created_at, is_active) "
+            "VALUES (:agent_role, :prompt_text, :version, :created_at, :is_active)",
+            {
+                "agent_role": role,
+                "prompt_text": text,
+                "version": next_version,
+                "created_at": datetime.now().isoformat(),
+                "is_active": 1 if is_active else 0,
+            },
+        )
+        result = await self.db.fetch_one(
+            "SELECT id FROM prompts WHERE agent_role = :agent_role AND version = :version",
+            {"agent_role": role, "version": next_version},
+        )
+        return result["id"] if result else None
 
-    def get_history(self, role: str) -> List[Dict]:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                "SELECT id, version, created_at, is_active, prompt_text FROM prompts WHERE agent_role = ? ORDER BY version DESC",
-                (role,),
-            )
-            return [dict(row) for row in cursor.fetchall()]
+    async def get_active_prompt(self, role: str) -> Optional[str]:
+        row = await self.db.fetch_one(
+            "SELECT prompt_text FROM prompts WHERE agent_role = :agent_role AND is_active = 1",
+            {"agent_role": role},
+        )
+        return row["prompt_text"] if row else None
 
-    def rollback(self, prompt_id: int):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute("SELECT agent_role FROM prompts WHERE id = ?", (prompt_id,))
-            role = cursor.fetchone()[0]
-            conn.execute("UPDATE prompts SET is_active = 0 WHERE agent_role = ?", (role,))
-            conn.execute("UPDATE prompts SET is_active = 1 WHERE id = ?", (prompt_id,))
-            conn.commit()
+    async def get_history(self, role: str) -> List[Dict]:
+        return await self.db.fetch_all(
+            "SELECT id, version, created_at, is_active, prompt_text "
+            "FROM prompts WHERE agent_role = :agent_role ORDER BY version DESC",
+            {"agent_role": role},
+        )
+
+    async def rollback(self, prompt_id: int) -> None:
+        row = await self.db.fetch_one(
+            "SELECT agent_role FROM prompts WHERE id = :prompt_id",
+            {"prompt_id": prompt_id},
+        )
+        if not row:
+            return
+        role = row["agent_role"]
+        await self.db.execute(
+            "UPDATE prompts SET is_active = 0 WHERE agent_role = :agent_role",
+            {"agent_role": role},
+        )
+        await self.db.execute(
+            "UPDATE prompts SET is_active = 1 WHERE id = :prompt_id",
+            {"prompt_id": prompt_id},
+        )

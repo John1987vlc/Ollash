@@ -414,7 +414,7 @@ RULES:
 
                 try:
                     selected = json.loads(clean_json)
-                except:
+                except (json.JSONDecodeError, ValueError):
                     # Fallback for Malformed JSON from some SMLs
                     selected = [t for t in self.active_tool_names if t in clean_json]
 
