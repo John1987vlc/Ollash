@@ -10,7 +10,9 @@ from unittest.mock import MagicMock
 
 from backend.agents.auto_agent_phases.phase_context import (
     _extract_signatures,
-    _extract_signatures_regex,
+)
+from backend.utils.domains.auto_generation.utilities.signature_extractor import (
+    extract_signatures_regex as _extract_signatures_regex,
 )
 
 

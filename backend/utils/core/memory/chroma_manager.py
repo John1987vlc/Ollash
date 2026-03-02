@@ -1,10 +1,9 @@
 # src/utils/core/chroma_manager.py
+# chromadb is imported lazily inside get_client() to avoid loading ~800 heavy
+# transitive modules (numpy, grpc, opentelemetry, docker) at import time.
 
 import logging
 from pathlib import Path
-
-import chromadb
-from chromadb.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +15,9 @@ class ChromaClientManager:
     @classmethod
     def get_client(cls, settings_manager: dict, project_root: Path):
         if cls._client_instance is None:
+            import chromadb  # noqa: PLC0415 — intentional lazy import
+            from chromadb.config import Settings  # noqa: PLC0415
+
             # Evaluate settings only once
             is_persistent = settings_manager.get("chroma_db", {}).get("is_persistent", False)
             db_path = str(project_root / ".ollash" / "chroma_db")

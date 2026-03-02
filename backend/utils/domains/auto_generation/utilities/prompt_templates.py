@@ -6,8 +6,10 @@ Maintains the same interface while loading text from /prompts/domains/auto_gener
 import inspect
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-from backend.utils.core.llm.prompt_loader import PromptLoader
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from backend.utils.core.llm.prompt_loader import PromptLoader
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +28,18 @@ class AutoGenPrompts:
     Now integrated with PromptRepository for dynamic editing and versioning.
     """
 
-    _loader = PromptLoader()
+    # Lazy-initialised on first use — keeps import time near-zero.
+    _loader: "Optional[PromptLoader]" = None
     _repository = None
+
+    @classmethod
+    def _get_loader(cls) -> "PromptLoader":
+        """Return the PromptLoader singleton, creating it on first call."""
+        if cls._loader is None:
+            from backend.utils.core.llm.prompt_loader import PromptLoader  # noqa: PLC0415
+
+            cls._loader = PromptLoader()
+        return cls._loader
 
     @classmethod
     def _get_repository(cls):
@@ -72,7 +84,7 @@ class AutoGenPrompts:
                     return active_prompt, ""
 
         # Fallback to YAML
-        content = cls._loader.load_prompt(yaml_path)
+        content = cls._get_loader().load_prompt(yaml_path)
         if section:
             content = content.get(section, {})
 
