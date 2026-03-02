@@ -32,13 +32,13 @@ services:
         condition: service_healthy
     ports:
       - "5000:5000"
+    command: ["uvicorn", "run_web:app", "--host", "0.0.0.0", "--port", "5000", "--workers", "2"]
     volumes:
       - .:/app
       - ollash_storage:/app/.ollash
       - ./generated_projects:/app/generated_projects
     environment:
       - OLLAMA_URL=http://ollama:11434
-      - FLASK_ENV=development
     env_file:
       - .env
     deploy:

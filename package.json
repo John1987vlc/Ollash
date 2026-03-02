@@ -1,13 +1,16 @@
 {
   "name": "ollash-frontend",
-  "version": "1.2.0",
-  "description": "Ollash frontend build pipeline (Vite + Vitest). Use feature flag USE_VITE_ASSETS=true to activate bundled assets.",
+  "version": "1.3.0",
+  "description": "Ollash frontend build pipeline (Vite + Vitest + TypeScript). Use USE_VITE_ASSETS=true to activate bundled assets.",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint frontend/static/js",
+    "lint:fix": "eslint frontend/static/js --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
@@ -15,6 +18,12 @@
   "devDependencies": {
     "vite": "^5.4.0",
     "vitest": "^1.6.0",
-    "@vitest/coverage-v8": "^1.6.0"
+    "@vitest/coverage-v8": "^1.6.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "jsdom": "^24.0.0"
   }
 }

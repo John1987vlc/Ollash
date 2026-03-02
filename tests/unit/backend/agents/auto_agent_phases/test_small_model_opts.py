@@ -326,3 +326,102 @@ class TestCheckOutputContract:
     @pytest.mark.unit
     def test_empty_content_always_passes(self, phase):
         assert phase._check_output_contract("f.py", "", "define_imports") == ""
+
+
+# ---------------------------------------------------------------------------
+# Tests: _is_mid_model() — 9–29B detection
+# ---------------------------------------------------------------------------
+
+
+class TestIsMidModel:
+    def _ctx_with_model(self, model_name: str) -> PhaseContext:
+        deps = _make_deps()
+        ctx = PhaseContext(**deps)
+        client_mock = MagicMock()
+        client_mock.model = model_name
+        ctx.llm_manager.get_client.return_value = client_mock
+        return ctx
+
+    @pytest.mark.unit
+    def test_14b_model_is_mid(self):
+        assert self._ctx_with_model("qwen2.5:14b")._is_mid_model() is True
+
+    @pytest.mark.unit
+    def test_22b_model_is_mid(self):
+        assert self._ctx_with_model("mistral:22b")._is_mid_model() is True
+
+    @pytest.mark.unit
+    def test_9b_boundary_is_mid(self):
+        assert self._ctx_with_model("gemma:9b")._is_mid_model() is True
+
+    @pytest.mark.unit
+    def test_29b_boundary_is_mid(self):
+        assert self._ctx_with_model("llama:29b")._is_mid_model() is True
+
+    @pytest.mark.unit
+    def test_8b_model_is_not_mid(self):
+        # 8B is nano tier, not slim
+        assert self._ctx_with_model("llama3.1:8b")._is_mid_model() is False
+
+    @pytest.mark.unit
+    def test_30b_model_is_not_mid(self):
+        assert self._ctx_with_model("qwen3-coder:30b")._is_mid_model() is False
+
+    @pytest.mark.unit
+    def test_error_returns_false(self):
+        deps = _make_deps()
+        ctx = PhaseContext(**deps)
+        ctx.llm_manager.get_client.side_effect = RuntimeError("no client")
+        assert ctx._is_mid_model() is False
+
+
+# ---------------------------------------------------------------------------
+# Tests: _opt_mid_enabled() — slim tier gating
+# ---------------------------------------------------------------------------
+
+
+class TestOptMidEnabled:
+    def _ctx_with_model(self, model_name: str) -> PhaseContext:
+        deps = _make_deps()
+        ctx = PhaseContext(**deps)
+        client_mock = MagicMock()
+        client_mock.model = model_name
+        ctx.llm_manager.get_client.return_value = client_mock
+        return ctx
+
+    @pytest.mark.unit
+    def test_mid_model_flag_true_returns_true(self):
+        ctx = self._ctx_with_model("qwen2.5:14b")
+        ctx.config = {"mid_model_optimizations": {"mid1_skip_docs_phases": True}}
+        assert ctx._opt_mid_enabled("mid1_skip_docs_phases") is True
+
+    @pytest.mark.unit
+    def test_mid_model_flag_false_returns_false(self):
+        ctx = self._ctx_with_model("qwen2.5:14b")
+        ctx.config = {"mid_model_optimizations": {"mid1_skip_docs_phases": False}}
+        assert ctx._opt_mid_enabled("mid1_skip_docs_phases") is False
+
+    @pytest.mark.unit
+    def test_small_model_always_false(self):
+        # Nano models use _opt_enabled(), NOT _opt_mid_enabled()
+        ctx = self._ctx_with_model("ministral-3:3b")
+        ctx.config = {"mid_model_optimizations": {"mid1_skip_docs_phases": True}}
+        assert ctx._opt_mid_enabled("mid1_skip_docs_phases") is False
+
+    @pytest.mark.unit
+    def test_full_model_always_false(self):
+        ctx = self._ctx_with_model("qwen3-coder:30b")
+        ctx.config = {"mid_model_optimizations": {"mid1_skip_docs_phases": True}}
+        assert ctx._opt_mid_enabled("mid1_skip_docs_phases") is False
+
+    @pytest.mark.unit
+    def test_missing_key_defaults_true_for_mid(self):
+        ctx = self._ctx_with_model("qwen2.5:14b")
+        ctx.config = {"mid_model_optimizations": {}}
+        assert ctx._opt_mid_enabled("mid1_skip_docs_phases") is True
+
+    @pytest.mark.unit
+    def test_missing_section_defaults_true_for_mid(self):
+        ctx = self._ctx_with_model("qwen2.5:14b")
+        ctx.config = {}
+        assert ctx._opt_mid_enabled("mid1_skip_docs_phases") is True

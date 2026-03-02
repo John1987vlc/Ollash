@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "allowJs": true,
+    "checkJs": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "baseUrl": "frontend/static/js",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "frontend/static/js/**/*.ts",
+    "frontend/static/js/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "frontend/static/dist",
+    "tests"
+  ]
+}

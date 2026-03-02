@@ -1,5 +1,6 @@
 # Core dependencies
 aiohttp==3.9.5
+sqlalchemy>=2.0.0
 APScheduler==3.10.4
 chromadb==1.4.1
 colorama==0.4.6
@@ -23,7 +24,12 @@ Werkzeug==3.0.1
 aiofiles==23.2.1
 aiosqlite==0.19.0
 
-# WebSocket support for terminal
+# FastAPI + ASGI server (replaces Flask/Werkzeug)
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+
+# WebSocket support for terminal (keep for CLI compatibility)
 flask-sock==0.7.0
 
 # Type checking support

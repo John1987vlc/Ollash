@@ -353,7 +353,7 @@ class PhaseContext:
             self.logger.debug(f"[PredictiveCtx] Pre-fetch failed (non-fatal): {exc}")
 
     def _is_small_model(self, role: str = "coder") -> bool:
-        """Return True if the LLM for *role* has <= 8B parameters.
+        """Return True if the LLM for *role* has ≤8B parameters (nano tier).
 
         Inspects the model name string for size suffixes like '3b', '4b', '7b', '8b'.
         Falls back to False (treat as large model) on any error.
@@ -362,7 +362,7 @@ class PhaseContext:
             role: Agent role whose client to inspect (default: "coder").
 
         Returns:
-            True if model parameter count is <= 8B, False otherwise.
+            True if model parameter count is ≤8B, False otherwise.
         """
         import re as _re_model
 
@@ -524,10 +524,10 @@ class PhaseContext:
         return files, structure, file_paths
 
     def _opt_enabled(self, opt_name: str) -> bool:
-        """Return True only if the current coder model is ≤4B AND the feature flag is on.
+        """Return True only if the current coder model is ≤8B AND the feature flag is on.
 
         All 6 small-model optimizations are gated through this method so they
-        never activate when a large model (>4B) is in use.
+        never activate when a large model (>8B) is in use.
 
         Args:
             opt_name: Key from ``agent_features.json`` ``small_model_optimizations`` dict,
@@ -539,6 +539,48 @@ class PhaseContext:
         if not self._is_small_model():
             return False
         opts = self.config.get("small_model_optimizations", {})
+        return bool(opts.get(opt_name, True))
+
+    def _is_mid_model(self, role: str = "coder") -> bool:
+        """Return True if the LLM for *role* has 9–29B parameters (slim tier).
+
+        Uses the same regex as _is_small_model(). Falls back to False on any error.
+
+        Args:
+            role: Agent role whose client to inspect (default: "coder").
+
+        Returns:
+            True if model parameter count is 9–29B inclusive, False otherwise.
+        """
+        import re as _re_model
+
+        try:
+            client = self.llm_manager.get_client(role)
+            model_name = getattr(client, "model", "") or ""
+            match = _re_model.search(r"(\d+(?:\.\d+)?)b", model_name.lower())
+            if match:
+                size = float(match.group(1))
+                return 9.0 <= size <= 29.0
+        except Exception:
+            pass
+        return False
+
+    def _opt_mid_enabled(self, opt_name: str) -> bool:
+        """Return True only if the current model is 9–29B AND the feature flag is on.
+
+        Mirrors _opt_enabled() but reads from the ``mid_model_optimizations`` config
+        key so that slim-tier tweaks never activate for nano (≤8B) or full (≥30B).
+
+        Args:
+            opt_name: Key from agent_features.json mid_model_optimizations dict,
+                e.g. "mid1_skip_docs_phases".
+
+        Returns:
+            True if mid model detected AND flag is enabled (defaults to True if missing).
+        """
+        if not self._is_mid_model():
+            return False
+        opts = self.config.get("mid_model_optimizations", {})
         return bool(opts.get(opt_name, True))
 
     def _truncate_snapshot(self, snapshot: Dict[str, str], max_tokens: int) -> Dict[str, str]:

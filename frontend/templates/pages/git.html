@@ -52,5 +52,5 @@
 </div>
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/pages/git.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/git.js') }}"></script>
 {% endblock %}

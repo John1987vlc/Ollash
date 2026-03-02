@@ -1,14 +1,17 @@
-"""E2E / Playwright fixtures — Flask dev server, Playwright page with traces."""
+"""E2E / Playwright fixtures — uvicorn dev server, Playwright page with traces.
 
-import os
-import threading
+Replaces the Flask threading server with a uvicorn subprocess so the FastAPI
+application and all its lifespan events are properly initialized.
+"""
+
+import shutil
+import subprocess
+import sys
 import time
 from pathlib import Path
 
 import pytest
 import requests
-
-from frontend.app import create_app
 
 
 # ── Server lifecycle ──────────────────────────────────────────────────────────
@@ -16,7 +19,7 @@ from frontend.app import create_app
 
 @pytest.fixture(scope="session")
 def server_port():
-    """TCP port used by the E2E Flask server."""
+    """TCP port used by the E2E uvicorn server."""
     return 5001
 
 
@@ -28,28 +31,46 @@ def base_url(server_port):
 
 @pytest.fixture(scope="session")
 def flask_server(server_port, project_root):
-    """Starts the Flask server in a background daemon thread.
+    """
+    Starts the FastAPI/uvicorn server in a subprocess for E2E testing.
 
-    Uses exponential back-off (up to 15 s) to wait for the server to be
-    ready instead of a fixed sleep loop, making the fixture faster on most
-    machines and more robust on slow CI runners.
+    The fixture name is kept as 'flask_server' for backward compatibility with
+    all existing test files that depend on it. Only this fixture changes.
+
+    Uses exponential back-off (up to 20 s) to wait for readiness.
     """
     test_root = project_root / "test_root_e2e"
-    os.makedirs(test_root, exist_ok=True)
+    test_root.mkdir(parents=True, exist_ok=True)
 
-    app = create_app(ollash_root_dir=test_root)
-    app.config.update({"TESTING": True, "SERVER_NAME": f"127.0.0.1:{server_port}"})
+    env = {
+        "OLLASH_ROOT_DIR": str(test_root),
+        "TESTING": "1",
+        # Prevent real Ollama calls during E2E
+        "OLLAMA_URL": "http://127.0.0.1:9999",
+    }
 
-    server_thread = threading.Thread(
-        target=lambda: app.run(port=server_port, debug=False, use_reloader=False),
-        daemon=True,
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "run_web:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(server_port),
+            "--log-level",
+            "warning",
+        ],
+        env={**__import__("os").environ, **env},
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
-    server_thread.start()
 
-    # Exponential back-off: 0.1 → 0.2 → 0.4 → 0.8 → 1.0 → 1.0 … (max 15 s total)
-    url = f"http://127.0.0.1:{server_port}/"
+    # Exponential back-off: 0.1 → 0.2 → 0.4 … (max 20 s total)
+    url = f"http://127.0.0.1:{server_port}/api/health/"
     delay = 0.1
-    deadline = time.monotonic() + 15.0
+    deadline = time.monotonic() + 20.0
 
     while time.monotonic() < deadline:
         try:
@@ -61,17 +82,21 @@ def flask_server(server_port, project_root):
         time.sleep(delay)
         delay = min(delay * 2, 1.0)
     else:
-        raise RuntimeError(f"E2E Flask server did not respond on {url} within 15 seconds.")
+        proc.terminate()
+        raise RuntimeError(
+            f"E2E uvicorn server did not respond on {url} within 20 seconds."
+        )
 
     yield
 
-    # ── Teardown: remove the temporary E2E root so no artifacts are left on disk
-    import shutil
-
+    # ── Teardown
+    proc.terminate()
     try:
-        shutil.rmtree(test_root, ignore_errors=True)
-    except Exception:
-        pass
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+    shutil.rmtree(test_root, ignore_errors=True)
 
 
 # ── pytest hook for trace capture ────────────────────────────────────────────
@@ -79,11 +104,7 @@ def flask_server(server_port, project_root):
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """Attach the per-phase test result to the item node.
-
-    Required so the ``page`` fixture can check whether the test failed and
-    decide whether to save the Playwright trace.
-    """
+    """Attach per-phase test result to the item node for trace capture."""
     outcome = yield
     rep = outcome.get_result()
     setattr(item, f"rep_{rep.when}", rep)
@@ -94,32 +115,28 @@ def pytest_runtest_makereport(item, call):
 
 @pytest.fixture
 def page(context, flask_server, request):
-    """Enhanced Playwright page fixture.
-
-    - Logs browser console errors and JS page errors.
-    - Records a Playwright trace throughout the test.
-    - Saves the trace to ``test-results/traces/`` ONLY when the test fails,
-      keeping CI artifact sizes small.
-    """
+    """Enhanced Playwright page fixture with trace capture on failure."""
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
 
     _page = context.new_page()
     _page.on(
         "console",
-        lambda msg: print(f"BROWSER CONSOLE [{msg.type}]: {msg.text}") if msg.type == "error" else None,
+        lambda msg: print(f"BROWSER CONSOLE [{msg.type}]: {msg.text}")
+        if msg.type == "error"
+        else None,
     )
     _page.on("pageerror", lambda exc: print(f"BROWSER PAGE ERROR: {exc}"))
 
     yield _page
 
-    # Determine whether the test body failed
     test_failed = hasattr(request.node, "rep_call") and request.node.rep_call.failed
 
     if test_failed:
         trace_dir = Path("test-results/traces")
         trace_dir.mkdir(parents=True, exist_ok=True)
-        # Sanitize the node name to be a valid filename
-        safe_name = request.node.name.replace("/", "_").replace("[", "_").replace("]", "_")
+        safe_name = (
+            request.node.name.replace("/", "_").replace("[", "_").replace("]", "_")
+        )
         context.tracing.stop(path=str(trace_dir / f"{safe_name}.zip"))
     else:
         context.tracing.stop()

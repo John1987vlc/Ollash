@@ -82,3 +82,82 @@ def test_finalize_project(agent):
     execution_plan.mark_complete.assert_called_once()
     agent.phase_context.file_manager.write_file.assert_called()
     assert agent.event_publisher.publish.call_count >= 2
+
+
+# ---------------------------------------------------------------------------
+# Tests: _build_adaptive_phases()
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestBuildAdaptivePhases:
+    """_build_adaptive_phases() returns the correct phase list per model tier."""
+
+    def _make_typed_mock(self, cls):
+        """Return a MagicMock that passes isinstance(mock, cls)."""
+        return MagicMock(spec=cls)
+
+    def test_full_tier_all_phases_returned(self, agent):
+        from backend.agents.auto_agent_phases.exhaustive_review_repair_phase import ExhaustiveReviewRepairPhase
+        from backend.agents.auto_agent_phases.dynamic_documentation_phase import DynamicDocumentationPhase
+        from backend.agents.auto_agent_phases.cicd_healing_phase import CICDHealingPhase
+        from backend.agents.auto_agent_phases.license_compliance_phase import LicenseCompliancePhase
+
+        p1 = self._make_typed_mock(ExhaustiveReviewRepairPhase)
+        p2 = self._make_typed_mock(DynamicDocumentationPhase)
+        p3 = self._make_typed_mock(CICDHealingPhase)
+        p4 = self._make_typed_mock(LicenseCompliancePhase)
+        p5 = MagicMock()
+
+        agent.phases = [p1, p2, p3, p4, p5]
+        agent.phase_context._is_small_model.return_value = False
+        agent.phase_context._is_mid_model.return_value = False
+
+        result = agent._build_adaptive_phases()
+        assert len(result) == 5
+
+    def test_nano_tier_skips_4_heavy_phases(self, agent):
+        from backend.agents.auto_agent_phases.exhaustive_review_repair_phase import ExhaustiveReviewRepairPhase
+        from backend.agents.auto_agent_phases.dynamic_documentation_phase import DynamicDocumentationPhase
+        from backend.agents.auto_agent_phases.cicd_healing_phase import CICDHealingPhase
+        from backend.agents.auto_agent_phases.license_compliance_phase import LicenseCompliancePhase
+
+        p1 = self._make_typed_mock(ExhaustiveReviewRepairPhase)
+        p2 = self._make_typed_mock(DynamicDocumentationPhase)
+        p3 = self._make_typed_mock(CICDHealingPhase)
+        p4 = self._make_typed_mock(LicenseCompliancePhase)
+        p5 = MagicMock()
+
+        agent.phases = [p1, p2, p3, p4, p5]
+        agent.phase_context._is_small_model.return_value = True
+        agent.phase_context._is_mid_model.return_value = False
+
+        result = agent._build_adaptive_phases()
+        # Only p5 (untyped generic) survives
+        assert len(result) == 1
+        assert result[0] is p5
+
+    def test_slim_tier_skips_2_doc_ci_phases(self, agent):
+        from backend.agents.auto_agent_phases.dynamic_documentation_phase import DynamicDocumentationPhase
+        from backend.agents.auto_agent_phases.cicd_healing_phase import CICDHealingPhase
+
+        p1 = self._make_typed_mock(DynamicDocumentationPhase)
+        p2 = self._make_typed_mock(CICDHealingPhase)
+        p3 = MagicMock()
+        p4 = MagicMock()
+        p5 = MagicMock()
+
+        agent.phases = [p1, p2, p3, p4, p5]
+        agent.phase_context._is_small_model.return_value = False
+        agent.phase_context._is_mid_model.return_value = True
+
+        result = agent._build_adaptive_phases()
+        # p1 and p2 are skipped; p3, p4, p5 survive
+        assert len(result) == 3
+
+    def test_exception_returns_all_phases(self, agent):
+        agent.phases = [MagicMock(), MagicMock()]
+        agent.phase_context._is_small_model.side_effect = RuntimeError("oops")
+
+        result = agent._build_adaptive_phases()
+        assert len(result) == 2

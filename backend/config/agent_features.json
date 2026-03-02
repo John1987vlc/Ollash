@@ -39,6 +39,11 @@
     "opt5_anti_pattern_injection": true,
     "opt6_active_shadow": true
   },
+  "mid_model_optimizations": {
+    "mid1_skip_docs_phases": true,
+    "mid2_single_review_pass": true,
+    "mid3_reduced_planning_context": true
+  },
   "critic_loop": {
     "enabled": true
   },

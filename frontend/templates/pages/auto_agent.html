@@ -3,17 +3,17 @@
 {% block title %}Ollash - AutoAgent Kanban Board{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/projects.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auto-agent.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/projects.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/auto-agent.css') }}">
 <!-- P1-P10 component styles -->
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/generation-progress.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/hitl-modal.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/diff-viewer.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/tool-belt.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/stream-panel.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/debate-room.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/visual-context.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/budget-meter.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/components/generation-progress.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/components/hitl-modal.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/components/diff-viewer.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/components/tool-belt.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/components/stream-panel.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/components/debate-room.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/components/visual-context.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/components/budget-meter.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -154,12 +154,12 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/pages/projects.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/projects.js') }}"></script>
 <!-- P1-P10 component scripts -->
-<script src="{{ url_for('static', filename='js/components/hitl-modal.js') }}"></script>
-<script src="{{ url_for('static', filename='js/components/diff-viewer.js') }}"></script>
-<script src="{{ url_for('static', filename='js/components/tool-belt.js') }}"></script>
-<script src="{{ url_for('static', filename='js/components/stream-panel.js') }}"></script>
-<script src="{{ url_for('static', filename='js/components/debate-room.js') }}"></script>
-<script src="{{ url_for('static', filename='js/pages/auto-agent.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/components/hitl-modal.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/components/diff-viewer.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/components/tool-belt.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/components/stream-panel.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/components/debate-room.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/auto-agent.js') }}"></script>
 {% endblock %}

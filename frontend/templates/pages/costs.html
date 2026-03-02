@@ -1,9 +1,9 @@
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/costs.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/costs.css') }}">
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/pages/cost-dashboard.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/cost-dashboard.js') }}"></script>
 {% endblock %}
 
             <!-- Costs View -->

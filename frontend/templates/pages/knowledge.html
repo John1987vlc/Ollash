@@ -1,5 +1,5 @@
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/knowledge.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/knowledge.css') }}">
 <style>
     .knowledge-tabs {
         display: flex;
@@ -127,5 +127,5 @@
 </div>
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/pages/knowledge.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/knowledge.js') }}"></script>
 {% endblock %}

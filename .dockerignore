@@ -1,0 +1,58 @@
+# Version control
+.git/
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Node / frontend build artifacts
+node_modules/
+frontend/static/dist/
+.npm/
+
+# Test artifacts
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.test.js
+*.test.ts
+
+# Development data and secrets
+.env
+.ollash/
+generated_projects/
+
+# Documentation
+*.md
+docs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CI
+.github/
+
+# Pre-commit
+.pre-commit-config.yaml

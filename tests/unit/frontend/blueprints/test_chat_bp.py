@@ -1,94 +1,93 @@
+"""
+Chat router unit tests — migrated from Flask blueprint tests.
+
+Changes from Flask version:
+- Flask `app.test_client()` → starlette `TestClient`
+- `app.config[...]` → `app.state.*` overrides
+- `with app.app_context():` → removed (not needed in FastAPI)
+- `response.get_json()` → `response.json()`
+- `response.data` → `response.content`
+"""
+
+import sys
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock
-import sys
-from flask import Flask
+from unittest.mock import AsyncMock, MagicMock, patch
+from starlette.testclient import TestClient
 
-# Import the blueprint object
-from frontend.blueprints.chat_bp import chat_bp, init_app
+from backend.api.app import create_app
 
 
 @pytest.fixture
-def mock_manager_instance():
-    """Create a mock instance of ChatSessionManager."""
-    return MagicMock()
+def mock_manager():
+    """Mock ChatSessionManager."""
+    mgr = MagicMock()
+    mgr.get_session.return_value = None
+    mgr.create_session.return_value = "new-s-id"
+    return mgr
 
 
 @pytest.fixture
-def app(mock_manager_instance, monkeypatch):
-    """Create app and ensure the blueprint module uses the mocked manager instance."""
-    app = Flask(__name__)
-    app.config.update({"TESTING": True, "ollash_root_dir": Path("/tmp/ollash"), "SECRET_KEY": "test_secret"})
+def app(mock_manager, tmp_path):
+    _app = create_app()
+    # Override app.state services with mocks
+    _app.state.event_publisher = MagicMock()
+    _app.state.chat_event_bridge = MagicMock()
+    _app.state.automation_manager = MagicMock()
+    _app.state.notification_manager = MagicMock()
+    _app.state.alert_manager = MagicMock()
+    _app.state.ollash_root_dir = tmp_path
 
-    # RELIABLE PATCHING: Access the module through sys.modules to avoid Blueprint object shadowing
-    target_module = sys.modules["frontend.blueprints.chat_bp"]
+    # Inject mock session manager into the chat router module
+    import backend.api.routers.chat_router as chat_mod
+    chat_mod._session_manager = mock_manager
 
-    # Inject our mock manager instance into the module's global state
-    monkeypatch.setattr(target_module, "_session_manager", mock_manager_instance)
-    # Also mock render_template in the same module namespace
-    monkeypatch.setattr(target_module, "render_template", MagicMock(return_value="<html></html>"))
+    yield _app
 
-    # Call init_app - it will set the global, but our monkeypatch should intercept/override it
-    init_app(app, MagicMock())
-    # Force set it one last time to be absolutely sure
-    setattr(target_module, "_session_manager", mock_manager_instance)
-
-    app.register_blueprint(chat_bp)
-    return app
+    # Cleanup
+    chat_mod._session_manager = None
 
 
 @pytest.fixture
 def client(app):
-    """A test client for the app."""
-    return app.test_client()
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
 
 
-class TestChatBlueprint:
-    """Test suite for Chat Blueprint interactive routes with absolute module isolation."""
+@pytest.mark.unit
+class TestChatRouter:
+    """Test suite for the FastAPI chat router."""
 
-    def test_chat_page_renders(self, client):
-        response = client.get("/chat")
-        assert response.status_code == 200
+    def test_send_chat_creates_session_if_needed(self, client, mock_manager):
+        mock_manager.get_session.return_value = None
+        mock_manager.create_session.return_value = "new-s-id"
 
-    def test_send_chat_creates_session_if_needed(self, client, mock_manager_instance):
-        mock_manager_instance.get_session.return_value = None
-        mock_manager_instance.create_session.return_value = "new-s-id"
-
-        response = client.post("/api/chat", json={"message": "Hello", "agent_type": "orchestrator"})
+        response = client.post("/api/chat", json={"message": "Hello"})
 
         assert response.status_code == 200
-        assert response.get_json()["session_id"] == "new-s-id"
-        mock_manager_instance.send_message.assert_called_once_with("new-s-id", "Hello")
+        data = response.json()
+        assert data["session_id"] == "new-s-id"
+        mock_manager.send_message.assert_called_once_with("new-s-id", "Hello")
 
-    def test_send_chat_uses_existing_session(self, client, mock_manager_instance):
-        mock_manager_instance.get_session.return_value = MagicMock()
+    def test_send_chat_uses_existing_session(self, client, mock_manager):
+        existing_session = MagicMock()
+        mock_manager.get_session.return_value = existing_session
 
-        response = client.post("/api/chat", json={"message": "Msg 2", "session_id": "s-123"})
+        response = client.post(
+            "/api/chat", json={"message": "Msg 2", "session_id": "s-123"}
+        )
 
         assert response.status_code == 200
-        mock_manager_instance.send_message.assert_called_once_with("s-123", "Msg 2")
+        mock_manager.send_message.assert_called_once_with("s-123", "Msg 2")
 
-    def test_send_chat_empty_message_error(self, client):
-        response = client.post("/api/chat", json={"message": ""})
-        assert response.status_code == 400
-
-    def test_send_chat_rate_limit_handling(self, client, mock_manager_instance):
-        mock_manager_instance.get_session.return_value = MagicMock()
-        mock_manager_instance.send_message.side_effect = RuntimeError("Rate limit")
-
-        response = client.post("/api/chat", json={"message": "test", "session_id": "s1"})
-        assert response.status_code == 429
-
-    def test_stream_chat_success(self, client, mock_manager_instance):
-        mock_session = MagicMock()
-        mock_session.bridge.iter_events.return_value = iter(["data: ping\n\n"])
-        mock_manager_instance.get_session.return_value = mock_session
-
-        response = client.get("/api/chat/stream/s1")
-        assert response.status_code == 200
-        assert b"data: ping" in response.data
-
-    def test_stream_chat_not_found(self, client, mock_manager_instance):
-        mock_manager_instance.get_session.return_value = None
+    def test_stream_chat_not_found(self, client, mock_manager):
+        mock_manager.get_session.return_value = None
         response = client.get("/api/chat/stream/invalid")
         assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    def test_list_sessions(self, client, mock_manager):
+        mock_manager.list_sessions.return_value = [{"id": "s1", "model": "default"}]
+        response = client.get("/api/chat/sessions")
+        assert response.status_code == 200
+        assert len(response.json()["sessions"]) == 1

@@ -185,6 +185,67 @@ class AutoAgent(CoreAgent):
             asyncio.set_event_loop(loop)
             return loop
 
+    def _build_adaptive_phases(self) -> List[IAgentPhase]:
+        """Return a phase list adapted to the detected model tier.
+
+        - full tier  (≥30B): all phases — current behaviour unchanged.
+        - slim tier  (9–29B): removes DynamicDocumentationPhase, CICDHealingPhase.
+        - nano tier  (≤8B):  removes ExhaustiveReviewRepairPhase,
+                              DynamicDocumentationPhase, CICDHealingPhase,
+                              LicenseCompliancePhase.
+
+        Falls back to all phases on any exception so production is never blocked.
+
+        Returns:
+            Filtered list of IAgentPhase instances.
+        """
+        try:
+            from backend.agents.auto_agent_phases.exhaustive_review_repair_phase import (
+                ExhaustiveReviewRepairPhase,
+            )
+            from backend.agents.auto_agent_phases.dynamic_documentation_phase import (
+                DynamicDocumentationPhase,
+            )
+            from backend.agents.auto_agent_phases.cicd_healing_phase import CICDHealingPhase
+            from backend.agents.auto_agent_phases.license_compliance_phase import (
+                LicenseCompliancePhase,
+            )
+
+            ctx = self.phase_context
+
+            if ctx._is_small_model():
+                _NANO_SKIP = (
+                    ExhaustiveReviewRepairPhase,
+                    DynamicDocumentationPhase,
+                    CICDHealingPhase,
+                    LicenseCompliancePhase,
+                )
+                filtered = [p for p in self.phases if not isinstance(p, _NANO_SKIP)]
+                skipped_names = [c.__name__ for c in _NANO_SKIP]
+                self.logger.info(
+                    f"[AdaptivePipeline] nano tier — skipping {len(self.phases) - len(filtered)} "
+                    f"heavy phases: {skipped_names}"
+                )
+                return filtered
+
+            if ctx._is_mid_model():
+                _SLIM_SKIP = (DynamicDocumentationPhase, CICDHealingPhase)
+                filtered = [p for p in self.phases if not isinstance(p, _SLIM_SKIP)]
+                self.logger.info(
+                    f"[AdaptivePipeline] slim tier — skipping {len(self.phases) - len(filtered)} "
+                    f"doc/CI phases"
+                )
+                return filtered
+
+            self.logger.info("[AdaptivePipeline] full tier — all phases active")
+            return list(self.phases)
+
+        except Exception as exc:
+            self.logger.warning(
+                f"[AdaptivePipeline] Phase filter failed ({exc}), using all phases"
+            )
+            return list(self.phases)
+
     def run(self, project_description: str, project_name: str = "new_project", **kwargs) -> Path:
         """Orchestrates the full project creation pipeline through distinct phases."""
         self.logger.info(f"[PROJECT_NAME:{project_name}] Standardizing input and starting pipeline.")
@@ -238,7 +299,7 @@ class AutoAgent(CoreAgent):
 
         self.phase_context.initial_exec_params = kwargs
 
-        active_phases = self.phases
+        active_phases = self._build_adaptive_phases()
         if kwargs.get("maintenance_mode"):
             self.logger.info("🛠️ MAINTENANCE MODE ACTIVE: Skipping initial phases, focusing on audit and improvement.")
             # Skip to IterativeImprovementPhase and subsequent review phases

@@ -1,0 +1,40 @@
+repos:
+  # Python: Ruff (linting + formatting, replaces black + isort + flake8 for most rules)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.5
+    hooks:
+      - id: ruff
+        args: [--fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # Python: Flake8 (catches rules ruff doesn't cover, e.g. W503)
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        additional_dependencies: []
+
+  # General: trailing whitespace, EOF newline, YAML/TOML syntax
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: debug-statements
+
+  # JavaScript / TypeScript: ESLint
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v8.57.0
+    hooks:
+      - id: eslint
+        files: \.(js|ts)$
+        types: [file]
+        additional_dependencies:
+          - eslint@8
+          - "@typescript-eslint/eslint-plugin@7"
+          - "@typescript-eslint/parser@7"

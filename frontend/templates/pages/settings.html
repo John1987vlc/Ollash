@@ -1,5 +1,5 @@
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/settings.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/settings.css') }}">
 {% endblock %}
 
 <div class="view" id="settings-view">
@@ -81,5 +81,5 @@
 </div>
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/pages/settings.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/settings.js') }}"></script>
 {% endblock %}

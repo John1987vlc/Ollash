@@ -1,6 +1,6 @@
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/wizard.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/create-project.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/wizard.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/create-project.css') }}">
 {% endblock %}
 
 <div class="view" id="create-view">
@@ -399,6 +399,6 @@
 </div>
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/pages/wizard.js') }}"></script>
-<script src="{{ url_for('static', filename='js/pages/create-project.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/wizard.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/create-project.js') }}"></script>
 {% endblock %}

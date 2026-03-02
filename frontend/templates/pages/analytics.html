@@ -132,5 +132,5 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analytics.css') }}">
-<script src="{{ url_for('static', filename='js/pages/analytics.js') }}" defer></script>
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/analytics.css') }}">
+<script src="{{ request.url_for('static', path='js/pages/analytics.js') }}" defer></script>

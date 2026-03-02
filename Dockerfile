@@ -52,13 +52,19 @@ COPY *.py /app/
 COPY .env.example /app/.env.example
 COPY Makefile /app/Makefile
 
-# Create persistent storage directory
-RUN mkdir -p /app/.ollash && chmod 777 /app/.ollash
+# Create non-root user and set ownership
+RUN groupadd --system ollash && useradd --system --no-create-home --gid ollash ollash
+RUN chown -R ollash:ollash /opt/venv /app
 
-# Expose the Flask port
+# Create persistent storage directory (owned by non-root user)
+RUN mkdir -p /app/.ollash && chown -R ollash:ollash /app/.ollash
+
+USER ollash
+
+# Expose the application port
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:5000/health || python -c "import backend; print('ok')"
 
-CMD ["python", "run_web.py"]
+CMD ["uvicorn", "run_web:app", "--host", "0.0.0.0", "--port", "5000"]

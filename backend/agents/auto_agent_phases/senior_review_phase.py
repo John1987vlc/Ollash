@@ -33,7 +33,11 @@ class SeniorReviewPhase(IAgentPhase):
 
         review_passed = False
         review_attempt = 0
-        max_review_attempts = self.context.config.get("senior_review_max_attempts", 3)
+        _cfg_max = self.context.config.get("senior_review_max_attempts", 3)
+        if self.context._is_small_model() or self.context._is_mid_model():
+            max_review_attempts = 1  # nano and slim tiers: single pass only
+        else:
+            max_review_attempts = _cfg_max
         while not review_passed and review_attempt < max_review_attempts:
             review_attempt += 1
             self.context.logger.info(f"PHASE 8: Senior Review Attempt {review_attempt}/{max_review_attempts}...")

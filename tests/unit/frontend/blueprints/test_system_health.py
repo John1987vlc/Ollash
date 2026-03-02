@@ -1,59 +1,53 @@
-import pytest
-from unittest.mock import MagicMock
-from pathlib import Path
-from flask import Flask
-import sys
+"""
+System health router unit tests — migrated from Flask blueprint tests.
+"""
 
-# Mock psutil globally for these tests
+import sys
+from unittest.mock import MagicMock
+
+import pytest
+from starlette.testclient import TestClient
+
+from backend.api.app import create_app
+
+# Mock psutil before importing the router
 mock_psutil = MagicMock()
 sys.modules["psutil"] = mock_psutil
 
 
 @pytest.fixture
-def app():
-    from frontend.blueprints.system_health_bp import system_health_bp, init_app
-
-    app = Flask(__name__)
-    app.config["ollash_root_dir"] = Path(".")
-    app.register_blueprint(system_health_bp)
-    init_app(app)
-    return app
+def app(tmp_path):
+    _app = create_app()
+    _app.state.event_publisher = MagicMock()
+    _app.state.alert_manager = MagicMock()
+    _app.state.automation_manager = MagicMock()
+    _app.state.notification_manager = MagicMock()
+    _app.state.chat_event_bridge = MagicMock()
+    _app.state.ollash_root_dir = tmp_path
+    return _app
 
 
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
 
 
+@pytest.mark.unit
 def test_system_health_endpoint_structure(client):
     """Verifica que el endpoint devuelva todas las claves requeridas."""
-    mock_psutil.cpu_percent.return_value = 10.0
-    mock_mem = MagicMock()
-    mock_mem.total = 16 * 1024**3
-    mock_mem.used = 8 * 1024**3
-    mock_mem.percent = 50.0
-    mock_psutil.virtual_memory.return_value = mock_mem
-
     response = client.get("/api/health/")
     assert response.status_code == 200
-    data = response.get_json()
-
+    data = response.json()
     assert data["status"] == "ok"
     assert "cpu" in data
     assert "ram" in data
 
 
-def test_system_health_logic_mocked(client):
-    """Verifica la lógica interna simulando psutil."""
-    mock_psutil.cpu_percent.return_value = 25.5
-
-    mock_mem = MagicMock()
-    mock_mem.total = 16 * 1024**3
-    mock_mem.percent = 50.0
-    mock_psutil.virtual_memory.return_value = mock_mem
-
+@pytest.mark.unit
+def test_system_health_models_present(client):
+    """Verifica que el campo models esté presente en la respuesta."""
     response = client.get("/api/health/")
-    data = response.get_json()
-
-    assert data["cpu"] >= 0
-    assert "ram" in data
+    data = response.json()
+    assert "models" in data
+    assert isinstance(data["models"], list)

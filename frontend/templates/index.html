@@ -3,10 +3,10 @@
 {% block title %}Ollash - Local IT Agent{% endblock %}
 
 {% block styles %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/swarm.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/resilience.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/git.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/insights.css') }}">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/swarm.css') }}">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/resilience.css') }}">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/git.css') }}">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/insights.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -41,16 +41,16 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{{ url_for('static', filename='js/pages/chat.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/projects.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/wizard.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/swarm.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/resilience.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/git.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/insights.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/security.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/benchmark.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/cicd.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/hil.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pages/knowledge.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/chat.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/projects.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/wizard.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/swarm.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/resilience.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/git.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/insights.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/security.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/benchmark.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/cicd.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/hil.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/pages/knowledge.js') }}"></script>
 {% endblock %}

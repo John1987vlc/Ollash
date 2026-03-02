@@ -1,32 +1,37 @@
 #!/usr/bin/env python3
-"""Ollash Web UI entry point."""
+"""
+Ollash Web UI entry point.
+
+Starts the FastAPI application with uvicorn (ASGI).
+The old Flask app is preserved in frontend/app.py for CLI tools that depend on it.
+"""
 
 import os
 import sys
-import signal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from frontend.app import create_app
+import uvicorn
 
+from backend.api.app import create_app
 
-def signal_handler(sig, frame):
-    """Graceful shutdown handler for Ctrl+C and other termination signals."""
-    print("\n🛑 Ollash Web UI is shutting down...")
-    # Add any cleanup logic here if needed
-    os._exit(0)
+# FastAPI app instance (module-level so uvicorn can import it via "run_web:app")
+app = create_app()
 
 
 if __name__ == "__main__":
-    # Register signal handlers
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "5000"))
+    reload = os.environ.get("RELOAD", "0") == "1"
+    workers = int(os.environ.get("WORKERS", "1"))
 
-    app = create_app()
-    host = os.environ.get("FLASK_HOST", "0.0.0.0")
-    port = int(os.environ.get("FLASK_PORT", "5000"))
-    debug = os.environ.get("FLASK_DEBUG", "0") == "1"
-
-    print(f"🚀 Starting Ollash Web UI on http://{host}:{port}")
-    app.run(host=host, port=port, debug=debug, threaded=True)
+    print(f"\U0001f680 Starting Ollash Web UI (FastAPI) on http://{host}:{port}")
+    uvicorn.run(
+        "run_web:app",
+        host=host,
+        port=port,
+        reload=reload,
+        workers=workers if not reload else 1,
+        log_level="info",
+    )

@@ -1,10 +1,10 @@
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/chat.css') }}">
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/chat.css') }}">
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/pages/voice-commands.js') }}"></script>
-<script src="{{ url_for('static', filename='js/pages/chat.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/voice-commands.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/chat.js') }}"></script>
 {% endblock %}
 
             <!-- Chat View -->

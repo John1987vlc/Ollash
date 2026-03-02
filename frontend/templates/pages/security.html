@@ -85,5 +85,5 @@
 </div>
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/pages/security.js') }}"></script>
+<script src="{{ request.url_for('static', path='js/pages/security.js') }}"></script>
 {% endblock %}
