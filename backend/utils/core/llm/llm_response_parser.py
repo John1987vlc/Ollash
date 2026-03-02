@@ -124,14 +124,14 @@ class LLMResponseParser:
         """
         if not text:
             return ""
-        
+
         current = text.strip()
         tag_names = ["code_created", "plan_json", "backlog_json", "structure_json", "contingency_json", "review_json", "senior_review_json"]
-        
+
         # Iterative cleaning to handle nested wrappers (e.g. <tag>```js\ncode\n```</tag>)
         for _ in range(5):
             old = current
-            
+
             # A. XML Tags wrapping the whole thing
             tag_pattern = r"^<(" + "|".join(tag_names) + r")[^>]*>([\s\S]*?)(?:</\1>|$)"
             tag_match = re.search(tag_pattern, current, re.I | re.S)
@@ -150,7 +150,7 @@ class LLMResponseParser:
                     if re.match(r"^[a-zA-Z0-9+#-]+$", lines[0].strip()):
                         current = "\n".join(lines[1:]).strip()
                 if current != old: continue
-            
+
             # C. Conversational text + block fallback
             # If not perfectly wrapped, try to find the FIRST discrete block
             if "```" in current:
@@ -171,7 +171,7 @@ class LLMResponseParser:
                                 if current != old: continue
 
             break # No more changes possible
-        
+
         # D. Final surgical tag removal for unclosed tags at the very start/end
         lines = current.splitlines()
         if lines:
@@ -180,7 +180,7 @@ class LLMResponseParser:
             if lines and re.match(r"^</(" + "|".join(tag_names) + r")>$", lines[-1].strip(), re.I):
                 lines = lines[:-1]
             current = "\n".join(lines).strip()
-                
+
         return current
 
     @staticmethod
@@ -290,7 +290,7 @@ class LLMResponseParser:
 
         # 1. Standard cleaning
         cleaned, _ = LLMResponseParser.remove_think_blocks(response)
-        
+
         # 2. Extract content using the aggressive logic
         json_text = LLMResponseParser.extract_single_code_block(cleaned)
 
@@ -344,32 +344,32 @@ class LLMResponseParser:
         """Applies multiple heuristics to fix common LLM JSON errors."""
         if not s:
             return s
-        
+
         # Basic cleanup of encoding artifacts and smart quotes
         s = s.replace("â€\u009d", '"').replace("â€œ", '"').replace("â€™", "'").replace("â€˜", "'")
         s = s.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-        
+
         # Remove comments
         s = re.sub(r"//.*$", "", s, flags=re.M)
         s = re.sub(r"/\*[\s\S]*?\*/", "", s)
-        
+
         # Fix literal newlines inside strings
         def fix_newlines(match):
             return match.group(0).replace("\n", "\\n").replace("\r", "")
         s = re.sub(r'"[\s\S]*?"', fix_newlines, s)
-        
+
         # Fix hallucinated notes in parentheses after values
         s = re.sub(r'("[\s\S]*?")\s*\([\s\S]*?\)', r"\1", s)
-        
+
         # Remove trailing commas
         s = re.sub(r",\s*([\]}])", r"\1", s)
-        
+
         # Fix unescaped backslashes (common in Windows paths)
         s = re.sub(r'\\(?!["\\/bfnrtu])', r"\\\\", s)
-        
+
         # Final cleanup
         s = s.replace("\t", "    ")
-        
+
         return s.strip()
 
     @staticmethod
@@ -406,7 +406,7 @@ class LLMResponseParser:
         files = {}
         lines = cleaned.splitlines()
         content, name, in_block, pot_name = [], None, False, None
-        
+
         for line in lines:
             stripped = line.strip()
             if not in_block:
@@ -414,7 +414,7 @@ class LLMResponseParser:
                 if m:
                     pot_name = Path(m.group(1).strip()).as_posix().replace("..", "").lstrip("/")
                     continue
-            
+
             if stripped.startswith("```"):
                 if in_block:
                     if name:
@@ -431,8 +431,8 @@ class LLMResponseParser:
                     name = Path(stripped.split(":", 1)[1].strip()).as_posix().replace("..", "").lstrip("/")
                 else:
                     content.append(line)
-                    
+
         if in_block and name:
             files[name] = LLMResponseParser.extract_single_code_block("\n".join(content))
-            
+
         return files

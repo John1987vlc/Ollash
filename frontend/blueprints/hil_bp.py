@@ -15,7 +15,6 @@ import datetime
 import uuid
 
 from flask import Blueprint, jsonify, request
-from typing import Optional
 
 hil_bp = Blueprint("hil", __name__)
 

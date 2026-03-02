@@ -6,14 +6,12 @@ SSE uses StreamingResponse with async generator.
 """
 
 import asyncio
-import json
 from typing import AsyncIterator, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from backend.api.deps import get_event_publisher, get_ollash_root_dir
 
 router = APIRouter(tags=["chat"])
 

@@ -8,7 +8,7 @@ Tests cover:
 
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase

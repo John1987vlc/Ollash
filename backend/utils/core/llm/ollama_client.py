@@ -3,7 +3,7 @@ import asyncio
 import aiohttp
 import requests
 import time
-from typing import Optional, Dict, List, Any
+from typing import Optional
 from backend.utils.core.llm.token_tracker import TokenTracker
 
 
@@ -64,7 +64,6 @@ class OllamaClient:
             pass  # Saturation check must never abort LLM calls
 
     async def achat(self, messages, tools=None, options_override=None, context=None):
-        import time
 
         tools = tools or []
         if context is None:
@@ -141,7 +140,6 @@ class OllamaClient:
             raise
 
     def chat(self, messages, tools=None, options_override=None, context=None):
-        import time
 
         tools = tools or []
         if context is None:
@@ -219,7 +217,6 @@ class OllamaClient:
         Returns:
             ``(result_dict, usage_dict)`` \u2014 same shape as ``achat()``.
         """
-        import time
 
         opts = {"temperature": 0.1, "num_ctx": self.config.get("max_context_tokens", 8000), "keep_alive": "5m"}
         if options_override:

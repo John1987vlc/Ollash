@@ -9,10 +9,8 @@ Changes from Flask version:
 - `response.data` → `response.content`
 """
 
-import sys
 import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 from starlette.testclient import TestClient
 
 from backend.api.app import create_app

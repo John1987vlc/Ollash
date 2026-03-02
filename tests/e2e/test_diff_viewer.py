@@ -149,7 +149,7 @@ def test_diff_viewer_load_for_file_shows_diff(page: Page) -> None:
 
     # Mock the git diff API with absolute URL
     diff_text = "@@ -1,1 +1,2 @@\n unchanged\n+extra line"
-    
+
     # Use a more inclusive pattern that matches http://localhost/api...
     page.route(
         "**/api/projects/**/git/diff/**",
@@ -172,7 +172,7 @@ def test_diff_viewer_load_for_file_shows_diff(page: Page) -> None:
             }
             return originalFetch(url, options);
         };
-        
+
         const container = document.getElementById('output');
         try {
             await window.DiffViewer.loadForFile('myapp', 'src/main.py', container);

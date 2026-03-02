@@ -45,12 +45,12 @@ def test_project_wizard_flow(page: Page, base_url: str) -> None:
     page.route(
         "**/api/projects/create",
         lambda route: route.fulfill(
-            status=200, 
-            content_type="application/json", 
+            status=200,
+            content_type="application/json",
             body=json.dumps({"status": "started", "project_name": "E2E-Wizard-Project"})
         ),
     )
-    
+
     # Mock SSE endpoint
     page.route(
         "**/api/projects/stream/*",
@@ -66,7 +66,7 @@ def test_project_wizard_flow(page: Page, base_url: str) -> None:
 
     # Verify Kanban board appears
     expect(page.locator("#kanban-board")).to_be_visible(timeout=5000)
-    
+
     # Verify success toast (approximate check via internal JS state or DOM if possible)
     # Since it's an async flow with SSE, we just check that we didn't get an error
     expect(page.locator("#wizard-generate")).to_be_disabled()

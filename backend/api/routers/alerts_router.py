@@ -7,10 +7,9 @@ stream_with_context(). EventPublisher subscription pattern preserved.
 
 import asyncio
 import json
-import queue as stdlib_queue
 from typing import AsyncIterator
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from backend.api.deps import get_event_publisher, get_alert_manager

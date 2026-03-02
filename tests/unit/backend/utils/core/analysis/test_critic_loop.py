@@ -1,7 +1,7 @@
 """Unit tests for critic_loop.py — Feature 1."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 @pytest.mark.unit

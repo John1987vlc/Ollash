@@ -1,7 +1,6 @@
 """Unit tests for F1 — InterfaceScaffoldingPhase."""
 
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from backend.agents.auto_agent_phases.interface_scaffolding_phase import InterfaceScaffoldingPhase

@@ -1,5 +1,4 @@
 import pytest
-import json
 from unittest.mock import MagicMock, patch
 from backend.utils.domains.system.system_tools import SystemTools
 from backend.utils.domains.system.advanced_system_tools import AdvancedSystemTools

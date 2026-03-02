@@ -6,7 +6,6 @@ needs minimal changes beyond removing `with app.app_context():` blocks.
 """
 
 import os
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest

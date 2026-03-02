@@ -5,7 +5,6 @@ Checkpoints router — migrated from frontend/blueprints/checkpoints_bp.py.
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel

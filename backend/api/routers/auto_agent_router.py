@@ -9,7 +9,6 @@ subprocess shell=False, git URL validation.
 
 import asyncio
 import io
-import json
 import os
 import re
 import shlex
@@ -22,7 +21,6 @@ from typing import AsyncIterator, Dict, List, Optional
 from fastapi import (
     APIRouter,
     BackgroundTasks,
-    Depends,
     File,
     Form,
     HTTPException,
@@ -32,7 +30,6 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from backend.api.deps import get_ollash_root_dir, get_event_publisher
 from backend.core.containers import main_container
 
 router = APIRouter(tags=["auto_agent"])

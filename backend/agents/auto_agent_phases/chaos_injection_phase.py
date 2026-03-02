@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.base_phase import BasePhase
-from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
 
 class ChaosInjectionPhase(BasePhase):

@@ -9,10 +9,9 @@ import subprocess
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import ValidationError
 
 from backend.api.deps import service_error_handler
-from frontend.schemas.git_schemas import GitCommitRequest, GitDiffRequest
+from frontend.schemas.git_schemas import GitCommitRequest
 
 router = APIRouter(prefix="/api/git", tags=["git"])
 logger = logging.getLogger(__name__)

@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from backend.agents.auto_agent_phases.base_phase import BasePhase
-from backend.agents.auto_agent_phases.phase_context import PhaseContext
 from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 
 
@@ -161,7 +160,7 @@ class LogicPlanningPhase(BasePhase):
 
                 if not isinstance(task_data, dict):
                     self.context.logger.info(
-                        f"  [Opt4] Unexpected response type — stopping incremental loop."
+                        "  [Opt4] Unexpected response type — stopping incremental loop."
                     )
                     break
 

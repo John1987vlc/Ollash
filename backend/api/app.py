@@ -18,7 +18,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from backend.core.config import config as app_config
-from backend.core.containers import ApplicationContainer
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +54,6 @@ async def _lifespan(app: FastAPI):
 def _init_app_state(app: FastAPI) -> None:
     """Initialize all services and attach to app.state (replaces app.config)."""
     from backend.utils.core.system.event_publisher import EventPublisher
-    from backend.services.llm_client_manager import LLMClientManager
     from backend.utils.core.system.managers.automation_manager import get_automation_manager
     from backend.utils.core.system.managers.notification_manager import get_notification_manager
     from backend.utils.core.system.managers.alert_manager import get_alert_manager

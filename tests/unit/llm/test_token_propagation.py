@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock
 from backend.utils.core.llm.token_tracker import TokenTracker
 from backend.utils.core.llm.ollama_client import OllamaClient
@@ -11,7 +10,7 @@ def test_token_tracker_propagation():
     logger = MagicMock()
     config = MagicMock()
     recorder = MagicMock()
-    
+
     # 2. Test OllamaClient
     client = OllamaClient(
         url="http://localhost:11434",
@@ -23,16 +22,16 @@ def test_token_tracker_propagation():
         token_tracker=tracker
     )
     assert client.token_tracker == tracker
-    
+
     # 3. Test LLMClientManager
     models_config = MagicMock()
     models_config.ollama_url = "http://localhost:11434"
     models_config.agent_roles = {"coder": "qwen3"}
     models_config.default_timeout = 30
-    
+
     tool_settings = MagicMock()
     tool_settings.model_dump.return_value = {}
-    
+
     manager = LLMClientManager(
         config=models_config,
         tool_settings=tool_settings,
@@ -40,9 +39,9 @@ def test_token_tracker_propagation():
         recorder=recorder,
         token_tracker=tracker
     )
-    
+
     assert manager.token_tracker == tracker
-    
+
     # Get a client and verify it has the tracker
     coder_client = manager.get_client("coder")
     assert coder_client.token_tracker == tracker
@@ -53,7 +52,7 @@ def test_phase_context_propagation(tmp_path):
     response_parser = MagicMock()
     logger = MagicMock()
     blackboard = MagicMock()
-    
+
     # Create PhaseContext
     context = PhaseContext(
         config={},
@@ -89,7 +88,7 @@ def test_phase_context_propagation(tmp_path):
         decision_blackboard=blackboard,
         token_tracker=tracker
     )
-    
+
     assert context.token_tracker == tracker
     # Verify sub-context has it
     assert context.llm.token_tracker == tracker

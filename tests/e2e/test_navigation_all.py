@@ -1,6 +1,4 @@
 import pytest
-import re
-from playwright.sync_api import expect
 
 
 @pytest.mark.e2e
@@ -60,10 +58,10 @@ def test_full_sidebar_navigation(page, base_url):
         except Exception:
             # Fallback to JS click if intercepted
             page.evaluate(f"document.querySelector('button.nav-item[data-view=\"{view_id}\"]').click()")
-        
+
         # Add a buffer for the global loader (600ms in main.js) + network
-        page.wait_for_timeout(1000) 
-        
+        page.wait_for_timeout(1000)
+
         # Verify navigation happened by checking URL or at least that no error crashed the SPA
         # For P1, we'll just verify the title changes to SOMETHING after the click
         current_title = page.locator("#current-view-title").text_content().strip()

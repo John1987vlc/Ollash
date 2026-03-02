@@ -70,7 +70,7 @@ describe('ChatModule – sendChatMessage', () => {
 
     it('does not send when message is empty string', async () => {
         const fetchMock = vi.fn();
-        window.fetch = fetchMock;
+        vi.stubGlobal('fetch', fetchMock);
 
         await ChatModule.sendChatMessage('');
 
@@ -80,7 +80,7 @@ describe('ChatModule – sendChatMessage', () => {
     it('does not send while isStreaming is true (concurrent guard)', async () => {
         // Simulate an ongoing stream by sending a message and not resolving fetch
         const fetchMock = vi.fn(() => new Promise(() => {})); // never resolves
-        window.fetch = fetchMock;
+        vi.stubGlobal('fetch', fetchMock);
 
         // Start first message (does not await — fires and leaves promise pending)
         ChatModule.sendChatMessage('first');
@@ -92,7 +92,7 @@ describe('ChatModule – sendChatMessage', () => {
     });
 
     it('shows error message in DOM when fetch rejects (network failure)', async () => {
-        window.fetch = vi.fn().mockRejectedValue(new Error('Network failure'));
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network failure')));
 
         await ChatModule.sendChatMessage('hello');
 
@@ -103,9 +103,9 @@ describe('ChatModule – sendChatMessage', () => {
     });
 
     it('shows error message when API returns non-started status', async () => {
-        window.fetch = vi.fn().mockResolvedValue({
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
             json: async () => ({ status: 'error', message: 'Session limit reached' }),
-        });
+        }));
 
         await ChatModule.sendChatMessage('hello');
 

@@ -267,7 +267,6 @@ class ShadowEvaluator:
             returned valid corrected code.
         """
         from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
-        from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
         format_error = self._check_format(content, language)
         if not format_error:

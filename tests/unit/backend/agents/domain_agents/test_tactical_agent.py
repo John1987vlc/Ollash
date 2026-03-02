@@ -1,7 +1,7 @@
 """Unit tests for F4 — TacticalAgent."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from backend.agents.domain_agents.tactical_agent import TacticalAgent
 from backend.agents.orchestrators.task_dag import AgentType, TaskNode

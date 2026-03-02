@@ -1,4 +1,3 @@
-import re as _re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -44,7 +43,6 @@ from backend.utils.core.io.project_ingestion_service import ProjectIngestionServ
 from backend.utils.core.memory.decision_blackboard import DecisionBlackboard
 from backend.utils.domains.auto_generation.utilities.signature_extractor import (
     extract_signatures as _extract_signatures,
-    extract_signatures_regex as _extract_signatures_regex,
 )
 
 
