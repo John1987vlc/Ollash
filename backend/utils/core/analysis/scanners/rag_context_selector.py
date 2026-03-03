@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from chromadb.utils import embedding_functions
-
 from backend.utils.core.memory.chroma_manager import ChromaClientManager
 
 logger = logging.getLogger(__name__)
@@ -59,8 +57,6 @@ class RAGContextSelector:
             "collection_name", "error_knowledge_base"
         )
 
-        self.embedding_function = embedding_functions.DefaultEmbeddingFunction()
-
         self.knowledge_collection = None
         self.error_collection = None
 
@@ -68,11 +64,9 @@ class RAGContextSelector:
             try:
                 self.knowledge_collection = self.client.get_or_create_collection(
                     name=self.knowledge_collection_name,
-                    embedding_function=self.embedding_function,
                 )
                 self.error_collection = self.client.get_or_create_collection(
                     name=self.error_collection_name,
-                    embedding_function=self.embedding_function,
                 )
                 self.logger.info(
                     f"Successfully connected to collections: '{self.knowledge_collection_name}' and '{self.error_collection_name}'."

@@ -80,7 +80,7 @@ class ShadowEvaluator:
         self._persist_logs()
         self.logger.info(f"Shadow evaluator stopped. {len(self._logs)} logs persisted.")
 
-    def _on_phase_complete(self, event_data: Dict) -> None:
+    async def _on_phase_complete(self, event_type: str, event_data: Dict) -> None:
         """Handle phase_complete events for passive logging."""
         if not self._active:
             return
@@ -99,7 +99,7 @@ class ShadowEvaluator:
         )
         self._logs.append(log)
 
-    def _on_shadow_evaluate(self, event_data: Dict) -> None:
+    async def _on_shadow_evaluate(self, event_type: str, event_data: Dict) -> None:
         """Handle explicit shadow evaluation requests from phases."""
         if not self._active:
             return
@@ -240,7 +240,7 @@ class ShadowEvaluator:
             return ""
         return ""
 
-    def active_shadow_validate(
+    async def active_shadow_validate(
         self,
         file_path: str,
         content: str,
@@ -275,7 +275,7 @@ class ShadowEvaluator:
         logger.info(f"[Opt6] Format error in '{file_path}': {format_error}. Calling nano_format_corrector...")
 
         try:
-            system_prompt, user_prompt = AutoGenPrompts.nano_format_corrector(
+            system_prompt, user_prompt = await AutoGenPrompts.nano_format_corrector(
                 language=language,
                 format_error=format_error,
                 code=content,

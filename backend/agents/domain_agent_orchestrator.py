@@ -163,9 +163,10 @@ class DomainAgentOrchestrator:
         Returns:
             Path to the generated project directory.
         """
-        self._logger.info(f"[DomainOrchestrator] Starting project '{project_name}'")
+        self._logger.info(
+f"[DomainOrchestrator] Starting project '{project_name}'")
         self._current_project_name = project_name
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "domain_orchestration_started",
             project_name=project_name,
             pool_size=pool_size,
@@ -213,7 +214,7 @@ class DomainAgentOrchestrator:
             self._record_project_metrics(project_name, dag, len(all_files))
 
             git_committed = manifest.repo_initialised if manifest else False
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "domain_orchestration_completed",
                 project_name=project_name,
                 project_root=str(project_root),
@@ -251,12 +252,14 @@ class DomainAgentOrchestrator:
             Path to the project root, or None if no checkpoint exists.
         """
         if self._checkpoint_manager is None:
-            self._logger.warning("[DomainOrchestrator] No checkpoint manager — cannot resume")
+            self._logger.warning(
+"[DomainOrchestrator] No checkpoint manager — cannot resume")
             return None
 
         data = self._checkpoint_manager.load_dag(project_name)
         if data is None:
-            self._logger.warning(f"[DomainOrchestrator] No DAG checkpoint for '{project_name}'")
+            self._logger.warning(
+f"[DomainOrchestrator] No DAG checkpoint for '{project_name}'")
             return None
 
         dag = TaskDAG.from_dict(data["dag"])
@@ -290,7 +293,7 @@ class DomainAgentOrchestrator:
             for dev in self._dev_pool:
                 self._dev_queue.put_nowait(dev)
 
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "domain_orchestration_resumed",
                 project_name=project_name,
                 completed=dag.stats().get("COMPLETED", 0),
@@ -325,7 +328,8 @@ class DomainAgentOrchestrator:
         await self._blackboard.write("codebase_stable", False, "orchestrator")
         await self._blackboard.write("project_root", str(project_root), "orchestrator")
 
-        self._logger.debug(f"[DomainOrchestrator] project_root: {project_root}")
+        self._logger.debug(
+f"[DomainOrchestrator] project_root: {project_root}")
         return project_root
 
     # ------------------------------------------------------------------
@@ -396,7 +400,7 @@ class DomainAgentOrchestrator:
         node_start_time = time.monotonic()
 
         # Notify UI that this task is starting
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "task_status_changed",
             task_id=node.id,
             status=TaskStatus.IN_PROGRESS.value,
@@ -423,7 +427,7 @@ class DomainAgentOrchestrator:
 
             duration_ms = int((time.monotonic() - node_start_time) * 1000)
 
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "task_status_changed",
                 task_id=node.id,
                 status=TaskStatus.COMPLETED.value,
@@ -445,7 +449,7 @@ class DomainAgentOrchestrator:
             # P1 — Agent requested human input: pause node, keep DAG running
             self._logger.info(f"[DomainOrchestrator] HITL pause on '{node.id}': {hitl_exc.question}")
             await dag.mark_waiting(node.id, hitl_exc.question)
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "hitl_requested",
                 task_id=node.id,
                 agent_type=node.agent_type.value,
@@ -458,7 +462,7 @@ class DomainAgentOrchestrator:
             node.error = str(exc)
             await dag.mark_failed(node.id, str(exc))
 
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "task_status_changed",
                 task_id=node.id,
                 status=TaskStatus.FAILED.value,
@@ -578,12 +582,13 @@ class DomainAgentOrchestrator:
         for node in dag.all_nodes():
             if node.status == TaskStatus.PENDING:
                 await dag.mark_waiting(node.id, question)
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "budget_exceeded",
             project_name=self._current_project_name,
             limit=self._budget_limit_tokens,
         )
-        self._logger.warning(f"[DomainOrchestrator] Budget limit ({self._budget_limit_tokens:,} tokens) reached")
+        self._logger.warning(
+f"[DomainOrchestrator] Budget limit ({self._budget_limit_tokens:,} tokens) reached")
 
     # ------------------------------------------------------------------
     # Finalisation
@@ -691,7 +696,7 @@ class DomainAgentOrchestrator:
             manifest_json = json.dumps(manifest.to_dict(), indent=2, ensure_ascii=False)
             await asyncio.to_thread(manifest_path.write_text, manifest_json, "utf-8")
 
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "file_committed",
                 project_name=project_name,
                 project_root=str(project_root),
@@ -723,7 +728,8 @@ class DomainAgentOrchestrator:
                 bb_dict,
             )
         except Exception as exc:
-            self._logger.debug(f"[DomainOrchestrator] Checkpoint save failed: {exc}")
+            self._logger.debug(
+f"[DomainOrchestrator] Checkpoint save failed: {exc}")
 
     # ------------------------------------------------------------------
     # Metrics (Point 10)
@@ -745,7 +751,8 @@ class DomainAgentOrchestrator:
                 tags={"project": self._current_project_name},
             )
         except Exception as exc:
-            self._logger.debug(f"[DomainOrchestrator] Metrics record failed: {exc}")
+            self._logger.debug(
+f"[DomainOrchestrator] Metrics record failed: {exc}")
 
     def _record_project_metrics(self, project_name: str, dag: TaskDAG, file_count: int) -> None:
         if self._metrics_database is None:
@@ -766,4 +773,5 @@ class DomainAgentOrchestrator:
                 tags={"project": project_name},
             )
         except Exception as exc:
-            self._logger.debug(f"[DomainOrchestrator] Project metrics record failed: {exc}")
+            self._logger.debug(
+f"[DomainOrchestrator] Project metrics record failed: {exc}")

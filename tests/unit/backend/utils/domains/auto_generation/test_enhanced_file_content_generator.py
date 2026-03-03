@@ -1,7 +1,7 @@
 """Unit tests for EnhancedFileContentGenerator."""
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from backend.utils.domains.auto_generation.enhanced_file_content_generator import (
     EnhancedFileContentGenerator,
@@ -33,7 +33,7 @@ def mock_response_parser():
 @pytest.fixture
 def mock_code_patcher():
     patcher = MagicMock()
-    patcher.edit_existing_file.return_value = "patched content"
+    patcher.edit_existing_file = AsyncMock(return_value="patched content")
     return patcher
 
 
@@ -132,7 +132,7 @@ class TestGenerateFallbackSkeleton:
 
 @pytest.mark.unit
 class TestGenerateFileWithPlan:
-    def test_generate_file_success(self, generator, mock_llm, mock_response_parser):
+    async def test_generate_file_success(self, generator, mock_llm, mock_response_parser):
         mock_response_parser.extract_code_block.return_value = "def calculate():\n    return 42\n" + "#" * 60
         logic_plan = {
             "purpose": "Math utilities",
@@ -142,7 +142,7 @@ class TestGenerateFileWithPlan:
             "validation": [],
             "dependencies": [],
         }
-        result = generator.generate_file_with_plan("calc.py", logic_plan, "A project", "# README", {}, {})
+        result = await generator.generate_file_with_plan("calc.py", logic_plan, "A project", "# README", {}, {})
         assert "calculate" in result
 
     @pytest.mark.xfail(reason="Persistent environment-related prompt loading issues in unit test environment")
@@ -177,7 +177,7 @@ class TestGenerateFileWithPlan:
 
 @pytest.mark.unit
 class TestRAGIntegration:
-    def test_rag_snippets_injected_when_doc_manager_present(
+    async def test_rag_snippets_injected_when_doc_manager_present(
         self, mock_llm, mock_logger, mock_response_parser, mock_code_patcher
     ):
         mock_doc_manager = MagicMock()
@@ -202,7 +202,7 @@ class TestRAGIntegration:
             "validation": [],
             "dependencies": [],
         }
-        gen.generate_file_with_plan("calc.py", logic_plan, "A project", "# README", {}, {})
+        await gen.generate_file_with_plan("calc.py", logic_plan, "A project", "# README", {}, {})
 
         mock_doc_manager.query_documentation.assert_called_once()
 
@@ -228,6 +228,6 @@ class TestRAGIntegration:
 
 @pytest.mark.unit
 class TestEditExistingFileDelegates:
-    def test_edit_delegates_to_code_patcher(self, generator, mock_code_patcher):
-        generator.edit_existing_file("file.py", "original", "# README", [], "partial")
+    async def test_edit_delegates_to_code_patcher(self, generator, mock_code_patcher):
+        await generator.edit_existing_file("file.py", "original", "# README", [], "partial")
         mock_code_patcher.edit_existing_file.assert_called_once_with("file.py", "original", "# README", [], "partial")

@@ -32,7 +32,7 @@ class ContextSummarizerMixin(ABC):
 
         self.logger.warning(f"⚠️ Context window capacity reached ({current_tokens}/{max_tokens} tokens). Summarizing...")
 
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "context_management",
             {"status": "summarizing", "tokens_before": current_tokens},
         )
@@ -59,7 +59,7 @@ class ContextSummarizerMixin(ABC):
 
         try:
             loader = PromptLoader()
-            prompts = loader.load_prompt("core/services.yaml")
+            prompts = await loader.load_prompt("core/services.yaml")
 
             system = prompts.get("context_summarization", {}).get("system", "")
             user_template = prompts.get("context_summarization", {}).get("user", "")
@@ -87,5 +87,5 @@ class ContextSummarizerMixin(ABC):
 
         except Exception as e:
             self.logger.error(f"Error during context summarization: {e}. Returning original messages.")
-            self.event_publisher.publish("context_management", {"status": "error", "error_message": str(e)})
+            await self.event_publisher.publish("context_management", {"status": "error", "error_message": str(e)})
             return messages

@@ -18,9 +18,12 @@ def list_checkpoints(project_name):
 
 @checkpoints_bp.route("/api/checkpoints/restore", methods=["POST"])
 def restore_checkpoint():
-    data = request.json
+    data = request.json or {}
     project_name = data.get("project_name")
     phase_name = data.get("phase_name")
+
+    if not project_name or not phase_name:
+        return jsonify({"error": "Checkpoint not found"}), 404
 
     root = main_container.core.ollash_root_dir()
     sl = StructuredLogger(root / "logs" / "checkpoints.log")

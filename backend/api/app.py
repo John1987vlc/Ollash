@@ -53,29 +53,45 @@ async def _lifespan(app: FastAPI):
 
 
 def _init_app_state(app: FastAPI) -> None:
-    """Initialize all services and attach to app.state (replaces app.config)."""
+    """Initialize all services and attach to app.state (replaces app.config).
+
+    Skips initialization for any service already pre-configured on app.state
+    so that tests can inject mocks before the lifespan starts.
+    """
+    if getattr(app.state, "_services_initialized", False):
+        return
+
     from backend.utils.core.system.event_publisher import EventPublisher
-    from backend.utils.core.system.managers.automation_manager import get_automation_manager
-    from backend.utils.core.system.managers.notification_manager import get_notification_manager
-    from backend.utils.core.system.managers.alert_manager import get_alert_manager
-    from backend.utils.core.io.chat_event_bridge import ChatEventBridge
+    from backend.utils.core.system.automation_manager import get_automation_manager
+    from backend.utils.core.system.notification_manager import get_notification_manager
+    from backend.utils.core.system.alert_manager import get_alert_manager
+    from frontend.services.chat_event_bridge import ChatEventBridge
 
-    ollash_root_dir = Path(app_config.get("ollash_root_dir", ".ollash"))
+    import os
+    ollash_root_dir = Path(os.environ.get("OLLASH_ROOT_DIR", ".ollash"))
 
-    event_publisher = EventPublisher()
-    chat_event_bridge = ChatEventBridge(event_publisher)
-    notification_manager = get_notification_manager()
-    alert_manager = get_alert_manager(notification_manager, event_publisher)
-    automation_manager = get_automation_manager(ollash_root_dir, event_publisher)
+    if not getattr(app.state, "event_publisher", None):
+        app.state.event_publisher = EventPublisher()
+    if not getattr(app.state, "chat_event_bridge", None):
+        app.state.chat_event_bridge = ChatEventBridge(app.state.event_publisher)
+    if not getattr(app.state, "notification_manager", None):
+        app.state.notification_manager = get_notification_manager()
+    if not getattr(app.state, "alert_manager", None):
+        app.state.alert_manager = get_alert_manager(
+            app.state.notification_manager, app.state.event_publisher
+        )
+    if not getattr(app.state, "automation_manager", None):
+        app.state.automation_manager = get_automation_manager(
+            ollash_root_dir, app.state.event_publisher
+        )
+    if not getattr(app.state, "ollash_root_dir", None):
+        app.state.ollash_root_dir = ollash_root_dir
 
-    automation_manager.start()
+    automation_manager = app.state.automation_manager
+    if hasattr(automation_manager, "start") and callable(automation_manager.start):
+        automation_manager.start()
 
-    app.state.ollash_root_dir = ollash_root_dir
-    app.state.event_publisher = event_publisher
-    app.state.chat_event_bridge = chat_event_bridge
-    app.state.notification_manager = notification_manager
-    app.state.alert_manager = alert_manager
-    app.state.automation_manager = automation_manager
+    app.state._services_initialized = True
 
 
 def _wire_di_container(app: FastAPI) -> None:

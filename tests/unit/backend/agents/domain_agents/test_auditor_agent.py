@@ -33,7 +33,7 @@ def mock_vuln_scanner(mock_scan_result_clean):
 def auditor(mock_vuln_scanner):
     ep = MagicMock()
     ep.subscribe = MagicMock()
-    ep.publish = MagicMock()
+    ep.publish = AsyncMock()
     return AuditorAgent(
         vulnerability_scanner=mock_vuln_scanner,
         code_quarantine=MagicMock(),

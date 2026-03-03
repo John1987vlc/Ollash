@@ -9,6 +9,7 @@ Instead of simple toast notifications, this system generates:
 """
 
 import logging
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -82,7 +83,7 @@ class AdaptiveNotificationUI:
         self.active_artifacts: Dict[str, InteractiveArtifact] = {}
         logger.info("AdaptiveNotificationUI initialized")
 
-    def notify_network_error(
+    async def notify_network_error(
         self,
         service_name: str,
         error_message: str,
@@ -124,7 +125,7 @@ class AdaptiveNotificationUI:
             )
 
             self.active_artifacts[artifact_id] = artifact
-            self._publish_artifact(artifact)
+            await self._publish_artifact(artifact)
             logger.info(f"Network error artifact created: {artifact_id}")
             return artifact
 
@@ -132,7 +133,7 @@ class AdaptiveNotificationUI:
             logger.error(f"Failed to create network error artifact: {e}")
             return None
 
-    def notify_system_status(
+    async def notify_system_status(
         self,
         status_type: str,
         metrics: Dict[str, float],
@@ -171,7 +172,7 @@ class AdaptiveNotificationUI:
             )
 
             self.active_artifacts[artifact_id] = artifact
-            self._publish_artifact(artifact)
+            await self._publish_artifact(artifact)
             logger.info(f"Status artifact created: {artifact_id}")
             return artifact
 
@@ -179,7 +180,7 @@ class AdaptiveNotificationUI:
             logger.error(f"Failed to create status artifact: {e}")
             return None
 
-    def notify_decision_point(
+    async def notify_decision_point(
         self,
         scenario: str,
         decision_context: Dict[str, Any],
@@ -222,7 +223,7 @@ class AdaptiveNotificationUI:
             )
 
             self.active_artifacts[artifact_id] = artifact
-            self._publish_artifact(artifact)
+            await self._publish_artifact(artifact)
             logger.info(f"Decision tree artifact created: {artifact_id}")
             return artifact
 
@@ -230,7 +231,7 @@ class AdaptiveNotificationUI:
             logger.error(f"Failed to create decision tree artifact: {e}")
             return None
 
-    def notify_diagnostic(
+    async def notify_diagnostic(
         self,
         problem: str,
         findings: List[str],
@@ -267,7 +268,7 @@ class AdaptiveNotificationUI:
             )
 
             self.active_artifacts[artifact_id] = artifact
-            self._publish_artifact(artifact)
+            await self._publish_artifact(artifact)
             logger.info(f"Diagnostic artifact created: {artifact_id}")
             return artifact
 
@@ -275,7 +276,7 @@ class AdaptiveNotificationUI:
             logger.error(f"Failed to create diagnostic artifact: {e}")
             return None
 
-    def notify_recovery_plan(
+    async def notify_recovery_plan(
         self,
         issue: str,
         recovery_steps: List[Dict[str, str]],
@@ -312,7 +313,7 @@ class AdaptiveNotificationUI:
             )
 
             self.active_artifacts[artifact_id] = artifact
-            self._publish_artifact(artifact)
+            await self._publish_artifact(artifact)
             logger.info(f"Recovery plan artifact created: {artifact_id}")
             return artifact
 
@@ -450,15 +451,20 @@ class AdaptiveNotificationUI:
 
         return counts
 
-    def _publish_artifact(self, artifact: InteractiveArtifact) -> bool:
+    async def _publish_artifact(self, artifact: InteractiveArtifact) -> bool:
         """Publish artifact to the web UI via EventPublisher."""
         try:
             from backend.utils.core.system.event_publisher import EventPublisher
 
-            publisher = EventPublisher()
+            # Singleton publisher
+            from backend.core.containers import main_container
+            if hasattr(main_container, "event_publisher"):
+                publisher = main_container.event_publisher()
+            else:
+                publisher = EventPublisher()
 
             # Publish to UI artifacts channel
-            publisher.publish("ui_artifact", artifact.to_dict())
+            await publisher.publish("ui_artifact", artifact.to_dict())
             logger.debug(f"Artifact published: {artifact.id}")
             return True
 

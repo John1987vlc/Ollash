@@ -88,13 +88,14 @@ class Blackboard:
             )
             self._store[key] = entry
 
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "blackboard_updated",
             key=key,
             agent_id=agent_id,
             version=self._version_counter,
         )
-        self._logger.debug(f"[Blackboard] {agent_id} wrote '{key}' (v{self._version_counter})")
+        self._logger.debug(
+f"[Blackboard] {agent_id} wrote '{key}' (v{self._version_counter})")
 
     async def invalidate(self, key: str, agent_id: str) -> None:
         """Mark a key as stale.  Subscribers receive a ``blackboard_invalidated`` event.
@@ -107,12 +108,13 @@ class Blackboard:
             if entry is not None:
                 entry.invalidated = True
 
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "blackboard_invalidated",
             key=key,
             agent_id=agent_id,
         )
-        self._logger.debug(f"[Blackboard] {agent_id} invalidated '{key}'")
+        self._logger.debug(
+f"[Blackboard] {agent_id} invalidated '{key}'")
 
     # ------------------------------------------------------------------
     # Read (synchronous — safe, no lock needed)
@@ -208,10 +210,10 @@ class Blackboard:
     # Streaming (Point 4 — token streaming)
     # ------------------------------------------------------------------
 
-    def write_stream_chunk(self, rel_path: str, chunk: str, agent_id: str) -> None:
+    async def write_stream_chunk(self, rel_path: str, chunk: str, agent_id: str) -> None:
         """Append a streaming token chunk to the live buffer for *rel_path*.
 
-        Unlike ``write()``, this is synchronous and does NOT increment the
+        Unlike ``write()``, this is asynchronous but does NOT increment the
         global version counter — it is optimised for high-frequency, low-cost
         updates where every character counts more than consistency metadata.
 
@@ -232,12 +234,13 @@ class Blackboard:
         else:
             entry.value = (entry.value or "") + chunk
 
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "blackboard_stream_chunk",
             rel_path=rel_path,
             chunk=chunk,
             agent_id=agent_id,
         )
+
 
     # ------------------------------------------------------------------
     # Serialisation helper (Point 2 — checkpointing)

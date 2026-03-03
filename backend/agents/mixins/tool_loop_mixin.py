@@ -54,7 +54,9 @@ class ToolLoopMixin(ABC):
                 self._consecutive_planning_count = 0
 
             if self._consecutive_planning_count > 3:
-                self.logger.warning(f"⚠️ High repetition of {tool_name} detected. Forcing action phase.")
+                self.logger.warning(
+                    f"⚠️ High repetition of {tool_name} detected. Forcing action phase."
+                )
                 # We return a fake error to the agent to force it to stop planning and start doing
                 tool_outputs.append(
                     {
@@ -70,7 +72,7 @@ class ToolLoopMixin(ABC):
             tool_call_id = self.tool_span_manager.start_span(tool_name, tool_args, tool_call.get("id"))
 
             self.logger.info(f"Agent attempting to use tool: {tool_name} with args: {tool_args}")
-            self.event_publisher.publish("tool_code", {"tool_name": tool_name, "tool_args": tool_args})
+            await self.event_publisher.publish("tool_code", {"tool_name": tool_name, "tool_args": tool_args})
 
             # Policy Enforcement & Confirmation Gate
             authorized, reason = self.policy_enforcer.authorize_tool_execution(
@@ -148,7 +150,7 @@ class ToolLoopMixin(ABC):
                     "tool_name": tool_name,
                 }
                 tool_outputs.append(result_output)
-                self.event_publisher.publish(
+                await self.event_publisher.publish(
                     "tool_output",
                     {"tool_name": tool_name, "output": tool_execution_output, "ok": is_ok},
                 )
@@ -172,9 +174,9 @@ class ToolLoopMixin(ABC):
                 tool_outputs.append(result_output)
 
                 if hasattr(self, "_event_bridge") and self._event_bridge:
-                    self._event_bridge.push_event("error", {"message": friendly_error, "tool": tool_name})
+                    await self._event_bridge.push_event("error", {"message": friendly_error, "tool": tool_name})
 
-                self.event_publisher.publish("tool_error", {"tool_name": tool_name, "error": str(e)})
+                await self.event_publisher.publish("tool_error", {"tool_name": tool_name, "error": str(e)})
             finally:
                 self.tool_span_manager.end_span(
                     tool_call_id,

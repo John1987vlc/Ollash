@@ -34,6 +34,15 @@ from backend.agents.auto_agent_phases.structure_generation_phase import Structur
 from backend.agents.auto_agent_phases.structure_pre_review_phase import StructurePreReviewPhase
 from backend.agents.auto_agent_phases.generation_execution_phase import TestGenerationExecutionPhase
 from backend.agents.auto_agent_phases.verification_phase import VerificationPhase
+from backend.agents.auto_agent_phases.web_smoke_test_phase import WebSmokeTestPhase
+# Sprint 10 — 10 new pipeline phases
+from backend.agents.auto_agent_phases.clarification_phase import ClarificationPhase
+from backend.agents.auto_agent_phases.viability_estimator_phase import ViabilityEstimatorPhase
+from backend.agents.auto_agent_phases.test_planning_phase import TestPlanningPhase
+from backend.agents.auto_agent_phases.component_tree_phase import ComponentTreePhase
+from backend.agents.auto_agent_phases.api_contract_phase import ApiContractPhase
+from backend.agents.auto_agent_phases.plan_validation_phase import PlanValidationPhase
+from backend.agents.auto_agent_phases.dependency_precheck_phase import DependencyPrecheckPhase
 
 from backend.core.config import config
 from backend.core.kernel import AgentKernel
@@ -457,9 +466,19 @@ class AutoAgentContainer(containers.DeclarativeContainer):
 
     # --- Phase Providers ---
     phases_list = providers.List(
+        # Sprint 10: Phase 0 — clarify before planning
+        providers.Factory(ClarificationPhase, context=phase_context),
         providers.Factory(ReadmeGenerationPhase, context=phase_context),
         providers.Factory(StructureGenerationPhase, context=phase_context),
+        # Sprint 10: Phase 2.3 — estimate viability before heavy LLM work
+        providers.Factory(ViabilityEstimatorPhase, context=phase_context),
         providers.Factory(LogicPlanningPhase, context=phase_context),
+        # Sprint 10: Phases 2.6–2.95 — post-planning enrichment
+        providers.Factory(TestPlanningPhase, context=phase_context),
+        providers.Factory(ComponentTreePhase, context=phase_context),
+        providers.Factory(ApiContractPhase, context=phase_context),
+        providers.Factory(PlanValidationPhase, context=phase_context),
+        providers.Factory(DependencyPrecheckPhase, context=phase_context),
         providers.Factory(InterfaceScaffoldingPhase, context=phase_context),
         providers.Factory(StructurePreReviewPhase, context=phase_context),
         providers.Factory(EmptyFileScaffoldingPhase, context=phase_context),
@@ -473,6 +492,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         providers.Factory(LicenseCompliancePhase, context=phase_context),
         providers.Factory(DependencyReconciliationPhase, context=phase_context),
         providers.Factory(TestGenerationExecutionPhase, context=phase_context),
+        providers.Factory(WebSmokeTestPhase, context=phase_context),
         providers.Factory(InfrastructureGenerationPhase, context=phase_context),
         providers.Factory(ExhaustiveReviewRepairPhase, context=phase_context),
         providers.Factory(FinalReviewPhase, context=phase_context),

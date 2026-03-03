@@ -47,9 +47,10 @@ class InfrastructureGenerationPhase(IAgentPhase):
             return generated_files, initial_structure, file_paths
 
         self.context.logger.info("PHASE INFRA: Starting infrastructure generation...")
-        self.context.event_publisher.publish(
+        await self.context.event_publisher.publish(
             "phase_start", phase="infrastructure", message="Generating infrastructure files"
         )
+
 
         # Detect needs
         needs = self.context.infra_generator.detect_infra_needs(readme_content, initial_structure, generated_files)
@@ -124,7 +125,7 @@ class InfrastructureGenerationPhase(IAgentPhase):
         if git_push and git_token:
             await self._setup_github_secrets(project_root, needs, generated_files, git_token)
 
-        self.context.event_publisher.publish(
+        await self.context.event_publisher.publish(
             "phase_complete",
             phase="infrastructure",
             message="Infrastructure generation complete",

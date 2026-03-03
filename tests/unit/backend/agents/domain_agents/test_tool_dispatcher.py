@@ -2,7 +2,7 @@
 
 import asyncio
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from backend.agents.orchestrators.tool_dispatcher import ToolDispatcher
 from backend.utils.core.system.event_publisher import EventPublisher
 
@@ -10,7 +10,7 @@ from backend.utils.core.system.event_publisher import EventPublisher
 @pytest.fixture
 def dispatcher():
     ep = MagicMock(spec=EventPublisher)
-    ep.publish = MagicMock()
+    ep.publish = AsyncMock()
     logger = MagicMock()
     return ToolDispatcher(event_publisher=ep, logger=logger, max_batch_size=3)
 

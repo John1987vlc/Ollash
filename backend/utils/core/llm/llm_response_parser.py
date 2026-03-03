@@ -1,458 +1,378 @@
-from typing import Dict, List, Tuple, Optional, Any
 import json
 import re
-import time
-from pathlib import Path
+import unicodedata
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+# Card-suit UTF-8-as-latin1 mojibake mapping
+_MOJIBAKE_MAP = {
+    "\u00e2\u2122\u00a5": "\u2665",  # â™¥ → ♥
+    "\u00e2\u2122\u00a6": "\u2666",  # â™¦ → ♦
+    "\u00e2\u2122\u00a3": "\u2663",  # â™£ → ♣
+    "\u00e2\u2122 ": "\u2660",       # â™  → ♠
+}
 
 
 class LLMResponseParser:
+    """Utility class for parsing and cleaning LLM responses."""
+
+    # ------------------------------------------------------------------
+    # Unicode / encoding helpers
+    # ------------------------------------------------------------------
+
     @staticmethod
-    def parse_tool_calls(text: str) -> List[Dict]:
-        """Extracts tool calls from text in multiple formats (JSON tags, [TOOL_CALL] markers, etc)."""
+    def _repair_json_string(text: str) -> str:
+        """Fix UTF-8-as-latin1 mojibake for common symbols + NFC-normalise."""
+        for bad, good in _MOJIBAKE_MAP.items():
+            text = text.replace(bad, good)
+        return unicodedata.normalize("NFC", text)
+
+    # ------------------------------------------------------------------
+    # Think-block removal
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def remove_think_blocks(text: str) -> Tuple[str, Optional[str]]:
+        """
+        Removes <think>/<thinking>/<thinking_process> blocks from LLM output.
+        Returns (cleaned_text, thinking_content).
+        """
         if not text:
-            return []
+            return "", None
 
-        tool_calls = []
-
-        # Format 1: [TOOL_CALL: name{"arg": "val"}] or [TOOL_CALL: name(args)]
-        matches = re.finditer(r"\[TOOL_CALL:\s*(\w+)\s*(\{.*?\})(?:\]|$)", text, re.S)
-        for i, m in enumerate(matches):
-            name = m.group(1)
-            raw_args = m.group(2)
-            try:
-                args = json.loads(raw_args)
-                tool_calls.append(
-                    {
-                        "id": f"extracted_{i}_{int(time.time())}",
-                        "type": "function",
-                        "function": {"name": name, "arguments": args},
-                    }
-                )
-            except:
-                try:
-                    fixed_args = re.sub(r"\\(\s|$)", r"\\\\\1", raw_args)
-                    args = json.loads(fixed_args)
-                    tool_calls.append(
-                        {
-                            "id": f"extracted_fixed_{i}_{int(time.time())}",
-                            "type": "function",
-                            "function": {"name": name, "arguments": args},
-                        }
-                    )
-                except:
-                    continue
-
-        # Format 2: <tool_call>JSON</tool_call>
-        tags = re.finditer(r"<tool_call>(.*?)</tool_call>", text, re.S | re.I)
-        for i, m in enumerate(tags):
-            try:
-                data = json.loads(m.group(1).strip())
-                if isinstance(data, dict):
-                    tool_calls.append(
-                        {
-                            "id": f"tag_{i}_{int(time.time())}",
-                            "type": "function",
-                            "function": {"name": data.get("name"), "arguments": data.get("arguments", {})},
-                        }
-                    )
-            except:
-                continue
-
-        # Format 3: Raw JSON object
-        if not tool_calls:
-            potential_json = LLMResponseParser.extract_json(text)
-            if (
-                isinstance(potential_json, dict)
-                and "name" in potential_json
-                and ("arguments" in potential_json or "args" in potential_json)
-            ):
-                tool_calls.append(
-                    {
-                        "id": f"json_{int(time.time())}",
-                        "type": "function",
-                        "function": {
-                            "name": potential_json.get("name"),
-                            "arguments": potential_json.get("arguments") or potential_json.get("args") or {},
-                        },
-                    }
-                )
-
-        return tool_calls
-
-    @staticmethod
-    def remove_think_blocks(response: str) -> Tuple[str, str]:
-        """Removes <think> blocks and returns (cleaned_text, extracted_thought)."""
-        if not response:
-            return "", ""
-        match = re.search(
-            r"<(?:think|thinking_process|proceso_de_pensamiento)>([\s\S]*?)(?:</(?:think|thinking_process|proceso_de_pensamiento)>|$)",
-            response,
-            re.I,
+        # Ordered by specificity so the longest tag wins when nested
+        _THINK_PATTERN = re.compile(
+            r"<(think|thinking|thinking_process)>([\s\S]*?)</\1>",
+            re.IGNORECASE,
         )
-        if not match:
-            return response, ""
-        cleaned = re.sub(
-            r"<(?:think|thinking_process|proceso_de_pensamiento)>[\s\S]*?(?:</(?:think|thinking_process|proceso_de_pensamiento)>|$)",
-            "",
-            response,
-            flags=re.I,
-        ).strip()
-        return cleaned, match.group(1).strip()
+
+        thinking: Optional[str] = None
+        first_match = _THINK_PATTERN.search(text)
+        if first_match:
+            thinking = first_match.group(2).strip()
+
+        cleaned = _THINK_PATTERN.sub("", text).strip()
+        return cleaned, thinking
+
+    # ------------------------------------------------------------------
+    # JSON extraction
+    # ------------------------------------------------------------------
 
     @staticmethod
-    def extract_raw_content(response: str) -> str:
+    def extract_json(text: str) -> Optional[Union[Dict, List]]:
         """
-        Extracts the main content from an LLM response, handling tags and markdown.
-        Designed to be extremely robust against nested wrappers and conversational noise.
+        Extracts the first JSON object or array found in the text.
+        Handles markdown code blocks, custom XML tags, and JS comments.
         """
-        if not response:
+        if not text:
+            return None
+
+        # 1. Remove thinking blocks
+        text, _ = LLMResponseParser.remove_think_blocks(text)
+
+        # 2. Try to unwrap custom XML tags like <plan_json>…</plan_json>
+        xml_tag_match = re.search(r"<\w+_json>([\s\S]*?)</\w+_json>", text, re.IGNORECASE)
+        if xml_tag_match:
+            inner = xml_tag_match.group(1).strip()
+            # inner may itself contain a markdown fence
+            fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", inner, re.IGNORECASE)
+            candidate = fence_match.group(1).strip() if fence_match else inner
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                pass
+
+        # 3. Try JSON inside markdown code blocks
+        json_block_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+        if json_block_match:
+            candidate = json_block_match.group(1).strip()
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                pass
+
+        # 4. Try to find first { or [ and extract via bracket matching
+        try:
+            start_idx = -1
+            for i, char in enumerate(text):
+                if char in ("{", "["):
+                    start_idx = i
+                    break
+
+            if start_idx != -1:
+                brace_char = "{" if text[start_idx] == "{" else "["
+                end_char = "}" if brace_char == "{" else "]"
+
+                stack = 0
+                end_idx = -1
+                for i in range(start_idx, len(text)):
+                    if text[i] == brace_char:
+                        stack += 1
+                    elif text[i] == end_char:
+                        stack -= 1
+                        if stack == 0:
+                            end_idx = i
+                            break
+
+                if end_idx != -1:
+                    candidate = text[start_idx : end_idx + 1]
+                    try:
+                        return json.loads(candidate)
+                    except json.JSONDecodeError:
+                        # 5. Heuristic repair: strip JS single-line comments and trailing commas
+                        repaired = re.sub(r"//[^\n]*", "", candidate)
+                        repaired = re.sub(r",\s*([}\]])", r"\1", repaired)
+                        try:
+                            return json.loads(repaired)
+                        except json.JSONDecodeError:
+                            pass
+        except Exception:
+            pass
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Code-block extraction
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def extract_raw_content(text: str) -> str:
+        """
+        Extracts content from markdown code blocks or returns the original text.
+        Prioritises the FIRST code block found.
+        """
+        if not text:
             return ""
 
-        # 1. Clean thinking blocks first
-        cleaned, _ = LLMResponseParser.remove_think_blocks(response)
-        if not cleaned.strip():
-            return ""
+        text, _ = LLMResponseParser.remove_think_blocks(text)
 
-        # 2. Use the aggressive iterative extractor
-        return LLMResponseParser.extract_single_code_block(cleaned)
+        code_match = re.search(r"```(?:\w+)?\n?([\s\S]*?)\n?```", text)
+        if code_match:
+            return code_match.group(1).strip()
+
+        return text.strip()
+
+    @staticmethod
+    def extract_code_block(text: str) -> str:
+        """Alias for extract_raw_content for better naming consistency."""
+        return LLMResponseParser.extract_raw_content(text)
 
     @staticmethod
     def extract_single_code_block(text: str) -> str:
         """
-        Aggressively strips markdown markers and XML-style tags from text.
-        Iteratively removes wrappers until no more wrapping artifacts are detected.
+        Extracts the first fenced code block, handling unclosed fences gracefully.
+        Falls back to the raw (stripped) text when no fence is present.
         """
         if not text:
             return ""
 
-        current = text.strip()
-        tag_names = [
-            "code_created",
-            "plan_json",
-            "backlog_json",
-            "structure_json",
-            "contingency_json",
-            "review_json",
-            "senior_review_json",
-        ]
+        text, _ = LLMResponseParser.remove_think_blocks(text)
 
-        # Iterative cleaning to handle nested wrappers (e.g. <tag>```js\ncode\n```</tag>)
-        for _ in range(5):
-            old = current
+        # Closed block
+        match = re.search(r"```(?:\w+)?\n?([\s\S]*?)\n?```", text)
+        if match:
+            return match.group(1).strip()
 
-            # A. XML Tags wrapping the whole thing
-            tag_pattern = r"^<(" + "|".join(tag_names) + r")[^>]*>([\s\S]*?)(?:</\1>|$)"
-            tag_match = re.search(tag_pattern, current, re.I | re.S)
-            if tag_match:
-                current = tag_match.group(2).strip()
-                if current != old:
-                    continue
+        # Unclosed block — take everything after the opening fence
+        match = re.search(r"```(?:\w+)?\n?([\s\S]+)", text)
+        if match:
+            return match.group(1).strip()
 
-            # B. Markdown blocks wrapping the whole thing
-            # Strict wrapping from ^ to $
-            md_wrap_match = re.search(r"^```(?:\w+)?\s*\n?([\s\S]*?)\n?\s*```$", current, re.S)
-            if md_wrap_match:
-                current = md_wrap_match.group(1).strip()
-                # Remove lang ID if it's the only thing on the first line
-                lines = current.splitlines()
-                if lines and not lines[0].strip().startswith("```"):
-                    if re.match(r"^[a-zA-Z0-9+#-]+$", lines[0].strip()):
-                        current = "\n".join(lines[1:]).strip()
-                if current != old:
-                    continue
-
-            # C. Conversational text + block fallback
-            # If not perfectly wrapped, try to find the FIRST discrete block
-            if "```" in current:
-                blocks = re.findall(r"```(?:\w+)?\s*\n?([\s\S]*?)\n?\s*```", current, re.S)
-                if blocks:
-                    # Take the first non-empty block
-                    non_empty = [b.strip() for b in blocks if b.strip()]
-                    if non_empty:
-                        # Recursive call to strip any wrappers inside this block
-                        candidate = non_empty[0]
-                        # Only take it if it was clearly meant to be a block (surrounded by conversational text)
-                        # or if it's our only option.
-                        if len(blocks) == 1:
-                            # Heuristic: strip if there's conversational prefix
-                            prefix = current[: current.find("```")].strip()
-                            if prefix and not prefix.startswith(("#", "import", "from", "package", "name:")):
-                                current = candidate
-                                if current != old:
-                                    continue
-
-            break  # No more changes possible
-
-        # D. Final surgical tag removal for unclosed tags at the very start/end
-        lines = current.splitlines()
-        if lines:
-            if re.match(r"^<(" + "|".join(tag_names) + r")[^>]*>$", lines[0].strip(), re.I):
-                lines = lines[1:]
-            if lines and re.match(r"^</(" + "|".join(tag_names) + r")>$", lines[-1].strip(), re.I):
-                lines = lines[:-1]
-            current = "\n".join(lines).strip()
-
-        return current
+        return text.strip()
 
     @staticmethod
     def extract_code_block_for_file(text: str, file_path: str) -> str:
-        """Language-aware code block extractor for a specific target file.
-
-        When an LLM response contains multiple code blocks (common with verbose
-        small models), this method prefers the block whose language hint matches
-        the file extension rather than always taking the first block.
-
-        Matching table (extension → accepted language hints in order of preference):
-
-        =========  ================================
-        Extension  Accepted hints
-        =========  ================================
-        .js/.mjs   ``javascript``, ``js``
-        .jsx       ``jsx``, ``javascript``, ``js``
-        .ts/.tsx   ``typescript``, ``ts``
-        .html      ``html``
-        .css       ``css``
-        .py        ``python``, ``py``
-        .go        ``go``
-        .rs        ``rust``
-        .json      ``json``
-        .yaml      ``yaml``, ``yml``
-        .md        ``markdown``, ``md``
-        .sh        ``bash``, ``sh``, ``shell``
-        .svg       ``svg``, ``xml``
-        =========  ================================
-
-        When no language-matched block is found, falls back to the *largest*
-        non-empty block (which is more likely to be the actual implementation
-        than a short illustrative snippet). Ultimate fallback is
-        :meth:`extract_single_code_block`.
-
-        Args:
-            text: Raw LLM response (may contain ``<think>`` blocks, multiple
-                markdown fences, XML tags, etc.).
-            file_path: Relative or absolute path of the target file — only the
-                extension is used.
-
-        Returns:
-            Extracted and cleaned code string, or ``""`` if nothing was found.
+        """
+        Extracts a code block that matches the file's extension.
+        Falls back to the LARGEST block when no language match is found.
         """
         if not text:
             return ""
 
-        # Strip thinking blocks before analysing
-        cleaned, _ = LLMResponseParser.remove_think_blocks(text)
+        text, _ = LLMResponseParser.remove_think_blocks(text)
 
-        _EXT_TO_LANGS: dict[str, list[str]] = {
-            ".js": ["javascript", "js"],
-            ".mjs": ["javascript", "js"],
-            ".cjs": ["javascript", "js"],
-            ".jsx": ["jsx", "javascript", "js"],
-            ".ts": ["typescript", "ts"],
-            ".tsx": ["tsx", "typescript", "ts"],
-            ".html": ["html"],
-            ".css": ["css"],
-            ".scss": ["scss", "css"],
-            ".py": ["python", "py"],
-            ".go": ["go"],
-            ".rs": ["rust"],
-            ".java": ["java"],
-            ".json": ["json"],
-            ".yaml": ["yaml", "yml"],
-            ".yml": ["yaml", "yml"],
-            ".md": ["markdown", "md"],
-            ".sh": ["bash", "sh", "shell"],
-            ".bash": ["bash", "sh", "shell"],
-            ".toml": ["toml"],
-            ".xml": ["xml"],
-            ".svg": ["svg", "xml"],
+        ext = file_path.rsplit(".", 1)[-1].lower() if "." in file_path else ""
+
+        # Extension → markdown language identifiers (first alias is canonical)
+        lang_map: Dict[str, List[str]] = {
+            "py": ["python"],
+            "js": ["javascript", "js"],
+            "ts": ["typescript", "ts"],
+            "tsx": ["tsx", "typescript"],
+            "jsx": ["jsx", "javascript"],
+            "html": ["html"],
+            "css": ["css"],
+            "json": ["json"],
+            "md": ["markdown", "md"],
+            "yml": ["yaml", "yml"],
+            "yaml": ["yaml", "yml"],
+            "sh": ["bash", "sh", "shell"],
+            "go": ["go"],
+            "rs": ["rust"],
+            "java": ["java"],
         }
+        target_langs = lang_map.get(ext, [ext] if ext else [])
 
-        ext = Path(file_path).suffix.lower()
-        lang_hints = _EXT_TO_LANGS.get(ext, [])
+        # Try language-specific blocks (first alias wins)
+        for lang in target_langs:
+            if not lang:
+                continue
+            pattern = rf"```{re.escape(lang)}\n?([\s\S]*?)\n?```"
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
 
-        # Collect all fenced code blocks: (language_hint, content)
-        all_blocks = re.findall(r"```(\w*)\s*\n?([\s\S]*?)\n?\s*```", cleaned, re.S)
+        # Collect ALL fenced blocks and return the largest one
+        all_blocks = re.findall(r"```(?:\w+)?\n?([\s\S]*?)\n?```", text)
+        if all_blocks:
+            return max(all_blocks, key=len).strip()
 
-        if not all_blocks:
-            # No fenced blocks — fall back to the standard extractor
-            return LLMResponseParser.extract_single_code_block(cleaned)
+        # No fenced block at all → treat raw text as code
+        return text.strip()
 
-        # Prefer the first block whose language hint matches the file extension
-        if lang_hints:
-            for hint, content in all_blocks:
-                if hint.lower() in lang_hints and content.strip():
-                    return content.strip()
-
-        # No language match — take the largest non-empty block
-        non_empty = [(h, c.strip()) for h, c in all_blocks if c.strip()]
-        if non_empty:
-            if len(non_empty) == 1:
-                return non_empty[0][1]
-            return max(non_empty, key=lambda x: len(x[1]))[1]
-
-        # Ultimate fallback
-        return LLMResponseParser.extract_single_code_block(cleaned)
+    # ------------------------------------------------------------------
+    # Multi-file extraction
+    # ------------------------------------------------------------------
 
     @staticmethod
-    def extract_json(response: str) -> Optional[Any]:
-        """Extracts and parses JSON from an LLM response with aggressive repair."""
-        if not response:
-            return None
+    def extract_multiple_files(text: str) -> Dict[str, str]:
+        """
+        Parses a multi-file LLM response where files are delimited by
+        ``# filename: <path>`` or ``// filename: <path>`` markers followed
+        by optional fenced code blocks.
 
-        # 1. Standard cleaning
-        cleaned, _ = LLMResponseParser.remove_think_blocks(response)
+        Returns a mapping of ``{relative_path: file_content}``.
+        """
+        if not text:
+            return {}
 
-        # 2. Extract content using the aggressive logic
-        json_text = LLMResponseParser.extract_single_code_block(cleaned)
+        text, _ = LLMResponseParser.remove_think_blocks(text)
 
-        # 3. Aggressive character and format repair
-        repaired = LLMResponseParser._repair_json_string(json_text)
+        # Regex: optional comment prefix, "filename:" label, capture path
+        delimiter_re = re.compile(
+            r"(?:^|\n)\s*(?://|#)\s*filename:\s*(\S+)\s*\n",
+            re.IGNORECASE,
+        )
 
-        # 4. Multi-attempt parsing
-        result = None
-        try:
-            result = json.loads(repaired)
-        except:
-            # Heuristic search for first [ or { and corresponding closer
-            fb = repaired.find("[")
-            fbr = repaired.find("{")
+        files: Dict[str, str] = {}
+        positions = [(m.start(), m.group(1), m.end()) for m in delimiter_re.finditer(text)]
 
-            if fb != -1 and (fbr == -1 or fb < fbr):
-                start, closer = fb, "]"
-            elif fbr != -1:
-                start, closer = fbr, "}"
+        for idx, (start, fname, content_start) in enumerate(positions):
+            # Grab text up to next delimiter (or end of string)
+            next_start = positions[idx + 1][0] if idx + 1 < len(positions) else len(text)
+            segment = text[content_start:next_start]
+
+            # Extract fenced block if present (closed or unclosed)
+            closed = re.search(r"```(?:\w+)?\n?([\s\S]*?)\n?```", segment)
+            if closed:
+                files[fname] = closed.group(1).strip()
             else:
-                return None
-
-            last = repaired.rfind(closer)
-            if last > start:
-                candidate = repaired[start : last + 1]
-                try:
-                    result = json.loads(candidate)
-                except:
-                    pass
-
-        # 5. SURGICAL EXTRACTION (The "flattening" logic)
-        if isinstance(result, dict):
-            wrappers = [
-                "backlog",
-                "tasks",
-                "files",
-                "folders",
-                "plan",
-                "architecture",
-                "structure",
-                "risks",
-                "items",
-                "logic_plan",
-            ]
-            for key in wrappers:
-                if key in result and isinstance(result[key], (list, dict)):
-                    other_keys = [k for k in result.keys() if k != key]
-                    if not other_keys or all(not isinstance(result[k], (list, dict)) for k in other_keys):
-                        return result[key]
-            if len(result) <= 2:
-                for val in result.values():
-                    if isinstance(val, list) and len(val) > 0:
-                        return val
-
-        return result
-
-    @staticmethod
-    def _repair_json_string(s: str) -> str:
-        """Applies multiple heuristics to fix common LLM JSON errors."""
-        if not s:
-            return s
-
-        # Basic cleanup of encoding artifacts and smart quotes
-        s = s.replace("â€\u009d", '"').replace("â€œ", '"').replace("â€™", "'").replace("â€˜", "'")
-        s = s.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-
-        # Remove comments
-        s = re.sub(r"//.*$", "", s, flags=re.M)
-        s = re.sub(r"/\*[\s\S]*?\*/", "", s)
-
-        # Fix literal newlines inside strings
-        def fix_newlines(match):
-            return match.group(0).replace("\n", "\\n").replace("\r", "")
-
-        s = re.sub(r'"[\s\S]*?"', fix_newlines, s)
-
-        # Fix hallucinated notes in parentheses after values
-        s = re.sub(r'("[\s\S]*?")\s*\([\s\S]*?\)', r"\1", s)
-
-        # Remove trailing commas
-        s = re.sub(r",\s*([\]}])", r"\1", s)
-
-        # Fix unescaped backslashes (common in Windows paths)
-        s = re.sub(r'\\(?!["\\/bfnrtu])', r"\\\\", s)
-
-        # Final cleanup
-        s = s.replace("\t", "    ")
-
-        return s.strip()
-
-    @staticmethod
-    def extract_thought_action(response: str) -> Tuple[str, str]:
-        """Extract (thought, action) from an LLM response."""
-        if not response:
-            return ("", "")
-
-        cleaned, _ = LLMResponseParser.remove_think_blocks(response)
-
-        # Format 1: JSON {"thought": "...", "action": "..."}
-        json_candidate = LLMResponseParser.extract_json(cleaned)
-        if isinstance(json_candidate, dict):
-            thought = str(json_candidate.get("thought", ""))
-            action = str(json_candidate.get("action", ""))
-            if thought or action:
-                return (thought, action)
-
-        # Format 2: <thought>...</thought><action>...</action> tags
-        thought_match = re.search(r"<thought>([\s\S]*?)</thought>", cleaned, re.I)
-        action_match = re.search(r"<action>([\s\S]*?)</action>", cleaned, re.I)
-        if thought_match or action_match:
-            thought = thought_match.group(1).strip() if thought_match else ""
-            action = action_match.group(1).strip() if action_match else ""
-            return (thought, action)
-
-        # Fallback: treat entire cleaned response as action
-        return ("", cleaned.strip())
-
-    @staticmethod
-    def extract_multiple_files(response: str) -> Dict[str, str]:
-        """Extracts multiple files from a single response using # filename: markers."""
-        cleaned, _ = LLMResponseParser.remove_think_blocks(response)
-        files = {}
-        lines = cleaned.splitlines()
-        content, name, in_block, pot_name = [], None, False, None
-
-        for line in lines:
-            stripped = line.strip()
-            if not in_block:
-                m = re.search(r"(?:#|//)[\s]*filename:\s*([^\n]+)", stripped)
-                if m:
-                    pot_name = Path(m.group(1).strip()).as_posix().replace("..", "").lstrip("/")
-                    continue
-
-            if stripped.startswith("```"):
-                if in_block:
-                    if name:
-                        files[name] = LLMResponseParser.extract_single_code_block("\n".join(content))
-                    content, name, in_block, pot_name = [], None, False, None
+                unclosed = re.search(r"```(?:\w+)?\n?([\s\S]+)", segment)
+                if unclosed:
+                    files[fname] = unclosed.group(1).strip()
                 else:
-                    in_block = True
-                    if pot_name:
-                        name, pot_name = pot_name, None
-                    elif "# filename:" in line:
-                        name = Path(line.split("# filename:", 1)[1].strip()).as_posix().replace("..", "").lstrip("/")
-            elif in_block:
-                if name is None and stripped.startswith(("# filename:", "// filename:")):
-                    name = Path(stripped.split(":", 1)[1].strip()).as_posix().replace("..", "").lstrip("/")
-                else:
-                    content.append(line)
-
-        if in_block and name:
-            files[name] = LLMResponseParser.extract_single_code_block("\n".join(content))
+                    stripped = segment.strip()
+                    if stripped:
+                        files[fname] = stripped
 
         return files
+
+    # ------------------------------------------------------------------
+    # Thought / action extraction
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def extract_thought_action(text: str) -> Tuple[str, str]:
+        """
+        Extracts a (thought, action) pair from an LLM response.
+
+        Supported formats (tried in order):
+        1. JSON  ``{"thought": "...", "action": "..."}``
+        2. XML   ``<thought>...</thought><action>...</action>``
+        3. Fallback: entire (cleaned) text becomes the *action*; thought is empty.
+        """
+        if not text:
+            return "", ""
+
+        # Strip internal reasoning blocks first
+        cleaned, _ = LLMResponseParser.remove_think_blocks(text)
+
+        if not cleaned:
+            return "", ""
+
+        # 1. Try JSON
+        parsed = LLMResponseParser.extract_json(cleaned)
+        if isinstance(parsed, dict):
+            thought = str(parsed.get("thought", ""))
+            action = str(parsed.get("action", ""))
+            return thought, action
+
+        # 2. Try XML tags
+        t_match = re.search(r"<thought>([\s\S]*?)</thought>", cleaned, re.IGNORECASE)
+        a_match = re.search(r"<action>([\s\S]*?)</action>", cleaned, re.IGNORECASE)
+        if t_match or a_match:
+            thought = t_match.group(1).strip() if t_match else ""
+            action = a_match.group(1).strip() if a_match else ""
+            return thought, action
+
+        # 3. Fallback — plain text → action only
+        return "", cleaned.strip()
+
+    # ------------------------------------------------------------------
+    # Miscellaneous helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def parse_tool_calls(text: str) -> List[Dict]:
+        """
+        Extracts tool calls from plain-text LLM output (manual fallback for models
+        that emit JSON instead of using native function-calling).
+
+        Returns a list of ``{"name": str, "arguments": dict}`` dicts.
+        """
+        if not text:
+            return []
+
+        text, _ = LLMResponseParser.remove_think_blocks(text)
+
+        candidates: List[str] = []
+        for m in re.finditer(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE):
+            candidates.append(m.group(1).strip())
+        candidates.append(text.strip())
+
+        tool_calls: List[Dict] = []
+        seen: set = set()
+
+        for candidate in candidates:
+            if not candidate:
+                continue
+            try:
+                parsed = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+
+            items = parsed if isinstance(parsed, list) else [parsed]
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                name = item.get("name") or item.get("function") or item.get("tool")
+                args = item.get("arguments") or item.get("parameters") or item.get("args") or {}
+                if name and isinstance(args, dict):
+                    key = (name, json.dumps(args, sort_keys=True))
+                    if key not in seen:
+                        seen.add(key)
+                        tool_calls.append({"name": name, "arguments": args})
+
+        return tool_calls
+
+    @staticmethod
+    def clean_markdown_artifacts(text: str) -> str:
+        """
+        Aggressively removes markdown fences and other common LLM artifacts.
+        Useful when the LLM wraps code in markdown despite instructions.
+        """
+        if not text:
+            return ""
+
+        text = re.sub(r"```(?:\w+)?\n?", "", text)
+        text = text.replace("```", "")
+        return text.strip()

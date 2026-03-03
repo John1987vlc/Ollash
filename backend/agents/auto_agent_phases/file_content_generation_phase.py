@@ -36,6 +36,8 @@ class FileContentGenerationPhase(BasePhase):
             self.context.build_api_map(generated_files)
         _use_signatures = self.context._is_small_model("coder")
 
+        await self.context.event_publisher.publish("phase_start", phase="4", message="Starting agile backlog execution")
+
         backlog = getattr(self.context, "backlog", [])
         if not backlog and hasattr(self.context, "logic_plan"):
             for i, (path, plan) in enumerate(self.context.logic_plan.items()):
@@ -97,7 +99,7 @@ class FileContentGenerationPhase(BasePhase):
                 self.context.logger.info(f"    Skipped: Binary file detected ({file_path})")
                 generated_files[file_path] = ""
                 # Move to done in Kanban anyway
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "agent_board_update", action="move_task", task_id=task_id, new_status="done"
                 )
                 continue
@@ -115,7 +117,7 @@ class FileContentGenerationPhase(BasePhase):
                         f"project type '{_ptype.project_type}'"
                     )
                     generated_files[file_path] = ""
-                    self.context.event_publisher.publish(
+                    await self.context.event_publisher.publish(
                         "agent_board_update",
                         action="move_task",
                         task_id=task_id,
@@ -124,13 +126,13 @@ class FileContentGenerationPhase(BasePhase):
                     continue
 
             # Notify progress to Kanban Board
-            self.context.event_publisher.publish(
+            await self.context.event_publisher.publish(
                 "agent_board_update", action="move_task", task_id=task_id, new_status="in_progress"
             )
 
             try:
                 # 1. Prepare context + build prompts
-                ctx_data = self._prepare_task_context(
+                ctx_data = await self._prepare_task_context(
                     task=task,
                     file_path=file_path,
                     task_type=task_type,
@@ -141,7 +143,7 @@ class FileContentGenerationPhase(BasePhase):
                 )
                 context_files_content = ctx_data["context_files_content"]
 
-                system_prompt, user_prompt = AutoGenPrompts.micro_task_execution(
+                system_prompt, user_prompt = await AutoGenPrompts.micro_task_execution(
                     title=title,
                     description=task.get("description", ""),
                     file_path=file_path,
@@ -192,6 +194,7 @@ class FileContentGenerationPhase(BasePhase):
 
                     # 4. XML Extraction via Regex (Case-insensitive and robust to whitespace)
                     import re
+                    from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
                     codigo_match = re.search(
                         r"<code_created>([\s\S]*?)(?:</code_created>|$)", raw_response, re.IGNORECASE
@@ -200,15 +203,12 @@ class FileContentGenerationPhase(BasePhase):
                     if not codigo_match:
                         # FALLBACK: If the model failed tags but used markdown blocks, try to rescue it
                         if "```" in raw_response:
-                            from backend.utils.core.llm.llm_response_parser import LLMResponseParser
-
                             # Use language-aware extraction to prefer the block matching the file extension
                             content = LLMResponseParser.extract_code_block_for_file(raw_response, file_path)
                             if content:
                                 self.context.logger.info(
                                     f"    ⚠ Attempt {attempts}: Rescued code from markdown block (Missing XML tags)."
                                 )
-                                # We continue to validation
                             else:
                                 last_error = (
                                     "FORMAT FAILURE: Missing <code_created> tags and no valid code block found."
@@ -221,8 +221,13 @@ class FileContentGenerationPhase(BasePhase):
                             continue
                     else:
                         content = codigo_match.group(1).strip()
-                    # Clean residual markdown if the SLM included it inside tags
-                    content = re.sub(r"```(?:\w+)?\n?", "", content).replace("```", "").strip()
+                    
+                    # Radical cleaning: remove any leftover markdown artifacts even if found inside tags
+                    content = LLMResponseParser.clean_markdown_artifacts(content)
+
+                    # Fix 3: Ensure HTML files declare UTF-8 charset so suit symbols render correctly
+                    if file_path.endswith(".html") and "<meta charset" not in content.lower():
+                        content = content.replace("<head>", '<head>\n  <meta charset="UTF-8">', 1)
 
                     # Opt 6: Active shadow validation — format check + nano repair
                     if self.context._opt_enabled("opt6_active_shadow"):
@@ -230,7 +235,7 @@ class FileContentGenerationPhase(BasePhase):
                             lang = self.context.infer_language(file_path)
                             shadow = getattr(self.context, "shadow_evaluator", None)
                             if shadow is not None:
-                                content, _ = shadow.active_shadow_validate(
+                                content, _ = await shadow.active_shadow_validate(
                                     file_path,
                                     content,
                                     lang,
@@ -253,7 +258,7 @@ class FileContentGenerationPhase(BasePhase):
                             if not hasattr(self, "_critic_loop"):
                                 self._critic_loop = CriticLoop(self.context.llm_manager, self.context.logger)
                             _lang = self.context.infer_language(file_path)
-                            _critic_feedback = self._critic_loop.review(file_path, content, _lang)
+                            _critic_feedback = await self._critic_loop.review(file_path, content, _lang)
                             if _critic_feedback:
                                 last_error = f"CRITIC FEEDBACK: {_critic_feedback}"
                                 self.context.logger.info(f"    [Critic] Issues in '{file_path}': {_critic_feedback}")
@@ -298,7 +303,7 @@ class FileContentGenerationPhase(BasePhase):
                             self.context.logger,
                             self.context.response_parser,
                         )
-                        content = patcher.inject_missing_function(
+                        content = await patcher.inject_missing_function(
                             file_path=file_path,
                             content=content,
                             requirement=missing_req,
@@ -321,11 +326,11 @@ class FileContentGenerationPhase(BasePhase):
 
                 # F2: TDD Agéntico — run a minimal unit test and auto-correct on failure
                 if content and file_path.endswith(".py"):
-                    content = self._run_tdd_loop(file_path, content)
+                    content = await self._run_tdd_loop(file_path, content)
 
                 # 6. Final Save and Notification
                 if content:
-                    self._save_task_result(
+                    await self._save_task_result(
                         file_path=file_path,
                         content=content,
                         task=task,
@@ -353,7 +358,7 @@ class FileContentGenerationPhase(BasePhase):
 
         return generated_files, initial_structure, file_paths
 
-    def _prepare_task_context(
+    async def _prepare_task_context(
         self,
         task: Dict[str, Any],
         file_path: str,
@@ -389,6 +394,33 @@ class FileContentGenerationPhase(BasePhase):
         file_logic_plan = getattr(self.context, "logic_plan", {}).get(file_path, {})
         logic_plan_section = self._format_logic_plan_for_prompt(file_logic_plan)
 
+        # Fix 2: Inject DOM contract hint so JS and HTML files share the same element IDs
+        _dom_contracts: dict = getattr(self.context, "dom_contracts", {})
+        if _dom_contracts:
+            _ext = file_path.rsplit(".", 1)[-1].lower() if "." in file_path else ""
+            if _ext in ("js", "ts", "jsx", "tsx"):
+                # JS: tell the LLM which IDs it MUST reference
+                _all_ids = [_id for ids in _dom_contracts.values() for _id in ids]
+                if _all_ids:
+                    _ids_str = ", ".join(f'"{i}"' for i in _all_ids)
+                    logic_plan_section += (
+                        f"\n\n## DOM CONTRACT\n"
+                        f"CRITICAL: Use ONLY these element IDs when calling getElementById/querySelector: {_ids_str}\n"
+                        f"Do NOT invent new IDs that are not in this list."
+                    )
+            elif _ext == "html":
+                # HTML: tell the LLM which IDs it MUST declare
+                _relevant_ids = _dom_contracts.get(file_path, [])
+                if not _relevant_ids:
+                    _relevant_ids = [_id for ids in _dom_contracts.values() for _id in ids]
+                if _relevant_ids:
+                    _ids_str = ", ".join(f'id="{i}"' for i in _relevant_ids)
+                    logic_plan_section += (
+                        f"\n\n## DOM CONTRACT\n"
+                        f"CRITICAL: Declare ALL of these element IDs in the HTML: {_ids_str}\n"
+                        f"JavaScript files depend on these exact IDs being present."
+                    )
+
         # Opt 1: Allowed-actions block from task_type
         allowed_actions: str | None = None
         if self.context._opt_enabled("opt1_prompt_state_machine"):
@@ -423,7 +455,7 @@ class FileContentGenerationPhase(BasePhase):
             try:
                 _fs_language = self.context.infer_language(file_path)
                 _fs_purpose = task.get("description", task.get("title", ""))
-                _examples = self.context.fragment_cache.get_similar_examples(
+                _examples = await self.context.fragment_cache.get_similar_examples(
                     language=_fs_language, purpose=_fs_purpose, max_examples=2
                 )
                 if _examples:
@@ -443,7 +475,7 @@ class FileContentGenerationPhase(BasePhase):
             "few_shot_section": few_shot_section,
         }
 
-    def _save_task_result(
+    async def _save_task_result(
         self,
         file_path: str,
         content: str,
@@ -471,7 +503,7 @@ class FileContentGenerationPhase(BasePhase):
             try:
                 _s_language = self.context.infer_language(file_path)
                 _s_purpose = task.get("description", title)
-                self.context.fragment_cache.store_example(language=_s_language, purpose=_s_purpose, code=content)
+                await self.context.fragment_cache.store_example(language=_s_language, purpose=_s_purpose, code=content)
             except Exception:
                 pass
 
@@ -488,7 +520,7 @@ class FileContentGenerationPhase(BasePhase):
             current_objective=next_title,
         )
 
-        self.context.event_publisher.publish(
+        await self.context.event_publisher.publish(
             "agent_board_update", action="move_task", task_id=task_id, new_status="done"
         )
 
@@ -512,7 +544,7 @@ class FileContentGenerationPhase(BasePhase):
                 self.context.response_parser,
             )
 
-            content = enhanced_gen.generate_file_with_plan(file_path, plan, "", readme, structure, related)
+            content = await enhanced_gen.generate_file_with_plan(file_path, plan, "", readme, structure, related)
             return content
         except Exception as e:
             self.context.logger.debug(f"Enhanced generation failed, falling back: {e}")
@@ -595,7 +627,7 @@ class FileContentGenerationPhase(BasePhase):
                 lines.append(f"  {step}")
         return "\n".join(lines) if lines else "(Plan has no structured details)"
 
-    def _run_tdd_loop(self, file_path: str, content: str, max_retries: int = 2) -> str:
+    async def _run_tdd_loop(self, file_path: str, content: str, max_retries: int = 2) -> str:
         """F2: TDD Agéntico — generate a minimal unit test, run it, auto-correct on failure.
 
         Only operates on Python files. For all other file types the content is
@@ -617,7 +649,7 @@ class FileContentGenerationPhase(BasePhase):
             return content
 
         try:
-            test_code = self._generate_minimal_test(file_path, content)
+            test_code = await self._generate_minimal_test(file_path, content)
             if not test_code:
                 return content
 
@@ -646,7 +678,7 @@ class FileContentGenerationPhase(BasePhase):
 
                     error_output = (result.stdout + result.stderr)[-1500:]
                     self.context.logger.info(f"  [TDD] Test failed (attempt {attempt}/{max_retries}), correcting...")
-                    content = self._correct_via_tdd_error(file_path, content, error_output)
+                    content = await self._correct_via_tdd_error(file_path, content, error_output)
                     src_file.write_text(content, encoding="utf-8")
 
         except subprocess.TimeoutExpired:
@@ -658,7 +690,7 @@ class FileContentGenerationPhase(BasePhase):
 
         return content
 
-    def _generate_minimal_test(self, file_path: str, content: str) -> str:
+    async def _generate_minimal_test(self, file_path: str, content: str) -> str:
         """Ask the LLM for a single unit test for the most complex function in *content*."""
         try:
             import ast as _ast
@@ -680,7 +712,7 @@ class FileContentGenerationPhase(BasePhase):
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
+            prompts = await loader.load_prompt("domains/auto_generation/code_gen.yaml")
             system = prompts.get("tdd_minimal_test", {}).get("system", "")
             user_template = prompts.get("tdd_minimal_test", {}).get("user", "")
             if not system or not user_template:
@@ -707,7 +739,7 @@ class FileContentGenerationPhase(BasePhase):
             self.context.logger.debug(f"  [TDD] Test generation failed: {exc}")
             return ""
 
-    def _correct_via_tdd_error(self, file_path: str, content: str, error_output: str) -> str:
+    async def _correct_via_tdd_error(self, file_path: str, content: str, error_output: str) -> str:
         """Ask the LLM to fix *content* given the pytest *error_output*."""
         try:
             correction_prompt = (

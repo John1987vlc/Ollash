@@ -26,7 +26,7 @@ class FileRefinementPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5: Refining files...")
-        self.context.event_publisher.publish("phase_start", phase="5", message="Refining files")
+        await self.context.event_publisher.publish("phase_start", phase="5", message="Refining files")
 
         files_to_refine = list(generated_files.items())
         total_files = len(files_to_refine)
@@ -34,7 +34,7 @@ class FileRefinementPhase(IAgentPhase):
         for idx, (rel_path, content) in enumerate(files_to_refine, 1):
             if not content or len(content) < 10:
                 continue
-            self.context.event_publisher.publish(
+            await self.context.event_publisher.publish(
                 "tool_start",
                 tool_name="file_refinement",
                 file=rel_path,
@@ -42,18 +42,18 @@ class FileRefinementPhase(IAgentPhase):
             )
             self.context.logger.info(f"  [{idx}/{total_files}] Refining {rel_path}")
             try:
-                refined = self.context.file_refiner.refine_file(rel_path, content, readme_content[:1000])
+                refined = await self.context.file_refiner.refine_file(rel_path, content, readme_content[:1000])
                 if refined:
                     generated_files[rel_path] = refined
                     self.context.file_manager.write_file(project_root / rel_path, refined)
-                    self.context.event_publisher.publish(
+                    await self.context.event_publisher.publish(
                         "tool_output",
                         tool_name="file_refinement",
                         file=rel_path,
                         status="success",
                     )
                 else:
-                    self.context.event_publisher.publish(
+                    await self.context.event_publisher.publish(
                         "tool_output",
                         tool_name="file_refinement",
                         file=rel_path,
@@ -62,16 +62,16 @@ class FileRefinementPhase(IAgentPhase):
                     )
             except Exception as e:
                 self.context.logger.error(f"  Error refining {rel_path}: {e}")
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "tool_output",
                     tool_name="file_refinement",
                     file=rel_path,
                     status="error",
                     message=str(e),
                 )
-            self.context.event_publisher.publish("tool_end", tool_name="file_refinement", file=rel_path)
+            await self.context.event_publisher.publish("tool_end", tool_name="file_refinement", file=rel_path)
 
-        self.context.event_publisher.publish("phase_complete", phase="5", message="Files refined")
+        await self.context.event_publisher.publish("phase_complete", phase="5", message="Files refined")
         self.context.logger.info("PHASE 5 complete.")
 
         return generated_files, initial_structure, file_paths

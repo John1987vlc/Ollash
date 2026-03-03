@@ -1,7 +1,7 @@
 """Unit tests for Blackboard."""
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from backend.agents.orchestrators.blackboard import Blackboard
 from backend.utils.core.system.event_publisher import EventPublisher
 
@@ -10,7 +10,7 @@ from backend.utils.core.system.event_publisher import EventPublisher
 def blackboard():
     ep = MagicMock(spec=EventPublisher)
     ep.subscribe = MagicMock()
-    ep.publish = MagicMock()
+    ep.publish = AsyncMock()
     logger = MagicMock()
     return Blackboard(event_publisher=ep, logger=logger)
 

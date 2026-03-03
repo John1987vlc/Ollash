@@ -137,7 +137,7 @@ class AutomationTaskExecutor:
 
                     elif action_type == "publish_event":
                         # Publish event
-                        self.event_publisher.publish(
+                        await self.event_publisher.publish(
                             action.get("event_name", "automation:triggered"),
                             event_data=action.get("event_data", {}),
                         )
@@ -232,7 +232,7 @@ class AutomationTaskExecutor:
                 )
 
             # Publish event for UI feedback
-            self.event_publisher.publish(
+            await self.event_publisher.publish(
                 "task:completed",
                 event_data={
                     "task_id": task_id,
@@ -257,7 +257,7 @@ class AutomationTaskExecutor:
                 )
 
             # Publish error event
-            self.event_publisher.publish(
+            await self.event_publisher.publish(
                 "task:error",
                 event_data={
                     "task_id": task_id,

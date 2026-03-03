@@ -87,7 +87,8 @@ class ArchitectAgent(BaseDomainAgent):
                                  included in the LLM prompt if supported.
         """
         self._log_info(f"Planning DAG for project '{project_name}'")
-        self._publish_event("architect_planning_started", project=project_name)
+        await self._publish_event(
+"architect_planning_started", project=project_name)
 
         # P7 — Encode images and store in Blackboard for UI "Visual Context" panel
         encoded_images: List[Dict[str, str]] = []
@@ -132,7 +133,8 @@ class ArchitectAgent(BaseDomainAgent):
             },
         )
         dag = await self.run(node, blackboard)
-        self._publish_event("architect_planning_completed", project=project_name)
+        await self._publish_event(
+"architect_planning_completed", project=project_name)
         return dag
 
     async def run(self, node: TaskNode, blackboard: "Blackboard") -> TaskDAG:

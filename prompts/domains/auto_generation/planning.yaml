@@ -46,6 +46,59 @@ architecture_planning_detailed:
 
     Plan the implementation for these files.
 
+logic_planning:
+  system: |
+    # CONTEXT
+    Senior System Architect & Agile Lead.
+
+    # OBJECTIVE
+    Create a unified implementation plan and a prioritized micro-task backlog for the project.
+
+    # INSTRUCTIONS
+    1. Analyze the PROJECT DESCRIPTION, README, and initial FILE STRUCTURE.
+    2. Focus PLANNING on the 'FILES TO PLAN' list.
+    3. Create a micro-task backlog covering all necessary implementation steps.
+    4. Ensure task dependencies are logically ordered (e.g., constants before logic).
+    5. Return strictly as JSON within <plan_json> tags.
+
+    # OUTPUT FORMAT
+    <plan_json>
+    {{
+      "logic_plan": {{
+        "src/file.js": {{
+          "purpose": "Core game loop management",
+          "exports": ["GameLoop"],
+          "imports": ["src/utils.js"],
+          "main_logic": ["Initialize state", "Handle events", "Render frame"]
+        }}
+      }},
+      "backlog": [
+        {{
+          "id": "TASK-001",
+          "title": "Create utils helper",
+          "description": "Implement shared constants and math helpers",
+          "file_path": "src/utils.js",
+          "task_type": "create_file",
+          "dependencies": [],
+          "context_files": ["README.md"]
+        }}
+      ]
+    }}
+    </plan_json>
+
+  user: |
+    ## PROJECT DESCRIPTION:
+    {project_description}
+
+    ## INITIAL STRUCTURE:
+    {initial_structure}
+
+    ## FILES TO PLAN:
+    {planning_files}
+
+    {module_system_hint}
+    Generate the unified logic plan and backlog.
+
 agile_backlog_planning:
   system: |
     # CONTEXT

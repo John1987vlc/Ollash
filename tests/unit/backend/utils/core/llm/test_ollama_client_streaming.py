@@ -9,11 +9,13 @@ from backend.utils.core.llm.ollama_client import OllamaClient
 
 
 def _make_client() -> OllamaClient:
+    logger = MagicMock()
+    logger.event_publisher.publish = AsyncMock()
     return OllamaClient(
         url="http://localhost:11434",
         model="llama3",
         timeout=30,
-        logger=MagicMock(),
+        logger=logger,
         config=MagicMock(),
         llm_recorder=None,
     )

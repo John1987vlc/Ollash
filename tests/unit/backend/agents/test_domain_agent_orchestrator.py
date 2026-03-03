@@ -6,6 +6,13 @@ from unittest.mock import MagicMock, AsyncMock
 from backend.agents.domain_agent_orchestrator import DomainAgentOrchestrator
 from backend.agents.orchestrators.task_dag import AgentType, TaskDAG, TaskNode
 
+def _make_ep():
+    ep = MagicMock()
+    ep.publish = AsyncMock()
+    return ep
+
+
+
 
 def make_simple_dag():
     dag = TaskDAG()
@@ -71,7 +78,7 @@ def orchestrator(mock_architect, mock_developer, mock_devops, mock_auditor, mock
         tool_dispatcher=MagicMock(),
         self_healing_loop=MagicMock(),
         locked_file_manager=MagicMock(),
-        event_publisher=MagicMock(),
+        event_publisher=_make_ep(),
         logger=MagicMock(),
         generated_projects_dir=tmp_path,
     )

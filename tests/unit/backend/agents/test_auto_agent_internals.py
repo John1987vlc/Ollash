@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from backend.agents.auto_agent import AutoAgent
 
 
@@ -65,7 +65,7 @@ async def test_update_ollash_manifest(agent):
     }
 
     with patch("backend.utils.core.llm.prompt_loader.PromptLoader") as mock_loader_cls:
-        mock_loader_cls.return_value.load_prompt.return_value = mock_prompts
+        mock_loader_cls.return_value.load_prompt = AsyncMock(return_value=mock_prompts)
         content = await agent._update_ollash_manifest("T1")
 
     assert content == "# Manifest content"
@@ -76,6 +76,7 @@ def test_finalize_project(agent):
     execution_plan = MagicMock()
     project_root = Path("/tmp/project")
     agent.event_publisher = MagicMock()
+    agent.phase_context.fragment_cache.stats = AsyncMock(return_value={})
 
     agent._finalize_project("test", project_root, 5, execution_plan)
 

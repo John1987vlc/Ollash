@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from backend.agents.auto_agent_phases.generation_execution_phase import TestGenerationExecutionPhase as PhaseUnderTest
 
 
@@ -9,8 +9,11 @@ def mock_context():
     ctx = MagicMock()
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
+    ctx.event_publisher.publish = AsyncMock()
     ctx.group_files_by_language.return_value = {"python": [("src/app.py", "print(1)")]}
     ctx.test_generator = MagicMock()
+    ctx.test_generator.generate_tests = AsyncMock()
+    ctx.test_generator.generate_integration_tests = AsyncMock(return_value=("", "", ".py"))
     ctx.file_manager = MagicMock()
     ctx.get_test_file_path.return_value = "tests/test_app.py"
     # Added to fix error in internals test
@@ -27,6 +30,7 @@ def phase_instance(mock_context):
 async def test_execute_test_generation_success(phase_instance, mock_context):
     mock_context.test_generator.generate_tests.return_value = "def test_app(): pass"
     mock_context.test_generator.execute_tests.return_value = {"success": True, "output": "...", "failures": []}
+    mock_context.test_generator.generate_integration_tests.return_value = ("", "", ".py")
 
     generated_files = {"src/app.py": "print(1)"}
     project_root = Path("/tmp/proj")
@@ -42,6 +46,7 @@ async def test_execute_test_generation_success(phase_instance, mock_context):
 @pytest.mark.asyncio
 async def test_execute_fails_if_no_tests_generated(phase_instance, mock_context):
     mock_context.test_generator.generate_tests.return_value = None
+    mock_context.test_generator.generate_integration_tests.return_value = ("", "", ".py")
 
     with pytest.raises(RuntimeError, match="MVP Requirement Failed"):
         await phase_instance.execute("desc", "name", Path("/tmp"), "readme", {}, {"a.py": ""})

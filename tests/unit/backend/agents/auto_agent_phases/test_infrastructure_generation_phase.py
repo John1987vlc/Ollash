@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from pathlib import Path
 from backend.agents.auto_agent_phases.infrastructure_generation_phase import InfrastructureGenerationPhase
 
@@ -11,6 +11,7 @@ def mock_context():
     ctx.file_manager = MagicMock()
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
+    ctx.event_publisher.publish = AsyncMock()
     return ctx
 
 

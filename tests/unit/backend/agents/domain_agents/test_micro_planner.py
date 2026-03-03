@@ -11,6 +11,13 @@ from unittest.mock import MagicMock, AsyncMock
 
 from backend.agents.domain_agents.developer_agent import DeveloperAgent
 
+def _make_ep():
+    ep = MagicMock()
+    ep.publish = AsyncMock()
+    return ep
+
+
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -33,7 +40,7 @@ def _make_developer_agent(llm_response: str = "", raise_exc: bool = False) -> De
         code_patcher=MagicMock(),
         locked_file_manager=MagicMock(),
         parallel_file_generator=MagicMock(),
-        event_publisher=MagicMock(),
+        event_publisher=_make_ep(),
         logger=MagicMock(),
         tool_dispatcher=MagicMock(),
         instance_id=0,
@@ -69,7 +76,7 @@ class TestDecomposeMicroSteps:
             code_patcher=MagicMock(),
             locked_file_manager=MagicMock(),
             parallel_file_generator=MagicMock(),
-            event_publisher=MagicMock(),
+            event_publisher=_make_ep(),
             logger=MagicMock(),
             tool_dispatcher=MagicMock(),
             instance_id=0,
@@ -115,7 +122,7 @@ class TestDecomposeMicroSteps:
             code_patcher=MagicMock(),
             locked_file_manager=MagicMock(),
             parallel_file_generator=MagicMock(),
-            event_publisher=MagicMock(),
+            event_publisher=_make_ep(),
             logger=MagicMock(),
             tool_dispatcher=MagicMock(),
             instance_id=0,

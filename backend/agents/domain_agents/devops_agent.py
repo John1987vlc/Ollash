@@ -81,7 +81,7 @@ class DevOpsAgent(BaseDomainAgent):
         generated_files: Dict[str, str] = blackboard.get_all_generated_files()
 
         self._log_info(f"Generating infrastructure for '{project_name}' ({len(generated_files)} source files)")
-        self._publish_event("devops_started", project=project_name)
+        await self._publish_event("devops_started", project=project_name)
 
         infra_files: Dict[str, str] = {}
 
@@ -105,7 +105,7 @@ class DevOpsAgent(BaseDomainAgent):
         for rel_path, content in infra_files.items():
             await blackboard.write(f"infra_files/{rel_path}", content, self.agent_id)
 
-        self._publish_event(
+        await self._publish_event(
             "infra_generated",
             project=project_name,
             file_count=len(infra_files),

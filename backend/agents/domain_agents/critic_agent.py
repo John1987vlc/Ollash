@@ -100,7 +100,7 @@ class CriticAgent(BaseDomainAgent):
             critique_count += 1
             total_warnings += len(warnings)
 
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "critic_scan_complete",
             agent_id=self.agent_id,
             files_scanned=len(generated),

@@ -12,6 +12,7 @@ Each execution:
 
 import logging
 import uuid
+import asyncio
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -45,17 +46,27 @@ class AutonomousMaintenanceTask:
     def register(self, automation_manager) -> None:
         """Register this task with the AutomationManager / APScheduler."""
         try:
+            # Helper to run async cycle in APScheduler thread
+            def _run_cycle_sync():
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    return loop.run_until_complete(self.run_cycle())
+                finally:
+                    loop.close()
+
             automation_manager.scheduler.add_job(
-                func=self.run_cycle,
+                func=_run_cycle_sync,
                 trigger="interval",
                 minutes=self.INTERVAL_MINUTES,
                 id=self.TASK_ID,
                 name="Ollash Autonomous Maintenance",
                 replace_existing=True,
             )
-            self.logger.info(f"Autonomous maintenance registered: every {self.INTERVAL_MINUTES}min")
+            # Use info_sync to avoid async publish in sync method
+            self.logger.info_sync(f"Autonomous maintenance registered: every {self.INTERVAL_MINUTES}min")
         except Exception as e:
-            self.logger.error(f"Failed to register maintenance task: {e}")
+            self.logger.debug(f"Failed to register maintenance task: {e}")
 
     def unregister(self, automation_manager) -> None:
         """Remove the maintenance job from the scheduler."""
@@ -64,14 +75,15 @@ class AutonomousMaintenanceTask:
         except Exception:
             pass
 
-    def run_cycle(self) -> Dict[str, Any]:
+    async def run_cycle(self) -> Dict[str, Any]:
         """Execute one maintenance cycle (called by APScheduler)."""
         self._cycle_count += 1
         cycle_id = f"maint-{uuid.uuid4().hex[:6]}"
         branch_name = f"auto-fix-{cycle_id}"
 
-        self.logger.info(f"Maintenance cycle #{self._cycle_count} started ({cycle_id})")
-        self.event_publisher.publish(
+        self.logger.info(
+f"Maintenance cycle #{self._cycle_count} started ({cycle_id})")
+        await self.event_publisher.publish(
             "maintenance_cycle_started",
             cycle_id=cycle_id,
             cycle_number=self._cycle_count,
@@ -92,8 +104,9 @@ class AutonomousMaintenanceTask:
             report["issues_found"] = len(issues)
 
             if not issues:
-                self.logger.info("No issues found in maintenance cycle")
-                self.event_publisher.publish(
+                self.logger.info(
+"No issues found in maintenance cycle")
+                await self.event_publisher.publish(
                     "maintenance_cycle_completed",
                     cycle_id=cycle_id,
                     report=report,
@@ -113,7 +126,8 @@ class AutonomousMaintenanceTask:
             report["tests_passed"] = test_result
 
             if not test_result:
-                self.logger.warning("Tests failed after fixes, reverting branch")
+                self.logger.warning(
+"Tests failed after fixes, reverting branch")
                 self.git.checkout(original_branch)
                 self.git._run_git("branch", "-D", branch_name)
                 report["branch"] = None
@@ -139,7 +153,7 @@ class AutonomousMaintenanceTask:
             self.logger.error(f"Maintenance cycle failed: {e}")
             report["error"] = str(e)
 
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "maintenance_cycle_completed",
             cycle_id=cycle_id,
             report=report,
@@ -166,7 +180,7 @@ class AutonomousMaintenanceTask:
                 except Exception:
                     continue
         except ImportError:
-            self.logger.info("RefactoringAnalyzer not available, using basic analysis")
+            self.logger.info_sync("RefactoringAnalyzer not available, using basic analysis")
             # Basic analysis: look for common issues
             for py_file in self.project_root.rglob("*.py"):
                 if any(skip in str(py_file) for skip in ("__pycache__", ".git", ".venv", "node_modules")):
@@ -236,10 +250,10 @@ class AutonomousMaintenanceTask:
             )
             if result.returncode == 0:
                 pr_url = result.stdout.strip()
-                self.logger.info(f"PR created: {pr_url}")
+                self.logger.info_sync(f"PR created: {pr_url}")
                 return pr_url
         except Exception as e:
-            self.logger.warning(f"Could not create PR: {e}")
+            self.logger.info_sync(f"Could not create PR: {e}")
 
         return None
 

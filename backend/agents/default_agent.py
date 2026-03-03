@@ -212,7 +212,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
         default_prompt_path = self.tool_settings_config.default_system_prompt_path  # From tool_settings_config
         try:
             loader = PromptLoader(prompts_dir=self._base_path / "prompts")
-            prompt_data = loader.load_prompt(default_prompt_path)
+            prompt_data = loader.load_prompt_sync(default_prompt_path)
 
             self.system_prompt = prompt_data.get("prompt", "")
             if not self.system_prompt:
@@ -274,13 +274,13 @@ RULES:
 
         try:
             loader = PromptLoader()
-            prompts = loader.load_prompt("core/services.yaml")
+            prompts = loader.load_prompt_sync("core/services.yaml")
 
             system = prompts.get("prompt_engineering", {}).get("system", "")
             user_template = prompts.get("prompt_engineering", {}).get("user", "")
             user = user_template.format(text=instruction)
 
-            preprocess_client = self.llm_manager.get_client("orchestration")  # Use llm_manager
+            preprocess_client = await self.llm_manager.get_client("orchestration")  # Use llm_manager
             response, _ = await preprocess_client.achat(
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], tools=[]
             )
@@ -300,7 +300,7 @@ RULES:
 
         try:
             loader = PromptLoader()
-            _prompts = loader.load_prompt("core/services.yaml")
+            _prompts = loader.load_prompt_sync("core/services.yaml")
 
             # Use translation standardization as base for final translation
             system = "You are a professional translator."
@@ -346,7 +346,7 @@ RULES:
 
         try:
             loader = PromptLoader()
-            prompts = loader.load_prompt("core/services.yaml")
+            prompts = loader.load_prompt_sync("core/services.yaml")
 
             audit_def = prompts.get("mission_audit", {})
             system = audit_def.get("system", "")
@@ -394,7 +394,7 @@ RULES:
 
             # 2. Prepare Tool Selection Prompt
             loader = PromptLoader()
-            prompts = loader.load_prompt("core/services.yaml")
+            prompts = loader.load_prompt_sync("core/services.yaml")
 
             sel_def = prompts.get("tool_selection", {})
             system = sel_def.get("system", "")
@@ -545,7 +545,7 @@ RULES:
             if intent_for_this_turn != "orchestrator":
                 try:
                     loader = PromptLoader()
-                    specialist_data = loader.load_prompt(
+                    specialist_data = loader.load_prompt_sync(
                         f"{intent_for_this_turn}/default_{intent_for_this_turn}_agent.yaml"
                     )
                     specialist_base_prompt = specialist_data.get("prompt") or specialist_data.get("system", "")
@@ -704,7 +704,8 @@ RULES:
                             # Clean the tags from the emitted token
                             token = chunk.replace("<thinking_process>", "").replace("</thinking_process>", "")
                             if token:
-                                self.event_publisher.publish("thinking_token", {"token": token})
+                                await self.event_publisher.publish("thinking_token", {"token": token})
+
 
                     # F31: Get schema-valid tools for this turn ONLY
                     turn_tool_definitions = self.tool_executor.get_tool_definitions(current_turn_tools)
@@ -862,8 +863,7 @@ RULES:
                             if correction_client:
                                 try:
                                     loader = PromptLoader()
-                                    prompts = loader.load_prompt("core/services.yaml")
-
+                                    prompts = loader.load_prompt_sync("core/services.yaml")
                                     system = prompts.get("self_correction", {}).get("system", "")
                                     user_template = prompts.get("self_correction", {}).get("user", "")
                                     user = user_template.format(

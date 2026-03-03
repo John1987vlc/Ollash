@@ -65,7 +65,7 @@ class FileContentGenerator:
         self.fragment_cache = fragment_cache  # Optional cache
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def generate_file(
+    async def generate_file(
         self,
         file_path: str,
         readme_content: str,
@@ -110,7 +110,7 @@ class FileContentGenerator:
 
         for attempt in range(max_retries):
             # F30: Fixed incorrect arguments (removed json_structure and related_files which prompt doesn't take)
-            system_prompt, user_prompt = AutoGenPrompts.file_content_generation(file_path, readme_content)
+            system_prompt, user_prompt = await AutoGenPrompts.file_content_generation(file_path, readme_content)
             # Append documentation context to the user prompt
             user_prompt += documentation_context
 

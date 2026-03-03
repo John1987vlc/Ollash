@@ -5,6 +5,13 @@ from unittest.mock import MagicMock, AsyncMock
 from backend.agents.domain_agents.devops_agent import DevOpsAgent
 from backend.agents.orchestrators.task_dag import AgentType, TaskNode
 
+def _make_ep():
+    ep = MagicMock()
+    ep.publish = AsyncMock()
+    return ep
+
+
+
 
 @pytest.fixture
 def mock_infra_gen():
@@ -49,7 +56,7 @@ def devops(mock_infra_gen):
     return DevOpsAgent(
         infra_generator=mock_infra_gen,
         cicd_healer=MagicMock(),
-        event_publisher=MagicMock(),
+        event_publisher=_make_ep(),
         logger=MagicMock(),
         tool_dispatcher=MagicMock(),
     )

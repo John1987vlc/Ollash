@@ -1,6 +1,7 @@
 import yaml
 import logging
 import json
+import asyncio
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -31,7 +32,7 @@ class PromptLoader:
         """Injects the PromptRepository for DB access."""
         self._repository = repository
 
-    def _get_db_prompt(self, role: str) -> Optional[Dict[str, Any]]:
+    async def _get_db_prompt(self, role: str) -> Optional[Dict[str, Any]]:
         """Attempt to load a prompt dictionary from the database."""
         if not self._repository:
             # Try to lazy load from main container to avoid circular imports
@@ -47,7 +48,7 @@ class PromptLoader:
 
         if self._repository:
             try:
-                text = self._repository.get_active_prompt(role)
+                text = await self._repository.get_active_prompt(role)
                 if text:
                     # Try to parse as JSON if it looks like one, otherwise return as system prompt
                     if text.strip().startswith("{") or text.strip().startswith("["):
@@ -57,14 +58,14 @@ class PromptLoader:
                 logger.debug(f"DB prompt load failed for {role}: {e}")
         return None
 
-    def load_prompt(self, relative_path: str) -> Dict[str, Any]:
+    async def load_prompt(self, relative_path: str) -> Dict[str, Any]:
         """
         Loads a prompt from DB (priority) or filesystem.
         """
         role_key = Path(relative_path).stem
 
         # 1. Try DB first
-        db_content = self._get_db_prompt(role_key)
+        db_content = await self._get_db_prompt(role_key)
         if db_content:
             return db_content
 
@@ -73,18 +74,26 @@ class PromptLoader:
             return self._cache[relative_path]
 
         # 3. Filesystem fallback
+        return self.load_prompt_sync(relative_path)
+
+    def load_prompt_sync(self, relative_path: str) -> Dict[str, Any]:
+        """
+        Synchronous version of load_prompt. 
+        SKIPS DB CHECK if not already in cache.
+        """
+        if relative_path in self._cache:
+            return self._cache[relative_path]
+
         file_path = self.prompts_dir / relative_path
 
-        # F29: More robust file finding - check if already absolute or relative to project root
         if not file_path.exists():
-            # Try finding prompts/ in current directory if not found in default prompts_dir
+            # Try variants...
             alt_path = Path("prompts") / relative_path
             if alt_path.exists():
                 file_path = alt_path
             elif not file_path.suffix:
                 file_path = file_path.with_suffix(".yaml")
                 if not file_path.exists():
-                    # Last ditch effort: search for prompts dir
                     possible_roots = [Path.cwd(), Path(__file__).parent.parent.parent.parent.parent]
                     for root in possible_roots:
                         candidate = root / "prompts" / relative_path
@@ -104,22 +113,18 @@ class PromptLoader:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = yaml.safe_load(f)
                 self._cache[relative_path] = content
-
-                # F29: Unified structure handling.
-                # If it's a single prompt file (with 'prompt' key), return it as is.
-                # If it's a service map (multiple systems), return the whole dict.
                 return content
         except Exception as e:
             logger.error(f"Error loading prompt file {file_path}: {e}")
             return {}
 
-    def get_prompt(self, file_path: str, key: str) -> Optional[str]:
+    async def get_prompt(self, file_path: str, key: str) -> Optional[str]:
         """Helper to get a specific prompt string from a file."""
-        content = self.load_prompt(file_path)
+        content = await self.load_prompt(file_path)
         return content.get(key)
 
-    def get_task_prompt(self, file_path: str, task_name: str) -> Optional[str]:
+    async def get_task_prompt(self, file_path: str, task_name: str) -> Optional[str]:
         """Helper to get a prompt from the 'tasks' dictionary in a file."""
-        content = self.load_prompt(file_path)
+        content = await self.load_prompt(file_path)
         tasks = content.get("tasks", {})
         return tasks.get(task_name)

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from pathlib import Path
 from backend.agents.auto_agent_phases.javascript_optimization_phase import JavaScriptOptimizationPhase
 
@@ -15,6 +15,7 @@ class TestJavaScriptOptimizationPhase:
         ctx = MagicMock()
         ctx.logger = MagicMock()
         ctx.event_publisher = MagicMock()
+        ctx.event_publisher.publish = AsyncMock()
         ctx.file_manager = MagicMock()
         ctx.llm_manager.get_client.return_value.chat = MagicMock(return_value=({"content": ""}, {}))
         ctx.response_parser.extract_raw_content = MagicMock(return_value="")
@@ -38,7 +39,7 @@ class TestJavaScriptOptimizationPhase:
         mock_context.llm_manager.get_client.return_value.chat.return_value = ({"content": fixed_html}, {})
         mock_context.response_parser.extract_raw_content.return_value = fixed_html
         with patch(_PROMPT_LOADER_PATH) as ml:
-            ml.return_value.load_prompt.return_value = _HTML_PROMPTS
+            ml.return_value.load_prompt = AsyncMock(return_value=_HTML_PROMPTS)
             new_files, _, _ = await phase.execute("", "", Path("."), "", {}, files)
         assert new_files["src/index.html"] == fixed_html
         mock_context.file_manager.write_file.assert_called()
@@ -55,7 +56,7 @@ class TestJavaScriptOptimizationPhase:
         fix_xml = "<fix file='src/engine.js'>class Engine { init() {} start() {} }</fix>"
         mock_context.llm_manager.get_client.return_value.chat.return_value = ({"content": fix_xml}, {})
         with patch(_PROMPT_LOADER_PATH) as ml:
-            ml.return_value.load_prompt.return_value = _CROSS_JS_PROMPTS
+            ml.return_value.load_prompt = AsyncMock(return_value=_CROSS_JS_PROMPTS)
             new_files, _, _ = await phase.execute("", "", Path("."), "", {}, files)
         assert "start() {}" in new_files["src/engine.js"]
         mock_context.file_manager.write_file.assert_called()

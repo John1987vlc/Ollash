@@ -1,7 +1,7 @@
 """Unit tests for FinalReviewPhase — git decision gate and push helpers."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -14,6 +14,7 @@ def _make_context():
     ctx = MagicMock()
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
+    ctx.event_publisher.publish = AsyncMock()
     ctx.file_completeness_checker = MagicMock()
     ctx.project_reviewer = MagicMock()
     ctx.file_manager = MagicMock()

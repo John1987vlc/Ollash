@@ -32,18 +32,20 @@ class LLMClientManager(IModelProvider):
         self.recorder = recorder
         self.token_tracker = token_tracker
         self.clients_by_model: Dict[str, OllamaClient] = {}
-        self.logger.info("LLMClientManager initialized.")
-        self._log_role_assignments()
+        # Use sync info to avoid async publish in constructor
+        self.logger.info_sync("LLMClientManager initialized.")
 
-    def _log_role_assignments(self):
-        self.logger.info("Agent Role to Model Assignments:")
+    async def _log_role_assignments(self):
+        self.logger.info(
+"Agent Role to Model Assignments:")
         if not self.config.agent_roles:
             self.logger.warning("No agent roles are defined in the configuration.")
             return
         for role, model in self.config.agent_roles.items():
-            self.logger.info(f"  - Role: '{role}' -> Model: '{model}'")
+            self.logger.info(
+f"  - Role: '{role}' -> Model: '{model}'")
 
-    def get_client(self, role: str) -> OllamaClient:
+    async def get_client(self, role: str) -> OllamaClient:
         """
         Retrieves an OllamaClient for a given agent role.
         It resolves the role to a model name using the configuration and
@@ -64,7 +66,8 @@ class LLMClientManager(IModelProvider):
             return self.clients_by_model[model_name]
 
         # Otherwise, create a new client for this model and cache it.
-        self.logger.info(f"Creating new OllamaClient for model '{model_name}' (for role '{role}').")
+        self.logger.info(
+f"Creating new OllamaClient for model '{model_name}' (for role '{role}').")
 
         new_client = OllamaClient(
             url=str(self.config.ollama_url),
@@ -79,7 +82,7 @@ class LLMClientManager(IModelProvider):
         self.clients_by_model[model_name] = new_client
         return new_client
 
-    def get_embedding_client(self) -> "OllamaClient":
+    async def get_embedding_client(self) -> "OllamaClient":
         """
         Retrieves a dedicated client for embedding tasks.
         """
@@ -88,9 +91,9 @@ class LLMClientManager(IModelProvider):
             raise ValueError("No embedding model is configured in 'LLMModelsConfig'.")
 
         # Use "embedding" as a special role to get a dedicated client
-        return self.get_client("embedding")
+        return await self.get_client("embedding")
 
-    def get_vision_client(self) -> "OllamaClient":
+    async def get_vision_client(self) -> "OllamaClient":
         """
         Retrieves a dedicated client for vision/multimodal tasks.
         Uses the configured vision_model or falls back to 'llava'.
@@ -100,7 +103,8 @@ class LLMClientManager(IModelProvider):
         if vision_model in self.clients_by_model:
             return self.clients_by_model[vision_model]
 
-        self.logger.info(f"Creating vision client for model '{vision_model}'.")
+        self.logger.info(
+f"Creating vision client for model '{vision_model}'.")
         new_client = OllamaClient(
             url=str(self.config.ollama_url),
             model=vision_model,

@@ -90,9 +90,11 @@ class CoreAgent(ABC):
         self.rag_context_selector = RAGContextSelector(self.config, chroma_db_path, None)
         self.rate_limiter = ConcurrentGPUAwareRateLimiter(logger=self.logger)
         self.session_resource_manager = SessionResourceManager()
+        benchmark_dir = self.ollash_root_dir / ".ollash" / "benchmarks"
+        benchmark_dir.mkdir(parents=True, exist_ok=True)
         self.benchmark_selector = AutoModelSelector(
             logger=self.logger,
-            benchmark_dir=self.ollash_root_dir / ".ollash" / "benchmarks",
+            benchmark_dir=benchmark_dir,
         )
         self.permission_manager = PermissionProfileManager(
             logger=self.logger,

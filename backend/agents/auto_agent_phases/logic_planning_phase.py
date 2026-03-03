@@ -4,8 +4,11 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from pydantic import ValidationError
+
 from backend.agents.auto_agent_phases.base_phase import BasePhase
 from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
+from backend.core.config_schemas import LogicPlanningOutput
 
 
 class LogicPlanningPhase(BasePhase):
@@ -38,64 +41,210 @@ class LogicPlanningPhase(BasePhase):
             f"[PROJECT_NAME:{project_name}] PHASE 2.5: Creating detailed logic plans for {len(file_paths)} files..."
         )
 
+        # F29: Use Pydantic-validated unified planning for better consistency
         logic_plan = {}
+        backlog = []
+        
+        # Select key files for planning
+        planning_files = [f for f in file_paths if "src/" in f or "app/" in f or "main" in f.lower()]
+        if not planning_files:
+            planning_files = file_paths[:10]
+        else:
+            planning_files = planning_files[:15]
 
-        # Group files by type/purpose
-        files_by_category = self._categorize_files(file_paths)
+        # Fix 1: Detect module system early so we can inject the hint into the LLM prompt
+        self._detect_module_system(file_paths, project_root)
+        _ms = getattr(self.context, "module_system", "")
+        if _ms == "esm":
+            _module_system_hint = "All JS/TS files MUST use ESM (import/export) syntax — never use require()."
+        elif _ms == "cjs":
+            _module_system_hint = "All JS/TS files MUST use CommonJS (require/module.exports) syntax — never use import/export."
+        else:
+            _module_system_hint = ""
 
-        # Accumulate exports from already-planned categories so later categories
-        # can see the API contracts and stay consistent (Fix 2)
-        already_planned_contracts: Dict[str, List[str]] = {}
+        system_prompt, user_prompt = await AutoGenPrompts.logic_planning(
+            project_description, json.dumps(initial_structure, indent=2), planning_files,
+            module_system_hint=_module_system_hint,
+        )
 
-        for category, files in files_by_category.items():
-            # Nano tier: cap at 5 files/category to avoid overwhelming small models
-            _max_files = 5 if self.context._is_small_model() else 15
-            files_to_plan = files[:_max_files]
-            self.context.logger.info(f"  Planning {category}: {len(files_to_plan)} files (limited from {len(files)})")
+        max_retries = 3
+        last_error = ""
 
-            # Generate a plan for this category, passing already-planned contracts
-            category_plan = await self._plan_category(
-                category,
-                files_to_plan,
-                project_description,
-                readme_content,
-                initial_structure,
-                already_planned_contracts,
-            )
+        for attempt in range(1, max_retries + 1):
+            try:
+                current_user_prompt = user_prompt
+                if last_error:
+                    current_user_prompt += f"\n\nCRITICAL: Previous output failed validation:\n{last_error}\n\nPlease fix the JSON structure and ensure all required fields are present."
 
-            for file_path, plan in category_plan.items():
-                logic_plan[file_path] = plan
-                # Register this file's exports so subsequent categories see them
-                already_planned_contracts[file_path] = plan.get("exports", [])
+                response_data, _ = self.context.llm_manager.get_client("planner").chat(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": current_user_prompt},
+                    ],
+                    options_override={"temperature": 0.2},
+                )
 
-        # Save plan to disk
+                raw_content = response_data.get("content", "")
+                parsed_json = self.context.response_parser.extract_json(raw_content)
+
+                if parsed_json is None:
+                    raise ValueError("Could not extract valid JSON from planner response.")
+
+                # Fix: If the LLM returned a list directly (common error), it's likely the backlog
+                if isinstance(parsed_json, list):
+                    self.context.logger.info("  ⚠ Planner returned a list instead of a dict. Interpreting as backlog.")
+                    backlog = parsed_json
+                    # Generate basic plans for the files in the backlog
+                    logic_plan = self._create_basic_plans(
+                        [t.get("file_path") for t in backlog if t.get("file_path")],
+                        "general",
+                        project_description
+                    )
+                    break
+
+                # Pydantic Validation (The "Hardening")
+                validated_output = LogicPlanningOutput.model_validate(parsed_json)
+                
+                # Convert back to dict for context storage
+                logic_plan = {k: v.model_dump() for k, v in validated_output.logic_plan.items()}
+                backlog = [t.model_dump() for t in validated_output.backlog]
+                
+                self.context.logger.info(f"  ✓ Logic planning and backlog validated on attempt {attempt}")
+                break
+
+            except (ValidationError, ValueError, Exception) as e:
+                last_error = str(e)
+                self.context.logger.warning(f"  ⚠ Logic planning attempt {attempt} failed validation: {last_error}")
+                if attempt == max_retries:
+                    self.context.logger.error("  ✖ Logic planning failed after max retries. Using legacy categorization fallback.")
+                    # Legacy fallback logic
+                    logic_plan, backlog = await self._legacy_planning_fallback(
+                        file_paths, project_description, readme_content, initial_structure
+                    )
+
+        # Save plans to disk
         plan_file = project_root / "IMPLEMENTATION_PLAN.json"
         self.context.file_manager.write_file(plan_file, json.dumps(logic_plan, indent=2))
         generated_files["IMPLEMENTATION_PLAN.json"] = json.dumps(logic_plan, indent=2)
 
-        # NEW: Generate Agile Backlog (Opt 4: incremental mode for small models)
-        self.context.logger.info("  Generating Agile Backlog of micro-tasks...")
-        if self.context._opt_enabled("opt4_incremental_backlog"):
-            backlog = await self._generate_backlog_incrementally(project_description, readme_content, initial_structure)
-        else:
-            backlog = await self._generate_backlog(project_description, readme_content, initial_structure)
-
         backlog_file = project_root / "BACKLOG.json"
         self.context.file_manager.write_file(backlog_file, json.dumps(backlog, indent=2))
         generated_files["BACKLOG.json"] = json.dumps(backlog, indent=2)
+
+        # F6: Serialize backlog to Kanban tasks.json
+        import datetime as _dt
+        tasks_kanban = {
+            "version": "1.0",
+            "project": project_name,
+            "created_at": _dt.datetime.now().isoformat(),
+            "columns": {
+                "todo": [
+                    {
+                        "id": t.get("id", f"TASK-{i+1:03d}"),
+                        "title": t.get("title", t.get("file_path", "")),
+                        "description": t.get("description", ""),
+                        "file_path": t.get("file_path", ""),
+                        "task_type": t.get("task_type", "create_file"),
+                        "dependencies": t.get("dependencies", []),
+                        "assignee": "agent",
+                        "status": "todo",
+                    }
+                    for i, t in enumerate(backlog)
+                ],
+                "in_progress": [],
+                "done": [],
+            },
+        }
+        tasks_json = json.dumps(tasks_kanban, indent=2)
+        tasks_file = project_root / "tasks.json"
+        self.context.file_manager.write_file(tasks_file, tasks_json)
+        generated_files["tasks.json"] = tasks_json
 
         # Store in context for FileContentGenerationPhase to use
         self.context.logic_plan = logic_plan
         self.context.backlog = backlog
 
         # Publish event for UI Kanban initialization
-        self.context.event_publisher.publish("agent_board_update", action="init_backlog", tasks=backlog)
+        await self.context.event_publisher.publish("agent_board_update", action="init_backlog", tasks=backlog)
 
         self.context.logger.info(
             f"[PROJECT_NAME:{project_name}] PHASE 2.5: Logic plan and Backlog ({len(backlog)} tasks) created."
         )
 
         return generated_files, initial_structure, file_paths
+
+    def _detect_module_system(self, file_paths: List[str], project_root: Path) -> None:
+        """Detect and store the JS module system (ESM or CJS) for this project.
+
+        Priority order:
+        1. ``package.json`` ``"type": "module"`` → ESM
+        2. Modern framework detected via tech_stack_info (React, Next.js, Vite, Nuxt) → ESM
+        3. Any ``.mjs`` file in the project → ESM
+        4. Default → CJS (safer for Node.js backends without a declared type)
+
+        Result is stored on ``context.module_system`` and persisted to
+        ``context.decision_blackboard`` so later phases can read it.
+        """
+        js_files = [f for f in file_paths if Path(f).suffix.lower() in (".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs")]
+        if not js_files:
+            # Not a JS/TS project — leave module_system blank
+            return
+
+        module_system = "cjs"  # default
+
+        # 1. Check package.json "type" field
+        pkg_path = project_root / "package.json"
+        if pkg_path.exists():
+            try:
+                import json as _json
+                pkg = _json.loads(pkg_path.read_text(encoding="utf-8"))
+                if pkg.get("type") == "module":
+                    module_system = "esm"
+            except Exception:
+                pass
+
+        # 2. Modern framework implies ESM
+        if module_system == "cjs":
+            tech = getattr(self.context, "tech_stack_info", None)
+            if tech is not None:
+                framework = (getattr(tech, "framework", "") or "").lower()
+                if any(f in framework for f in ("react", "next", "vite", "nuxt", "svelte", "angular")):
+                    module_system = "esm"
+
+        # 3. Any .mjs file → ESM
+        if module_system == "cjs" and any(Path(f).suffix.lower() == ".mjs" for f in js_files):
+            module_system = "esm"
+
+        self.context.module_system = module_system
+        try:
+            self.context.decision_blackboard.store("module_system", module_system)
+        except Exception:
+            pass
+        self.context.logger.info(f"  [Fix1] Module system decided: {module_system.upper()}")
+
+    async def _legacy_planning_fallback(self, file_paths, project_description, readme_content, initial_structure):
+        """Original categorized planning logic as a safe fallback."""
+        logic_plan = {}
+        files_by_category = self._categorize_files(file_paths)
+        already_planned_contracts = {}
+
+        for category, files in files_by_category.items():
+            _max_files = 5 if self.context._is_small_model() else 15
+            files_to_plan = files[:_max_files]
+            category_plan = await self._plan_category(
+                category, files_to_plan, project_description, readme_content, initial_structure, already_planned_contracts
+            )
+            for file_path, plan in category_plan.items():
+                logic_plan[file_path] = plan
+                already_planned_contracts[file_path] = plan.get("exports", [])
+
+        # Incremental backlog fallback
+        if self.context._opt_enabled("opt4_incremental_backlog"):
+            backlog = await self._generate_backlog_incrementally(project_description, readme_content, initial_structure)
+        else:
+            backlog = await self._generate_backlog(project_description, readme_content, initial_structure)
+            
+        return logic_plan, backlog
 
     async def _generate_backlog_incrementally(
         self,
@@ -104,25 +253,7 @@ class LogicPlanningPhase(BasePhase):
         initial_structure: Dict,
         max_tasks: int = 30,
     ) -> List[Dict]:
-        """Generate the Agile backlog ONE micro-task at a time (Opt 4).
-
-        Instead of asking the model for the full backlog in one shot (which overloads
-        3B models), this method iteratively asks for the NEXT task based on what has
-        been generated so far. The Blackboard / DecisionBlackboard is used as
-        short-term memory between iterations.
-
-        Falls back to :meth:`_generate_backlog` if zero tasks are produced.
-
-        Args:
-            project_description: High-level project description.
-            readme_content: README context (truncated).
-            initial_structure: Project file tree dict.
-            max_tasks: Hard ceiling to prevent infinite loops (default 30).
-
-        Returns:
-            List of micro-task dicts, each with ``id``, ``title``, ``file_path``,
-            ``task_type``, and ``dependencies``.
-        """
+        """Generate the Agile backlog ONE micro-task at a time (Opt 4)."""
         from backend.utils.core.llm.llm_response_parser import LLMResponseParser
         from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 
@@ -132,7 +263,7 @@ class LogicPlanningPhase(BasePhase):
         self.context.logger.info("  [Opt4] Using incremental backlog generation...")
 
         while len(backlog) < max_tasks:
-            system_prompt, user_prompt = AutoGenPrompts.next_backlog_task(
+            system_prompt, user_prompt = await AutoGenPrompts.next_backlog_task(
                 project_description=project_description,
                 initial_structure=structure_str,
                 backlog_so_far=backlog,
@@ -174,28 +305,21 @@ class LogicPlanningPhase(BasePhase):
                     task_data["id"] = f"TASK-{len(backlog) + 1:03d}"
 
                 backlog.append(task_data)
-
-                # Record decision for cross-phase memory
+                self.context.logger.info(f"  [Opt4] Task {task_data['id']}: {task_data.get('title', file_path)}")
                 try:
                     self.context.decision_blackboard.record_decision(
-                        key=f"backlog_task_{task_data['id']}",
-                        value=json.dumps(task_data),
-                        context=f"Incremental backlog task {task_data['id']}",
+                        f"task_{task_data['id']}", task_data.get("file_path", ""), "incremental_backlog"
                     )
                 except Exception:
                     pass
-
-                self.context.logger.info(f"  [Opt4] Task {task_data['id']}: {task_data.get('title', file_path)}")
 
             except Exception as exc:
                 self.context.logger.warning(f"  [Opt4] Incremental step failed: {exc}")
                 break
 
         if not backlog:
-            self.context.logger.info("  [Opt4] No tasks produced incrementally — falling back to batch generation.")
             return await self._generate_backlog(project_description, readme_content, initial_structure)
 
-        self.context.logger.info(f"  [Opt4] Incremental backlog complete: {len(backlog)} tasks.")
         return backlog
 
     async def _generate_backlog(
@@ -204,7 +328,7 @@ class LogicPlanningPhase(BasePhase):
         """Generates a list of micro-tasks from project context with retries and robust parsing."""
         from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
-        system_prompt, user_prompt = AutoGenPrompts.agile_backlog_planning(
+        system_prompt, user_prompt = await AutoGenPrompts.agile_backlog_planning(
             project_description=project_description,
             initial_structure=json.dumps(initial_structure, indent=2),
             readme_content=readme_content[:2000],
@@ -219,7 +343,7 @@ class LogicPlanningPhase(BasePhase):
             try:
                 current_user_prompt = user_prompt
                 if last_error:
-                    current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}\nPlease fix the JSON format. Ensure it is a valid JSON array of objects."
+                    current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}\nPlease fix the JSON format."
 
                 response_data, _ = self.context.llm_manager.get_client("planner").chat(
                     messages=[
@@ -231,36 +355,16 @@ class LogicPlanningPhase(BasePhase):
                 )
 
                 response_text = response_data.get("content", "")
-
-                # Use robust parser
                 backlog = LLMResponseParser.extract_json(response_text)
-
-                if not backlog:
-                    import re
-
-                    # Try to extract from tags specifically
-                    tag_match = re.search(
-                        r"<backlog_json>([\s\S]*?)(?:</backlog_json>|$)", response_text, re.IGNORECASE
-                    )
-                    if tag_match:
-                        backlog = LLMResponseParser.extract_json(tag_match.group(1))
 
                 if isinstance(backlog, list):
                     return backlog
-                else:
-                    # Log failed response for debugging
-                    import uuid
-
-                    fail_id = uuid.uuid4().hex[:6]
-                    fail_log = self.context.generated_projects_dir / f"FAILED_BACKLOG_{fail_id}_ATTEMPT_{attempts}.txt"
-                    self.context.file_manager.write_file(fail_log, response_text)
-                    raise ValueError(f"Response is not a JSON list. Raw response saved to {fail_log.name}")
+                raise ValueError("Response is not a JSON list.")
 
             except Exception as e:
                 last_error = str(e)
                 self.context.logger.warning(f"  ⚠ Attempt {attempts} failed to generate backlog: {e}")
                 if attempts == max_attempts:
-                    self.context.logger.error("  ✖ Backlog generation failed after max attempts. Using fallback.")
                     return self._create_fallback_backlog(initial_structure)
 
         return self._create_fallback_backlog(initial_structure)
@@ -268,19 +372,19 @@ class LogicPlanningPhase(BasePhase):
     def _create_fallback_backlog(self, initial_structure: Dict) -> List[Dict]:
         """Creates a basic backlog based on file structure if LLM fails."""
         backlog = []
-
-        # Flatten structure to get file paths
-        def get_files(struct, prefix=""):
+        
+        # Simple heuristic to extract files from initial_structure
+        def extract_files(node, current_path=""):
             files = []
-            for name, content in struct.items():
-                path = f"{prefix}/{name}" if prefix else name
-                if isinstance(content, dict) and content.get("type") == "file":
-                    files.append(path)
-                elif isinstance(content, dict):
-                    files.extend(get_files(content, path))
+            for file_name in node.get("files", []):
+                files.append(str(Path(current_path) / file_name).replace("\\", "/"))
+            for folder in node.get("folders", []):
+                folder_name = folder.get("name")
+                if folder_name:
+                    files.extend(extract_files(folder, str(Path(current_path) / folder_name)))
             return files
 
-        files = get_files(initial_structure)
+        files = extract_files(initial_structure)
         for i, file_path in enumerate(files):
             backlog.append(
                 {
@@ -295,149 +399,44 @@ class LogicPlanningPhase(BasePhase):
             )
         return backlog
 
-    def _categorize_files(self, file_paths: List[str]) -> Dict[str, List[str]]:
-        """Group files by their category (config, main logic, utilities, tests, etc)."""
-        categories = {
-            "config": [],
-            "main": [],
-            "utils": [],
-            "tests": [],
-            "docs": [],
-            "web": [],
-            "other": [],
-        }
+    def _create_basic_plans(self, file_paths: List[str], category: str, project_description: str) -> Dict[str, Any]:
+        """Create minimal per-file plans from project description without an LLM call.
 
+        Used as a unit-testable fallback when the main planning loop fails and as
+        a helper by ``_legacy_planning_fallback``.
+        """
+        plans: Dict[str, Any] = {}
         for file_path in file_paths:
-            if any(x in file_path for x in ["config", "settings", "env"]):
-                categories["config"].append(file_path)
-            elif any(x in file_path for x in ["test", "spec"]):
-                categories["tests"].append(file_path)
-            elif any(x in file_path for x in ["utils", "helper", "lib"]):
-                categories["utils"].append(file_path)
-            elif any(x in file_path for x in [".html", ".css", ".js", "web", "static"]):
-                categories["web"].append(file_path)
-            elif any(x in file_path for x in [".md", "README", "LICENSE"]):
-                categories["docs"].append(file_path)
-            elif any(x in file_path for x in ["main", "app", "server", "index", "__main__"]):
-                categories["main"].append(file_path)
-            else:
-                categories["other"].append(file_path)
+            file_stem = Path(file_path).stem
+            plans[file_path] = {
+                "purpose": f"Implement {file_stem} module for {project_description}",
+                "main_logic": [f"Implement core logic for {project_description} in {file_stem}"],
+                "exports": [file_stem],
+                "dependencies": [],
+                "validation_criteria": [f"{file_stem} functions correctly"],
+            }
+        return plans
 
-        # Remove empty categories
+    def _categorize_files(self, file_paths: List[str]) -> Dict[str, List[str]]:
+        """Group files by their category."""
+        categories = {"config": [], "main": [], "utils": [], "tests": [], "web": [], "other": []}
+        for file_path in file_paths:
+            if any(x in file_path for x in ["config", "settings", "env"]): categories["config"].append(file_path)
+            elif any(x in file_path for x in ["test", "spec"]): categories["tests"].append(file_path)
+            elif any(x in file_path for x in ["utils", "helper", "lib"]): categories["utils"].append(file_path)
+            elif any(x in file_path for x in [".html", ".css", ".js", "web"]): categories["web"].append(file_path)
+            elif any(x in file_path for x in ["main", "app", "server", "index"]): categories["main"].append(file_path)
+            else: categories["other"].append(file_path)
         return {k: v for k, v in categories.items() if v}
 
-    async def _plan_category(
-        self,
-        category: str,
-        files: List[str],
-        project_description: str,
-        readme_content: str,
-        initial_structure: Dict[str, Any],
-        already_planned_contracts: Dict[str, List[str]] = None,
-    ) -> Dict[str, Dict]:
-        """Create detailed plans for files in a category with robust parsing."""
+    async def _plan_category(self, category, files, project_description, readme_content, initial_structure, already_planned_contracts):
+        """Legacy categorized planning."""
         from backend.utils.core.llm.llm_response_parser import LLMResponseParser
-
-        files_list = "\n".join(f"- {f}" for f in files)
-
-        # Serialize already-planned contracts for the prompt (Fix 2)
-        contracts_text = ""
-        if already_planned_contracts:
-            lines = []
-            for fp, exports in already_planned_contracts.items():
-                exports_str = ", ".join(exports) if exports else "(none)"
-                lines.append(f"  {fp}: exports [{exports_str}]")
-            contracts_text = "\n".join(lines)
-
-        system_prompt, user_prompt = AutoGenPrompts.architecture_planning_detailed(
-            category=category,
-            files_list=files_list,
-            project_description=project_description,
-            already_planned_contracts=contracts_text,
+        system_prompt, user_prompt = await AutoGenPrompts.architecture_planning_detailed(
+            category=category, files_list="\n".join(f"- {f}" for f in files), project_description=project_description, already_planned_contracts=str(already_planned_contracts)
         )
-
-        attempts = 0
-        max_attempts = 3
-        last_error = ""
-
-        while attempts < max_attempts:
-            attempts += 1
-            try:
-                current_user_prompt = user_prompt
-                if last_error:
-                    current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}\nPlease ensure your output is a valid JSON object."
-
-                response_data, _ = self.context.llm_manager.get_client("planner").chat(
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": current_user_prompt},
-                    ],
-                    tools=[],
-                    options_override={"temperature": 0.3},
-                )
-
-                response_text = response_data.get("content", "")
-
-                if not response_text.strip():
-                    self.context.logger.warning(
-                        f"  ⚠ LLM returned empty response for category {category} (Attempt {attempts})"
-                    )
-                    continue
-
-                plans = LLMResponseParser.extract_json(response_text)
-
-                if not plans:
-                    # Intento desesperado: si no hay tags, buscar cualquier objeto JSON
-                    plans = LLMResponseParser.extract_json(response_text)
-
-                if isinstance(plans, dict) and (not files or any(f in plans for f in files)):
-                    return plans
-                else:
-                    # Log failed response for debugging
-                    fail_log = self.context.generated_projects_dir / f"FAILED_PLAN_{category}_{attempts}.txt"
-                    log_content = f"--- RAW RESPONSE ---\n{response_text}\n--- END RAW ---"
-                    self.context.file_manager.write_file(fail_log, log_content)
-                    raise ValueError(
-                        f"LLM returned invalid planning JSON for {category}. Raw response saved to {fail_log.name}"
-                    )
-
-            except Exception as e:
-                last_error = str(e)
-                self.context.logger.warning(f"  ⚠ Attempt {attempts} failed to plan category {category}: {e}")
-                if attempts == max_attempts:
-                    self.context.logger.error(
-                        f"  ✖ Planning for category {category} failed after max attempts. Using basic plans."
-                    )
-                    return self._create_basic_plans(files, category, project_description)
-
-        return self._create_basic_plans(files, category, project_description)
-
-    def _create_basic_plans(self, files: List[str], category: str, project_description: str) -> Dict[str, Dict]:
-        """Create basic fallback plans anchored to the original project description."""
-        plans = {}
-
-        # Validation: If project_description is too short, we might be losing intent
-        if len(project_description) < 10:
-            self.context.logger.warning("Project description is critically short for fallback planning.")
-
-        for file_path in files:
-            purpose = f"Implementation of {category} logic for: {project_description[:100]}..."
-            exports = []
-
-            if category == "config":
-                purpose = "System configuration and environment settings."
-                exports = ["Config", "get_config"]
-            elif category == "main":
-                purpose = f"Main entry point for {project_description[:50]}"
-                exports = ["main", "app"]
-
-            plans[file_path] = {
-                "purpose": purpose,
-                "exports": exports,
-                "imports": [],
-                "main_logic": [f"Develop core {category} logic aligned with: {project_description}"],
-                "validation": ["Verify alignment with initial project intent", "Execute unit tests"],
-                "dependencies": [],
-            }
-
-        return plans
+        response_data, _ = self.context.llm_manager.get_client("planner").chat(
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            options_override={"temperature": 0.3}
+        )
+        return LLMResponseParser.extract_json(response_data.get("content", "")) or {}

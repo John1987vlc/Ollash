@@ -6,6 +6,8 @@ subsequent RAG context selection includes these contracts and the LLM only
 needs to "fill in the blanks" when generating actual implementations.
 """
 
+import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -37,9 +39,16 @@ class InterfaceScaffoldingPhase(BasePhase):
         file_paths: List[str],
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
+        await self.context.event_publisher.publish(
+            "phase_start", phase=self.phase_id, message="Generating interface skeletons"
+        )
+        
         logic_plan = getattr(self.context, "logic_plan", {})
         if not logic_plan:
             self.context.logger.info("[InterfaceScaffolding] No logic plan found — skipping")
+            await self.context.event_publisher.publish(
+                "phase_complete", phase=self.phase_id, message="Skipped (no logic plan)"
+            )
             return generated_files, initial_structure, file_paths
 
         stub_count = 0
@@ -66,7 +75,62 @@ class InterfaceScaffoldingPhase(BasePhase):
                 self.context.logger.info(f"  Generated stub: {stub_path}")
 
         self.context.logger.info(f"[InterfaceScaffolding] {stub_count} stub files generated")
+
+        # Fix 2: Extract DOM contracts from HTML-related logic plan entries
+        self._extract_dom_contracts(logic_plan, project_root, generated_files)
+
+        await self.context.event_publisher.publish(
+            "phase_complete", phase=self.phase_id, message=f"Generated {stub_count} skeletons"
+        )
         return generated_files, initial_structure, file_paths
+
+    def _extract_dom_contracts(
+        self,
+        logic_plan: Dict[str, Any],
+        project_root: Path,
+        generated_files: Dict[str, str],
+    ) -> None:
+        """Scan logic_plan for HTML files and extract element IDs as a shared DOM contract.
+
+        Results are stored in ``context.dom_contracts`` as ``{html_path: [id, ...]}``.
+        A ``DOM_CONTRACTS.json`` file is also written to the project root for traceability.
+
+        Scans:
+        1. Logic plan ``main_logic`` and ``purpose`` text for ``id="..."`` patterns.
+        2. Any already-generated ``.html`` file content in ``generated_files``.
+        """
+        _ID_PATTERN = re.compile(r'id=["\']([^"\']+)["\']')
+        contracts: Dict[str, List[str]] = {}
+
+        for file_path, plan in logic_plan.items():
+            if not file_path.endswith(".html"):
+                continue
+            ids_found: List[str] = []
+            # Scan plan text fields for id="..." mentions
+            for field in ("purpose", "main_logic", "exports"):
+                value = plan.get(field, "")
+                text = " ".join(value) if isinstance(value, list) else str(value)
+                ids_found.extend(_ID_PATTERN.findall(text))
+            # Also scan already-generated HTML content (if any)
+            html_content = generated_files.get(file_path, "")
+            if html_content:
+                ids_found.extend(_ID_PATTERN.findall(html_content))
+
+            if ids_found:
+                contracts[file_path] = list(dict.fromkeys(ids_found))  # deduplicate, preserve order
+
+        if contracts:
+            self.context.dom_contracts = contracts
+            self.context.logger.info(
+                f"[InterfaceScaffolding] DOM contracts extracted: "
+                + ", ".join(f"{k}: {len(v)} IDs" for k, v in contracts.items())
+            )
+            try:
+                contracts_path = project_root / "DOM_CONTRACTS.json"
+                contracts_path.parent.mkdir(parents=True, exist_ok=True)
+                contracts_path.write_text(json.dumps(contracts, indent=2), encoding="utf-8")
+            except OSError as exc:
+                self.context.logger.warning(f"  Could not write DOM_CONTRACTS.json: {exc}")
 
     # ------------------------------------------------------------------
     # Stub path resolution

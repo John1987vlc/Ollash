@@ -27,7 +27,8 @@ class EmptyFileScaffoldingPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 3: Creating empty placeholders...")
-        self.context.event_publisher.publish("phase_start", phase="3", message="Creating empty files")
+        await self.context.event_publisher.publish(
+"phase_start", phase="3", message="Creating empty files")
 
         # Safety net: filter disallowed extensions before creating physical files
         _type_info = getattr(self.context, "project_type_info", None)
@@ -39,7 +40,8 @@ class EmptyFileScaffoldingPhase(IAgentPhase):
 
         StructureGenerator.create_empty_files(project_root, initial_structure)
 
-        self.context.event_publisher.publish("phase_complete", phase="3", message="Empty files created")
+        await self.context.event_publisher.publish(
+"phase_complete", phase="3", message="Empty files created")
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 3 complete.")
 
         return generated_files, initial_structure, file_paths

@@ -359,7 +359,7 @@ class NotificationManager:
         """Simple email validation."""
         return "@" in email and "." in email.split("@")[1]
 
-    def send_ui_notification(
+    async def send_ui_notification(
         self,
         message: str,
         notification_type: str = "info",
@@ -394,7 +394,7 @@ class NotificationManager:
                 notification_data.update(data)
 
             # Publish to UI alert channel
-            publisher.publish("ui_alert", notification_data)
+            await publisher.publish("ui_alert", notification_data)
             logger.info(f"📢 UI notification sent: {title or message}")
             return True
 

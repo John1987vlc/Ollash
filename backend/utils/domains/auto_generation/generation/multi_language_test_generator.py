@@ -110,8 +110,10 @@ class MultiLanguageTestGenerator:
         self.parser = response_parser
         self.command_executor = command_executor
         self.options = options or self.DEFAULT_OPTIONS.copy()
+        # Fix 1: module system ("esm" or "cjs") — synced from PhaseContext by TestGenerationExecutionPhase
+        self.module_system: str = ""
 
-    def generate_tests(
+    async def generate_tests(
         self,
         file_path: str,
         content: str,
@@ -142,7 +144,7 @@ class MultiLanguageTestGenerator:
         self.logger.info(f"Generating {framework.value} tests for {file_path} ({language})...")
 
         # Get language-specific prompts
-        system_prompt, user_prompt = self._get_test_prompts(file_path, content, readme_context, language, framework)
+        system_prompt, user_prompt = await self._get_test_prompts(file_path, content, readme_context, language, framework)
 
         try:
             response_data, usage = self.llm_client.chat(
@@ -167,7 +169,7 @@ class MultiLanguageTestGenerator:
             self.logger.error(f"Error generating tests for {file_path}: {e}")
             return None
 
-    def generate_integration_tests(
+    async def generate_integration_tests(
         self,
         project_root: Path,
         readme_context: str,
@@ -325,8 +327,12 @@ Format as a single test file with clear organization. Use {primary_lang} syntax.
     ) -> Dict[str, Any]:
         """Execute Jest or Mocha tests."""
         import shutil
+        import os
 
-        if not shutil.which("npm"):
+        # Windows fix: npm is a batch script
+        npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
+
+        if not shutil.which("npm") and not shutil.which("npm.cmd"):
             self.logger.warning("  npm command not found. Skipping Node.js test execution.")
             return {
                 "success": True,  # Skip with success to not block generation
@@ -338,9 +344,9 @@ Format as a single test file with clear organization. Use {primary_lang} syntax.
 
         try:
             if framework == TestFramework.JEST:
-                cmd = ["npm", "test", "--", "--json"]  # Jest JSON output
+                cmd = [npm_cmd, "test", "--", "--json"]  # Jest JSON output
             else:  # MOCHA
-                cmd = ["npm", "test"]
+                cmd = [npm_cmd, "test"]
 
             result = self.command_executor.execute(cmd, dir_path=str(project_root), timeout=120)
 
@@ -438,7 +444,7 @@ Format as a single test file with clear organization. Use {primary_lang} syntax.
                 "framework": framework.value,
             }
 
-    def _get_test_prompts(
+    async def _get_test_prompts(
         self,
         file_path: str,
         content: str,
@@ -462,7 +468,7 @@ Format as a single test file with clear organization. Use {primary_lang} syntax.
             return template_fn(file_path, content, readme)
         else:
             # Fallback to generic
-            return AutoGenPrompts.generate_unit_tests(file_path, content, readme)
+            return await AutoGenPrompts.generate_unit_tests(file_path, content, readme)
 
     def _pytest_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate pytest-specific prompt."""
@@ -487,8 +493,11 @@ Generate pytest tests with:
 
     def _jest_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate Jest-specific prompt."""
-        system = """You are an expert JavaScript test engineer using Jest.
-Create comprehensive Jest unit tests with describe blocks and mocking."""
+        # Fix 1: match the import style to the module system decided in LogicPlanningPhase
+        import_style = "ESM (import/export)" if self.module_system == "esm" else "CommonJS (require/module.exports)"
+        system = f"""You are an expert JavaScript test engineer using Jest.
+Create comprehensive Jest unit tests with describe blocks and mocking.
+CRITICAL: Use {import_style} syntax for all imports/exports — do NOT mix styles."""
 
         user = f"""File: {file_path}
 Code:
@@ -502,7 +511,8 @@ Generate Jest tests with:
 1. describe blocks for organization
 2. beforeEach/afterEach hooks
 3. Mock functions using jest.fn()
-4. Edge cases and error scenarios"""
+4. Edge cases and error scenarios
+5. Use {import_style} imports"""
 
         return system, user
 
@@ -529,8 +539,11 @@ Generate Go tests with:
 
     def _mocha_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate Mocha-specific prompt."""
-        system = """You are an expert JavaScript test engineer using Mocha.
-Create comprehensive Mocha tests with assertions."""
+        # Fix 1: match the import style to the module system decided in LogicPlanningPhase
+        import_style = "ESM (import/export)" if self.module_system == "esm" else "CommonJS (require/module.exports)"
+        system = f"""You are an expert JavaScript test engineer using Mocha.
+Create comprehensive Mocha tests with assertions.
+CRITICAL: Use {import_style} syntax for all imports/exports — do NOT mix styles."""
 
         user = f"""File: {file_path}
 Code:
@@ -544,7 +557,8 @@ Generate Mocha tests with:
 1. describe and it blocks
 2. before/beforeEach hooks
 3. Assert statements
-4. Edge cases"""
+4. Edge cases
+5. Use {import_style} imports"""
 
         return system, user
 

@@ -34,7 +34,7 @@ class IterativeImprovementPhase(IAgentPhase):
 
         if num_refine_loops > 0:
             self.context.logger.info(f"PHASE 7: Starting Iterative Improvement Loops ({num_refine_loops} loops)...")
-            self.context.event_publisher.publish(
+            await self.context.event_publisher.publish(
                 "phase_start",
                 phase="7",
                 message=f"Starting iterative improvement loops ({num_refine_loops} loops)",
@@ -43,17 +43,18 @@ class IterativeImprovementPhase(IAgentPhase):
                 is_maintenance = kwargs.get("maintenance_mode", False)
                 mode_str = "AUDIT" if is_maintenance else "REFINEMENT"
                 self.context.logger.info(f"PHASE 7: {mode_str} Iteration {loop_num + 1}/{num_refine_loops}")
-                self.context.event_publisher.publish("iteration_start", phase="7", iteration=loop_num + 1)
+                await self.context.event_publisher.publish(
+"iteration_start", phase="7", iteration=loop_num + 1)
 
                 # 1. Suggest improvements
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "tool_start",
                     tool_name="suggest_improvements",
                     iteration=loop_num + 1,
                 )
 
                 # If maintenance, we could use a different prompt or logic here
-                suggestions = self.context.improvement_suggester.suggest_improvements(
+                suggestions = await self.context.improvement_suggester.suggest_improvements(
                     project_description,
                     readme_content,
                     initial_structure,
@@ -63,15 +64,16 @@ class IterativeImprovementPhase(IAgentPhase):
                 self.context.logger.info(
                     f"  Suggested Improvements ({len(suggestions)}): {', '.join(suggestions[:3])}..."
                 )
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "tool_output",
                     tool_name="suggest_improvements",
                     suggestions=suggestions,
                 )
-                self.context.event_publisher.publish("tool_end", tool_name="suggest_improvements")
+                await self.context.event_publisher.publish(
+"tool_end", tool_name="suggest_improvements")
                 if not suggestions:
                     self.context.logger.info("  No further improvements suggested. Ending refinement loops.")
-                    self.context.event_publisher.publish(
+                    await self.context.event_publisher.publish(
                         "iteration_end",
                         phase="7",
                         iteration=loop_num + 1,
@@ -80,10 +82,10 @@ class IterativeImprovementPhase(IAgentPhase):
                     break
 
                 # 2. Plan improvements
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "tool_start", tool_name="plan_improvements", iteration=loop_num + 1
                 )
-                plan = self.context.improvement_planner.generate_plan(
+                plan = await self.context.improvement_planner.generate_plan(
                     suggestions,
                     project_description,
                     readme_content,
@@ -94,14 +96,15 @@ class IterativeImprovementPhase(IAgentPhase):
                     self.context.logger.warning(
                         "  Improvement plan could not be generated or was empty. Skipping this iteration."
                     )
-                    self.context.event_publisher.publish(
+                    await self.context.event_publisher.publish(
                         "tool_output",
                         tool_name="plan_improvements",
                         status="failed",
                         message="Improvement plan empty",
                     )
-                    self.context.event_publisher.publish("tool_end", tool_name="plan_improvements")
-                    self.context.event_publisher.publish(
+                    await self.context.event_publisher.publish(
+"tool_end", tool_name="plan_improvements")
+                    await self.context.event_publisher.publish(
                         "iteration_end",
                         phase="7",
                         iteration=loop_num + 1,
@@ -109,16 +112,18 @@ class IterativeImprovementPhase(IAgentPhase):
                     )
                     continue
                 self.context.logger.info(f"  Improvement Plan generated with {len(plan.get('actions', []))} actions.")
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "tool_output",
                     tool_name="plan_improvements",
                     status="success",
                     plan=plan,
                 )
-                self.context.event_publisher.publish("tool_end", tool_name="plan_improvements")
+                await self.context.event_publisher.publish(
+"tool_end", tool_name="plan_improvements")
 
                 # 3. Implement improvements
-                self.context.event_publisher.publish("tool_start", tool_name="implement_plan", iteration=loop_num + 1)
+                await self.context.event_publisher.publish(
+"tool_start", tool_name="implement_plan", iteration=loop_num + 1)
                 self.context.logger.info("  Implementing plan...")
                 (
                     generated_files,
@@ -132,13 +137,14 @@ class IterativeImprovementPhase(IAgentPhase):
                     generated_files,
                     file_paths,
                 )
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "tool_output",
                     tool_name="implement_plan",
                     status="success",
                     files_updated=len(generated_files),
                 )
-                self.context.event_publisher.publish("tool_end", tool_name="implement_plan")
+                await self.context.event_publisher.publish(
+"tool_end", tool_name="implement_plan")
 
                 # 3b. Quality gate: run tests + linter; auto-heal if failing
                 quality_report = await self._run_quality_check(project_root, generated_files)
@@ -149,7 +155,7 @@ class IterativeImprovementPhase(IAgentPhase):
 
                 # Re-run refinement and verification after each loop to ensure quality
                 self.context.logger.info(f"  Re-running Phase 5: Refinement after improvement loop {loop_num + 1}...")
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "phase_start",
                     phase="5_rerun",
                     iteration=loop_num + 1,
@@ -160,7 +166,7 @@ class IterativeImprovementPhase(IAgentPhase):
                 for idx, (rel_path, content) in enumerate(list(generated_files.items()), 1):
                     if not content or len(content) < 10:
                         continue
-                    self.context.event_publisher.publish(
+                    await self.context.event_publisher.publish(
                         "tool_start",
                         tool_name="file_refinement",
                         file=rel_path,
@@ -169,7 +175,7 @@ class IterativeImprovementPhase(IAgentPhase):
                     )
                     self.context.logger.info(f"    Refining {rel_path}")
                     try:
-                        refined = self.context.file_refiner.refine_file(rel_path, content, readme_content[:1000])
+                        refined = await self.context.file_refiner.refine_file(rel_path, content, readme_content[:1000])
                         if refined:
                             generated_files[rel_path] = refined
                             vresult = self._validated_write(project_root / rel_path, refined)
@@ -178,14 +184,14 @@ class IterativeImprovementPhase(IAgentPhase):
                                     f"    SandboxValidator rejected {rel_path}: {vresult.reason}. "
                                     f"Candidate saved at {vresult.candidate_path}"
                                 )
-                            self.context.event_publisher.publish(
+                            await self.context.event_publisher.publish(
                                 "tool_output",
                                 tool_name="file_refinement",
                                 file=rel_path,
                                 status="success" if vresult.approved else "candidate",
                             )
                         else:
-                            self.context.event_publisher.publish(
+                            await self.context.event_publisher.publish(
                                 "tool_output",
                                 tool_name="file_refinement",
                                 file=rel_path,
@@ -194,15 +200,16 @@ class IterativeImprovementPhase(IAgentPhase):
                             )
                     except Exception as e:
                         self.context.logger.error(f"    Error refining {rel_path}: {e}")
-                        self.context.event_publisher.publish(
+                        await self.context.event_publisher.publish(
                             "tool_output",
                             tool_name="file_refinement",
                             file=rel_path,
                             status="error",
                             message=str(e),
                         )
-                    self.context.event_publisher.publish("tool_end", tool_name="file_refinement", file=rel_path)
-                self.context.event_publisher.publish(
+                    await self.context.event_publisher.publish(
+"tool_end", tool_name="file_refinement", file=rel_path)
+                await self.context.event_publisher.publish(
                     "phase_complete",
                     phase="5_rerun",
                     iteration=loop_num + 1,
@@ -212,7 +219,7 @@ class IterativeImprovementPhase(IAgentPhase):
                 self.context.logger.info(
                     f"  Re-running Phase 5.5: Verification after improvement loop {loop_num + 1}..."
                 )
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "phase_start",
                     phase="5.5_rerun",
                     iteration=loop_num + 1,
@@ -226,20 +233,21 @@ class IterativeImprovementPhase(IAgentPhase):
                 for rel_path, content in generated_files.items():
                     if content:
                         self.context.file_manager.write_file(project_root / rel_path, content)
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "phase_complete",
                     phase="5.5_rerun",
                     iteration=loop_num + 1,
                     message="Verification re-run complete",
                 )
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "iteration_end",
                     phase="7",
                     iteration=loop_num + 1,
                     status="complete",
                 )
 
-            self.context.event_publisher.publish("phase_complete", phase="7", message="Iterative Improvement complete")
+            await self.context.event_publisher.publish(
+"phase_complete", phase="7", message="Iterative Improvement complete")
             self.context.logger.info("PHASE 7: Iterative Improvement complete.")
 
         return generated_files, initial_structure, file_paths
@@ -254,7 +262,7 @@ class IterativeImprovementPhase(IAgentPhase):
         gate = QualityGate(logger=self.context.logger)
         try:
             report = await gate.run_quality_check(project_root, language=language)
-            self.context.event_publisher.publish(
+            await self.context.event_publisher.publish(
                 "quality_check",
                 phase="7",
                 overall_pass=report.overall_pass,
@@ -311,7 +319,7 @@ class IterativeImprovementPhase(IAgentPhase):
                 if not content:
                     continue
                 try:
-                    refined = self.context.file_refiner.refine_file(
+                    refined = await self.context.file_refiner.refine_file(
                         rel_path,
                         content,
                         readme_content[:500] + f"\n\nFix these issues:\n{heal_context[:300]}",

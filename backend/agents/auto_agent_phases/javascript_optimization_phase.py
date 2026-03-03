@@ -34,7 +34,8 @@ class JavaScriptOptimizationPhase(IAgentPhase):
             return generated_files, initial_structure, file_paths
 
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 5.2: Optimizing JavaScript Integration...")
-        self.context.event_publisher.publish("phase_start", phase="5.2", message="Optimizing JS semantic coherence")
+        await self.context.event_publisher.publish(
+"phase_start", phase="5.2", message="Optimizing JS semantic coherence")
 
         # 1. HTML-JS Integration Check
         html_content = generated_files.get("src/index.html") or generated_files.get("index.html")
@@ -46,7 +47,8 @@ class JavaScriptOptimizationPhase(IAgentPhase):
         # 2. Cross-JS Function Consistency
         generated_files = await self._optimize_cross_js_coherence(js_files, generated_files, project_root)
 
-        self.context.event_publisher.publish("phase_complete", phase="5.2", message="JavaScript optimization complete")
+        await self.context.event_publisher.publish(
+"phase_complete", phase="5.2", message="JavaScript optimization complete")
         return generated_files, initial_structure, file_paths
 
     async def _optimize_html_js_integration(
@@ -71,7 +73,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
                 from backend.utils.core.llm.prompt_loader import PromptLoader
 
                 loader = PromptLoader()
-                prompts = loader.load_prompt("domains/auto_generation/optimization.yaml")
+                prompts = await loader.load_prompt("domains/auto_generation/optimization.yaml")
 
                 system = prompts.get("html_js_dom_fix", {}).get("system", "")
                 user_template = prompts.get("html_js_dom_fix", {}).get("user", "")
@@ -107,7 +109,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = loader.load_prompt("domains/auto_generation/optimization.yaml")
+            prompts = await loader.load_prompt("domains/auto_generation/optimization.yaml")
 
             system = prompts.get("cross_js_coherence", {}).get("system", "")
             user_template = prompts.get("cross_js_coherence", {}).get("user", "")

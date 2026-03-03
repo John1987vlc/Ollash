@@ -14,10 +14,10 @@ def suggester(mock_deps):
 
 
 @pytest.mark.unit
-def test_suggest_improvements(suggester, mock_deps):
+async def test_suggest_improvements(suggester, mock_deps):
     mock_deps["llm_client"].chat.return_value = ({"message": {"content": "- suggestion 1\n- suggestion 2"}}, {})
 
-    suggestions = suggester.suggest_improvements("desc", "readme", {}, {}, 1)
+    suggestions = await suggester.suggest_improvements("desc", "readme", {}, {}, 1)
 
     assert suggestions == ["suggestion 1", "suggestion 2"]
     mock_deps["llm_client"].chat.assert_called()
@@ -59,32 +59,32 @@ class TestImprovementSuggesterRiskBased:
         messages = call_args[1]["messages"] if "messages" in call_args[1] else call_args[0][0]
         return next(m["content"] for m in messages if m["role"] == "user")
 
-    def test_with_scanner_injects_security_priority(self, llm_client, mock_vulnerability_scanner):
+    async def test_with_scanner_injects_security_priority(self, llm_client, mock_vulnerability_scanner):
         suggester = ImprovementSuggester(
             llm_client=llm_client,
             logger=MagicMock(),
             response_parser=MagicMock(),
             vulnerability_scanner=mock_vulnerability_scanner,
         )
-        suggester.suggest_improvements("A web app", "# README", {}, {"app.py": "x=1"}, 0)
+        await suggester.suggest_improvements("A web app", "# README", {}, {"app.py": "x=1"}, 0)
 
         user_content = self._get_user_message(llm_client)
         assert "SECURITY PRIORITY" in user_content
 
-    def test_without_scanner_backward_compatible(self, llm_client):
+    async def test_without_scanner_backward_compatible(self, llm_client):
         suggester = ImprovementSuggester(
             llm_client=llm_client,
             logger=MagicMock(),
             response_parser=MagicMock(),
             vulnerability_scanner=None,
         )
-        result = suggester.suggest_improvements("A web app", "# README", {}, {"app.py": "x=1"}, 0)
+        result = await suggester.suggest_improvements("A web app", "# README", {}, {"app.py": "x=1"}, 0)
 
         assert isinstance(result, list)
         user_content = self._get_user_message(llm_client)
         assert "SECURITY PRIORITY" not in user_content
 
-    def test_no_security_block_when_zero_vulns(self, llm_client):
+    async def test_no_security_block_when_zero_vulns(self, llm_client):
         scanner = MagicMock()
         report = MagicMock()
         report.total_vulnerabilities = 0
@@ -99,12 +99,12 @@ class TestImprovementSuggesterRiskBased:
             response_parser=MagicMock(),
             vulnerability_scanner=scanner,
         )
-        suggester.suggest_improvements("A web app", "# README", {}, {"app.py": "x=1"}, 0)
+        await suggester.suggest_improvements("A web app", "# README", {}, {"app.py": "x=1"}, 0)
 
         user_content = self._get_user_message(llm_client)
         assert "SECURITY PRIORITY" not in user_content
 
-    def test_scanner_exception_does_not_crash(self, llm_client):
+    async def test_scanner_exception_does_not_crash(self, llm_client):
         scanner = MagicMock()
         scanner.scan_project.side_effect = RuntimeError("Scanner unavailable")
 
@@ -114,5 +114,5 @@ class TestImprovementSuggesterRiskBased:
             response_parser=MagicMock(),
             vulnerability_scanner=scanner,
         )
-        result = suggester.suggest_improvements("A web app", "# README", {}, {"app.py": "x=1"}, 0)
+        result = await suggester.suggest_improvements("A web app", "# README", {}, {"app.py": "x=1"}, 0)
         assert isinstance(result, list)

@@ -409,7 +409,7 @@ async def cmd_chat(args):
                         from rich.prompt import Confirm
 
                         result = Confirm.ask(f"[bold green]Allow {action}?[/bold green]", default=True)
-                        agent.event_publisher.publish(
+                        await agent.event_publisher.publish(
                             "hil_response",
                             {"request_id": event_data.get("id"), "response": "approve" if result else "reject"},
                         )

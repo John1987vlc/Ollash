@@ -83,7 +83,7 @@ class ConfirmationManager:
                 "timestamp": datetime.datetime.now().isoformat(),
                 "agent": "DefaultAgent",
             }
-            self.event_publisher.publish("hil_request", hil_data)
+            await self.event_publisher.publish("hil_request", hil_data)
             self.logger.info(f"HIL Request sent to UI/CLI: {req_id}")
 
         # 3. Log to console (always, for visibility)
@@ -159,3 +159,53 @@ class ConfirmationManager:
             elif response in ["c", "cancel"]:
                 self.logger.warning("Operation cancelled by user.")
                 return False
+
+    async def request_clarification(self, question: str) -> str:
+        """Ask the user an open-ended clarification question.
+
+        Publishes a ``clarification_request`` event for the Web UI and waits up to
+        5 minutes for a ``clarification_response`` event.  Falls back to a blocking
+        CLI ``input()`` call when no EventPublisher is configured.
+
+        Args:
+            question: The question to ask the user.
+
+        Returns:
+            The user's answer as a string, or ``""`` on timeout / no response.
+        """
+        req_id = str(uuid.uuid4())[:8]
+
+        if self.event_publisher:
+            event = asyncio.Event()
+            answer_holder: Dict[str, str] = {"answer": ""}
+
+            def _on_response(event_type: str, event_data: Dict) -> None:
+                if event_data.get("request_id") == req_id:
+                    answer_holder["answer"] = str(event_data.get("answer", ""))
+                    event.set()
+
+            self.event_publisher.subscribe("clarification_response", _on_response)
+            try:
+                await self.event_publisher.publish(
+                    "clarification_request",
+                    request_id=req_id,
+                    question=question,
+                )
+                self.logger.info(f"[Clarification] Question sent (id={req_id}): {question[:80]!r}")
+                try:
+                    await asyncio.wait_for(event.wait(), timeout=300)
+                    return answer_holder["answer"]
+                except asyncio.TimeoutError:
+                    self.logger.warning(f"[Clarification] Question timed out (id={req_id})")
+                    return ""
+            finally:
+                self.event_publisher.unsubscribe("clarification_response", _on_response)
+                self._pending_responses.pop(req_id, None)
+        else:
+            # CLI fallback: blocking input
+            import asyncio as _asyncio
+
+            loop = _asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None, lambda: input(f"\n{Fore.CYAN}❓ {question}\n> {Style.RESET_ALL}").strip()
+            )

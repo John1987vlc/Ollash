@@ -1,49 +1,64 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-# Interfaces
-from backend.interfaces.imodel_provider import IModelProvider
-from backend.utils.core.system.agent_logger import AgentLogger
-from backend.utils.core.system.cicd_healer import CICDHealer
-from backend.utils.core.analysis.code_quarantine import CodeQuarantine
-from backend.utils.core.analysis.scanners.dependency_scanner import DependencyScanner
-from backend.utils.core.command_executor import CommandExecutor
-from backend.utils.core.analysis.dependency_graph import DependencyGraph
-from backend.utils.core.io.documentation_manager import DocumentationManager
-from backend.utils.core.memory.error_knowledge_base import ErrorKnowledgeBase
-from backend.utils.core.system.event_publisher import EventPublisher
-from backend.utils.core.io.export_manager import ExportManager
-from backend.utils.core.io.file_manager import FileManager
-from backend.utils.core.analysis.file_validator import FileValidator
-from backend.utils.core.memory.fragment_cache import FragmentCache
-from backend.utils.core.llm.llm_response_parser import LLMResponseParser
-from backend.utils.core.llm.parallel_generator import ParallelFileGenerator  # NEW
-from backend.utils.core.system.permission_profiles import PolicyEnforcer
-from backend.utils.core.analysis.scanners.rag_context_selector import RAGContextSelector  # NEW
-from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScanner
-from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
-from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
-from backend.utils.domains.auto_generation.file_content_generator import FileContentGenerator
-from backend.utils.domains.auto_generation.file_refiner import FileRefiner
-from backend.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
-from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
-from backend.utils.domains.auto_generation.infra_generator import InfraGenerator
-from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
-from backend.utils.core.llm.token_tracker import TokenTracker
-
-# Specialized AutoAgent services
-from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
-from backend.utils.domains.auto_generation.project_reviewer import ProjectReviewer
-from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
-from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
-from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
+# Lightweight runtime imports (no heavy transitive deps)
 from backend.core.language_standards import BACKEND_ROUTE_PATTERNS, DEPENDENCY_FILES, FRONTEND_EXTENSIONS
 from backend.utils.core.language_utils import LanguageUtils
-from backend.utils.core.io.project_ingestion_service import ProjectIngestionService
-from backend.utils.core.memory.decision_blackboard import DecisionBlackboard
-from backend.utils.domains.auto_generation.utilities.signature_extractor import (
-    extract_signatures as _extract_signatures,
-)
+def _extract_signatures(content: str, file_path: str) -> str:
+    """Lazy wrapper — defers the import of the full domains package to first use.
+
+    Importing backend.utils.domains.* at module level triggers the domains
+    __init__.py which eagerly registers all @ollash_tool decorators (~600 modules).
+    Moving the import inside this shim keeps phase_context.py lightweight.
+    """
+    from backend.utils.domains.auto_generation.utilities.signature_extractor import (  # noqa: PLC0415
+        extract_signatures,
+    )
+    return extract_signatures(content, file_path)
+
+if TYPE_CHECKING:
+    # All service imports are type-hint-only: moving them here prevents the full
+    # dependency graph (chromadb, SQLAlchemy async, OllamaClient…) from loading
+    # during pytest collection.  At runtime the objects are received as constructor
+    # parameters, so the classes never need to be resolved.
+    from backend.interfaces.imodel_provider import IModelProvider
+    from backend.utils.core.system.agent_logger import AgentLogger
+    from backend.utils.core.system.cicd_healer import CICDHealer
+    from backend.utils.core.analysis.code_quarantine import CodeQuarantine
+    from backend.utils.core.analysis.scanners.dependency_scanner import DependencyScanner
+    from backend.utils.core.command_executor import CommandExecutor
+    from backend.utils.core.analysis.dependency_graph import DependencyGraph
+    from backend.utils.core.io.documentation_manager import DocumentationManager
+    from backend.utils.core.memory.error_knowledge_base import ErrorKnowledgeBase
+    from backend.utils.core.system.event_publisher import EventPublisher
+    from backend.utils.core.io.export_manager import ExportManager
+    from backend.utils.core.io.file_manager import FileManager
+    from backend.utils.core.analysis.file_validator import FileValidator
+    from backend.utils.core.memory.fragment_cache import FragmentCache
+    from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+    from backend.utils.core.llm.parallel_generator import ParallelFileGenerator
+    from backend.utils.core.system.permission_profiles import PolicyEnforcer
+    from backend.utils.core.analysis.scanners.rag_context_selector import RAGContextSelector
+    from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScanner
+    from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
+    from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
+    from backend.utils.domains.auto_generation.file_content_generator import FileContentGenerator
+    from backend.utils.domains.auto_generation.file_refiner import FileRefiner
+    from backend.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
+    from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
+    from backend.utils.domains.auto_generation.infra_generator import InfraGenerator
+    from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
+    from backend.utils.core.llm.token_tracker import TokenTracker
+    from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
+    from backend.utils.domains.auto_generation.project_reviewer import ProjectReviewer
+    from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
+    from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
+    from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
+    # Instantiated inside __init__ — also listed here for type-checker visibility
+    from backend.utils.core.memory.decision_blackboard import DecisionBlackboard
+    from backend.utils.core.io.project_ingestion_service import ProjectIngestionService
 
 
 class LLMSubContext:
@@ -212,6 +227,7 @@ class PhaseContext:
         if decision_blackboard is not None:
             self.decision_blackboard: DecisionBlackboard = decision_blackboard
         else:
+            from backend.utils.core.memory.decision_blackboard import DecisionBlackboard  # noqa: PLC0415
             _db_path = ollash_root_dir / ".ollash" / "decisions.db"
             self.decision_blackboard = DecisionBlackboard(_db_path)
 
@@ -223,6 +239,29 @@ class PhaseContext:
         self.backlog: List[Dict[str, Any]] = []
         self.ollama_context = None  # F40: KV Cache context
         self.last_model = None  # F40: Track model transitions
+
+        # F1: Clarification — Q&A pairs collected before planning
+        self.clarification_answers: Dict[str, str] = {}
+        self.clarified_description: str = ""
+
+        # F2: API Contract — OpenAPI YAML written by ApiContractPhase
+        self.api_contract: Optional[str] = None
+        self.api_endpoints: List[Dict[str, Any]] = []
+
+        # F3: TDD — test skeletons keyed by source file path
+        self.test_skeletons: Dict[str, str] = {}
+
+        # F4: Plan Validation — report from Architect vs Critic debate
+        self.plan_validation_report: Optional[Dict[str, Any]] = None
+
+        # F7: Component Tree — frontend hierarchy (React/Vue/Angular/Svelte)
+        self.component_tree: Optional[Dict[str, Any]] = None
+
+        # F9: Viability — cost/token estimate written by ViabilityEstimatorPhase
+        self.viability_report: Optional[Dict[str, Any]] = None
+
+        # F10: Git checkpoints — commit hashes recorded after each successful phase
+        self.checkpoint_commits: List[str] = []
 
         # Mejora 3: Step progress tracking for prompt injection
         self.step_progress: Dict[str, Any] = {
@@ -237,6 +276,14 @@ class PhaseContext:
 
         # Feature 3: Pre-fetched context cache for predictive loading
         self.prefetched_context: Dict[str, str] = {}
+
+        # Fix 1: Module system decision ("esm" or "cjs") — set by LogicPlanningPhase
+        # Shared across all JS/TS generation and test phases so they always agree.
+        self.module_system: str = ""
+
+        # Fix 2: DOM contracts — {html_file_path: [element_id, ...]}
+        # Set by InterfaceScaffoldingPhase; injected into JS/HTML generation prompts.
+        self.dom_contracts: Dict[str, List[str]] = {}
 
         # E6: last execution history summary (set by AutoAgent from AutomationManager)
         self.last_execution_summary: Optional[Any] = None
@@ -259,6 +306,7 @@ class PhaseContext:
         self.infra_ctx = InfraSubContext(cicd_healer, vulnerability_scanner, infra_generator, export_manager)
 
         # Utility services (extracted)
+        from backend.utils.core.io.project_ingestion_service import ProjectIngestionService  # noqa: PLC0415
         self._ingestion_service = ProjectIngestionService(
             file_reader=file_manager.read_file,
             logger=logger,

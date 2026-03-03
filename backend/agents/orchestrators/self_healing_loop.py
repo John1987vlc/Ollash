@@ -101,7 +101,7 @@ class SelfHealingLoop:
                 f"[SelfHealingLoop] Task '{node_id}' exhausted max retries "
                 f"({self.max_retries}). Marking as permanently failed."
             )
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "task_permanently_failed",
                 task_id=node_id,
                 retry_count=failed_node.retry_count,
@@ -129,7 +129,8 @@ class SelfHealingLoop:
             context=f"DomainAgent:{failed_node.agent_type.value}",
             solution=None,
         )
-        self._logger.debug(f"[SelfHealingLoop] Error pattern recorded: {pattern_id}")
+        self._logger.debug(
+f"[SelfHealingLoop] Error pattern recorded: {pattern_id}")
 
         # 2. Generate contingency plan — prepend real sandbox errors if available
         issues = self._build_issues_from_node(failed_node)
@@ -140,7 +141,7 @@ class SelfHealingLoop:
             self._logger.info(f"[SelfHealingLoop] Injecting sandbox errors for '{failed_node.id}'")
         plan: Dict[str, Any] = {}
         try:
-            plan = self._cp.generate_contingency_plan(
+            plan = await self._cp.generate_contingency_plan(
                 issues=issues,
                 project_description=project_description,
                 readme=readme_content,
@@ -169,7 +170,7 @@ class SelfHealingLoop:
             dag.add_task(remediation_node)
 
         # 6. Publish event
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "task_remediation_queued",
             original_task_id=node_id,
             remediation_task_id=remediation_node.id,
@@ -236,7 +237,7 @@ class SelfHealingLoop:
         except ValueError:
             pass  # Already queued
 
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "task_remediation_queued",
             original_task_id=file_path,
             remediation_task_id=remediation_id,

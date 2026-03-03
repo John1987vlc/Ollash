@@ -145,7 +145,7 @@ class AlertManager:
 
             return alert_info
 
-    def trigger_alert(self, alert_id: str, alert_info: Dict[str, Any], channels: List[str] = None) -> bool:
+    async def trigger_alert(self, alert_id: str, alert_info: Dict[str, Any], channels: List[str] = None) -> bool:
         """
         Trigger an alert with notifications.
 
@@ -185,7 +185,7 @@ class AlertManager:
 
             # UI notification
             if "ui" in channels and self.notification_manager:
-                self.notification_manager.send_ui_notification(
+                await self.notification_manager.send_ui_notification(
                     message=message,
                     notification_type=severity,
                     title=f"🚨 {title}",
@@ -203,7 +203,11 @@ class AlertManager:
             # Execute custom callback if registered
             if alert_id in self.alert_callbacks:
                 try:
-                    self.alert_callbacks[alert_id](alert_id, alert_info)
+                    callback = self.alert_callbacks[alert_id]
+                    if asyncio.iscoroutinefunction(callback):
+                        await callback(alert_id, alert_info)
+                    else:
+                        callback(alert_id, alert_info)
                 except Exception as e:
                     logger.error(f"Error executing callback for {alert_id}: {e}")
 

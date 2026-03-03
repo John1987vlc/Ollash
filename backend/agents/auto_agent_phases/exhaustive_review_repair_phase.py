@@ -37,7 +37,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
         test_results = kwargs.get("test_results", {})
 
         self.context.logger.info("PHASE 5.75: Exhaustive Review and Repair...")
-        self.context.event_publisher.publish("phase_start", phase="5.75", message="Starting Exhaustive Review & Repair")
+        await self.context.event_publisher.publish("phase_start", phase="5.75", message="Starting Exhaustive Review & Repair")
 
         # ========== STEP 1: DIAGNOSTIC PHASE ==========
         self.context.logger.info("  STEP 1: Diagnostic Analysis...")
@@ -69,7 +69,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
             self.context.logger.info(f"  Total issues to address: {len(all_issues)}")
 
             # Generate comprehensive repair plan
-            repair_plan = self.context.contingency_planner.generate_contingency_plan(
+            repair_plan = await self.context.contingency_planner.generate_contingency_plan(
                 all_issues, project_description, readme_content
             )
 
@@ -102,7 +102,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
         else:
             self.context.logger.info("  No critical issues detected, proceeding to final phases")
 
-        self.context.event_publisher.publish("phase_end", phase="5.75", status="completed")
+        await self.context.event_publisher.publish("phase_end", phase="5.75", status="completed")
         return generated_files, initial_structure, file_paths
 
     def _perform_diagnostic_analysis(
@@ -252,7 +252,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
                 try:
                     # Use enhanced generator with maximum compatibility mode
-                    new_content = self.context.enhanced_file_content_generator.generate_file_with_plan(
+                    new_content = await self.context.enhanced_file_content_generator.generate_file_with_plan(
                         file_path,
                         context_info.get("logic_plan", ""),
                         readme_content,
@@ -277,7 +277,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
                 if file_path in generated_files:
                     try:
                         # Use FileRefiner for targeted fixes
-                        fixed_content = self.context.file_refiner.refine_file_content(
+                        fixed_content = await self.context.file_refiner.refine_file_content(
                             file_path,
                             generated_files[file_path],
                             issue_description,
@@ -298,7 +298,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
                 if file_path in generated_files:
                     try:
-                        simplified_content = self.context.file_refiner.simplify_file_content(
+                        simplified_content = await self.context.file_refiner.simplify_file_content(
                             file_path,
                             generated_files[file_path],
                             remove_redundancy=True,
@@ -318,7 +318,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
                 self.context.logger.info(f"      Creating {file_path}...")
 
                 try:
-                    new_content = self.context.enhanced_file_content_generator.generate_file_with_plan(
+                    new_content = await self.context.enhanced_file_content_generator.generate_file_with_plan(
                         file_path,
                         content_template,
                         readme_content,
@@ -360,7 +360,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
             if file_path in generated_files:
                 try:
                     # Use FileRefiner with generic fix attempt
-                    fixed_content = self.context.file_refiner.refine_file_content(
+                    fixed_content = await self.context.file_refiner.refine_file_content(
                         file_path,
                         generated_files[file_path],
                         "Fix common compatibility issues",

@@ -29,7 +29,7 @@ class ImprovementPlanner:
         self.parser = response_parser
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    def generate_plan(
+    async def generate_plan(
         self,
         suggestions: List[str],
         project_description: str,
@@ -41,7 +41,7 @@ class ImprovementPlanner:
 
         Returns a dictionary representing the plan.
         """
-        system, user = AutoGenPrompts.generate_improvement_plan_prompt(
+        system, user = await AutoGenPrompts.generate_improvement_plan_prompt(
             suggestions,
             project_description,
             readme_content,

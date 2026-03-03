@@ -14,11 +14,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-try:
-    import chromadb
-except ImportError:
-    chromadb = None
-
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.memory.chroma_manager import ChromaClientManager
 
@@ -138,20 +133,13 @@ class LearningIndexer:
         self.logger = logger
         self.project_root = project_root
 
-        if chromadb is None:
-            self.logger.warning("ChromaDB not available for learning indexing")
-            self.client = None
-            self.collection = None
-            return
-
         try:
             self.client = ChromaClientManager.get_client(settings_manager or {}, project_root)
             self.collection = self.client.get_or_create_collection(
                 name="correction_patterns",
-                metadata={"hnsw:space": "cosine"},
             )
         except Exception as e:
-            self.logger.warning(f"Could not initialize ChromaDB for learning: {e}")
+            self.logger.warning(f"Could not initialize vector store for learning: {e}")
             self.client = None
             self.collection = None
 

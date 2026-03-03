@@ -27,7 +27,8 @@ class CodeQuarantinePhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5.55: Code Quarantine...")
-        self.context.event_publisher.publish("phase_start", phase="5.55", message="Starting code quarantine")
+        await self.context.event_publisher.publish(
+"phase_start", phase="5.55", message="Starting code quarantine")
 
         import re
 
@@ -53,7 +54,8 @@ class CodeQuarantinePhase(IAgentPhase):
                 self.context.logger.warning(f"  Quarantining {rel_path} due to potentially unsafe content.")
                 self.context.code_quarantine.quarantine_file(project_root / rel_path)
 
-        self.context.event_publisher.publish("phase_complete", phase="5.55", message="Code quarantine complete")
+        await self.context.event_publisher.publish(
+"phase_complete", phase="5.55", message="Code quarantine complete")
         self.context.logger.info("PHASE 5.55 complete.")
 
         return generated_files, initial_structure, file_paths

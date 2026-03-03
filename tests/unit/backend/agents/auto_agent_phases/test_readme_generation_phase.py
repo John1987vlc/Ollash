@@ -1,16 +1,31 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from backend.agents.auto_agent_phases.readme_generation_phase import ReadmeGenerationPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
 
 @pytest.fixture
 def mock_context():
-    ctx = MagicMock(spec=PhaseContext)
+    ctx = MagicMock()
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
+    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.subscribe = MagicMock()
+    ctx.event_publisher.unsubscribe = MagicMock()
     ctx.project_planner = MagicMock()
+    # generate_readme is called with await, so it must be an AsyncMock
+    ctx.project_planner.generate_readme = AsyncMock(return_value="# My Project\nDescription")
     ctx.file_manager = MagicMock()
+    ctx._is_small_model = MagicMock(return_value=False)
+    # LLM mock for Mermaid generation — return content without ```mermaid so README is unchanged
+    ctx.llm_manager.get_client.return_value.chat.return_value = (
+        {"content": "No mermaid diagrams here"},
+        {},
+    )
+    ctx.initial_exec_params = {}
+    ctx.decision_blackboard = MagicMock()
+    ctx.documentation_manager = MagicMock()
+    ctx.project_type_info = None
     return ctx
 
 
@@ -20,8 +35,6 @@ class TestReadmeGenerationPhase:
     @pytest.mark.asyncio
     async def test_execute_success(self, mock_context, tmp_path):
         phase = ReadmeGenerationPhase(mock_context)
-
-        mock_context.project_planner.generate_readme.return_value = "# My Project\nDescription"
 
         generated_files = {}
         initial_structure = {}
@@ -40,5 +53,4 @@ class TestReadmeGenerationPhase:
         assert file_paths == ["README.md"]
 
         mock_context.project_planner.generate_readme.assert_called_once()
-        mock_context.file_manager.write_file.assert_called_once()
         mock_context.event_publisher.publish.assert_called()

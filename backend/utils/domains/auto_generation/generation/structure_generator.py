@@ -39,7 +39,7 @@ class StructureGenerator:
         config = get_config()
         self.max_depth = getattr(config.TOOL_SETTINGS, "max_depth", 2)
 
-    def generate(
+    async def generate(
         self,
         readme_content: str,
         max_retries: int = 3,
@@ -61,7 +61,7 @@ class StructureGenerator:
             constraint_hint: Optional extension constraint text injected into prompts
                 (e.g. "ONLY use: .html .css .js — DO NOT create .py files").
         """
-        self.logger.info(f"  Generating structure for template: {template_name}")
+        self.logger.info_sync(f"  Generating structure for template: {template_name}")
         # Store constraint so it propagates to sub-structure generation calls
         self._constraint_hint = constraint_hint
 
@@ -71,21 +71,21 @@ class StructureGenerator:
         )
 
         # Phase 2: Recursively generate sub-structures only for key folders with DEPTH LIMIT
-        final_structure = self._recursively_generate_sub_structure(
+        final_structure = await self._recursively_generate_sub_structure(
             base_structure, readme_content, max_retries, template_name=template_name, current_depth=1
         )
 
         file_count = len(self.extract_file_paths(final_structure))
-        self.logger.info(f"  Successfully generated hierarchical structure with {file_count} files")
+        self.logger.info_sync(f"  Successfully generated hierarchical structure with {file_count} files")
         return final_structure
 
-    def _generate_high_level_structure(self, context_text: str, max_retries: int, template_name: str) -> dict:
+    async def _generate_high_level_structure(self, context_text: str, max_retries: int, template_name: str) -> dict:
         """Generates the high-level (root) folders and files for the project."""
-        system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation(context_text)
+        system_prompt, user_prompt = await AutoGenPrompts.high_level_structure_generation(context_text)
 
         for attempt in range(max_retries):
             try:
-                self.logger.info(f"  Attempt {attempt + 1}/{max_retries} for high-level structure...")
+                self.logger.info_sync(f"  Attempt {attempt + 1}/{max_retries} for high-level structure...")
                 response_data, usage = self.llm_client.chat(
                     messages=[
                         {"role": "system", "content": system_prompt},
@@ -99,6 +99,10 @@ class StructureGenerator:
                 if structure is None:
                     raise ValueError("Could not extract valid JSON from high-level response")
 
+                # Handle list if LLM returns a flat list
+                if isinstance(structure, list):
+                    structure = {"folders": [], "files": structure}
+
                 structure.setdefault("path", "./")
                 structure.setdefault("folders", [])
                 structure.setdefault("files", [])
@@ -108,18 +112,18 @@ class StructureGenerator:
 
                 return structure
             except Exception as e:
-                self.logger.error(f"  High-level attempt {attempt + 1} failed: {e}")
+                self.logger.info_sync(f"  High-level attempt {attempt + 1} failed: {e}")
                 if attempt < max_retries - 1:
-                    self.logger.info("  Retrying high-level generation with simplified prompt...")
+                    self.logger.info_sync("  Retrying high-level generation with simplified prompt...")
                     (
                         system_prompt,
                         user_prompt,
-                    ) = AutoGenPrompts.high_level_structure_generation_simplified(context_text)
+                    ) = await AutoGenPrompts.high_level_structure_generation_simplified(context_text)
                 else:
                     return {}
         return {}
 
-    def _recursively_generate_sub_structure(
+    async def _recursively_generate_sub_structure(
         self,
         current_structure: dict,
         context_text: str,
@@ -131,7 +135,7 @@ class StructureGenerator:
         """Recursively generates detailed structure for folders with depth limit."""
 
         if current_depth > self.max_depth:
-            self.logger.info(f"    Max depth ({self.max_depth}) reached at {parent_path}. Stopping.")
+            self.logger.info_sync(f"    Max depth ({self.max_depth}) reached at {parent_path}. Stopping.")
             return current_structure
 
         detailed_structure = json.loads(json.dumps(current_structure))
@@ -147,11 +151,11 @@ class StructureGenerator:
 
             if folder_name:
                 full_folder_path = str(Path(parent_path) / folder_name)
-                self.logger.info(
+                self.logger.info_sync(
                     f"    Generating sub-structure for folder: {full_folder_path} (Depth: {current_depth})"
                 )
 
-                sub_structure_content = self._generate_folder_sub_structure(
+                sub_structure_content = await self._generate_folder_sub_structure(
                     full_folder_path,
                     context_text,
                     max_retries,
@@ -162,13 +166,13 @@ class StructureGenerator:
                 if sub_structure_content:
                     folder_data["folders"] = sub_structure_content.get("folders", [])
                     folder_data["files"] = sub_structure_content.get("files", [])
-                    detailed_structure["folders"][i] = self._recursively_generate_sub_structure(
+                    detailed_structure["folders"][i] = await self._recursively_generate_sub_structure(
                         folder_data, context_text, max_retries, full_folder_path, template_name, current_depth + 1
                     )
 
         return detailed_structure
 
-    def _generate_folder_sub_structure(
+    async def _generate_folder_sub_structure(
         self,
         folder_path: str,
         context_text: str,
@@ -179,7 +183,7 @@ class StructureGenerator:
         """Generates the immediate sub-folders and files for a specific folder path."""
         overall_structure_str = json.dumps(overall_structure, indent=2)
         _hint = getattr(self, "_constraint_hint", "")
-        system_prompt, user_prompt = AutoGenPrompts.sub_structure_generation(
+        system_prompt, user_prompt = await AutoGenPrompts.sub_structure_generation(
             folder_path,
             context_text,
             overall_structure_str,
@@ -189,7 +193,7 @@ class StructureGenerator:
 
         for attempt in range(max_retries):
             try:
-                self.logger.info(f"      Attempt {attempt + 1}/{max_retries} for {folder_path} sub-structure...")
+                self.logger.info_sync(f"      Attempt {attempt + 1}/{max_retries} for {folder_path} sub-structure...")
                 response_data, usage = self.llm_client.chat(
                     messages=[
                         {"role": "system", "content": system_prompt},
@@ -203,18 +207,44 @@ class StructureGenerator:
                 if sub_structure is None:
                     raise ValueError("Could not extract valid JSON from sub-structure response")
 
+                if isinstance(sub_structure, list):
+                    # Flatten if it's a list (common LLM error for folders/files)
+                    sub_structure = {"folders": [], "files": sub_structure}
+                elif not isinstance(sub_structure, dict):
+                    sub_structure = {"folders": [], "files": []}
+
                 sub_structure.pop("path", None)
                 sub_structure.setdefault("folders", [])
                 sub_structure.setdefault("files", [])
 
+                # Path normalisation: ensure files don't have redundant prefixes
+                # e.g. if folder_path is 'src', and file is 'src/app.js', change to 'app.js'
+                normalized_files = []
+                for f in sub_structure["files"]:
+                    f_name = f.get("name") if isinstance(f, dict) else str(f)
+                    if not f_name:
+                        continue
+                    # Remove redundant prefix
+                    if "/" in f_name and f_name.startswith(folder_path.replace("\\", "/") + "/"):
+                        f_name = f_name[len(folder_path) + 1 :]
+                    elif "\\" in f_name and f_name.startswith(folder_path.replace("/", "\\") + "\\"):
+                        f_name = f_name[len(folder_path) + 1 :]
+                    
+                    if isinstance(f, dict):
+                        f["name"] = f_name
+                        normalized_files.append(f)
+                    else:
+                        normalized_files.append(f_name)
+                sub_structure["files"] = normalized_files
+
                 return sub_structure
             except Exception as e:
-                self.logger.error(f"      Sub-structure attempt {attempt + 1} for {folder_path} failed: {e}")
+                self.logger.info_sync(f"      Sub-structure attempt {attempt + 1} for {folder_path} failed: {e}")
                 if attempt < max_retries - 1:
                     (
                         system_prompt,
                         user_prompt,
-                    ) = AutoGenPrompts.sub_structure_generation_simplified(
+                    ) = await AutoGenPrompts.sub_structure_generation_simplified(
                         folder_path,
                         context_text,
                         overall_structure_str,
@@ -240,14 +270,15 @@ class StructureGenerator:
                 file_name = str(file_item)
 
             if file_name:
-                file_paths.append((Path(current_path) / file_name).as_posix())
+                # Normalise to forward slashes
+                rel_path = (Path(current_path) / file_name).as_posix()
+                file_paths.append(rel_path)
 
         for folder_data in json_structure.get("folders", []):
             # Handle cases where LLM incorrectly returns a string instead of a dict for a folder
             if isinstance(folder_data, str):
                 folder_name = folder_data
                 new_path = (Path(current_path) / folder_name).as_posix()
-                # We can't recurse if it's just a string, but we record the path
             elif isinstance(folder_data, dict):
                 folder_name = folder_data.get("name")
                 if folder_name:
@@ -260,16 +291,19 @@ class StructureGenerator:
     def create_empty_files(project_root: Path, json_structure: dict, current_path: str = ""):
         """Create empty placeholder files based on the JSON structure."""
         for file_item in json_structure.get("files", []):
-            # Handle cases where LLM incorrectly returns a dict instead of a string for a file
             if isinstance(file_item, dict):
                 file_name = file_item.get("name")
             else:
                 file_name = str(file_item)
 
             if file_name:
+                # Path normalisation: if file_name is absolute or contains redundant prefix
+                if file_name.startswith("./") or file_name.startswith(".\\"):
+                    file_name = file_name[2:]
+                
                 file_path = project_root / current_path / file_name
                 file_path.parent.mkdir(parents=True, exist_ok=True)
-                if not file_path.exists():
+                if not file_path.exists() and not file_path.is_dir():
                     try:
                         file_path.touch()
                     except Exception:
@@ -279,6 +313,10 @@ class StructureGenerator:
             if isinstance(folder_data, dict):
                 folder_name = folder_data.get("name")
                 if folder_name:
+                    # Normalise folder name
+                    if folder_name.startswith("./") or folder_name.startswith(".\\"):
+                        folder_name = folder_name[2:]
+                        
                     new_path_full = project_root / current_path / folder_name
                     try:
                         new_path_full.mkdir(parents=True, exist_ok=True)
@@ -417,10 +455,13 @@ class StructureGenerator:
                     result.append(item)
                 else:
                     if logger:
-                        logger.warning(
-                            f"[StructureFilter] Removed disallowed file: '{name}' "
-                            f"(extension '{suffix}' not in allowed list)"
-                        )
+                        # Use info_sync if logger is AgentLogger
+                        if hasattr(logger, "warning"):
+                            # AgentLogger.warning is async, but we are in a sync nested func
+                            if hasattr(logger, "info_sync"):
+                                logger.info_sync(f"[StructureFilter] Removed disallowed file: '{name}'")
+                            else:
+                                pass
             return result
 
         def _clean(node: dict) -> dict:

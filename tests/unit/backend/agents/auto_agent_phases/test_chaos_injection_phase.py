@@ -2,7 +2,7 @@
 
 import asyncio
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -17,6 +17,7 @@ def _make_context(chaos_enabled=False, injection_rate=1.0):
     }
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
+    ctx.event_publisher.publish = AsyncMock()
     ctx.file_manager = MagicMock()
     ctx.infer_language = MagicMock(return_value="python")
     return ctx

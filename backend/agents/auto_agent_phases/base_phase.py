@@ -61,8 +61,9 @@ class BasePhase(IAgentPhase):
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         file_paths: List[str] = kwargs.pop("file_paths", [])
 
-        self._publish_start()
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name}: {self.phase_label}...")
+        await self._publish_start()
+        self.context.logger.info(
+f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name}: {self.phase_label}...")
 
         try:
             result = await self.run(
@@ -77,17 +78,18 @@ class BasePhase(IAgentPhase):
             )
 
             # Shadow evaluation hook (non-blocking, best-effort)
-            self._publish_shadow_evaluate(result)
+            await self._publish_shadow_evaluate(result)
 
-            self._publish_complete()
-            self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name} complete.")
+            await self._publish_complete()
+            self.context.logger.info(
+f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name} complete.")
             return result
         except PipelinePhaseError:
-            self._publish_phase_failure("pipeline_phase_error")
+            await self._publish_phase_failure("pipeline_phase_error")
             raise
         except Exception as e:
-            self._publish_error(str(e))
-            self._publish_phase_failure("exception", str(e))
+            await self._publish_error(str(e))
+            await self._publish_phase_failure("exception", str(e))
             raise PipelinePhaseError(self.phase_name, str(e)) from e
 
     async def run(
@@ -104,22 +106,22 @@ class BasePhase(IAgentPhase):
         """Override this method in subclasses. file_paths is already extracted."""
         raise NotImplementedError(f"{self.__class__.__name__} must implement run()")
 
-    def _publish_start(self, message: Optional[str] = None) -> None:
-        self.context.event_publisher.publish(
+    async def _publish_start(self, message: Optional[str] = None) -> None:
+        await self.context.event_publisher.publish(
             "phase_start",
             phase=self.phase_name,
             message=message or f"Starting {self.phase_label or self.phase_name}",
         )
 
-    def _publish_complete(self, message: Optional[str] = None) -> None:
-        self.context.event_publisher.publish(
+    async def _publish_complete(self, message: Optional[str] = None) -> None:
+        await self.context.event_publisher.publish(
             "phase_complete",
             phase=self.phase_name,
             message=message or f"{self.phase_label or self.phase_name} complete",
             status="success",
         )
 
-    def _publish_shadow_evaluate(self, result: Any) -> None:
+    async def _publish_shadow_evaluate(self, result: Any) -> None:
         """Publish shadow evaluation event for continuous learning.
 
         Never raises - shadow logging must not break the pipeline.
@@ -139,7 +141,7 @@ class BasePhase(IAgentPhase):
                 if hasattr(mgr, "current_model"):
                     model_name = mgr.current_model or "unknown"
 
-            self.context.event_publisher.publish(
+            await self.context.event_publisher.publish(
                 "shadow_evaluate",
                 phase=self.phase_name,
                 model_name=model_name,
@@ -148,7 +150,7 @@ class BasePhase(IAgentPhase):
         except Exception:
             pass  # Shadow logging must never break the pipeline
 
-    def _publish_phase_failure(self, failure_type: str, details: str = "") -> None:
+    async def _publish_phase_failure(self, failure_type: str, details: str = "") -> None:
         """Publish phase failure event for the failure database.
 
         Never raises - failure recording must not break the pipeline.
@@ -160,7 +162,7 @@ class BasePhase(IAgentPhase):
                 if hasattr(mgr, "current_model"):
                     model_name = mgr.current_model or "unknown"
 
-            self.context.event_publisher.publish(
+            await self.context.event_publisher.publish(
                 "phase_failure",
                 phase=self.phase_name,
                 model_name=model_name,
@@ -170,8 +172,8 @@ class BasePhase(IAgentPhase):
         except Exception:
             pass  # Failure recording must never break the pipeline
 
-    def _publish_error(self, error: str) -> None:
-        self.context.event_publisher.publish(
+    async def _publish_error(self, error: str) -> None:
+        await self.context.event_publisher.publish(
             "phase_complete",
             phase=self.phase_name,
             message=f"{self.phase_label or self.phase_name} failed: {error}",

@@ -12,6 +12,7 @@ def _make_runner(max_rounds: int = 2) -> DebateNodeRunner:
     agent_a = MagicMock()
     agent_b = MagicMock()
     ep = MagicMock()
+    ep.publish = AsyncMock()
     logger = MagicMock()
 
     # Agents return a dict with a content key

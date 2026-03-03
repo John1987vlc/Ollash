@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
@@ -9,6 +9,7 @@ def mock_context():
     ctx = MagicMock(spec=PhaseContext)
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
+    ctx.event_publisher.publish = AsyncMock()
     ctx.dependency_graph = MagicMock()
     ctx.parallel_generator = MagicMock()
     ctx.error_knowledge_base = MagicMock()

@@ -1,5 +1,6 @@
 import logging
 import traceback
+import asyncio
 from typing import Any, Dict, Optional
 
 from colorama import (  # Still used for console output in chat_mode, not for file logs
@@ -38,15 +39,29 @@ class AgentLogger:
         exc_info = kwargs.pop("exc_info", None)
         self._logger.log(level, msg, extra=full_extra, exc_info=exc_info, **kwargs)
 
+    def _fire_and_forget(self, coro):
+        """Helper to run async coroutines from sync methods without blocking."""
+        if not self.event_publisher:
+            return
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(coro)
+            else:
+                loop.run_until_complete(coro)
+        except Exception:
+            # Fallback if no loop exists in this thread
+            pass
+
     def tool_call(self, tool_name: str, args: Dict):
         """Log tool call with details"""
         console_msg = f"🔧 TOOL CALL: {tool_name}"
-        self.info(
+        self.info_sync(
             f"{Fore.CYAN}{console_msg}{Style.RESET_ALL}",
             extra={"type": "tool_call", "tool_name": tool_name, "args": args},
         )
         if self.event_publisher:
-            self.event_publisher.publish("tool_start", {"tool_name": tool_name, "args": args})
+            self._fire_and_forget(self.event_publisher.publish("tool_start", {"tool_name": tool_name, "args": args}))
 
     def tool_result(
         self,
@@ -71,23 +86,25 @@ class AgentLogger:
         }
         if latency_ms is not None:
             extra_data["latency_ms"] = latency_ms
-        self.info(f"{color}{console_msg}{Style.RESET_ALL}", extra=extra_data)
+        self.info_sync(f"{color}{console_msg}{Style.RESET_ALL}", extra=extra_data)
 
         if self.event_publisher:
-            self.event_publisher.publish(
-                "tool_end", {"tool_name": tool_name, "success": success, "result": result_preview}
+            self._fire_and_forget(
+                self.event_publisher.publish(
+                    "tool_end", {"tool_name": tool_name, "success": success, "result": result_preview}
+                )
             )
 
     def thinking(self, message: str):
         """Log a Chain of Thought / Thinking step."""
-        self.info(f"{Fore.MAGENTA}Thinking: {message}{Style.RESET_ALL}")
+        self.info_sync(f"{Fore.MAGENTA}Thinking: {message}{Style.RESET_ALL}")
         if self.event_publisher:
-            self.event_publisher.publish("thinking", {"message": message})
+            self._fire_and_forget(self.event_publisher.publish("thinking", {"message": message}))
 
     def api_request(self, messages_count: int, tools_count: int):
         """Log API request"""
         console_msg = f"📡 API REQUEST: {messages_count} messages, {tools_count} tools available"
-        self.info(
+        self.info_sync(
             f"{Fore.YELLOW}{console_msg}{Style.RESET_ALL}",
             extra={
                 "type": "api_request",
@@ -114,7 +131,7 @@ class AgentLogger:
         }
         if latency_ms is not None:
             extra_data["latency_ms"] = latency_ms
-        self.info(f"{Fore.YELLOW}{console_msg}{Style.RESET_ALL}", extra=extra_data)
+        self.info_sync(f"{Fore.YELLOW}{console_msg}{Style.RESET_ALL}", extra=extra_data)
 
     def error(
         self,
@@ -140,13 +157,17 @@ class AgentLogger:
             )
 
         if self.event_publisher:
-            self.event_publisher.publish("error", {"message": error_msg})
+            self._fire_and_forget(self.event_publisher.publish("error", {"message": error_msg}))
 
     def info(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log info message"""
         self._log_to_structured(logging.INFO, msg, extra=extra, **kwargs)
         if self.event_publisher:
-            self.event_publisher.publish("info", {"message": msg})
+            self._fire_and_forget(self.event_publisher.publish("info", {"message": msg}))
+
+    def info_sync(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
+        """Log info message without publishing event (to avoid recursion or when sync is needed)."""
+        self._log_to_structured(logging.INFO, msg, extra=extra, **kwargs)
 
     def debug(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log debug message"""
@@ -157,4 +178,4 @@ class AgentLogger:
         console_msg = f"{Fore.YELLOW}WARNING: {msg}{Style.RESET_ALL}"
         self._log_to_structured(logging.WARNING, console_msg, extra=extra, **kwargs)
         if self.event_publisher:
-            self.event_publisher.publish("warning", {"message": msg})
+            self._fire_and_forget(self.event_publisher.publish("warning", {"message": msg}))

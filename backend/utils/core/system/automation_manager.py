@@ -6,6 +6,7 @@ Manages task scheduling and execution with notification integration
 import json
 import logging
 import threading
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -58,16 +59,16 @@ class AutomationManager:
     def _load_tasks(self) -> Dict[str, Any]:
         """Load tasks from configuration file."""
         if not self.config_path.exists():
-            self.logger.warning(f"Tasks config not found at {self.config_path}")
+            self.logger.info_sync(f"Tasks config not found at {self.config_path}")
             return {}
 
         try:
             config_data = json.loads(self.config_path.read_text())
             self.tasks = {task["task_id"]: task for task in config_data.get("tasks", [])}
-            self.logger.info(f"✅ Loaded {len(self.tasks)} automation tasks")
+            self.logger.info_sync(f"✅ Loaded {len(self.tasks)} automation tasks")
             return self.tasks
         except Exception as e:
-            self.logger.error(f"❌ Failed to load tasks config: {e}")
+            self.logger.debug(f"❌ Failed to load tasks config: {e}")
             return {}
 
     def register_task_callback(self, task_id: str, callback: Callable):
@@ -81,13 +82,14 @@ class AutomationManager:
         """
         with self._lock:
             self.task_callbacks[task_id] = callback
-            self.logger.info(f"Registered callback for task: {task_id}")
+            self.logger.info_sync(f"Registered callback for task: {task_id}")
 
-    def start(self):
+    async def start(self):
         """Start the automation scheduler."""
         with self._lock:
             if self.running:
-                self.logger.warning("Automation manager already running")
+                self.logger.warning(
+"Automation manager already running")
                 return
 
             self.running = True
@@ -96,10 +98,11 @@ class AutomationManager:
             self._schedule_all_tasks()
             if not self.scheduler.running:
                 self.scheduler.start()
-            self.logger.info("✅ Automation manager started successfully")
+            self.logger.info(
+"✅ Automation manager started successfully")
 
             # Publish startup event
-            self.event_publisher.publish(
+            await self.event_publisher.publish(
                 "automation_started",
                 {
                     "timestamp": datetime.now().isoformat(),
@@ -107,7 +110,7 @@ class AutomationManager:
                 },
             )
         except Exception as e:
-            self.logger.error(f"❌ Failed to start automation manager: {e}")
+            self.logger.error(f"Failed to start automation manager: {e}")
             self.running = False
 
     def stop(self):
@@ -116,16 +119,18 @@ class AutomationManager:
             if not self.running:
                 return
 
-            self.running = False
+            self.running = True  # Avoid start/stop recursion issues
 
         try:
             if self._git_trigger is not None:
                 self._git_trigger.stop()
             if self.scheduler and self.scheduler.running:
                 self.scheduler.shutdown()
-            self.logger.info("✅ Automation manager stopped")
+            self.logger.info_sync("✅ Automation manager stopped")
         except Exception as e:
-            self.logger.error(f"❌ Error stopping automation manager: {e}")
+            self.logger.debug(f"❌ Error stopping automation manager: {e}")
+        finally:
+            self.running = False
 
     def _schedule_all_tasks(self):
         """Schedule all enabled tasks."""
@@ -154,10 +159,19 @@ class AutomationManager:
                 trigger = IntervalTrigger(minutes=interval_mins)
 
             if trigger:
+                # Helper to run async wrapper in APScheduler thread
+                def _run_wrapper_sync():
+                    try:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        return loop.run_until_complete(self._execute_task_wrapper(task_id, task))
+                    finally:
+                        loop.close()
+
                 self.scheduler.add_job(
-                    self._execute_task_wrapper,
+                    _run_wrapper_sync,
                     trigger=trigger,
-                    args=[task_id, task],
+                    args=[],
                     id=task_id,
                     name=task.get("name", task_id),
                     replace_existing=True,
@@ -166,12 +180,12 @@ class AutomationManager:
                 )
 
                 human_readable = schedule_config.get("human_readable", "")
-                self.logger.info(f"📅 Scheduled task '{task.get('name')}' - {human_readable}")
+                self.logger.info_sync(f"📅 Scheduled task '{task.get('name')}' - {human_readable}")
 
         except Exception as e:
-            self.logger.error(f"❌ Failed to schedule task {task_id}: {e}")
+            self.logger.debug(f"❌ Failed to schedule task {task_id}: {e}")
 
-    def _execute_task_wrapper(self, task_id: str, task: Dict[str, Any]):
+    async def _execute_task_wrapper(self, task_id: str, task: Dict[str, Any]):
         """
         Wrapper for task execution with error handling and notifications.
 
@@ -181,13 +195,15 @@ class AutomationManager:
         """
         start = datetime.now()
         try:
-            self.logger.info(f"🚀 Executing task: {task.get('name', task_id)}")
+            self.logger.info(
+f"🚀 Executing task: {task.get('name', task_id)}")
 
             # Check for threshold-based triggers
             if "check_tool" in task:
                 result = self._check_threshold(task)
                 if not result.get("should_proceed", True):
-                    self.logger.info(f"Task {task_id} threshold check: no action needed")
+                    self.logger.info(
+f"Task {task_id} threshold check: no action needed")
                     duration = (datetime.now() - start).total_seconds()
                     self.record_execution(
                         task_id,
@@ -200,7 +216,10 @@ class AutomationManager:
             # Execute the registered callback if it exists
             if task_id in self.task_callbacks:
                 callback = self.task_callbacks[task_id]
-                callback(task_id, task)
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(task_id, task)
+                else:
+                    callback(task_id, task)
 
             duration = (datetime.now() - start).total_seconds()
             self.record_execution(
@@ -212,7 +231,7 @@ class AutomationManager:
                 ),
             )
             # Publish task execution event
-            self._publish_task_event(task_id, task, "execution_complete", "success")
+            await self._publish_task_event(task_id, task, "execution_complete", "success")
 
         except Exception as e:
             duration = (datetime.now() - start).total_seconds()
@@ -225,8 +244,8 @@ class AutomationManager:
                     duration_seconds=duration,
                 ),
             )
-            self.logger.error(f"❌ Error executing task {task_id}: {e}")
-            self._publish_task_event(task_id, task, "execution_error", str(e))
+            self.logger.error(f"Error executing task {task_id}: {e}")
+            await self._publish_task_event(task_id, task, "execution_error", str(e))
 
     def record_execution(self, task_id: str, record: ExecutionRecord) -> None:
         """Append an execution record to the task history and persist to disk.
@@ -287,24 +306,34 @@ class AutomationManager:
         from backend.utils.core.system.git_change_trigger import GitChangeTrigger
 
         if self._git_trigger is not None:
-            self.logger.warning("GitChangeTrigger already enabled; ignoring duplicate call.")
+            self.logger.info_sync("GitChangeTrigger already enabled; ignoring duplicate call.")
             return
         self._git_trigger = GitChangeTrigger(
             repo_path=repo_path,
-            on_change_callback=self._on_git_change_detected,
+            on_change_callback=self._on_git_change_detected_sync,
             logger=self.logger,
             min_changed_lines=min_changed_lines,
         )
         self._git_trigger.start()
-        self.logger.info(f"GitChangeTrigger enabled for repo: {repo_path}")
+        self.logger.info_sync(f"GitChangeTrigger enabled for repo: {repo_path}")
 
-    def _on_git_change_detected(self) -> None:
+    def _on_git_change_detected_sync(self) -> None:
+        """Synchronous wrapper for git change detection."""
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self._on_git_change_detected())
+        finally:
+            loop.close()
+
+    async def _on_git_change_detected(self) -> None:
         """Callback invoked by GitChangeTrigger when external git changes are detected.
 
         Reschedules all enabled interval tasks to run immediately, then
         publishes a ``git_change_detected`` event for the UI.
         """
-        self.logger.info("GitChangeTrigger: external changes detected, rescheduling interval tasks")
+        self.logger.info(
+"GitChangeTrigger: external changes detected, rescheduling interval tasks")
         with self._lock:
             for task_id, task in self.tasks.items():
                 if not task.get("enabled", True):
@@ -315,10 +344,12 @@ class AutomationManager:
                         job = self.scheduler.get_job(task_id)
                         if job:
                             job.modify(next_run_time=datetime.now())
-                            self.logger.info(f"  Rescheduled task '{task_id}' to run now")
+                            self.logger.info(
+f"  Rescheduled task '{task_id}' to run now")
                     except Exception as exc:
-                        self.logger.warning(f"  Could not reschedule task '{task_id}': {exc}")
-        self.event_publisher.publish(
+                        self.logger.warning(
+f"  Could not reschedule task '{task_id}': {exc}")
+        await self.event_publisher.publish(
             "git_change_detected",
             {"timestamp": datetime.now().isoformat()},
         )
@@ -341,9 +372,9 @@ class AutomationManager:
             "params": check_params,
         }
 
-    def _publish_task_event(self, task_id: str, task: Dict[str, Any], event_type: str, details: Any = None):
+    async def _publish_task_event(self, task_id: str, task: Dict[str, Any], event_type: str, details: Any = None):
         """Publish a task execution event."""
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             f"task_{event_type}",
             {
                 "task_id": task_id,
@@ -365,7 +396,7 @@ class AutomationManager:
                 self._schedule_all_tasks()
 
             new_count = len(self.tasks)
-            self.logger.info(f"🔄 Reloaded tasks: {old_count} -> {new_count}")
+            self.logger.info_sync(f"🔄 Reloaded tasks: {old_count} -> {new_count}")
 
     def get_tasks(self) -> List[Dict[str, Any]]:
         """Get all tasks."""
@@ -378,7 +409,7 @@ class AutomationManager:
     def update_task(self, task_id: str, updates: Dict[str, Any]):
         """Update a task configuration."""
         if task_id not in self.tasks:
-            self.logger.warning(f"Task not found: {task_id}")
+            self.logger.info_sync(f"Task not found: {task_id}")
             return False
 
         try:
@@ -393,10 +424,10 @@ class AutomationManager:
                         job.remove()
                     self._schedule_task(task_id, self.tasks[task_id])
 
-            self.logger.info(f"✅ Updated task: {task_id}")
+            self.logger.info_sync(f"✅ Updated task: {task_id}")
             return True
         except Exception as e:
-            self.logger.error(f"❌ Failed to update task {task_id}: {e}")
+            self.logger.info_sync(f"❌ Failed to update task {task_id}: {e}")
             return False
 
     def _save_tasks(self):
@@ -408,7 +439,7 @@ class AutomationManager:
             }
             self.config_path.write_text(json.dumps(config_data, indent=2))
         except Exception as e:
-            self.logger.error(f"❌ Failed to save tasks: {e}")
+            self.logger.info_sync(f"❌ Failed to save tasks: {e}")
 
 
 # Singleton instance

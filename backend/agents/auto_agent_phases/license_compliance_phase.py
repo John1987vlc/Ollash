@@ -26,13 +26,13 @@ class LicenseCompliancePhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5.56: License Compliance Check...")
-        self.context.event_publisher.publish("phase_start", phase="5.56", message="Starting license compliance check")
+        await self.context.event_publisher.publish("phase_start", phase="5.56", message="Starting license compliance check")
 
         for rel_path, content in generated_files.items():
             if not self.context.policy_enforcer.is_license_compliant(project_root / rel_path):
                 self.context.logger.warning(f"  File {rel_path} has a non-compliant license.")
 
-        self.context.event_publisher.publish(
+        await self.context.event_publisher.publish(
             "phase_complete", phase="5.56", message="License compliance check complete"
         )
         self.context.logger.info("PHASE 5.56 complete.")

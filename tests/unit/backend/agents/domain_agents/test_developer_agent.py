@@ -5,6 +5,13 @@ from unittest.mock import MagicMock, AsyncMock
 from backend.agents.domain_agents.developer_agent import DeveloperAgent
 from backend.agents.orchestrators.task_dag import AgentType, TaskNode
 
+def _make_ep():
+    ep = MagicMock()
+    ep.publish = AsyncMock()
+    return ep
+
+
+
 
 @pytest.fixture
 def mock_file_gen():
@@ -30,7 +37,7 @@ def developer(mock_file_gen):
         code_patcher=MagicMock(),
         locked_file_manager=MagicMock(),
         parallel_file_generator=MagicMock(),
-        event_publisher=MagicMock(),
+        event_publisher=_make_ep(),
         logger=MagicMock(),
         tool_dispatcher=MagicMock(),
         instance_id=0,
@@ -94,7 +101,7 @@ class TestDeveloperAgent:
             code_patcher=MagicMock(),
             locked_file_manager=MagicMock(),
             parallel_file_generator=MagicMock(),
-            event_publisher=MagicMock(),
+            event_publisher=_make_ep(),
             logger=MagicMock(),
             tool_dispatcher=MagicMock(),
             instance_id=2,

@@ -1,4 +1,5 @@
 import asyncio
+import json
 from typing import Dict
 
 from backend.utils.core.system.agent_logger import AgentLogger
@@ -82,23 +83,47 @@ class FileCompletenessChecker:
                 )
 
                 if is_empty:
-                    system, user = AutoGenPrompts.file_content_generation(file_path, current_content, readme_context)
+                    system, user = await AutoGenPrompts.file_content_generation(file_path, current_content, readme_context)
                 else:
-                    system, user = AutoGenPrompts.file_fix(
+                    system, user = await AutoGenPrompts.file_fix(
                         file_path, current_content, current_result.message, readme_context
                     )
 
                 try:
-                    response_data, usage = await self.llm_client.achat(
-                        messages=[
-                            {"role": "system", "content": system},
-                            {"role": "user", "content": user},
-                        ],
-                        tools=[],
-                        options_override=self.options,
-                    )
+                    # ACHTUNG: checking if achat exists or chat should be used.
+                    # Based on project overview, most calls are Chat.
+                    # MultiLanguageTestGenerator and others used .chat (sync).
+                    # If llm_client is OllamaClient, .chat is sync.
+                    # Some files use await self.llm_client.achat, but I should check if it exists.
+                    if hasattr(self.llm_client, "achat"):
+                        response_data, usage = await self.llm_client.achat(
+                            messages=[
+                                {"role": "system", "content": system},
+                                {"role": "user", "content": user},
+                            ],
+                            tools=[],
+                            options_override=self.options,
+                        )
+                    else:
+                        response_data, usage = self.llm_client.chat(
+                            messages=[
+                                {"role": "system", "content": system},
+                                {"role": "user", "content": user},
+                            ],
+                            tools=[],
+                            options_override=self.options,
+                        )
                     raw = response_data.get("message", {}).get("content", "") or response_data.get("content", "")
-                    new_content = self.parser.extract_raw_content(raw)
+
+                    if file_path.lower().endswith(".json"):
+                        # Use surgical JSON extraction for .json files
+                        json_obj = self.parser.extract_json(raw)
+                        if json_obj is not None:
+                            new_content = json.dumps(json_obj, indent=2)
+                        else:
+                            new_content = self.parser.extract_raw_content(raw)
+                    else:
+                        new_content = self.parser.extract_raw_content(raw)
 
                     if not new_content.strip():
                         self.logger.warning(f"    Empty content returned on attempt {attempt} for {file_path}")

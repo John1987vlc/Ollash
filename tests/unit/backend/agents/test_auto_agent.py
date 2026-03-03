@@ -19,6 +19,7 @@ def mock_context(tmp_path):
     ctx.generated_projects_dir = tmp_path / "gen"
     ctx.error_knowledge_base = MagicMock()
     ctx.fragment_cache = MagicMock()
+    ctx.fragment_cache.stats = AsyncMock(return_value={})
     ctx.file_manager = MagicMock()
     ctx.initial_exec_params = {}
     ctx.ingest_existing_project.return_value = ({}, {}, [])

@@ -199,6 +199,43 @@ class GPUAwareRateLimiterConfig(BaseModel):
     ema_alpha: float = Field(0.3, ge=0.0, le=1.0)
 
 
+# --- Logic Planning and Backlog Schemas ---
+class BacklogTask(BaseModel):
+    id: str = Field(description="Unique task ID (e.g., TASK-001)")
+    title: str = Field(description="Short, descriptive title of the task")
+    description: str = Field(description="Detailed explanation of what needs to be implemented")
+    file_path: str = Field(description="Path to the file this task modifies or creates")
+    task_type: Literal["create_file", "modify_file", "implement_function", "define_imports"] = "create_file"
+    dependencies: List[str] = Field(default_factory=list, description="List of task IDs this task depends on")
+    context_files: List[str] = Field(default_factory=list, description="Related files needed as context")
+
+
+class LogicPlanEntry(BaseModel):
+    purpose: str = Field(description="Primary goal of this file")
+    exports: List[str] = Field(default_factory=list, description="Symbols or components exported by this file")
+    imports: List[str] = Field(default_factory=list, description="Primary dependencies needed")
+    main_logic: List[str] = Field(default_factory=list, description="Step-by-step logic to implement")
+
+
+class LogicPlanningOutput(BaseModel):
+    logic_plan: Dict[str, LogicPlanEntry] = Field(description="Implementation plan per file")
+    backlog: List[BacklogTask] = Field(description="Agile backlog of micro-tasks")
+
+
+# --- Senior Review Schema ---
+class SeniorReviewIssue(BaseModel):
+    severity: Literal["low", "medium", "high", "critical"] = "medium"
+    file: str = Field(description="Affected file path")
+    description: str = Field(description="Clear explanation of the problem")
+    recommendation: str = Field(description="Concrete steps to resolve the issue")
+
+
+class SeniorReviewOutput(BaseModel):
+    status: Literal["passed", "failed"] = "failed"
+    summary: str = Field(description="Executive summary of the review")
+    issues: List[SeniorReviewIssue] = Field(default_factory=list, description="Detailed list of findings")
+
+
 class ToolSettingsConfig(BaseModel):
     sandbox_level: Literal["limited", "full", "none"] = Field(
         "limited",

@@ -1,8 +1,9 @@
 """Enhanced File Content Generator that uses logic plans for better implementation."""
 
 import re
+import asyncio
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from backend.utils.core.llm.ollama_client import OllamaClient
 from backend.utils.core.system.agent_logger import AgentLogger
@@ -42,7 +43,7 @@ class EnhancedFileContentGenerator:
 
             self._code_patcher = CodePatcher(llm_client, logger, self.response_parser)
 
-    def generate_file_with_plan(
+    async def generate_file_with_plan(
         self,
         file_path: str,
         logic_plan: Dict[str, Any],
@@ -77,7 +78,7 @@ class EnhancedFileContentGenerator:
         dependencies = logic_plan.get("dependencies", [])
 
         # Build context for generation
-        context = self._build_detailed_context(
+        context = await self._build_detailed_context(
             file_path,
             purpose,
             exports,
@@ -93,7 +94,7 @@ class EnhancedFileContentGenerator:
         # Generate with retry logic
         for attempt in range(self.max_retries):
             try:
-                content = self._generate_with_prompt(file_path, context, purpose, exports, main_logic, validation)
+                content = await self._generate_with_prompt(file_path, context, purpose, exports, main_logic, validation)
 
                 if self._validate_content(content, file_path, exports, validation):
                     return content
@@ -137,7 +138,7 @@ class EnhancedFileContentGenerator:
         validation = logic_plan.get("validation", [])
         dependencies = logic_plan.get("dependencies", [])
 
-        context = self._build_detailed_context(
+        context = await self._build_detailed_context(
             file_path,
             purpose,
             exports,
@@ -155,7 +156,7 @@ class EnhancedFileContentGenerator:
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
+            prompts = await loader.load_prompt("domains/auto_generation/code_gen.yaml")
             lang_rules_map = prompts.get("language_rules", {})
             lang_rule = lang_rules_map.get(file_ext, lang_rules_map.get("default", ""))
             system_template = prompts.get("file_gen_v2", {}).get("system", "")
@@ -166,7 +167,7 @@ class EnhancedFileContentGenerator:
             user = user_template.format(file_path=file_path, context=context, exports=", ".join(exports))
         except Exception as exc:
             self.logger.warning(f"[streaming] Prompt load failed for '{file_path}': {exc}; using sync fallback")
-            return self.generate_file_with_plan(
+            return await self.generate_file_with_plan(
                 file_path=file_path,
                 logic_plan=logic_plan,
                 project_description=project_description,
@@ -189,7 +190,7 @@ class EnhancedFileContentGenerator:
             return self.response_parser.extract_code_block(content) or content
         except Exception as exc:
             self.logger.warning(f"[streaming] stream_chat failed for '{file_path}': {exc}; using sync fallback")
-            return self.generate_file_with_plan(
+            return await self.generate_file_with_plan(
                 file_path=file_path,
                 logic_plan=logic_plan,
                 project_description=project_description,
@@ -198,7 +199,7 @@ class EnhancedFileContentGenerator:
                 related_files=related_files,
             )
 
-    def _build_detailed_context(
+    async def _build_detailed_context(
         self,
         file_path: str,
         purpose: str,
@@ -231,18 +232,22 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
 {chr(10).join(f"- {v}" for v in validation)}
 """
         # Append RAG documentation snippets when available
-        doc_snippets = self._get_documentation_snippets(file_path, purpose)
+        doc_snippets = await self._get_documentation_snippets(file_path, purpose)
         if doc_snippets:
             context += doc_snippets
 
         return context
 
-    def _get_documentation_snippets(self, file_path: str, purpose: str) -> str:
+    async def _get_documentation_snippets(self, file_path: str, purpose: str) -> str:
         """Query documentation manager for relevant code examples (RAG)."""
         if not self.documentation_manager:
             return ""
         try:
             query = f"How to implement {file_path}: {purpose[:200]}"
+            # DocumentationManager.query_documentation is typically sync, but checking its signature
+            # Assuming it might be async in some implementations or needs awaiting if wrapped
+            # If it's sync, this won't hurt much, but let's check.
+            # In PhaseContext it's DocumentationManager.
             docs = self.documentation_manager.query_documentation(query, n_results=2)
             if docs:
                 snippets = "\n---\n".join(d["document"] for d in docs)
@@ -251,7 +256,7 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
             self.logger.warning(f"RAG lookup failed: {e}")
         return ""
 
-    def _generate_with_prompt(
+    async def _generate_with_prompt(
         self,
         file_path: str,
         context: str,
@@ -268,7 +273,7 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
+            prompts = await loader.load_prompt("domains/auto_generation/code_gen.yaml")
 
             if not prompts:
                 return self._generate_fallback_skeleton(file_path, purpose, exports, [])
@@ -409,7 +414,7 @@ TODO: Implement {file_path}
 
         return skeleton
 
-    def edit_existing_file(
+    async def edit_existing_file(
         self,
         file_path: str,
         current_content: str,
@@ -430,4 +435,5 @@ TODO: Implement {file_path}
         Returns:
             Updated file content
         """
-        return self._code_patcher.edit_existing_file(file_path, current_content, readme, issues_to_fix, edit_strategy)
+        # Checking if CodePatcher.edit_existing_file is async
+        return await self._code_patcher.edit_existing_file(file_path, current_content, readme, issues_to_fix, edit_strategy)

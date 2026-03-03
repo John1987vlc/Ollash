@@ -1,5 +1,7 @@
 import json
-from typing import Dict
+from typing import Dict, Optional
+
+from pydantic import ValidationError
 
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
@@ -7,6 +9,7 @@ from backend.utils.core.llm.ollama_client import OllamaClient
 from backend.utils.core.system.retry_policy import RetryPolicy
 
 from backend.utils.domains.auto_generation.utilities.prompt_templates import AutoGenPrompts
+from backend.core.config_schemas import SeniorReviewOutput
 
 
 class SeniorReviewer:
@@ -39,7 +42,7 @@ class SeniorReviewer:
         self.options = options or self.DEFAULT_OPTIONS.copy()
         self.retry_policy = RetryPolicy(max_attempts=2)
 
-    def perform_review(
+    async def perform_review(
         self,
         project_description: str,
         project_name: str,
@@ -51,9 +54,7 @@ class SeniorReviewer:
         """
         Performs a senior-level review of the entire project.
         Returns a dictionary with review status ('passed'/'failed'), summary, and issues.
-
-        If the initial response is not valid JSON, retries once with a simplified
-        prompt to avoid wasting a review attempt with no actionable issues.
+        Ensures structural integrity using Pydantic validation.
         """
         project_summary = (
             f"Project Name: {project_name}\n\n"
@@ -62,53 +63,50 @@ class SeniorReviewer:
             f"File Structure:\n{json.dumps(json_structure, indent=2)}\n\n"
             f"Files:\n" + "\n".join(current_files.keys())
         )
-        system, user = AutoGenPrompts.senior_review_prompt(project_summary)
-        response_data, _ = self.llm_client.chat(
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            tools=[],
-            options_override=self.options,
-        )
-        # Use flattened content or nested structure safely
-        raw_review = response_data.get("content", "") or response_data.get("message", {}).get("content", "")
+        system, user = await AutoGenPrompts.senior_review_prompt(project_summary)
+        
+        last_error = ""
+        for attempt in range(1, 3):
+            try:
+                current_user = user
+                if last_error:
+                    current_user += f"\n\nCRITICAL: Previous output failed validation:\n{last_error}\n\nPlease fix the JSON and ensure all fields ('status', 'summary', 'issues') are correct."
 
-        review_results = self.parser.extract_json(raw_review)
+                response_data, _ = self.llm_client.chat(
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": current_user},
+                    ],
+                    tools=[],
+                    options_override=self.options,
+                )
+                
+                raw_review = response_data.get("content", "") or response_data.get("message", {}).get("content", "")
+                parsed_json = self.parser.extract_json(raw_review)
 
-        if review_results is None:
-            self.logger.warning(
-                "Senior Reviewer returned non-JSON response. Retrying with simplified JSON-only prompt..."
-            )
-            review_results = self._retry_json_extraction(raw_review)
+                if parsed_json is None:
+                    # Retry once with simplified extractor if parsing failed completely
+                    parsed_json = self._retry_json_extraction(raw_review)
+                
+                if parsed_json:
+                    # Pydantic Hardening
+                    validated = SeniorReviewOutput.model_validate(parsed_json)
+                    return validated.model_dump()
+                
+                raise ValueError("Could not extract valid JSON from review.")
 
-        if review_results is None:
-            self.logger.error("Senior Reviewer could not produce valid JSON after retry. Assuming failed.")
-            return {
-                "status": "failed",
-                "summary": "LLM returned invalid JSON review.",
-                "issues": [],
-            }
+            except (ValidationError, ValueError, Exception) as e:
+                last_error = str(e)
+                self.logger.warning(f"  ⚠ Senior Review attempt {attempt} failed validation: {last_error}")
 
-        # Ensure review_results is a dictionary
-        if isinstance(review_results, list):
-            if len(review_results) > 0 and isinstance(review_results[0], dict):
-                review_results = review_results[0]
-            else:
-                return {
-                    "status": "failed",
-                    "summary": "LLM returned a JSON list instead of an object.",
-                    "issues": [],
-                }
+        self.logger.error("Senior Reviewer could not produce validated JSON. Using emergency fail status.")
+        return {
+            "status": "failed",
+            "summary": f"Senior Review failed to produce validated output: {last_error}",
+            "issues": [],
+        }
 
-        # Ensure 'status', 'summary', and 'issues' keys are present
-        review_results.setdefault("status", "failed")
-        review_results.setdefault("summary", "Review completed.")
-        review_results.setdefault("issues", [])
-
-        return review_results
-
-    def _retry_json_extraction(self, raw_review: str) -> Dict | None:
+    def _retry_json_extraction(self, raw_review: str) -> Optional[Dict]:
         """Retry JSON extraction by asking the LLM to convert its own text review to JSON."""
         retry_system = (
             "You are a JSON formatter. Convert the following review text into "
@@ -129,7 +127,7 @@ class SeniorReviewer:
                 tools=[],
                 options_override=self.JSON_RETRY_OPTIONS,
             )
-            raw_retry = response_data["message"]["content"]
+            raw_retry = response_data.get("content", "") or response_data.get("message", {}).get("content", "")
             return self.parser.extract_json(raw_retry)
         except Exception as e:
             self.logger.error(f"JSON retry failed: {e}")

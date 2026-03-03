@@ -1,7 +1,14 @@
 """Unit tests for PUT /api/hil/edit-task/<task_id> — Feature 5."""
 
+import sys
+import importlib
 import pytest
 from unittest.mock import MagicMock, patch
+
+# Retrieve the hil_bp MODULE from sys.modules (not the Blueprint attribute
+# exported by frontend/blueprints/__init__.py which shadows the module name).
+importlib.import_module("frontend.blueprints.hil_bp")
+_hil_module = sys.modules["frontend.blueprints.hil_bp"]
 
 
 def _make_app():
@@ -52,7 +59,7 @@ class TestHilEditTask:
         assert b"instruction" in resp.data.lower()
 
     def test_returns_404_when_no_orchestrators(self):
-        with patch("frontend.blueprints.hil_bp._get_active_orchestrators", return_value=None):
+        with patch.object(_hil_module, "_get_active_orchestrators", return_value=None):
             client = self._client()
             resp = client.put(
                 "/api/hil/edit-task/task-001",
@@ -63,7 +70,7 @@ class TestHilEditTask:
 
     def test_returns_404_when_task_not_found(self):
         ao = self._patch_orchestrators(node=None)
-        with patch("frontend.blueprints.hil_bp._get_active_orchestrators", return_value=ao):
+        with patch.object(_hil_module, "_get_active_orchestrators", return_value=ao):
             with patch("backend.agents.orchestrators.task_dag.TaskStatus") as mock_status:
                 client = self._client()
                 resp = client.put(
@@ -79,14 +86,7 @@ class TestHilEditTask:
         node = self._make_mock_dag_node(status_value="IN_PROGRESS")
         ao = self._patch_orchestrators(node=node)
 
-        with patch("frontend.blueprints.hil_bp._get_active_orchestrators", return_value=ao):
-            # Patch TaskStatus so the comparison works
-            with patch(
-                "frontend.blueprints.hil_bp.edit_task.__code__",
-                wraps=None,
-            ):
-                pass
-
+        # The first block was a dead-code stub; the real assertion is below.
         # Direct functional test by making TaskStatus.PENDING not match node.status
         from backend.agents.orchestrators.task_dag import TaskStatus as RealTaskStatus
 
@@ -95,7 +95,7 @@ class TestHilEditTask:
         node2.task_data = {}
         ao2 = self._patch_orchestrators(node=node2)
 
-        with patch("frontend.blueprints.hil_bp._get_active_orchestrators", return_value=ao2):
+        with patch.object(_hil_module, "_get_active_orchestrators", return_value=ao2):
             client = self._client()
             resp = client.put(
                 "/api/hil/edit-task/task-001",
@@ -112,7 +112,7 @@ class TestHilEditTask:
         node.task_data = {"instruction": "old"}
         ao = self._patch_orchestrators(node=node)
 
-        with patch("frontend.blueprints.hil_bp._get_active_orchestrators", return_value=ao):
+        with patch.object(_hil_module, "_get_active_orchestrators", return_value=ao):
             client = self._client()
             resp = client.put(
                 "/api/hil/edit-task/task-001",
@@ -131,7 +131,7 @@ class TestHilEditTask:
         node.task_data = {"instruction": "old"}
         ao = self._patch_orchestrators(node=node)
 
-        with patch("frontend.blueprints.hil_bp._get_active_orchestrators", return_value=ao):
+        with patch.object(_hil_module, "_get_active_orchestrators", return_value=ao):
             client = self._client()
             client.put(
                 "/api/hil/edit-task/task-001",

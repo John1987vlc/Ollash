@@ -1,5 +1,5 @@
 {
-    "ollama_url": "http://127.0.0.1:11434",
+    "ollama_url": "http://192.168.1.217:11434",
     "default_model": "ministral-3:3b",
     "default_timeout": 600,
     "default_temperature": 0.4,

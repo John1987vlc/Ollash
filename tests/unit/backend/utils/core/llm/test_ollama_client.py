@@ -12,7 +12,9 @@ from backend.utils.core.llm.ollama_client import OllamaClient
 
 @pytest.fixture
 def mock_logger():
-    return MagicMock()
+    logger = MagicMock()
+    logger.event_publisher.publish = AsyncMock()
+    return logger
 
 
 @pytest.fixture

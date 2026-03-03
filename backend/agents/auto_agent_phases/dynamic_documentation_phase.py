@@ -45,7 +45,7 @@ class DynamicDocumentationPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])
 
         self.context.logger.info(f"PHASE {self.PHASE_NAME}: Dynamic Documentation Update...")
-        self.context.event_publisher.publish(
+        await self.context.event_publisher.publish(
             "phase_start",
             phase=self.PHASE_NAME,
             message="Auto-updating CHANGELOG, ROADMAP, and README",
@@ -57,7 +57,7 @@ class DynamicDocumentationPhase(IAgentPhase):
 
         # 1. Update CHANGELOG.md
         try:
-            changelog_entry = self.context.project_planner.generate_changelog_entry(
+            changelog_entry = await self.context.project_planner.generate_changelog_entry(
                 project_name=project_name,
                 changes=cycle_changes,
             )
@@ -72,7 +72,7 @@ class DynamicDocumentationPhase(IAgentPhase):
         # 2. Update ROADMAP.md (only if there are improvement gaps)
         if improvement_gaps:
             try:
-                roadmap_content = self.context.project_planner.generate_roadmap(
+                roadmap_content = await self.context.project_planner.generate_roadmap(
                     project_name=project_name,
                     improvement_gaps=improvement_gaps,
                     tech_stack_info=tech_stack_info,
@@ -87,7 +87,7 @@ class DynamicDocumentationPhase(IAgentPhase):
         try:
             cycle_summary = self._build_cycle_summary(project_name, cycle_changes)
             existing_readme = generated_files.get("README.md", readme_content)
-            updated_readme = self.context.project_planner.update_readme_summary(
+            updated_readme = await self.context.project_planner.update_readme_summary(
                 existing_readme=existing_readme,
                 cycle_summary=cycle_summary,
             )
@@ -97,7 +97,7 @@ class DynamicDocumentationPhase(IAgentPhase):
         except Exception as exc:
             self.context.logger.warning(f"  PHASE {self.PHASE_NAME}: README update failed (non-critical): {exc}")
 
-        self.context.event_publisher.publish(
+        await self.context.event_publisher.publish(
             "phase_complete",
             phase=self.PHASE_NAME,
             message="Dynamic Documentation complete",

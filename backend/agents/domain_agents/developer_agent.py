@@ -123,7 +123,7 @@ class DeveloperAgent(BaseDomainAgent):
             if plan_steps:
                 node.task_data["plan_steps"] = plan_steps
                 self._log_info(f"Micro-steps for '{file_path}': {plan_steps}")
-                self._event_publisher.publish(
+                await self._event_publisher.publish(
                     "micro_steps_planned",
                     file_path=file_path,
                     agent_id=self.agent_id,
@@ -162,7 +162,7 @@ class DeveloperAgent(BaseDomainAgent):
         await blackboard.write(f"generated_files/{file_path}", content, self.agent_id)
 
         # Publish event — triggers AuditorAgent JIT audit
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "file_generated",
             file_path=file_path,
             agent_id=self.agent_id,

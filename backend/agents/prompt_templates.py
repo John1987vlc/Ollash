@@ -10,19 +10,6 @@ from backend.utils.core.llm.prompt_loader import PromptLoader
 logger = logging.getLogger(__name__)
 
 
-class classproperty(object):
-    """
-    Decorator that converts a method with a single cls argument
-    into a property that can be accessed directly from the class.
-    """
-
-    def __init__(self, f):
-        self.f = f
-
-    def __get__(self, obj, owner):
-        return self.f(owner)
-
-
 class RolePromptTemplates:
     """
     Prompt templates loaded from centralized YAML files.
@@ -32,7 +19,7 @@ class RolePromptTemplates:
     _loader = PromptLoader()
 
     @staticmethod
-    def get_system_prompt(role: str) -> str:
+    async def get_system_prompt(role: str) -> str:
         """Get system prompt for a specific role from YAML files."""
         role_map = {
             "analyst": "roles/analyst.yaml",
@@ -45,11 +32,27 @@ class RolePromptTemplates:
             logger.warning(f"No prompt file found for role: {role}")
             return "You are a helpful AI assistant."
 
-        content = RolePromptTemplates._loader.load_prompt(file_path)
+        content = await RolePromptTemplates._loader.load_prompt(file_path)
         return content.get("system_prompt", "You are a helpful AI assistant.")
 
     @staticmethod
-    def get_task_template(role: str, task_type: str, **kwargs) -> Optional[str]:
+    def get_system_prompt_sync(role: str) -> str:
+        """Synchronous version of get_system_prompt."""
+        role_map = {
+            "analyst": "roles/analyst.yaml",
+            "writer": "roles/writer.yaml",
+            "orchestration": "roles/orchestrator.yaml",
+        }
+
+        file_path = role_map.get(role)
+        if not file_path:
+            return "You are a helpful AI assistant."
+
+        content = RolePromptTemplates._loader.load_prompt_sync(file_path)
+        return content.get("system_prompt", "You are a helpful AI assistant.")
+
+    @staticmethod
+    async def get_task_template(role: str, task_type: str, **kwargs) -> Optional[str]:
         """Get a task template for a role and task type from YAML files."""
         role_map = {
             "analyst": "roles/analyst.yaml",
@@ -61,7 +64,7 @@ class RolePromptTemplates:
             logger.warning(f"No task template file found for role: {role}")
             return None
 
-        content = RolePromptTemplates._loader.load_prompt(file_path)
+        content = await RolePromptTemplates._loader.load_prompt(file_path)
         tasks = content.get("tasks", {})
         template = tasks.get(task_type)
 
@@ -74,25 +77,61 @@ class RolePromptTemplates:
 
         return template
 
-    # Backward compatibility: These were previously class attributes.
-    @classproperty
-    def ANALYST_SYSTEM_PROMPT(cls):
-        return cls.get_system_prompt("analyst")
+    @staticmethod
+    def get_task_template_sync(role: str, task_type: str, **kwargs) -> Optional[str]:
+        """Synchronous version of get_task_template."""
+        role_map = {
+            "analyst": "roles/analyst.yaml",
+            "writer": "roles/writer.yaml",
+        }
 
-    @classproperty
-    def WRITER_SYSTEM_PROMPT(cls):
-        return cls.get_system_prompt("writer")
+        file_path = role_map.get(role)
+        if not file_path:
+            return None
 
-    @classproperty
-    def ORCHESTRATOR_SYSTEM_PROMPT(cls):
-        return cls.get_system_prompt("orchestration")
+        content = RolePromptTemplates._loader.load_prompt_sync(file_path)
+        tasks = content.get("tasks", {})
+        template = tasks.get(task_type)
 
-    @classproperty
-    def ANALYST_TASK_TEMPLATES(cls):
-        content = cls._loader.load_prompt("roles/analyst.yaml")
+        if template and kwargs:
+            try:
+                return template.format(**kwargs)
+            except KeyError:
+                return template
+
+        return template
+
+    @classmethod
+    async def get_analyst_task_templates(cls):
+        content = await cls._loader.load_prompt("roles/analyst.yaml")
         return content.get("tasks", {})
 
-    @classproperty
-    def WRITER_TASK_TEMPLATES(cls):
-        content = cls._loader.load_prompt("roles/writer.yaml")
+    @classmethod
+    def get_analyst_task_templates_sync(cls):
+        content = cls._loader.load_prompt_sync("roles/analyst.yaml")
         return content.get("tasks", {})
+
+    @classmethod
+    async def get_writer_task_templates(cls):
+        content = await cls._loader.load_prompt("roles/writer.yaml")
+        return content.get("tasks", {})
+
+    @classmethod
+    def get_writer_task_templates_sync(cls):
+        content = cls._loader.load_prompt_sync("roles/writer.yaml")
+        return content.get("tasks", {})
+
+
+# Backwards-compatible class attributes populated at import time
+try:
+    RolePromptTemplates.ANALYST_SYSTEM_PROMPT = RolePromptTemplates.get_system_prompt_sync("analyst")
+    RolePromptTemplates.WRITER_SYSTEM_PROMPT = RolePromptTemplates.get_system_prompt_sync("writer")
+    RolePromptTemplates.ORCHESTRATOR_SYSTEM_PROMPT = RolePromptTemplates.get_system_prompt_sync("orchestration")
+    RolePromptTemplates.ANALYST_TASK_TEMPLATES = RolePromptTemplates.get_analyst_task_templates_sync()
+    RolePromptTemplates.WRITER_TASK_TEMPLATES = RolePromptTemplates.get_writer_task_templates_sync()
+except Exception:
+    RolePromptTemplates.ANALYST_SYSTEM_PROMPT = "You are a helpful analyst AI assistant."
+    RolePromptTemplates.WRITER_SYSTEM_PROMPT = "You are a helpful writer AI assistant."
+    RolePromptTemplates.ORCHESTRATOR_SYSTEM_PROMPT = "You are a helpful orchestration AI assistant."
+    RolePromptTemplates.ANALYST_TASK_TEMPLATES = {}
+    RolePromptTemplates.WRITER_TASK_TEMPLATES = {}

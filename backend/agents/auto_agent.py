@@ -210,6 +210,10 @@ class AutoAgent(CoreAgent):
             from backend.agents.auto_agent_phases.license_compliance_phase import (
                 LicenseCompliancePhase,
             )
+            from backend.agents.auto_agent_phases.plan_validation_phase import PlanValidationPhase
+            from backend.agents.auto_agent_phases.api_contract_phase import ApiContractPhase
+            from backend.agents.auto_agent_phases.test_planning_phase import TestPlanningPhase
+            from backend.agents.auto_agent_phases.component_tree_phase import ComponentTreePhase
 
             ctx = self.phase_context
 
@@ -219,6 +223,11 @@ class AutoAgent(CoreAgent):
                     DynamicDocumentationPhase,
                     CICDHealingPhase,
                     LicenseCompliancePhase,
+                    # Sprint 10: expensive phases skipped on nano
+                    PlanValidationPhase,
+                    ApiContractPhase,
+                    TestPlanningPhase,
+                    ComponentTreePhase,
                 )
                 filtered = [p for p in self.phases if not isinstance(p, _NANO_SKIP)]
                 skipped_names = [c.__name__ for c in _NANO_SKIP]
@@ -229,7 +238,7 @@ class AutoAgent(CoreAgent):
                 return filtered
 
             if ctx._is_mid_model():
-                _SLIM_SKIP = (DynamicDocumentationPhase, CICDHealingPhase)
+                _SLIM_SKIP = (DynamicDocumentationPhase, CICDHealingPhase, PlanValidationPhase)
                 filtered = [p for p in self.phases if not isinstance(p, _SLIM_SKIP)]
                 self.logger.info(
                     f"[AdaptivePipeline] slim tier — skipping {len(self.phases) - len(filtered)} doc/CI phases"
@@ -361,7 +370,7 @@ class AutoAgent(CoreAgent):
         execution_plan = ExecutionPlan(project_name, is_existing_project=project_exists)
         execution_plan.define_milestones(phases)
 
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "execution_plan_initialized",
             plan=execution_plan.to_dict(),
             milestones=execution_plan.get_milestones_list(),
@@ -391,7 +400,8 @@ class AutoAgent(CoreAgent):
                 self.logger.info(f"🚀 EXECUTING PHASE: {phase_name}")
                 if milestone_id:
                     execution_plan.start_milestone(milestone_id)
-                    self.event_publisher.publish("milestone_started", milestone_id=milestone_id, phase=phase_name)
+                    await self.event_publisher.publish(
+"milestone_started", milestone_id=milestone_id, phase=phase_name)
 
                 try:
                     # Run the phase execution
@@ -416,6 +426,10 @@ class AutoAgent(CoreAgent):
                         generated_files, initial_structure, file_paths, readme_content
                     )
 
+                    # F1: Pick up the enriched description from ClarificationPhase
+                    if "__clarified_description__" in generated_files:
+                        project_description = generated_files.pop("__clarified_description__")
+
                     # LogicPlanningPhase specific: Two-pass Issue Creation
                     if isinstance(phase, LogicPlanningPhase) and self.git_tool:
                         self._manage_github_issues(initial_structure)
@@ -430,12 +444,15 @@ class AutoAgent(CoreAgent):
                     if milestone_id:
                         summary = f"Phase completed. Files: {len(generated_files)}."
                         execution_plan.complete_milestone(milestone_id, summary)
-                        self.event_publisher.publish(
+                        await self.event_publisher.publish(
                             "milestone_completed",
                             milestone_id=milestone_id,
                             phase=phase_name,
                             progress=execution_plan.get_progress(),
                         )
+
+                    # F10: Git checkpoint after each successful phase (feature-flagged)
+                    await self._maybe_git_checkpoint(phase_name, project_root)
 
                     # Cycle of Life: If this was a code generation phase, we might want to PR it
                     if phase_name == "FileContentGenerationPhase":
@@ -452,13 +469,14 @@ class AutoAgent(CoreAgent):
                     self.logger.error(f"Error in phase {phase_name}: {e}", exc_info=True)
                     if milestone_id:
                         execution_plan.fail_milestone(milestone_id, str(e))
-                        self.event_publisher.publish(
+                        await self.event_publisher.publish(
                             "milestone_failed",
                             milestone_id=milestone_id,
                             phase=phase_name,
                             error=str(e),
                         )
-                    self.event_publisher.publish("phase_error", phase=phase_name, error=str(e))
+                    await self.event_publisher.publish(
+"phase_error", phase=phase_name, error=str(e))
 
                     # Mejora 6b: Attempt dynamic rescue planning before aborting
                     rescue_phases = await self._request_rescue_plan(phase_name, str(e))
@@ -536,6 +554,69 @@ class AutoAgent(CoreAgent):
             self.logger.warning(f"[RESCUE] Failed to get rescue plan: {exc}")
             return []
 
+    async def _maybe_git_checkpoint(self, phase_name: str, project_root: Any) -> None:
+        """Commit all project files as a git checkpoint after a phase succeeds (F10).
+
+        Only runs when ``git_checkpoints.enabled`` is True in agent_features.json
+        AND the project_root directory contains a ``.git`` folder (or is any git repo).
+        Never raises — checkpoint failures must not abort the pipeline.
+        """
+        try:
+            features = self.config.get("agent_features", {})
+            gc_cfg = features.get("git_checkpoints", {})
+            if not gc_cfg.get("enabled", False):
+                return
+
+            import subprocess  # noqa: PLC0415
+
+            git_dir = project_root / ".git"
+            if not git_dir.exists():
+                # Auto-init a repo on the first checkpoint so the project has history
+                subprocess.run(
+                    ["git", "init"],
+                    cwd=str(project_root),
+                    capture_output=True,
+                    check=False,
+                    timeout=15,
+                )
+
+            prefix = gc_cfg.get("commit_message_prefix", "checkpoint(auto-agent):")
+            skip_tag = gc_cfg.get("skip_ci_tag", "[skip ci]")
+            msg = f"{prefix} {phase_name} completed {skip_tag}"
+
+            subprocess.run(
+                ["git", "add", "--all"],
+                cwd=str(project_root),
+                capture_output=True,
+                check=False,
+                timeout=30,
+            )
+            result = subprocess.run(
+                ["git", "commit", "-m", msg, "--allow-empty-message", "--no-gpg-sign"],
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                # Extract commit hash from "master (root-commit) abc1234] …"
+                sha_line = result.stdout.strip().splitlines()[0] if result.stdout else ""
+                import re as _re  # noqa: PLC0415
+                sha_match = _re.search(r"\b([0-9a-f]{7,40})\b", sha_line)
+                sha = sha_match.group(1) if sha_match else "unknown"
+                self.phase_context.checkpoint_commits.append(sha)
+                self.logger.info(f"[GitCheckpoint] {phase_name} → commit {sha}")
+            elif "nothing to commit" in (result.stdout + result.stderr):
+                self.logger.debug(f"[GitCheckpoint] {phase_name}: nothing to commit.")
+            else:
+                self.logger.debug(
+                    f"[GitCheckpoint] commit failed for {phase_name}: "
+                    f"{result.stderr[:200]}"
+                )
+        except Exception as exc:
+            self.logger.debug(f"[GitCheckpoint] Non-fatal error: {exc}")
+
     def _manage_github_issues(self, structure: Dict):
         """Implements the 'Dos Pasadas' logic for GitHub issues."""
         self.logger.info("🔗 Starting 'Dos Pasadas' Issue Management...")
@@ -596,7 +677,7 @@ class AutoAgent(CoreAgent):
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = loader.load_prompt("domains/auto_generation/manifest.yaml")
+            prompts = await loader.load_prompt("domains/auto_generation/manifest.yaml")
 
             system = prompts.get("generate_manifest", {}).get("system", "")
             user_template = prompts.get("generate_manifest", {}).get("user", "")
@@ -611,9 +692,16 @@ class AutoAgent(CoreAgent):
 
             current_version = getattr(self.phase_context, "current_version", "v0.1.0")
 
+            # F40: Get vision from context or fallback to description
+            initial_params = getattr(self.phase_context, "initial_exec_params", {})
+            p_name = initial_params.get("project_name", "Unknown")
+            p_desc = initial_params.get("project_description", "N/A")
+            p_vision = initial_params.get("project_vision") or p_desc[:500]
+
             user = user_template.format(
-                project_name=self.phase_context.initial_exec_params.get("project_name", "Unknown"),
-                project_description=self.phase_context.initial_exec_params.get("project_description", "N/A"),
+                project_name=p_name,
+                project_description=p_desc,
+                project_vision=p_vision,
                 backlog_summary=backlog_summary,
                 current_task=current_task_id,
                 current_version=current_version,
@@ -652,7 +740,19 @@ class AutoAgent(CoreAgent):
 
         self.logger.info(f"Project '{project_name}' completed at {project_root}")
         self.logger.info(f"Knowledge Base Stats: {self.phase_context.error_knowledge_base.get_error_statistics()}")
-        self.logger.info(f"Fragment Cache Stats: {self.phase_context.fragment_cache.stats()}")
+        # Log fragment cache statistics
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import nest_asyncio
+                nest_asyncio.apply()
+            cache_stats = loop.run_until_complete(self.phase_context.fragment_cache.stats())
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            cache_stats = loop.run_until_complete(self.phase_context.fragment_cache.stats())
+        
+        self.logger.info(f"Fragment Cache Stats: {cache_stats}")
 
         plan_file = project_root / "EXECUTION_PLAN.json"
         self.phase_context.file_manager.write_file(plan_file, execution_plan.to_json())

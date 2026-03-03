@@ -27,7 +27,7 @@ class ContentCompletenessPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 7.5: Checking content completeness (placeholder detection)...")
-        self.context.event_publisher.publish("phase_start", phase="7.5", message="Checking content completeness")
+        await self.context.event_publisher.publish("phase_start", phase="7.5", message="Checking content completeness")
 
         incomplete_files = []
         for rel_path, content in generated_files.items():
@@ -42,7 +42,7 @@ class ContentCompletenessPhase(IAgentPhase):
             self.context.logger.info(
                 f"  Found {len(incomplete_files)} incomplete files, attempting to complete them..."
             )
-            self.context.event_publisher.publish(
+            await self.context.event_publisher.publish(
                 "tool_start",
                 tool_name="complete_incomplete_files",
                 count=len(incomplete_files),
@@ -57,12 +57,12 @@ class ContentCompletenessPhase(IAgentPhase):
                             "recommendation": "Replace all TODO, placeholder, and stub content with real implementations",
                         }
                     ]
-                    refined = self.context.file_refiner.refine_file(rel_path, content, readme_content[:2000], issues)
+                    refined = await self.context.file_refiner.refine_file(rel_path, content, readme_content[:2000], issues)
                     if refined:
                         generated_files[rel_path] = refined
                         self.context.file_manager.write_file(project_root / rel_path, refined)
                         self.context.logger.info(f"    Completed: {rel_path}")
-                        self.context.event_publisher.publish(
+                        await self.context.event_publisher.publish(
                             "tool_output",
                             tool_name="complete_incomplete_files",
                             file=rel_path,
@@ -70,7 +70,7 @@ class ContentCompletenessPhase(IAgentPhase):
                         )
                 except Exception as e:
                     self.context.logger.error(f"    Error completing {rel_path}: {e}")
-                    self.context.event_publisher.publish(
+                    await self.context.event_publisher.publish(
                         "tool_output",
                         tool_name="complete_incomplete_files",
                         file=rel_path,
@@ -85,9 +85,10 @@ class ContentCompletenessPhase(IAgentPhase):
             for rel_path, content in generated_files.items():
                 if content:
                     self.context.file_manager.write_file(project_root / rel_path, content)
-            self.context.event_publisher.publish("tool_end", tool_name="complete_incomplete_files")
+            await self.context.event_publisher.publish(
+"tool_end", tool_name="complete_incomplete_files")
 
-        self.context.event_publisher.publish(
+        await self.context.event_publisher.publish(
             "phase_complete", phase="7.5", message="Content completeness check complete"
         )
         self.context.logger.info("PHASE 7.5 complete.")

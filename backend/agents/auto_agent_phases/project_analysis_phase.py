@@ -48,7 +48,7 @@ class ProjectAnalysisPhase(IAgentPhase):
             f"[PROJECT_NAME:{project_name}] PHASE 0.5: Analyzing existing project "
             f"({len(generated_files)} files, {len(file_paths)} paths)..."
         )
-        self.context.event_publisher.publish("phase_start", phase="0.5", message="Analyzing existing project code")
+        await self.context.event_publisher.publish("phase_start", phase="0.5", message="Analyzing existing project code")
 
         # E1: Incremental differential analysis — load previous snapshot
         state_mgr = AnalysisStateManager(self.context.logger)
@@ -129,7 +129,7 @@ class ProjectAnalysisPhase(IAgentPhase):
         improvement_count = len(gaps.get("improvements", []))
         refactor_count = len(gaps.get("refactoring_opportunities", []))
 
-        self.context.event_publisher.publish(
+        await self.context.event_publisher.publish(
             "phase_complete",
             phase="0.5",
             message=f"Analysis complete: {improvement_count} improvements, {refactor_count} refactoring opportunities",
@@ -215,7 +215,7 @@ class ProjectAnalysisPhase(IAgentPhase):
         """
         self.context.logger.info("  Identifying gaps between current state and requirements...")
 
-        system_prompt, user_prompt = AutoGenPrompts.project_analysis_gaps(
+        system_prompt, user_prompt = await AutoGenPrompts.project_analysis_gaps(
             total_files=len(codebase_analysis["file_details"]),
             total_loc=codebase_analysis["total_lines_of_code"],
             languages=", ".join(codebase_analysis["files_by_type"].keys()),

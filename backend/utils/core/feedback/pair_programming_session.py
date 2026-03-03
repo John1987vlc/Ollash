@@ -7,6 +7,7 @@ agents write code in real-time and intervene with suggestions.
 
 import time
 import uuid
+import asyncio
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -61,18 +62,19 @@ class PairProgrammingSession:
         self.current_content: str = ""
         self.history: List[CodeEdit] = []
 
-    def start_file(self, file_path: str) -> None:
+    async def start_file(self, file_path: str) -> None:
         """Signal that the agent is starting to generate a file."""
         self.current_file = file_path
         self.current_content = ""
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "pair_programming_file_start",
             session_id=self.session_id,
             file_path=file_path,
         )
-        self.logger.info(f"Pair programming: started file {file_path}")
+        self.logger.info(
+f"Pair programming: started file {file_path}")
 
-    def update_content(self, content: str, cursor_pos: int = -1) -> None:
+    async def update_content(self, content: str, cursor_pos: int = -1) -> None:
         """Push a content update from the agent."""
         if self.is_paused:
             return
@@ -88,7 +90,7 @@ class PairProgrammingSession:
         )
         self.history.append(edit)
 
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "pair_programming_update",
             session_id=self.session_id,
             file_path=self.current_file,
@@ -97,7 +99,7 @@ class PairProgrammingSession:
             source="agent",
         )
 
-    def user_intervention(self, content: str, cursor_pos: int = -1) -> None:
+    async def user_intervention(self, content: str, cursor_pos: int = -1) -> None:
         """Record and broadcast a user edit intervention."""
         self.current_content = content
         edit = CodeEdit(
@@ -110,51 +112,55 @@ class PairProgrammingSession:
         )
         self.history.append(edit)
 
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "pair_programming_intervention",
             session_id=self.session_id,
             file_path=self.current_file,
             content=content,
             source="user",
         )
-        self.logger.info(f"Pair programming: user intervention on {self.current_file}")
+        self.logger.info(
+f"Pair programming: user intervention on {self.current_file}")
 
-    def complete_file(self, final_content: str) -> None:
+    async def complete_file(self, final_content: str) -> None:
         """Signal that a file generation is complete."""
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "pair_programming_file_complete",
             session_id=self.session_id,
             file_path=self.current_file,
             content=final_content,
         )
 
-    def pause(self) -> None:
+    async def pause(self) -> None:
         """Pause agent generation."""
         self.is_paused = True
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "pair_programming_paused",
             session_id=self.session_id,
         )
-        self.logger.info("Pair programming: paused")
+        self.logger.info(
+"Pair programming: paused")
 
-    def resume(self) -> None:
+    async def resume(self) -> None:
         """Resume agent generation."""
         self.is_paused = False
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "pair_programming_resumed",
             session_id=self.session_id,
         )
-        self.logger.info("Pair programming: resumed")
+        self.logger.info(
+"Pair programming: resumed")
 
-    def end_session(self) -> None:
+    async def end_session(self) -> None:
         """End the pair programming session."""
         self.is_active = False
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "pair_programming_ended",
             session_id=self.session_id,
             total_edits=len(self.history),
         )
-        self.logger.info(f"Pair programming session ended: {len(self.history)} total edits")
+        self.logger.info(
+f"Pair programming session ended: {len(self.history)} total edits")
 
     def get_session_stats(self) -> Dict[str, Any]:
         """Get statistics for the current session."""

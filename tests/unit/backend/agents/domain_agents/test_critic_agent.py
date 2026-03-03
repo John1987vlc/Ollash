@@ -6,6 +6,13 @@ from unittest.mock import AsyncMock, MagicMock
 from backend.agents.domain_agents.critic_agent import CriticAgent
 from backend.agents.orchestrators.task_dag import AgentType, TaskNode
 
+def _make_ep():
+    ep = MagicMock()
+    ep.publish = AsyncMock()
+    return ep
+
+
+
 
 @pytest.fixture
 def mock_ekb():
@@ -18,7 +25,7 @@ def mock_ekb():
 def agent(mock_ekb):
     return CriticAgent(
         error_knowledge_base=mock_ekb,
-        event_publisher=MagicMock(),
+        event_publisher=_make_ep(),
         logger=MagicMock(),
         tool_dispatcher=MagicMock(),
     )

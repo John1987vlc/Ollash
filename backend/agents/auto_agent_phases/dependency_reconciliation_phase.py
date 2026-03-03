@@ -27,7 +27,7 @@ class DependencyReconciliationPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5.6: Reconciling dependency files with actual imports...")
-        self.context.event_publisher.publish("phase_start", phase="5.6", message="Starting dependency reconciliation")
+        await self.context.event_publisher.publish("phase_start", phase="5.6", message="Starting dependency reconciliation")
 
         # Opt 5: Capture pre-reconciliation imports to detect mismatches for ErrorKnowledgeBase
         imports_before: Dict[str, Any] = {}
@@ -67,7 +67,7 @@ class DependencyReconciliationPhase(IAgentPhase):
             except Exception as e:
                 self.context.logger.info(f"[Opt5] Could not record dependency patterns: {e}")
 
-        self.context.event_publisher.publish(
+        await self.context.event_publisher.publish(
             "phase_complete", phase="5.6", message="Dependency reconciliation complete"
         )
         self.context.logger.info("PHASE 5.6 complete.")

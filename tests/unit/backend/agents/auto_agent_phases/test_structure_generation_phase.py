@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from backend.agents.auto_agent_phases.structure_generation_phase import StructureGenerationPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
@@ -9,6 +9,7 @@ def mock_context():
     ctx = MagicMock(spec=PhaseContext)
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
+    ctx.event_publisher.publish = AsyncMock()
     ctx.structure_generator = MagicMock()
     ctx.file_manager = MagicMock()
     return ctx
@@ -22,7 +23,7 @@ class TestStructureGenerationPhase:
         phase = StructureGenerationPhase(mock_context)
 
         mock_structure = {"folders": ["src", "tests"], "files": ["src/main.py", "tests/test_main.py"]}
-        mock_context.structure_generator.generate.return_value = mock_structure
+        mock_context.structure_generator.generate = AsyncMock(return_value=mock_structure)
 
         from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
 
@@ -46,7 +47,7 @@ class TestStructureGenerationPhase:
     @pytest.mark.asyncio
     async def test_execute_fallback(self, mock_context, tmp_path):
         phase = StructureGenerationPhase(mock_context)
-        mock_context.structure_generator.generate.return_value = None
+        mock_context.structure_generator.generate = AsyncMock(return_value=None)
 
         from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
 

@@ -60,8 +60,10 @@ class ModelRouter:
 
             roles_in_task_order.append(role)
             client = self.llm_clients[role]
-            self.logger.info(f"  Routing prompt to specialist model: {role} ({client.model})")
-            self.event_publisher.publish("tool_start", tool_name="model_router", model=client.model, role=role)
+            self.logger.info(
+f"  Routing prompt to specialist model: {role} ({client.model})")
+            await self.event_publisher.publish("tool_end", tool_name="model_router", model=client.model, role=role)
+
             tasks.append(
                 client.achat(
                     messages=messages,
@@ -77,7 +79,7 @@ class ModelRouter:
             client = self.llm_clients[role]
             if isinstance(result, Exception):
                 self.logger.error(f"  Error getting response from model {client.model} (role: {role}): {result}")
-                self.event_publisher.publish(
+                await self.event_publisher.publish(
                     "tool_output",
                     tool_name="model_router",
                     model=client.model,
@@ -88,7 +90,7 @@ class ModelRouter:
             else:
                 response_data, usage = result
                 candidate_responses.append((role, response_data))
-                self.event_publisher.publish(
+                await self.event_publisher.publish(
                     "tool_output",
                     tool_name="model_router",
                     model=client.model,
@@ -96,7 +98,8 @@ class ModelRouter:
                     status="success",
                     content=response_data["message"].get("content", "")[:200],
                 )
-            self.event_publisher.publish("tool_end", tool_name="model_router", model=client.model, role=role)
+            await self.event_publisher.publish(
+"tool_end", tool_name="model_router", model=client.model, role=role)
 
         if not candidate_responses:
             raise RuntimeError("No candidate models provided a response.")
@@ -106,7 +109,7 @@ class ModelRouter:
             return candidate_responses[0][1], candidate_responses
 
         self.logger.info("  Multiple candidate responses. Invoking Senior Reviewer to select the best.")
-        self.event_publisher.publish(
+        await self.event_publisher.publish(
             "tool_start",
             tool_name="senior_reviewer_selection",
             reviewer_model=self.senior_reviewer_client.model,
@@ -151,7 +154,7 @@ class ModelRouter:
                 tools=[],  # Reviewer typically doesn't use tools for selection, but can be configured
             )
             choice_content = review_response["message"]["content"]
-            self.event_publisher.publish(
+            await self.event_publisher.publish(
                 "tool_output",
                 tool_name="senior_reviewer_selection",
                 status="success",
@@ -159,17 +162,19 @@ class ModelRouter:
             )
         except Exception as e:
             self.logger.error(f"  Error getting response from Senior Reviewer: {e}")
-            self.event_publisher.publish(
+            await self.event_publisher.publish(
                 "tool_output",
                 tool_name="senior_reviewer_selection",
                 status="error",
                 message=str(e),
             )
-            self.event_publisher.publish("tool_end", tool_name="senior_reviewer_selection")
+            await self.event_publisher.publish(
+"tool_end", tool_name="senior_reviewer_selection")
             # Fallback to the first candidate if reviewer fails
             self.logger.warning("  Senior Reviewer failed. Falling back to the first candidate solution.")
             return candidate_responses[0][1], candidate_responses
-        self.event_publisher.publish("tool_end", tool_name="senior_reviewer_selection")
+        await self.event_publisher.publish(
+"tool_end", tool_name="senior_reviewer_selection")
 
         # Parse reviewer's choice - this needs to be robust
         chosen_response_data = self._parse_reviewer_choice(choice_content, candidate_responses)
@@ -199,7 +204,8 @@ class ModelRouter:
 
             client = self.llm_clients[role]
             self.logger.info(f"  Routing prompt to specialist model: {role} ({client.model})")
-            self.event_publisher.publish("tool_start", tool_name="model_router", model=client.model, role=role)
+            self.event_publisher.publish("tool_end", tool_name="model_router", model=client.model, role=role)
+
             try:
                 response_data, usage = client.chat(
                     messages=messages,
@@ -225,7 +231,8 @@ class ModelRouter:
                     status="error",
                     message=str(e),
                 )
-            self.event_publisher.publish("tool_end", tool_name="model_router", model=client.model, role=role)
+            self.event_publisher.publish(
+"tool_end", tool_name="model_router", model=client.model, role=role)
 
         if not candidate_responses:
             raise RuntimeError("No candidate models provided a response.")
@@ -294,11 +301,13 @@ class ModelRouter:
                 status="error",
                 message=str(e),
             )
-            self.event_publisher.publish("tool_end", tool_name="senior_reviewer_selection")
+            self.event_publisher.publish(
+"tool_end", tool_name="senior_reviewer_selection")
             # Fallback to the first candidate if reviewer fails
             self.logger.warning("  Senior Reviewer failed. Falling back to the first candidate solution.")
             return candidate_responses[0][1], candidate_responses
-        self.event_publisher.publish("tool_end", tool_name="senior_reviewer_selection")
+        self.event_publisher.publish(
+"tool_end", tool_name="senior_reviewer_selection")
 
         # Parse reviewer's choice - this needs to be robust
         # For simplicity, let's assume the reviewer outputs the content of the chosen solution directly

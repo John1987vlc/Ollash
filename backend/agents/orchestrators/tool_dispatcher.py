@@ -106,13 +106,13 @@ class ToolDispatcher:
         agent_id = args.get("_agent_id", "unknown")
         task_id = args.get("_task_id", "")
 
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "tool_dispatched",
             tool=tool_name,
             args={k: v for k, v in args.items() if not k.startswith("_")},
         )
         # P9 — Tool Belt UI: announce which tool is starting (for swimlane icons)
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "tool_execution_started",
             tool_name=tool_name,
             agent_id=agent_id,
@@ -151,7 +151,8 @@ class ToolDispatcher:
             )
             for i, res in enumerate(chunk_results):
                 if isinstance(res, Exception):
-                    self._logger.error(f"[ToolDispatcher] batch call {chunk[i][0]} failed: {res}")
+                    self._logger.error(
+f"[ToolDispatcher] batch call {chunk[i][0]} failed: {res}")
                     results[offset + i] = None
                 else:
                     results[offset + i] = res
@@ -178,13 +179,13 @@ class ToolDispatcher:
             fn = self._registry[tool_name]
             result = await fn(**clean_args)
             duration_ms = int((time.monotonic() - start) * 1000)
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "tool_completed",
                 tool=tool_name,
                 duration_ms=duration_ms,
             )
             # P9 — Tool Belt UI: announce tool completion with duration for tooltip
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "tool_execution_completed",
                 tool_name=tool_name,
                 agent_id=agent_id,
@@ -198,9 +199,10 @@ class ToolDispatcher:
                     self._logger.warning(f"[ToolDispatcher] callback for '{tool_name}' raised: {cb_exc}")
             return result
         except Exception as exc:
-            self._logger.error(f"[ToolDispatcher] '{tool_name}' failed: {exc}")
-            self._event_publisher.publish("tool_failed", tool=tool_name, error=str(exc))
-            self._event_publisher.publish(
+            self._logger.error(
+f"[ToolDispatcher] '{tool_name}' failed: {exc}")
+            await self._event_publisher.publish("tool_failed", tool=tool_name, error=str(exc))
+            await self._event_publisher.publish(
                 "tool_execution_completed",
                 tool_name=tool_name,
                 agent_id=agent_id,

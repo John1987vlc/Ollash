@@ -89,11 +89,10 @@ class AuditorAgent(BaseDomainAgent):
     # JIT subscription callback (synchronous — EventPublisher requirement)
     # ------------------------------------------------------------------
 
-    def _on_file_generated(self, event_type: str, event_data: Dict[str, Any]) -> None:
-        """EventPublisher callback — synchronous.
+    async def _on_file_generated(self, event_type: str, event_data: Dict[str, Any]) -> None:
+        """EventPublisher callback — async.
 
-        Schedules the async audit as a background task so it does not block
-        the calling DeveloperAgent.
+        Triggers the audit for the generated file.
         """
         if self._blackboard is None:
             return
@@ -104,15 +103,7 @@ class AuditorAgent(BaseDomainAgent):
         if not file_path or not content:
             return
 
-        try:
-            loop = self._event_loop or asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(self._audit_file(file_path, content))
-            else:
-                self._log_warning(f"Event loop not running; skipping JIT audit for '{file_path}'")
-        except RuntimeError:
-            # No event loop in this thread (e.g. sync test context)
-            pass
+        await self._audit_file(file_path, content)
 
     # ------------------------------------------------------------------
     # Audit implementation
@@ -150,7 +141,7 @@ class AuditorAgent(BaseDomainAgent):
                     None,
                     lambda: self._sandbox.run_linter(file_path, content),
                 )
-                self._publish_event(
+                await self._publish_event(
                     "audit_sandbox_result",
                     rel_path=file_path,
                     passed=sandbox_result.passed,
@@ -184,13 +175,13 @@ class AuditorAgent(BaseDomainAgent):
             except Exception as exc:
                 self._log_error(f"Quarantine failed for '{file_path}': {exc}")
 
-            self._publish_event(
+            await self._publish_event(
                 "audit_critical_found",
                 file_path=file_path,
                 vulnerability_count=self._count_critical(scan_result),
             )
         else:
-            self._publish_event(
+            await self._publish_event(
                 "audit_completed",
                 file_path=file_path,
                 max_severity=self._max_severity(scan_result),
@@ -236,7 +227,7 @@ class AuditorAgent(BaseDomainAgent):
             "critical_files": critical_files,
         }
         await blackboard.write("audit_summary", summary, self.agent_id)
-        self._publish_event("batch_audit_completed", **summary)
+        await self._publish_event("batch_audit_completed", **summary)
         self._log_info(f"Batch audit complete: {scanned} files scanned, {len(critical_files)} critical issues.")
         return summary
 

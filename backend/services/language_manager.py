@@ -49,7 +49,7 @@ class LanguageManager:
 
         try:
             loader = PromptLoader()
-            prompts = loader.load_prompt("core/services.yaml")
+            prompts = await loader.load_prompt("core/services.yaml")
 
             system = prompts.get("translation_standardization", {}).get("system", "")
             user_template = prompts.get("translation_standardization", {}).get("user", "")

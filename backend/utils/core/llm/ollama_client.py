@@ -47,7 +47,7 @@ class OllamaClient:
                     self._aiohttp_session = aiohttp.ClientSession()
         return self._aiohttp_session
 
-    def _check_saturation(self, messages: list) -> None:
+    async def _check_saturation(self, messages: list) -> None:
         """Publish a context_saturation_alert event if prompt nears the model's window."""
         try:
             from backend.utils.core.llm.context_saturation import check_context_saturation
@@ -55,7 +55,7 @@ class OllamaClient:
             full_text = " ".join(m.get("content", "") for m in messages if isinstance(m, dict))
             warning = check_context_saturation(full_text, self.model)
             if warning and self.logger.event_publisher:
-                self.logger.event_publisher.publish(
+                await self.logger.event_publisher.publish(
                     "context_saturation_alert",
                     model=self.model,
                     warning=warning,
@@ -75,7 +75,7 @@ class OllamaClient:
             opts["keep_alive"] = self._keep_alive
 
         # Feature 6: Context saturation check
-        self._check_saturation(messages)
+        await self._check_saturation(messages)
 
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False, "options": opts}
         if context:
@@ -83,7 +83,7 @@ class OllamaClient:
 
         # Debug logging before request
         if self.logger.event_publisher:
-            self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
+            await self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
         try:
             self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
         except (TypeError, ValueError):
@@ -103,7 +103,7 @@ class OllamaClient:
 
                 # Debug logging after response
                 if self.logger.event_publisher:
-                    self.logger.event_publisher.publish("llm_response", {"model": self.model, "response": data})
+                    await self.logger.event_publisher.publish("llm_response", {"model": self.model, "response": data})
                 self.logger.debug(f"DEBUG - LLM Response: {json.dumps(data, indent=2)}")
 
                 res = data.copy()
@@ -140,7 +140,7 @@ class OllamaClient:
             raise
 
     def chat(self, messages, tools=None, options_override=None, context=None):
-
+        """Synchronous chat method. USES asyncio.run internally for event publishing if needed."""
         tools = tools or []
         if context is None:
             context = getattr(self, "_session_context", None)
@@ -150,8 +150,20 @@ class OllamaClient:
         if hasattr(self, "_keep_alive"):
             opts["keep_alive"] = self._keep_alive
 
+        # We can't await in a synchronous method easily without blocking.
+        # Since this is a CLI / legacy sync path, we use a helper to run the async publish.
+        def _fire_and_forget(coro):
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(coro)
+                else:
+                    loop.run_until_complete(coro)
+            except Exception:
+                pass
+
         # Feature 6: Context saturation check
-        self._check_saturation(messages)
+        _fire_and_forget(self._check_saturation(messages))
 
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False, "options": opts}
         if context:
@@ -159,7 +171,8 @@ class OllamaClient:
 
         # Debug logging before request
         if self.logger.event_publisher:
-            self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
+            _fire_and_forget(self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload}))
+        
         try:
             self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
         except (TypeError, ValueError):
@@ -176,7 +189,8 @@ class OllamaClient:
 
             # Debug logging after response
             if self.logger.event_publisher:
-                self.logger.event_publisher.publish("llm_response", {"model": self.model, "response": data})
+                _fire_and_forget(self.logger.event_publisher.publish("llm_response", {"model": self.model, "response": data}))
+            
             self.logger.debug(f"DEBUG - LLM Response: {json.dumps(data, indent=2)}")
 
             res = data.copy()
@@ -215,7 +229,7 @@ class OllamaClient:
         it is awaited; otherwise called synchronously.
 
         Returns:
-            ``(result_dict, usage_dict)`` \u2014 same shape as ``achat()``.
+            ``(result_dict, usage_dict)`` — same shape as ``achat()``.
         """
 
         opts = {"temperature": 0.1, "num_ctx": self.config.get("max_context_tokens", 8000), "keep_alive": "5m"}
@@ -235,7 +249,7 @@ class OllamaClient:
 
         # Debug logging before request
         if self.logger.event_publisher:
-            self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
+            await self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
         try:
             self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
         except (TypeError, ValueError):
@@ -288,7 +302,7 @@ class OllamaClient:
 
             # Debug logging after response
             if self.logger.event_publisher:
-                self.logger.event_publisher.publish("llm_response", {"model": self.model, "response": data})
+                await self.logger.event_publisher.publish("llm_response", {"model": self.model, "response": data})
             self.logger.debug(f"DEBUG - LLM Response: {json.dumps(data, indent=2)}")
 
             result = {"content": full_content, "tool_calls": full_tool_calls}

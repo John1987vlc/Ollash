@@ -1,8 +1,10 @@
-from typing import Any, Callable, Dict, List
+import asyncio
+import inspect
+from typing import Any, Callable, Dict, List, Union
 
 
 class EventPublisher:
-    """A simple publisher-subscriber mechanism for emitting events."""
+    """A publisher-subscriber mechanism for emitting events, supporting both sync and async callbacks."""
 
     def __init__(self):
         self._subscribers: Dict[str, List[Callable]] = {}
@@ -24,18 +26,24 @@ class EventPublisher:
             except ValueError:
                 pass  # Callback not found, already unsubscribed or never subscribed
 
-    def publish(self, event_type: str, event_data: Dict[str, Any] = None, **kwargs: Any):
-        """Publishes an event to all subscribed listeners."""
+    async def publish(self, event_type: str, event_data: Dict[str, Any] = None, **kwargs: Any):
+        """Publishes an event to all subscribed listeners asynchronously."""
         if event_type not in self._subscribers:
             return  # No subscribers for this event type
 
         full_event_data = event_data if event_data is not None else {}
         full_event_data.update(kwargs)  # Merge additional kwargs into event_data
 
+        tasks = []
         for callback in self._subscribers[event_type]:
             try:
-                # Pass event_type and the combined event_data to the callback
-                callback(event_type=event_type, event_data=full_event_data)
+                if inspect.iscoroutinefunction(callback):
+                    tasks.append(callback(event_type=event_type, event_data=full_event_data))
+                else:
+                    callback(event_type=event_type, event_data=full_event_data)
             except Exception as e:
                 # Log the error but don't stop other subscribers
                 print(f"Error in event subscriber for '{event_type}': {e}")
+        
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)

@@ -150,7 +150,6 @@
     <!-- Single module bundle replaces the individual script tags below.     -->
     <!-- Page-specific scripts (block scripts) are still loaded separately.  -->
     <script type="module" src="{{ asset_url('js/index.ts') }}"></script>
-    {% block scripts %}{% endblock %}
     {% else %}
     <!-- ── Development: individual scripts (USE_VITE_ASSETS not set) ────── -->
     <!-- Foundation: module-registry, store and theme-manager must load before all other modules -->
@@ -175,9 +174,9 @@
     <script src="{{ request.url_for('static', path='js/core/terminal.js') }}"></script>
     <script src="{{ request.url_for('static', path='js/core/command-palette.js') }}"></script>
     <script src="{{ request.url_for('static', path='js/components/benchmark-modal.js') }}"></script>
-    <!-- Main Orchestrator -->
-    {% block scripts %}{% endblock %}
     <script src="{{ request.url_for('static', path='js/main.js') }}"></script>
     {% endif %}
+    <!-- Main Orchestrator / Page-specific scripts -->
+    {% block scripts %}{% endblock %}
 </body>
 </html>

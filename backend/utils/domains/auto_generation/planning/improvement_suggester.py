@@ -36,12 +36,19 @@ class ImprovementSuggester:
         self.options = options or self.DEFAULT_OPTIONS.copy()
         self.vulnerability_scanner = vulnerability_scanner
 
-    def _build_risk_context(self, current_files: Dict[str, str]) -> Optional[Dict[str, Any]]:
+    async def _build_risk_context(self, current_files: Dict[str, str]) -> Optional[Dict[str, Any]]:
         """Run a vulnerability scan and return a risk context dict, or None."""
         if not self.vulnerability_scanner or not current_files:
             return None
         try:
-            report = self.vulnerability_scanner.scan_project(current_files, block_on_critical=False)
+            # Assuming scan_project is async or can be awaited if needed.
+            # Most scanners in this project are sync for now, but checking for safety.
+            import inspect
+            if inspect.iscoroutinefunction(self.vulnerability_scanner.scan_project):
+                report = await self.vulnerability_scanner.scan_project(current_files, block_on_critical=False)
+            else:
+                report = self.vulnerability_scanner.scan_project(current_files, block_on_critical=False)
+
             if report.total_vulnerabilities == 0:
                 return None
             top_vulns = [
@@ -63,7 +70,7 @@ class ImprovementSuggester:
             self.logger.warning(f"Vulnerability scan skipped during improvement suggestion: {exc}")
             return None
 
-    def suggest_improvements(
+    async def suggest_improvements(
         self,
         project_description: str,
         readme_content: str,
@@ -78,14 +85,14 @@ class ImprovementSuggester:
 
         Returns a list of suggested improvements (strings).
         """
-        risk_context = self._build_risk_context(current_files)
+        risk_context = await self._build_risk_context(current_files)
         if risk_context and (risk_context["critical_vulns"] > 0 or risk_context["high_vulns"] > 0):
             self.logger.info(
                 f"Risk-based suggestions: {risk_context['critical_vulns']} critical, "
                 f"{risk_context['high_vulns']} high vulnerabilities detected"
             )
 
-        system, user = AutoGenPrompts.suggest_improvements_prompt(
+        system, user = await AutoGenPrompts.suggest_improvements_prompt(
             project_description,
             readme_content,
             json_structure,

@@ -105,9 +105,9 @@ class BaseDomainAgent(ABC):
     # Event helpers
     # ------------------------------------------------------------------
 
-    def _publish_event(self, event_type: str, **kwargs: Any) -> None:
+    async def _publish_event(self, event_type: str, **kwargs: Any) -> None:
         """Publish an event with this agent's id attached."""
-        self._event_publisher.publish(event_type, agent_id=self.agent_id, **kwargs)
+        await self._event_publisher.publish(event_type, agent_id=self.agent_id, **kwargs)
 
     def _log_info(self, msg: str) -> None:
         self._logger.info(f"[{self.agent_id}] {msg}")

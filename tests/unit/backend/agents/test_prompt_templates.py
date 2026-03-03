@@ -37,21 +37,21 @@ class TestRolePromptTemplates:
 
     def test_get_system_prompt_analyst(self):
         """Test getting system prompt for analyst role"""
-        prompt = RolePromptTemplates.get_system_prompt("analyst")
+        prompt = RolePromptTemplates.get_system_prompt_sync("analyst")
 
         assert prompt == RolePromptTemplates.ANALYST_SYSTEM_PROMPT
         assert "synthesis" in prompt.lower() or "synthesize" in prompt.lower()
 
     def test_get_system_prompt_writer(self):
         """Test getting system prompt for writer role"""
-        prompt = RolePromptTemplates.get_system_prompt("writer")
+        prompt = RolePromptTemplates.get_system_prompt_sync("writer")
 
         assert prompt == RolePromptTemplates.WRITER_SYSTEM_PROMPT
         assert "writer" in prompt.lower()
 
     def test_get_system_prompt_unknown_role(self):
         """Test getting system prompt for unknown role returns default"""
-        prompt = RolePromptTemplates.get_system_prompt("unknown_role")
+        prompt = RolePromptTemplates.get_system_prompt_sync("unknown_role")
 
         # Should return default helpful assistant prompt
         assert isinstance(prompt, str)
@@ -79,14 +79,14 @@ class TestRolePromptTemplates:
 
     def test_get_task_template_analyst_executive_summary(self):
         """Test getting analyst executive_summary template"""
-        template = RolePromptTemplates.get_task_template("analyst", "executive_summary", content="Test content")
+        template = RolePromptTemplates.get_task_template_sync("analyst", "executive_summary", content="Test content")
 
         assert template is not None
         assert "Test content" in template
 
     def test_get_task_template_writer_tone_adjustment(self):
         """Test getting writer tone_adjustment template"""
-        template = RolePromptTemplates.get_task_template(
+        template = RolePromptTemplates.get_task_template_sync(
             "writer",
             "tone_adjustment",
             tone="professional",
@@ -99,14 +99,14 @@ class TestRolePromptTemplates:
 
     def test_get_task_template_unknown_role(self):
         """Test getting task template for unknown role"""
-        template = RolePromptTemplates.get_task_template("unknown_role", "some_task")
+        template = RolePromptTemplates.get_task_template_sync("unknown_role", "some_task")
 
         # Should return None for unknown role
         assert template is None
 
     def test_get_task_template_unknown_task(self):
         """Test getting unknown task template"""
-        template = RolePromptTemplates.get_task_template("analyst", "unknown_task_type")
+        template = RolePromptTemplates.get_task_template_sync("analyst", "unknown_task_type")
 
         # Should return None for unknown task
         assert template is None
@@ -126,7 +126,7 @@ class TestRolePromptTemplates:
 
     def test_template_formatting_with_multiple_params(self):
         """Test template formatting with multiple parameters"""
-        template = RolePromptTemplates.get_task_template(
+        template = RolePromptTemplates.get_task_template_sync(
             "analyst",
             "comparative_analysis",
             item_a="First option with features",

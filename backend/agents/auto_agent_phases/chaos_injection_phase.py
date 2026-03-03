@@ -71,7 +71,7 @@ class ChaosInjectionPhase(BasePhase):
                 except Exception:
                     pass
                 self.context.logger.info(f"[Chaos] Injected fault into '{file_path}': {description}")
-                self.context.event_publisher.publish(
+                await self.context.event_publisher.publish(
                     "chaos_fault_injected",
                     file_path=file_path,
                     fault_description=description,

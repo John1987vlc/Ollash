@@ -61,21 +61,31 @@ senior_review:
 
     # INSTRUCTIONS
     1. Review logic, security, and project coherence.
-    2. Approve or request changes.
-    3. Return within <review_json> tags.
-
-    # CONSTRAINTS
-    - Be extremely critical.
+    2. Provide an overall status ('passed' or 'failed').
+    3. If failed, provide a detailed list of issues.
+    4. Return strictly as JSON within <review_json> tags.
 
     # OUTPUT FORMAT
     <review_json>
-    { "approved": boolean, "comments": [] }
+    {{
+      "status": "failed",
+      "summary": "The project has several architectural and security flaws.",
+      "issues": [
+        {{
+          "severity": "high",
+          "file": "src/main.js",
+          "description": "Sensitive data exposed in console logs.",
+          "recommendation": "Remove all console.log calls before production."
+        }}
+      ]
+    }}
     </review_json>
 
   user: |
-    ## CODE: {project_summary}
+    ## CODE CONTEXT: 
+    {project_summary}
 
-    Perform the review.
+    Perform the senior review.
 
 final_project_review:
   system: |

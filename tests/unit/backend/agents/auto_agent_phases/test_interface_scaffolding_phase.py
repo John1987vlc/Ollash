@@ -1,7 +1,7 @@
 """Unit tests for F1 — InterfaceScaffoldingPhase."""
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from backend.agents.auto_agent_phases.interface_scaffolding_phase import InterfaceScaffoldingPhase
 
@@ -10,6 +10,7 @@ from backend.agents.auto_agent_phases.interface_scaffolding_phase import Interfa
 def context():
     ctx = MagicMock()
     ctx.logic_plan = {}
+    ctx.event_publisher.publish = AsyncMock()
     return ctx
 
 

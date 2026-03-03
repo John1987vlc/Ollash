@@ -21,14 +21,14 @@ def planner(mock_llm_client, mock_logger):
 class TestProjectPlanner:
     """Test suite for Phase 1: README Generation."""
 
-    def test_generate_readme_success(self, planner, mock_llm_client):
+    async def test_generate_readme_success(self, planner, mock_llm_client):
         # Setup mock response
         mock_llm_client.chat.return_value = (
             {"message": {"content": "# Test Project\nGenerated README"}},
             {"usage": {}},
         )
 
-        result = planner.generate_readme(
+        result = await planner.generate_readme(
             project_name="Test Project",
             project_description="Test Description",
         )

@@ -165,11 +165,23 @@ def main():
     p.add_argument("--repo-url", default=None); p.add_argument("--github-token", default=None)
     p.add_argument("--git-auto-create", action="store_true", help="Create GitHub repository if it doesn't exist")
     p.add_argument("--num-refine-loops", type=int, default=1); p.add_argument("--maintenance-interval", type=int, choices=range(1, 25), help="Enable maintenance mode every N hours (1-24)")
+    p.add_argument("--debug", action="store_true", help="Enable debug logging (shows Ollama JSON)")
     args, _ = p.parse_known_args()
+
+    # Configure log level based on debug flag
+    import logging
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    main_container.core.logging.structured_logger()._logger.setLevel(log_level)
 
     start_time = time.time()
     try:
+        print(f"DEBUG: Calling auto_agent factory...")
         agent = main_container.auto_agent_module.auto_agent()
+        print(f"DEBUG: agent type: {type(agent)}")
+        print(f"DEBUG: agent value: {agent}")
+        if asyncio.iscoroutine(agent) or isinstance(agent, asyncio.Future):
+             print("DEBUG: agent is a coroutine or future, this is unexpected in sync code.")
+        
         project_root = agent.generated_projects_dir / args.name
         git_manager = GitLifecycleManager(args.repo_url, args.github_token, project_root) if args.repo_url and args.github_token else None
 

@@ -99,7 +99,8 @@ class DebateNodeRunner:
         topic: str = node.task_data.get("topic", node.id)
         max_rounds: int = node.debate_rounds or self._max_rounds
 
-        self._logger.info(f"[DebateNodeRunner] Starting debate on '{topic}' ({max_rounds} max rounds)")
+        self._logger.info(
+f"[DebateNodeRunner] Starting debate on '{topic}' ({max_rounds} max rounds)")
 
         history: List[str] = []
         consensus: Optional[str] = None
@@ -121,7 +122,7 @@ class DebateNodeRunner:
                 arg_a,
                 self._agent_a.agent_id,
             )
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "debate_round_completed",
                 task_id=node.id,
                 round=round_num,
@@ -146,7 +147,7 @@ class DebateNodeRunner:
                 arg_b,
                 self._agent_b.agent_id,
             )
-            self._event_publisher.publish(
+            await self._event_publisher.publish(
                 "debate_round_completed",
                 task_id=node.id,
                 round=round_num,
@@ -158,7 +159,8 @@ class DebateNodeRunner:
             # Check for consensus
             if self._detect_consensus(arg_a, arg_b):
                 consensus = arg_b  # Last statement is the agreed position
-                self._logger.info(f"[DebateNodeRunner] Consensus reached in round {round_num}")
+                self._logger.info(
+f"[DebateNodeRunner] Consensus reached in round {round_num}")
                 break
 
         if consensus is None:
@@ -169,7 +171,7 @@ class DebateNodeRunner:
             )
 
         await blackboard.write(f"debate/{node.id}/consensus", consensus, "debate_runner")
-        self._event_publisher.publish(
+        await self._event_publisher.publish(
             "debate_consensus_reached",
             task_id=node.id,
             consensus=consensus,

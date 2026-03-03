@@ -63,28 +63,30 @@ class AutoGenPrompts:
         return cls._repository
 
     @classmethod
-    def _get_prompt_pair(cls, role: str, yaml_path: str, section: str = None) -> Tuple[str, str]:
+    async def _get_prompt_pair(cls, role: str, yaml_path: str, section: str = None) -> Tuple[str, str]:
         """Helper to get prompt from Repository (active version) or Fallback to YAML."""
         repo = cls._get_repository()
         if repo:
-            active_prompt = repo.get_active_prompt(role)
-            # get_active_prompt may be async (SQLAlchemy migration). When called
-            # from a sync context, close the coroutine and fall through to YAML.
-            if inspect.isawaitable(active_prompt):
-                active_prompt.close()
-                active_prompt = None
-            if active_prompt:
-                # If stored as JSON in DB, parse it
-                try:
-                    data = eval(active_prompt)  # Caution: only if we trust our DB storage format
-                    if isinstance(data, dict):
-                        return data.get("system", ""), data.get("user", "")
-                except:
-                    # If it's just a string, it might be the system prompt or combined
-                    return active_prompt, ""
+            try:
+                # get_active_prompt is async
+                active_prompt = await repo.get_active_prompt(role)
+                if active_prompt:
+                    # If stored as JSON in DB, parse it
+                    try:
+                        # Safer parsing if it looks like JSON
+                        if active_prompt.strip().startswith("{"):
+                            import json
+                            data = json.loads(active_prompt)
+                            if isinstance(data, dict):
+                                return data.get("system", ""), data.get("user", "")
+                    except:
+                        # If it's just a string, it might be the system prompt
+                        return active_prompt, ""
+            except Exception as e:
+                logger.debug(f"Failed to load prompt from repo for {role}: {e}")
 
         # Fallback to YAML
-        content = cls._get_loader().load_prompt(yaml_path)
+        content = await cls._get_loader().load_prompt(yaml_path)
         if section:
             content = content.get(section, {})
 
@@ -93,11 +95,11 @@ class AutoGenPrompts:
         )
 
     @staticmethod
-    def architecture_planning_detailed(
+    async def architecture_planning_detailed(
         category: str, files_list: str, project_description: str, already_planned_contracts: str = ""
     ) -> Tuple[str, str]:
         """Returns (system, user) for Phase 2.5 Planning."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "architecture_planning_detailed", "domains/auto_generation/planning.yaml", "architecture_planning_detailed"
         )
         user = user_template.format(
@@ -109,11 +111,27 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def agile_backlog_planning(
+    async def logic_planning(
+        project_description: str, initial_structure: str, planning_files: str, module_system_hint: str = ""
+    ) -> Tuple[str, str]:
+        """Returns (system, user) for Unified Logic Planning (Phase 2.5)."""
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
+            "logic_planning", "domains/auto_generation/planning.yaml", "logic_planning"
+        )
+        user = user_template.format(
+            project_description=project_description,
+            initial_structure=initial_structure,
+            planning_files=planning_files,
+            module_system_hint=module_system_hint
+        )
+        return system, user
+
+    @staticmethod
+    async def agile_backlog_planning(
         project_description: str, initial_structure: str, readme_content: str
     ) -> Tuple[str, str]:
         """Returns (system, user) for Agile Backlog generation."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "agile_backlog_planning", "domains/auto_generation/planning.yaml", "agile_backlog_planning"
         )
         user = user_template.format(
@@ -122,7 +140,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def micro_task_execution(
+    async def micro_task_execution(
         title: str,
         description: str,
         file_path: str,
@@ -144,7 +162,7 @@ class AutoGenPrompts:
             few_shot_section: If non-empty (Feature 2), injects validated
                 examples from previous successful generations.
         """
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "micro_task_execution", "domains/auto_generation/code_gen.yaml", "micro_task_execution"
         )
         # Opt 1: build allowed-actions block
@@ -170,7 +188,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def next_backlog_task(
+    async def next_backlog_task(
         project_description: str,
         initial_structure: str,
         backlog_so_far: List[Dict[str, Any]],
@@ -180,7 +198,7 @@ class AutoGenPrompts:
         Each call asks the LLM for exactly ONE next micro-task given the tasks
         generated so far, or ``{"complete": true}`` when no more tasks are needed.
         """
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "next_backlog_task", "domains/auto_generation/planning.yaml", "next_backlog_task"
         )
         import json as _json
@@ -195,7 +213,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def nano_format_corrector(
+    async def nano_format_corrector(
         language: str,
         format_error: str,
         code: str,
@@ -205,7 +223,7 @@ class AutoGenPrompts:
         The model must fix ONLY the structural/format error and return the
         corrected code inside ``<code_fixed>`` tags.
         """
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "nano_format_corrector", "domains/auto_generation/nano_roles.yaml", "nano_format_corrector"
         )
         user = user_template.format(
@@ -216,7 +234,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def project_analysis_gaps(
+    async def project_analysis_gaps(
         total_files: int,
         total_loc: int,
         languages: str,
@@ -234,7 +252,7 @@ class AutoGenPrompts:
                           When provided they are appended to the user prompt so the LLM
                           can tailor its gap analysis to the detected stack.
         """
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "project_analysis_gaps", "domains/auto_generation/analysis.yaml", "project_analysis_gaps"
         )
         user = user_template.format(
@@ -252,11 +270,11 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def readme_generation(
+    async def readme_generation(
         project_name: str, project_description: str, features_and_stack: str = "", project_structure: str = ""
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for specialized README generation."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "readme_generation", "domains/auto_generation/docs.yaml", "readme_generation"
         )
         user = user_template.format(
@@ -268,9 +286,9 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def documentation_refinement(file_path: str, content: str, project_description: str = "") -> Tuple[str, str]:
+    async def documentation_refinement(file_path: str, content: str, project_description: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for specialized documentation refinement."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "documentation_refinement", "domains/auto_generation/docs.yaml", "documentation_refinement"
         )
         user = user_template.format(
@@ -279,27 +297,27 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def high_level_structure_generation(description: str) -> Tuple[str, str]:
+    async def high_level_structure_generation(description: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for high-level project structure."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "high_level", "domains/auto_generation/structure.yaml", "high_level"
         )
         user = user_template.format(description=description)
         return system, user
 
     @staticmethod
-    def high_level_structure_generation_simplified(description: str) -> Tuple[str, str]:
+    async def high_level_structure_generation_simplified(description: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for simplified high-level structure."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "high_level_simplified", "domains/auto_generation/structure.yaml", "high_level_simplified"
         )
         if not user_template:  # Fallback
-            return AutoGenPrompts.high_level_structure_generation(description)
+            return await AutoGenPrompts.high_level_structure_generation(description)
         user = user_template.format(description=description)
         return system, user
 
     @staticmethod
-    def sub_structure_generation(
+    async def sub_structure_generation(
         folder_path: str,
         readme_content: str,
         overall_structure: str,
@@ -316,7 +334,7 @@ class AutoGenPrompts:
             constraint_hint: Optional extension constraint injected at end of prompt
                 (e.g. "ONLY create files with: .html .css .js — DO NOT create .py").
         """
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "sub_structure", "domains/auto_generation/structure.yaml", "sub_structure"
         )
         user = user_template.format(
@@ -330,15 +348,15 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def sub_structure_generation_simplified(
+    async def sub_structure_generation_simplified(
         folder_path: str, readme_content: str, overall_structure: str, template_name: str
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for simplified sub-structure generation."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "sub_structure_simplified", "domains/auto_generation/structure.yaml", "sub_structure_simplified"
         )
         if not user_template:  # Fallback
-            return AutoGenPrompts.sub_structure_generation(
+            return await AutoGenPrompts.sub_structure_generation(
                 folder_path, readme_content, overall_structure, template_name
             )
 
@@ -351,9 +369,9 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def file_content_generation(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
+    async def file_content_generation(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file content generation."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "file_content", "domains/auto_generation/code_gen.yaml", "file_content"
         )
 
@@ -371,58 +389,58 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def architecture_planning(description: str) -> Tuple[str, str]:
+    async def architecture_planning(description: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for project architecture planning."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "architecture", "domains/auto_generation/code_gen.yaml", "architecture"
         )
         user = user_template.format(description=description)
         return system, user
 
     @staticmethod
-    def file_content_generation_basic(file_path: str, parent_context: str) -> Tuple[str, str]:
+    async def file_content_generation_basic(file_path: str, parent_context: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for basic file content generation."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "basic", "domains/auto_generation/code_gen.yaml", "basic"
         )
         user = user_template.format(file_path=file_path, parent_context=parent_context)
         return system, user
 
     @staticmethod
-    def file_fix(file_path: str, content: str, error: str, readme: str = "") -> Tuple[str, str]:
+    async def file_fix(file_path: str, content: str, error: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file fixing."""
-        system, user_template = AutoGenPrompts._get_prompt_pair("fix", "domains/auto_generation/refinement.yaml", "fix")
+        system, user_template = await AutoGenPrompts._get_prompt_pair("fix", "domains/auto_generation/refinement.yaml", "fix")
         user = user_template.format(file_path=file_path, error=error, content=content, readme=readme[:1000])
         return system, user
 
     @staticmethod
-    def file_refinement(file_path: str, content: str, context: str = "") -> Tuple[str, str]:
+    async def file_refinement(file_path: str, content: str, context: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for general file refinement."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "refine", "domains/auto_generation/refinement.yaml", "refine"
         )
         user = user_template.format(file_path=file_path, content=content, context=context)
         return system, user
 
     @staticmethod
-    def file_refinement_with_issues(file_path: str, content: str, issues: str, context: str = "") -> Tuple[str, str]:
+    async def file_refinement_with_issues(file_path: str, content: str, issues: str, context: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file refinement based on specific issues."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "refine_with_issues", "domains/auto_generation/refinement.yaml", "refine_with_issues"
         )
         user = user_template.format(file_path=file_path, content=content, issues=issues, context=context)
         return system, user
 
     @staticmethod
-    def generate_unit_tests(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
+    async def generate_unit_tests(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for unit test generation."""
-        system, user_template = AutoGenPrompts._get_prompt_pair("unit", "domains/auto_generation/test_gen.yaml", "unit")
+        system, user_template = await AutoGenPrompts._get_prompt_pair("unit", "domains/auto_generation/test_gen.yaml", "unit")
         context_str = f"Project info:\n{readme}\n\n" if readme else ""
         user = user_template.format(context=context_str, file_path=file_path, content=content)
         return system, user
 
     @staticmethod
-    def suggest_improvements_prompt(
+    async def suggest_improvements_prompt(
         project_description: str,
         readme_content: str,
         json_structure: dict,
@@ -439,7 +457,7 @@ class AutoGenPrompts:
                           Expected keys: critical_vulns, high_vulns, blocked_files,
                           top_vulnerabilities (list of {file, severity, count}).
         """
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "improvement_suggestions", "domains/auto_generation/review.yaml", "improvement_suggestions"
         )
         project_summary = (
@@ -465,7 +483,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def generate_improvement_plan_prompt(
+    async def generate_improvement_plan_prompt(
         suggestions: List[str],
         project_description: str,
         readme_content: str,
@@ -473,7 +491,7 @@ class AutoGenPrompts:
         current_files: Dict[str, str],
     ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for improvement plan generation."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "improvement_plan", "domains/auto_generation/review.yaml", "improvement_plan"
         )
         improvements = "\n".join([f"- {s}" for s in suggestions])
@@ -481,18 +499,18 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def senior_review_prompt(project_summary: str) -> Tuple[str, str]:
+    async def senior_review_prompt(project_summary: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for senior review."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "senior_review", "domains/auto_generation/review.yaml", "senior_review"
         )
         user = user_template.format(project_summary=project_summary)
         return system, user
 
     @staticmethod
-    def project_review(project_summary: str) -> Tuple[str, str]:
+    async def project_review(project_summary: str) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for a final project review."""
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "final_project_review", "domains/auto_generation/review.yaml", "final_project_review"
         )
         user = user_template.format(project_summary=project_summary)
@@ -503,7 +521,7 @@ class AutoGenPrompts:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def changelog_entry_prompt(
+    async def changelog_entry_prompt(
         project_name: str,
         changes: List[str],
         version: str = "",
@@ -535,7 +553,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def roadmap_prompt(
+    async def roadmap_prompt(
         project_name: str,
         improvement_gaps: Dict[str, Any],
         tech_hints: Optional[List[str]] = None,
@@ -572,7 +590,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def readme_summary_update_prompt(
+    async def readme_summary_update_prompt(
         existing_readme: str,
         cycle_summary: str,
     ) -> Tuple[str, str]:
@@ -600,12 +618,12 @@ class AutoGenPrompts:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def nano_planner(project_name: str, project_description: str) -> Tuple[str, str]:
+    async def nano_planner(project_name: str, project_description: str) -> Tuple[str, str]:
         """Returns (system, user) for NanoPlanner: outputs only a JSON list of files to create.
 
         Designed for small models (≤4B) that need a single, minimal task to perform.
         """
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "nano_planner_prompt",
             "domains/auto_generation/nano_roles.yaml",
             "nano_planner_prompt",
@@ -617,7 +635,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def nano_coder(
+    async def nano_coder(
         function_name: str,
         signature: str,
         docstring: str,
@@ -634,7 +652,7 @@ class AutoGenPrompts:
             docstring: Docstring describing what the function must do.
             context_snippet: Optional snippet of existing code in the same file for context.
         """
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "nano_coder_prompt",
             "domains/auto_generation/nano_roles.yaml",
             "nano_coder_prompt",
@@ -648,7 +666,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def nano_reviewer(language: str, code: str) -> Tuple[str, str]:
+    async def nano_reviewer(language: str, code: str) -> Tuple[str, str]:
         """Returns (system, user) for NanoReviewer: checks indentation and syntax only.
 
         Designed for small models (≤4B). The reviewer's scope is intentionally minimal
@@ -658,7 +676,7 @@ class AutoGenPrompts:
             language: Programming language name (e.g. "Python", "JavaScript").
             code: Source code content to review.
         """
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "nano_reviewer_prompt",
             "domains/auto_generation/nano_roles.yaml",
             "nano_reviewer_prompt",
@@ -667,7 +685,7 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    def nano_critic_review(language: str, code: str) -> Tuple[str, str]:
+    async def nano_critic_review(language: str, code: str) -> Tuple[str, str]:
         """Returns (system, user) for the Critic-Correction Loop.
 
         Extends ``nano_reviewer`` with a missing-import check to enable
@@ -677,7 +695,7 @@ class AutoGenPrompts:
             language: Programming language name (e.g. ``"python"``).
             code: Generated source code to audit.
         """
-        system, user_template = AutoGenPrompts._get_prompt_pair(
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
             "nano_critic_review",
             "domains/auto_generation/nano_roles.yaml",
             "nano_critic_review",
