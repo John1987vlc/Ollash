@@ -435,4 +435,6 @@ TODO: Implement {file_path}
             Updated file content
         """
         # Checking if CodePatcher.edit_existing_file is async
-        return await self._code_patcher.edit_existing_file(file_path, current_content, readme, issues_to_fix, edit_strategy)
+        return await self._code_patcher.edit_existing_file(
+            file_path, current_content, readme, issues_to_fix, edit_strategy
+        )

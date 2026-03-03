@@ -43,8 +43,7 @@ class IterativeImprovementPhase(IAgentPhase):
                 is_maintenance = kwargs.get("maintenance_mode", False)
                 mode_str = "AUDIT" if is_maintenance else "REFINEMENT"
                 self.context.logger.info(f"PHASE 7: {mode_str} Iteration {loop_num + 1}/{num_refine_loops}")
-                await self.context.event_publisher.publish(
-"iteration_start", phase="7", iteration=loop_num + 1)
+                await self.context.event_publisher.publish("iteration_start", phase="7", iteration=loop_num + 1)
 
                 # 1. Suggest improvements
                 await self.context.event_publisher.publish(
@@ -69,8 +68,7 @@ class IterativeImprovementPhase(IAgentPhase):
                     tool_name="suggest_improvements",
                     suggestions=suggestions,
                 )
-                await self.context.event_publisher.publish(
-"tool_end", tool_name="suggest_improvements")
+                await self.context.event_publisher.publish("tool_end", tool_name="suggest_improvements")
                 if not suggestions:
                     self.context.logger.info("  No further improvements suggested. Ending refinement loops.")
                     await self.context.event_publisher.publish(
@@ -102,8 +100,7 @@ class IterativeImprovementPhase(IAgentPhase):
                         status="failed",
                         message="Improvement plan empty",
                     )
-                    await self.context.event_publisher.publish(
-"tool_end", tool_name="plan_improvements")
+                    await self.context.event_publisher.publish("tool_end", tool_name="plan_improvements")
                     await self.context.event_publisher.publish(
                         "iteration_end",
                         phase="7",
@@ -118,12 +115,12 @@ class IterativeImprovementPhase(IAgentPhase):
                     status="success",
                     plan=plan,
                 )
-                await self.context.event_publisher.publish(
-"tool_end", tool_name="plan_improvements")
+                await self.context.event_publisher.publish("tool_end", tool_name="plan_improvements")
 
                 # 3. Implement improvements
                 await self.context.event_publisher.publish(
-"tool_start", tool_name="implement_plan", iteration=loop_num + 1)
+                    "tool_start", tool_name="implement_plan", iteration=loop_num + 1
+                )
                 self.context.logger.info("  Implementing plan...")
                 (
                     generated_files,
@@ -143,8 +140,7 @@ class IterativeImprovementPhase(IAgentPhase):
                     status="success",
                     files_updated=len(generated_files),
                 )
-                await self.context.event_publisher.publish(
-"tool_end", tool_name="implement_plan")
+                await self.context.event_publisher.publish("tool_end", tool_name="implement_plan")
 
                 # 3b. Quality gate: run tests + linter; auto-heal if failing
                 quality_report = await self._run_quality_check(project_root, generated_files)
@@ -207,8 +203,7 @@ class IterativeImprovementPhase(IAgentPhase):
                             status="error",
                             message=str(e),
                         )
-                    await self.context.event_publisher.publish(
-"tool_end", tool_name="file_refinement", file=rel_path)
+                    await self.context.event_publisher.publish("tool_end", tool_name="file_refinement", file=rel_path)
                 await self.context.event_publisher.publish(
                     "phase_complete",
                     phase="5_rerun",
@@ -247,7 +242,8 @@ class IterativeImprovementPhase(IAgentPhase):
                 )
 
             await self.context.event_publisher.publish(
-"phase_complete", phase="7", message="Iterative Improvement complete")
+                "phase_complete", phase="7", message="Iterative Improvement complete"
+            )
             self.context.logger.info("PHASE 7: Iterative Improvement complete.")
 
         return generated_files, initial_structure, file_paths

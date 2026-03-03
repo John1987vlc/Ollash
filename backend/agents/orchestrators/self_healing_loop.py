@@ -129,8 +129,7 @@ class SelfHealingLoop:
             context=f"DomainAgent:{failed_node.agent_type.value}",
             solution=None,
         )
-        self._logger.debug(
-f"[SelfHealingLoop] Error pattern recorded: {pattern_id}")
+        self._logger.debug(f"[SelfHealingLoop] Error pattern recorded: {pattern_id}")
 
         # 2. Generate contingency plan — prepend real sandbox errors if available
         issues = self._build_issues_from_node(failed_node)

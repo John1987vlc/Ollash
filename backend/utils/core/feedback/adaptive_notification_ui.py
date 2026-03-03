@@ -457,6 +457,7 @@ class AdaptiveNotificationUI:
 
             # Singleton publisher
             from backend.core.containers import main_container
+
             if hasattr(main_container, "event_publisher"):
                 publisher = main_container.event_publisher()
             else:

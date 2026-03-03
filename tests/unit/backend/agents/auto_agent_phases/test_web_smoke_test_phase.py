@@ -48,8 +48,10 @@ class TestWebSmokeTestPhaseSkipGuards:
     @pytest.mark.asyncio
     async def test_skips_when_playwright_not_installed(self, phase, project_root):
         """Phase skips gracefully when playwright is not available."""
-        with patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value=None), \
-             patch("backend.agents.auto_agent_phases.web_smoke_test_phase._playwright_importable", return_value=False):
+        with (
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value=None),
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase._playwright_importable", return_value=False),
+        ):
             files = {"app.py": "print('hello')"}
             result_files, _, _ = await phase.run(
                 project_description="test",
@@ -66,8 +68,10 @@ class TestWebSmokeTestPhaseSkipGuards:
     @pytest.mark.asyncio
     async def test_skips_for_non_web_project(self, phase, project_root):
         """Phase skips when no HTML files are present."""
-        with patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value="playwright"), \
-             patch("backend.agents.auto_agent_phases.web_smoke_test_phase._playwright_importable", return_value=True):
+        with (
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value="playwright"),
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase._playwright_importable", return_value=True),
+        ):
             files = {"app.py": "def main(): pass"}
             result_files, _, _ = await phase.run(
                 project_description="test",
@@ -90,11 +94,13 @@ class TestWebSmokeTestPhasePassScenario:
         """Smoke test passes → repair is NOT triggered."""
         playwright_result = json.dumps({"errors": [], "visible_elements": 3})
 
-        with patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value="playwright"), \
-             patch("backend.agents.auto_agent_phases.web_smoke_test_phase._playwright_importable", return_value=True), \
-             patch("backend.agents.auto_agent_phases.web_smoke_test_phase.subprocess.Popen") as mock_popen, \
-             patch("backend.agents.auto_agent_phases.web_smoke_test_phase.subprocess.run") as mock_run, \
-             patch("backend.agents.auto_agent_phases.web_smoke_test_phase.time.sleep"):
+        with (
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value="playwright"),
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase._playwright_importable", return_value=True),
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase.subprocess.Popen") as mock_popen,
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase.subprocess.run") as mock_run,
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase.time.sleep"),
+        ):
             mock_popen.return_value.__enter__ = MagicMock(return_value=MagicMock())
             mock_popen.return_value.terminate = MagicMock()
             mock_popen.return_value.wait = MagicMock()
@@ -129,18 +135,22 @@ class TestWebSmokeTestPhaseRepairScenario:
             "index.html": "<html><body><div id='game'></div></body></html>",
             "src/game.js": js_content,
         }
-        playwright_result = json.dumps({
-            "errors": ["ReferenceError: Cannot read property of null (src/game.js:1)"],
-            "visible_elements": 0,
-        })
+        playwright_result = json.dumps(
+            {
+                "errors": ["ReferenceError: Cannot read property of null (src/game.js:1)"],
+                "visible_elements": 0,
+            }
+        )
         repaired = "document.getElementById('game');"
         phase.context.file_refiner.refine_file = AsyncMock(return_value=repaired)
 
-        with patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value="playwright"), \
-             patch("backend.agents.auto_agent_phases.web_smoke_test_phase._playwright_importable", return_value=True), \
-             patch("backend.agents.auto_agent_phases.web_smoke_test_phase.subprocess.Popen") as mock_popen, \
-             patch("backend.agents.auto_agent_phases.web_smoke_test_phase.subprocess.run") as mock_run, \
-             patch("backend.agents.auto_agent_phases.web_smoke_test_phase.time.sleep"):
+        with (
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value="playwright"),
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase._playwright_importable", return_value=True),
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase.subprocess.Popen") as mock_popen,
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase.subprocess.run") as mock_run,
+            patch("backend.agents.auto_agent_phases.web_smoke_test_phase.time.sleep"),
+        ):
             mock_popen.return_value.terminate = MagicMock()
             mock_popen.return_value.wait = MagicMock()
             mock_run.return_value.stdout = playwright_result

@@ -75,6 +75,7 @@ class AutoGenPrompts:
                         # Safer parsing if it looks like JSON
                         if active_prompt.strip().startswith("{"):
                             import json
+
                             data = json.loads(active_prompt)
                             if isinstance(data, dict):
                                 return data.get("system", ""), data.get("user", "")
@@ -121,7 +122,7 @@ class AutoGenPrompts:
             project_description=project_description,
             initial_structure=initial_structure,
             planning_files=planning_files,
-            module_system_hint=module_system_hint
+            module_system_hint=module_system_hint,
         )
         return system, user
 
@@ -408,7 +409,9 @@ class AutoGenPrompts:
     @staticmethod
     async def file_fix(file_path: str, content: str, error: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file fixing."""
-        system, user_template = await AutoGenPrompts._get_prompt_pair("fix", "domains/auto_generation/refinement.yaml", "fix")
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
+            "fix", "domains/auto_generation/refinement.yaml", "fix"
+        )
         user = user_template.format(file_path=file_path, error=error, content=content, readme=readme[:1000])
         return system, user
 
@@ -422,7 +425,9 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
-    async def file_refinement_with_issues(file_path: str, content: str, issues: str, context: str = "") -> Tuple[str, str]:
+    async def file_refinement_with_issues(
+        file_path: str, content: str, issues: str, context: str = ""
+    ) -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for file refinement based on specific issues."""
         system, user_template = await AutoGenPrompts._get_prompt_pair(
             "refine_with_issues", "domains/auto_generation/refinement.yaml", "refine_with_issues"
@@ -433,7 +438,9 @@ class AutoGenPrompts:
     @staticmethod
     async def generate_unit_tests(file_path: str, content: str, readme: str = "") -> Tuple[str, str]:
         """Returns (system_prompt, user_prompt) for unit test generation."""
-        system, user_template = await AutoGenPrompts._get_prompt_pair("unit", "domains/auto_generation/test_gen.yaml", "unit")
+        system, user_template = await AutoGenPrompts._get_prompt_pair(
+            "unit", "domains/auto_generation/test_gen.yaml", "unit"
+        )
         context_str = f"Project info:\n{readme}\n\n" if readme else ""
         user = user_template.format(context=context_str, file_path=file_path, content=content)
         return system, user

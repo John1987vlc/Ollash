@@ -29,8 +29,7 @@ class SeniorReviewPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 8: Starting Senior Review...")
-        await self.context.event_publisher.publish(
-"phase_start", phase="8", message="Starting Senior Review")
+        await self.context.event_publisher.publish("phase_start", phase="8", message="Starting Senior Review")
 
         review_passed = False
         review_attempt = 0
@@ -42,8 +41,7 @@ class SeniorReviewPhase(IAgentPhase):
         while not review_passed and review_attempt < max_review_attempts:
             review_attempt += 1
             self.context.logger.info(f"PHASE 8: Senior Review Attempt {review_attempt}/{max_review_attempts}...")
-            await self.context.event_publisher.publish(
-"tool_start", tool_name="senior_review", attempt=review_attempt)
+            await self.context.event_publisher.publish("tool_start", tool_name="senior_review", attempt=review_attempt)
 
             review_results = await self.context.senior_reviewer.perform_review(
                 project_description,
@@ -256,8 +254,7 @@ class SeniorReviewPhase(IAgentPhase):
                                     tool_name="refine_from_senior_review_general",
                                     file=rel_path,
                                 )
-                        await self.context.event_publisher.publish(
-"tool_end", tool_name="fix_senior_review_issues")
+                        await self.context.event_publisher.publish("tool_end", tool_name="fix_senior_review_issues")
 
                     self.context.logger.info("  Re-running verification after senior review fixes...")
                     generated_files = await self.context.file_completeness_checker.verify_and_fix(
@@ -268,8 +265,7 @@ class SeniorReviewPhase(IAgentPhase):
                             self.context.file_manager.write_file(project_root / rel_path, content)
                 else:
                     self.context.logger.warning("  No specific issues provided by senior reviewer to fix.")
-            await self.context.event_publisher.publish(
-"tool_end", tool_name="senior_review")
+            await self.context.event_publisher.publish("tool_end", tool_name="senior_review")
 
         if not review_passed:
             self.context.logger.error(
@@ -279,8 +275,7 @@ class SeniorReviewPhase(IAgentPhase):
             # NEW: On second failure, attempt aggressive simplification
             if review_attempt >= 2:
                 self.context.logger.warning("  PHASE 8: Attempting aggressive simplification to resolve issues...")
-                await self.context.event_publisher.publish(
-"tool_start", tool_name="aggressive_simplification")
+                await self.context.event_publisher.publish("tool_start", tool_name="aggressive_simplification")
 
                 simplified_count = 0
                 for rel_path, content in list(generated_files.items()):

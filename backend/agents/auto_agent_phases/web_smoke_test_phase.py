@@ -77,8 +77,7 @@ class WebSmokeTestPhase(BasePhase):
         # Guard 1: playwright must be installed
         if not shutil.which("playwright") and not _playwright_importable():
             self.context.logger.info(
-                "[WebSmokeTest] playwright not installed — skipping. "
-                "Run `playwright install chromium` to enable."
+                "[WebSmokeTest] playwright not installed — skipping. Run `playwright install chromium` to enable."
             )
             return generated_files, initial_structure, file_paths
 
@@ -91,9 +90,7 @@ class WebSmokeTestPhase(BasePhase):
         index_html = self._pick_index_html(html_files)
         port = _free_port()
 
-        self.context.logger.info(
-            f"[WebSmokeTest] Starting HTTP server on :{port}, testing {index_html}..."
-        )
+        self.context.logger.info(f"[WebSmokeTest] Starting HTTP server on :{port}, testing {index_html}...")
         await self.context.event_publisher.publish(
             "phase_start",
             phase=self.phase_id,
@@ -133,13 +130,9 @@ class WebSmokeTestPhase(BasePhase):
             return generated_files, initial_structure, file_paths
 
         # Smoke test found issues — attempt a single repair pass
-        self.context.logger.warning(
-            f"[WebSmokeTest] Browser console errors detected ({len(errors)}): {errors[:3]}"
-        )
+        self.context.logger.warning(f"[WebSmokeTest] Browser console errors detected ({len(errors)}): {errors[:3]}")
         if errors:
-            generated_files = await self._repair_from_errors(
-                errors, generated_files, project_root, readme_content
-            )
+            generated_files = await self._repair_from_errors(errors, generated_files, project_root, readme_content)
 
         await self.context.event_publisher.publish(
             "phase_complete",
@@ -218,6 +211,7 @@ class WebSmokeTestPhase(BasePhase):
 # ------------------------------------------------------------------
 # Module-level helpers (no class access needed)
 # ------------------------------------------------------------------
+
 
 def _playwright_importable() -> bool:
     """Return True if playwright Python package is importable."""

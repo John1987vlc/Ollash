@@ -42,23 +42,17 @@ class ClarificationPhase(BasePhase):
         questions = await self._analyse_completeness(project_description)
 
         if not questions:
-            self.context.logger.info(
-                "[Clarification] Description is sufficiently detailed — no questions needed."
-            )
+            self.context.logger.info("[Clarification] Description is sufficiently detailed — no questions needed.")
             return generated_files, initial_structure, file_paths
 
-        self.context.logger.info(
-            f"[Clarification] {len(questions)} critical question(s) detected."
-        )
+        self.context.logger.info(f"[Clarification] {len(questions)} critical question(s) detected.")
 
         answers: Dict[str, str] = {}
         for q in questions[: self._MAX_QUESTIONS]:
             answer = await self._ask_user(q)
             if answer:
                 answers[q] = answer
-                self.context.logger.info(
-                    f"  ✓ Q: {q[:80]!r}  A: {answer[:60]!r}"
-                )
+                self.context.logger.info(f"  ✓ Q: {q[:80]!r}  A: {answer[:60]!r}")
 
         if answers:
             qa_block = "\n".join(f"- {q}: {a}" for q, a in answers.items())
@@ -67,9 +61,7 @@ class ClarificationPhase(BasePhase):
             self.context.clarified_description = enriched
             # Signal enriched description to AutoAgent via generated_files key
             generated_files["__clarified_description__"] = enriched
-            self.context.logger.info(
-                f"[Clarification] Description enriched with {len(answers)} answer(s)."
-            )
+            self.context.logger.info(f"[Clarification] Description enriched with {len(answers)} answer(s).")
 
         return generated_files, initial_structure, file_paths
 
@@ -105,9 +97,7 @@ class ClarificationPhase(BasePhase):
             if isinstance(parsed, list):
                 return [str(q).strip() for q in parsed if q]
         except Exception as exc:
-            self.context.logger.warning(
-                f"[Clarification] Completeness analysis failed (non-fatal): {exc}"
-            )
+            self.context.logger.warning(f"[Clarification] Completeness analysis failed (non-fatal): {exc}")
         return []
 
     async def _ask_user(self, question: str) -> str:
@@ -130,9 +120,7 @@ class ClarificationPhase(BasePhase):
                 request_id=req_id,
                 question=question,
             )
-            self.context.logger.info(
-                f"[Clarification] Waiting for answer (id={req_id}): {question[:80]!r}"
-            )
+            self.context.logger.info(f"[Clarification] Waiting for answer (id={req_id}): {question[:80]!r}")
             try:
                 await asyncio.wait_for(event.wait(), timeout=self._TIMEOUT_SECONDS)
                 return answer_holder["answer"].strip()

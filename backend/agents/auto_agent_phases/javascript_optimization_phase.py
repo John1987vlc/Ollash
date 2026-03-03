@@ -35,7 +35,8 @@ class JavaScriptOptimizationPhase(IAgentPhase):
 
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 5.2: Optimizing JavaScript Integration...")
         await self.context.event_publisher.publish(
-"phase_start", phase="5.2", message="Optimizing JS semantic coherence")
+            "phase_start", phase="5.2", message="Optimizing JS semantic coherence"
+        )
 
         # 1. HTML-JS Integration Check
         html_content = generated_files.get("src/index.html") or generated_files.get("index.html")
@@ -48,7 +49,8 @@ class JavaScriptOptimizationPhase(IAgentPhase):
         generated_files = await self._optimize_cross_js_coherence(js_files, generated_files, project_root)
 
         await self.context.event_publisher.publish(
-"phase_complete", phase="5.2", message="JavaScript optimization complete")
+            "phase_complete", phase="5.2", message="JavaScript optimization complete"
+        )
         return generated_files, initial_structure, file_paths
 
     async def _optimize_html_js_integration(

@@ -1,4 +1,5 @@
 """Unit tests for DependencyPrecheckPhase."""
+
 import json
 from unittest.mock import MagicMock
 
@@ -58,12 +59,12 @@ class TestDependencyPrecheckPhase:
         }
         ctx = self._make_context(conflicts=[conflict])
 
-        fixed_resp = json.dumps({
-            "conflicts": [conflict],
-        })
-        fix_resp = json.dumps({
-            "fixed_manifests": {"requirements.txt": "flask==3.0.0\n"}
-        })
+        fixed_resp = json.dumps(
+            {
+                "conflicts": [conflict],
+            }
+        )
+        fix_resp = json.dumps({"fixed_manifests": {"requirements.txt": "flask==3.0.0\n"}})
         # First call: check, second call: fix
         ctx.llm_manager.get_client.return_value.chat.side_effect = [
             ({"content": fixed_resp}, {}),

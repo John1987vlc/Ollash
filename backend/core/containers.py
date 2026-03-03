@@ -35,6 +35,7 @@ from backend.agents.auto_agent_phases.structure_pre_review_phase import Structur
 from backend.agents.auto_agent_phases.generation_execution_phase import TestGenerationExecutionPhase
 from backend.agents.auto_agent_phases.verification_phase import VerificationPhase
 from backend.agents.auto_agent_phases.web_smoke_test_phase import WebSmokeTestPhase
+
 # Sprint 10 — 10 new pipeline phases
 from backend.agents.auto_agent_phases.clarification_phase import ClarificationPhase
 from backend.agents.auto_agent_phases.viability_estimator_phase import ViabilityEstimatorPhase

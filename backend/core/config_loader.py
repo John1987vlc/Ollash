@@ -40,8 +40,7 @@ class ConfigLoader:
 
     def _load_and_validate_all_configs(self):
         """Loads data from the central config and validates it."""
-        self._logger.info(
-"Loading configuration from central config object.")
+        self._logger.info("Loading configuration from central config object.")
         current_config = get_config()
 
         self._raw_config_data = {
@@ -53,8 +52,7 @@ class ConfigLoader:
         try:
             for key, model in self._config_map.items():
                 self._loaded_configs[key] = model.model_validate(self._raw_config_data.get(key, {}))
-            self._logger.info(
-"All configurations loaded and validated successfully.")
+            self._logger.info("All configurations loaded and validated successfully.")
         except ValidationError as e:
             self._logger.error(f"Configuration validation failed: {e.errors()}")
             raise RuntimeError(f"Invalid configuration: {e}")

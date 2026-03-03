@@ -1,4 +1,5 @@
 """Unit tests for ClarificationPhase."""
+
 import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -24,9 +25,7 @@ class TestClarificationPhase:
         ctx.event_publisher = ep
 
         # LLM mock
-        raw_response = "[]" if questions is None else (
-            f'[{", ".join(repr(q) for q in questions)}]'
-        )
+        raw_response = "[]" if questions is None else (f"[{', '.join(repr(q) for q in questions)}]")
         if llm_response is not None:
             raw_response = llm_response
         ctx.llm_manager.get_client.return_value.chat.return_value = (

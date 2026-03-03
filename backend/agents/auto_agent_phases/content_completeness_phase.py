@@ -57,7 +57,9 @@ class ContentCompletenessPhase(IAgentPhase):
                             "recommendation": "Replace all TODO, placeholder, and stub content with real implementations",
                         }
                     ]
-                    refined = await self.context.file_refiner.refine_file(rel_path, content, readme_content[:2000], issues)
+                    refined = await self.context.file_refiner.refine_file(
+                        rel_path, content, readme_content[:2000], issues
+                    )
                     if refined:
                         generated_files[rel_path] = refined
                         self.context.file_manager.write_file(project_root / rel_path, refined)
@@ -85,8 +87,7 @@ class ContentCompletenessPhase(IAgentPhase):
             for rel_path, content in generated_files.items():
                 if content:
                     self.context.file_manager.write_file(project_root / rel_path, content)
-            await self.context.event_publisher.publish(
-"tool_end", tool_name="complete_incomplete_files")
+            await self.context.event_publisher.publish("tool_end", tool_name="complete_incomplete_files")
 
         await self.context.event_publisher.publish(
             "phase_complete", phase="7.5", message="Content completeness check complete"

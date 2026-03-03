@@ -18,9 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from backend.agents.auto_agent_phases.base_phase import BasePhase
 
-_FRONTEND_FRAMEWORKS = frozenset(
-    {"react", "next", "vue", "nuxt", "angular", "svelte", "solid", "preact", "qwik"}
-)
+_FRONTEND_FRAMEWORKS = frozenset({"react", "next", "vue", "nuxt", "angular", "svelte", "solid", "preact", "qwik"})
 
 
 class ComponentTreePhase(BasePhase):
@@ -42,35 +40,25 @@ class ComponentTreePhase(BasePhase):
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         framework = self._detect_frontend_framework()
         if not framework:
-            self.context.logger.info(
-                "[ComponentTree] No frontend framework detected — skipping."
-            )
+            self.context.logger.info("[ComponentTree] No frontend framework detected — skipping.")
             return generated_files, initial_structure, file_paths
 
-        self.context.logger.info(
-            f"[ComponentTree] {framework} project detected — generating component tree."
-        )
+        self.context.logger.info(f"[ComponentTree] {framework} project detected — generating component tree.")
 
         tree_data = await self._generate_tree(
             project_description, project_name, framework, initial_structure, file_paths
         )
 
         if not tree_data:
-            self.context.logger.warning(
-                "[ComponentTree] Generation failed — skipping."
-            )
+            self.context.logger.warning("[ComponentTree] Generation failed — skipping.")
             return generated_files, initial_structure, file_paths
 
         self.context.component_tree = tree_data
         md_content = self._render_markdown(tree_data, project_name, framework)
 
-        self._write_file(
-            project_root, "component_tree.md", md_content, generated_files, file_paths
-        )
+        self._write_file(project_root, "component_tree.md", md_content, generated_files, file_paths)
 
-        self.context.logger.info(
-            "[ComponentTree] component_tree.md written successfully."
-        )
+        self.context.logger.info("[ComponentTree] component_tree.md written successfully.")
         return generated_files, initial_structure, file_paths
 
     # ------------------------------------------------------------------
@@ -105,8 +93,9 @@ class ComponentTreePhase(BasePhase):
     ) -> Optional[Dict[str, Any]]:
         """Ask the LLM to produce the component hierarchy as JSON."""
         # Collect UI-related file hints
-        ui_files = [fp for fp in file_paths
-                    if any(fp.endswith(ext) for ext in (".jsx", ".tsx", ".vue", ".svelte", ".html"))][:20]
+        ui_files = [
+            fp for fp in file_paths if any(fp.endswith(ext) for ext in (".jsx", ".tsx", ".vue", ".svelte", ".html"))
+        ][:20]
 
         system_prompt = (
             f"You are a senior {framework} architect. "
@@ -133,9 +122,7 @@ class ComponentTreePhase(BasePhase):
                 ],
                 options_override={"temperature": 0.2},
             )
-            parsed = self.context.response_parser.extract_json(
-                response_data.get("content", "")
-            )
+            parsed = self.context.response_parser.extract_json(response_data.get("content", ""))
             if isinstance(parsed, dict) and "components" in parsed:
                 return parsed
         except Exception as exc:

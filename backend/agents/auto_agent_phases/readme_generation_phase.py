@@ -47,7 +47,9 @@ class ReadmeGenerationPhase(IAgentPhase):
             if vision_start != -1:
                 vision_end = readme.find("##", vision_start + 9)
                 vision_text = (
-                    readme[vision_start + 9 : vision_end].strip() if vision_end != -1 else readme[vision_start + 9 :].strip()
+                    readme[vision_start + 9 : vision_end].strip()
+                    if vision_end != -1
+                    else readme[vision_start + 9 :].strip()
                 )
                 self.context.initial_exec_params["project_vision"] = vision_text
             else:
@@ -88,9 +90,7 @@ class ReadmeGenerationPhase(IAgentPhase):
 
         # F5: Append Mermaid architecture diagrams to README
         try:
-            readme = await self._append_mermaid_diagrams(
-                readme, project_description, project_name, initial_structure
-            )
+            readme = await self._append_mermaid_diagrams(readme, project_description, project_name, initial_structure)
             generated_files[readme_file_path] = readme
             self.context.file_manager.write_file(full_readme_path, readme)
         except Exception as e:
@@ -127,8 +127,7 @@ class ReadmeGenerationPhase(IAgentPhase):
             + (
                 "Generate ONLY one graph TD diagram showing the main module hierarchy."
                 if is_small
-                else
-                "Generate TWO diagrams: "
+                else "Generate TWO diagrams: "
                 "1) A 'graph TD' showing module/folder hierarchy (max 12 nodes). "
                 "2) A 'sequenceDiagram' showing the main data flow (max 8 steps). "
             )

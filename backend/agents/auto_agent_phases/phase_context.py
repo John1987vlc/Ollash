@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 # Lightweight runtime imports (no heavy transitive deps)
 from backend.core.language_standards import BACKEND_ROUTE_PATTERNS, DEPENDENCY_FILES, FRONTEND_EXTENSIONS
 from backend.utils.core.language_utils import LanguageUtils
+
+
 def _extract_signatures(content: str, file_path: str) -> str:
     """Lazy wrapper — defers the import of the full domains package to first use.
 
@@ -16,7 +18,9 @@ def _extract_signatures(content: str, file_path: str) -> str:
     from backend.utils.domains.auto_generation.utilities.signature_extractor import (  # noqa: PLC0415
         extract_signatures,
     )
+
     return extract_signatures(content, file_path)
+
 
 if TYPE_CHECKING:
     # All service imports are type-hint-only: moving them here prevents the full
@@ -56,6 +60,7 @@ if TYPE_CHECKING:
     from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
     from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
     from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
+
     # Instantiated inside __init__ — also listed here for type-checker visibility
     from backend.utils.core.memory.decision_blackboard import DecisionBlackboard
 
@@ -227,6 +232,7 @@ class PhaseContext:
             self.decision_blackboard: DecisionBlackboard = decision_blackboard
         else:
             from backend.utils.core.memory.decision_blackboard import DecisionBlackboard  # noqa: PLC0415
+
             _db_path = ollash_root_dir / ".ollash" / "decisions.db"
             self.decision_blackboard = DecisionBlackboard(_db_path)
 
@@ -306,6 +312,7 @@ class PhaseContext:
 
         # Utility services (extracted)
         from backend.utils.core.io.project_ingestion_service import ProjectIngestionService  # noqa: PLC0415
+
         self._ingestion_service = ProjectIngestionService(
             file_reader=file_manager.read_file,
             logger=logger,

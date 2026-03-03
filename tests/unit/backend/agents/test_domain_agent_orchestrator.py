@@ -6,12 +6,11 @@ from unittest.mock import MagicMock, AsyncMock
 from backend.agents.domain_agent_orchestrator import DomainAgentOrchestrator
 from backend.agents.orchestrators.task_dag import AgentType, TaskDAG, TaskNode
 
+
 def _make_ep():
     ep = MagicMock()
     ep.publish = AsyncMock()
     return ep
-
-
 
 
 def make_simple_dag():

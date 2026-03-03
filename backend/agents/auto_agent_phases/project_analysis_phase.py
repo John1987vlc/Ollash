@@ -48,7 +48,9 @@ class ProjectAnalysisPhase(IAgentPhase):
             f"[PROJECT_NAME:{project_name}] PHASE 0.5: Analyzing existing project "
             f"({len(generated_files)} files, {len(file_paths)} paths)..."
         )
-        await self.context.event_publisher.publish("phase_start", phase="0.5", message="Analyzing existing project code")
+        await self.context.event_publisher.publish(
+            "phase_start", phase="0.5", message="Analyzing existing project code"
+        )
 
         # E1: Incremental differential analysis — load previous snapshot
         state_mgr = AnalysisStateManager(self.context.logger)

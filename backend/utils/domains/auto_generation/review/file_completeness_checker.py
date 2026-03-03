@@ -83,7 +83,9 @@ class FileCompletenessChecker:
                 )
 
                 if is_empty:
-                    system, user = await AutoGenPrompts.file_content_generation(file_path, current_content, readme_context)
+                    system, user = await AutoGenPrompts.file_content_generation(
+                        file_path, current_content, readme_context
+                    )
                 else:
                     system, user = await AutoGenPrompts.file_fix(
                         file_path, current_content, current_result.message, readme_context

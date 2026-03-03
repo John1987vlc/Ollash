@@ -11,12 +11,11 @@ from unittest.mock import MagicMock, AsyncMock
 
 from backend.agents.domain_agents.developer_agent import DeveloperAgent
 
+
 def _make_ep():
     ep = MagicMock()
     ep.publish = AsyncMock()
     return ep
-
-
 
 
 # ---------------------------------------------------------------------------

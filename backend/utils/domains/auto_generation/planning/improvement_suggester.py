@@ -44,6 +44,7 @@ class ImprovementSuggester:
             # Assuming scan_project is async or can be awaited if needed.
             # Most scanners in this project are sync for now, but checking for safety.
             import inspect
+
             if inspect.iscoroutinefunction(self.vulnerability_scanner.scan_project):
                 report = await self.vulnerability_scanner.scan_project(current_files, block_on_critical=False)
             else:

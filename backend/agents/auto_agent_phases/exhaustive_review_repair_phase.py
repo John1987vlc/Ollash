@@ -37,7 +37,9 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
         test_results = kwargs.get("test_results", {})
 
         self.context.logger.info("PHASE 5.75: Exhaustive Review and Repair...")
-        await self.context.event_publisher.publish("phase_start", phase="5.75", message="Starting Exhaustive Review & Repair")
+        await self.context.event_publisher.publish(
+            "phase_start", phase="5.75", message="Starting Exhaustive Review & Repair"
+        )
 
         # ========== STEP 1: DIAGNOSTIC PHASE ==========
         self.context.logger.info("  STEP 1: Diagnostic Analysis...")

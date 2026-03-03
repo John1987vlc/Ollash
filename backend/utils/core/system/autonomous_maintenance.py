@@ -81,8 +81,7 @@ class AutonomousMaintenanceTask:
         cycle_id = f"maint-{uuid.uuid4().hex[:6]}"
         branch_name = f"auto-fix-{cycle_id}"
 
-        self.logger.info(
-f"Maintenance cycle #{self._cycle_count} started ({cycle_id})")
+        self.logger.info(f"Maintenance cycle #{self._cycle_count} started ({cycle_id})")
         await self.event_publisher.publish(
             "maintenance_cycle_started",
             cycle_id=cycle_id,
@@ -104,8 +103,7 @@ f"Maintenance cycle #{self._cycle_count} started ({cycle_id})")
             report["issues_found"] = len(issues)
 
             if not issues:
-                self.logger.info(
-"No issues found in maintenance cycle")
+                self.logger.info("No issues found in maintenance cycle")
                 await self.event_publisher.publish(
                     "maintenance_cycle_completed",
                     cycle_id=cycle_id,
@@ -126,8 +124,7 @@ f"Maintenance cycle #{self._cycle_count} started ({cycle_id})")
             report["tests_passed"] = test_result
 
             if not test_result:
-                self.logger.warning(
-"Tests failed after fixes, reverting branch")
+                self.logger.warning("Tests failed after fixes, reverting branch")
                 self.git.checkout(original_branch)
                 self.git._run_git("branch", "-D", branch_name)
                 report["branch"] = None

@@ -62,8 +62,7 @@ class BasePhase(IAgentPhase):
         file_paths: List[str] = kwargs.pop("file_paths", [])
 
         await self._publish_start()
-        self.context.logger.info(
-f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name}: {self.phase_label}...")
+        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name}: {self.phase_label}...")
 
         try:
             result = await self.run(
@@ -81,8 +80,7 @@ f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name}: {self.phase_label}...")
             await self._publish_shadow_evaluate(result)
 
             await self._publish_complete()
-            self.context.logger.info(
-f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name} complete.")
+            self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name} complete.")
             return result
         except PipelinePhaseError:
             await self._publish_phase_failure("pipeline_phase_error")

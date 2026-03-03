@@ -706,7 +706,6 @@ RULES:
                             if token:
                                 await self.event_publisher.publish("thinking_token", {"token": token})
 
-
                     # F31: Get schema-valid tools for this turn ONLY
                     turn_tool_definitions = self.tool_executor.get_tool_definitions(current_turn_tools)
 

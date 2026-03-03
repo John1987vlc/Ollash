@@ -54,9 +54,7 @@ class ToolLoopMixin(ABC):
                 self._consecutive_planning_count = 0
 
             if self._consecutive_planning_count > 3:
-                self.logger.warning(
-                    f"⚠️ High repetition of {tool_name} detected. Forcing action phase."
-                )
+                self.logger.warning(f"⚠️ High repetition of {tool_name} detected. Forcing action phase.")
                 # We return a fake error to the agent to force it to stop planning and start doing
                 tool_outputs.append(
                     {

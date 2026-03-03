@@ -69,23 +69,15 @@ class ApiContractPhase(BasePhase):
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         if not self._is_backend_project():
-            self.context.logger.info(
-                "[ApiContract] Not a backend/fullstack project — skipping."
-            )
+            self.context.logger.info("[ApiContract] Not a backend/fullstack project — skipping.")
             return generated_files, initial_structure, file_paths
 
-        self.context.logger.info(
-            "[ApiContract] Generating OpenAPI 3.0 contract..."
-        )
+        self.context.logger.info("[ApiContract] Generating OpenAPI 3.0 contract...")
 
-        openapi_yaml = await self._generate_contract(
-            project_description, project_name, initial_structure
-        )
+        openapi_yaml = await self._generate_contract(project_description, project_name, initial_structure)
 
         if not openapi_yaml:
-            self.context.logger.warning(
-                "[ApiContract] Failed to generate valid OpenAPI spec — skipping."
-            )
+            self.context.logger.warning("[ApiContract] Failed to generate valid OpenAPI spec — skipping.")
             return generated_files, initial_structure, file_paths
 
         # Persist to disk
@@ -127,8 +119,10 @@ class ApiContractPhase(BasePhase):
     ) -> str:
         """Ask the LLM for a valid OpenAPI 3.0 YAML. Retries up to 3×."""
         logic_plan_summary = json.dumps(
-            {k: {"purpose": v.get("purpose", ""), "exports": v.get("exports", [])}
-             for k, v in list(self.context.logic_plan.items())[:20]},
+            {
+                k: {"purpose": v.get("purpose", ""), "exports": v.get("exports", [])}
+                for k, v in list(self.context.logic_plan.items())[:20]
+            },
             indent=2,
         )
 
@@ -159,21 +153,15 @@ class ApiContractPhase(BasePhase):
                 # Strip markdown fences if present
                 if raw.startswith("```"):
                     lines = raw.splitlines()
-                    raw = "\n".join(
-                        line for line in lines if not line.startswith("```")
-                    ).strip()
+                    raw = "\n".join(line for line in lines if not line.startswith("```")).strip()
 
                 # Validate YAML
                 parsed = yaml.safe_load(raw)
                 if isinstance(parsed, dict) and "openapi" in parsed and "paths" in parsed:
                     return raw
-                self.context.logger.warning(
-                    f"[ApiContract] Attempt {attempt}: missing required OAS fields."
-                )
+                self.context.logger.warning(f"[ApiContract] Attempt {attempt}: missing required OAS fields.")
             except Exception as exc:
-                self.context.logger.warning(
-                    f"[ApiContract] Attempt {attempt} failed: {exc}"
-                )
+                self.context.logger.warning(f"[ApiContract] Attempt {attempt} failed: {exc}")
 
         return ""
 

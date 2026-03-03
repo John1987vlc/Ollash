@@ -40,9 +40,7 @@ class PlanValidationPhase(BasePhase):
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         logic_plan = self.context.logic_plan
         if not logic_plan:
-            self.context.logger.info(
-                "[PlanValidation] No logic plan available — skipping."
-            )
+            self.context.logger.info("[PlanValidation] No logic plan available — skipping.")
             return generated_files, initial_structure, file_paths
 
         current_plan = dict(logic_plan)
@@ -53,9 +51,7 @@ class PlanValidationPhase(BasePhase):
         }
 
         for round_idx in range(1, self.MAX_ROUNDS + 1):
-            self.context.logger.info(
-                f"[PlanValidation] Round {round_idx}/{self.MAX_ROUNDS} — Critic reviewing plan..."
-            )
+            self.context.logger.info(f"[PlanValidation] Round {round_idx}/{self.MAX_ROUNDS} — Critic reviewing plan...")
 
             critique = await self._critic_review(current_plan, project_description)
             high_issues = [i for i in critique.get("issues", []) if i.get("severity") == "HIGH"]
@@ -112,8 +108,7 @@ class PlanValidationPhase(BasePhase):
         )
 
         self.context.logger.info(
-            f"[PlanValidation] Done. Verdict: {report['final_verdict']}. "
-            f"Report saved to PLAN_VALIDATION_REPORT.json."
+            f"[PlanValidation] Done. Verdict: {report['final_verdict']}. Report saved to PLAN_VALIDATION_REPORT.json."
         )
         return generated_files, initial_structure, file_paths
 
@@ -121,13 +116,13 @@ class PlanValidationPhase(BasePhase):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    async def _critic_review(
-        self, logic_plan: Dict[str, Any], project_description: str
-    ) -> Dict[str, Any]:
+    async def _critic_review(self, logic_plan: Dict[str, Any], project_description: str) -> Dict[str, Any]:
         """Invoke the Critic LLM to review the plan."""
         plan_summary = json.dumps(
-            {k: {"purpose": v.get("purpose", ""), "main_logic": v.get("main_logic", [])}
-             for k, v in list(logic_plan.items())[:25]},
+            {
+                k: {"purpose": v.get("purpose", ""), "main_logic": v.get("main_logic", [])}
+                for k, v in list(logic_plan.items())[:25]
+            },
             indent=2,
         )
         system_prompt = (
@@ -142,10 +137,7 @@ class PlanValidationPhase(BasePhase):
             '"file": "...", "description": "..."}]}. '
             "Output ONLY the JSON object."
         )
-        user_prompt = (
-            f"## Project: {project_description[:800]}\n\n"
-            f"## Plan:\n{plan_summary}"
-        )
+        user_prompt = f"## Project: {project_description[:800]}\n\n## Plan:\n{plan_summary}"
 
         default = {"verdict": "PASS", "issues": []}
         try:
@@ -156,9 +148,7 @@ class PlanValidationPhase(BasePhase):
                 ],
                 options_override={"temperature": 0.1},
             )
-            parsed = self.context.response_parser.extract_json(
-                response_data.get("content", "")
-            )
+            parsed = self.context.response_parser.extract_json(response_data.get("content", ""))
             if isinstance(parsed, dict):
                 return parsed
         except Exception as exc:
@@ -196,9 +186,7 @@ class PlanValidationPhase(BasePhase):
                 ],
                 options_override={"temperature": 0.2},
             )
-            parsed = self.context.response_parser.extract_json(
-                response_data.get("content", "")
-            )
+            parsed = self.context.response_parser.extract_json(response_data.get("content", ""))
             if isinstance(parsed, dict) and parsed:
                 return parsed
         except Exception as exc:

@@ -151,8 +151,7 @@ class ToolDispatcher:
             )
             for i, res in enumerate(chunk_results):
                 if isinstance(res, Exception):
-                    self._logger.error(
-f"[ToolDispatcher] batch call {chunk[i][0]} failed: {res}")
+                    self._logger.error(f"[ToolDispatcher] batch call {chunk[i][0]} failed: {res}")
                     results[offset + i] = None
                 else:
                     results[offset + i] = res
@@ -199,8 +198,7 @@ f"[ToolDispatcher] batch call {chunk[i][0]} failed: {res}")
                     self._logger.warning(f"[ToolDispatcher] callback for '{tool_name}' raised: {cb_exc}")
             return result
         except Exception as exc:
-            self._logger.error(
-f"[ToolDispatcher] '{tool_name}' failed: {exc}")
+            self._logger.error(f"[ToolDispatcher] '{tool_name}' failed: {exc}")
             await self._event_publisher.publish("tool_failed", tool=tool_name, error=str(exc))
             await self._event_publisher.publish(
                 "tool_execution_completed",

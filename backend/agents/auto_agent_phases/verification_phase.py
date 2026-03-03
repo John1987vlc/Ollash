@@ -27,8 +27,7 @@ class VerificationPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5.5: Verification loop...")
-        await self.context.event_publisher.publish(
-"phase_start", phase="5.5", message="Starting verification loop")
+        await self.context.event_publisher.publish("phase_start", phase="5.5", message="Starting verification loop")
 
         generated_files = await self.context.file_completeness_checker.verify_and_fix(
             generated_files, readme_content[:1000]
@@ -41,8 +40,7 @@ class VerificationPhase(IAgentPhase):
         # Fix 2: DOM contract consistency check (warning only — non-blocking)
         self._check_dom_id_consistency(generated_files)
 
-        await self.context.event_publisher.publish(
-"phase_complete", phase="5.5", message="Verification loop complete")
+        await self.context.event_publisher.publish("phase_complete", phase="5.5", message="Verification loop complete")
         self.context.logger.info("PHASE 5.5 complete.")
 
         return generated_files, initial_structure, file_paths

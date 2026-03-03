@@ -6,12 +6,11 @@ from unittest.mock import AsyncMock, MagicMock
 from backend.agents.domain_agents.critic_agent import CriticAgent
 from backend.agents.orchestrators.task_dag import AgentType, TaskNode
 
+
 def _make_ep():
     ep = MagicMock()
     ep.publish = AsyncMock()
     return ep
-
-
 
 
 @pytest.fixture

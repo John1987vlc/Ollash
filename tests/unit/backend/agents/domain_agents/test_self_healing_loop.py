@@ -5,12 +5,11 @@ from unittest.mock import AsyncMock, MagicMock
 from backend.agents.orchestrators.self_healing_loop import SelfHealingLoop
 from backend.agents.orchestrators.task_dag import AgentType, TaskDAG, TaskNode
 
+
 def _make_ep():
     ep = MagicMock()
     ep.publish = AsyncMock()
     return ep
-
-
 
 
 @pytest.fixture

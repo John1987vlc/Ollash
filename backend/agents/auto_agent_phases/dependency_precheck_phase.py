@@ -49,9 +49,7 @@ class DependencyPrecheckPhase(BasePhase):
         declared_deps = self._collect_declared_deps(generated_files, file_paths, project_root)
 
         if not declared_deps:
-            self.context.logger.info(
-                "[DepPrecheck] No dependency declarations found — skipping."
-            )
+            self.context.logger.info("[DepPrecheck] No dependency declarations found — skipping.")
             return generated_files, initial_structure, file_paths
 
         tech = getattr(self.context, "tech_stack_info", None)
@@ -61,20 +59,14 @@ class DependencyPrecheckPhase(BasePhase):
             "framework": getattr(tech, "framework", "") if tech else "",
         }
 
-        self.context.logger.info(
-            f"[DepPrecheck] Checking {len(declared_deps)} dependency declaration(s)..."
-        )
+        self.context.logger.info(f"[DepPrecheck] Checking {len(declared_deps)} dependency declaration(s)...")
 
         report = await self._check_conflicts(declared_deps, runtime_info, project_description)
 
-        conflicts: List[Dict] = [
-            c for c in report.get("conflicts", []) if c.get("severity") in ("HIGH", "MEDIUM")
-        ]
+        conflicts: List[Dict] = [c for c in report.get("conflicts", []) if c.get("severity") in ("HIGH", "MEDIUM")]
 
         if conflicts:
-            self.context.logger.warning(
-                f"[DepPrecheck] {len(conflicts)} conflict(s) detected — attempting auto-fix."
-            )
+            self.context.logger.warning(f"[DepPrecheck] {len(conflicts)} conflict(s) detected — attempting auto-fix.")
             generated_files = await self._auto_fix_manifests(
                 conflicts, generated_files, file_paths, project_root, runtime_info
             )
@@ -136,17 +128,14 @@ class DependencyPrecheckPhase(BasePhase):
         project_description: str,
     ) -> Dict[str, Any]:
         """Ask LLM to detect conflicts in the collected manifests."""
-        deps_summary = "\n\n".join(
-            f"### {name}\n```\n{content[:1500]}\n```"
-            for name, content in declared_deps.items()
-        )
+        deps_summary = "\n\n".join(f"### {name}\n```\n{content[:1500]}\n```" for name, content in declared_deps.items())
         system_prompt = (
             "You are a senior DevOps engineer specializing in dependency management. "
             "Analyse the dependency manifests below and detect: "
             "version conflicts, deprecated packages, peer-dependency mismatches, "
             "and runtime version incompatibilities. "
-            "Return JSON: {\"conflicts\": [{\"severity\": \"HIGH\"|\"MEDIUM\"|\"LOW\", "
-            "\"package\": \"...\", \"description\": \"...\", \"fix_suggestion\": \"...\"}]}. "
+            'Return JSON: {"conflicts": [{"severity": "HIGH"|"MEDIUM"|"LOW", '
+            '"package": "...", "description": "...", "fix_suggestion": "..."}]}. '
             "Return an EMPTY conflicts array if no issues are found. Output JSON only."
         )
         user_prompt = (
@@ -164,9 +153,7 @@ class DependencyPrecheckPhase(BasePhase):
                 ],
                 options_override={"temperature": 0.1},
             )
-            parsed = self.context.response_parser.extract_json(
-                response_data.get("content", "")
-            )
+            parsed = self.context.response_parser.extract_json(response_data.get("content", ""))
             if isinstance(parsed, dict):
                 return parsed
         except Exception as exc:
@@ -187,13 +174,10 @@ class DependencyPrecheckPhase(BasePhase):
             "You are a senior DevOps engineer. Given the list of dependency conflicts "
             "and the existing manifests, produce corrected manifest content that resolves "
             "all conflicts. Return JSON: "
-            "{\"fixed_manifests\": {\"<filename>\": \"<corrected content>\"}}. "
+            '{"fixed_manifests": {"<filename>": "<corrected content>"}}. '
             "Only include manifests that need changes. Output JSON only."
         )
-        existing = {
-            name: content for name, content in generated_files.items()
-            if Path(name).name in _MANIFEST_FILES
-        }
+        existing = {name: content for name, content in generated_files.items() if Path(name).name in _MANIFEST_FILES}
         user_prompt = (
             f"## Conflicts:\n{conflicts_json}\n\n"
             f"## Runtime: {json.dumps(runtime_info)}\n\n"
@@ -208,9 +192,7 @@ class DependencyPrecheckPhase(BasePhase):
                 ],
                 options_override={"temperature": 0.1},
             )
-            parsed = self.context.response_parser.extract_json(
-                response_data.get("content", "")
-            )
+            parsed = self.context.response_parser.extract_json(response_data.get("content", ""))
             fixed: Dict[str, str] = (parsed or {}).get("fixed_manifests", {})
             for filename, content in fixed.items():
                 self._write_file(project_root, filename, content, generated_files, file_paths)

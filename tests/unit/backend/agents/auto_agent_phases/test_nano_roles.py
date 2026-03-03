@@ -21,23 +21,25 @@ def patch_prompt_loader():
     """Mock PromptLoader so no YAML file I/O occurs during unit tests."""
     with patch.object(AutoGenPrompts, "_loader") as mock_loader, patch.object(AutoGenPrompts, "_repository", None):
         # Return a dict matching the nano_roles.yaml structure
-        mock_loader.load_prompt = AsyncMock(return_value={
-            "nano_planner_prompt": {
-                "system": "You are a file list generator. Output JSON only.",
-                "user": "Project name: {project_name}\nDescription: {project_description}\nOutput the JSON array only.",
-            },
-            "nano_coder_prompt": {
-                "system": "You are a single-function code writer.",
-                "user": (
-                    "Function name: {function_name}\nSignature: {signature}\n"
-                    "Docstring: {docstring}\nContext: {context_snippet}\nOutput function body."
-                ),
-            },
-            "nano_reviewer_prompt": {
-                "system": "You are a syntax and indentation checker.",
-                "user": "Language: {language}\nCode:\n```\n{code}\n```\nOutput JSON only.",
-            },
-        })
+        mock_loader.load_prompt = AsyncMock(
+            return_value={
+                "nano_planner_prompt": {
+                    "system": "You are a file list generator. Output JSON only.",
+                    "user": "Project name: {project_name}\nDescription: {project_description}\nOutput the JSON array only.",
+                },
+                "nano_coder_prompt": {
+                    "system": "You are a single-function code writer.",
+                    "user": (
+                        "Function name: {function_name}\nSignature: {signature}\n"
+                        "Docstring: {docstring}\nContext: {context_snippet}\nOutput function body."
+                    ),
+                },
+                "nano_reviewer_prompt": {
+                    "system": "You are a syntax and indentation checker.",
+                    "user": "Language: {language}\nCode:\n```\n{code}\n```\nOutput JSON only.",
+                },
+            }
+        )
         yield mock_loader
 
 

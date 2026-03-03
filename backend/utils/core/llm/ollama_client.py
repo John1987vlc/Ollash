@@ -171,7 +171,9 @@ class OllamaClient:
 
         # Debug logging before request
         if self.logger.event_publisher:
-            _fire_and_forget(self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload}))
+            _fire_and_forget(
+                self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
+            )
 
         try:
             self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
@@ -189,7 +191,9 @@ class OllamaClient:
 
             # Debug logging after response
             if self.logger.event_publisher:
-                _fire_and_forget(self.logger.event_publisher.publish("llm_response", {"model": self.model, "response": data}))
+                _fire_and_forget(
+                    self.logger.event_publisher.publish("llm_response", {"model": self.model, "response": data})
+                )
 
             self.logger.debug(f"DEBUG - LLM Response: {json.dumps(data, indent=2)}")
 

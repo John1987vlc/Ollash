@@ -27,7 +27,9 @@ class DependencyReconciliationPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5.6: Reconciling dependency files with actual imports...")
-        await self.context.event_publisher.publish("phase_start", phase="5.6", message="Starting dependency reconciliation")
+        await self.context.event_publisher.publish(
+            "phase_start", phase="5.6", message="Starting dependency reconciliation"
+        )
 
         # Opt 5: Capture pre-reconciliation imports to detect mismatches for ErrorKnowledgeBase
         imports_before: Dict[str, Any] = {}

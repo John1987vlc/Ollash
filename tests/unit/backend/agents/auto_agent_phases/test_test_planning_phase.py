@@ -1,4 +1,5 @@
 """Unit tests for TestPlanningPhase (TDD skeleton generator)."""
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -35,9 +36,7 @@ class TestTDDPlanningPhase:
     async def test_creates_test_skeletons(self, tmp_path):
         ctx = self._make_context()
         phase = TDDPlanningPhase(ctx)
-        gf, _, fps = await phase.run(
-            "Flask app", "myapp", tmp_path, "", {}, {}, []
-        )
+        gf, _, fps = await phase.run("Flask app", "myapp", tmp_path, "", {}, {}, [])
         # Should have written at least one skeleton
         assert len(ctx.test_skeletons) >= 1
 

@@ -1,4 +1,5 @@
 """Unit tests for ViabilityEstimatorPhase."""
+
 import json
 from unittest.mock import AsyncMock, MagicMock
 
@@ -51,6 +52,7 @@ class TestViabilityEstimatorPhase:
     @pytest.mark.asyncio
     async def test_large_project_asks_confirmation_and_proceeds(self, tmp_path):
         ctx = self._make_context()
+
         # Simulate fast approval
         async def patched_confirm(self_inner, report, project_name):
             return True
@@ -64,6 +66,7 @@ class TestViabilityEstimatorPhase:
                 return False
 
             from unittest.mock import patch
+
             with patch.object(ViabilityEstimatorPhase, "_ask_confirmation", patched_confirm_cancel):
                 await phase.run("huge project", "proj", tmp_path, "", {}, {}, huge_files)
 

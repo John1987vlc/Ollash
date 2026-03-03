@@ -1,4 +1,5 @@
 """Unit tests for ComponentTreePhase."""
+
 import json
 from unittest.mock import MagicMock
 
@@ -47,9 +48,7 @@ class TestComponentTreePhase:
     async def test_generates_for_react_project(self, tmp_path):
         ctx = self._make_context(framework="react")
         phase = ComponentTreePhase(ctx)
-        gf, _, fps = await phase.run(
-            "React SPA", "myapp", tmp_path, "", {}, {}, ["src/App.tsx", "src/Header.tsx"]
-        )
+        gf, _, fps = await phase.run("React SPA", "myapp", tmp_path, "", {}, {}, ["src/App.tsx", "src/Header.tsx"])
         assert "component_tree.md" in gf
         assert "Component Tree" in gf["component_tree.md"]
         assert ctx.component_tree is not None

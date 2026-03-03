@@ -20,16 +20,16 @@ if TYPE_CHECKING:
     from .utilities.project_type_detector import ProjectTypeDetector, ProjectTypeInfo
 
 _LAZY: dict[str, tuple[str, str]] = {
-    "ProjectPlanner":               ("planning.project_planner",                   "ProjectPlanner"),
-    "StructureGenerator":           ("generation.structure_generator",              "StructureGenerator"),
+    "ProjectPlanner": ("planning.project_planner", "ProjectPlanner"),
+    "StructureGenerator": ("generation.structure_generator", "StructureGenerator"),
     "EnhancedFileContentGenerator": ("generation.enhanced_file_content_generator", "EnhancedFileContentGenerator"),
-    "FileContentGenerator":         ("generation.file_content_generator",          "FileContentGenerator"),
-    "FileRefiner":                  ("utilities.file_refiner",                     "FileRefiner"),
-    "FileCompletenessChecker":      ("review.file_completeness_checker",           "FileCompletenessChecker"),
-    "ProjectReviewer":              ("review.project_reviewer",                    "ProjectReviewer"),
-    "AutoGenPrompts":               ("utilities.prompt_templates",                 "AutoGenPrompts"),
-    "ProjectTypeDetector":          ("utilities.project_type_detector",            "ProjectTypeDetector"),
-    "ProjectTypeInfo":              ("utilities.project_type_detector",            "ProjectTypeInfo"),
+    "FileContentGenerator": ("generation.file_content_generator", "FileContentGenerator"),
+    "FileRefiner": ("utilities.file_refiner", "FileRefiner"),
+    "FileCompletenessChecker": ("review.file_completeness_checker", "FileCompletenessChecker"),
+    "ProjectReviewer": ("review.project_reviewer", "ProjectReviewer"),
+    "AutoGenPrompts": ("utilities.prompt_templates", "AutoGenPrompts"),
+    "ProjectTypeDetector": ("utilities.project_type_detector", "ProjectTypeDetector"),
+    "ProjectTypeInfo": ("utilities.project_type_detector", "ProjectTypeInfo"),
 }
 
 __all__ = list(_LAZY)

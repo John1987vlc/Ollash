@@ -163,8 +163,7 @@ class DomainAgentOrchestrator:
         Returns:
             Path to the generated project directory.
         """
-        self._logger.info(
-f"[DomainOrchestrator] Starting project '{project_name}'")
+        self._logger.info(f"[DomainOrchestrator] Starting project '{project_name}'")
         self._current_project_name = project_name
         await self._event_publisher.publish(
             "domain_orchestration_started",
@@ -252,14 +251,12 @@ f"[DomainOrchestrator] Starting project '{project_name}'")
             Path to the project root, or None if no checkpoint exists.
         """
         if self._checkpoint_manager is None:
-            self._logger.warning(
-"[DomainOrchestrator] No checkpoint manager — cannot resume")
+            self._logger.warning("[DomainOrchestrator] No checkpoint manager — cannot resume")
             return None
 
         data = self._checkpoint_manager.load_dag(project_name)
         if data is None:
-            self._logger.warning(
-f"[DomainOrchestrator] No DAG checkpoint for '{project_name}'")
+            self._logger.warning(f"[DomainOrchestrator] No DAG checkpoint for '{project_name}'")
             return None
 
         dag = TaskDAG.from_dict(data["dag"])
@@ -328,8 +325,7 @@ f"[DomainOrchestrator] No DAG checkpoint for '{project_name}'")
         await self._blackboard.write("codebase_stable", False, "orchestrator")
         await self._blackboard.write("project_root", str(project_root), "orchestrator")
 
-        self._logger.debug(
-f"[DomainOrchestrator] project_root: {project_root}")
+        self._logger.debug(f"[DomainOrchestrator] project_root: {project_root}")
         return project_root
 
     # ------------------------------------------------------------------
@@ -587,8 +583,7 @@ f"[DomainOrchestrator] project_root: {project_root}")
             project_name=self._current_project_name,
             limit=self._budget_limit_tokens,
         )
-        self._logger.warning(
-f"[DomainOrchestrator] Budget limit ({self._budget_limit_tokens:,} tokens) reached")
+        self._logger.warning(f"[DomainOrchestrator] Budget limit ({self._budget_limit_tokens:,} tokens) reached")
 
     # ------------------------------------------------------------------
     # Finalisation
@@ -728,8 +723,7 @@ f"[DomainOrchestrator] Budget limit ({self._budget_limit_tokens:,} tokens) reach
                 bb_dict,
             )
         except Exception as exc:
-            self._logger.debug(
-f"[DomainOrchestrator] Checkpoint save failed: {exc}")
+            self._logger.debug(f"[DomainOrchestrator] Checkpoint save failed: {exc}")
 
     # ------------------------------------------------------------------
     # Metrics (Point 10)
@@ -751,8 +745,7 @@ f"[DomainOrchestrator] Checkpoint save failed: {exc}")
                 tags={"project": self._current_project_name},
             )
         except Exception as exc:
-            self._logger.debug(
-f"[DomainOrchestrator] Metrics record failed: {exc}")
+            self._logger.debug(f"[DomainOrchestrator] Metrics record failed: {exc}")
 
     def _record_project_metrics(self, project_name: str, dag: TaskDAG, file_count: int) -> None:
         if self._metrics_database is None:
@@ -773,5 +766,4 @@ f"[DomainOrchestrator] Metrics record failed: {exc}")
                 tags={"project": project_name},
             )
         except Exception as exc:
-            self._logger.debug(
-f"[DomainOrchestrator] Project metrics record failed: {exc}")
+            self._logger.debug(f"[DomainOrchestrator] Project metrics record failed: {exc}")

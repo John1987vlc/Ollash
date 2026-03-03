@@ -18,9 +18,27 @@ from backend.utils.core.language_utils import LanguageUtils
 # File extensions that should NOT get a test skeleton
 _NON_SOURCE_EXTS = frozenset(
     {
-        ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg",
-        ".env", ".lock", ".gitignore", ".dockerignore", ".sh", ".bat",
-        ".html", ".css", ".scss", ".less", ".svg", ".png", ".ico",
+        ".md",
+        ".txt",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".ini",
+        ".cfg",
+        ".env",
+        ".lock",
+        ".gitignore",
+        ".dockerignore",
+        ".sh",
+        ".bat",
+        ".html",
+        ".css",
+        ".scss",
+        ".less",
+        ".svg",
+        ".png",
+        ".ico",
     }
 )
 
@@ -51,21 +69,15 @@ class TestPlanningPhase(BasePhase):
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         logic_plan = self.context.logic_plan
         if not logic_plan:
-            self.context.logger.info(
-                "[TestPlanning] No logic plan available — skipping test skeleton generation."
-            )
+            self.context.logger.info("[TestPlanning] No logic plan available — skipping test skeleton generation.")
             return generated_files, initial_structure, file_paths
 
         source_files = self._filter_source_files(list(logic_plan.keys()))
-        self.context.logger.info(
-            f"[TestPlanning] Generating test skeletons for {len(source_files)} source file(s)."
-        )
+        self.context.logger.info(f"[TestPlanning] Generating test skeletons for {len(source_files)} source file(s).")
 
         for source_path in source_files:
             plan = logic_plan.get(source_path, {})
-            test_path = LanguageUtils.get_test_file_path(
-                source_path, LanguageUtils.infer_language(source_path)
-            )
+            test_path = LanguageUtils.get_test_file_path(source_path, LanguageUtils.infer_language(source_path))
 
             # Don't overwrite an existing test file
             if test_path in generated_files and generated_files[test_path].strip():
@@ -77,9 +89,7 @@ class TestPlanningPhase(BasePhase):
                 self.context.test_skeletons[source_path] = skeleton
                 self.context.logger.info(f"  ✓ skeleton → {test_path}")
 
-        self.context.logger.info(
-            f"[TestPlanning] {len(self.context.test_skeletons)} skeleton(s) written."
-        )
+        self.context.logger.info(f"[TestPlanning] {len(self.context.test_skeletons)} skeleton(s) written.")
         return generated_files, initial_structure, file_paths
 
     # ------------------------------------------------------------------
@@ -99,9 +109,7 @@ class TestPlanningPhase(BasePhase):
             result.append(fp)
         return result
 
-    async def _generate_skeleton(
-        self, source_path: str, plan: Dict[str, Any], project_description: str
-    ) -> str:
+    async def _generate_skeleton(self, source_path: str, plan: Dict[str, Any], project_description: str) -> str:
         """Ask the LLM for a test skeleton for *source_path*."""
         exports = plan.get("exports", [])
         purpose = plan.get("purpose", "")
@@ -135,14 +143,10 @@ class TestPlanningPhase(BasePhase):
             # Strip markdown fences
             if raw.startswith("```"):
                 lines = raw.splitlines()
-                raw = "\n".join(
-                    line for line in lines if not line.startswith("```")
-                ).strip()
+                raw = "\n".join(line for line in lines if not line.startswith("```")).strip()
             return raw
         except Exception as exc:
-            self.context.logger.warning(
-                f"[TestPlanning] Skeleton generation failed for {source_path}: {exc}"
-            )
+            self.context.logger.warning(f"[TestPlanning] Skeleton generation failed for {source_path}: {exc}")
             return self._minimal_skeleton(source_path, exports, language)
 
     @staticmethod
@@ -151,25 +155,14 @@ class TestPlanningPhase(BasePhase):
         module = Path(source_path).stem
         if language == "python":
             funcs = "\n\n".join(
-                f"def test_{exp.lower().replace('-', '_')}():\n"
-                f'    """Test that {exp} works correctly."""\n'
-                "    pass"
+                f'def test_{exp.lower().replace("-", "_")}():\n    """Test that {exp} works correctly."""\n    pass'
                 for exp in (exports or [module])
-            ) or (
-                f"def test_{module}():\n"
-                f'    """Placeholder test for {module}."""\n'
-                "    pass"
-            )
+            ) or (f'def test_{module}():\n    """Placeholder test for {module}."""\n    pass')
             return f"# Test skeleton for {source_path}\n\n{funcs}\n"
         elif language in ("javascript", "typescript"):
             funcs = "\n\n".join(
-                f"  test('{exp} works correctly', () => {{\n"
-                "    // TODO: implement\n"
-                "  });"
+                f"  test('{exp} works correctly', () => {{\n    // TODO: implement\n  }});"
                 for exp in (exports or [module])
             )
-            return (
-                f"// Test skeleton for {source_path}\n\n"
-                f"describe('{module}', () => {{\n{funcs}\n}});\n"
-            )
+            return f"// Test skeleton for {source_path}\n\ndescribe('{module}', () => {{\n{funcs}\n}});\n"
         return f"// Test skeleton for {source_path} — fill in test cases\n"

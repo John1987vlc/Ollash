@@ -144,7 +144,9 @@ class MultiLanguageTestGenerator:
         self.logger.info(f"Generating {framework.value} tests for {file_path} ({language})...")
 
         # Get language-specific prompts
-        system_prompt, user_prompt = await self._get_test_prompts(file_path, content, readme_context, language, framework)
+        system_prompt, user_prompt = await self._get_test_prompts(
+            file_path, content, readme_context, language, framework
+        )
 
         try:
             response_data, usage = self.llm_client.chat(

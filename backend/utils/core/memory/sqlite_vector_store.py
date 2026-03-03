@@ -98,9 +98,7 @@ class SQLiteVectorCollection:
                 )
                 """
             )
-            db.execute(
-                f"CREATE INDEX IF NOT EXISTS idx_{self._table}_ts ON {self._table}(added_at)"
-            )
+            db.execute(f"CREATE INDEX IF NOT EXISTS idx_{self._table}_ts ON {self._table}(added_at)")
             db.commit()
 
     # ------------------------------------------------------------------ write
@@ -139,9 +137,7 @@ class SQLiteVectorCollection:
             return
         placeholders = ",".join("?" * len(ids))
         with sqlite3.connect(self._db_path) as db:
-            db.execute(
-                f"DELETE FROM {self._table} WHERE id IN ({placeholders})", list(ids)
-            )
+            db.execute(f"DELETE FROM {self._table} WHERE id IN ({placeholders})", list(ids))
             db.commit()
 
     # ------------------------------------------------------------------ read
@@ -307,9 +303,7 @@ class SQLiteVectorCollection:
         return {
             "ids": [r["id"] for r in rows],
             "documents": [r["document"] for r in rows],
-            "metadatas": [
-                json.loads(r["metadata"]) if r["metadata"] else {} for r in rows
-            ],
+            "metadatas": [json.loads(r["metadata"]) if r["metadata"] else {} for r in rows],
         }
 
     def get(
@@ -356,9 +350,7 @@ class SQLiteVectorStore:
         self._db_path = Path(db_path)
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def get_or_create_collection(
-        self, name: str, **_kwargs: Any
-    ) -> SQLiteVectorCollection:
+    def get_or_create_collection(self, name: str, **_kwargs: Any) -> SQLiteVectorCollection:
         """Return (or create) a collection by name."""
         return SQLiteVectorCollection(self._db_path, name)
 

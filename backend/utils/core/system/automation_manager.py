@@ -88,8 +88,7 @@ class AutomationManager:
         """Start the automation scheduler."""
         with self._lock:
             if self.running:
-                self.logger.warning(
-"Automation manager already running")
+                self.logger.warning("Automation manager already running")
                 return
 
             self.running = True
@@ -98,8 +97,7 @@ class AutomationManager:
             self._schedule_all_tasks()
             if not self.scheduler.running:
                 self.scheduler.start()
-            self.logger.info(
-"✅ Automation manager started successfully")
+            self.logger.info("✅ Automation manager started successfully")
 
             # Publish startup event
             await self.event_publisher.publish(
@@ -195,15 +193,13 @@ class AutomationManager:
         """
         start = datetime.now()
         try:
-            self.logger.info(
-f"🚀 Executing task: {task.get('name', task_id)}")
+            self.logger.info(f"🚀 Executing task: {task.get('name', task_id)}")
 
             # Check for threshold-based triggers
             if "check_tool" in task:
                 result = self._check_threshold(task)
                 if not result.get("should_proceed", True):
-                    self.logger.info(
-f"Task {task_id} threshold check: no action needed")
+                    self.logger.info(f"Task {task_id} threshold check: no action needed")
                     duration = (datetime.now() - start).total_seconds()
                     self.record_execution(
                         task_id,
@@ -332,8 +328,7 @@ f"Task {task_id} threshold check: no action needed")
         Reschedules all enabled interval tasks to run immediately, then
         publishes a ``git_change_detected`` event for the UI.
         """
-        self.logger.info(
-"GitChangeTrigger: external changes detected, rescheduling interval tasks")
+        self.logger.info("GitChangeTrigger: external changes detected, rescheduling interval tasks")
         with self._lock:
             for task_id, task in self.tasks.items():
                 if not task.get("enabled", True):
@@ -344,11 +339,9 @@ f"Task {task_id} threshold check: no action needed")
                         job = self.scheduler.get_job(task_id)
                         if job:
                             job.modify(next_run_time=datetime.now())
-                            self.logger.info(
-f"  Rescheduled task '{task_id}' to run now")
+                            self.logger.info(f"  Rescheduled task '{task_id}' to run now")
                     except Exception as exc:
-                        self.logger.warning(
-f"  Could not reschedule task '{task_id}': {exc}")
+                        self.logger.warning(f"  Could not reschedule task '{task_id}': {exc}")
         await self.event_publisher.publish(
             "git_change_detected",
             {"timestamp": datetime.now().isoformat()},

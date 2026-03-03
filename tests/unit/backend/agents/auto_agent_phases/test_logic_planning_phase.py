@@ -42,7 +42,7 @@ class TestLogicPlanningPhase:
                         "imports": [],
                         "main_logic": ["step 1"],
                         "validation": ["check 1"],
-                        "dependencies": []
+                        "dependencies": [],
                     }
                 },
                 "backlog": [
@@ -53,9 +53,9 @@ class TestLogicPlanningPhase:
                         "file_path": "src/main.py",
                         "task_type": "create_file",
                         "dependencies": [],
-                        "context_files": []
+                        "context_files": [],
                     }
-                ]
+                ],
             }
 
             mock_planner.chat.return_value = (

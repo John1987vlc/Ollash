@@ -51,7 +51,6 @@ class InfrastructureGenerationPhase(IAgentPhase):
             "phase_start", phase="infrastructure", message="Generating infrastructure files"
         )
 
-
         # Detect needs
         needs = self.context.infra_generator.detect_infra_needs(readme_content, initial_structure, generated_files)
         primary_lang = needs["languages"][0] if needs.get("languages") else "python"

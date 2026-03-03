@@ -70,8 +70,7 @@ class PairProgrammingSession:
             session_id=self.session_id,
             file_path=file_path,
         )
-        self.logger.info(
-f"Pair programming: started file {file_path}")
+        self.logger.info(f"Pair programming: started file {file_path}")
 
     async def update_content(self, content: str, cursor_pos: int = -1) -> None:
         """Push a content update from the agent."""
@@ -118,8 +117,7 @@ f"Pair programming: started file {file_path}")
             content=content,
             source="user",
         )
-        self.logger.info(
-f"Pair programming: user intervention on {self.current_file}")
+        self.logger.info(f"Pair programming: user intervention on {self.current_file}")
 
     async def complete_file(self, final_content: str) -> None:
         """Signal that a file generation is complete."""
@@ -137,8 +135,7 @@ f"Pair programming: user intervention on {self.current_file}")
             "pair_programming_paused",
             session_id=self.session_id,
         )
-        self.logger.info(
-"Pair programming: paused")
+        self.logger.info("Pair programming: paused")
 
     async def resume(self) -> None:
         """Resume agent generation."""
@@ -147,8 +144,7 @@ f"Pair programming: user intervention on {self.current_file}")
             "pair_programming_resumed",
             session_id=self.session_id,
         )
-        self.logger.info(
-"Pair programming: resumed")
+        self.logger.info("Pair programming: resumed")
 
     async def end_session(self) -> None:
         """End the pair programming session."""
@@ -158,8 +154,7 @@ f"Pair programming: user intervention on {self.current_file}")
             session_id=self.session_id,
             total_edits=len(self.history),
         )
-        self.logger.info(
-f"Pair programming session ended: {len(self.history)} total edits")
+        self.logger.info(f"Pair programming session ended: {len(self.history)} total edits")
 
     def get_session_stats(self) -> Dict[str, Any]:
         """Get statistics for the current session."""

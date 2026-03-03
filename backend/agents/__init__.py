@@ -4,6 +4,7 @@ PEP 562: names are only imported when first accessed, so importing any
 sub-module under backend.agents (e.g. auto_agent_phases.phase_context)
 no longer pulls in AutoAgent → CoreAgent → AutomaticLearningSystem → chromadb.
 """
+
 from __future__ import annotations
 
 import importlib

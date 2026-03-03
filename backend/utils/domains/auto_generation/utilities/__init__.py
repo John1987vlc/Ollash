@@ -17,16 +17,16 @@ if TYPE_CHECKING:
     from .auto_test_generator import TestGenerator
 
 _LAZY: dict[str, tuple[str, str]] = {
-    "extract_signatures":       ("signature_extractor",  "extract_signatures"),
-    "extract_signatures_regex": ("signature_extractor",  "extract_signatures_regex"),
-    "AutoGenPrompts":           ("prompt_templates",      "AutoGenPrompts"),
-    "ProjectTypeDetector":      ("project_type_detector", "ProjectTypeDetector"),
-    "ProjectTypeInfo":          ("project_type_detector", "ProjectTypeInfo"),
-    "TechStackDetector":        ("tech_stack_detector",   "TechStackDetector"),
-    "CodePatcher":              ("code_patcher",           "CodePatcher"),
-    "FileRefiner":              ("file_refiner",           "FileRefiner"),
-    "SandboxValidator":         ("sandbox_validator",      "SandboxValidator"),
-    "TestGenerator":            ("auto_test_generator",    "TestGenerator"),
+    "extract_signatures": ("signature_extractor", "extract_signatures"),
+    "extract_signatures_regex": ("signature_extractor", "extract_signatures_regex"),
+    "AutoGenPrompts": ("prompt_templates", "AutoGenPrompts"),
+    "ProjectTypeDetector": ("project_type_detector", "ProjectTypeDetector"),
+    "ProjectTypeInfo": ("project_type_detector", "ProjectTypeInfo"),
+    "TechStackDetector": ("tech_stack_detector", "TechStackDetector"),
+    "CodePatcher": ("code_patcher", "CodePatcher"),
+    "FileRefiner": ("file_refiner", "FileRefiner"),
+    "SandboxValidator": ("sandbox_validator", "SandboxValidator"),
+    "TestGenerator": ("auto_test_generator", "TestGenerator"),
 }
 
 __all__ = list(_LAZY)

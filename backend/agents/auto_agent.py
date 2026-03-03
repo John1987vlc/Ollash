@@ -400,8 +400,7 @@ class AutoAgent(CoreAgent):
                 self.logger.info(f"🚀 EXECUTING PHASE: {phase_name}")
                 if milestone_id:
                     execution_plan.start_milestone(milestone_id)
-                    await self.event_publisher.publish(
-"milestone_started", milestone_id=milestone_id, phase=phase_name)
+                    await self.event_publisher.publish("milestone_started", milestone_id=milestone_id, phase=phase_name)
 
                 try:
                     # Run the phase execution
@@ -475,8 +474,7 @@ class AutoAgent(CoreAgent):
                             phase=phase_name,
                             error=str(e),
                         )
-                    await self.event_publisher.publish(
-"phase_error", phase=phase_name, error=str(e))
+                    await self.event_publisher.publish("phase_error", phase=phase_name, error=str(e))
 
                     # Mejora 6b: Attempt dynamic rescue planning before aborting
                     rescue_phases = await self._request_rescue_plan(phase_name, str(e))
@@ -603,6 +601,7 @@ class AutoAgent(CoreAgent):
                 # Extract commit hash from "master (root-commit) abc1234] …"
                 sha_line = result.stdout.strip().splitlines()[0] if result.stdout else ""
                 import re as _re  # noqa: PLC0415
+
                 sha_match = _re.search(r"\b([0-9a-f]{7,40})\b", sha_line)
                 sha = sha_match.group(1) if sha_match else "unknown"
                 self.phase_context.checkpoint_commits.append(sha)
@@ -610,10 +609,7 @@ class AutoAgent(CoreAgent):
             elif "nothing to commit" in (result.stdout + result.stderr):
                 self.logger.debug(f"[GitCheckpoint] {phase_name}: nothing to commit.")
             else:
-                self.logger.debug(
-                    f"[GitCheckpoint] commit failed for {phase_name}: "
-                    f"{result.stderr[:200]}"
-                )
+                self.logger.debug(f"[GitCheckpoint] commit failed for {phase_name}: {result.stderr[:200]}")
         except Exception as exc:
             self.logger.debug(f"[GitCheckpoint] Non-fatal error: {exc}")
 
@@ -745,6 +741,7 @@ class AutoAgent(CoreAgent):
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 import nest_asyncio
+
                 nest_asyncio.apply()
             cache_stats = loop.run_until_complete(self.phase_context.fragment_cache.stats())
         except RuntimeError:

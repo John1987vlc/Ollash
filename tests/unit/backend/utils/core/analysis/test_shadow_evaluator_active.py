@@ -118,8 +118,10 @@ class TestActiveShadowValidate:
             import backend.utils.domains.auto_generation.prompt_templates as pt
 
             orig = pt.AutoGenPrompts.nano_format_corrector
+
             async def _async_nano(**kwargs):
                 return ("sys", "usr")
+
             pt.AutoGenPrompts.nano_format_corrector = staticmethod(_async_nano)
             try:
                 result, repaired = await shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
@@ -137,8 +139,10 @@ class TestActiveShadowValidate:
         import backend.utils.domains.auto_generation.prompt_templates as pt
 
         orig = pt.AutoGenPrompts.nano_format_corrector
+
         async def _async_nano(**kwargs):
             return ("sys", "usr")
+
         pt.AutoGenPrompts.nano_format_corrector = staticmethod(_async_nano)
         try:
             result, repaired = await shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
@@ -160,8 +164,10 @@ class TestActiveShadowValidate:
         import backend.utils.domains.auto_generation.prompt_templates as pt
 
         orig = pt.AutoGenPrompts.nano_format_corrector
+
         async def _async_nano(**kwargs):
             return ("sys", "usr")
+
         pt.AutoGenPrompts.nano_format_corrector = staticmethod(_async_nano)
         try:
             result, repaired = await shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
@@ -192,8 +198,10 @@ class TestActiveShadowValidate:
         import backend.utils.domains.auto_generation.prompt_templates as pt
 
         orig = pt.AutoGenPrompts.nano_format_corrector
+
         async def _async_nano(**kwargs):
             return ("sys", "usr")
+
         pt.AutoGenPrompts.nano_format_corrector = staticmethod(_async_nano)
         try:
             await shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())

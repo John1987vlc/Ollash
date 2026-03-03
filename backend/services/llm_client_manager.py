@@ -36,14 +36,12 @@ class LLMClientManager(IModelProvider):
         self.logger.info_sync("LLMClientManager initialized.")
 
     async def _log_role_assignments(self):
-        self.logger.info(
-"Agent Role to Model Assignments:")
+        self.logger.info("Agent Role to Model Assignments:")
         if not self.config.agent_roles:
             self.logger.warning("No agent roles are defined in the configuration.")
             return
         for role, model in self.config.agent_roles.items():
-            self.logger.info(
-f"  - Role: '{role}' -> Model: '{model}'")
+            self.logger.info(f"  - Role: '{role}' -> Model: '{model}'")
 
     async def get_client(self, role: str) -> OllamaClient:
         """
@@ -66,8 +64,7 @@ f"  - Role: '{role}' -> Model: '{model}'")
             return self.clients_by_model[model_name]
 
         # Otherwise, create a new client for this model and cache it.
-        self.logger.info(
-f"Creating new OllamaClient for model '{model_name}' (for role '{role}').")
+        self.logger.info(f"Creating new OllamaClient for model '{model_name}' (for role '{role}').")
 
         new_client = OllamaClient(
             url=str(self.config.ollama_url),
@@ -103,8 +100,7 @@ f"Creating new OllamaClient for model '{model_name}' (for role '{role}').")
         if vision_model in self.clients_by_model:
             return self.clients_by_model[vision_model]
 
-        self.logger.info(
-f"Creating vision client for model '{vision_model}'.")
+        self.logger.info(f"Creating vision client for model '{vision_model}'.")
         new_client = OllamaClient(
             url=str(self.config.ollama_url),
             model=vision_model,

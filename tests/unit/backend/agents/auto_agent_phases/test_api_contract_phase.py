@@ -1,4 +1,5 @@
 """Unit tests for ApiContractPhase."""
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -51,9 +52,7 @@ class TestApiContractPhase:
     async def test_generates_openapi_for_backend(self, tmp_path):
         ctx = self._make_context(framework="fastapi")
         phase = ApiContractPhase(ctx)
-        gf, struct, fps = await phase.run(
-            "REST API", "myapi", tmp_path, "", {}, {}, []
-        )
+        gf, struct, fps = await phase.run("REST API", "myapi", tmp_path, "", {}, {}, [])
         assert "openapi.yaml" in gf
         assert "openapi: " in gf["openapi.yaml"]
         assert ctx.api_contract is not None

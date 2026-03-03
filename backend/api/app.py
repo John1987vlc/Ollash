@@ -18,7 +18,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 
-
 # ---------------------------------------------------------------------------
 # Template instance (global, shared across all routers)
 # ---------------------------------------------------------------------------
@@ -67,6 +66,7 @@ def _init_app_state(app: FastAPI) -> None:
     from frontend.services.chat_event_bridge import ChatEventBridge
 
     import os
+
     ollash_root_dir = Path(os.environ.get("OLLASH_ROOT_DIR", ".ollash"))
 
     if not getattr(app.state, "event_publisher", None):
@@ -76,13 +76,9 @@ def _init_app_state(app: FastAPI) -> None:
     if not getattr(app.state, "notification_manager", None):
         app.state.notification_manager = get_notification_manager()
     if not getattr(app.state, "alert_manager", None):
-        app.state.alert_manager = get_alert_manager(
-            app.state.notification_manager, app.state.event_publisher
-        )
+        app.state.alert_manager = get_alert_manager(app.state.notification_manager, app.state.event_publisher)
     if not getattr(app.state, "automation_manager", None):
-        app.state.automation_manager = get_automation_manager(
-            ollash_root_dir, app.state.event_publisher
-        )
+        app.state.automation_manager = get_automation_manager(ollash_root_dir, app.state.event_publisher)
     if not getattr(app.state, "ollash_root_dir", None):
         app.state.ollash_root_dir = ollash_root_dir
 

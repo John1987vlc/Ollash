@@ -84,6 +84,7 @@ class ViabilityEstimatorPhase(BasePhase):
             confirmed = await self._ask_confirmation(report, project_name)
             if not confirmed:
                 from backend.utils.core.exceptions import PipelinePhaseError  # noqa: PLC0415
+
                 raise PipelinePhaseError(
                     self.phase_name,
                     "User declined to proceed with a very large project. "
@@ -122,9 +123,7 @@ class ViabilityEstimatorPhase(BasePhase):
         for fp in file_paths:
             breakdown[self._classify_file(fp)] += 1
 
-        tokens_per_phase = sum(
-            count * _TOKENS_BY_TYPE[ftype] for ftype, count in breakdown.items()
-        )
+        tokens_per_phase = sum(count * _TOKENS_BY_TYPE[ftype] for ftype, count in breakdown.items())
         total_tokens = tokens_per_phase * _GENERATION_PHASES
 
         # Current session tokens from TokenTracker
@@ -176,9 +175,7 @@ class ViabilityEstimatorPhase(BasePhase):
                 event.set()
 
         try:
-            self.context.event_publisher.subscribe(
-                "viability_confirmation_response", _on_response
-            )
+            self.context.event_publisher.subscribe("viability_confirmation_response", _on_response)
             await self.context.event_publisher.publish(
                 "viability_confirmation_request",
                 request_id=req_id,
@@ -196,17 +193,13 @@ class ViabilityEstimatorPhase(BasePhase):
                 await asyncio.wait_for(event.wait(), timeout=300)
                 return answer_holder["approved"]
             except asyncio.TimeoutError:
-                self.context.logger.warning(
-                    "[Viability] Confirmation timed out — proceeding."
-                )
+                self.context.logger.warning("[Viability] Confirmation timed out — proceeding.")
                 return True
         except Exception as exc:
             self.context.logger.debug(f"[Viability] Confirmation error: {exc}")
             return True
         finally:
             try:
-                self.context.event_publisher.unsubscribe(
-                    "viability_confirmation_response", _on_response
-                )
+                self.context.event_publisher.unsubscribe("viability_confirmation_response", _on_response)
             except Exception:
                 pass

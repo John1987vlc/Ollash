@@ -94,8 +94,7 @@ class Blackboard:
             agent_id=agent_id,
             version=self._version_counter,
         )
-        self._logger.debug(
-f"[Blackboard] {agent_id} wrote '{key}' (v{self._version_counter})")
+        self._logger.debug(f"[Blackboard] {agent_id} wrote '{key}' (v{self._version_counter})")
 
     async def invalidate(self, key: str, agent_id: str) -> None:
         """Mark a key as stale.  Subscribers receive a ``blackboard_invalidated`` event.
@@ -113,8 +112,7 @@ f"[Blackboard] {agent_id} wrote '{key}' (v{self._version_counter})")
             key=key,
             agent_id=agent_id,
         )
-        self._logger.debug(
-f"[Blackboard] {agent_id} invalidated '{key}'")
+        self._logger.debug(f"[Blackboard] {agent_id} invalidated '{key}'")
 
     # ------------------------------------------------------------------
     # Read (synchronous — safe, no lock needed)
@@ -240,7 +238,6 @@ f"[Blackboard] {agent_id} invalidated '{key}'")
             chunk=chunk,
             agent_id=agent_id,
         )
-
 
     # ------------------------------------------------------------------
     # Serialisation helper (Point 2 — checkpointing)

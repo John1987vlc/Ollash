@@ -58,12 +58,16 @@ class LogicPlanningPhase(BasePhase):
         if _ms == "esm":
             _module_system_hint = "All JS/TS files MUST use ESM (import/export) syntax — never use require()."
         elif _ms == "cjs":
-            _module_system_hint = "All JS/TS files MUST use CommonJS (require/module.exports) syntax — never use import/export."
+            _module_system_hint = (
+                "All JS/TS files MUST use CommonJS (require/module.exports) syntax — never use import/export."
+            )
         else:
             _module_system_hint = ""
 
         system_prompt, user_prompt = await AutoGenPrompts.logic_planning(
-            project_description, json.dumps(initial_structure, indent=2), planning_files,
+            project_description,
+            json.dumps(initial_structure, indent=2),
+            planning_files,
             module_system_hint=_module_system_hint,
         )
 
@@ -96,9 +100,7 @@ class LogicPlanningPhase(BasePhase):
                     backlog = parsed_json
                     # Generate basic plans for the files in the backlog
                     logic_plan = self._create_basic_plans(
-                        [t.get("file_path") for t in backlog if t.get("file_path")],
-                        "general",
-                        project_description
+                        [t.get("file_path") for t in backlog if t.get("file_path")], "general", project_description
                     )
                     break
 
@@ -116,7 +118,9 @@ class LogicPlanningPhase(BasePhase):
                 last_error = str(e)
                 self.context.logger.warning(f"  ⚠ Logic planning attempt {attempt} failed validation: {last_error}")
                 if attempt == max_retries:
-                    self.context.logger.error("  ✖ Logic planning failed after max retries. Using legacy categorization fallback.")
+                    self.context.logger.error(
+                        "  ✖ Logic planning failed after max retries. Using legacy categorization fallback."
+                    )
                     # Legacy fallback logic
                     logic_plan, backlog = await self._legacy_planning_fallback(
                         file_paths, project_description, readme_content, initial_structure
@@ -133,6 +137,7 @@ class LogicPlanningPhase(BasePhase):
 
         # F6: Serialize backlog to Kanban tasks.json
         import datetime as _dt
+
         tasks_kanban = {
             "version": "1.0",
             "project": project_name,
@@ -140,7 +145,7 @@ class LogicPlanningPhase(BasePhase):
             "columns": {
                 "todo": [
                     {
-                        "id": t.get("id", f"TASK-{i+1:03d}"),
+                        "id": t.get("id", f"TASK-{i + 1:03d}"),
                         "title": t.get("title", t.get("file_path", "")),
                         "description": t.get("description", ""),
                         "file_path": t.get("file_path", ""),
@@ -197,6 +202,7 @@ class LogicPlanningPhase(BasePhase):
         if pkg_path.exists():
             try:
                 import json as _json
+
                 pkg = _json.loads(pkg_path.read_text(encoding="utf-8"))
                 if pkg.get("type") == "module":
                     module_system = "esm"
@@ -232,7 +238,12 @@ class LogicPlanningPhase(BasePhase):
             _max_files = 5 if self.context._is_small_model() else 15
             files_to_plan = files[:_max_files]
             category_plan = await self._plan_category(
-                category, files_to_plan, project_description, readme_content, initial_structure, already_planned_contracts
+                category,
+                files_to_plan,
+                project_description,
+                readme_content,
+                initial_structure,
+                already_planned_contracts,
             )
             for file_path, plan in category_plan.items():
                 logic_plan[file_path] = plan
@@ -343,7 +354,9 @@ class LogicPlanningPhase(BasePhase):
             try:
                 current_user_prompt = user_prompt
                 if last_error:
-                    current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}\nPlease fix the JSON format."
+                    current_user_prompt += (
+                        f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}\nPlease fix the JSON format."
+                    )
 
                 response_data, _ = self.context.llm_manager.get_client("planner").chat(
                     messages=[
@@ -421,22 +434,34 @@ class LogicPlanningPhase(BasePhase):
         """Group files by their category."""
         categories = {"config": [], "main": [], "utils": [], "tests": [], "web": [], "other": []}
         for file_path in file_paths:
-            if any(x in file_path for x in ["config", "settings", "env"]): categories["config"].append(file_path)
-            elif any(x in file_path for x in ["test", "spec"]): categories["tests"].append(file_path)
-            elif any(x in file_path for x in ["utils", "helper", "lib"]): categories["utils"].append(file_path)
-            elif any(x in file_path for x in [".html", ".css", ".js", "web"]): categories["web"].append(file_path)
-            elif any(x in file_path for x in ["main", "app", "server", "index"]): categories["main"].append(file_path)
-            else: categories["other"].append(file_path)
+            if any(x in file_path for x in ["config", "settings", "env"]):
+                categories["config"].append(file_path)
+            elif any(x in file_path for x in ["test", "spec"]):
+                categories["tests"].append(file_path)
+            elif any(x in file_path for x in ["utils", "helper", "lib"]):
+                categories["utils"].append(file_path)
+            elif any(x in file_path for x in [".html", ".css", ".js", "web"]):
+                categories["web"].append(file_path)
+            elif any(x in file_path for x in ["main", "app", "server", "index"]):
+                categories["main"].append(file_path)
+            else:
+                categories["other"].append(file_path)
         return {k: v for k, v in categories.items() if v}
 
-    async def _plan_category(self, category, files, project_description, readme_content, initial_structure, already_planned_contracts):
+    async def _plan_category(
+        self, category, files, project_description, readme_content, initial_structure, already_planned_contracts
+    ):
         """Legacy categorized planning."""
         from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
         system_prompt, user_prompt = await AutoGenPrompts.architecture_planning_detailed(
-            category=category, files_list="\n".join(f"- {f}" for f in files), project_description=project_description, already_planned_contracts=str(already_planned_contracts)
+            category=category,
+            files_list="\n".join(f"- {f}" for f in files),
+            project_description=project_description,
+            already_planned_contracts=str(already_planned_contracts),
         )
         response_data, _ = self.context.llm_manager.get_client("planner").chat(
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
-            options_override={"temperature": 0.3}
+            options_override={"temperature": 0.3},
         )
         return LLMResponseParser.extract_json(response_data.get("content", "")) or {}

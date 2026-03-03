@@ -338,7 +338,9 @@ Generate ONLY the fixed code (same language), no explanations."""
             self.logger.warning(f"Could not generate fix: {e}")
             return problem_section
 
-    async def inject_missing_function(self, file_path: str, content: str, requirement: str, related_context: str = "") -> str:
+    async def inject_missing_function(
+        self, file_path: str, content: str, requirement: str, related_context: str = ""
+    ) -> str:
         """Inject a missing function or method into the code using centralized prompts."""
         self.logger.info(f"  Injecting missing logic for '{requirement}' into {file_path}...")
 

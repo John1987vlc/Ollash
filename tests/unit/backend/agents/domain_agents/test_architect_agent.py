@@ -5,12 +5,11 @@ from unittest.mock import MagicMock, AsyncMock
 from backend.agents.domain_agents.architect_agent import ArchitectAgent
 from backend.agents.orchestrators.task_dag import AgentType, TaskDAG
 
+
 def _make_ep():
     ep = MagicMock()
     ep.publish = AsyncMock()
     return ep
-
-
 
 
 @pytest.fixture

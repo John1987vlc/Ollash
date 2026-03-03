@@ -1,4 +1,5 @@
 """Unit tests for PlanValidationPhase."""
+
 import json
 from unittest.mock import MagicMock
 
@@ -34,9 +35,7 @@ class TestPlanValidationPhase:
     async def test_passes_immediately_on_no_issues(self, tmp_path):
         ctx = self._make_context(critic_verdict="PASS")
         phase = PlanValidationPhase(ctx)
-        gf, _, _ = await phase.run(
-            "desc", "proj", tmp_path, "", {}, {}, []
-        )
+        gf, _, _ = await phase.run("desc", "proj", tmp_path, "", {}, {}, [])
         assert ctx.plan_validation_report["final_verdict"] == "PASS"
         assert ctx.plan_validation_report["total_rounds"] == 1
         assert "PLAN_VALIDATION_REPORT.json" in gf
