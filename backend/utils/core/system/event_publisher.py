@@ -1,6 +1,6 @@
 import asyncio
 import inspect
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List
 
 
 class EventPublisher:
@@ -44,6 +44,6 @@ class EventPublisher:
             except Exception as e:
                 # Log the error but don't stop other subscribers
                 print(f"Error in event subscriber for '{event_type}': {e}")
-        
+
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)

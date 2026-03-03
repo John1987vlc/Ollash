@@ -1,7 +1,7 @@
 import json
 import re
 import unicodedata
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 # Card-suit UTF-8-as-latin1 mojibake mapping
 _MOJIBAKE_MAP = {

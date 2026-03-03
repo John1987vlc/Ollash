@@ -64,7 +64,7 @@ class SeniorReviewer:
             f"Files:\n" + "\n".join(current_files.keys())
         )
         system, user = await AutoGenPrompts.senior_review_prompt(project_summary)
-        
+
         last_error = ""
         for attempt in range(1, 3):
             try:
@@ -80,19 +80,19 @@ class SeniorReviewer:
                     tools=[],
                     options_override=self.options,
                 )
-                
+
                 raw_review = response_data.get("content", "") or response_data.get("message", {}).get("content", "")
                 parsed_json = self.parser.extract_json(raw_review)
 
                 if parsed_json is None:
                     # Retry once with simplified extractor if parsing failed completely
                     parsed_json = self._retry_json_extraction(raw_review)
-                
+
                 if parsed_json:
                     # Pydantic Hardening
                     validated = SeniorReviewOutput.model_validate(parsed_json)
                     return validated.model_dump()
-                
+
                 raise ValueError("Could not extract valid JSON from review.")
 
             except (ValidationError, ValueError, Exception) as e:

@@ -1,7 +1,6 @@
 import yaml
 import logging
 import json
-import asyncio
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -78,7 +77,7 @@ class PromptLoader:
 
     def load_prompt_sync(self, relative_path: str) -> Dict[str, Any]:
         """
-        Synchronous version of load_prompt. 
+        Synchronous version of load_prompt.
         SKIPS DB CHECK if not already in cache.
         """
         if relative_path in self._cache:

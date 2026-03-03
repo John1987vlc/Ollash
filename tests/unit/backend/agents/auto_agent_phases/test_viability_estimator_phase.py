@@ -1,13 +1,11 @@
 """Unit tests for ViabilityEstimatorPhase."""
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from backend.agents.auto_agent_phases.viability_estimator_phase import (
     ViabilityEstimatorPhase,
-    _LARGE_PROJECT_THRESHOLD,
 )
 
 

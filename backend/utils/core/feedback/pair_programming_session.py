@@ -7,7 +7,6 @@ agents write code in real-time and intervene with suggestions.
 
 import time
 import uuid
-import asyncio
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 

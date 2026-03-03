@@ -9,7 +9,6 @@ Instead of simple toast notifications, this system generates:
 """
 
 import logging
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum

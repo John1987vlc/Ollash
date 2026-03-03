@@ -160,7 +160,7 @@ class ApiContractPhase(BasePhase):
                 if raw.startswith("```"):
                     lines = raw.splitlines()
                     raw = "\n".join(
-                        l for l in lines if not l.startswith("```")
+                        line for line in lines if not line.startswith("```")
                     ).strip()
 
                 # Validate YAML

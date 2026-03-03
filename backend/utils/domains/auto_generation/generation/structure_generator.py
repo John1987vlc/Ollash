@@ -229,7 +229,7 @@ class StructureGenerator:
                         f_name = f_name[len(folder_path) + 1 :]
                     elif "\\" in f_name and f_name.startswith(folder_path.replace("/", "\\") + "\\"):
                         f_name = f_name[len(folder_path) + 1 :]
-                    
+
                     if isinstance(f, dict):
                         f["name"] = f_name
                         normalized_files.append(f)
@@ -300,7 +300,7 @@ class StructureGenerator:
                 # Path normalisation: if file_name is absolute or contains redundant prefix
                 if file_name.startswith("./") or file_name.startswith(".\\"):
                     file_name = file_name[2:]
-                
+
                 file_path = project_root / current_path / file_name
                 file_path.parent.mkdir(parents=True, exist_ok=True)
                 if not file_path.exists() and not file_path.is_dir():
@@ -316,7 +316,7 @@ class StructureGenerator:
                     # Normalise folder name
                     if folder_name.startswith("./") or folder_name.startswith(".\\"):
                         folder_name = folder_name[2:]
-                        
+
                     new_path_full = project_root / current_path / folder_name
                     try:
                         new_path_full.mkdir(parents=True, exist_ok=True)

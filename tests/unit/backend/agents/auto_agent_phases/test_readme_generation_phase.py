@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from backend.agents.auto_agent_phases.readme_generation_phase import ReadmeGenerationPhase
-from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
 
 @pytest.fixture

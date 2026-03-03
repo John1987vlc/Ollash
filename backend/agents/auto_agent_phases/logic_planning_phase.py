@@ -44,7 +44,7 @@ class LogicPlanningPhase(BasePhase):
         # F29: Use Pydantic-validated unified planning for better consistency
         logic_plan = {}
         backlog = []
-        
+
         # Select key files for planning
         planning_files = [f for f in file_paths if "src/" in f or "app/" in f or "main" in f.lower()]
         if not planning_files:
@@ -104,11 +104,11 @@ class LogicPlanningPhase(BasePhase):
 
                 # Pydantic Validation (The "Hardening")
                 validated_output = LogicPlanningOutput.model_validate(parsed_json)
-                
+
                 # Convert back to dict for context storage
                 logic_plan = {k: v.model_dump() for k, v in validated_output.logic_plan.items()}
                 backlog = [t.model_dump() for t in validated_output.backlog]
-                
+
                 self.context.logger.info(f"  ✓ Logic planning and backlog validated on attempt {attempt}")
                 break
 
@@ -243,7 +243,7 @@ class LogicPlanningPhase(BasePhase):
             backlog = await self._generate_backlog_incrementally(project_description, readme_content, initial_structure)
         else:
             backlog = await self._generate_backlog(project_description, readme_content, initial_structure)
-            
+
         return logic_plan, backlog
 
     async def _generate_backlog_incrementally(
@@ -372,7 +372,7 @@ class LogicPlanningPhase(BasePhase):
     def _create_fallback_backlog(self, initial_structure: Dict) -> List[Dict]:
         """Creates a basic backlog based on file structure if LLM fails."""
         backlog = []
-        
+
         # Simple heuristic to extract files from initial_structure
         def extract_files(node, current_path=""):
             files = []

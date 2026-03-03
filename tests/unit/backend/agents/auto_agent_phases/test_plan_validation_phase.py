@@ -1,6 +1,5 @@
 """Unit tests for PlanValidationPhase."""
 import json
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest

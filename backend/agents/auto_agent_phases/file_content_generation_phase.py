@@ -221,7 +221,7 @@ class FileContentGenerationPhase(BasePhase):
                             continue
                     else:
                         content = codigo_match.group(1).strip()
-                    
+
                     # Radical cleaning: remove any leftover markdown artifacts even if found inside tags
                     content = LLMResponseParser.clean_markdown_artifacts(content)
 

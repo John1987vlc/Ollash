@@ -751,7 +751,7 @@ class AutoAgent(CoreAgent):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             cache_stats = loop.run_until_complete(self.phase_context.fragment_cache.stats())
-        
+
         self.logger.info(f"Fragment Cache Stats: {cache_stats}")
 
         plan_file = project_root / "EXECUTION_PLAN.json"

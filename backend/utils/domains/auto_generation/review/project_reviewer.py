@@ -49,7 +49,7 @@ class ProjectReviewer:
             tools=[],
             options_override=self.options,
         )
-        
+
         # Handle both standardized format (content) and raw format (message.content)
         review = response_data.get("content") or response_data.get("message", {}).get("content", "")
         self.logger.info("Final review completed")

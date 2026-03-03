@@ -30,7 +30,7 @@ class TestLogicPlanningPhase:
         # Mock AutoGenPrompts
         with patch("backend.agents.auto_agent_phases.logic_planning_phase.AutoGenPrompts") as mock_prompts:
             mock_prompts.logic_planning = AsyncMock(return_value=("system", "user"))
-            
+
             # Mock LLM response
             mock_planner = MagicMock()
             # The real phase uses LogicPlanningOutput pydantic model, so we need a valid structure
@@ -57,7 +57,7 @@ class TestLogicPlanningPhase:
                     }
                 ]
             }
-            
+
             mock_planner.chat.return_value = (
                 {"content": json.dumps(valid_response)},
                 {"usage": {}},
@@ -109,7 +109,7 @@ class TestLogicPlanningPhase:
 
         with patch("backend.agents.auto_agent_phases.logic_planning_phase.AutoGenPrompts") as mock_prompts:
             mock_prompts.architecture_planning_detailed = AsyncMock(return_value=("system", "user"))
-            
+
             # Mock LLM response
             mock_planner = MagicMock()
             valid_cat_plan = {"unknown.py": {"purpose": "Implementation of other logic for: desc...", "exports": []}}
@@ -118,12 +118,12 @@ class TestLogicPlanningPhase:
                 {"usage": {}},
             )
             mock_context.llm_manager.get_client.return_value = mock_planner
-            
+
             # LogicPlanningPhase uses LLMResponseParser.extract_json inside _plan_category too
             # but wait, logic_planning_phase.py has a local import or uses self.context.response_parser?
             # Looking at logic_planning_phase.py:
             # return LLMResponseParser.extract_json(response_data.get("content", "")) or {}
-            
+
             with patch("backend.utils.core.llm.llm_response_parser.LLMResponseParser.extract_json") as mock_extract:
                 mock_extract.return_value = valid_cat_plan
 

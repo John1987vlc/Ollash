@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

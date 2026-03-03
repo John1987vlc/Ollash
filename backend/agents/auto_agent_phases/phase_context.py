@@ -58,7 +58,6 @@ if TYPE_CHECKING:
     from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
     # Instantiated inside __init__ — also listed here for type-checker visibility
     from backend.utils.core.memory.decision_blackboard import DecisionBlackboard
-    from backend.utils.core.io.project_ingestion_service import ProjectIngestionService
 
 
 class LLMSubContext:

@@ -42,7 +42,7 @@ class InterfaceScaffoldingPhase(BasePhase):
         await self.context.event_publisher.publish(
             "phase_start", phase=self.phase_id, message="Generating interface skeletons"
         )
-        
+
         logic_plan = getattr(self.context, "logic_plan", {})
         if not logic_plan:
             self.context.logger.info("[InterfaceScaffolding] No logic plan found — skipping")
@@ -122,7 +122,7 @@ class InterfaceScaffoldingPhase(BasePhase):
         if contracts:
             self.context.dom_contracts = contracts
             self.context.logger.info(
-                f"[InterfaceScaffolding] DOM contracts extracted: "
+                "[InterfaceScaffolding] DOM contracts extracted: "
                 + ", ".join(f"{k}: {len(v)} IDs" for k, v in contracts.items())
             )
             try:
