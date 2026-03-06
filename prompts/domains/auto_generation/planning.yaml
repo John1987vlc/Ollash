@@ -61,6 +61,12 @@ logic_planning:
     4. Ensure task dependencies are logically ordered (e.g., constants before logic).
     5. Return strictly as JSON within <plan_json> tags.
 
+    # CONSTRAINTS
+    - Backlog must be comprehensive, covering ALL files in 'FILES TO PLAN'.
+    - Dependencies must be real project files, not external packages.
+    - Task IDs must follow TASK-NNN format.
+    - Maintain consistent module system (ESM/CJS) as hinted.
+
     # OUTPUT FORMAT
     <plan_json>
     {{
@@ -114,6 +120,11 @@ agile_backlog_planning:
     3. Specify task type (create_file, refine_file), title, description, and dependencies.
     4. Return within <backlog_json> tags.
 
+    # CONSTRAINTS
+    - Maximum 30 tasks per backlog.
+    - dependencies must reference valid task IDs.
+    - Each task must target exactly one file_path.
+
     # OUTPUT FORMAT
     <backlog_json>
     [
@@ -154,6 +165,11 @@ contingency_planning:
     2. Propose concrete mitigation steps (actions like create_file, modify_file).
     3. Return within <contingency_json> tags.
 
+    # CONSTRAINTS
+    - Risks must be specific to the current project state.
+    - Actions must be actionable by the agent (create/modify files).
+    - Prioritize critical blockers first.
+
     # OUTPUT FORMAT
     <contingency_json>
     {
@@ -189,6 +205,11 @@ next_backlog_task:
     2. Look at the backlog so far to avoid duplicating already-planned files.
     3. Choose the NEXT most important file that is NOT yet in the backlog.
     4. Return a single task object OR {"complete": true} if the backlog is sufficient.
+
+    # CONSTRAINTS
+    - Output MUST be valid JSON.
+    - Only one task per turn.
+    - task_type must be one of: create_file, implement_function, fix_error.
 
     # OUTPUT FORMAT
     Wrap your response in <task_json>...</task_json> tags.

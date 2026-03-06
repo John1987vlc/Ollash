@@ -14,3 +14,6 @@ prompt: |
   # CONSTRAINTS
   - If you haven't seen the files with your own tools, say "I need to check the folder first" and call `list_directory`.
   - Reasoning in English, Final Response in user language.
+
+  # OUTPUT FORMAT
+  Professional and direct text response. Use markdown for lists or code snippets.

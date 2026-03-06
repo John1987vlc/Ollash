@@ -181,15 +181,16 @@ class FileContentGenerationPhase(BasePhase):
 
                     # --- Escalation Logic (Mejora 4) ---
                     if attempts > 3:
-                        # Switch to a stronger model if persistent failures
-                        if is_nano:
-                            # Try medium model
-                            current_coder_role = "coder" # Normally mapped to medium
-                            self.context.logger.info(f"  [Escalation] Switching to {current_coder_role} for attempt {attempts}")
-                        else:
-                            # Already on coder, try senior_reviewer or similar large model
-                            current_coder_role = "senior_reviewer"
-                            self.context.logger.info(f"  [Escalation] Switching to {current_coder_role} for attempt {attempts}")
+                        # Switch to a stronger model tier if persistent failures
+                        # We use the new get_escalated_client to follow the configured JSON tiers
+                        old_model = self.context.llm_manager.get_client(current_coder_role).model
+                        new_client = self.context.llm_manager.get_escalated_client(old_model)
+                        
+                        # We update current_coder_role only if a better model was actually found
+                        if new_client.model != old_model:
+                            current_coder_role = "escalation" # Use a generic role for the escalated client
+                            self.context.llm_manager.clients_by_model[new_client.model] = new_client # Cache it
+                            self.context.logger.info(f"  [Escalation] Switching to {new_client.model} tier for attempt {attempts}")
 
                     if last_error:
                         # Implement Chain of Thought (CoT) for retries

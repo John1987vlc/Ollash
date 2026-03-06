@@ -7,6 +7,18 @@ search_replace_edit:
     Fix the listed issues in the file by outputting ONLY SEARCH/REPLACE blocks.
     Each block replaces an EXACT existing section with corrected code.
 
+    # INSTRUCTIONS
+    1. Analyze the requested issues and identify the corresponding code sections in the provided source.
+    2. Create a SEARCH block containing the exact text to find (including all whitespace and indentation).
+    3. Create a REPLACE block with the corrected code.
+    4. Ensure no explanations or prose are included outside the blocks.
+
+    # CONSTRAINTS
+    - SEARCH text must match the file EXACTLY (whitespace and indentation included).
+    - Do NOT rewrite code you are not fixing.
+    - Multiple blocks allowed, one per fix.
+    - Zero explanations or prose outside the blocks.
+
     # OUTPUT FORMAT
     For EACH fix, output exactly:
     <<<SEARCH>>>
@@ -14,12 +26,6 @@ search_replace_edit:
     <<<REPLACE>>>
     <corrected replacement text>
     <<<END>>>
-
-    # CONSTRAINTS
-    - SEARCH text must match the file EXACTLY (whitespace and indentation included).
-    - Do NOT rewrite code you are not fixing.
-    - Multiple blocks allowed, one per fix.
-    - Zero explanations or prose outside the blocks.
 
   user: |
     ## FILE: {file_path}
@@ -50,7 +56,8 @@ surgical_injection:
 
     # CONSTRAINTS
     - Do not refactor outside the target scope.
-    - Zero placeholders.
+    - Zero placeholders (TODO, pass, etc.).
+    - Maintain consistent indentation.
 
     # OUTPUT FORMAT
     <repaired_file path="...">

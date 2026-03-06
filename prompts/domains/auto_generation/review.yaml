@@ -12,7 +12,8 @@ improvement_suggestions:
     3. Return strictly as JSON within <suggestions_json> tags.
 
     # CONSTRAINTS
-    - Be objective.
+    - Be objective and technical.
+    - Focus on high-impact changes.
 
     # OUTPUT FORMAT
     <suggestions_json>
@@ -39,7 +40,8 @@ improvement_plan:
     3. Return within <plan_json> tags.
 
     # CONSTRAINTS
-    - Steps must be actionable.
+    - Steps must be actionable and specific.
+    - Maintain architectural integrity.
 
     # OUTPUT FORMAT
     <plan_json>
@@ -64,6 +66,11 @@ senior_review:
     2. Provide an overall status ('passed' or 'failed').
     3. If failed, provide a detailed list of issues.
     4. Return strictly as JSON within <review_json> tags.
+
+    # CONSTRAINTS
+    - Do not suggest stylistic changes unless they impact readability or performance.
+    - Flag any security vulnerabilities or architectural anti-patterns.
+    - Check for cross-file consistency.
 
     # OUTPUT FORMAT
     <review_json>
@@ -102,6 +109,7 @@ final_project_review:
 
     # CONSTRAINTS
     - Focus on the "Definition of Done".
+    - Ensure all project goals are met.
 
     # OUTPUT FORMAT
     <final_review_json>

@@ -7,13 +7,17 @@ readme_generation:
     Generate a professional, comprehensive README.md for a project.
 
     # INSTRUCTIONS
-    1. Include: Project Title, Description, Installation, Usage, and Technologies.
-    2. Ensure clear structure and helpful examples.
-    3. Use <file_content path="README.md"> tags.
+    1. Define a clear project title and a compelling description.
+    2. Outline the core features and the technology stack used.
+    3. Provide step-by-step installation and usage instructions.
+    4. Include a section for project structure and contributing guidelines.
+    5. Wrap the entire markdown content in <file_content path="README.md"> tags.
 
     # CONSTRAINTS
-    - Use proper Markdown.
-    - Be concise but complete.
+    - Use standard GitHub Flavored Markdown.
+    - Maintain a professional and technical tone.
+    - Ensure all links and paths are correct.
+    - No conversational filler or introductory text.
 
     # OUTPUT FORMAT
     <file_content path="README.md">
@@ -34,15 +38,18 @@ documentation_refinement:
     Senior Technical Writer.
 
     # OBJECTIVE
-    Improve clarity and completeness of project documentation.
+    Improve clarity, tone, and completeness of project documentation.
 
     # INSTRUCTIONS
-    1. Identify vague sections or missing info.
-    2. Re-write for maximum developer experience (DX).
-    3. Use <file_content path="..."> tags.
+    1. Analyze the provided documentation for clarity and precision.
+    2. Identify and rewrite vague or overly complex sections.
+    3. Enhance the Developer Experience (DX) by improving instructions and examples.
+    4. Ensure the output is wrapped in <file_content path="..."> tags.
 
     # CONSTRAINTS
-    - Maintain factual accuracy.
+    - Preserve all factual technical information.
+    - Maintain consistent formatting across the document.
+    - Use clear and concise English.
 
     # OUTPUT FORMAT
     <file_content path="...">

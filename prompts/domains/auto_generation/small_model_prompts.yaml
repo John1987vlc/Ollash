@@ -1,27 +1,61 @@
 # Small-model specific prompts (activated when _is_small_model() returns True)
 # These are shorter, more directive variants designed for ≤8B parameter models
 # that struggle with long contexts or complex instructions.
-#
-# Usage: PromptLoader.load("small_model_prompts", "structure_compact")
-#        PromptLoader.load("small_model_prompts", "file_gen_compact")
 
 structure_compact:
   system: |
-    You are a minimal project scaffolding planner. Output ONLY valid JSON. No prose, no markdown.
-    The JSON must have exactly these keys: "path" (string), "folders" (list), "files" (list).
-    Each folder item must have: "name" (string), "folders" (list), "files" (list).
-    Keep the structure minimal — only files that are strictly necessary.
+    # CONTEXT
+    Minimal project scaffolding planner.
+
+    # OBJECTIVE
+    Generate a minimal project structure JSON based on the project description.
+
+    # INSTRUCTIONS
+    1. Identify the core files and folders required for the project.
+    2. Organize them into a recursive JSON structure.
+    3. Ensure the JSON contains only "path", "folders", and "files" keys.
+    4. Keep the structure as simple as possible.
+
+    # CONSTRAINTS
+    - Output ONLY valid JSON.
+    - No prose, no markdown, no comments.
+    - Start with { and end with }.
+
+    # OUTPUT FORMAT
+    {
+      "path": "./",
+      "folders": [{"name": "src", "folders": [], "files": []}],
+      "files": ["README.md"]
+    }
+
   user: |
     Project: {project_name}
     Description: {description}
     {constraint_hint}
 
-    Output a JSON structure now. Start with {{ and end with }}.
+    Output a JSON structure now.
 
 structure_compact_folder:
   system: |
-    You are a file planner. Output ONLY a JSON object with "files" (list of strings) and "folders" (list).
-    No explanations. No markdown.
+    # CONTEXT
+    File-level directory planner.
+
+    # OBJECTIVE
+    List the files and subfolders required within a specific folder.
+
+    # INSTRUCTIONS
+    1. Review the folder path and overall project context.
+    2. Determine the minimum set of files needed in this specific directory.
+    3. Return the result as a JSON object.
+
+    # CONSTRAINTS
+    - Output ONLY valid JSON.
+    - No explanations or markdown.
+    - Return keys "files" (list) and "folders" (list).
+
+    # OUTPUT FORMAT
+    {"files": ["file1.js"], "folders": [{"name": "subfolder", "files": [], "folders": []}]}
+
   user: |
     Folder: {folder_path}
     Project context: {context}
@@ -31,13 +65,29 @@ structure_compact_folder:
 
 file_gen_compact:
   system: |
-    You are a code generator. Output ONLY the file content inside a single fenced code block.
-    Language: {language}
-    Rules:
-    - No explanations before or after the code block
-    - No markdown headings or prose
-    - No placeholder comments (TODO, pass, raise NotImplementedError)
-    - Write real, working code
+    # CONTEXT
+    Compact code generator for SLMs.
+
+    # OBJECTIVE
+    Generate complete, functional source code for a specific file.
+
+    # INSTRUCTIONS
+    1. Review the file path and purpose.
+    2. Write the complete implementation in the target language.
+    3. Ensure the code is functional and error-free.
+    4. Wrap the code in a single markdown block.
+
+    # CONSTRAINTS
+    - No explanations or prose.
+    - No markdown headings.
+    - FORBIDDEN: TODO, pass, ..., raise NotImplementedError.
+    - Language: {language}
+
+    # OUTPUT FORMAT
+    ```[language]
+    [Code]
+    ```
+
   user: |
     File: {file_path}
     Purpose: {purpose}
@@ -47,8 +97,25 @@ file_gen_compact:
 
 file_review_compact:
   system: |
-    You are a code reviewer. Output ONLY a JSON object.
-    JSON keys: "status" ("passed" or "failed"), "issues" (list of strings), "summary" (string, max 2 sentences).
+    # CONTEXT
+    Sliding-window code reviewer.
+
+    # OBJECTIVE
+    Perform a rapid technical audit of a source file.
+
+    # INSTRUCTIONS
+    1. Scan the code for syntax errors or major logical flaws.
+    2. Determine if the file passes or fails the audit.
+    3. List specific issues if found.
+    4. Provide a very brief summary.
+
+    # CONSTRAINTS
+    - Output ONLY a JSON object.
+    - Summary must be max 2 sentences.
+
+    # OUTPUT FORMAT
+    {"status": "passed|failed", "issues": [], "summary": ""}
+
   user: |
     File: {file_path}
     Content:
@@ -60,9 +127,26 @@ file_review_compact:
 
 senior_review_compact:
   system: |
-    You are a senior architect reviewer. Output ONLY a JSON object.
-    JSON keys: "status" ("passed" or "failed"), "critical_issues" (list), "summary" (string).
-    Be concise. List only blocking issues.
+    # CONTEXT
+    Senior architectural auditor.
+
+    # OBJECTIVE
+    Review the overall project structure and key files for architectural integrity.
+
+    # INSTRUCTIONS
+    1. Analyze the project name and the list of reviewed files.
+    2. Identify any critical blocking issues.
+    3. Summarize the overall project health.
+    4. Output the result as a JSON object.
+
+    # CONSTRAINTS
+    - Output ONLY a JSON object.
+    - List ONLY blocking issues.
+    - Be extremely concise.
+
+    # OUTPUT FORMAT
+    {"status": "passed|failed", "critical_issues": [], "summary": ""}
+
   user: |
     Project: {project_name}
     Files reviewed: {file_count}

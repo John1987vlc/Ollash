@@ -60,6 +60,10 @@ class LLMClientManager(IModelProvider):
                 )
             model_name = self.config.default_model
 
+        return self.get_client_by_model(model_name, role)
+
+    def get_client_by_model(self, model_name: str, role: str = "custom") -> OllamaClient:
+        """Retrieves or creates an OllamaClient for a specific model name."""
         # If a client for this *model* already exists, return it.
         if model_name in self.clients_by_model:
             return self.clients_by_model[model_name]
@@ -79,6 +83,42 @@ class LLMClientManager(IModelProvider):
 
         self.clients_by_model[model_name] = new_client
         return new_client
+
+    def get_tiered_client(self, tier: str) -> Optional[OllamaClient]:
+        """Retrieves a client based on the tier name (nano, medium, large, extra_large)."""
+        model_name = getattr(self.config, tier, None)
+        if not model_name:
+            self.logger.warning_sync(f"Tier '{tier}' not configured. Falling back to default.")
+            return self.get_client("default")
+        return self.get_client_by_model(model_name, role=f"tier_{tier}")
+
+    def get_escalated_client(self, current_model_name: str) -> OllamaClient:
+        """Finds the next more powerful model tier relative to the current model."""
+        tiers = ["nano", "medium", "large", "extra_large"]
+        current_tier_idx = -1
+        
+        # Identify current tier
+        for i, tier in enumerate(tiers):
+            if getattr(self.config, tier) == current_model_name:
+                current_tier_idx = i
+                break
+        
+        # If not found or already at max, return extra_large if available, or default
+        if current_tier_idx == -1 or current_tier_idx == len(tiers) - 1:
+            xl = getattr(self.config, "extra_large")
+            if xl: return self.get_client_by_model(xl, "escalation")
+            return self.get_client("default")
+            
+        # Get next tier
+        next_tier = tiers[current_tier_idx + 1]
+        next_model = getattr(self.config, next_tier)
+        
+        if not next_model:
+            # Skip empty tiers
+            return self.get_escalated_client(getattr(self.config, tiers[current_tier_idx])) # recursive but safe
+            
+        self.logger.info_sync(f"Escalating from {current_model_name} to {next_model} ({next_tier})")
+        return self.get_client_by_model(next_model, "escalation")
 
     def get_embedding_client(self) -> "OllamaClient":
         """

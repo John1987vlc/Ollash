@@ -7,11 +7,22 @@ tdd_minimal_test:
     Write ONE minimal pytest test for the specified function.
     The test must import the function from 'src_module' and verify its basic behaviour.
 
+    # INSTRUCTIONS
+    1. Import the target function from 'src_module'.
+    2. Create a test function named test_{function_to_test}_basic.
+    3. Implement a simple assertion to verify the function's output or behavior.
+    4. Ensure no external dependencies or complex fixtures are used.
+
     # CONSTRAINTS
     - Import target as: from src_module import {function_to_test}
     - Do NOT use complex fixtures or external dependencies.
     - Only ONE test function named test_{function_to_test}_basic.
     - Return only the test code inside ```python ... ``` fences.
+
+    # OUTPUT FORMAT
+    ```python
+    [Test Code]
+    ```
 
   user: |
     ## SOURCE FILE: {file_path}
