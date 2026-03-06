@@ -197,7 +197,7 @@ class EnhancedFileContentGenerator:
                 options_override=self.options,
             )
             content = result.get("content", "")
-            return self.response_parser.extract_code_block(content) or content
+            return self.response_parser.extract_code(content, file_path)
         except Exception as exc:
             self.logger.warning(f"[streaming] stream_chat failed for '{file_path}': {exc}; using sync fallback")
             return await self.generate_file_with_plan(
@@ -313,7 +313,7 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
             )
 
             content = response_data["message"]["content"]
-            return self.response_parser.extract_code_block(content) or content
+            return self.response_parser.extract_code(content, file_path)
 
         except Exception as e:
             self.logger.error(f"Failed to load centralized generation prompt: {e}")

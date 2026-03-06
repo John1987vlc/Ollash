@@ -77,6 +77,21 @@ class TestLLMResponseParser:
         files = LLMResponseParser.extract_multiple_files(response)
         assert "test.py" in files
 
+    def test_extract_code_with_xml_tags(self):
+        text = "<code_created>\nprint('hello')\n</code_created>"
+        assert LLMResponseParser.extract_code(text) == "print('hello')"
+
+    def test_extract_code_with_file_path(self):
+        text = "```javascript\nconsole.log('hi')\n```\n```python\nprint('bye')\n```"
+        assert LLMResponseParser.extract_code(text, "main.py") == "print('bye')"
+        assert LLMResponseParser.extract_code(text, "app.js") == "console.log('hi')"
+
+    def test_clean_markdown_artifacts(self):
+        text = "```python\ncode\n```"
+        assert LLMResponseParser.clean_markdown_artifacts(text) == "code"
+        text2 = "<file_content>more code</file_content>"
+        assert LLMResponseParser.clean_markdown_artifacts(text2) == "more code"
+
 
 class TestFileValidator:
     def setup_method(self):

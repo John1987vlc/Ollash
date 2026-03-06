@@ -234,7 +234,8 @@ Output the improved version only, no explanations."""
                 options_override={"temperature": 0.2},
             )
 
-            improved_content = response_data.get("content", "")
+            improved_content_raw = response_data.get("content", "")
+            improved_content = self.response_parser.extract_code(improved_content_raw, file_path)
             return self._smart_merge(current_content, improved_content)
 
         except Exception as e:
@@ -331,7 +332,8 @@ Generate ONLY the fixed code (same language), no explanations."""
                 options_override={"temperature": 0.15},
             )
 
-            fixed = response_data.get("content", "")
+            fixed_raw = response_data.get("content", "")
+            fixed = self.response_parser.extract_code(fixed_raw, file_path)
             return fixed.strip()
 
         except Exception as e:
@@ -370,7 +372,7 @@ Generate ONLY the fixed code (same language), no explanations."""
                 options_override={"temperature": 0.1},
             )
 
-            new_content = self.response_parser.extract_raw_content(response_data.get("content", ""))
+            new_content = self.response_parser.extract_code(response_data.get("content", ""), file_path)
             return new_content if new_content and len(new_content) > len(content) else content
         except Exception as e:
             self.logger.error(f"Injection failed: {e}")

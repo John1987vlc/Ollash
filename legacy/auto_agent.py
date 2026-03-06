@@ -69,7 +69,7 @@ class GitLifecycleManager:
                 try:
                     from backend.utils.core.llm.prompt_loader import PromptLoader
                     loader = PromptLoader()
-                    prompts = loader.load_prompt("domains/auto_generation/secretary.yaml")
+                    prompts = loader.load_prompt_sync("domains/auto_generation/secretary.yaml")
 
                     system = prompts.get("pr_description", {}).get("system", "")
                     user_template = prompts.get("pr_description", {}).get("user", "")
@@ -202,7 +202,7 @@ def main():
                 try:
                     from backend.utils.core.llm.prompt_loader import PromptLoader
                     loader = PromptLoader()
-                    prompts = loader.load_prompt("domains/auto_generation/vision.yaml")
+                    prompts = loader.load_prompt_sync("domains/auto_generation/vision.yaml")
 
                     system = prompts.get("initial_vision", {}).get("system", "")
                     user_template = prompts.get("initial_vision", {}).get("user", "")

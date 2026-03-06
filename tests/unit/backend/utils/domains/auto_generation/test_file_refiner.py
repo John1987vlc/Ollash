@@ -20,7 +20,7 @@ def refiner(mock_deps):
 
 async def test_simplify_file_content_success(refiner, mock_deps):
     mock_deps["llm_client"].chat.return_value = ({"message": {"content": "```python\ndef simplified(): pass\n```"}}, {})
-    mock_deps["response_parser"].extract_raw_content.return_value = "def simplified(): pass"
+    mock_deps["response_parser"].extract_code.return_value = "def simplified(): pass"
 
     result = await refiner.simplify_file_content("test.py", "def complex():\n    pass")
 

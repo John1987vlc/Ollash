@@ -46,7 +46,7 @@ class LogicPlanningPhase(BasePhase):
         backlog = []
 
         # F31: For nano models, be extremely aggressive with limits
-        is_nano = self.context._is_small_model()
+        is_nano = bool(self.context._is_small_model())
         
         # Select key files for planning - limit more for nano
         planning_files = [f for f in file_paths if "src/" in f or "app/" in f or "main" in f.lower()]
@@ -206,10 +206,15 @@ class LogicPlanningPhase(BasePhase):
     ) -> Tuple[Dict[str, Any], List[Dict]]:
         """Creates a 100% deterministic backlog by mapping every file path to a task."""
         self.context.logger.info(f"  [Deterministic] Creating tasks for all {len(file_paths)} files.")
-        
+
+        # F31: Nano tier - skip README.md if it already exists from Phase 1
+        is_nano = bool(self.context._is_small_model())
+        if is_nano:
+            file_paths = [p for p in file_paths if p != "README.md"]
+            self.context.logger.info(f"  [Nano] Filtered out README.md from backlog (already generated).")
+
         logic_plan = self._create_basic_plans(file_paths, "all", project_description)
         backlog = []
-        
         for i, path in enumerate(file_paths):
             task_id = f"TASK-{i + 1:03d}"
             # Advanced dependency detection for tests
@@ -293,7 +298,7 @@ class LogicPlanningPhase(BasePhase):
         logic_plan = {}
         
         # F31: For nano tier, we skip LLM planning entirely to avoid hangs and repetitions
-        if self.context._is_small_model():
+        if bool(self.context._is_small_model()):
             self.context.logger.info("  [Nano] Using direct file-to-task mapping for reliability.")
             logic_plan = self._create_basic_plans(file_paths, "all", project_description)
             backlog = self._create_fallback_backlog(initial_structure)

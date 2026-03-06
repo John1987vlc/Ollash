@@ -124,7 +124,7 @@ class FileContentGenerator:
                     options_override=self.options,
                 )
                 raw = response_data["message"]["content"]
-                content = self.parser.extract_raw_content(raw)
+                content = self.parser.extract_code(raw, file_path)
 
                 if is_json and content:
                     json.loads(content)  # Validate JSON

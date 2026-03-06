@@ -18,7 +18,7 @@ class TestJavaScriptOptimizationPhase:
         ctx.event_publisher.publish = AsyncMock()
         ctx.file_manager = MagicMock()
         ctx.llm_manager.get_client.return_value.chat = MagicMock(return_value=({"content": ""}, {}))
-        ctx.response_parser.extract_raw_content = MagicMock(return_value="")
+        ctx.response_parser.extract_code = MagicMock(return_value="")
         return ctx
 
     @pytest.mark.asyncio
@@ -37,7 +37,7 @@ class TestJavaScriptOptimizationPhase:
         files = {"src/script.js": js_content, "src/index.html": html_content}
         fixed_html = "<html><body><div id='existing-id '></div><div id='missing-id '></div></body></html>"
         mock_context.llm_manager.get_client.return_value.chat.return_value = ({"content": fixed_html}, {})
-        mock_context.response_parser.extract_raw_content.return_value = fixed_html
+        mock_context.response_parser.extract_code.return_value = fixed_html
         with patch(_PROMPT_LOADER_PATH) as ml:
             ml.return_value.load_prompt = AsyncMock(return_value=_HTML_PROMPTS)
             new_files, _, _ = await phase.execute("", "", Path("."), "", {}, files)

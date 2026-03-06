@@ -452,7 +452,7 @@ class StructureGenerator:
                         "files": ["index.html", "styles.css", "app.js"],
                     }
                 ],
-                "files": ["README.md", "index.html"],
+                "files": ["README.md"],
             }
         if project_type in ("react_app", "typescript_app"):
             return {

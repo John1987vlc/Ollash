@@ -19,7 +19,7 @@ def mock_logger():
 @pytest.fixture
 def mock_parser():
     parser = MagicMock()
-    parser.extract_raw_content.side_effect = lambda x: x  # Simplest passthrough
+    parser.extract_code.side_effect = lambda x, p=None: x  # Simplest passthrough
     return parser
 
 
@@ -59,7 +59,7 @@ async def test_verify_and_fix_empty_file_triggers_generation(checker, mock_llm_c
     mock_validator.validate.return_value = ValidationResult("empty.py", ValidationStatus.VALID, "OK", 3, 30)
 
     mock_llm_client.achat.return_value = ({"message": {"content": "print('generated')"}}, {})
-    mock_parser.extract_raw_content.return_value = "print('generated')"
+    mock_parser.extract_code.return_value = "print('generated')"
 
     result = await checker.verify_and_fix(files, "readme context")
 
@@ -76,7 +76,7 @@ async def test_verify_and_fix_failed_file_triggers_fix(checker, mock_llm_client,
     mock_validator.validate.return_value = ValidationResult("buggy.py", ValidationStatus.VALID, "Fixed", 2, 15)
 
     mock_llm_client.achat.return_value = ({"message": {"content": "def f():\n    pass"}}, {})
-    mock_parser.extract_raw_content.return_value = "def f():\n    pass"
+    mock_parser.extract_code.return_value = "def f():\n    pass"
 
     result = await checker.verify_and_fix(files)
 

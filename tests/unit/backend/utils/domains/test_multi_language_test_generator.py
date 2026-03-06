@@ -134,7 +134,7 @@ class TestGenerateTests:
             {"message": {"content": "```python\ndef test_func(): pass\n```"}},
             {},
         )
-        mock_response_parser.extract_raw_content.return_value = "def test_func(): pass"
+        mock_response_parser.extract_code.return_value = "def test_func(): pass"
 
         result = await test_generator.generate_tests("module.py", "def my_func(): return 42", "A simple module")
 

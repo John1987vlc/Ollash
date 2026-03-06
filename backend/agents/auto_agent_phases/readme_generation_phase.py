@@ -90,7 +90,7 @@ class ReadmeGenerationPhase(IAgentPhase):
 
         # F5: Append Mermaid architecture diagrams to README
         # F31: Completely skip diagrams for nano models to avoid hangs
-        if not self.context._is_small_model():
+        if not bool(self.context._is_small_model()):
             try:
                 readme = await self._append_mermaid_diagrams(readme, project_description, project_name, initial_structure)
                 generated_files[readme_file_path] = readme
@@ -123,7 +123,7 @@ class ReadmeGenerationPhase(IAgentPhase):
         """
         import json as _json
 
-        is_small = self.context._is_small_model()
+        is_small = bool(self.context._is_small_model())
 
         system_prompt = (
             "You are a technical documentation expert. "

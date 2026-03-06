@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.llm.ollama_client import OllamaClient
+from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
 from backend.utils.domains.auto_generation.utilities.prompt_templates import AutoGenPrompts
 
@@ -46,7 +47,8 @@ class ProjectPlanner:
             tools=[],
             options_override=self.options,
         )
-        content = response_data["message"]["content"]
+        raw_content = response_data["message"]["content"]
+        content = LLMResponseParser.extract_code(raw_content, "README.md")
         self.logger.info(f"README generated: {len(content)} characters")
         return content
 
@@ -83,7 +85,8 @@ class ProjectPlanner:
             tools=[],
             options_override=self.DOC_OPTIONS,
         )
-        content = response_data["message"]["content"]
+        raw_content = response_data["message"]["content"]
+        content = LLMResponseParser.extract_code(raw_content, "CHANGELOG.md")
         self.logger.info(f"Changelog entry generated: {len(content)} chars")
         return content
 
@@ -120,7 +123,8 @@ class ProjectPlanner:
             tools=[],
             options_override=self.DOC_OPTIONS,
         )
-        content = response_data["message"]["content"]
+        raw_content = response_data["message"]["content"]
+        content = LLMResponseParser.extract_code(raw_content, "ROADMAP.md")
         self.logger.info(f"Roadmap generated: {len(content)} chars")
         return content
 
@@ -150,6 +154,7 @@ class ProjectPlanner:
             tools=[],
             options_override=self.DOC_OPTIONS,
         )
-        content = response_data["message"]["content"]
+        raw_content = response_data["message"]["content"]
+        content = LLMResponseParser.extract_code(raw_content, "README.md")
         self.logger.info("README Last Auto-Update section refreshed")
         return content

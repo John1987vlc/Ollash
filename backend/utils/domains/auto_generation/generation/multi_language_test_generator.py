@@ -158,7 +158,7 @@ class MultiLanguageTestGenerator:
                 options_override=self.options,
             )
             raw_response = response_data["message"]["content"]
-            test_content = self.parser.extract_raw_content(raw_response)
+            test_content = self.parser.extract_code(raw_response, file_path)
 
             if test_content:
                 self.logger.info(f"Tests generated for {file_path} using {framework.value}")
@@ -234,7 +234,7 @@ Format as a single test file with clear organization. Use {primary_lang} syntax.
                 options_override=self.options,
             )
 
-            test_content = self.parser.extract_raw_content(response_data["message"]["content"])
+            test_content = self.parser.extract_code(response_data["message"]["content"], f"integration_test{extension}")
 
             # Generate docker-compose for test orchestration
             docker_compose = self._generate_test_docker_compose(services)

@@ -55,7 +55,7 @@ class TestGenerator:
                 options_override=self.options,
             )
             raw_response = response_data["message"]["content"]
-            test_content = self.parser.extract_raw_content(raw_response)
+            test_content = self.parser.extract_code(raw_response, file_path)
             if test_content:
                 self.logger.info(f"  Tests generated for {file_path}.")
                 return test_content

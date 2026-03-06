@@ -85,9 +85,9 @@ class JavaScriptOptimizationPhase(IAgentPhase):
                 response, _ = self.context.llm_manager.get_client("coder").chat(
                     messages=[{"role": "system", "content": system}, {"role": "user", "content": user}]
                 )
-                new_html = self.context.response_parser.extract_raw_content(response.get("content", ""))
+                html_path = "src/index.html" if "src/index.html" in all_files else "index.html"
+                new_html = self.context.response_parser.extract_code(response.get("content", ""), html_path)
                 if new_html:
-                    html_path = "src/index.html" if "src/index.html" in all_files else "index.html"
                     all_files[html_path] = new_html
                     self.context.file_manager.write_file(root / html_path, new_html)
                     self.context.logger.info("    ✓ index.html updated with missing IDs.")

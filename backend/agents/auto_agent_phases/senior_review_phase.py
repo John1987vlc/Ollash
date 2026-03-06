@@ -34,7 +34,7 @@ class SeniorReviewPhase(IAgentPhase):
         review_passed = False
         review_attempt = 0
         _cfg_max = self.context.config.get("senior_review_max_attempts", 3)
-        if self.context._is_small_model() or self.context._is_mid_model():
+        if bool(self.context._is_small_model()) or self.context._is_mid_model():
             max_review_attempts = 1  # nano and slim tiers: single pass only
         else:
             max_review_attempts = _cfg_max
@@ -331,7 +331,7 @@ class SeniorReviewPhase(IAgentPhase):
         self.context.logger.info(f"Knowledge Base Stats: {kb_stats}")
 
         # Log fragment cache statistics
-        cache_stats = self.context.fragment_cache.stats()
+        cache_stats = await self.context.fragment_cache.stats()
         self.context.logger.info(f"Fragment Cache Stats: {cache_stats}")
 
         # --- PR-based review (Feature 3) ---

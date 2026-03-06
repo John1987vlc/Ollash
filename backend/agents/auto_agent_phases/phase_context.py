@@ -591,7 +591,7 @@ class PhaseContext:
         Returns:
             True if small model detected AND flag is enabled (defaults to True if missing).
         """
-        if not self._is_small_model():
+        if not bool(self._is_small_model()):
             return False
         opts = self.config.get("small_model_optimizations", {})
         return bool(opts.get(opt_name, True))

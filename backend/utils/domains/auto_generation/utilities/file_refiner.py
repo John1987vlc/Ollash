@@ -82,7 +82,7 @@ FILE: {file_path}
                 options_override=self.options,
             )
             raw = response_data["message"]["content"]
-            simplified = self.parser.extract_raw_content(raw)
+            simplified = self.parser.extract_code(raw, file_path)
 
             if simplified and len(simplified) > 20:
                 self.logger.info(f"    Successfully simplified {file_path}")
@@ -156,7 +156,7 @@ FILE: {file_path}
                 options_override=self.options,
             )
             raw = response_data["message"]["content"]
-            refined = self.parser.extract_raw_content(raw)
+            refined = self.parser.extract_code(raw, file_path)
 
             # 3. Anti-Hallucination Guard
             hallucination_indicators = [

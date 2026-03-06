@@ -123,9 +123,9 @@ class FileCompletenessChecker:
                         if json_obj is not None:
                             new_content = json.dumps(json_obj, indent=2)
                         else:
-                            new_content = self.parser.extract_raw_content(raw)
+                            new_content = self.parser.extract_code(raw, file_path)
                     else:
-                        new_content = self.parser.extract_raw_content(raw)
+                        new_content = self.parser.extract_code(raw, file_path)
 
                     if not new_content.strip():
                         self.logger.warning(f"    Empty content returned on attempt {attempt} for {file_path}")

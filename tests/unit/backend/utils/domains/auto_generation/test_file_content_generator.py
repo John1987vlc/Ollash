@@ -47,7 +47,7 @@ class TestFileContentGenerator:
     async def test_generate_file_success(self, generator, mock_llm_client, mock_parser, mock_doc_manager):
         mock_doc_manager.query_documentation.return_value = []
         mock_llm_client.chat.return_value = ({"message": {"content": "print('hello')"}}, {})
-        mock_parser.extract_raw_content.return_value = "print('hello')"
+        mock_parser.extract_code.return_value = "print('hello')"
 
         result = await generator.generate_file(
             file_path="src/main.py", readme_content="# Title", json_structure={}, related_files={}
@@ -63,7 +63,7 @@ class TestFileContentGenerator:
             ({"message": {"content": "not json"}}, {}),
             ({"message": {"content": '{"ok": true}'}}, {}),
         ]
-        mock_parser.extract_raw_content.side_effect = ["not json", '{"ok": true}']
+        mock_parser.extract_code.side_effect = ["not json", '{"ok": true}']
 
         result = await generator.generate_file(
             file_path="config.json", readme_content="# Title", json_structure={}, related_files={}, max_retries=2
@@ -75,7 +75,7 @@ class TestFileContentGenerator:
     async def test_generate_file_failure_after_retries(self, generator, mock_llm_client, mock_parser, mock_doc_manager):
         mock_doc_manager.query_documentation.return_value = []
         mock_llm_client.chat.return_value = ({"message": {"content": ""}}, {})
-        mock_parser.extract_raw_content.return_value = ""
+        mock_parser.extract_code.return_value = ""
 
         result = await generator.generate_file(
             file_path="fail.py", readme_content="# Readme", json_structure={}, related_files={}, max_retries=2

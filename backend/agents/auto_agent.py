@@ -217,7 +217,7 @@ class AutoAgent(CoreAgent):
 
             ctx = self.phase_context
 
-            if ctx._is_small_model():
+            if bool(ctx._is_small_model()):
                 from backend.agents.auto_agent_phases.clarification_phase import ClarificationPhase
                 _NANO_SKIP = (
                     ExhaustiveReviewRepairPhase,
@@ -724,12 +724,12 @@ class AutoAgent(CoreAgent):
     ):
         """Marks the project as complete and logs final statistics."""
         execution_plan.mark_complete()
-        self.event_publisher.publish(
+        self.event_publisher.publish_sync(
             "execution_plan_completed",
             plan=execution_plan.to_dict(),
             progress=execution_plan.get_progress(),
         )
-        self.event_publisher.publish(
+        self.event_publisher.publish_sync(
             "project_complete",
             project_name=project_name,
             project_root=str(project_root),

@@ -238,6 +238,14 @@ class ShadowEvaluator:
             if opens != closes:
                 return f"Unbalanced braces: {opens} open vs {closes} close"
             return ""
+        if lang == "html":
+            import re
+            for tag in ["html", "head", "body"]:
+                open_count = len(re.findall(rf"<{tag}[\s>]", content.lower()))
+                close_count = len(re.findall(rf"</{tag}\s*>", content.lower()))
+                if open_count > close_count:
+                    return f"Unclosed <{tag}> tag: {open_count} open vs {close_count} close"
+            return ""
         return ""
 
     async def active_shadow_validate(

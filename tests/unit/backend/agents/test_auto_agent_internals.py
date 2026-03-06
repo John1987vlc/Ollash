@@ -82,8 +82,7 @@ def test_finalize_project(agent):
 
     execution_plan.mark_complete.assert_called_once()
     agent.phase_context.file_manager.write_file.assert_called()
-    assert agent.event_publisher.publish.call_count >= 2
-
+    assert agent.event_publisher.publish_sync.call_count >= 2
 
 # ---------------------------------------------------------------------------
 # Tests: _build_adaptive_phases()

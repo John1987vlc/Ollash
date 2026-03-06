@@ -365,14 +365,65 @@ class LLMResponseParser:
         return tool_calls
 
     @staticmethod
-    def clean_markdown_artifacts(text: str) -> str:
+    def extract_code(text: str, file_path: Optional[str] = None) -> str:
         """
-        Aggressively removes markdown fences and other common LLM artifacts.
-        Useful when the LLM wraps code in markdown despite instructions.
+        Robustly extracts code from an LLM response.
+        Tries XML tags (<code_created>, <file_content>, etc.) first, 
+        then markdown blocks, then falls back to raw text.
         """
         if not text:
             return ""
 
+        # 1. Remove thinking blocks
+        text, _ = LLMResponseParser.remove_think_blocks(text)
+
+        # 2. Try XML tags specifically used in prompts
+        tags = ["code_created", "file_content", "code_fixed", "repaired_code"]
+        for tag in tags:
+            # 2a. Try closed tag first (most reliable)
+            closed_pattern = rf"<{tag}(?:\s+[^>]*?)?>([\s\S]*?)</{tag}>"
+            match = re.search(closed_pattern, text, re.IGNORECASE)
+            if match:
+                content = match.group(1).strip()
+                return LLMResponseParser.extract_code_block(content)
+            
+            # 2b. Try unclosed tag (common in truncated outputs)
+            unclosed_pattern = rf"<{tag}(?:\s+[^>]*?)?>([\s\S]*)$"
+            match = re.search(unclosed_pattern, text, re.IGNORECASE)
+            if match:
+                content = match.group(1).strip()
+                return LLMResponseParser.extract_code_block(content)
+
+        # 3. Try language-aware markdown extraction if path provided
+        if file_path:
+            content = LLMResponseParser.extract_code_block_for_file(text, file_path)
+            if content != text.strip():
+                return content
+
+        # 4. Try generic markdown extraction
+        content = LLMResponseParser.extract_code_block(text)
+        if content != text.strip():
+            return content
+
+        # 5. Fallback: return stripped text but clean artifacts
+        return LLMResponseParser.clean_markdown_artifacts(text)
+
+    @staticmethod
+    def clean_markdown_artifacts(text: str) -> str:
+        """
+        Aggressively removes markdown fences and other common LLM artifacts (like XML tags).
+        Useful when the LLM wraps code in markdown or tags despite instructions.
+        """
+        if not text:
+            return ""
+
+        # Remove markdown fences
         text = re.sub(r"```(?:\w+)?\n?", "", text)
         text = text.replace("```", "")
+
+        # Remove common XML tags that might leak
+        tags_to_strip = ["code_created", "file_content", "code_fixed", "repaired_code", "reflection", "thought"]
+        for tag in tags_to_strip:
+            text = re.sub(rf"</?{tag}(?:\s+[^>]*?)?>", "", text, flags=re.IGNORECASE)
+
         return text.strip()

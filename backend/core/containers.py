@@ -75,7 +75,7 @@ from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScann
 from backend.utils.core.system.structured_logger import StructuredLogger
 from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
 from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
-from backend.utils.domains.auto_generation.file_content_generator import FileContentGenerator
+from backend.utils.domains.auto_generation.enhanced_file_content_generator import EnhancedFileContentGenerator
 from backend.utils.domains.auto_generation.file_refiner import FileRefiner
 from backend.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
 from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
@@ -345,12 +345,11 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         response_parser=core.storage.response_parser,
     )
     file_content_generator = providers.Factory(
-        FileContentGenerator,
+        EnhancedFileContentGenerator,
         llm_client=llm_client_manager.provided.get_client.call("prototyper"),
         logger=core.logging.logger,
         response_parser=core.storage.response_parser,
         documentation_manager=core.documentation_manager,
-        fragment_cache=core.storage.fragment_cache,
     )
     file_refiner = providers.Factory(
         FileRefiner,
