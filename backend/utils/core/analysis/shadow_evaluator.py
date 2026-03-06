@@ -256,7 +256,7 @@ class ShadowEvaluator:
         llm_manager: Any,
         logger: Any,
     ) -> Tuple[str, bool]:
-        """Validate output format and repair it using the nano_format_corrector role (Opt 6).
+        """Validate output format and repair it using specialized nano roles (Opt 6).
 
         Runs ``_check_format()`` on *content*. If a format error is found,
         calls the ``nano_format_corrector`` LLM role to fix ONLY the structural
@@ -278,9 +278,23 @@ class ShadowEvaluator:
 
         format_error = self._check_format(content, language)
         if not format_error:
-            return content, False
+            # If basic check passes, use nano_reviewer for a deeper but still restricted audit
+            try:
+                system, user = await AutoGenPrompts.nano_reviewer(language, content)
+                reviewer = llm_manager.get_client("nano_reviewer")
+                res, _ = reviewer.chat(
+                    messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                    options_override={"temperature": 0.0, "num_predict": 256}
+                )
+                audit_res = json.loads(res.get("content", "{}"))
+                if audit_res.get("has_errors") and audit_res.get("errors"):
+                    format_error = "; ".join(audit_res["errors"])
+                else:
+                    return content, False
+            except Exception:
+                return content, False
 
-        logger.info(f"[Opt6] Format error in '{file_path}': {format_error}. Calling nano_format_corrector...")
+        logger.info(f"[Opt6] Format issue in '{file_path}': {format_error}. Calling nano_format_corrector...")
 
         try:
             system_prompt, user_prompt = await AutoGenPrompts.nano_format_corrector(
@@ -298,13 +312,13 @@ class ShadowEvaluator:
                 options_override={"temperature": 0.0},
             )
             raw = response_data.get("content", "")
-            # Extract <code_fixed>...</code_fixed>
+            
+            # Extract corrected code from tags
             import re as _re
-
-            match = _re.search(r"<code_fixed>(.*?)</code_fixed>", raw, _re.DOTALL | _re.IGNORECASE)
+            match = _re.search(r"<code_fixed>([\s\S]*?)</code_fixed>", raw, _re.IGNORECASE)
             if match:
                 repaired = match.group(1).strip()
-                # Verify repair actually fixed the issue
+                # Verify repair fixed the issue
                 if not self._check_format(repaired, language):
                     logger.info(f"[Opt6] Format repair successful for '{file_path}'")
                     self.record_shadow_log(
@@ -319,6 +333,7 @@ class ShadowEvaluator:
                         )
                     )
                     return repaired, True
+            
             logger.info(f"[Opt6] Format repair did not resolve the issue for '{file_path}', using original")
         except Exception as exc:
             logger.error(f"[Opt6] nano_format_corrector failed for '{file_path}': {exc}")

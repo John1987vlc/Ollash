@@ -1,4 +1,5 @@
 import re
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -8,9 +9,9 @@ from backend.interfaces.iagent_phase import IAgentPhase
 
 class JavaScriptOptimizationPhase(IAgentPhase):
     """
-    Phase 5.2: Specialized Semantic Optimization for JavaScript projects.
-    Executes after file generation but before final verification.
-    Focuses on cross-file consistency and HTML-JS integration.
+    Phase 5.2: Project-Wide Functional Coherence & Integration.
+    Ensures that files correctly reference each other (e.g., HTML script tags, Python imports).
+    Fixes 'hallucinated' file names by comparing them against the actual generated file list.
     """
 
     def __init__(self, context: PhaseContext):
@@ -28,110 +29,151 @@ class JavaScriptOptimizationPhase(IAgentPhase):
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         file_paths = kwargs.get("file_paths", [])
 
-        # Only run if there are significant JS files
-        js_files = {path: content for path, content in generated_files.items() if path.endswith(".js")}
-        if not js_files:
-            return generated_files, initial_structure, file_paths
-
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 5.2: Optimizing JavaScript Integration...")
+        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 5.2: Checking Project Coherence...")
         await self.context.event_publisher.publish(
-            "phase_start", phase="5.2", message="Optimizing JS semantic coherence"
+            "phase_start", phase="5.2", message="Optimizing project functional coherence"
         )
 
-        # 1. HTML-JS Integration Check
-        html_content = generated_files.get("src/index.html") or generated_files.get("index.html")
-        if html_content:
-            generated_files = await self._optimize_html_js_integration(
-                html_content, js_files, generated_files, project_root
-            )
+        # 1. Path Reference Validation (Universal)
+        # Check for non-existent files mentioned in HTML or imports
+        actual_files = set(generated_files.keys())
+        
+        # 2. Entry Point Special Check (HTML/Main)
+        html_files = {p: c for p, c in generated_files.items() if p.endswith(".html")}
+        for path, content in html_files.items():
+            generated_files = await self._validate_html_references(path, content, actual_files, generated_files, project_root)
 
-        # 2. Cross-JS Function Consistency
-        generated_files = await self._optimize_cross_js_coherence(js_files, generated_files, project_root)
+        # 3. Cross-File functional coherence (Imports/Exports)
+        # Focus on JS and Python for now
+        code_files = {p: c for p, c in generated_files.items() if p.endswith((".js", ".py", ".ts"))}
+        if code_files:
+            generated_files = await self._optimize_cross_file_coherence(code_files, generated_files, project_root)
 
         await self.context.event_publisher.publish(
-            "phase_complete", phase="5.2", message="JavaScript optimization complete"
+            "phase_complete", phase="5.2", message="Project coherence optimization complete"
         )
         return generated_files, initial_structure, file_paths
 
-    async def _optimize_html_js_integration(
-        self, html: str, js_files: Dict[str, str], all_files: Dict[str, str], root: Path
+    async def _validate_html_references(
+        self, html_path: str, html_content: str, actual_files: set, all_files: Dict[str, str], root: Path
     ) -> Dict[str, str]:
-        """Ensures index.html has the necessary IDs and script tags."""
-        self.context.logger.info("  Checking HTML-JS DOM coherence...")
+        """Ensures HTML references like <script src="..."> match actual files."""
+        self.context.logger.info(f"  Checking HTML references in {html_path}...")
 
-        # Find all document.getElementById calls in all JS files
-        required_ids = set()
-        for content in js_files.values():
-            # Use triple quotes for regex to avoid escaping issues
-            ids = re.findall(r"""document\.getElementById\(['"]([^'"]+)['"]\)""", content)
-            required_ids.update(ids)
+        # Detect <script src="..."> and <link href="...">
+        refs = re.findall(r'<(?:script|link)[^>]*(?:src|href)=["\']([^"\']+)["\']', html_content)
+        
+        actual_files_clean = {f.lstrip("./") for f in actual_files}
+        
+        mismatches = []
+        for ref in refs:
+            # Skip absolute or external links
+            if ref.startswith(("http", "//", "/")): continue
+            
+            # Normalise ref to match actual_files_clean
+            # Try 1: Relative to HTML (e.g. HTML at src/index.html, ref 'app.js' -> 'src/app.js')
+            ref_rel = (Path(html_path).parent / ref).as_posix().lstrip("./")
+            # Try 2: Direct match (e.g. ref 'src/app.js')
+            ref_direct = ref.lstrip("./")
 
-        missing_ids = [id for id in required_ids if f'id="{id}"' not in html and f"id='{id}'" not in html]
+            if ref_rel not in actual_files_clean and ref_direct not in actual_files_clean:
+                mismatches.append({"original": ref, "rel_path": ref_rel})
 
-        if missing_ids:
-            self.context.logger.warning(f"    Found {len(missing_ids)} missing IDs in HTML: {missing_ids}")
-
+        if mismatches:
+            self.context.logger.warning(f"    Found {len(mismatches)} dead references in {html_path}: {[m['original'] for m in mismatches]}")
+            
+            # Ask LLM to fix the HTML using the REAL file list
             try:
-                from backend.utils.core.llm.prompt_loader import PromptLoader
-
-                loader = PromptLoader()
-                prompts = await loader.load_prompt("domains/auto_generation/optimization.yaml")
-
-                system = prompts.get("html_js_dom_fix", {}).get("system", "")
-                user_template = prompts.get("html_js_dom_fix", {}).get("user", "")
-
-                user = user_template.format(missing_ids=missing_ids, html=html)
-
-                response, _ = self.context.llm_manager.get_client("coder").chat(
-                    messages=[{"role": "system", "content": system}, {"role": "user", "content": user}]
+                available_files = "\n".join(f"- {f}" for f in actual_files)
+                prompt = (
+                    f"The file '{html_path}' contains non-existent references: {[m['original'] for m in mismatches]}\n"
+                    f"ACTUAL FILES CREATED IN PROJECT:\n{available_files}\n\n"
+                    "Fix the HTML content so all <script> and <link> tags use the CORRECT paths from the actual files list. "
+                    "Output the COMPLETE corrected HTML inside <code_created> tags."
                 )
-                html_path = "src/index.html" if "src/index.html" in all_files else "index.html"
-                new_html = self.context.response_parser.extract_code(response.get("content", ""), html_path)
-                if new_html:
-                    all_files[html_path] = new_html
-                    self.context.file_manager.write_file(root / html_path, new_html)
-                    self.context.logger.info("    ✓ index.html updated with missing IDs.")
+                
+                res = self.context.llm_manager.get_client("coder").chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    options_override={"temperature": 0.1}
+                )
+                
+                # Handle both tuple (response_data, usage) and direct response_data
+                if isinstance(res, tuple):
+                    response_data, _ = res
+                else:
+                    response_data = res
+                
+                new_content = self.context.response_parser.extract_code(response_data.get("content", ""), html_path)
+                if new_content and len(new_content) > len(html_content) * 0.5:
+                    all_files[html_path] = new_content
+                    self.context.file_manager.write_file(root / html_path, new_content)
+                    self.context.logger.info(f"    ✓ {html_path} updated with correct file references.")
             except Exception as e:
-                self.context.logger.error(f"    Failed to fix DOM coherence: {e}")
+                self.context.logger.error(f"    Failed to fix HTML references: {e}")
 
         return all_files
 
-    async def _optimize_cross_js_coherence(
-        self, js_files: Dict[str, str], all_files: Dict[str, str], root: Path
+    async def _optimize_cross_file_coherence(
+        self, code_files: Dict[str, str], all_files: Dict[str, str], root: Path
     ) -> Dict[str, str]:
-        """Ensures functions called in one file exist in another."""
-        # This is a complex check, we'll use a specific LLM overview
-        self.context.logger.info("  Checking Cross-JS functional coherence...")
+        """Ensures imports and function calls between files are consistent."""
+        self.context.logger.info("  Checking cross-file functional coherence...")
 
-        # Use a list comprehension and join to build the summary
-        file_summaries = [f"--- FILE: {p} ---\n{c[:1000]}" for p, c in js_files.items()]
-        project_summary = "\n".join(file_summaries)
+        # Build a summary of what's available (exports from logic plan)
+        api_summary = []
+        logic_plan = getattr(self.context, "logic_plan", {})
+        for path, plan in logic_plan.items():
+            exports = plan.get("exports", [])
+            if exports:
+                api_summary.append(f"FILE: {path}\nEXPORTS: {', '.join(exports)}")
+        
+        if not api_summary:
+            return all_files
 
-        try:
-            from backend.utils.core.llm.prompt_loader import PromptLoader
+        api_text = "\n\n".join(api_summary)
 
-            loader = PromptLoader()
-            prompts = await loader.load_prompt("domains/auto_generation/optimization.yaml")
+        is_nano = bool(self.context._is_small_model())
 
-            system = prompts.get("cross_js_coherence", {}).get("system", "")
-            user_template = prompts.get("cross_js_coherence", {}).get("user", "")
-
-            user = user_template.format(project_summary=project_summary)
-
-            response, _ = self.context.llm_manager.get_client("coder").chat(
-                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}]
-            )
-
-            raw_res = response.get("content", "")
-            # Robust regex for fix extraction
-            fixes = re.findall(r"""<fix file=['"]([^'"]+)['"]>([\s\S]*?)</fix>""", raw_res)
-
-            for file_path, corrected_code in fixes:
-                if file_path in all_files:
+        # For models nano, we review more files or all since they are micro-tasks
+        if is_nano:
+            targets = list(code_files.keys())
+        else:
+            targets = [p for p, c in code_files.items() if len(c.split("\n")) > 20 or "main" in p or "app" in p]
+        
+        total_files = len(targets)
+        for idx, file_path in enumerate(targets, 1):
+            content = code_files[file_path]
+            try:
+                prompt = (
+                    f"PROJECT API CONTRACT:\n{api_text}\n\n"
+                    f"FILE TO REVIEW: {file_path}\n"
+                    f"CONTENT:\n{content}\n\n"
+                    "Check if this file uses correct variable/function names and import paths as defined in the API contract. "
+                    "If there are mismatches, fix them. Output the COMPLETE corrected code inside <code_created> tags. "
+                    "If it's already correct, reply with 'ALREADY_COHERENT'."
+                )
+                
+                res = self.context.llm_manager.get_client("coder").chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    options_override={"temperature": 0.0}
+                )
+                
+                # Handle both tuple (response_data, usage) and direct response_data
+                if isinstance(res, tuple):
+                    response_data, _ = res
+                else:
+                    response_data = res
+                
+                raw_res = response_data.get("content", "")
+                if "ALREADY_COHERENT" in raw_res:
+                    continue
+                    
+                corrected_code = self.context.response_parser.extract_code(raw_res, file_path)
+                if corrected_code and len(corrected_code) > 20:
                     self.context.logger.info(f"    Applied cross-file fix to {file_path}")
                     all_files[file_path] = corrected_code.strip()
                     self.context.file_manager.write_file(root / file_path, corrected_code.strip())
-        except Exception as e:
-            self.context.logger.error(f"    Failed cross-JS coherence check: {e}")
+            except Exception as e:
+                self.context.logger.error(f"    Failed coherence check for {file_path}: {e}")
 
         return all_files

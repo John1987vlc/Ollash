@@ -31,9 +31,22 @@ class FileRefinementPhase(IAgentPhase):
         files_to_refine = list(generated_files.items())
         total_files = len(files_to_refine)
 
+        is_nano = self._is_nano()
+
         for idx, (rel_path, content) in enumerate(files_to_refine, 1):
             if not content or len(content) < 10:
                 continue
+            
+            # F31: Nano tier - aggressively skip system and metadata files
+            if is_nano:
+                if rel_path.endswith((".json", ".md", ".yml", ".yaml", ".txt")):
+                    continue
+                # Also skip files that look like they only contain metadata (JSON-like structure)
+                stripped = content.strip()
+                if (stripped.startswith("{") and stripped.endswith("}")) or (stripped.startswith("[") and stripped.endswith("]")):
+                    self.context.logger.info(f"  [Nano] Skipping refinement for metadata-only file: {rel_path}")
+                    continue
+
             await self.context.event_publisher.publish(
                 "tool_start",
                 tool_name="file_refinement",

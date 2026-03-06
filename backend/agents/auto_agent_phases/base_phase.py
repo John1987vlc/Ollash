@@ -231,3 +231,8 @@ class BasePhase(IAgentPhase):
         self.context.file_manager.write_file(project_root / rel_path, content)
         if rel_path not in file_paths:
             file_paths.append(rel_path)
+
+    def _is_nano(self) -> bool:
+        """Check if the project is running on a nano-tier model."""
+        return bool(self.context._is_small_model())
+

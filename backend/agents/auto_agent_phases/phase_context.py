@@ -300,6 +300,14 @@ class PhaseContext:
         # Carries detected project type and allowed file extensions for downstream enforcement
         self.project_type_info: Optional[Any] = None
 
+        # F31: Feature flags for adaptive behavior
+        self.feature_flags: Dict[str, bool] = config.get("agent_features", {}) if isinstance(config, dict) else {}
+        
+        # F31: Project context for coherence
+        self.project_description: str = ""
+        self.dom_contracts: Dict[str, List[str]] = {}
+        self.api_map: Dict[str, str] = {}
+
         # Sub-contexts for grouped access
         self.llm = LLMSubContext(llm_manager, response_parser, token_tracker)
         self.files_ctx = FileSubContext(

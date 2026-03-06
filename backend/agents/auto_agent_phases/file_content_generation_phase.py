@@ -146,28 +146,50 @@ class FileContentGenerationPhase(BasePhase):
                 )
                 context_files_content = ctx_data["context_files_content"]
 
-                system_prompt, user_prompt = await AutoGenPrompts.micro_task_execution(
-                    title=title,
-                    description=task.get("description", ""),
-                    file_path=file_path,
-                    task_type=task_type,
-                    readme_content=readme_content[:1000],
-                    context_files_content=context_files_content[:4000],
-                    logic_plan_section=ctx_data["logic_plan_section"],
-                    allowed_actions=ctx_data["allowed_actions"],
-                    anti_pattern_warnings=ctx_data["anti_pattern_warnings"],
-                    few_shot_section=ctx_data["few_shot_section"],
-                )
+                is_nano_subtask = task.get("is_nano_subtask", False)
+                if is_nano_subtask:
+                    system_prompt, user_prompt = await AutoGenPrompts.nano_coder(
+                        function_name=task.get("function_name", "unknown"),
+                        signature=task.get("function_signature", ""),
+                        docstring=task.get("function_docstring", ""),
+                        context_snippet=generated_files.get(file_path, ""),
+                    )
+                else:
+                    system_prompt, user_prompt = await AutoGenPrompts.micro_task_execution(
+                        title=title,
+                        description=task.get("description", ""),
+                        file_path=file_path,
+                        task_type=task_type,
+                        readme_content=readme_content[:1000],
+                        context_files_content=context_files_content[:4000],
+                        logic_plan_section=ctx_data["logic_plan_section"],
+                        allowed_actions=ctx_data["allowed_actions"],
+                        anti_pattern_warnings=ctx_data["anti_pattern_warnings"],
+                        few_shot_section=ctx_data["few_shot_section"],
+                    )
 
                 content = ""
                 attempts = 0
-                max_attempts = 2 if is_nano else 3 # F31: Reduce retries for nano to fail fast
+                max_attempts = 5  # F31: Increased retries
                 last_error = ""
+                current_coder_role = "nano_coder" if is_nano else "coder"
 
                 # 3. Self-Reflection and Correction Loop
                 while attempts < max_attempts:
                     attempts += 1
                     current_user_prompt = user_prompt
+
+                    # --- Escalation Logic (Mejora 4) ---
+                    if attempts > 3:
+                        # Switch to a stronger model if persistent failures
+                        if is_nano:
+                            # Try medium model
+                            current_coder_role = "coder" # Normally mapped to medium
+                            self.context.logger.info(f"  [Escalation] Switching to {current_coder_role} for attempt {attempts}")
+                        else:
+                            # Already on coder, try senior_reviewer or similar large model
+                            current_coder_role = "senior_reviewer"
+                            self.context.logger.info(f"  [Escalation] Switching to {current_coder_role} for attempt {attempts}")
 
                     if last_error:
                         # Implement Chain of Thought (CoT) for retries
@@ -177,7 +199,7 @@ class FileContentGenerationPhase(BasePhase):
                             if is_nano:
                                 cot_instruction = (
                                     "\n\nCRITICAL: The previous code failed validation. "
-                                    "Fix the error and return the full file content inside <code_created>."
+                                    "Fix the error and return ONLY the corrected implementation."
                                 )
                             else:
                                 cot_instruction = (
@@ -188,14 +210,13 @@ class FileContentGenerationPhase(BasePhase):
 
                         current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}{cot_instruction}"
 
-                    _coder_role = "nano_coder" if is_nano else "coder"
-                    res = self.context.llm_manager.get_client(_coder_role).chat(
+                    res = self.context.llm_manager.get_client(current_coder_role).chat(
                         messages=[
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": current_user_prompt},
                         ],
                         tools=[],
-                        options_override={"temperature": 0.1},
+                        options_override={"temperature": 0.0 if is_nano else 0.1},
                     )
                     # Handle both tuple (response_data, usage) and direct response_data
                     if isinstance(res, tuple):
@@ -207,12 +228,58 @@ class FileContentGenerationPhase(BasePhase):
 
                     # 4. Extract content using the robust unified parser
                     from backend.utils.core.llm.llm_response_parser import LLMResponseParser
-                    content = LLMResponseParser.extract_code(raw_response, file_path)
+                    if is_nano_subtask:
+                        # For nano subtasks, we expect ONLY the function body, no explanation
+                        content = LLMResponseParser.extract_code_block(raw_response) or raw_response.strip()
+                        # Aggressive cleaning: remove common SLM prose and tags
+                        content = LLMResponseParser.clean_markdown_artifacts(content)
+                        for tag in ["code_created", "file_content", "code_fixed"]:
+                            content = content.replace(f"<{tag}>", "").replace(f"</{tag}>", "")
+                    else:
+                        content = LLMResponseParser.extract_code(raw_response, file_path)
 
-                    if not content:
-                        last_error = "FORMAT FAILURE: Could not extract valid code from the response. Ensure you use the requested tags or markdown blocks."
+                    if not content or (is_nano_subtask and len(content.strip()) < 5):
+                        last_error = "FORMAT FAILURE: Empty response or could not extract valid code."
                         self.context.logger.warning(f"    ⚠ Attempt {attempts}: Extraction failed.")
                         continue
+
+                    # If it's a nano subtask, we need to merge it into the existing file (replacing the stub)
+                    if is_nano_subtask:
+                        full_content = generated_files.get(file_path, "")
+                        func_name = task.get("function_name")
+                        signature = task.get("function_signature")
+                        
+                        import re as _re
+                        
+                        # Support for Python (pass/...) and JS/TS ({ // placeholder })
+                        if file_path.endswith((".py", ".pyi")):
+                            # Signature + optional docstring + pass/...
+                            stub_pattern = _re.escape(signature).replace(r"\(", r"\s*\(").replace(r"\)", r"\)\s*")
+                            stub_pattern += r"(?:\s*(?:\"\"\"[\s\S]*?\"\"\"|\'\'\'[\s\S]*?\'\'\'))?"
+                            stub_pattern += r"(?:\s*pass|\s*\.\.\.)"
+                        else:
+                            # JS/TS/JSX/TSX pattern: signature followed by { // placeholder }
+                            stub_pattern = _re.escape(signature).replace(r"\(", r"\s*\(").replace(r"\)", r"\)\s*")
+                            stub_pattern += r"\s*\{\s*(?://|/\*)[\s\S]*?(?:\*/)?\s*\}"
+
+                        if _re.search(stub_pattern, full_content):
+                            # Ensure the implementation starts with the signature if it's missing from LLM output
+                            if not content.strip().startswith(signature[:10]):
+                                if file_path.endswith(".py"):
+                                    content = signature + "\n    " + content
+                                else:
+                                    content = signature + " {\n" + content + "\n}"
+                            
+                            content = _re.sub(stub_pattern, content, full_content, count=1)
+                        else:
+                            # Fallback: if stub not found exactly, try to find just the function name
+                            escaped_name = _re.escape(func_name)
+                            name_pattern = r"\b" + escaped_name + r"\b.*?(?:\s*pass|\s*\{\s*//.*?\s*\})"
+                            if _re.search(name_pattern, full_content):
+                                content = _re.sub(name_pattern, content, full_content, count=1)
+                            else:
+                                # Final fallback: append
+                                content = full_content.rstrip() + "\n\n" + content
 
                     # Fix 3: Ensure HTML files declare UTF-8 charset so suit symbols render correctly
                     if file_path.endswith(".html") and "<meta charset" not in content.lower():
@@ -322,10 +389,9 @@ class FileContentGenerationPhase(BasePhase):
                         self.context.logger.warning(
                             f"    ⚠ Attempt {attempts} failed validation: {validation_result.message}"
                         )
-                    
-                    # Clear content so we don't save invalid results on the last attempt
-                    if attempts >= max_attempts:
-                        content = ""
+                        # We NO LONGER clear content on final failure. 
+                        # We prefer saving "best effort" clean code over a 0-byte file.
+
                 # F2: TDD Agéntico — run a minimal unit test and auto-correct on failure
                 if content and file_path.endswith(".py"):
                     content = await self._run_tdd_loop(file_path, content)
@@ -389,9 +455,11 @@ class FileContentGenerationPhase(BasePhase):
             raw_context_files = self.context.build_micro_context_snapshot(file_path)
         else:
             # F31: Force small limit for nano to avoid token overflow
+            # AND force Signatures-Only context for nano models (F31)
             _max_files = 3 if is_nano else 5
+            _only_sigs = is_nano or _use_signatures
             raw_context_files = self.context.select_related_files(
-                file_path, generated_files, signatures_only=_use_signatures, max_files=_max_files
+                file_path, generated_files, signatures_only=_only_sigs, max_files=_max_files
             )
         context_files_content = ContextDistiller.distill_batch(raw_context_files)
 
@@ -615,6 +683,15 @@ class FileContentGenerationPhase(BasePhase):
         if not plan:
             return "(No architecture plan available for this file)"
         lines = []
+        
+        # F31: Explicitly include dependencies for cross-file coherence
+        deps = plan.get("dependencies", plan.get("deps", []))
+        if deps:
+            lines.append("DEPENDENCIES (You MUST reference/import these files):")
+            for d in deps:
+                lines.append(f"  - {d}")
+            lines.append("")
+
         exports = plan.get("exports", [])
         if exports:
             lines.append("Exports (MUST implement all, with the exact construct type):")
@@ -845,26 +922,49 @@ class FileContentGenerationPhase(BasePhase):
         Tasks with no dependencies come first; if there are cycles or missing
         dependency references the original order is preserved with a warning.
         """
-        id_to_task: Dict[str, Dict] = {t["id"]: t for t in backlog if "id" in t}
-        if not id_to_task:
+        # Create a mapping of both ID and File Path to the task for robust lookup
+        id_to_task: Dict[str, Dict] = {}
+        path_to_task: Dict[str, Dict] = {}
+        
+        for t in backlog:
+            if "id" in t: id_to_task[t["id"]] = t
+            if "file_path" in t: path_to_task[str(t["file_path"])] = t
+
+        if not id_to_task and not path_to_task:
             return backlog
 
         # Build adjacency and in-degree
-        in_degree: Dict[str, int] = {tid: 0 for tid in id_to_task}
-        dependents: Dict[str, List[str]] = {tid: [] for tid in id_to_task}
+        # We use task ID as the primary key for the graph
+        all_ids = list(id_to_task.keys())
+        in_degree: Dict[str, int] = {tid: 0 for tid in all_ids}
+        dependents: Dict[str, List[str]] = {tid: [] for tid in all_ids}
 
         for task in backlog:
             tid = task.get("id")
-            if not tid:
-                continue
-            for dep in task.get("dependencies", []):
+            if not tid: continue
+            
+            # Combine dependencies from 'dependencies' list and 'logic_plan'
+            raw_deps = list(task.get("dependencies", []))
+            if "logic_plan" in task and "dependencies" in task["logic_plan"]:
+                raw_deps.extend(task["logic_plan"]["dependencies"])
+            
+            for dep in set(raw_deps):
+                dep_id = None
                 if dep in id_to_task:
-                    in_degree[tid] = in_degree.get(tid, 0) + 1
-                    dependents[dep].append(tid)
+                    dep_id = dep
+                elif str(dep) in path_to_task:
+                    dep_id = path_to_task[str(dep)].get("id")
+                
+                if dep_id and dep_id != tid:
+                    in_degree[tid] += 1
+                    dependents[dep_id].append(tid)
 
-        queue = [tid for tid, deg in in_degree.items() if deg == 0]
+        # Kahn's Algorithm
+        queue = [tid for tid in all_ids if in_degree[tid] == 0]
+        # Sort queue to maintain deterministic order for independent tasks
+        queue.sort() 
+        
         sorted_ids: List[str] = []
-
         while queue:
             current = queue.pop(0)
             sorted_ids.append(current)
@@ -872,15 +972,18 @@ class FileContentGenerationPhase(BasePhase):
                 in_degree[dependent] -= 1
                 if in_degree[dependent] == 0:
                     queue.append(dependent)
+                    queue.sort()
 
-        if len(sorted_ids) != len(id_to_task):
-            self.context.logger.warning("  ⚠ Cycle detected in backlog dependencies — keeping original order")
+        if len(sorted_ids) != len(all_ids):
+            self.context.logger.warning(f"  ⚠ Cycle detected or missing deps ({len(sorted_ids)}/{len(all_ids)}) — using fallback order")
+            # Fallback: maintain original order but log it
             return backlog
 
-        # Preserve tasks without IDs (append at end)
+        # Preserve tasks without IDs (shouldn't happen with new planner but safe)
         tasks_without_id = [t for t in backlog if "id" not in t]
         sorted_tasks = [id_to_task[tid] for tid in sorted_ids] + tasks_without_id
-        self.context.logger.info(f"  Backlog sorted by dependencies: {sorted_ids}")
+        
+        self.context.logger.info(f"  Backlog sorted by dependencies: {[t.get('id') for t in sorted_tasks[:10]]}...")
         return sorted_tasks
 
     def _is_binary_file(self, file_path: str) -> bool:

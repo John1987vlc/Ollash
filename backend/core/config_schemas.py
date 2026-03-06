@@ -19,6 +19,13 @@ class LLMModelDefinition(BaseModel):
 
 class LLMModelsConfig(BaseModel):
     ollama_url: HttpUrl = Field(default="http://localhost:11434", description="Base URL for the Ollama server.")
+    
+    # Tiered models
+    nano: Optional[str] = Field(None, description="Small model (0-8b).")
+    medium: Optional[str] = Field(None, description="Medium model (9-20b).")
+    large: Optional[str] = Field(None, description="Large model (21-70b).")
+    extra_large: Optional[str] = Field(None, description="Extra large model (>70b).")
+
     default_model: str = Field(
         default="mistral:latest",
         description="Default LLM model to use for general tasks.",

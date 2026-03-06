@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
 
@@ -70,10 +70,76 @@ class LogicPlanningPhase(BasePhase):
 
         # F31: If nano, we might prefer incremental or simplified planning to avoid hangs
         if is_nano:
-            self.context.logger.info("  [Nano] Using deterministic backlog and basic planning to prevent hangs.")
-            logic_plan, backlog = await self._create_deterministic_backlog(
-                file_paths, project_description, initial_structure
-            )
+            self.context.logger.info("  [Nano] Using specialized NanoPlanner for architecture mapping.")
+            system_prompt, user_prompt = await AutoGenPrompts.nano_planner(project_name, project_description)
+            
+            try:
+                response_data, _ = self.context.llm_manager.get_client("nano_planner").chat(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    options_override={"temperature": 0.1, "num_predict": 1024},
+                )
+                raw_content = response_data.get("content", "")
+                plan_map = self.context.response_parser.extract_json(raw_content)
+                
+                if isinstance(plan_map, dict):
+                    # F31: Nano MVP Sanity Check
+                    is_web = any(p.endswith(".html") for p in plan_map.keys())
+                    if is_web and "index.html" not in plan_map and "src/index.html" not in plan_map:
+                        self.context.logger.warning("  [Nano] index.html missing from MVP plan. Injecting automatically.")
+                        plan_map["index.html"] = {"exports": [], "deps": list(plan_map.keys())}
+                    
+                    # Limit file count to prevent over-engineering
+                    if len(plan_map) > 6:
+                        self.context.logger.warning(f"  [Nano] Plan too large ({len(plan_map)} files) for MVP. Pruning to 5 core files.")
+                        # Keep entry points and first few files
+                        top_keys = [k for k in plan_map.keys() if "index" in k or "main" in k or "app" in k]
+                        other_keys = [k for k in plan_map.keys() if k not in top_keys]
+                        pruned_keys = (top_keys + other_keys)[:5]
+                        plan_map = {k: plan_map[k] for k in pruned_keys}
+
+                    file_paths = list(plan_map.keys())
+                    self.context.logger.info(f"  [Nano] Planner suggested {len(file_paths)} files.")
+                    
+                    # Create logic plan from the map
+                    logic_plan = {}
+                    for path, meta in plan_map.items():
+                        if isinstance(meta, list): # Legacy format fallback
+                            exports = meta
+                            deps = []
+                        else:
+                            exports = meta.get("exports", [])
+                            deps = meta.get("deps", [])
+
+                        logic_plan[path] = {
+                            "purpose": f"Implement {Path(path).stem} for {project_name}",
+                            "exports": exports if isinstance(exports, list) else [],
+                            "main_logic": [f"Implement core logic for {path}"],
+                            "dependencies": deps if isinstance(deps, list) else [],
+                        }
+                    
+                    # Create backlog from logic_plan
+                    backlog = []
+                    for i, (path, plan) in enumerate(logic_plan.items()):
+                        backlog.append({
+                            "id": f"TASK-{i + 1:03d}",
+                            "title": f"Implement {path}",
+                            "description": plan["purpose"],
+                            "file_path": path,
+                            "task_type": "create_file",
+                            "dependencies": plan["dependencies"],
+                            "logic_plan": plan,
+                        })
+                else:
+                    raise ValueError("NanoPlanner did not return a valid mapping.")
+                    
+            except Exception as e:
+                self.context.logger.warning(f"  [Nano] Specialized planning failed: {e}. Falling back.")
+                logic_plan, backlog = await self._create_deterministic_backlog(
+                    file_paths, project_description, initial_structure
+                )
         else:
             system_prompt, user_prompt = await AutoGenPrompts.logic_planning(
                 project_description,
@@ -121,6 +187,16 @@ class LogicPlanningPhase(BasePhase):
                     # Convert back to dict for context storage
                     logic_plan = {k: v.model_dump() for k, v in validated_output.logic_plan.items()}
                     backlog = [t.model_dump() for t in validated_output.backlog]
+
+                    # --- New: Planner Supervisor Review ---
+                    self.context.logger.info("  [Supervisor] Calling planner_supervisor for architectural audit...")
+                    supervisor_plan, supervisor_backlog = await self._supervise_plan(
+                        project_description, initial_structure, logic_plan, backlog
+                    )
+                    if supervisor_plan and supervisor_backlog:
+                        logic_plan = supervisor_plan
+                        backlog = supervisor_backlog
+                        self.context.logger.info("  ✓ Plan updated and approved by supervisor.")
 
                     self.context.logger.info(f"  ✓ Logic planning and backlog validated on attempt {attempt}")
                     break
@@ -242,6 +318,48 @@ class LogicPlanningPhase(BasePhase):
             })
             
         return logic_plan, backlog
+
+    async def _supervise_plan(
+        self,
+        project_description: str,
+        initial_structure: Dict,
+        logic_plan: Dict[str, Any],
+        backlog: List[Dict[str, Any]],
+    ) -> Tuple[Optional[Dict], Optional[List]]:
+        """Calls a superior model to audit the proposed plan for coherence and MVP compliance."""
+        try:
+            supervisor_prompt = (
+                f"As a Senior Architect, audit the following implementation plan for MVP consistency and dependency accuracy.\n\n"
+                f"PROJECT: {project_description}\n"
+                f"STRUCTURE: {json.dumps(initial_structure, indent=1)}\n"
+                f"PROPOSED PLAN: {json.dumps(logic_plan, indent=1)}\n"
+                f"BACKLOG: {json.dumps(backlog, indent=1)}\n\n"
+                "TASKS:\n"
+                "1. Ensure the plan is a true MVP (max 5-7 core files).\n"
+                "2. Verify that 'deps' (dependencies) are correctly mapped (e.g. index.html depends on app.js).\n"
+                "3. Ensure the project entry point (index.html or main.py) exists.\n\n"
+                "If errors found, return the CORRECTED logic_plan and backlog in the same JSON format. "
+                "If it is already perfect, return ONLY the string 'APPROVED'."
+            )
+
+            client = self.context.llm_manager.get_client("planner_supervisor")
+            response_data, _ = client.chat(
+                messages=[{"role": "user", "content": supervisor_prompt}],
+                options_override={"temperature": 0.1, "num_predict": 4096},
+            )
+            raw = response_data.get("content", "")
+            
+            if "APPROVED" in raw:
+                return None, None
+                
+            corrected = self.context.response_parser.extract_json(raw)
+            if isinstance(corrected, dict) and "logic_plan" in corrected and "backlog" in corrected:
+                return corrected["logic_plan"], corrected["backlog"]
+                
+            return None, None
+        except Exception as e:
+            self.context.logger.warning(f"  [Supervisor] Audit failed: {e}")
+            return None, None
 
     def _detect_module_system(self, file_paths: List[str], project_root: Path) -> None:
         """Detect and store the JS module system (ESM or CJS) for this project.

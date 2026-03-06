@@ -348,7 +348,11 @@ class TestGenerationExecutionPhase(IAgentPhase):
                 self.context.logger.warning("⚠️ Tests did not pass, but continuing with project generation...")
         else:
             self.context.logger.error("❌ No test files to execute!")
-            raise RuntimeError("MVP Requirement Failed: No test files were generated")
+            # F31: For nano models, do not crash on missing tests
+            if bool(self.context._is_small_model()):
+                self.context.logger.warning("⚠️ Skipping MVP test requirement due to nano-tier model limitations.")
+            else:
+                raise RuntimeError("MVP Requirement Failed: No test files were generated")
 
         await self.context.event_publisher.publish(
             "phase_complete",

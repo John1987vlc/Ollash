@@ -29,8 +29,7 @@ class NanoTaskExpander:
 
         Args:
             task: A backlog dict with at minimum ``id``, ``file_path``,
-                  ``task_type == "implement_function"``, and optionally
-                  ``logic_plan`` with an ``exports`` key.
+                  and optionally ``logic_plan`` with an ``exports`` key.
             existing_content: Current content of the file being generated
                               (may be empty for brand-new files).
 
@@ -44,6 +43,10 @@ class NanoTaskExpander:
         if ext not in NanoTaskExpander._SUPPORTED_EXTS:
             return []
 
+        # Only expand code implementation tasks
+        if task.get("task_type") not in ("implement_function", "create_file"):
+            return []
+
         # Prefer content-derived stubs; fall back to plan exports
         stubs: List[Dict[str, str]] = []
         if existing_content.strip():
@@ -51,12 +54,26 @@ class NanoTaskExpander:
 
         if not stubs:
             # Derive stub names from logic plan exports list
-            exports: List[str] = task.get("logic_plan", {}).get("exports", [])
-            stubs = [
-                {"name": name, "signature": f"def {name}():", "docstring": ""}
-                for name in exports
-                if name and not name.startswith("_")
-            ]
+            logic_plan = task.get("logic_plan") or {}
+            exports = logic_plan.get("exports")
+            
+            # If no exports in plan, but it's a code file, we can't expand without stubs
+            if not exports or not isinstance(exports, list):
+                return []
+
+            stubs = []
+            for name in exports:
+                if not name or not isinstance(name, str) or name.startswith("_"): continue
+                
+                # Deterministic signature based on extension
+                if ext == ".py":
+                    sig = f"class {name}:" if name[0].isupper() else f"def {name}():"
+                elif ext in (".js", ".ts"):
+                    sig = f"export class {name}" if name[0].isupper() else f"export function {name}()"
+                else:
+                    sig = f"function {name}()"
+                
+                stubs.append({"name": name, "signature": sig, "docstring": ""})
 
         if not stubs:
             return []

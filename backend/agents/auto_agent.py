@@ -237,6 +237,8 @@ class AutoAgent(CoreAgent):
                     f"[AdaptivePipeline] nano tier — skipping {len(self.phases) - len(filtered)} "
                     f"heavy phases: {skipped_names}"
                 )
+                # F31: Enable active shadow repair by default for nano models
+                ctx.feature_flags["opt6_active_shadow"] = True
                 return filtered
 
             if ctx._is_mid_model():
@@ -256,6 +258,7 @@ class AutoAgent(CoreAgent):
 
     def run(self, project_description: str, project_name: str = "new_project", **kwargs) -> Path:
         """Orchestrates the full project creation pipeline through distinct phases."""
+        self.phase_context.project_description = project_description
         self.logger.info(f"[PROJECT_NAME:{project_name}] Standardizing input and starting pipeline.")
 
         # 1. Language Standardization

@@ -18,6 +18,7 @@ def mock_context():
     ctx.get_test_file_path.return_value = "tests/test_app.py"
     # Added to fix error in internals test
     ctx.error_knowledge_base = MagicMock()
+    ctx._is_small_model.return_value = False
     return ctx
 
 

@@ -101,10 +101,16 @@ class TestActiveShadowValidate:
     @pytest.mark.unit
     async def test_valid_code_returns_unchanged(self, shadow, mock_llm):
         code = "def f():\n    return 1\n"
+        # The new logic calls nano_reviewer for code that passes basic checks
+        mock_llm.get_client.return_value.chat.return_value = (
+            {"content": '{"has_errors": false, "errors": []}'},
+            {},
+        )
         result, repaired = await shadow.active_shadow_validate("f.py", code, "python", mock_llm, MagicMock())
         assert result == code
         assert repaired is False
-        mock_llm.get_client.assert_not_called()
+        # Should have called get_client('nano_reviewer')
+        mock_llm.get_client.assert_called_with("nano_reviewer")
 
     @pytest.mark.unit
     async def test_invalid_python_triggers_nano_reviewer(self, shadow, mock_llm):
