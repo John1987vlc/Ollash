@@ -218,18 +218,20 @@ class AutoAgent(CoreAgent):
             ctx = self.phase_context
 
             if ctx._is_small_model():
+                from backend.agents.auto_agent_phases.clarification_phase import ClarificationPhase
                 _NANO_SKIP = (
                     ExhaustiveReviewRepairPhase,
                     DynamicDocumentationPhase,
                     CICDHealingPhase,
                     LicenseCompliancePhase,
-                    # Sprint 10: expensive phases skipped on nano
                     PlanValidationPhase,
                     ApiContractPhase,
                     TestPlanningPhase,
                     ComponentTreePhase,
+                    ClarificationPhase,
                 )
                 filtered = [p for p in self.phases if not isinstance(p, _NANO_SKIP)]
+
                 skipped_names = [c.__name__ for c in _NANO_SKIP]
                 self.logger.info(
                     f"[AdaptivePipeline] nano tier — skipping {len(self.phases) - len(filtered)} "

@@ -61,6 +61,7 @@ class ConfirmationManager:
         req_id = str(uuid.uuid4())[:8]
 
         # 1. Prepare for response BEFORE publishing request to avoid race conditions
+        loop = asyncio.get_running_loop()
         event = asyncio.Event()
         if self.event_publisher:
             self._pending_responses[req_id] = event
@@ -69,29 +70,36 @@ class ConfirmationManager:
                 data = event_data  # The publisher passes event_type and event_data
                 if data.get("request_id") == req_id:
                     self._responses_data[req_id] = data
-                    event.set()
+                    loop.call_soon_threadsafe(event.set)
 
             self.event_publisher.subscribe("hil_response", on_hil_response)
 
         # 2. Notify via EventPublisher for Web UI/CLI
+        use_event_flow = False
         if self.event_publisher:
-            hil_data = {
-                "id": req_id,
-                "type": action,
-                "title": f"Confirm Action: {action}",
-                "details": details,
-                "timestamp": datetime.datetime.now().isoformat(),
-                "agent": "DefaultAgent",
-            }
-            await self.event_publisher.publish("hil_request", hil_data)
-            self.logger.info(f"HIL Request sent to UI/CLI: {req_id}")
+            # F33: Only use event flow if someone is actually listening (e.g. Web UI via ChatEventBridge)
+            if self.event_publisher.has_subscribers("hil_request"):
+                use_event_flow = True
+                hil_data = {
+                    "id": req_id,
+                    "action": action, # Renamed from 'type' to avoid collision in EventBridge
+                    "title": f"Confirm Action: {action}",
+                    "details": details,
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "agent": "DefaultAgent",
+                }
+                await self.event_publisher.publish("hil_request", hil_data)
+                self.logger.info(f"HIL Request sent to UI/CLI: {req_id}")
+            else:
+                self.logger.debug("No subscribers for 'hil_request'. Falling back to CLI.")
 
         # 3. Log to console (always, for visibility)
         self._log_confirmation_details(action, details)
 
         # 4. Wait for response
-        if self.event_publisher:
+        if use_event_flow:
             try:
+                self.logger.info(f"Waiting for HIL response for {req_id}...")
                 # Wait with timeout (e.g. 5 minutes)
                 await asyncio.wait_for(event.wait(), timeout=300)
                 response_data = self._responses_data.get(req_id, {})
@@ -112,8 +120,9 @@ class ConfirmationManager:
                 self._responses_data.pop(req_id, None)
                 self.event_publisher.unsubscribe("hil_response", on_hil_response)
         else:
-            # Fallback to blocking CLI input if no event publisher
-            return self._ask_blocking_input(action, details)
+            # Fallback to blocking CLI input
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, self._ask_blocking_input, action, details)
 
     def _ask_confirmation(self, action: str, details: Dict) -> bool:
         """Synchronous confirmation gate (CLI mode only)."""
@@ -176,13 +185,14 @@ class ConfirmationManager:
         req_id = str(uuid.uuid4())[:8]
 
         if self.event_publisher:
+            loop = asyncio.get_running_loop()
             event = asyncio.Event()
             answer_holder: Dict[str, str] = {"answer": ""}
 
             def _on_response(event_type: str, event_data: Dict) -> None:
                 if event_data.get("request_id") == req_id:
                     answer_holder["answer"] = str(event_data.get("answer", ""))
-                    event.set()
+                    loop.call_soon_threadsafe(event.set)
 
             self.event_publisher.subscribe("clarification_response", _on_response)
             try:

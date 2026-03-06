@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from backend.agents.default_agent import DefaultAgent
-from frontend.services.chat_event_bridge import ChatEventBridge
+from backend.services.chat_event_bridge import ChatEventBridge
 
 
 @dataclass
@@ -56,7 +56,13 @@ class ChatSessionManager:
                 )
             """)
 
-    def create_session(self, project_path: Optional[str] = None, agent_type: Optional[str] = None) -> str:
+    def create_session(
+        self,
+        project_path: Optional[str] = None,
+        agent_type: Optional[str] = None,
+        model: Optional[str] = None,
+        mode: Optional[str] = None,
+    ) -> str:
         """Create a new chat session with its own DefaultAgent instance."""
         with self._lock:
             self._cleanup_finished()
@@ -85,7 +91,15 @@ class ChatSessionManager:
                 auto_confirm=auto_confirm,
                 base_path=self.ollash_root_dir,
                 event_bridge=bridge,
+                event_publisher=self.event_publisher,
             )
+
+            # Support for dynamic model/mode if the agent supports it
+            if model and hasattr(agent, "model"):
+                agent.model = model
+            if mode and hasattr(agent, "mode"):
+                agent.mode = mode
+
             if agent_type and agent_type in agent._agent_tool_name_mappings:
                 agent.active_agent_type = agent_type
                 agent.active_tool_names = agent._agent_tool_name_mappings[agent_type]
@@ -145,6 +159,12 @@ class ChatSessionManager:
 
                 # Use the thread-local loop to run the async chat
                 result = loop.run_until_complete(session.agent.chat(message))
+                
+                import logging
+                logger = logging.getLogger("ollash")
+                logger.info(f"DEBUG: chat_session_manager result type: {type(result)}")
+                if isinstance(result, dict):
+                    logger.info(f"DEBUG: chat_session_manager result keys: {result.keys()}")
 
                 content = ""
                 metrics = {}
@@ -153,6 +173,8 @@ class ChatSessionManager:
                     metrics = result.get("metrics", {})
                 else:
                     content = str(result)
+                
+                logger.info(f"DEBUG: chat_session_manager final content length: {len(content)}")
 
                 # Persist assistant response
                 self.db.execute(

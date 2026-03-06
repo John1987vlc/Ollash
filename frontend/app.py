@@ -9,7 +9,7 @@ from frontend.core.config_manager import setup_app_config
 from frontend.core.service_manager import init_app_services
 from frontend.blueprints import register_blueprints
 from frontend.middleware import add_cors_headers
-from frontend.services.chat_event_bridge import ChatEventBridge
+from backend.services.chat_event_bridge import ChatEventBridge
 
 # Global instances for event handling
 event_publisher = EventPublisher()

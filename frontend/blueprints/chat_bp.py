@@ -5,7 +5,7 @@ import threading
 from flask import Blueprint, Response, jsonify, request, stream_with_context, render_template
 
 from frontend.middleware import rate_limit_chat, require_api_key
-from frontend.services.chat_session_manager import ChatSessionManager
+from backend.services.chat_session_manager import ChatSessionManager
 
 chat_bp = Blueprint("chat", __name__)
 

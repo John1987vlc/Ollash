@@ -1,84 +1,83 @@
 """
-Git router — migrated from frontend/blueprints/git_views.py.
+git_router - migrated from git_views.py.
+Handles git operations via API.
 """
 
-import asyncio
-import logging
 import os
 import subprocess
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
-from backend.api.deps import service_error_handler
-from frontend.schemas.git_schemas import GitCommitRequest
-
-router = APIRouter(prefix="/api/git", tags=["git"])
-logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/git", tags=["git"])
 
 
-def _run_git(args: List[str], cwd: Optional[str] = None) -> Dict[str, Any]:
-    """Run a git command and return stdout/stderr/code."""
+class GitCommitRequest(BaseModel):
+    files: List[str]
+    message: str
+
+
+def run_git(args: List[str], cwd: Optional[str] = None):
     try:
+        if cwd is None:
+            cwd = os.getcwd()
         result = subprocess.run(
-            ["git"] + args,
-            cwd=cwd or os.getcwd(),
-            capture_output=True,
-            text=True,
-            check=False,
+            ["git"] + args, cwd=cwd, capture_output=True, text=True, check=False
         )
         return {"stdout": result.stdout, "stderr": result.stderr, "code": result.returncode}
-    except Exception as exc:
-        return {"error": str(exc)}
+    except Exception as e:
+        return {"error": str(e)}
 
 
-@router.get("/status")
-@service_error_handler
+@router.get("/api/status")
 async def get_status():
-    """Return current git status (branch + changed files)."""
-    status, branch = await asyncio.gather(
-        asyncio.to_thread(_run_git, ["status", "--short"]),
-        asyncio.to_thread(_run_git, ["rev-parse", "--abbrev-ref", "HEAD"]),
-    )
+    status_res = run_git(["status", "--short"])
+    branch_res = run_git(["rev-parse", "--abbrev-ref", "HEAD"])
+
     files = []
-    if status.get("stdout"):
-        for line in status["stdout"].splitlines():
+    if "stdout" in status_res and status_res["stdout"]:
+        for line in status_res["stdout"].splitlines():
             if not line.strip():
                 continue
-            parts = line.strip().split(maxsplit=1)
-            if len(parts) == 2:
+            parts = line.strip().split()
+            if len(parts) >= 2:
                 files.append({"status": parts[0], "file": parts[1]})
+
     return {
-        "branch": branch.get("stdout", "").strip(),
+        "branch": status_res.get("stdout", "").strip() if "stdout" in status_res else "unknown",
         "files": files,
         "clean": len(files) == 0,
     }
 
 
-@router.get("/diff")
-@service_error_handler
-async def get_diff(file: str):
-    """Return the git diff for a single file."""
-    if not file:
-        raise HTTPException(status_code=400, detail="No file specified")
-    diff = await asyncio.to_thread(_run_git, ["diff", "HEAD", "--", file])
-    return {"diff": diff.get("stdout", "")}
+@router.get("/api/diff")
+async def get_diff(file: str = Query(...)):
+    diff = run_git(["diff", "HEAD", "--", file])
+    return {"diff": diff.get("stdout", "") if "stdout" in diff else ""}
 
 
-@router.post("/commit")
-@service_error_handler
-async def commit_changes(body: GitCommitRequest):
-    """Stage files and create a commit."""
-    await asyncio.to_thread(_run_git, ["add"] + body.files)
-    res = await asyncio.to_thread(_run_git, ["commit", "-m", body.message])
-    if res.get("code") == 0:
+@router.post("/api/commit")
+async def commit_changes(payload: GitCommitRequest):
+    # Stage
+    run_git(["add"] + payload.files)
+
+    # Commit
+    res = run_git(["commit", "-m", payload.message])
+
+    if "code" in res and res["code"] == 0:
         return {"status": "success", "output": res.get("stdout")}
-    raise HTTPException(status_code=500, detail=res.get("stderr", "Commit failed"))
+    
+    error_msg = res.get("stderr") or res.get("error") or "Unknown error"
+    raise HTTPException(status_code=500, detail=error_msg)
 
 
-@router.get("/log")
-@service_error_handler
+@router.get("/api/log")
 async def get_log():
-    """Return the last 5 commit log entries."""
-    log = await asyncio.to_thread(_run_git, ["log", "-n", "5", "--pretty=format:%h - %s (%cr) <%an>"])
-    return {"log": log.get("stdout", "").splitlines()}
+    log = run_git(["log", "-n", "5", "--pretty=format:%h - %s (%cr) <%an>"])
+    return {"log": log.get("stdout", "").splitlines() if "stdout" in log else []}
+
+
+@router.get("/")
+async def git_index():
+    return {"status": "ok", "router": "git"}

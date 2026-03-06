@@ -14,8 +14,8 @@ class StructureGenerator:
     """Phase 2+3: Generates JSON project structure from README and creates empty files."""
 
     DEFAULT_OPTIONS = {
-        "num_ctx": 8192,
-        "num_predict": 4096,
+        "num_ctx": 32768,  # Increased for efficiency on all models, especially nano
+        "num_predict": 8192,  # Increased to allow large folder trees without truncation
         "temperature": 0.1,
         "keep_alive": "5m",
     }
@@ -70,9 +70,15 @@ class StructureGenerator:
             readme_content, template_name, python_version, license_type, include_docker
         )
 
+        # F31: For nano models (0.8b etc), restrict depth to 1 to avoid hangs
+        actual_max_depth = self.max_depth
+        if "0.8b" in self.llm_client.model or "1.5b" in self.llm_client.model:
+            actual_max_depth = 1
+            self.logger.info_sync("  Nano model detected: Restricting structure depth to 1 to prevent hangs.")
+
         # Phase 2: Recursively generate sub-structures only for key folders with DEPTH LIMIT
         final_structure = await self._recursively_generate_sub_structure(
-            base_structure, readme_content, max_retries, template_name=template_name, current_depth=1
+            base_structure, readme_content, max_retries, template_name=template_name, current_depth=1, max_depth_override=actual_max_depth
         )
 
         file_count = len(self.extract_file_paths(final_structure))
@@ -94,7 +100,7 @@ class StructureGenerator:
                     tools=[],
                     options_override=self.options,
                 )
-                raw = response_data["message"]["content"]
+                raw = response_data.get("content", "")
                 structure = self.parser.extract_json(raw)
                 if structure is None:
                     raise ValueError("Could not extract valid JSON from high-level response")
@@ -131,11 +137,13 @@ class StructureGenerator:
         parent_path: str = "",
         template_name: str = "default",
         current_depth: int = 1,
+        max_depth_override: int = None,
     ) -> dict:
         """Recursively generates detailed structure for folders with depth limit."""
+        target_max_depth = max_depth_override if max_depth_override is not None else self.max_depth
 
-        if current_depth > self.max_depth:
-            self.logger.info_sync(f"    Max depth ({self.max_depth}) reached at {parent_path}. Stopping.")
+        if current_depth > target_max_depth:
+            self.logger.info_sync(f"    Max depth ({target_max_depth}) reached at {parent_path}. Stopping.")
             return current_structure
 
         detailed_structure = json.loads(json.dumps(current_structure))
@@ -164,10 +172,46 @@ class StructureGenerator:
                 )
 
                 if sub_structure_content:
-                    folder_data["folders"] = sub_structure_content.get("folders", [])
-                    folder_data["files"] = sub_structure_content.get("files", [])
+                    # F31: Robust path normalization to prevent duplication (e.g., src/src/main.js)
+                    # We ensure sub-files and sub-folders don't carry the parent's path prefix
+                    raw_sub_files = sub_structure_content.get("files", [])
+                    raw_sub_folders = sub_structure_content.get("folders", [])
+                    
+                    normalized_sub_files = []
+                    for f in raw_sub_files:
+                        f_name = f.get("name") if isinstance(f, dict) else str(f)
+                        # If LLM returned "src/main.js" inside "src" folder, just keep "main.js"
+                        if "/" in f_name:
+                            f_name = f_name.split("/")[-1]
+                        elif "\\" in f_name:
+                            f_name = f_name.split("\\")[-1]
+                        
+                        if isinstance(f, dict):
+                            f["name"] = f_name
+                            normalized_sub_files.append(f)
+                        else:
+                            normalized_sub_files.append(f_name)
+
+                    normalized_sub_folders = []
+                    for sub_f in raw_sub_folders:
+                        sub_f_name = sub_f.get("name") if isinstance(sub_f, dict) else str(sub_f)
+                        if "/" in sub_f_name:
+                            sub_f_name = sub_f_name.split("/")[-1]
+                        elif "\\" in sub_f_name:
+                            sub_f_name = sub_f_name.split("\\")[-1]
+                        
+                        if isinstance(sub_f, dict):
+                            sub_f["name"] = sub_f_name
+                            normalized_sub_folders.append(sub_f)
+                        else:
+                            normalized_sub_folders.append({"name": sub_f_name, "folders": [], "files": []})
+
+                    folder_data["folders"] = normalized_sub_folders
+                    folder_data["files"] = normalized_sub_files
+                    
                     detailed_structure["folders"][i] = await self._recursively_generate_sub_structure(
-                        folder_data, context_text, max_retries, full_folder_path, template_name, current_depth + 1
+                        folder_data, context_text, max_retries, full_folder_path, template_name, current_depth + 1,
+                        max_depth_override=target_max_depth
                     )
 
         return detailed_structure
@@ -202,7 +246,7 @@ class StructureGenerator:
                     tools=[],
                     options_override=self.options,
                 )
-                raw = response_data["message"]["content"]
+                raw = response_data.get("content", "")
                 sub_structure = self.parser.extract_json(raw)
                 if sub_structure is None:
                     raise ValueError("Could not extract valid JSON from sub-structure response")

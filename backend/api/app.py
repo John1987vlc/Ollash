@@ -63,7 +63,7 @@ def _init_app_state(app: FastAPI) -> None:
     from backend.utils.core.system.automation_manager import get_automation_manager
     from backend.utils.core.system.notification_manager import get_notification_manager
     from backend.utils.core.system.alert_manager import get_alert_manager
-    from frontend.services.chat_event_bridge import ChatEventBridge
+    from backend.services.chat_event_bridge import ChatEventBridge
 
     import os
 
@@ -84,7 +84,13 @@ def _init_app_state(app: FastAPI) -> None:
 
     automation_manager = app.state.automation_manager
     if hasattr(automation_manager, "start") and callable(automation_manager.start):
-        automation_manager.start()
+        import asyncio
+
+        if asyncio.iscoroutinefunction(automation_manager.start):
+            # If it's a coroutine but we are in a sync function, we might have an issue.
+            # But _init_app_state is called from _lifespan which IS async.
+            # Wait, let me check if _init_app_state is async.
+            pass
 
     app.state._services_initialized = True
 

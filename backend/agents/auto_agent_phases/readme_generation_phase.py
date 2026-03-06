@@ -89,12 +89,16 @@ class ReadmeGenerationPhase(IAgentPhase):
             self.context.logger.warning(f"Failed to index README for RAG: {e}")
 
         # F5: Append Mermaid architecture diagrams to README
-        try:
-            readme = await self._append_mermaid_diagrams(readme, project_description, project_name, initial_structure)
-            generated_files[readme_file_path] = readme
-            self.context.file_manager.write_file(full_readme_path, readme)
-        except Exception as e:
-            self.context.logger.warning(f"[Mermaid] Diagram generation failed (non-fatal): {e}")
+        # F31: Completely skip diagrams for nano models to avoid hangs
+        if not self.context._is_small_model():
+            try:
+                readme = await self._append_mermaid_diagrams(readme, project_description, project_name, initial_structure)
+                generated_files[readme_file_path] = readme
+                self.context.file_manager.write_file(full_readme_path, readme)
+            except Exception as e:
+                self.context.logger.warning(f"[Mermaid] Diagram generation failed (non-fatal): {e}")
+        else:
+            self.context.logger.info("[Mermaid] Skipping diagram generation for nano model tier.")
 
         await self.context.event_publisher.publish("phase_complete", phase="1", message="README generated")
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1 complete.")

@@ -5,7 +5,7 @@ from backend.services.llm_client_manager import LLMClientManager
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
 
-async def test_token_tracker_propagation():
+def test_token_tracker_propagation():
     # 1. Setup
     tracker = TokenTracker()
     logger = MagicMock()
@@ -40,7 +40,7 @@ async def test_token_tracker_propagation():
     assert manager.token_tracker == tracker
 
     # Get a client and verify it has the tracker
-    coder_client = await manager.get_client("coder")
+    coder_client = manager.get_client("coder")
     assert coder_client.token_tracker == tracker
 
 

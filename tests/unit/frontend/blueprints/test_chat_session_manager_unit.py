@@ -1,4 +1,4 @@
-"""Unit tests for src/web/services/chat_session_manager.py."""
+"""Unit tests for backend/services/chat_session_manager.py."""
 
 import json
 from pathlib import Path
@@ -45,9 +45,9 @@ class TestChatSessionManager:
             fname = "default_agent.json" if domain == "code" else f"default_{domain}_agent.json"
             (d / fname).write_text(json.dumps({"system_prompt": "test", "tools": []}))
 
-        with patch("frontend.services.chat_session_manager.DefaultAgent"):
+        with patch("backend.services.chat_session_manager.DefaultAgent"):
             from backend.utils.core.system.event_publisher import EventPublisher
-            from frontend.services.chat_session_manager import ChatSessionManager
+            from backend.services.chat_session_manager import ChatSessionManager
 
             publisher = EventPublisher()
             mgr = ChatSessionManager(tmp_path, event_publisher=publisher)
@@ -56,9 +56,9 @@ class TestChatSessionManager:
             assert mgr.get_session(session_id) is not None
 
     def test_max_sessions_limit(self):
-        with patch("frontend.services.chat_session_manager.DefaultAgent"):
+        with patch("backend.services.chat_session_manager.DefaultAgent"):
             from backend.utils.core.system.event_publisher import EventPublisher
-            from frontend.services.chat_session_manager import ChatSessionManager
+            from backend.services.chat_session_manager import ChatSessionManager
 
             publisher = EventPublisher()
             mgr = ChatSessionManager(Path("."), event_publisher=publisher)
@@ -68,7 +68,7 @@ class TestChatSessionManager:
                 mgr.create_session()
 
     def test_agent_type_sets_active_type(self):
-        with patch("frontend.services.chat_session_manager.DefaultAgent") as MockAgent:
+        with patch("backend.services.chat_session_manager.DefaultAgent") as MockAgent:
             mock_instance = MockAgent.return_value
             mock_instance._agent_tool_name_mappings = {
                 "code": ["read_file", "write_file"],
@@ -78,7 +78,7 @@ class TestChatSessionManager:
             mock_instance.active_tool_names = ["plan_actions"]
 
             from backend.utils.core.system.event_publisher import EventPublisher
-            from frontend.services.chat_session_manager import ChatSessionManager
+            from backend.services.chat_session_manager import ChatSessionManager
 
             publisher = EventPublisher()
             mgr = ChatSessionManager(Path("."), event_publisher=publisher)

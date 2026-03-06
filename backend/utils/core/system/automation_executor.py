@@ -14,7 +14,7 @@ from backend.utils.core.system.event_publisher import EventPublisher
 from backend.utils.core.system.metrics_database import get_metrics_database
 from backend.utils.core.system.notification_manager import get_notification_manager
 from backend.utils.core.system.trigger_manager import get_trigger_manager
-from frontend.services.chat_event_bridge import ChatEventBridge
+from backend.services.chat_event_bridge import ChatEventBridge
 
 logger = logging.getLogger(__name__)
 

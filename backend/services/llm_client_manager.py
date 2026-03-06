@@ -2,7 +2,7 @@
 Manages the lifecycle of OllamaClient instances based on configured agent roles.
 """
 
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 
 from backend.core.config_schemas import LLMModelsConfig, ToolSettingsConfig
 from backend.interfaces.imodel_provider import IModelProvider
@@ -10,6 +10,7 @@ from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.llm.llm_recorder import LLMRecorder
 from backend.utils.core.llm.ollama_client import OllamaClient
 from backend.utils.core.llm.token_tracker import TokenTracker
+from backend.utils.core.system.execution_bridge import bridge
 
 
 class LLMClientManager(IModelProvider):
@@ -35,25 +36,25 @@ class LLMClientManager(IModelProvider):
         # Use sync info to avoid async publish in constructor
         self.logger.info_sync("LLMClientManager initialized.")
 
-    async def _log_role_assignments(self):
-        self.logger.info("Agent Role to Model Assignments:")
+    def _log_role_assignments(self):
+        self.logger.info_sync("Agent Role to Model Assignments:")
         if not self.config.agent_roles:
-            self.logger.warning("No agent roles are defined in the configuration.")
+            self.logger.warning_sync("No agent roles are defined in the configuration.")
             return
         for role, model in self.config.agent_roles.items():
-            self.logger.info(f"  - Role: '{role}' -> Model: '{model}'")
+            self.logger.info_sync(f"  - Role: '{role}' -> Model: '{model}'")
 
-    async def get_client(self, role: str) -> OllamaClient:
+    def get_client(self, role: str) -> OllamaClient:
         """
         Retrieves an OllamaClient for a given agent role.
-        It resolves the role to a model name using the configuration and
-        manages a cache of client instances, one per model.
+        Resolved to a model name using the configuration.
+        Cached client instances, one per model.
         """
         model_name = self.config.agent_roles.get(role)
 
         if not model_name:
             if role != "default":
-                self.logger.warning(
+                self.logger.warning_sync(
                     f"Role '{role}' not found in agent_roles config. "
                     f"Falling back to default model '{self.config.default_model}'."
                 )
@@ -64,7 +65,7 @@ class LLMClientManager(IModelProvider):
             return self.clients_by_model[model_name]
 
         # Otherwise, create a new client for this model and cache it.
-        self.logger.info(f"Creating new OllamaClient for model '{model_name}' (for role '{role}').")
+        self.logger.info_sync(f"Creating new OllamaClient for model '{model_name}' (for role '{role}').")
 
         new_client = OllamaClient(
             url=str(self.config.ollama_url),
@@ -79,7 +80,7 @@ class LLMClientManager(IModelProvider):
         self.clients_by_model[model_name] = new_client
         return new_client
 
-    async def get_embedding_client(self) -> "OllamaClient":
+    def get_embedding_client(self) -> "OllamaClient":
         """
         Retrieves a dedicated client for embedding tasks.
         """
@@ -87,10 +88,9 @@ class LLMClientManager(IModelProvider):
         if not embedding_model:
             raise ValueError("No embedding model is configured in 'LLMModelsConfig'.")
 
-        # Use "embedding" as a special role to get a dedicated client
-        return await self.get_client("embedding")
+        return self.get_client("embedding")
 
-    async def get_vision_client(self) -> "OllamaClient":
+    def get_vision_client(self) -> "OllamaClient":
         """
         Retrieves a dedicated client for vision/multimodal tasks.
         Uses the configured vision_model or falls back to 'llava'.
@@ -100,7 +100,7 @@ class LLMClientManager(IModelProvider):
         if vision_model in self.clients_by_model:
             return self.clients_by_model[vision_model]
 
-        self.logger.info(f"Creating vision client for model '{vision_model}'.")
+        self.logger.info_sync(f"Creating vision client for model '{vision_model}'.")
         new_client = OllamaClient(
             url=str(self.config.ollama_url),
             model=vision_model,
@@ -132,8 +132,15 @@ class LLMClientManager(IModelProvider):
         for client in self.clients_by_model.values():
             client.unload_model()
 
-    async def close_all_sessions(self):
+    async def close_all_sessions_async(self):
         """Asynchronously closes all active HTTP sessions for all clients."""
-        for model, client in self.clients_by_model.items():
+        for model, client in list(self.clients_by_model.items()):
             await client.close()
+        self.clients_by_model.clear()
+
+    def close_all_sessions(self):
+        """Closes all active HTTP sessions for all clients."""
+        for model, client in list(self.clients_by_model.items()):
+            # Use bridge to run the async close in sync context
+            bridge.run(client.close())
         self.clients_by_model.clear()

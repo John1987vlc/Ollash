@@ -35,8 +35,8 @@
     </script>
 
     <!-- Global Libraries -->
-    <!-- defer: safe to defer — initialised after DOMContentLoaded by page modules -->
-    <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js loaded synchronously because it's used by some page scripts immediately -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <!-- Cytoscape and vis-network: loaded synchronously (global API used at parse time by some pages) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>

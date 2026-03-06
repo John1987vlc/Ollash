@@ -1,10 +1,10 @@
-"""Unit tests for src/web/services/chat_event_bridge.py."""
+"""Unit tests for backend/services/chat_event_bridge.py."""
 
 
 class TestChatEventBridge:
     def test_push_and_iter(self):
         from backend.utils.core.system.event_publisher import EventPublisher
-        from frontend.services.chat_event_bridge import ChatEventBridge
+        from backend.services.chat_event_bridge import ChatEventBridge
 
         publisher = EventPublisher()
         bridge = ChatEventBridge(publisher)
@@ -18,7 +18,7 @@ class TestChatEventBridge:
 
     def test_close_sends_stream_end(self):
         from backend.utils.core.system.event_publisher import EventPublisher
-        from frontend.services.chat_event_bridge import ChatEventBridge
+        from backend.services.chat_event_bridge import ChatEventBridge
 
         publisher = EventPublisher()
         bridge = ChatEventBridge(publisher)

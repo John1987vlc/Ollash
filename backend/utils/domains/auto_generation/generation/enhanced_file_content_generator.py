@@ -1,6 +1,7 @@
 """Enhanced File Content Generator that uses logic plans for better implementation."""
 
 import re
+import json
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -20,6 +21,13 @@ class EnhancedFileContentGenerator:
     5. Optionally queries DocumentationManager (RAG) for relevant examples
     """
 
+    DEFAULT_OPTIONS = {
+        "num_ctx": 32768,  # Increased for efficiency on all models, especially nano
+        "num_predict": 8192,  # Increased to allow full file implementations without truncation
+        "temperature": 0.2,
+        "keep_alive": "5m",
+    }
+
     def __init__(
         self,
         llm_client: OllamaClient,
@@ -27,6 +35,7 @@ class EnhancedFileContentGenerator:
         response_parser: LLMResponseParser = None,
         documentation_manager=None,
         code_patcher=None,
+        options: dict = None,
     ):
         self.llm_client = llm_client
         self.logger = logger
@@ -34,6 +43,8 @@ class EnhancedFileContentGenerator:
         self.documentation_manager = documentation_manager
         self.max_retries = 3
         self.retry_policy = RetryPolicy(max_attempts=self.max_retries)
+        self.options = options or self.DEFAULT_OPTIONS.copy()
+        
         # Lazy import to avoid circular dependency; CodePatcher lives in the same package
         if code_patcher is not None:
             self._code_patcher = code_patcher
@@ -183,7 +194,7 @@ class EnhancedFileContentGenerator:
             result, _ = await self.llm_client.stream_chat(
                 messages=messages,
                 chunk_callback=chunk_callback,
-                options_override={"temperature": 0.2},
+                options_override=self.options,
             )
             content = result.get("content", "")
             return self.response_parser.extract_code_block(content) or content
@@ -298,7 +309,7 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
                     {"role": "user", "content": user},
                 ],
                 tools=[],
-                options_override={"temperature": 0.2},
+                options_override=self.options,
             )
 
             content = response_data["message"]["content"]

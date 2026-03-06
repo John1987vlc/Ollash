@@ -305,7 +305,7 @@ const ChatModule = (function() {
             }
             else if (type === 'hil_request') {
                 const reqId = data.id;
-                const action = data.type;
+                const action = data.action || data.type; // Support renamed 'action' field or legacy 'type'
                 const details = data.details || {};
                 
                 // Show confirmation bubble in chat
@@ -345,7 +345,12 @@ const ChatModule = (function() {
                     agentBubble = appendMessage('assistant', finalContent);
                 } else if (data.content) {
                     if (window.formatAnswer) {
-                        agentBubble.innerHTML = window.formatAnswer(data.content);
+                        const formatted = window.formatAnswer(data.content);
+                        if (!formatted && data.content) {
+                            agentBubble.textContent = data.content;
+                        } else {
+                            agentBubble.innerHTML = formatted;
+                        }
                     } else {
                         agentBubble.textContent = data.content;
                     }
@@ -410,7 +415,9 @@ const ChatModule = (function() {
         if (metrics && bubble) {
             const mDiv = document.createElement('div');
             mDiv.className = 'message-metrics';
-            mDiv.innerHTML = `<span>⏱ ${metrics.duration.toFixed(2)}s</span> <span>🪙 ${metrics.tokens || 0} tokens</span>`;
+            const duration = metrics.duration || metrics.duration_sec || 0;
+            const tokens = metrics.tokens || metrics.total_tokens || 0;
+            mDiv.innerHTML = `<span>⏱ ${duration.toFixed(2)}s</span> <span>🪙 ${tokens} tokens</span>`;
             bubble.appendChild(mDiv);
         }
         scrollToBottom();
@@ -421,11 +428,19 @@ const ChatModule = (function() {
         msgDiv.className = `chat-message ${role}-message`;
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble';
+        
         if (role === 'assistant' && window.formatAnswer) {
-            bubble.innerHTML = window.formatAnswer(content);
+            const formatted = window.formatAnswer(content);
+            // Safety: If formatter returns empty but content exists, fallback to text
+            if (!formatted && content) {
+                bubble.textContent = content;
+            } else {
+                bubble.innerHTML = formatted;
+            }
         } else {
             bubble.textContent = content;
         }
+        
         msgDiv.appendChild(bubble);
         state.chatMessages.appendChild(msgDiv);
         scrollToBottom();

@@ -13,8 +13,8 @@ class FileRefiner:
     """Phase 5: Refines and improves generated files."""
 
     DEFAULT_OPTIONS = {
-        "num_ctx": 16384,
-        "num_predict": 4096,
+        "num_ctx": 32768,  # Increased for efficiency on all models, especially nano
+        "num_predict": 8192,  # Increased to allow full file implementations without truncation
         "temperature": 0.2,
         "keep_alive": "0s",
     }

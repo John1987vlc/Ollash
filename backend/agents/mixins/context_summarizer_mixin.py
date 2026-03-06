@@ -19,11 +19,11 @@ class ContextSummarizerMixin(ABC):
         current_tokens = getattr(self.token_tracker, "last_prompt_tokens", 0)
 
         # Standard configuration
-        max_tokens = 16000
+        max_tokens = 8192
         summarize_threshold = 0.85
 
         if hasattr(self, "tool_settings_config"):
-            max_tokens = getattr(self.tool_settings_config, "max_context_tokens", 16000)
+            max_tokens = getattr(self.tool_settings_config, "max_context_tokens", 8192)
             summarize_threshold = getattr(self.tool_settings_config, "summarize_threshold_ratio", 0.85)
 
         # If the last response was already too big, summarize now before the next one

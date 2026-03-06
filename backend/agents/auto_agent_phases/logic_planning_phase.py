@@ -45,12 +45,16 @@ class LogicPlanningPhase(BasePhase):
         logic_plan = {}
         backlog = []
 
-        # Select key files for planning
+        # F31: For nano models, be extremely aggressive with limits
+        is_nano = self.context._is_small_model()
+        
+        # Select key files for planning - limit more for nano
         planning_files = [f for f in file_paths if "src/" in f or "app/" in f or "main" in f.lower()]
-        if not planning_files:
-            planning_files = file_paths[:10]
+        if is_nano:
+            planning_files = planning_files[:5] if planning_files else file_paths[:5]
+            self.context.logger.info(f"  [Nano] Limiting planning to {len(planning_files)} core files.")
         else:
-            planning_files = planning_files[:15]
+            planning_files = planning_files[:15] if planning_files else file_paths[:10]
 
         # Fix 1: Detect module system early so we can inject the hint into the LLM prompt
         self._detect_module_system(file_paths, project_root)
@@ -64,67 +68,74 @@ class LogicPlanningPhase(BasePhase):
         else:
             _module_system_hint = ""
 
-        system_prompt, user_prompt = await AutoGenPrompts.logic_planning(
-            project_description,
-            json.dumps(initial_structure, indent=2),
-            planning_files,
-            module_system_hint=_module_system_hint,
-        )
+        # F31: If nano, we might prefer incremental or simplified planning to avoid hangs
+        if is_nano:
+            self.context.logger.info("  [Nano] Using simplified planning and incremental backlog to prevent hangs.")
+            logic_plan, backlog = await self._legacy_planning_fallback(
+                file_paths, project_description, readme_content, initial_structure
+            )
+        else:
+            system_prompt, user_prompt = await AutoGenPrompts.logic_planning(
+                project_description,
+                json.dumps(initial_structure, indent=2),
+                planning_files,
+                module_system_hint=_module_system_hint,
+            )
 
-        max_retries = 3
-        last_error = ""
+            max_retries = 3
+            last_error = ""
 
-        for attempt in range(1, max_retries + 1):
-            try:
-                current_user_prompt = user_prompt
-                if last_error:
-                    current_user_prompt += f"\n\nCRITICAL: Previous output failed validation:\n{last_error}\n\nPlease fix the JSON structure and ensure all required fields are present."
+            for attempt in range(1, max_retries + 1):
+                try:
+                    current_user_prompt = user_prompt
+                    if last_error:
+                        current_user_prompt += f"\n\nCRITICAL: Previous output failed validation:\n{last_error}\n\nPlease fix the JSON structure and ensure all required fields are present."
 
-                response_data, _ = self.context.llm_manager.get_client("planner").chat(
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": current_user_prompt},
-                    ],
-                    options_override={"temperature": 0.2},
-                )
-
-                raw_content = response_data.get("content", "")
-                parsed_json = self.context.response_parser.extract_json(raw_content)
-
-                if parsed_json is None:
-                    raise ValueError("Could not extract valid JSON from planner response.")
-
-                # Fix: If the LLM returned a list directly (common error), it's likely the backlog
-                if isinstance(parsed_json, list):
-                    self.context.logger.info("  ⚠ Planner returned a list instead of a dict. Interpreting as backlog.")
-                    backlog = parsed_json
-                    # Generate basic plans for the files in the backlog
-                    logic_plan = self._create_basic_plans(
-                        [t.get("file_path") for t in backlog if t.get("file_path")], "general", project_description
+                    response_data, _ = self.context.llm_manager.get_client("planner").chat(
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": current_user_prompt},
+                        ],
+                        options_override={"temperature": 0.2},
                     )
+
+                    raw_content = response_data.get("content", "")
+                    parsed_json = self.context.response_parser.extract_json(raw_content)
+
+                    if parsed_json is None:
+                        raise ValueError("Could not extract valid JSON from planner response.")
+
+                    # Fix: If the LLM returned a list directly (common error), it's likely the backlog
+                    if isinstance(parsed_json, list):
+                        self.context.logger.info("  ⚠ Planner returned a list instead of a dict. Interpreting as backlog.")
+                        backlog = parsed_json
+                        # Generate basic plans for the files in the backlog
+                        logic_plan = self._create_basic_plans(
+                            [t.get("file_path") for t in backlog if t.get("file_path")], "general", project_description
+                        )
+                        break
+
+                    # Pydantic Validation (The "Hardening")
+                    validated_output = LogicPlanningOutput.model_validate(parsed_json)
+
+                    # Convert back to dict for context storage
+                    logic_plan = {k: v.model_dump() for k, v in validated_output.logic_plan.items()}
+                    backlog = [t.model_dump() for t in validated_output.backlog]
+
+                    self.context.logger.info(f"  ✓ Logic planning and backlog validated on attempt {attempt}")
                     break
 
-                # Pydantic Validation (The "Hardening")
-                validated_output = LogicPlanningOutput.model_validate(parsed_json)
-
-                # Convert back to dict for context storage
-                logic_plan = {k: v.model_dump() for k, v in validated_output.logic_plan.items()}
-                backlog = [t.model_dump() for t in validated_output.backlog]
-
-                self.context.logger.info(f"  ✓ Logic planning and backlog validated on attempt {attempt}")
-                break
-
-            except (ValidationError, ValueError, Exception) as e:
-                last_error = str(e)
-                self.context.logger.warning(f"  ⚠ Logic planning attempt {attempt} failed validation: {last_error}")
-                if attempt == max_retries:
-                    self.context.logger.error(
-                        "  ✖ Logic planning failed after max retries. Using legacy categorization fallback."
-                    )
-                    # Legacy fallback logic
-                    logic_plan, backlog = await self._legacy_planning_fallback(
-                        file_paths, project_description, readme_content, initial_structure
-                    )
+                except (ValidationError, ValueError, Exception) as e:
+                    last_error = str(e)
+                    self.context.logger.warning(f"  ⚠ Logic planning attempt {attempt} failed validation: {last_error}")
+                    if attempt == max_retries:
+                        self.context.logger.error(
+                            "  ✖ Logic planning failed after max retries. Using legacy categorization fallback."
+                        )
+                        # Legacy fallback logic
+                        logic_plan, backlog = await self._legacy_planning_fallback(
+                            file_paths, project_description, readme_content, initial_structure
+                        )
 
         # Save plans to disk
         plan_file = project_root / "IMPLEMENTATION_PLAN.json"
@@ -231,11 +242,19 @@ class LogicPlanningPhase(BasePhase):
     async def _legacy_planning_fallback(self, file_paths, project_description, readme_content, initial_structure):
         """Original categorized planning logic as a safe fallback."""
         logic_plan = {}
+        
+        # F31: For nano tier, we skip LLM planning entirely to avoid hangs and repetitions
+        if self.context._is_small_model():
+            self.context.logger.info("  [Nano] Using direct file-to-task mapping for reliability.")
+            logic_plan = self._create_basic_plans(file_paths, "all", project_description)
+            backlog = self._create_fallback_backlog(initial_structure)
+            return logic_plan, backlog
+
         files_by_category = self._categorize_files(file_paths)
         already_planned_contracts = {}
 
         for category, files in files_by_category.items():
-            _max_files = 5 if self.context._is_small_model() else 15
+            _max_files = 15
             files_to_plan = files[:_max_files]
             category_plan = await self._plan_category(
                 category,
@@ -271,7 +290,7 @@ class LogicPlanningPhase(BasePhase):
         backlog: List[Dict] = []
         structure_str = json.dumps(initial_structure, indent=2)
 
-        self.context.logger.info("  [Opt4] Using incremental backlog generation...")
+        self.context.logger.info(f"  [Opt4] Generating backlog incrementally (limit: {max_tasks})...")
 
         while len(backlog) < max_tasks:
             system_prompt, user_prompt = await AutoGenPrompts.next_backlog_task(

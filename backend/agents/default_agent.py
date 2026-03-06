@@ -36,6 +36,7 @@ from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 from backend.utils.core.llm.prompt_loader import PromptLoader
 from backend.utils.core.system.loop_detector import LoopDetector
 from backend.utils.core.memory.memory_manager import MemoryManager
+from backend.utils.core.system.event_publisher import EventPublisher
 from backend.utils.core.system.permission_profiles import PolicyEnforcer  # Used for confirmation gates policies
 
 # Tool implementations (still needed for ToolRegistry)
@@ -73,6 +74,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
         policy_enforcer: Optional[PolicyEnforcer] = None,  # Inject PolicyEnforcer
         llm_recorder: Optional[LLMRecorder] = None,  # NEW
         tool_span_manager: Optional[ToolSpanManager] = None,  # NEW
+        event_publisher: Optional[EventPublisher] = None,  # NEW
     ):
         # Initialize AgentKernel if not provided (should ideally be provided)
         # The kernel now loads configuration from environment variables.
@@ -90,6 +92,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
             logger_name="DefaultAgent",
             llm_manager=llm_manager,
             llm_recorder=self.llm_recorder,
+            event_publisher=event_publisher,
         )
 
         # Language standardization
@@ -592,11 +595,18 @@ RULES:
                 )
                 if self._event_bridge:
                     self._event_bridge.push_event("iteration", {"current": iterations, "max": self.max_iterations})
+                
+                if self.event_publisher:
+                    await self.event_publisher.publish("thinking", {"message": f"Starting iteration {iterations}..."})
 
                 # F33: JIT Tool Selection - Only re-select if agent type changed or first iteration
                 if self.active_agent_type != last_jit_agent_type:
+                    if self.event_publisher:
+                        await self.event_publisher.publish("thinking", {"message": f"Selecting relevant tools for {self.active_agent_type}..."})
+                    self.logger.debug(f"DEBUG - Entering JIT Tool Selection for agent type: {self.active_agent_type}")
                     current_turn_tools = await self._select_dynamic_tools(english_instruction)
                     last_jit_agent_type = self.active_agent_type
+                    self.logger.debug(f"DEBUG - JIT Tool Selection completed. Tools: {current_turn_tools}")
 
                 # F31: Strictly limit session window to last 10 messages for extreme focus
                 session_history = self.conversation[-10:]
@@ -650,6 +660,9 @@ RULES:
                 # --- Context Summarizer Mixin Usage ---
                 iteration_messages = await self._manage_context_window(iteration_messages)  # Use mixin method
 
+                # F31: Get schema-valid tools for this turn ONLY
+                turn_tool_definitions = self.tool_executor.get_tool_definitions(current_turn_tools)
+
                 # F32: Inject Plan Route Guidance (only to the runtime messages, not the persistent conversation)
                 runtime_messages = iteration_messages.copy()
                 if self._active_plan:
@@ -683,61 +696,37 @@ RULES:
 
                 try:
                     self.logger.debug(f"Total prompt messages sent to LLM: {len(runtime_messages)}")
-                    # F33: Use streaming to show CoT in real-time
-                    self.logger.info(f"📡 Calling {selected_model_client.model}...")
+                    # F33: Use synchronous chat to avoid streaming hangs in some environments
+                    self.logger.info(f"📡 Calling {selected_model_client.model} (Synchronous)...")
+                    
+                    if self.event_publisher:
+                        await self.event_publisher.publish("thinking", {"message": f"Agent is processing with {selected_model_client.model}..."})
 
-                    full_content = ""
-                    usage = {"prompt_tokens": 0, "completion_tokens": 0}
-                    is_inside_thinking = False
-
-                    async def stream_callback(chunk: str):
-                        nonlocal full_content, is_inside_thinking
-                        full_content += chunk
-
-                        # Detect thinking tags to emit real-time events
-                        if "<thinking_process>" in chunk:
-                            is_inside_thinking = True
-                        if "</thinking_process>" in chunk:
-                            is_inside_thinking = False
-
-                        if is_inside_thinking and self.event_publisher:
-                            # Clean the tags from the emitted token
-                            token = chunk.replace("<thinking_process>", "").replace("</thinking_process>", "")
-                            if token:
-                                await self.event_publisher.publish("thinking_token", {"token": token})
-
-                    # F31: Get schema-valid tools for this turn ONLY
-                    turn_tool_definitions = self.tool_executor.get_tool_definitions(current_turn_tools)
-
-                    # Perform streaming chat
-                    stream_result, usage = await selected_model_client.stream_chat(
-                        messages=runtime_messages, tools=turn_tool_definitions, chunk_callback=stream_callback
+                    # Perform synchronous chat
+                    response_data, usage = await selected_model_client.achat(
+                        messages=runtime_messages, tools=turn_tool_definitions
                     )
 
-                    # Manual tool detection in the full content (Ollama stream doesn't support tools easily in some versions)
-                    # For robust tool support with stream, we often need to parse the final result.
-                    # If we need tool support, achat is safer, but for "thinking" stream is better.
-                    # Let's fallback to achat if tools are needed, or parse tools from content.
-
-                    # Actually, some versions of Ollama don't support "tools" parameter with "stream: true".
-                    # Let's check if the model attempted a tool call via manual parsing if needed.
                     msg = {
                         "role": "assistant",
-                        "content": stream_result.get("content", ""),
-                        "tool_calls": stream_result.get("tool_calls", []),
+                        "content": response_data.get("content", ""),
+                        "tool_calls": response_data.get("tool_calls", []),
                     }
-
-                    # Simple heuristic: if it looks like a tool call but it's just text, try to fix it
-                    if "[TOOL_CALL" in msg["content"]:
-                        # This logic will be handled by the response cleanup below
-                        pass
+                    
+                    self.logger.info(f"DEBUG: RAW LLM response content length: {len(msg['content'])}")
+                    if len(msg["content"]) < 100:
+                        self.logger.info(f"DEBUG: RAW LLM response content: '{msg['content']}'")
 
                     # F33: Clean reasoning noise for humans, but keep message structure for Ollama
                     content = msg.get("content", "")
 
                     if content and not msg.get("tool_calls"):
                         # F33: Use shared parser for consistency
-                        cleaned_content, _ = LLMResponseParser.remove_think_blocks(content)
+                        cleaned_content, reasoning = LLMResponseParser.remove_think_blocks(content)
+
+                        # If there was reasoning, publish it as a single block for the UI
+                        if reasoning and self.event_publisher:
+                            await self.event_publisher.publish("token", {"text": f"\n\n> {reasoning}\n\n"})
 
                         # Only update if there is actual text left, otherwise keep original to avoid empty UI
                         if cleaned_content.strip():
@@ -746,6 +735,7 @@ RULES:
                         # Extra cleaning for legacy noise
                         if "Output:**" in msg["content"]:
                             msg["content"] = msg["content"].split("Output:**")[-1].strip()
+                    
                     # F31: Robust Manual tool detection fallback using unified parser
                     if not msg.get("tool_calls"):
                         extracted_calls = LLMResponseParser.parse_tool_calls(content)
@@ -763,7 +753,11 @@ RULES:
 
                     if not msg.get("tool_calls"):
                         self.logger.thinking("Analyzing final answer from LLM...")
+                        
+                        # F33: Get the ALREADY CLEANED content from msg
                         final_response_en = msg.get("content", "")
+                        
+                        self.logger.info(f"DEBUG: LLM Content raw length: {len(final_response_en)}")
 
                         if last_error_context:
                             self.memory_manager.add_to_reasoning_cache(last_error_context["error"], final_response_en)
@@ -779,8 +773,22 @@ RULES:
                             final_response = final_response_en
                         else:
                             # F29: Translate the final response back to the user's language
+                            self.logger.info(f"Translating response to {original_lang}...")
                             final_response = await self._translate_to_user_language(final_response_en, original_lang)
 
+                        # F33: Safety fallback - if translation or cleaning returned empty, use original content
+                        if not final_response and final_response_en:
+                            self.logger.warning("Final response was empty after processing, using original content.")
+                            final_response = final_response_en
+                        
+                        if not final_response:
+                            # F33: If we get multiple empty responses, stop to avoid infinite loops
+                            if iterations > 3:
+                                final_response = "I'm sorry, I'm having trouble generating a response with the current model. Please try a more capable model or rephrase your request."
+                            else:
+                                final_response = "I'm sorry, I generated an empty response. Please try again or rephrase your request."
+
+                        self.logger.info(f"DEBUG: Final response length: {len(final_response)}")
                         self.conversation.append({"role": "assistant", "content": final_response})
                         self.logger.info(f"{Fore.GREEN}✅ Final answer generated{Style.RESET_ALL}")
 
@@ -791,8 +799,8 @@ RULES:
                         turn_data = {
                             "text": final_response,
                             "metrics": {
-                                "duration_sec": round(elapsed, 2),
-                                "total_tokens": token_delta,
+                                "duration": round(elapsed, 2),
+                                "tokens": token_delta,
                                 "iterations": iterations,
                             },
                         }
@@ -819,7 +827,17 @@ RULES:
                                 self.logger.info(f"📍 Plan captured: {len(self._active_plan)} steps.")
 
                         if isinstance(result, dict) and not result.get("ok"):
-                            error_msg = result.get("error", "Unknown tool error")
+                            # F33: Better error extraction from tool result
+                            error_msg = result.get("error")
+                            if not error_msg:
+                                tool_out = result.get("output")
+                                if isinstance(tool_out, str):
+                                    error_msg = tool_out
+                                elif isinstance(tool_out, dict):
+                                    error_msg = tool_out.get("error") or tool_out.get("message") or "Unknown tool error"
+                                else:
+                                    error_msg = "Unknown tool error"
+                            
                             tool_name = result.get("tool_name", "unknown")
 
                             if self._event_bridge:
@@ -951,7 +969,7 @@ RULES:
             return f"⚠️  Reached maximum iterations ({self.max_iterations})"
         finally:
             # F33: Ensure all sessions are closed
-            await self.llm_manager.close_all_sessions()
+            await self.llm_manager.close_all_sessions_async()
             if correlation_id:
                 self.kernel.end_interaction_context(correlation_id)
 

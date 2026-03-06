@@ -19,12 +19,15 @@ from backend.agents.auto_agent import AutoAgent
 from backend.core.containers import main_container
 from backend.utils.core.system.event_publisher import EventPublisher
 from frontend.middleware import rate_limit_api, require_api_key
-from frontend.services.chat_event_bridge import ChatEventBridge
+from backend.services.chat_event_bridge import ChatEventBridge
 
 from backend.utils.core.tools.git_pr_tool import GitPRTool
 from backend.utils.core.system.task_scheduler import get_scheduler
 
 auto_agent_bp = Blueprint("auto_agent", __name__)
+
+
+# ... (rest of the code remains the same)
 
 # Precompiled pattern for safe filename sanitization (avoids recompiling on each call)
 _SAFE_FILENAME_RE = re.compile(r"[^a-zA-Z0-9._-]")

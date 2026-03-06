@@ -20,7 +20,7 @@ def app():
 
     # Mock services for blueprint registration
     mock_publisher = pytest.importorskip("backend.utils.core.system.event_publisher").EventPublisher()
-    mock_bridge = pytest.importorskip("frontend.services.chat_event_bridge").ChatEventBridge(mock_publisher)
+    mock_bridge = pytest.importorskip("backend.services.chat_event_bridge").ChatEventBridge(mock_publisher)
     mock_alerts = pytest.importorskip("backend.utils.core.system.alert_manager").AlertManager(mock_publisher, mock_root)
 
     register_blueprints(app, mock_root, mock_publisher, mock_bridge, mock_alerts)

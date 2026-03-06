@@ -1,7 +1,7 @@
 import pytest
 import sqlite3
 from unittest.mock import MagicMock
-from frontend.services.chat_session_manager import ChatSessionManager
+from backend.services.chat_session_manager import ChatSessionManager
 
 
 @pytest.fixture

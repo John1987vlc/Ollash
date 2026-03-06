@@ -95,14 +95,15 @@ class TestDefaultAgent:
         default_agent._classify_intent = AsyncMock(return_value="coding")
         default_agent.language_manager = MagicMock()
         default_agent.language_manager.standardize_prompt = AsyncMock(side_effect=lambda p: p)
-        default_agent.llm_manager.close_all_sessions = AsyncMock()
+        default_agent.llm_manager.close_all_sessions_async = AsyncMock()
+        default_agent.logger.event_publisher.publish = AsyncMock()
         default_agent._translate_to_user_language = AsyncMock(side_effect=lambda text, lang: text)
         default_agent._manage_context_window = AsyncMock(side_effect=lambda msgs: msgs)
         default_agent.max_iterations = 2
 
         mock_client = MagicMock()
         mock_client.model = "test-model"
-        mock_client.stream_chat = AsyncMock(
+        mock_client.achat = AsyncMock(
             return_value=({"content": "Final answer", "tool_calls": []}, {"prompt_tokens": 10, "completion_tokens": 10})
         )
         default_agent._select_model_for_intent = MagicMock(return_value=mock_client)
@@ -118,7 +119,8 @@ class TestDefaultAgent:
         default_agent._classify_intent = AsyncMock(return_value="coding")
         default_agent.language_manager = MagicMock()
         default_agent.language_manager.standardize_prompt = AsyncMock(side_effect=lambda p: p)
-        default_agent.llm_manager.close_all_sessions = AsyncMock()
+        default_agent.llm_manager.close_all_sessions_async = AsyncMock()
+        default_agent.logger.event_publisher.publish = AsyncMock()
         default_agent._translate_to_user_language = AsyncMock(side_effect=lambda text, lang: text)
         default_agent._manage_context_window = AsyncMock(side_effect=lambda msgs: msgs)
         default_agent._execute_tool_loop = AsyncMock(return_value=[{"ok": True, "result": "tool output"}])
@@ -126,7 +128,7 @@ class TestDefaultAgent:
 
         mock_client = MagicMock()
         mock_client.model = "test-model"
-        mock_client.stream_chat = AsyncMock(
+        mock_client.achat = AsyncMock(
             side_effect=[
                 (
                     {"content": "", "tool_calls": [{"id": "c1", "function": {"name": "test_tool", "arguments": {}}}]},

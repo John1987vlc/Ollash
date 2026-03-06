@@ -98,28 +98,21 @@ class TestOllamaClient:
 
     @pytest.mark.asyncio
     async def test_achat_success(self, ollama_client):
-        mock_data = {"message": {"content": "async hello"}}
+        mock_data = {"message": {"content": "async hello"}, "prompt_eval_count": 10, "eval_count": 5}
 
         mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value=mock_data)
+        mock_response.status_code = 200
+        mock_response.json.return_value = mock_data
         mock_response.raise_for_status = MagicMock()
 
-        mock_ctx = MagicMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_ctx.__aexit__ = AsyncMock()
-
-        mock_session = MagicMock()
-        mock_session.post = MagicMock(return_value=mock_ctx)
-
-        with patch.object(ollama_client, "_get_aiohttp_session", return_value=mock_session):
+        with patch.object(ollama_client.http_session, "post", return_value=mock_response) as mock_post:
             messages = [{"role": "user", "content": "hi"}]
             data, usage = await ollama_client.achat(messages, tools=[])
 
             assert data["message"]["content"] == "async hello"
-            # Current implementation returns token counts (may be 0 for stub)
-            assert "prompt_tokens" in usage
-            assert "completion_tokens" in usage
+            assert usage["prompt_tokens"] == 10
+            assert usage["completion_tokens"] == 5
+            mock_post.assert_called_once()
 
     def test_get_embedding_returns_vector(self, ollama_client):
         """get_embedding must return a non-empty float list."""

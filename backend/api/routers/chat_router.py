@@ -82,13 +82,19 @@ async def stream_chat(session_id: str, request: Request):
         # iter_events() is a sync generator in the bridge; wrap with asyncio
         loop = asyncio.get_event_loop()
         bridge = session.bridge
+        it = iter(bridge.iter_events())
+
+        def _get_next(iterator):
+            try:
+                return next(iterator)
+            except StopIteration:
+                return None
 
         while True:
-            try:
-                chunk = await loop.run_in_executor(None, next, iter(bridge.iter_events()))
-                yield chunk
-            except StopIteration:
+            chunk = await loop.run_in_executor(None, _get_next, it)
+            if chunk is None:
                 break
+            yield chunk
 
     return StreamingResponse(
         _event_gen(),

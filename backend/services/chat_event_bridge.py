@@ -3,7 +3,7 @@ import queue
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from backend.utils.core.system.event_publisher import EventPublisher  # ADDED IMPORT
+from backend.utils.core.system.event_publisher import EventPublisher
 
 
 @dataclass
@@ -21,7 +21,7 @@ class ChatEventBridge:
     generator reads them via iter_events().
     """
 
-    def __init__(self, event_publisher: EventPublisher):  # MODIFIED
+    def __init__(self, event_publisher: EventPublisher):
         self.event_queue: queue.Queue[ChatEvent] = queue.Queue()
         self._closed = False
         self.event_publisher = event_publisher  # Store the event publisher
@@ -33,8 +33,8 @@ class ChatEventBridge:
         self.event_publisher.subscribe("tool_output", self.push_event)
         self.event_publisher.subscribe("tool_end", self.push_event)
         self.event_publisher.subscribe("project_complete", self.push_event)
-        self.event_publisher.subscribe("execution_plan_initialized", self.push_event)  # NEW
-        self.event_publisher.subscribe("agent_board_update", self.push_event)  # NEW
+        self.event_publisher.subscribe("execution_plan_initialized", self.push_event)
+        self.event_publisher.subscribe("agent_board_update", self.push_event)
         self.event_publisher.subscribe("iteration_start", self.push_event)
         self.event_publisher.subscribe("iteration_end", self.push_event)
         self.event_publisher.subscribe("error", self.push_event)
@@ -51,10 +51,13 @@ class ChatEventBridge:
         self.event_publisher.subscribe("architect_planning_completed", self.push_event)
         self.event_publisher.subscribe("file_generated", self.push_event)
         # P1 — HITL
-        self.event_publisher.subscribe("hitl_requested", self.push_event)
+        self.event_publisher.subscribe("hil_request", self.push_event)
         self.event_publisher.subscribe("hil_response", self.push_event)
+        self.event_publisher.subscribe("clarification_request", self.push_event)
         # P4 — Streaming token chunks
         self.event_publisher.subscribe("blackboard_stream_chunk", self.push_event)
+        self.event_publisher.subscribe("token", self.push_event)
+        self.event_publisher.subscribe("thinking", self.push_event)
         # P5 — Budget circuit breaker
         self.event_publisher.subscribe("budget_exceeded", self.push_event)
         # P6 — Git auto-commit
@@ -72,11 +75,11 @@ class ChatEventBridge:
         # Feature 6 — Context saturation alerts
         self.event_publisher.subscribe("context_saturation_alert", self.push_event)
 
-    def push_event(self, event_type: str, data: Optional[Dict[str, Any]] = None):
+    def push_event(self, event_type: str, event_data: Optional[Dict[str, Any]] = None):
         """Push an event onto the queue (called from the agent thread)."""
         if self._closed:
             return
-        self.event_queue.put(ChatEvent(event_type=event_type, data=data or {}))
+        self.event_queue.put(ChatEvent(event_type=event_type, data=event_data or {}))
 
     def iter_events(self, timeout: float = 0.5):
         """Yield SSE-formatted strings. Blocks up to *timeout* seconds per poll.
@@ -100,7 +103,9 @@ class ChatEventBridge:
                     sanitized_data[k] = v
 
             try:
-                payload = json.dumps({"type": event.event_type, **sanitized_data})
+                # F33: Ensure event_type (as 'type') is the final word, avoiding collision with data
+                payload_dict = {**sanitized_data, "type": event.event_type}
+                payload = json.dumps(payload_dict)
                 yield f"data: {payload}\n\n"
             except Exception as e:
                 # Fallback for complex objects that still fail
@@ -108,6 +113,7 @@ class ChatEventBridge:
 
             if event.event_type == "stream_end":
                 break
+
 
     def close(self):
         """Signal end of stream."""

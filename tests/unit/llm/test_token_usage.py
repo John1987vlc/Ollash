@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 from backend.utils.core.llm.token_tracker import TokenTracker
 from backend.utils.core.llm.ollama_client import OllamaClient
 
@@ -29,9 +29,11 @@ def test_ollama_client_updates_tracker(mock_post):
     """Test that OllamaClient automatically updates the tracker after a chat."""
     tracker = TokenTracker()
     logger = MagicMock()
+    logger.event_publisher.publish = AsyncMock()
 
     # Mock Ollama response with specific token counts
     mock_response = MagicMock()
+    mock_response.status_code = 200
     mock_response.json.return_value = {"message": {"content": "Hello!"}, "prompt_eval_count": 15, "eval_count": 5}
     mock_post.return_value = mock_response
 

@@ -34,7 +34,9 @@ class FileContentGenerationPhase(BasePhase):
         # F3: Build API map once for token-efficient context on small models
         if generated_files:
             self.context.build_api_map(generated_files)
-        _use_signatures = self.context._is_small_model("coder")
+        
+        is_nano = self.context._is_small_model()
+        _use_signatures = is_nano or self.context._is_small_model("coder")
 
         await self.context.event_publisher.publish("phase_start", phase="4", message="Starting agile backlog execution")
 
@@ -57,7 +59,7 @@ class FileContentGenerationPhase(BasePhase):
         backlog = self._topological_sort(backlog)
 
         # Nano tier: pre-expand implement_function tasks into per-function sub-tasks
-        if self.context._is_small_model():
+        if is_nano:
             from backend.agents.auto_agent_phases.nano_task_expander import NanoTaskExpander
 
             expanded_backlog: List[Dict[str, Any]] = []
@@ -140,6 +142,7 @@ class FileContentGenerationPhase(BasePhase):
                     readme_content=readme_content,
                     project_name=project_name,
                     _use_signatures=_use_signatures,
+                    is_nano=is_nano,
                 )
                 context_files_content = ctx_data["context_files_content"]
 
@@ -158,7 +161,7 @@ class FileContentGenerationPhase(BasePhase):
 
                 content = ""
                 attempts = 0
-                max_attempts = 3
+                max_attempts = 2 if is_nano else 3 # F31: Reduce retries for nano to fail fast
                 last_error = ""
 
                 # 3. Self-Reflection and Correction Loop
@@ -180,7 +183,7 @@ class FileContentGenerationPhase(BasePhase):
                         current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}{cot_instruction}"
 
                     # 3. LLM Call — use nano_coder role for ≤8B models
-                    _coder_role = "nano_coder" if self.context._is_small_model() else "coder"
+                    _coder_role = "nano_coder" if is_nano else "coder"
                     response_data, _ = self.context.llm_manager.get_client(_coder_role).chat(
                         messages=[
                             {"role": "system", "content": system_prompt},
@@ -246,26 +249,28 @@ class FileContentGenerationPhase(BasePhase):
                             pass
 
                     # Feature 1: Critic-Correction Closed Loop
-                    critic_cfg = getattr(self.context, "config", {})
-                    if isinstance(critic_cfg, dict):
-                        critic_cfg = critic_cfg.get("critic_loop", {})
-                    else:
-                        critic_cfg = {}
-                    if critic_cfg.get("enabled", True):
-                        try:
-                            from backend.utils.core.analysis.critic_loop import CriticLoop
+                    # F31: Disable critic loop for nano models to avoid infinite loops/heavy overhead
+                    if not is_nano:
+                        critic_cfg = getattr(self.context, "config", {})
+                        if isinstance(critic_cfg, dict):
+                            critic_cfg = critic_cfg.get("critic_loop", {})
+                        else:
+                            critic_cfg = {}
+                        if critic_cfg.get("enabled", True):
+                            try:
+                                from backend.utils.core.analysis.critic_loop import CriticLoop
 
-                            if not hasattr(self, "_critic_loop"):
-                                self._critic_loop = CriticLoop(self.context.llm_manager, self.context.logger)
-                            _lang = self.context.infer_language(file_path)
-                            _critic_feedback = await self._critic_loop.review(file_path, content, _lang)
-                            if _critic_feedback:
-                                last_error = f"CRITIC FEEDBACK: {_critic_feedback}"
-                                self.context.logger.info(f"    [Critic] Issues in '{file_path}': {_critic_feedback}")
-                                content = ""
-                                continue
-                        except Exception:
-                            pass  # Critic must never abort generation
+                                if not hasattr(self, "_critic_loop"):
+                                    self._critic_loop = CriticLoop(self.context.llm_manager, self.context.logger)
+                                _lang = self.context.infer_language(file_path)
+                                _critic_feedback = await self._critic_loop.review(file_path, content, _lang)
+                                if _critic_feedback:
+                                    last_error = f"CRITIC FEEDBACK: {_critic_feedback}"
+                                    self.context.logger.info(f"    [Critic] Issues in '{file_path}': {_critic_feedback}")
+                                    content = ""
+                                    continue
+                            except Exception:
+                                pass  # Critic must never abort generation
 
                     # Opt 3: Exit Contract — structural validation before syntax check
                     if self.context._opt_enabled("opt3_exit_contract") and task_type:
@@ -281,16 +286,15 @@ class FileContentGenerationPhase(BasePhase):
                     # 5. AST/Syntax Validation
                     validation_result = self.context.files_ctx.validator.validate(file_path, content)
 
-                    # Handle Semantic Warnings (Auto-Heal)
-                    if "logical integrity issues" in validation_result.message or "SEMANTIC WARNING" in str(
+                    # Handle Semantic Warnings (Auto-Heal) - F31: Skip auto-heal for nano
+                    if not is_nano and ("logical integrity issues" in validation_result.message or "SEMANTIC WARNING" in str(
                         validation_result
-                    ):
+                    )):
                         self.context.logger.info(
                             f"    ⚠ Attempt {attempts}: Integrity issues detected. Attempting auto-heal..."
                         )
 
                         # Extract the missing requirement from the warning
-                        # Heuristic: look for "missing 'X' function" or similar patterns
                         missing_req = "missing function or logic"
                         if "missing" in validation_result.message:
                             missing_req = validation_result.message.split("missing")[-1].strip()
@@ -367,6 +371,7 @@ class FileContentGenerationPhase(BasePhase):
         readme_content: str,
         project_name: str,
         _use_signatures: bool,
+        is_nano: bool = False,
     ) -> Dict[str, Any]:
         """Build the context dict needed to construct prompts for a single task.
 
@@ -382,11 +387,13 @@ class FileContentGenerationPhase(BasePhase):
         if _prefetched and file_path in _prefetched:
             raw_context_files = {file_path: _prefetched[file_path]}
             self.context.logger.info(f"  [PredictiveCtx] Cache hit for '{file_path}'")
-        elif self.context._opt_enabled("opt2_micro_context_snapshot"):
+        elif not is_nano and self.context._opt_enabled("opt2_micro_context_snapshot"):
             raw_context_files = self.context.build_micro_context_snapshot(file_path)
         else:
+            # F31: Force small limit for nano to avoid token overflow
+            _max_files = 3 if is_nano else 5
             raw_context_files = self.context.select_related_files(
-                file_path, generated_files, signatures_only=_use_signatures
+                file_path, generated_files, signatures_only=_use_signatures, max_files=_max_files
             )
         context_files_content = ContextDistiller.distill_batch(raw_context_files)
 

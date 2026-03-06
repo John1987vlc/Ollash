@@ -5,7 +5,7 @@ from flask import Flask
 from backend.utils.core.system.alert_manager import AlertManager
 from backend.utils.core.system.automation_manager import AutomationManager
 from backend.utils.core.system.event_publisher import EventPublisher
-from frontend.services.chat_event_bridge import ChatEventBridge
+from backend.services.chat_event_bridge import ChatEventBridge
 
 from .alerts_bp import alerts_bp, init_app as init_alerts
 from .analysis_bp import analysis_bp, init_app as init_analysis

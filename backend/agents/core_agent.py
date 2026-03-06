@@ -46,6 +46,7 @@ class CoreAgent(ABC):
         llm_recorder: LLMRecorder = None,
         dependency_scanner: DependencyScanner = None,
         token_tracker: TokenTracker = None,
+        event_publisher: EventPublisher = None,
     ):
         self.kernel = kernel
         self.ollash_root_dir = self.kernel.ollash_root_dir
@@ -69,7 +70,7 @@ class CoreAgent(ABC):
             llm_recorder=self.llm_recorder,
             config=self.config,
         )
-        self.event_publisher = EventPublisher()
+        self.event_publisher = event_publisher if event_publisher else EventPublisher()
         # Enable logger to publish events
         self.logger.event_publisher = self.event_publisher
 

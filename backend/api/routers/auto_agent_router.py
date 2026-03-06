@@ -124,9 +124,10 @@ async def stream_project_logs(project_name: str, request: Request):
     loop = asyncio.get_event_loop()
 
     async def _gen() -> AsyncIterator[str]:
+        it = iter(chat_event_bridge.iter_events())
         while True:
             try:
-                chunk = await loop.run_in_executor(None, next, iter(chat_event_bridge.iter_events()))
+                chunk = await loop.run_in_executor(None, next, it)
                 yield chunk
             except StopIteration:
                 break
@@ -346,6 +347,7 @@ async def export_project_zip(project_name: str, request: Request):
 # ---------------------------------------------------------------------------
 
 
+@router.get("/api/projects/list")
 @router.get("/api/projects")
 async def list_projects(request: Request):
     ollash_root_dir = request.app.state.ollash_root_dir
