@@ -49,41 +49,88 @@ class StructureGenerator:
         include_docker: bool = False,
         constraint_hint: str = "",
     ) -> dict:
-        """Generate a project structure starting from a template and then detailing it.
-
-        Args:
-            readme_content: The project README text used as context for the LLM.
-            max_retries: Number of LLM retry attempts per sub-structure.
-            template_name: Template to use for the base structure.
-            python_version: Python version string (used by Python templates).
-            license_type: License identifier for license file generation.
-            include_docker: Whether to include Docker-related files.
-            constraint_hint: Optional extension constraint text injected into prompts
-                (e.g. "ONLY use: .html .css .js — DO NOT create .py files").
-        """
+        """Generate a project structure starting from a template and then detailing it."""
         self.logger.info_sync(f"  Generating structure for template: {template_name}")
-        # Store constraint so it propagates to sub-structure generation calls
         self._constraint_hint = constraint_hint
 
-        # F31: Start with a strong foundation from the template instead of letting LLM hallucinate complex nests
+        # F31: Detect nano/small models (<=8B)
+        is_small = "0.8b" in self.llm_client.model or "1.5b" in self.llm_client.model or "3b" in self.llm_client.model or "7b" in self.llm_client.model or "8b" in self.llm_client.model
+
+        # Detect project type for better scaffolding
+        from backend.utils.domains.auto_generation.project_type_detector import ProjectTypeDetector
+        type_info = ProjectTypeDetector.detect("", readme_content)
+        p_type = type_info.project_type if type_info else ""
+
+        # F31: Start with a strong foundation from the template
         base_structure = self.create_fallback_structure(
-            readme_content, template_name, python_version, license_type, include_docker
+            readme_content, template_name, python_version, license_type, include_docker, project_type=p_type
         )
 
-        # F31: For nano models (0.8b etc), restrict depth to 1 to avoid hangs
-        actual_max_depth = self.max_depth
-        if "0.8b" in self.llm_client.model or "1.5b" in self.llm_client.model:
-            actual_max_depth = 1
-            self.logger.info_sync("  Nano model detected: Restricting structure depth to 1 to prevent hangs.")
-
-        # Phase 2: Recursively generate sub-structures only for key folders with DEPTH LIMIT
-        final_structure = await self._recursively_generate_sub_structure(
-            base_structure, readme_content, max_retries, template_name=template_name, current_depth=1, max_depth_override=actual_max_depth
-        )
+        if is_small:
+            self.logger.info_sync(f"  Small model ({self.llm_client.model}) detected: Using Skeleton-First approach.")
+            # For small models, we use the base_structure as the master and only ask for minor additions
+            # instead of a recursive generation that often fails or hangs.
+            final_structure = await self._generate_small_model_additions(
+                base_structure, readme_content, p_type
+            )
+        else:
+            # Phase 2: Recursively generate sub-structures only for key folders with DEPTH LIMIT
+            final_structure = await self._recursively_generate_sub_structure(
+                base_structure, readme_content, max_retries, template_name=template_name, current_depth=1, max_depth_override=self.max_depth
+            )
 
         file_count = len(self.extract_file_paths(final_structure))
-        self.logger.info_sync(f"  Successfully generated hierarchical structure with {file_count} files")
+        self.logger.info_sync(f"  Successfully generated structure with {file_count} files")
         return final_structure
+
+    async def _generate_small_model_additions(self, base_structure: dict, readme_content: str, project_type: str) -> dict:
+        """Ask small model for only 2-3 extra files to add to the deterministic scaffold."""
+        try:
+            prompt = (
+                f"Project Type: {project_type}\n"
+                f"Current Scaffold: {json.dumps(base_structure, indent=1)}\n"
+                f"README: {readme_content[:1000]}\n\n"
+                "Based on the README, suggest 2-3 additional core files needed for this project. "
+                "Return ONLY a JSON list of file paths (relative to root). Example: [\"src/utils/math.js\", \"docs/usage.md\"]"
+            )
+            
+            response_data, _ = self.llm_client.chat(
+                messages=[{"role": "user", "content": prompt}],
+                options_override={"temperature": 0.1, "num_predict": 512}
+            )
+            raw = response_data.get("content", "")
+            extra_files = self.parser.extract_json(raw)
+            
+            if isinstance(extra_files, list):
+                # Merging extra files into base_structure
+                for file_path in extra_files:
+                    if not isinstance(file_path, str): continue
+                    # Simple split to find folder and file
+                    parts = file_path.replace("\\", "/").split("/")
+                    if len(parts) == 1:
+                        if file_path not in base_structure["files"]:
+                            base_structure["files"].append(file_path)
+                    else:
+                        # Find or create folder
+                        curr = base_structure
+                        for folder_name in parts[:-1]:
+                            found = False
+                            for f_node in curr.get("folders", []):
+                                if f_node.get("name") == folder_name:
+                                    curr = f_node
+                                    found = True
+                                    break
+                            if not found:
+                                new_folder = {"name": folder_name, "folders": [], "files": []}
+                                curr.setdefault("folders", []).append(new_folder)
+                                curr = new_folder
+                        if parts[-1] not in curr.get("files", []):
+                            curr.setdefault("files", []).append(parts[-1])
+            
+            return base_structure
+        except Exception as e:
+            self.logger.info_sync(f"  Error getting small model additions: {e}. Returning base scaffold.")
+            return base_structure
 
     async def _generate_high_level_structure(self, context_text: str, max_retries: int, template_name: str) -> dict:
         """Generates the high-level (root) folders and files for the project."""

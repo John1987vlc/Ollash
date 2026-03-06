@@ -70,9 +70,9 @@ class LogicPlanningPhase(BasePhase):
 
         # F31: If nano, we might prefer incremental or simplified planning to avoid hangs
         if is_nano:
-            self.context.logger.info("  [Nano] Using simplified planning and incremental backlog to prevent hangs.")
-            logic_plan, backlog = await self._legacy_planning_fallback(
-                file_paths, project_description, readme_content, initial_structure
+            self.context.logger.info("  [Nano] Using deterministic backlog and basic planning to prevent hangs.")
+            logic_plan, backlog = await self._create_deterministic_backlog(
+                file_paths, project_description, initial_structure
             )
         else:
             system_prompt, user_prompt = await AutoGenPrompts.logic_planning(
@@ -137,6 +137,18 @@ class LogicPlanningPhase(BasePhase):
                             file_paths, project_description, readme_content, initial_structure
                         )
 
+        # F31: Persist tasks to Blackboard for deterministic execution
+        if hasattr(self.context, "decision_blackboard"):
+            for t in backlog:
+                self.context.decision_blackboard.record_task(
+                    task_id=t.get("id", ""),
+                    title=t.get("title", ""),
+                    description=t.get("description", ""),
+                    file_path=t.get("file_path", ""),
+                    task_type=t.get("task_type", "create_file"),
+                    dependencies=t.get("dependencies", []),
+                )
+
         # Save plans to disk
         plan_file = project_root / "IMPLEMENTATION_PLAN.json"
         self.context.file_manager.write_file(plan_file, json.dumps(logic_plan, indent=2))
@@ -188,6 +200,43 @@ class LogicPlanningPhase(BasePhase):
         )
 
         return generated_files, initial_structure, file_paths
+
+    async def _create_deterministic_backlog(
+        self, file_paths: List[str], project_description: str, initial_structure: Dict
+    ) -> Tuple[Dict[str, Any], List[Dict]]:
+        """Creates a 100% deterministic backlog by mapping every file path to a task."""
+        self.context.logger.info(f"  [Deterministic] Creating tasks for all {len(file_paths)} files.")
+        
+        logic_plan = self._create_basic_plans(file_paths, "all", project_description)
+        backlog = []
+        
+        for i, path in enumerate(file_paths):
+            task_id = f"TASK-{i + 1:03d}"
+            # Advanced dependency detection for tests
+            deps = []
+            if "test" in path.lower():
+                p = Path(path)
+                # Patterns: test_main.py -> main.py, app.test.js -> app.js
+                stem = p.stem.replace("test_", "").replace("_test", "").replace(".test", "")
+                ext = p.suffix
+                
+                # Search for the source file in the same directory or in src/
+                potential_names = [f"{stem}{ext}", f"src/{stem}{ext}", f"app/{stem}{ext}"]
+                for pot in potential_names:
+                    if pot in file_paths and pot != path:
+                        deps.append(pot)
+                        break
+
+            backlog.append({
+                "id": task_id,
+                "title": f"Implement {path}",
+                "description": f"Create content for {path} as defined in project requirements.",
+                "file_path": path,
+                "task_type": "create_file",
+                "dependencies": deps,
+            })
+            
+        return logic_plan, backlog
 
     def _detect_module_system(self, file_paths: List[str], project_root: Path) -> None:
         """Detect and store the JS module system (ESM or CJS) for this project.

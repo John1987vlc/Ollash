@@ -45,6 +45,19 @@ class DecisionBlackboard:
         ")"
     )
 
+    _TASKS_TABLE_DDL: str = (
+        "CREATE TABLE IF NOT EXISTS tasks ("
+        "    id           TEXT PRIMARY KEY, "
+        "    title        TEXT NOT NULL, "
+        "    description  TEXT, "
+        "    file_path    TEXT, "
+        "    task_type    TEXT, "
+        "    dependencies TEXT, "
+        "    status       TEXT DEFAULT 'todo', "
+        "    recorded_at  TEXT NOT NULL"
+        ")"
+    )
+
     def __init__(self, db_path: Path) -> None:
         self._db_path = db_path
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,21 +77,14 @@ class DecisionBlackboard:
     def _init_db(self) -> None:
         with self._connect() as conn:
             conn.execute(self._TABLE_DDL)
+            conn.execute(self._TASKS_TABLE_DDL)
 
     # ------------------------------------------------------------------
-    # Public API
+    # Public API - Decisions
     # ------------------------------------------------------------------
 
     def record_decision(self, key: str, value: str, context: str = "") -> None:
-        """Insert or update a design decision.
-
-        If a decision with the same *key* already exists it is overwritten (upsert).
-
-        Args:
-            key: Unique decision identifier (e.g. ``"database_choice"``).
-            value: The chosen value (e.g. ``"SQLite"``).
-            context: Optional free-text rationale (e.g. ``"Chosen for simplicity"``).
-        """
+        """Insert or update a design decision."""
         now = datetime.utcnow().isoformat()
         with self._connect() as conn:
             conn.execute(
@@ -91,18 +97,73 @@ class DecisionBlackboard:
                 (key, value, context, now),
             )
 
+    # Alias for record_decision if needed
+    def store(self, key: str, value: str, context: str = "") -> None:
+        self.record_decision(key, value, context)
+
     def get_decision(self, key: str) -> Optional[str]:
-        """Return the value for a specific key, or *None* if not found.
-
-        Args:
-            key: Decision key to look up.
-
-        Returns:
-            The stored value string, or ``None``.
-        """
+        """Return the value for a specific key, or *None* if not found."""
         with self._connect() as conn:
             row = conn.execute("SELECT value FROM decisions WHERE key = ?", (key,)).fetchone()
         return row["value"] if row else None
+
+    # ------------------------------------------------------------------
+    # Public API - Tasks (Deterministic Tasking)
+    # ------------------------------------------------------------------
+
+    def record_task(
+        self,
+        task_id: str,
+        title: str,
+        description: str = "",
+        file_path: str = "",
+        task_type: str = "create_file",
+        dependencies: List[str] = None,
+        status: str = "todo",
+    ) -> None:
+        """Record a single task in the blackboard. Used to ensure all files are tracked."""
+        import json
+
+        now = datetime.utcnow().isoformat()
+        deps_json = json.dumps(dependencies or [])
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO tasks (id, title, description, file_path, task_type, dependencies, status, recorded_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(id) DO UPDATE SET "
+                "    title=excluded.title, "
+                "    description=excluded.description, "
+                "    file_path=excluded.file_path, "
+                "    task_type=excluded.task_type, "
+                "    dependencies=excluded.dependencies, "
+                "    status=excluded.status, "
+                "    recorded_at=excluded.recorded_at",
+                (task_id, title, description, file_path, task_type, deps_json, status, now),
+            )
+
+    def get_tasks(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retrieve tasks, optionally filtered by status."""
+        import json
+
+        query = "SELECT * FROM tasks"
+        params = []
+        if status:
+            query += " WHERE status = ?"
+            params.append(status)
+        query += " ORDER BY recorded_at"
+
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+
+        result = []
+        for row in rows:
+            d = dict(row)
+            try:
+                d["dependencies"] = json.loads(d["dependencies"])
+            except Exception:
+                d["dependencies"] = []
+            result.append(d)
+        return result
 
     def get_all_decisions(self) -> List[Dict[str, Any]]:
         """Return all recorded decisions ordered by insertion time.
