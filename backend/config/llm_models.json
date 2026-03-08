@@ -1,7 +1,7 @@
 {
-    "ollama_url": "http://192.168.1.217:11434",
+    "ollama_url": "http://localhost:11434",
     "nano": "qwen3.5:0.8b",
-    "medium": "qwen3.5:9b",
+    "medium": "qwen3.5:4b",
     "large": "qwen3-coder:30b",
     "extra_large": "gpt-oss:120b",
     "default_model": "qwen3.5:4b",
@@ -20,7 +20,7 @@
         "test_generator": "qwen3.5:4b",
         "orchestration": "qwen3.5:4b",
         "analyst": "qwen3.5:4b",
-        "writer": "qwen3.5:4b",
+        "writer": "qwen3.5:0.8b",
         "self_correction": "qwen3.5:4b",
         "network": "qwen3.5:4b",
         "system": "qwen3.5:4b",

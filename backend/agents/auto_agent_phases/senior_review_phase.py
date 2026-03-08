@@ -121,7 +121,7 @@ class SeniorReviewPhase(IAgentPhase):
                             generated_files,
                             initial_structure,
                             file_paths,
-                        ) = self.context.implement_plan(
+                        ) = await self.context.implement_plan(
                             contingency_plan,
                             project_root,
                             readme_content,

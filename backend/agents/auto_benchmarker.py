@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 import time
@@ -28,8 +29,8 @@ class ModelBenchmarker:
             10,
             "small",
             {
-                "num_ctx": 32000,
-                "num_predict": 8096,
+                "num_ctx": 8096,
+                "num_predict": 4048,
                 "temperature": 0.5,
                 "keep_alive": "0s",
             },
@@ -39,8 +40,8 @@ class ModelBenchmarker:
             30,
             "medium",
             {
-                "num_ctx": 16000,
-                "num_predict": 4096,
+                "num_ctx": 8096,
+                "num_predict": 4048,
                 "temperature": 0.5,
                 "keep_alive": "0s",
             },
@@ -50,8 +51,8 @@ class ModelBenchmarker:
             70,
             "large",
             {
-                "num_ctx": 8000,
-                "num_predict": 3072,
+                "num_ctx": 8096,
+                "num_predict": 4048,
                 "temperature": 0.5,
                 "keep_alive": "0s",
             },
@@ -244,28 +245,54 @@ class ModelBenchmarker:
                     )
 
                 try:
-                    creation_prompt = (
-                        "Please act as a senior software engineer. "
-                        "Your task is to autonomously create a complete, functional project "
-                        "based on the following description. "
-                        "Provide all necessary files and instructions to run the project. "
-                        "Keep the project self-contained and simple, focusing on core functionality. "
-                        "Respond with the project's file structure and content directly. "
-                        "Start with a high-level plan and then provide the files. "
-                        f"Project description: {task_description}"
-                    )
-                    messages = [{"role": "user", "content": creation_prompt}]
+                    if task_type == "autonomous_pipeline":
+                        print(f"  [E2E] Running full AutoAgent pipeline for {task_name}...")
+                        from backend.agents.auto_agent import AutoAgent
+                        from backend.core.containers import main_container
+                        
+                        agent = main_container.auto_agent_module.auto_agent()
+                        # Override model for this run
+                        agent.llm_manager.config.default_model = model_name
+                        for role in agent.llm_manager.config.agent_roles:
+                            agent.llm_manager.config.agent_roles[role] = model_name
+                        
+                        # Run the agent
+                        loop = asyncio.get_event_loop()
+                        final_path = loop.run_until_complete(agent.run(
+                            project_description=task_description,
+                            project_name=f"bench_{model_slug}_{task_name}",
+                        ))
+                        
+                        # Collect results from the generated folder
+                        task_response_content = ""
+                        for p in final_path.rglob("*"):
+                            if p.is_file() and p.suffix in [".html", ".js", ".css", ".py"]:
+                                task_response_content += f"\n\n--- FILE: {p.name} ---\n{p.read_text(encoding='utf-8')}"
+                        
+                        task_status = "Success"
+                    else:
+                        creation_prompt = (
+                            "Please act as a senior software engineer. "
+                            "Your task is to autonomously create a complete, functional project "
+                            "based on the following description. "
+                            "Provide all necessary files and instructions to run the project. "
+                            "Keep the project self-contained and simple, focusing on core functionality. "
+                            "Respond with the project's file structure and content directly. "
+                            "Start with a high-level plan and then provide the files. "
+                            f"Project description: {task_description}"
+                        )
+                        messages = [{"role": "user", "content": creation_prompt}]
 
-                    current_task_timeout = time_limit_minutes * 60
-                    options_with_timeout = model_options.copy()
-                    options_with_timeout["timeout"] = current_task_timeout
+                        current_task_timeout = time_limit_minutes * 60
+                        options_with_timeout = model_options.copy()
+                        options_with_timeout["timeout"] = current_task_timeout
 
-                    response, usage = client.chat(messages, tools=[], options_override=options_with_timeout)
+                        response, usage = client.chat(messages, tools=[], options_override=options_with_timeout)
 
-                    task_tokens_prompt = usage.get("prompt_tokens", 0)
-                    task_tokens_completion = usage.get("completion_tokens", 0)
-                    tracker.add_usage(task_tokens_prompt, task_tokens_completion)
-                    task_response_content = response["message"]["content"]
+                        task_tokens_prompt = usage.get("prompt_tokens", 0)
+                        task_tokens_completion = usage.get("completion_tokens", 0)
+                        tracker.add_usage(task_tokens_prompt, task_tokens_completion)
+                        task_response_content = response["message"]["content"]
 
                     self._save_generated_project(project_path, task_response_content, task_description)
 

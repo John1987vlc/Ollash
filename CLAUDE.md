@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is Ollash
 
-Ollash is a local AI agent platform powered by Ollama. It combines a multi-phase Auto-Agent project generation pipeline with a live multi-agent swarm (Agent-per-Domain) and exposes both a Flask Web UI and a CLI. All LLM calls go to a local Ollama instance (default: `qwen3-coder:30b` for coding, `ministral-3:3b` for planning).
+Ollash is a local AI agent platform powered by Ollama. It combines a multi-phase Auto-Agent project generation pipeline with a live multi-agent swarm (Agent-per-Domain) and exposes both a FastAPI Web UI and a CLI. All LLM calls go to a local Ollama instance. Default model: `qwen3.5:4b`; model tiers: nano (`qwen3.5:0.8b`), medium (`qwen3.5:4b`), large (`qwen3-coder:30b`), XL (`gpt-oss:120b`).
 
 ## Key Commands
 
 ```bash
 # Start
-python run_web.py                 # Web UI on port 5000
+python run_web.py                 # FastAPI/uvicorn on port 5000 (default)
 python ollash_cli.py chat         # CLI chat session
 
 # Testing
@@ -19,6 +19,10 @@ pytest tests/integration/         # Integration tests
 pytest tests/unit/backend/agents/auto_agent_phases/test_file_content_generation_phase.py  # Single test file
 pytest -k "test_my_function"      # Single test by name
 pytest tests/e2e/ -m e2e          # E2E tests (requires running server + Playwright)
+
+# Benchmarking
+python run_phase_benchmark_custom.py          # Phase benchmark across model tiers → phase_benchmark_results.txt
+python ollash_cli.py benchmark                # Full project-gen benchmark
 
 # Quality
 ruff check . --fix                # Lint + auto-fix
@@ -33,7 +37,7 @@ docker-compose up --build
 ## Architecture
 
 ### Entry Points
-- **`run_web.py`** → `frontend/app.py` (Flask factory) → registers all blueprints
+- **`run_web.py`** → `backend/api/app.py` (`create_app()` FastAPI factory, uvicorn ASGI) → mounts all APIRouters
 - **`ollash_cli.py`** → CLI commands: `agent`, `swarm`, `security-scan`, `benchmark`, `chat`
 - **`backend/agents/auto_agent.py`** → standalone multi-phase project generator
 
@@ -59,7 +63,13 @@ Use the full dotted path — `core.logging.logger`, NOT the old `core.logger`. O
 - `ToolLoopMixin` — handles the tool-call → execute → observe loop
 - `ContextSummarizerMixin` — summarizes context when approaching `max_context_tokens`
 
-**`AutoAgent`** orchestrates a sequential 22-phase pipeline:
+**`AutoAgent`** orchestrates a sequential pipeline with **adaptive phase filtering** based on model tier:
+
+- **Full tier (≥30B)**: all phases active
+- **Slim tier (9–29B)**: skips `DynamicDocumentation`, `CICDHealing`, `PlanValidation`
+- **Nano tier (≤8B)**: additionally skips `ExhaustiveReviewRepair`, `LicenseCompliance`, `ApiContract`, `TestPlanning`, `ComponentTree`, `Clarification`; enables `opt6_active_shadow`
+
+Core phase sequence:
 ```
 ReadmeGeneration → StructureGeneration → LogicPlanning → StructurePreReview
 → EmptyFileScaffolding → FileContentGeneration → FileRefinement
@@ -72,6 +82,10 @@ ReadmeGeneration → StructureGeneration → LogicPlanning → StructurePreRevie
 ```
 
 All phases inherit from `IAgentPhase` (`auto_agent_phases/base_phase.py`). Override `run()`, declare `REQUIRED_TOOLS`. The `PhaseContext` singleton (`phase_context.py`) carries shared state (LLM manager, file manager, generators) across all phases.
+
+`_is_small_model()` threshold: ≤8B. `_is_mid_model()` detects 9–29B range. Both inspect the model name string for size suffix (e.g., `4b`, `30b`).
+
+`RescuePhase` — created dynamically by `AutoAgent._request_rescue_plan()` when a pipeline phase fails; records recovery context without writing files so subsequent phases can adapt.
 
 **Domain Agent Swarm** (`backend/agents/domain_agents/`): `DomainAgentOrchestrator` dispatches to `ArchitectAgent`, `DeveloperAgent` (pool of 3), `AuditorAgent`, `DevOpsAgent`. Shared state via `Blackboard`. Supports `SelfHealingLoop`, `DebateNodeRunner` (Architect vs Auditor), and `CheckpointManager`.
 
@@ -117,9 +131,9 @@ file_gen_v2:
 
 Key prompt files: `prompts/domains/auto_generation/code_gen.yaml`, `planning.yaml`, `structure.yaml`, `refinement.yaml`.
 
-### Frontend (`frontend/`)
+### Frontend (`frontend/` + `backend/api/routers/`)
 
-Flask blueprint-based SPA. Blueprints in `frontend/blueprints/` (20+ endpoints): `auto_agent_bp`, `chat_bp`, `analysis_bp`, `benchmark_bp`, `audit_bp`, `checkpoints_bp`, `cicd_bp`, etc. Templates in `frontend/templates/`, scoped assets in `frontend/static/`. Real-time updates flow via `EventPublisher` → WebSocket/SSE to the browser.
+FastAPI APIRouter-based SPA. Routers in `backend/api/routers/` (45 files, 5 fully implemented + 40 stubs). Templates in `frontend/templates/` via `Jinja2Templates`, static assets in `frontend/static/`. Vite bundling: set `USE_VITE_ASSETS=true` + `npm run build` to serve from `frontend/static/dist/`. Real-time updates flow via `EventPublisher` → `asyncio.Queue` bridge → `StreamingResponse` SSE to the browser.
 
 ### Configuration
 

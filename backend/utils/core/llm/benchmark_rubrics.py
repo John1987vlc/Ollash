@@ -6,6 +6,7 @@ Replaces binary pass/fail scoring with dimensional evaluation:
 - Context window utilization (summarization precision for Project Analysis)
 - Creativity (novel solutions, design patterns)
 - Speed (time efficiency relative to limits)
+- Empirical coherence (cross-file consistency and link accuracy)
 """
 
 import json
@@ -25,6 +26,7 @@ class RubricDimension(Enum):
     CONTEXT_UTILIZATION = "context_utilization_score"
     CREATIVITY = "creativity_score"
     SPEED = "speed_score"
+    EMPIRICAL_COHERENCE = "empirical_coherence_score"
 
 
 @dataclass
@@ -132,6 +134,7 @@ class RubricEvaluator:
             RubricDimension.CONTEXT_UTILIZATION: self._evaluate_context_utilization,
             RubricDimension.CREATIVITY: self._evaluate_creativity,
             RubricDimension.SPEED: self._evaluate_speed,
+            RubricDimension.EMPIRICAL_COHERENCE: self._evaluate_empirical_coherence,
         }
 
     def evaluate(
@@ -426,6 +429,66 @@ class RubricEvaluator:
             },
         )
 
+    def _evaluate_empirical_coherence(self, response: str, task_data: Dict, duration: float) -> DimensionResult:
+        """Evaluate empirical coherence (cross-file consistency).
+
+        Checks for:
+        - Consistent element IDs between HTML and JS sections.
+        - Correct filename references in imports vs actual files created.
+        - Matching function signatures in implementation vs plan.
+        """
+        score = 1.0
+        issues = []
+
+        # 1. HTML-JS ID Coherence
+        html_ids = set(re.findall(r'id=["\']([^"\']+)["\']', response))
+        js_get_ids = set(re.findall(r'getElementById\(["\']([^"\']+)["\']\)', response))
+        js_query_ids = set(re.findall(r'querySelector\(["\']#([^"\']+)["\']\)', response))
+        required_ids = js_get_ids | js_query_ids
+
+        missing_in_html = required_ids - html_ids
+        if missing_in_html:
+            penalty = min(len(missing_in_html) * 0.2, 0.4)
+            score -= penalty
+            issues.append(f"JS references IDs not found in HTML: {list(missing_in_html)}")
+
+        # 2. Filename Reference Coherence
+        # Extract files that the model *thinks* it created
+        planned_files = set(re.findall(r"(?:^|\n)\s*(?://|#)\s*filename:\s*(\S+)", response, re.IGNORECASE))
+        # Extract script/link references
+        refs = set(re.findall(r'<(?:script|link)[^>]*(?:src|href)=["\']([^"\']+)["\']', response))
+        # Filter local references only
+        local_refs = {r.split("/")[-1] for r in refs if not r.startswith(("http", "//", "/"))}
+        planned_basenames = {f.split("/")[-1] for f in planned_files}
+
+        dead_links = local_refs - planned_basenames
+        if dead_links and planned_basenames:
+            penalty = min(len(dead_links) * 0.15, 0.3)
+            score -= penalty
+            issues.append(f"Dead links/references detected: {list(dead_links)}")
+
+        # 3. Import Consistency (Python example)
+        imports = set(re.findall(r"from\s+(\w+)\s+import", response))
+        # If model created 'utils.py' but imported 'utilities', that's a mismatch
+        for imp in imports:
+            if imp != "src_module" and not any(imp in f for f in planned_basenames):
+                # Heuristic: if it's a common library, skip penalty
+                if imp not in ["os", "sys", "json", "time", "requests", "math", "re", "fastapi", "pydantic"]:
+                    score -= 0.1
+                    issues.append(f"Potential hallucinated import: {imp}")
+
+        return DimensionResult(
+            dimension=RubricDimension.EMPIRICAL_COHERENCE,
+            score=max(score, 0.0),
+            details="; ".join(issues) if issues else "Full cross-file coherence detected.",
+            raw_data={
+                "html_ids": list(html_ids),
+                "js_required_ids": list(required_ids),
+                "planned_files": list(planned_files),
+                "dead_links": list(dead_links),
+            },
+        )
+
 
 class MultidimensionalRubric:
     """Configuration mapping phase/task types to relevant rubric dimensions."""
@@ -434,18 +497,27 @@ class MultidimensionalRubric:
         "structure_generation": [RubricDimension.STRICT_JSON, RubricDimension.REASONING_DEPTH],
         "logic_planning": [RubricDimension.REASONING_DEPTH, RubricDimension.CONTEXT_UTILIZATION],
         "project_analysis": [RubricDimension.CONTEXT_UTILIZATION, RubricDimension.CREATIVITY],
-        "file_content": [RubricDimension.CREATIVITY, RubricDimension.STRICT_JSON],
+        "file_content": [RubricDimension.CREATIVITY, RubricDimension.STRICT_JSON, RubricDimension.EMPIRICAL_COHERENCE],
         "review": [RubricDimension.REASONING_DEPTH, RubricDimension.CONTEXT_UTILIZATION],
-        "web_app": [RubricDimension.CREATIVITY, RubricDimension.STRICT_JSON, RubricDimension.SPEED],
-        "cli_tool": [RubricDimension.CREATIVITY, RubricDimension.SPEED],
-        "game_simple": [RubricDimension.CREATIVITY, RubricDimension.SPEED],
+        "web_app": [
+            RubricDimension.CREATIVITY,
+            RubricDimension.STRICT_JSON,
+            RubricDimension.SPEED,
+            RubricDimension.EMPIRICAL_COHERENCE,
+        ],
+        "cli_tool": [RubricDimension.CREATIVITY, RubricDimension.SPEED, RubricDimension.EMPIRICAL_COHERENCE],
+        "game_simple": [RubricDimension.CREATIVITY, RubricDimension.SPEED, RubricDimension.EMPIRICAL_COHERENCE],
         "data_script": [RubricDimension.CONTEXT_UTILIZATION, RubricDimension.SPEED],
         "utility_tool": [RubricDimension.CREATIVITY, RubricDimension.SPEED],
         "logic_flow": [RubricDimension.REASONING_DEPTH, RubricDimension.STRICT_JSON],
         "error_handling": [RubricDimension.REASONING_DEPTH, RubricDimension.CREATIVITY],
-        "code_structure": [RubricDimension.STRICT_JSON, RubricDimension.CREATIVITY],
+        "code_structure": [RubricDimension.STRICT_JSON, RubricDimension.CREATIVITY, RubricDimension.EMPIRICAL_COHERENCE],
         "readability": [RubricDimension.CREATIVITY, RubricDimension.CONTEXT_UTILIZATION],
-        "functionality": [RubricDimension.REASONING_DEPTH, RubricDimension.CREATIVITY],
+        "functionality": [
+            RubricDimension.REASONING_DEPTH,
+            RubricDimension.CREATIVITY,
+            RubricDimension.EMPIRICAL_COHERENCE,
+        ],
         "critical_refactoring": [
             RubricDimension.REASONING_DEPTH,
             RubricDimension.CONTEXT_UTILIZATION,

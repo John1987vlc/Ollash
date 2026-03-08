@@ -113,7 +113,7 @@ class RescuePhase:
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         file_paths: List[str] = kwargs.pop("file_paths", [])
         self.context.logger.info(f"[RESCUE] Step {self._step_index}: {self._step} → Action: {self._action}")
-        self.context.event_publisher.publish(
+        await self.context.event_publisher.publish(
             "rescue_step_executed",
             step=self._step,
             action=self._action,

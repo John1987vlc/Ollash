@@ -218,7 +218,7 @@ jobs:
     - name: Run E2E tests
       run: pytest tests/e2e/ -m e2e -v --tb=short
       env:
-        FLASK_ENV: testing
+        TESTING: "1"
         PYTHONPATH: .
 
     - name: Clean up E2E test artifacts

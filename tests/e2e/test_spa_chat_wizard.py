@@ -1,12 +1,12 @@
 import re
+
+import pytest
 from playwright.sync_api import Page, expect
 
-# Base URL - assuming Flask is running on localhost:5000
-BASE_URL = "http://localhost:5000"
 
-
-def test_spa_navigation_and_header(page: Page):
-    page.goto(BASE_URL)
+@pytest.mark.e2e
+def test_spa_navigation_and_header(page: Page, base_url: str):
+    page.goto(base_url)
     page.wait_for_load_state("networkidle")
 
     # Navigate to Projects
@@ -15,8 +15,9 @@ def test_spa_navigation_and_header(page: Page):
     expect(page.locator("#projects-view")).to_be_visible()
 
 
-def test_chat_agent_selection(page: Page):
-    page.goto(BASE_URL)
+@pytest.mark.e2e
+def test_chat_agent_selection(page: Page, base_url: str):
+    page.goto(base_url)
     page.click("button[data-view='chat']")
 
     # Wait for welcome screen
@@ -29,8 +30,9 @@ def test_chat_agent_selection(page: Page):
     expect(page.locator("#chat-header-agent-name")).to_have_text("Code")
 
 
-def test_prompt_library_v2(page: Page):
-    page.goto(BASE_URL)
+@pytest.mark.e2e
+def test_prompt_library_v2(page: Page, base_url: str):
+    page.goto(base_url)
     page.click("#toggle-prompt-library")
     expect(page.locator("#prompt-library-modal")).to_be_visible()
 
@@ -43,8 +45,9 @@ def test_prompt_library_v2(page: Page):
     expect(page.locator("#prompt-library-modal")).to_be_hidden()
 
 
-def test_wizard_basic_flow(page: Page):
-    page.goto(BASE_URL)
+@pytest.mark.e2e
+def test_wizard_basic_flow(page: Page, base_url: str):
+    page.goto(base_url)
     page.click("button[data-view='create']")
 
     page.fill("#project-name", "e2e-project")
