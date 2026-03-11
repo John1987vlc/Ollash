@@ -235,4 +235,3 @@ class BasePhase(IAgentPhase):
     def _is_nano(self) -> bool:
         """Check if the project is running on a nano-tier model."""
         return bool(self.context._is_small_model())
-

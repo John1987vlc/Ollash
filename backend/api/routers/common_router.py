@@ -29,9 +29,7 @@ async def status(request: Request):
     """Health check — verifies Ollama connectivity."""
     try:
         # Prioritize central OLLAMA_URL and fall back to OLLASH_OLLAMA_URL or default
-        ollama_url = os.environ.get(
-            "OLLAMA_URL", os.environ.get("OLLASH_OLLAMA_URL", "http://127.0.0.1:11434")
-        )
+        ollama_url = os.environ.get("OLLAMA_URL", os.environ.get("OLLASH_OLLAMA_URL", "http://127.0.0.1:11434"))
         # Ensure URL is clean
         ollama_url = ollama_url.rstrip("/")
 
@@ -51,6 +49,7 @@ async def get_docs_tree():
     """Returns the dynamic documentation tree."""
     try:
         from backend.core.containers import main_container
+
         doc_manager = main_container.core.documentation_manager()
         tree = doc_manager.get_documentation_tree()
         return tree
@@ -63,6 +62,7 @@ async def get_doc_content(rel_path: str):
     """Returns the content of a specific documentation file."""
     try:
         from backend.core.containers import main_container
+
         doc_manager = main_container.core.documentation_manager()
         content = doc_manager.get_documentation_content(rel_path)
         if content is None:

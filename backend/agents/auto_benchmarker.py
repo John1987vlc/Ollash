@@ -247,28 +247,29 @@ class ModelBenchmarker:
                 try:
                     if task_type == "autonomous_pipeline":
                         print(f"  [E2E] Running full AutoAgent pipeline for {task_name}...")
-                        from backend.agents.auto_agent import AutoAgent
                         from backend.core.containers import main_container
-                        
+
                         agent = main_container.auto_agent_module.auto_agent()
                         # Override model for this run
                         agent.llm_manager.config.default_model = model_name
                         for role in agent.llm_manager.config.agent_roles:
                             agent.llm_manager.config.agent_roles[role] = model_name
-                        
+
                         # Run the agent
                         loop = asyncio.get_event_loop()
-                        final_path = loop.run_until_complete(agent.run(
-                            project_description=task_description,
-                            project_name=f"bench_{model_slug}_{task_name}",
-                        ))
-                        
+                        final_path = loop.run_until_complete(
+                            agent.run(
+                                project_description=task_description,
+                                project_name=f"bench_{model_slug}_{task_name}",
+                            )
+                        )
+
                         # Collect results from the generated folder
                         task_response_content = ""
                         for p in final_path.rglob("*"):
                             if p.is_file() and p.suffix in [".html", ".js", ".css", ".py"]:
                                 task_response_content += f"\n\n--- FILE: {p.name} ---\n{p.read_text(encoding='utf-8')}"
-                        
+
                         task_status = "Success"
                     else:
                         creation_prompt = (

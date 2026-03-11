@@ -1,7 +1,6 @@
 """Enhanced File Content Generator that uses logic plans for better implementation."""
 
 import re
-import json
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -44,7 +43,7 @@ class EnhancedFileContentGenerator:
         self.max_retries = 3
         self.retry_policy = RetryPolicy(max_attempts=self.max_retries)
         self.options = options or self.DEFAULT_OPTIONS.copy()
-        
+
         # Lazy import to avoid circular dependency; CodePatcher lives in the same package
         if code_patcher is not None:
             self._code_patcher = code_patcher

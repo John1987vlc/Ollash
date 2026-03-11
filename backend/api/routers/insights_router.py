@@ -3,9 +3,7 @@ insights_router - migrated from insights_bp.py.
 Handles activity reports and system insights.
 """
 
-from typing import Any, Dict, List, Optional
-
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from backend.utils.core.feedback.activity_report_generator import get_activity_report_generator
 
 router = APIRouter(prefix="/api/reports", tags=["insights"])
@@ -31,7 +29,7 @@ async def get_weekly_report():
     if report:
         # Convert to dict if it's a dataclass
         report_data = report.to_dict() if hasattr(report, "to_dict") else report
-        
+
         # Ensure metrics list exists to avoid frontend 'find' error
         if "metrics" not in report_data or not report_data["metrics"]:
             report_data["metrics"] = [

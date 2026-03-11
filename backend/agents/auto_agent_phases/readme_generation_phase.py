@@ -92,7 +92,9 @@ class ReadmeGenerationPhase(IAgentPhase):
         # F31: Completely skip diagrams for nano models to avoid hangs
         if not bool(self.context._is_small_model()):
             try:
-                readme = await self._append_mermaid_diagrams(readme, project_description, project_name, initial_structure)
+                readme = await self._append_mermaid_diagrams(
+                    readme, project_description, project_name, initial_structure
+                )
                 generated_files[readme_file_path] = readme
                 self.context.file_manager.write_file(full_readme_path, readme)
             except Exception as e:

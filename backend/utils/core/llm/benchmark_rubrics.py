@@ -511,7 +511,11 @@ class MultidimensionalRubric:
         "utility_tool": [RubricDimension.CREATIVITY, RubricDimension.SPEED],
         "logic_flow": [RubricDimension.REASONING_DEPTH, RubricDimension.STRICT_JSON],
         "error_handling": [RubricDimension.REASONING_DEPTH, RubricDimension.CREATIVITY],
-        "code_structure": [RubricDimension.STRICT_JSON, RubricDimension.CREATIVITY, RubricDimension.EMPIRICAL_COHERENCE],
+        "code_structure": [
+            RubricDimension.STRICT_JSON,
+            RubricDimension.CREATIVITY,
+            RubricDimension.EMPIRICAL_COHERENCE,
+        ],
         "readability": [RubricDimension.CREATIVITY, RubricDimension.CONTEXT_UTILIZATION],
         "functionality": [
             RubricDimension.REASONING_DEPTH,

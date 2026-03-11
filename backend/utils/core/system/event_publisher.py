@@ -65,13 +65,10 @@ class EventPublisher:
             loop = bridge.get_loop()
             if loop.is_running():
                 # We use run_coroutine_threadsafe to schedule it on the bridge loop
-                asyncio.run_coroutine_threadsafe(
-                    self.publish(event_type, event_data, **kwargs), 
-                    loop
-                )
+                asyncio.run_coroutine_threadsafe(self.publish(event_type, event_data, **kwargs), loop)
                 return
         except Exception:
             pass
-            
+
         # Fallback to bridge.run if something goes wrong or loop is not running
         return bridge.run(self.publish, event_type, event_data, **kwargs)

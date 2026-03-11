@@ -3,10 +3,7 @@ knowledge_router - migrated from knowledge_views.py.
 Handles knowledge base documents, uploads, and memory statistics.
 """
 
-import os
-from typing import Any, Dict, List, Optional
-
-from fastapi import APIRouter, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from backend.core.containers import main_container
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])

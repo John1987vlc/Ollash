@@ -36,37 +36,35 @@ class TestJavaScriptOptimizationPhase:
         phase = JavaScriptOptimizationPhase(mock_context)
         html_content = "<html><body><script src='wrong.js'></script></body></html>"
         files = {"src/index.html": html_content, "src/app.js": "console.log('hi');"}
-        
+
         fixed_html = "<html><body><script src='app.js'></script></body></html>"
-        
+
         mock_context.llm_manager.get_client.return_value.chat.return_value = ({"content": fixed_html}, {})
         mock_context.response_parser.extract_code.return_value = fixed_html
-        
+
         with patch(_PROMPT_LOADER_PATH) as ml:
             ml.return_value.load_prompt = AsyncMock(return_value=_HTML_PROMPTS)
             new_files, _, _ = await phase.execute("", "", Path("."), "", {}, files)
-        
+
         assert "app.js" in new_files["src/index.html"]
 
     @pytest.mark.asyncio
     async def test_cross_js_coherence_check(self, mock_context):
         phase = JavaScriptOptimizationPhase(mock_context)
-        mock_context.logic_plan = {
-            "src/engine.js": {"exports": ["Engine", "start"]}
-        }
-        
+        mock_context.logic_plan = {"src/engine.js": {"exports": ["Engine", "start"]}}
+
         files = {
             "src/app.js": "const engine = new Engine(); engine.start();" + "\n" * 25,
             "src/engine.js": "class Engine { init() {} }" + "\n" * 25,
         }
         fixed_code = "class Engine { init() {} start() {} }" + "\n" * 25
-        
+
         mock_context.llm_manager.get_client.return_value.chat.return_value = ({"content": fixed_code}, {})
         mock_context.response_parser.extract_code.return_value = fixed_code
-        
+
         with patch(_PROMPT_LOADER_PATH) as ml:
             ml.return_value.load_prompt = AsyncMock(return_value=_CROSS_JS_PROMPTS)
             new_files, _, _ = await phase.execute("", "", Path("."), "", {}, files)
-        
+
         assert "start() {}" in new_files["src/engine.js"]
         mock_context.file_manager.write_file.assert_called()

@@ -1,10 +1,8 @@
 import logging
-import json
 from typing import Any
 
 from backend.utils.core.llm.prompt_loader import PromptLoader
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
-from backend.utils.core.system.execution_bridge import bridge
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +33,7 @@ class IntentRoutingMixin:
 
             # Use orchestration client for classification
             client = self.llm_manager.get_client("orchestration")
-            
+
             logger.info(f"Calling LLM ({client.model}) for intent classification...")
             # client.achat is async
             response, _ = await client.achat(
@@ -50,7 +48,7 @@ class IntentRoutingMixin:
 
             content = response.get("message", {}).get("content", "").lower()
             logger.debug(f"Raw intent classification response: {content}")
-            
+
             # F33: Use parser to clean thinking blocks
             content, _ = LLMResponseParser.remove_think_blocks(content)
 
@@ -65,13 +63,12 @@ class IntentRoutingMixin:
 
             if final_intent == "orchestrator":
                 logger.info("Could not determine specific intent from LLM output, defaulting to 'orchestrator'.")
-            
+
             # F30: Publish routing event for real-time UI feedback
             if hasattr(self, "event_publisher") and self.event_publisher:
-                await self.event_publisher.publish("routing", {
-                    "intent": final_intent,
-                    "message": f"Routing request to {final_intent} specialist..."
-                })
+                await self.event_publisher.publish(
+                    "routing", {"intent": final_intent, "message": f"Routing request to {final_intent} specialist..."}
+                )
 
             return final_intent
         except Exception as e:

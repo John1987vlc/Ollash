@@ -108,7 +108,9 @@ class ClarificationPhase(BasePhase):
         # F31: Check if there's actually someone listening to our request
         # If no one is subscribed to clarification_request, it's likely a non-interactive CLI run.
         if not event_publisher.has_subscribers("clarification_request"):
-            self.context.logger.info(f"[Clarification] No active UI/Subscribers detected. Skipping question: {question[:50]}...")
+            self.context.logger.info(
+                f"[Clarification] No active UI/Subscribers detected. Skipping question: {question[:50]}..."
+            )
             return ""
 
         event = asyncio.Event()

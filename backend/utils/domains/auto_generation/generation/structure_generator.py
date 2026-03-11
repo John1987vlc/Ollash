@@ -54,10 +54,17 @@ class StructureGenerator:
         self._constraint_hint = constraint_hint
 
         # F31: Detect nano/small models (<=8B)
-        is_small = "0.8b" in self.llm_client.model or "1.5b" in self.llm_client.model or "3b" in self.llm_client.model or "7b" in self.llm_client.model or "8b" in self.llm_client.model
+        is_small = (
+            "0.8b" in self.llm_client.model
+            or "1.5b" in self.llm_client.model
+            or "3b" in self.llm_client.model
+            or "7b" in self.llm_client.model
+            or "8b" in self.llm_client.model
+        )
 
         # Detect project type for better scaffolding
         from backend.utils.domains.auto_generation.project_type_detector import ProjectTypeDetector
+
         type_info = ProjectTypeDetector.detect("", readme_content)
         p_type = type_info.project_type if type_info else ""
 
@@ -70,20 +77,25 @@ class StructureGenerator:
             self.logger.info_sync(f"  Small model ({self.llm_client.model}) detected: Using Skeleton-First approach.")
             # For small models, we use the base_structure as the master and only ask for minor additions
             # instead of a recursive generation that often fails or hangs.
-            final_structure = await self._generate_small_model_additions(
-                base_structure, readme_content, p_type
-            )
+            final_structure = await self._generate_small_model_additions(base_structure, readme_content, p_type)
         else:
             # Phase 2: Recursively generate sub-structures only for key folders with DEPTH LIMIT
             final_structure = await self._recursively_generate_sub_structure(
-                base_structure, readme_content, max_retries, template_name=template_name, current_depth=1, max_depth_override=self.max_depth
+                base_structure,
+                readme_content,
+                max_retries,
+                template_name=template_name,
+                current_depth=1,
+                max_depth_override=self.max_depth,
             )
 
         file_count = len(self.extract_file_paths(final_structure))
         self.logger.info_sync(f"  Successfully generated structure with {file_count} files")
         return final_structure
 
-    async def _generate_small_model_additions(self, base_structure: dict, readme_content: str, project_type: str) -> dict:
+    async def _generate_small_model_additions(
+        self, base_structure: dict, readme_content: str, project_type: str
+    ) -> dict:
         """Ask small model for only 2-3 extra files to add to the deterministic scaffold."""
         try:
             prompt = (
@@ -91,20 +103,21 @@ class StructureGenerator:
                 f"Current Scaffold: {json.dumps(base_structure, indent=1)}\n"
                 f"README: {readme_content[:1000]}\n\n"
                 "Based on the README, suggest 2-3 additional core files needed for this project. "
-                "Return ONLY a JSON list of file paths (relative to root). Example: [\"src/utils/math.js\", \"docs/usage.md\"]"
+                'Return ONLY a JSON list of file paths (relative to root). Example: ["src/utils/math.js", "docs/usage.md"]'
             )
-            
+
             response_data, _ = self.llm_client.chat(
                 messages=[{"role": "user", "content": prompt}],
-                options_override={"temperature": 0.1, "num_predict": 512}
+                options_override={"temperature": 0.1, "num_predict": 512},
             )
             raw = response_data.get("content", "")
             extra_files = self.parser.extract_json(raw)
-            
+
             if isinstance(extra_files, list):
                 # Merging extra files into base_structure
                 for file_path in extra_files:
-                    if not isinstance(file_path, str): continue
+                    if not isinstance(file_path, str):
+                        continue
                     # Simple split to find folder and file
                     parts = file_path.replace("\\", "/").split("/")
                     if len(parts) == 1:
@@ -126,7 +139,7 @@ class StructureGenerator:
                                 curr = new_folder
                         if parts[-1] not in curr.get("files", []):
                             curr.setdefault("files", []).append(parts[-1])
-            
+
             return base_structure
         except Exception as e:
             self.logger.info_sync(f"  Error getting small model additions: {e}. Returning base scaffold.")
@@ -223,7 +236,7 @@ class StructureGenerator:
                     # We ensure sub-files and sub-folders don't carry the parent's path prefix
                     raw_sub_files = sub_structure_content.get("files", [])
                     raw_sub_folders = sub_structure_content.get("folders", [])
-                    
+
                     normalized_sub_files = []
                     for f in raw_sub_files:
                         f_name = f.get("name") if isinstance(f, dict) else str(f)
@@ -232,7 +245,7 @@ class StructureGenerator:
                             f_name = f_name.split("/")[-1]
                         elif "\\" in f_name:
                             f_name = f_name.split("\\")[-1]
-                        
+
                         if isinstance(f, dict):
                             f["name"] = f_name
                             normalized_sub_files.append(f)
@@ -246,7 +259,7 @@ class StructureGenerator:
                             sub_f_name = sub_f_name.split("/")[-1]
                         elif "\\" in sub_f_name:
                             sub_f_name = sub_f_name.split("\\")[-1]
-                        
+
                         if isinstance(sub_f, dict):
                             sub_f["name"] = sub_f_name
                             normalized_sub_folders.append(sub_f)
@@ -255,10 +268,15 @@ class StructureGenerator:
 
                     folder_data["folders"] = normalized_sub_folders
                     folder_data["files"] = normalized_sub_files
-                    
+
                     detailed_structure["folders"][i] = await self._recursively_generate_sub_structure(
-                        folder_data, context_text, max_retries, full_folder_path, template_name, current_depth + 1,
-                        max_depth_override=target_max_depth
+                        folder_data,
+                        context_text,
+                        max_retries,
+                        full_folder_path,
+                        template_name,
+                        current_depth + 1,
+                        max_depth_override=target_max_depth,
                     )
 
         return detailed_structure

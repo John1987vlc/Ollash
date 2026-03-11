@@ -3,8 +3,7 @@ monitors_router - migrated from monitors_bp.py.
 Handles proactive monitoring agents for system, network, and security.
 """
 
-import asyncio
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel

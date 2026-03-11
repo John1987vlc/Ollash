@@ -219,6 +219,7 @@ class AutoAgent(CoreAgent):
 
             if bool(ctx._is_small_model()):
                 from backend.agents.auto_agent_phases.clarification_phase import ClarificationPhase
+
                 _NANO_SKIP = (
                     ExhaustiveReviewRepairPhase,
                     DynamicDocumentationPhase,

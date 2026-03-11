@@ -5,7 +5,6 @@ Handles project dependency graph visualization.
 
 import os
 import re
-from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
 
 from fastapi import APIRouter, HTTPException, Request
@@ -125,7 +124,7 @@ async def project_dependency_graph(project_name: str, request: Request):
 
     ollash_root_dir = request.app.state.ollash_root_dir
     project_dir = ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
-    
+
     if not project_dir.exists():
         # Fallback to general generated projects
         project_dir = ollash_root_dir / "generated_projects" / project_name

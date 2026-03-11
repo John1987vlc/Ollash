@@ -240,6 +240,7 @@ class ShadowEvaluator:
             return ""
         if lang == "html":
             import re
+
             for tag in ["html", "head", "body"]:
                 open_count = len(re.findall(rf"<{tag}[\s>]", content.lower()))
                 close_count = len(re.findall(rf"</{tag}\s*>", content.lower()))
@@ -284,7 +285,7 @@ class ShadowEvaluator:
                 reviewer = llm_manager.get_client("nano_reviewer")
                 res, _ = reviewer.chat(
                     messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-                    options_override={"temperature": 0.0, "num_predict": 256}
+                    options_override={"temperature": 0.0, "num_predict": 256},
                 )
                 audit_res = json.loads(res.get("content", "{}"))
                 if audit_res.get("has_errors") and audit_res.get("errors"):
@@ -312,9 +313,10 @@ class ShadowEvaluator:
                 options_override={"temperature": 0.0},
             )
             raw = response_data.get("content", "")
-            
+
             # Extract corrected code from tags
             import re as _re
+
             match = _re.search(r"<code_fixed>([\s\S]*?)</code_fixed>", raw, _re.IGNORECASE)
             if match:
                 repaired = match.group(1).strip()
@@ -333,7 +335,7 @@ class ShadowEvaluator:
                         )
                     )
                     return repaired, True
-            
+
             logger.info(f"[Opt6] Format repair did not resolve the issue for '{file_path}', using original")
         except Exception as exc:
             logger.error(f"[Opt6] nano_format_corrector failed for '{file_path}': {exc}")

@@ -5,9 +5,8 @@ Handles task scheduling and execution plan (DAG) previews.
 
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/operations", tags=["operations"])

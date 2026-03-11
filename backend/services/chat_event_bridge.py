@@ -114,7 +114,6 @@ class ChatEventBridge:
             if event.event_type == "stream_end":
                 break
 
-
     def close(self):
         """Signal end of stream."""
         if not self._closed:

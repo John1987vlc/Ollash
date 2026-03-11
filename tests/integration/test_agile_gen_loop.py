@@ -30,8 +30,8 @@ async def test_execution_loop_with_retries():
     # Response 2: Missing XML
     # Response 3: Good XML
     mock_client.chat.side_effect = [
-        ({"content": ""}, {}),   # Empty → triggers retry
-        ({"content": ""}, {}),   # Empty → triggers retry
+        ({"content": ""}, {}),  # Empty → triggers retry
+        ({"content": ""}, {}),  # Empty → triggers retry
         ({"content": "```python\nprint('hello')\n```"}, {}),  # Valid code block
     ]
     # Use side_effect to return the same client every time get_client is called

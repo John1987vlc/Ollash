@@ -82,7 +82,7 @@ class ConfirmationManager:
                 use_event_flow = True
                 hil_data = {
                     "id": req_id,
-                    "action": action, # Renamed from 'type' to avoid collision in EventBridge
+                    "action": action,  # Renamed from 'type' to avoid collision in EventBridge
                     "title": f"Confirm Action: {action}",
                     "details": details,
                     "timestamp": datetime.datetime.now().isoformat(),

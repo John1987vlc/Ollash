@@ -6,12 +6,7 @@ Handles model benchmarking, result tracking, and streaming.
 import asyncio
 import json
 import queue
-import threading
-import time
-import hashlib
-from pathlib import Path
-from statistics import mean
-from typing import Any, Dict, List, Optional, AsyncIterator
+from typing import List, Optional, AsyncIterator
 
 import requests
 from fastapi import APIRouter, HTTPException, Request, Query, BackgroundTasks
@@ -19,7 +14,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from backend.agents.auto_benchmarker import ModelBenchmarker
-from backend.core.containers import main_container
 
 router = APIRouter(prefix="/api/benchmark", tags=["benchmark"])
 
@@ -43,9 +37,8 @@ async def list_models(url: str = Query("")):
 
     if not ollama_url:
         import os
-        ollama_url = os.environ.get(
-            "OLLAMA_URL", os.environ.get("OLLASH_OLLAMA_URL", "http://127.0.0.1:11434")
-        )
+
+        ollama_url = os.environ.get("OLLAMA_URL", os.environ.get("OLLASH_OLLAMA_URL", "http://127.0.0.1:11434"))
 
     ollama_url = ollama_url.rstrip("/")
 
@@ -82,7 +75,7 @@ async def start_benchmark(payload: StartBenchmarkRequest, background_tasks: Back
 
     # For simplicity, we use a single active run or could use session_id
     session_id = "default"
-    
+
     event_queue = queue.Queue()
 
     def _run():
@@ -90,7 +83,7 @@ async def start_benchmark(payload: StartBenchmarkRequest, background_tasks: Back
             benchmarker = ModelBenchmarker()
             if payload.ollama_url:
                 benchmarker.url = payload.ollama_url
-            
+
             _active_run[session_id] = {"benchmarker": benchmarker, "queue": event_queue}
 
             # Initialize model sizes
@@ -115,6 +108,7 @@ async def start_benchmark(payload: StartBenchmarkRequest, background_tasks: Back
             summary_text = "No summary generated."
             try:
                 from backend.core.config_loader import get_config_loader
+
                 config = get_config_loader().get_full_config()
                 summary_model = config.get("LLM_MODELS", {}).get("models", {}).get("summarization", "qwen3-coder:30b")
 

@@ -3,7 +3,7 @@ automations_router - migrated from automations_bp.py.
 Handles task automation scheduling.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Request
@@ -41,9 +41,9 @@ async def get_automations(request: Request):
 async def create_automation(payload: AutomationCreate, request: Request):
     """Create a new scheduled task."""
     am = request.app.state.automation_manager
-    
+
     task_id = f"task_{int(datetime.now().timestamp() * 1000)}"
-    
+
     task_data = {
         "task_id": task_id,
         "name": payload.name,
@@ -55,12 +55,12 @@ async def create_automation(payload: AutomationCreate, request: Request):
         "enabled": True,
         "createdAt": datetime.now().isoformat(),
     }
-    
+
     # Add to manager and schedule
     am.tasks[task_id] = task_data
     am._schedule_task(task_id, task_data)
     am._save_tasks()
-    
+
     return {"status": "created", "id": task_id, "task": task_data}
 
 
@@ -70,14 +70,14 @@ async def delete_automation(task_id: str, request: Request):
     am = request.app.state.automation_manager
     if task_id not in am.tasks:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     # Unschedule
     if am.scheduler.get_job(task_id):
         am.scheduler.remove_job(task_id)
-    
+
     del am.tasks[task_id]
     am._save_tasks()
-    
+
     return {"status": "deleted"}
 
 
@@ -87,19 +87,19 @@ async def toggle_automation(task_id: str, request: Request):
     am = request.app.state.automation_manager
     if task_id not in am.tasks:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     task = am.tasks[task_id]
     task["enabled"] = not task.get("enabled", True)
-    
+
     # Update scheduler
     if task["enabled"]:
         am._schedule_task(task_id, task)
     else:
         if am.scheduler.get_job(task_id):
             am.scheduler.remove_job(task_id)
-            
+
     am._save_tasks()
-    
+
     return {"id": task_id, "enabled": task["enabled"]}
 
 
@@ -109,11 +109,12 @@ async def run_automation_now(task_id: str, request: Request):
     am = request.app.state.automation_manager
     if task_id not in am.tasks:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     task = am.tasks[task_id]
-    
+
     # Execute in background thread via manager's helper
     import asyncio
+
     asyncio.create_task(am._execute_task_wrapper(task_id, task))
-    
+
     return {"status": "executing", "message": f"Task '{task['name']}' started"}

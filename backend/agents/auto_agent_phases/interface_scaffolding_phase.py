@@ -89,24 +89,22 @@ class InterfaceScaffoldingPhase(BasePhase):
     async def _ensure_dom_contract(self, logic_plan, project_root, generated_files, is_nano):
         """Ensure a DOM contract exists, generating one via LLM if necessary for nano models."""
         self._extract_dom_contracts(logic_plan, project_root, generated_files)
-        
+
         # If nano and no IDs found yet, proactively define them to avoid mismatch
         if is_nano and not getattr(self.context, "dom_contracts", {}):
             self.context.logger.info("  [Nano] No DOM IDs found in plan. Defining UI Contract via NanoPlanner...")
             try:
-                from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
-                
                 # We reuse the nano_planner role but with a UI contract focus
                 prompt = (
                     f"Define 5-8 essential HTML element IDs for this project: {self.context.project_description}\n"
                     "Output ONLY a JSON map of element_id to its purpose (string). "
-                    "Example: {\"game-board\": \"8x8 grid container\", \"status\": \"turn indicator\"}"
+                    'Example: {"game-board": "8x8 grid container", "status": "turn indicator"}'
                 )
-                
+
                 client = self.context.llm_manager.get_client("nano_planner")
                 res, _ = client.chat(
                     messages=[{"role": "user", "content": prompt}],
-                    options_override={"temperature": 0.1, "num_predict": 256}
+                    options_override={"temperature": 0.1, "num_predict": 256},
                 )
                 contract = self.context.response_parser.extract_json(res.get("content", ""))
                 if isinstance(contract, dict):
@@ -165,7 +163,9 @@ class InterfaceScaffoldingPhase(BasePhase):
             except OSError as exc:
                 self.context.logger.warning(f"  Could not write DOM_CONTRACTS.json: {exc}")
 
-    def _write_stub_file(self, project_root: Path, rel_path: str, content: str, generated_files: Dict, file_paths: List):
+    def _write_stub_file(
+        self, project_root: Path, rel_path: str, content: str, generated_files: Dict, file_paths: List
+    ):
         """Helper to write a stub/skeleton file and update context."""
         full_path = project_root / rel_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -209,11 +209,11 @@ class InterfaceScaffoldingPhase(BasePhase):
                 continue
             if name[0].isupper():
                 lines.append(f"class {name}:")
-                lines.append("    \"\"\"Implementation placeholder.\"\"\"")
+                lines.append('    """Implementation placeholder."""')
                 lines.append("    pass")
             else:
                 lines.append(f"def {name}():")
-                lines.append("    \"\"\"Implementation placeholder.\"\"\"")
+                lines.append('    """Implementation placeholder."""')
                 lines.append("    pass")
             lines.append("")
 
@@ -223,7 +223,7 @@ class InterfaceScaffoldingPhase(BasePhase):
     def _javascript_source_skeleton(exports: List[str], plan: Dict[str, Any]) -> str:
         """Generate a .js/.ts skeleton with empty-body stubs."""
         lines = [
-            f'/** {plan.get("purpose", "Auto-generated module")} */',
+            f"/** {plan.get('purpose', 'Auto-generated module')} */",
             "",
         ]
         # Imports

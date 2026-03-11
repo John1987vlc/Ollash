@@ -38,12 +38,12 @@ class OllamaClient:
         try:
             current_loop = asyncio.get_running_loop()
         except RuntimeError:
-            return None # Should not happen in async context
+            return None  # Should not happen in async context
 
         if self._aiohttp_session is not None:
             # Check if session loop is closed or different
             sess_loop = getattr(self._aiohttp_session, "_loop", None) or getattr(self._aiohttp_session, "loop", None)
-            
+
             if self._aiohttp_session.closed or sess_loop != current_loop:
                 if not self._aiohttp_session.closed:
                     await self._aiohttp_session.close()
@@ -75,17 +75,12 @@ class OllamaClient:
         tools = tools or []
         if context is None:
             context = getattr(self, "_session_context", None)
-        
+
         # F31: Lowered context limits
         default_ctx = self.config.get("max_context_tokens", 8192)
         default_predict = self.config.get("max_output_tokens", 2048)
-        
-        opts = {
-            "temperature": 0.1, 
-            "num_ctx": default_ctx, 
-            "num_predict": default_predict,
-            "keep_alive": "5m"
-        }
+
+        opts = {"temperature": 0.1, "num_ctx": default_ctx, "num_predict": default_predict, "keep_alive": "5m"}
         if options_override:
             opts.update(options_override)
         if hasattr(self, "_keep_alive"):
@@ -103,7 +98,7 @@ class OllamaClient:
         print(f"[OllamaClient] Options: num_ctx={opts['num_ctx']}, num_predict={opts['num_predict']}")
         if self.logger.event_publisher:
             await self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
-        
+
         try:
             self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
         except (TypeError, ValueError):
@@ -113,10 +108,10 @@ class OllamaClient:
             self._llm_recorder.record_request(self.model, messages, tools, opts)
 
         start_time = time.time()
-        
+
         # F33: Use synchronous requests in a thread pool to avoid aiohttp hangs
         loop = asyncio.get_event_loop()
-        
+
         def _do_post():
             return self.http_session.post(self.chat_url, json=payload, timeout=self.timeout)
 
@@ -124,10 +119,10 @@ class OllamaClient:
         try:
             resp = await loop.run_in_executor(None, _do_post)
             print(f"[OllamaClient] Response status: {resp.status_code}")
-            
+
             data = resp.json()
             latency = time.time() - start_time
-            
+
             print(f"[OllamaClient] Received response in {latency:.2f}s")
 
             # Debug logging after response
@@ -146,7 +141,7 @@ class OllamaClient:
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
             }
-            
+
             print(f"[OllamaClient] Tokens: {prompt_tokens} prompt, {completion_tokens} completion")
 
             if self.token_tracker:
@@ -234,7 +229,7 @@ class OllamaClient:
                         line_text = line.decode("utf-8").strip()
                         if not line_text:
                             continue
-                        
+
                         data = json.loads(line_text)
                         chunk = data.get("message", {}).get("content", "")
                         if chunk:
@@ -244,7 +239,7 @@ class OllamaClient:
                                     await chunk_callback(chunk)
                                 else:
                                     chunk_callback(chunk)
-                        
+
                         # Capture native tool calls from stream
                         tc = data.get("message", {}).get("tool_calls")
                         if tc:

@@ -3,13 +3,11 @@ analysis_router - migrated from analysis_bp.py.
 Handles advanced analysis: Cross-Reference, Knowledge Graphs, and Decision Context.
 """
 
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.memory.cross_reference_analyzer import CrossReferenceAnalyzer
 from backend.utils.core.memory.decision_context_manager import DecisionContextManager
 from backend.utils.core.memory.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -85,7 +83,7 @@ def get_analysis_managers(request: Request):
     if not hasattr(request.app.state, "analysis_managers"):
         # We assume AgentKernel or similar has initialized these, or we do it here
         from backend.core.containers import main_container
-        
+
         logger = main_container.core.logging.logger()
         ollash_root_dir = request.app.state.ollash_root_dir
         config = main_container.core.config_loader().get_full_config()

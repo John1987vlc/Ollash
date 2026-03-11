@@ -159,8 +159,9 @@ class ChatSessionManager:
 
                 # Use the thread-local loop to run the async chat
                 result = loop.run_until_complete(session.agent.chat(message))
-                
+
                 import logging
+
                 logger = logging.getLogger("ollash")
                 logger.info(f"DEBUG: chat_session_manager result type: {type(result)}")
                 if isinstance(result, dict):
@@ -173,7 +174,7 @@ class ChatSessionManager:
                     metrics = result.get("metrics", {})
                 else:
                     content = str(result)
-                
+
                 logger.info(f"DEBUG: chat_session_manager final content length: {len(content)}")
 
                 # Persist assistant response

@@ -34,7 +34,7 @@ class FileContentGenerationPhase(BasePhase):
         # F3: Build API map once for token-efficient context on small models
         if generated_files:
             self.context.build_api_map(generated_files)
-        
+
         is_nano = bool(self.context._is_small_model())
         _use_signatures = is_nano or bool(self.context._is_small_model("coder"))
 
@@ -185,12 +185,14 @@ class FileContentGenerationPhase(BasePhase):
                         # We use the new get_escalated_client to follow the configured JSON tiers
                         old_model = self.context.llm_manager.get_client(current_coder_role).model
                         new_client = self.context.llm_manager.get_escalated_client(old_model)
-                        
+
                         # We update current_coder_role only if a better model was actually found
                         if new_client.model != old_model:
-                            current_coder_role = "escalation" # Use a generic role for the escalated client
-                            self.context.llm_manager.clients_by_model[new_client.model] = new_client # Cache it
-                            self.context.logger.info(f"  [Escalation] Switching to {new_client.model} tier for attempt {attempts}")
+                            current_coder_role = "escalation"  # Use a generic role for the escalated client
+                            self.context.llm_manager.clients_by_model[new_client.model] = new_client  # Cache it
+                            self.context.logger.info(
+                                f"  [Escalation] Switching to {new_client.model} tier for attempt {attempts}"
+                            )
 
                     if last_error:
                         # Implement Chain of Thought (CoT) for retries
@@ -229,6 +231,7 @@ class FileContentGenerationPhase(BasePhase):
 
                     # 4. Extract content using the robust unified parser
                     from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
                     if is_nano_subtask:
                         # For nano subtasks, we expect ONLY the function body, no explanation
                         content = LLMResponseParser.extract_code_block(raw_response) or raw_response.strip()
@@ -249,9 +252,9 @@ class FileContentGenerationPhase(BasePhase):
                         full_content = generated_files.get(file_path, "")
                         func_name = task.get("function_name")
                         signature = task.get("function_signature")
-                        
+
                         import re as _re
-                        
+
                         # Support for Python (pass/...) and JS/TS ({ // placeholder })
                         if file_path.endswith((".py", ".pyi")):
                             # Signature + optional docstring + pass/...
@@ -270,7 +273,7 @@ class FileContentGenerationPhase(BasePhase):
                                     content = signature + "\n    " + content
                                 else:
                                     content = signature + " {\n" + content + "\n}"
-                            
+
                             content = _re.sub(stub_pattern, content, full_content, count=1)
                         else:
                             # Fallback: if stub not found exactly, try to find just the function name
@@ -310,7 +313,7 @@ class FileContentGenerationPhase(BasePhase):
                             critic_cfg = critic_cfg.get("critic_loop", {})
                         else:
                             critic_cfg = {}
-                        
+
                         if critic_cfg.get("enabled", True):
                             try:
                                 from backend.utils.core.analysis.critic_loop import CriticLoop
@@ -321,7 +324,9 @@ class FileContentGenerationPhase(BasePhase):
                                 _critic_feedback = await self._critic_loop.review(file_path, content, _lang)
                                 if _critic_feedback:
                                     last_error = f"CRITIC FEEDBACK: {_critic_feedback}"
-                                    self.context.logger.info(f"    [Critic] Issues in '{file_path}': {_critic_feedback}")
+                                    self.context.logger.info(
+                                        f"    [Critic] Issues in '{file_path}': {_critic_feedback}"
+                                    )
                                     content = ""
                                     continue
                             except Exception:
@@ -342,9 +347,10 @@ class FileContentGenerationPhase(BasePhase):
                     validation_result = self.context.files_ctx.validator.validate(file_path, content)
 
                     # Handle Semantic Warnings (Auto-Heal) - F31: Skip auto-heal for nano
-                    if not is_nano and ("logical integrity issues" in validation_result.message or "SEMANTIC WARNING" in str(
-                        validation_result
-                    )):
+                    if not is_nano and (
+                        "logical integrity issues" in validation_result.message
+                        or "SEMANTIC WARNING" in str(validation_result)
+                    ):
                         self.context.logger.info(
                             f"    ⚠ Attempt {attempts}: Integrity issues detected. Attempting auto-heal..."
                         )
@@ -374,13 +380,13 @@ class FileContentGenerationPhase(BasePhase):
 
                     _status = validation_result.status
                     _is_valid = False
-                    
+
                     # Robust check for VALID status (works with Enums and Mocks)
                     if hasattr(_status, "name"):
                         _sn = str(_status.name)
-                        _is_valid = (_sn == "VALID" or "MagicMock" in _sn)
+                        _is_valid = _sn == "VALID" or "MagicMock" in _sn
                     else:
-                        _is_valid = (str(_status) == "VALID")
+                        _is_valid = str(_status) == "VALID"
 
                     if _is_valid:
                         self.context.logger.info(f"    ✓ {file_path} syntactically validated (Attempt {attempts})")
@@ -390,7 +396,7 @@ class FileContentGenerationPhase(BasePhase):
                         self.context.logger.warning(
                             f"    ⚠ Attempt {attempts} failed validation: {validation_result.message}"
                         )
-                        # We NO LONGER clear content on final failure. 
+                        # We NO LONGER clear content on final failure.
                         # We prefer saving "best effort" clean code over a 0-byte file.
 
                 # F2: TDD Agéntico — run a minimal unit test and auto-correct on failure
@@ -684,7 +690,7 @@ class FileContentGenerationPhase(BasePhase):
         if not plan:
             return "(No architecture plan available for this file)"
         lines = []
-        
+
         # F31: Explicitly include dependencies for cross-file coherence
         deps = plan.get("dependencies", plan.get("deps", []))
         if deps:
@@ -926,10 +932,12 @@ class FileContentGenerationPhase(BasePhase):
         # Create a mapping of both ID and File Path to the task for robust lookup
         id_to_task: Dict[str, Dict] = {}
         path_to_task: Dict[str, Dict] = {}
-        
+
         for t in backlog:
-            if "id" in t: id_to_task[t["id"]] = t
-            if "file_path" in t: path_to_task[str(t["file_path"])] = t
+            if "id" in t:
+                id_to_task[t["id"]] = t
+            if "file_path" in t:
+                path_to_task[str(t["file_path"])] = t
 
         if not id_to_task and not path_to_task:
             return backlog
@@ -942,20 +950,21 @@ class FileContentGenerationPhase(BasePhase):
 
         for task in backlog:
             tid = task.get("id")
-            if not tid: continue
-            
+            if not tid:
+                continue
+
             # Combine dependencies from 'dependencies' list and 'logic_plan'
             raw_deps = list(task.get("dependencies", []))
             if "logic_plan" in task and "dependencies" in task["logic_plan"]:
                 raw_deps.extend(task["logic_plan"]["dependencies"])
-            
+
             for dep in set(raw_deps):
                 dep_id = None
                 if dep in id_to_task:
                     dep_id = dep
                 elif str(dep) in path_to_task:
                     dep_id = path_to_task[str(dep)].get("id")
-                
+
                 if dep_id and dep_id != tid:
                     in_degree[tid] += 1
                     dependents[dep_id].append(tid)
@@ -963,8 +972,8 @@ class FileContentGenerationPhase(BasePhase):
         # Kahn's Algorithm
         queue = [tid for tid in all_ids if in_degree[tid] == 0]
         # Sort queue to maintain deterministic order for independent tasks
-        queue.sort() 
-        
+        queue.sort()
+
         sorted_ids: List[str] = []
         while queue:
             current = queue.pop(0)
@@ -976,14 +985,16 @@ class FileContentGenerationPhase(BasePhase):
                     queue.sort()
 
         if len(sorted_ids) != len(all_ids):
-            self.context.logger.warning(f"  ⚠ Cycle detected or missing deps ({len(sorted_ids)}/{len(all_ids)}) — using fallback order")
+            self.context.logger.warning(
+                f"  ⚠ Cycle detected or missing deps ({len(sorted_ids)}/{len(all_ids)}) — using fallback order"
+            )
             # Fallback: maintain original order but log it
             return backlog
 
         # Preserve tasks without IDs (shouldn't happen with new planner but safe)
         tasks_without_id = [t for t in backlog if "id" not in t]
         sorted_tasks = [id_to_task[tid] for tid in sorted_ids] + tasks_without_id
-        
+
         self.context.logger.info(f"  Backlog sorted by dependencies: {[t.get('id') for t in sorted_tasks[:10]]}...")
         return sorted_tasks
 

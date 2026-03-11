@@ -47,7 +47,7 @@ class LogicPlanningPhase(BasePhase):
 
         # F31: For nano models, be extremely aggressive with limits
         is_nano = bool(self.context._is_small_model())
-        
+
         # Select key files for planning - limit more for nano
         planning_files = [f for f in file_paths if "src/" in f or "app/" in f or "main" in f.lower()]
         if is_nano:
@@ -72,7 +72,7 @@ class LogicPlanningPhase(BasePhase):
         if is_nano:
             self.context.logger.info("  [Nano] Using specialized NanoPlanner for architecture mapping.")
             system_prompt, user_prompt = await AutoGenPrompts.nano_planner(project_name, project_description)
-            
+
             try:
                 response_data, _ = self.context.llm_manager.get_client("nano_planner").chat(
                     messages=[
@@ -83,17 +83,21 @@ class LogicPlanningPhase(BasePhase):
                 )
                 raw_content = response_data.get("content", "")
                 plan_map = self.context.response_parser.extract_json(raw_content)
-                
+
                 if isinstance(plan_map, dict):
                     # F31: Nano MVP Sanity Check
                     is_web = any(p.endswith(".html") for p in plan_map.keys())
                     if is_web and "index.html" not in plan_map and "src/index.html" not in plan_map:
-                        self.context.logger.warning("  [Nano] index.html missing from MVP plan. Injecting automatically.")
+                        self.context.logger.warning(
+                            "  [Nano] index.html missing from MVP plan. Injecting automatically."
+                        )
                         plan_map["index.html"] = {"exports": [], "deps": list(plan_map.keys())}
-                    
+
                     # Limit file count to prevent over-engineering
                     if len(plan_map) > 6:
-                        self.context.logger.warning(f"  [Nano] Plan too large ({len(plan_map)} files) for MVP. Pruning to 5 core files.")
+                        self.context.logger.warning(
+                            f"  [Nano] Plan too large ({len(plan_map)} files) for MVP. Pruning to 5 core files."
+                        )
                         # Keep entry points and first few files
                         top_keys = [k for k in plan_map.keys() if "index" in k or "main" in k or "app" in k]
                         other_keys = [k for k in plan_map.keys() if k not in top_keys]
@@ -102,11 +106,11 @@ class LogicPlanningPhase(BasePhase):
 
                     file_paths = list(plan_map.keys())
                     self.context.logger.info(f"  [Nano] Planner suggested {len(file_paths)} files.")
-                    
+
                     # Create logic plan from the map
                     logic_plan = {}
                     for path, meta in plan_map.items():
-                        if isinstance(meta, list): # Legacy format fallback
+                        if isinstance(meta, list):  # Legacy format fallback
                             exports = meta
                             deps = []
                         else:
@@ -119,22 +123,24 @@ class LogicPlanningPhase(BasePhase):
                             "main_logic": [f"Implement core logic for {path}"],
                             "dependencies": deps if isinstance(deps, list) else [],
                         }
-                    
+
                     # Create backlog from logic_plan
                     backlog = []
                     for i, (path, plan) in enumerate(logic_plan.items()):
-                        backlog.append({
-                            "id": f"TASK-{i + 1:03d}",
-                            "title": f"Implement {path}",
-                            "description": plan["purpose"],
-                            "file_path": path,
-                            "task_type": "create_file",
-                            "dependencies": plan["dependencies"],
-                            "logic_plan": plan,
-                        })
+                        backlog.append(
+                            {
+                                "id": f"TASK-{i + 1:03d}",
+                                "title": f"Implement {path}",
+                                "description": plan["purpose"],
+                                "file_path": path,
+                                "task_type": "create_file",
+                                "dependencies": plan["dependencies"],
+                                "logic_plan": plan,
+                            }
+                        )
                 else:
                     raise ValueError("NanoPlanner did not return a valid mapping.")
-                    
+
             except Exception as e:
                 self.context.logger.warning(f"  [Nano] Specialized planning failed: {e}. Falling back.")
                 logic_plan, backlog = await self._create_deterministic_backlog(
@@ -173,7 +179,9 @@ class LogicPlanningPhase(BasePhase):
 
                     # Fix: If the LLM returned a list directly (common error), it's likely the backlog
                     if isinstance(parsed_json, list):
-                        self.context.logger.info("  ⚠ Planner returned a list instead of a dict. Interpreting as backlog.")
+                        self.context.logger.info(
+                            "  ⚠ Planner returned a list instead of a dict. Interpreting as backlog."
+                        )
                         backlog = parsed_json
                         # Generate basic plans for the files in the backlog
                         logic_plan = self._create_basic_plans(
@@ -287,7 +295,7 @@ class LogicPlanningPhase(BasePhase):
         is_nano = bool(self.context._is_small_model())
         if is_nano:
             file_paths = [p for p in file_paths if p != "README.md"]
-            self.context.logger.info(f"  [Nano] Filtered out README.md from backlog (already generated).")
+            self.context.logger.info("  [Nano] Filtered out README.md from backlog (already generated).")
 
         logic_plan = self._create_basic_plans(file_paths, "all", project_description)
         backlog = []
@@ -300,7 +308,7 @@ class LogicPlanningPhase(BasePhase):
                 # Patterns: test_main.py -> main.py, app.test.js -> app.js
                 stem = p.stem.replace("test_", "").replace("_test", "").replace(".test", "")
                 ext = p.suffix
-                
+
                 # Search for the source file in the same directory or in src/
                 potential_names = [f"{stem}{ext}", f"src/{stem}{ext}", f"app/{stem}{ext}"]
                 for pot in potential_names:
@@ -308,15 +316,17 @@ class LogicPlanningPhase(BasePhase):
                         deps.append(pot)
                         break
 
-            backlog.append({
-                "id": task_id,
-                "title": f"Implement {path}",
-                "description": f"Create content for {path} as defined in project requirements.",
-                "file_path": path,
-                "task_type": "create_file",
-                "dependencies": deps,
-            })
-            
+            backlog.append(
+                {
+                    "id": task_id,
+                    "title": f"Implement {path}",
+                    "description": f"Create content for {path} as defined in project requirements.",
+                    "file_path": path,
+                    "task_type": "create_file",
+                    "dependencies": deps,
+                }
+            )
+
         return logic_plan, backlog
 
     async def _supervise_plan(
@@ -348,14 +358,14 @@ class LogicPlanningPhase(BasePhase):
                 options_override={"temperature": 0.1, "num_predict": 4096},
             )
             raw = response_data.get("content", "")
-            
+
             if "APPROVED" in raw:
                 return None, None
-                
+
             corrected = self.context.response_parser.extract_json(raw)
             if isinstance(corrected, dict) and "logic_plan" in corrected and "backlog" in corrected:
                 return corrected["logic_plan"], corrected["backlog"]
-                
+
             return None, None
         except Exception as e:
             self.context.logger.warning(f"  [Supervisor] Audit failed: {e}")
@@ -414,7 +424,7 @@ class LogicPlanningPhase(BasePhase):
     async def _legacy_planning_fallback(self, file_paths, project_description, readme_content, initial_structure):
         """Original categorized planning logic as a safe fallback."""
         logic_plan = {}
-        
+
         # F31: For nano tier, we skip LLM planning entirely to avoid hangs and repetitions
         if bool(self.context._is_small_model()):
             self.context.logger.info("  [Nano] Using direct file-to-task mapping for reliability.")

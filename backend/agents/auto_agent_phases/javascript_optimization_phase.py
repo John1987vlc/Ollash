@@ -1,5 +1,4 @@
 import re
-import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -37,11 +36,13 @@ class JavaScriptOptimizationPhase(IAgentPhase):
         # 1. Path Reference Validation (Universal)
         # Check for non-existent files mentioned in HTML or imports
         actual_files = set(generated_files.keys())
-        
+
         # 2. Entry Point Special Check (HTML/Main)
         html_files = {p: c for p, c in generated_files.items() if p.endswith(".html")}
         for path, content in html_files.items():
-            generated_files = await self._validate_html_references(path, content, actual_files, generated_files, project_root)
+            generated_files = await self._validate_html_references(
+                path, content, actual_files, generated_files, project_root
+            )
 
         # 3. Cross-File functional coherence (Imports/Exports)
         # Focus on JS and Python for now
@@ -62,14 +63,15 @@ class JavaScriptOptimizationPhase(IAgentPhase):
 
         # Detect <script src="..."> and <link href="...">
         refs = re.findall(r'<(?:script|link)[^>]*(?:src|href)=["\']([^"\']+)["\']', html_content)
-        
+
         actual_files_clean = {f.lstrip("./") for f in actual_files}
-        
+
         mismatches = []
         for ref in refs:
             # Skip absolute or external links
-            if ref.startswith(("http", "//", "/")): continue
-            
+            if ref.startswith(("http", "//", "/")):
+                continue
+
             # Normalise ref to match actual_files_clean
             # Try 1: Relative to HTML (e.g. HTML at src/index.html, ref 'app.js' -> 'src/app.js')
             ref_rel = (Path(html_path).parent / ref).as_posix().lstrip("./")
@@ -80,8 +82,10 @@ class JavaScriptOptimizationPhase(IAgentPhase):
                 mismatches.append({"original": ref, "rel_path": ref_rel})
 
         if mismatches:
-            self.context.logger.warning(f"    Found {len(mismatches)} dead references in {html_path}: {[m['original'] for m in mismatches]}")
-            
+            self.context.logger.warning(
+                f"    Found {len(mismatches)} dead references in {html_path}: {[m['original'] for m in mismatches]}"
+            )
+
             # Ask LLM to fix the HTML using the REAL file list
             try:
                 available_files = "\n".join(f"- {f}" for f in actual_files)
@@ -91,18 +95,17 @@ class JavaScriptOptimizationPhase(IAgentPhase):
                     "Fix the HTML content so all <script> and <link> tags use the CORRECT paths from the actual files list. "
                     "Output the COMPLETE corrected HTML inside <code_created> tags."
                 )
-                
+
                 res = self.context.llm_manager.get_client("coder").chat(
-                    messages=[{"role": "user", "content": prompt}],
-                    options_override={"temperature": 0.1}
+                    messages=[{"role": "user", "content": prompt}], options_override={"temperature": 0.1}
                 )
-                
+
                 # Handle both tuple (response_data, usage) and direct response_data
                 if isinstance(res, tuple):
                     response_data, _ = res
                 else:
                     response_data = res
-                
+
                 new_content = self.context.response_parser.extract_code(response_data.get("content", ""), html_path)
                 if new_content and len(new_content) > len(html_content) * 0.5:
                     all_files[html_path] = new_content
@@ -126,7 +129,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
             exports = plan.get("exports", [])
             if exports:
                 api_summary.append(f"FILE: {path}\nEXPORTS: {', '.join(exports)}")
-        
+
         if not api_summary:
             return all_files
 
@@ -139,8 +142,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
             targets = list(code_files.keys())
         else:
             targets = [p for p, c in code_files.items() if len(c.split("\n")) > 20 or "main" in p or "app" in p]
-        
-        total_files = len(targets)
+
         for idx, file_path in enumerate(targets, 1):
             content = code_files[file_path]
             try:
@@ -152,22 +154,21 @@ class JavaScriptOptimizationPhase(IAgentPhase):
                     "If there are mismatches, fix them. Output the COMPLETE corrected code inside <code_created> tags. "
                     "If it's already correct, reply with 'ALREADY_COHERENT'."
                 )
-                
+
                 res = self.context.llm_manager.get_client("coder").chat(
-                    messages=[{"role": "user", "content": prompt}],
-                    options_override={"temperature": 0.0}
+                    messages=[{"role": "user", "content": prompt}], options_override={"temperature": 0.0}
                 )
-                
+
                 # Handle both tuple (response_data, usage) and direct response_data
                 if isinstance(res, tuple):
                     response_data, _ = res
                 else:
                     response_data = res
-                
+
                 raw_res = response_data.get("content", "")
                 if "ALREADY_COHERENT" in raw_res:
                     continue
-                    
+
                 corrected_code = self.context.response_parser.extract_code(raw_res, file_path)
                 if corrected_code and len(corrected_code) > 20:
                     self.context.logger.info(f"    Applied cross-file fix to {file_path}")

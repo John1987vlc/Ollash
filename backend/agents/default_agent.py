@@ -595,14 +595,16 @@ RULES:
                 )
                 if self._event_bridge:
                     self._event_bridge.push_event("iteration", {"current": iterations, "max": self.max_iterations})
-                
+
                 if self.event_publisher:
                     await self.event_publisher.publish("thinking", {"message": f"Starting iteration {iterations}..."})
 
                 # F33: JIT Tool Selection - Only re-select if agent type changed or first iteration
                 if self.active_agent_type != last_jit_agent_type:
                     if self.event_publisher:
-                        await self.event_publisher.publish("thinking", {"message": f"Selecting relevant tools for {self.active_agent_type}..."})
+                        await self.event_publisher.publish(
+                            "thinking", {"message": f"Selecting relevant tools for {self.active_agent_type}..."}
+                        )
                     self.logger.debug(f"DEBUG - Entering JIT Tool Selection for agent type: {self.active_agent_type}")
                     current_turn_tools = await self._select_dynamic_tools(english_instruction)
                     last_jit_agent_type = self.active_agent_type
@@ -698,9 +700,11 @@ RULES:
                     self.logger.debug(f"Total prompt messages sent to LLM: {len(runtime_messages)}")
                     # F33: Use synchronous chat to avoid streaming hangs in some environments
                     self.logger.info(f"📡 Calling {selected_model_client.model} (Synchronous)...")
-                    
+
                     if self.event_publisher:
-                        await self.event_publisher.publish("thinking", {"message": f"Agent is processing with {selected_model_client.model}..."})
+                        await self.event_publisher.publish(
+                            "thinking", {"message": f"Agent is processing with {selected_model_client.model}..."}
+                        )
 
                     # Perform synchronous chat
                     response_data, usage = await selected_model_client.achat(
@@ -712,7 +716,7 @@ RULES:
                         "content": response_data.get("content", ""),
                         "tool_calls": response_data.get("tool_calls", []),
                     }
-                    
+
                     self.logger.info(f"DEBUG: RAW LLM response content length: {len(msg['content'])}")
                     if len(msg["content"]) < 100:
                         self.logger.info(f"DEBUG: RAW LLM response content: '{msg['content']}'")
@@ -735,7 +739,7 @@ RULES:
                         # Extra cleaning for legacy noise
                         if "Output:**" in msg["content"]:
                             msg["content"] = msg["content"].split("Output:**")[-1].strip()
-                    
+
                     # F31: Robust Manual tool detection fallback using unified parser
                     if not msg.get("tool_calls"):
                         extracted_calls = LLMResponseParser.parse_tool_calls(content)
@@ -753,10 +757,10 @@ RULES:
 
                     if not msg.get("tool_calls"):
                         self.logger.thinking("Analyzing final answer from LLM...")
-                        
+
                         # F33: Get the ALREADY CLEANED content from msg
                         final_response_en = msg.get("content", "")
-                        
+
                         self.logger.info(f"DEBUG: LLM Content raw length: {len(final_response_en)}")
 
                         if last_error_context:
@@ -780,7 +784,7 @@ RULES:
                         if not final_response and final_response_en:
                             self.logger.warning("Final response was empty after processing, using original content.")
                             final_response = final_response_en
-                        
+
                         if not final_response:
                             # F33: If we get multiple empty responses, stop to avoid infinite loops
                             if iterations > 3:
@@ -837,7 +841,7 @@ RULES:
                                     error_msg = tool_out.get("error") or tool_out.get("message") or "Unknown tool error"
                                 else:
                                     error_msg = "Unknown tool error"
-                            
+
                             tool_name = result.get("tool_name", "unknown")
 
                             if self._event_bridge:

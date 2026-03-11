@@ -3,12 +3,7 @@ cost_router - migrated from cost_bp.py.
 Handles model cost analysis, reports, and streaming.
 """
 
-import json
-import time
-from typing import Any, Dict, List, Optional
-
-from fastapi import APIRouter, HTTPException, Request, Query
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, Query
 from backend.core.containers import main_container
 
 router = APIRouter(prefix="/api/costs", tags=["cost"])
@@ -18,12 +13,12 @@ def get_cost_analyzer():
     """Returns the cost analyzer singleton."""
     try:
         from backend.utils.core.analysis.cost_analyzer import CostAnalyzer
-        
+
         # We can't easily use DI here without more context, so we'll instantiate if needed
         # Or better, pull from main_container if wired
         app_logger = main_container.core.logging.logger()
         llm_config = main_container.auto_agent_module.llm_models_config()
-        
+
         return CostAnalyzer(
             logger=app_logger,
             llm_config=llm_config,

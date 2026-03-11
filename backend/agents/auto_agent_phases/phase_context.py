@@ -302,7 +302,7 @@ class PhaseContext:
 
         # F31: Feature flags for adaptive behavior
         self.feature_flags: Dict[str, bool] = config.get("agent_features", {}) if isinstance(config, dict) else {}
-        
+
         # F31: Project context for coherence
         self.project_description: str = ""
         self.dom_contracts: Dict[str, List[str]] = {}
@@ -577,13 +577,14 @@ class PhaseContext:
                 if target_path and target_path in files:
                     try:
                         self.logger.info(f"    Refining {target_path} as part of contingency plan...")
-                        refined = await self.file_refiner.refine_file(target_path, files[target_path], readme[:2000], issues)
+                        refined = await self.file_refiner.refine_file(
+                            target_path, files[target_path], readme[:2000], issues
+                        )
                         if refined:
                             files[target_path] = refined
                             self.file_manager.write_file(project_root / target_path, refined)
                     except Exception as e:
                         self.logger.error(f"Error refining {target_path}: {e}")
-
 
         return files, structure, file_paths
 

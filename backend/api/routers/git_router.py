@@ -22,9 +22,7 @@ def run_git(args: List[str], cwd: Optional[str] = None):
     try:
         if cwd is None:
             cwd = os.getcwd()
-        result = subprocess.run(
-            ["git"] + args, cwd=cwd, capture_output=True, text=True, check=False
-        )
+        result = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True, check=False)
         return {"stdout": result.stdout, "stderr": result.stderr, "code": result.returncode}
     except Exception as e:
         return {"error": str(e)}
@@ -45,7 +43,7 @@ async def get_status():
                 files.append({"status": parts[0], "file": parts[1]})
 
     return {
-        "branch": status_res.get("stdout", "").strip() if "stdout" in status_res else "unknown",
+        "branch": branch_res.get("stdout", "").strip() if "stdout" in branch_res else "unknown",
         "files": files,
         "clean": len(files) == 0,
     }
@@ -67,7 +65,7 @@ async def commit_changes(payload: GitCommitRequest):
 
     if "code" in res and res["code"] == 0:
         return {"status": "success", "output": res.get("stdout")}
-    
+
     error_msg = res.get("stderr") or res.get("error") or "Unknown error"
     raise HTTPException(status_code=500, detail=error_msg)
 

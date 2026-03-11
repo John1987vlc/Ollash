@@ -368,7 +368,7 @@ class LLMResponseParser:
     def extract_code(text: str, file_path: Optional[str] = None) -> str:
         """
         Robustly extracts code from an LLM response.
-        Tries XML tags (<code_created>, <file_content>, etc.) first, 
+        Tries XML tags (<code_created>, <file_content>, etc.) first,
         then markdown blocks, then falls back to raw text.
         """
         if not text:
@@ -386,7 +386,7 @@ class LLMResponseParser:
             if match:
                 content = match.group(1).strip()
                 return LLMResponseParser.extract_code_block(content)
-            
+
             # 2b. Try unclosed tag (common in truncated outputs)
             unclosed_pattern = rf"<{tag}(?:\s+[^>]*?)?>([\s\S]*)$"
             match = re.search(unclosed_pattern, text, re.IGNORECASE)

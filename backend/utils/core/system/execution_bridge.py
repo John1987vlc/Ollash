@@ -5,6 +5,7 @@ from typing import Any, Callable, Coroutine, TypeVar, Union
 
 T = TypeVar("T")
 
+
 class ExecutionBridge:
     """
     Bridge to simplify calling async code from sync contexts and vice versa.
@@ -45,14 +46,14 @@ class ExecutionBridge:
             # Check if the function itself is async
             if inspect.iscoroutinefunction(func_or_coro):
                 return cls._run_async(func_or_coro(*args, **kwargs))
-            
+
             # Call it normally
             result = func_or_coro(*args, **kwargs)
-            
+
             # If the result happens to be a coroutine (rare but possible)
             if inspect.iscoroutine(result):
                 return cls._run_async(result)
-            
+
             return result
 
         return func_or_coro
@@ -69,7 +70,7 @@ class ExecutionBridge:
                 pass
 
             if current_loop == cls.get_loop():
-                # We are ALREADY in the bridge loop. 
+                # We are ALREADY in the bridge loop.
                 # We can't block with result() without deadlock.
                 # However, we must ensure the coroutine is at least scheduled or run.
                 # In a bridge scenario, this is usually a bug, but let's try to survive.
@@ -83,6 +84,7 @@ class ExecutionBridge:
         except Exception as e:
             # Log error or re-raise
             raise e
+
 
 # Global convenience instance
 bridge = ExecutionBridge

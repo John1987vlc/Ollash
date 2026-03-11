@@ -20,17 +20,18 @@ def mock_context():
 
     # Default project type info to avoid extension guard skipping files
     from backend.utils.domains.auto_generation.utilities.project_type_detector import ProjectTypeInfo
+
     ctx.project_type_info = ProjectTypeInfo(
-        project_type="python_app",
-        allowed_extensions=frozenset([".py"]),
-        detected_keywords=[],
-        confidence=0.9
+        project_type="python_app", allowed_extensions=frozenset([".py"]), detected_keywords=[], confidence=0.9
     )
 
     def _mock_infer(fp):
-        if fp.endswith(".py"): return "python"
-        if fp.endswith(".js"): return "javascript"
+        if fp.endswith(".py"):
+            return "python"
+        if fp.endswith(".js"):
+            return "javascript"
         return "unknown"
+
     ctx.infer_language.side_effect = _mock_infer
 
     # Files sub-context

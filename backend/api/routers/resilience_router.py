@@ -5,8 +5,6 @@ Handles system resilience, loop detection status and contingency logs.
 
 import random
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List
 
 from fastapi import APIRouter, Request
 
@@ -17,7 +15,7 @@ router = APIRouter(prefix="/api/resilience", tags=["resilience"])
 async def get_resilience_status(request: Request):
     """Returns the current state of loop detection and contingency planning."""
     from backend.utils.core.system.metrics_database import get_metrics_database
-    
+
     ollash_root_dir = request.app.state.ollash_root_dir
     db = get_metrics_database(ollash_root_dir.parent)
 

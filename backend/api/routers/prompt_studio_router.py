@@ -5,7 +5,6 @@ Handles prompt roles, loading, saving, and history.
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -26,6 +25,7 @@ def get_prompt_repo(request: Request):
     """Return prompt repository from app state or initialize it."""
     if not hasattr(request.app.state, "prompt_repository"):
         from backend.core.containers import main_container
+
         try:
             request.app.state.prompt_repository = main_container.core.prompt_repository()
         except Exception:
@@ -77,7 +77,9 @@ async def load_role_prompt(role: str, request: Request):
                             return {"role": role, "prompt": raw_text, "source": "filesystem"}
                         else:
                             content = json.load(f)
-                            text = content.get("prompt") or content.get("system_prompt") or json.dumps(content, indent=2)
+                            text = (
+                                content.get("prompt") or content.get("system_prompt") or json.dumps(content, indent=2)
+                            )
                             return {"role": role, "prompt": text, "source": "filesystem"}
                 except Exception as e:
                     raise HTTPException(status_code=500, detail=str(e))
