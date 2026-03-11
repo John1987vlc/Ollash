@@ -1,7 +1,6 @@
 [run]
 branch = true
 source = backend
-parallel = true
 omit =
     */tests/*
     */venv*/*
