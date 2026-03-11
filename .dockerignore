@@ -32,6 +32,7 @@ coverage.xml
 *.test.js
 *.test.ts
 MagickMock/
+trainer/
 
 # Development data and secrets
 .env

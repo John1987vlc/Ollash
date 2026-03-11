@@ -4,7 +4,6 @@
  */
 window.ChatPageModule = (function() {
     let chatInput, chatMessages, sendBtn, promptLibraryToggle, promptLibraryPanel;
-    let toolboxContent, toolboxTotalCount, toolboxSearchInput;
 
     const PROMPT_LIBRARY = [
         { category: 'system', label: 'Disk Usage Report', agent: 'system', prompt: 'Check disk usage on all mounted volumes and report any partitions above 80% utilization.' },
@@ -28,10 +27,6 @@ window.ChatPageModule = (function() {
         sendBtn = document.getElementById('send-btn');
         promptLibraryToggle = document.getElementById('toggle-prompt-library');
         promptLibraryPanel = document.getElementById('prompt-library-modal');
-        
-        toolboxContent = document.getElementById('toolbox-content');
-        toolboxTotalCount = document.getElementById('toolbox-total-count');
-        toolboxSearchInput = document.getElementById('toolbox-search-input');
 
         // Modal Elements V2
         const closePromptsBtn = document.getElementById('close-prompts-btn');
@@ -137,79 +132,7 @@ window.ChatPageModule = (function() {
             clearChatBtn.addEventListener('click', handleClearChat);
         }
 
-        if (toolboxSearchInput) {
-            toolboxSearchInput.addEventListener('input', (e) => {
-                filterToolbox(e.target.value.toLowerCase());
-            });
-        }
-
-        // Load Toolbox
-        loadToolbox();
-
         console.log("🚀 ChatPageModule initialized");
-    }
-
-    async function loadToolbox() {
-        if (!toolboxContent) return;
-        try {
-            const resp = await fetch('/api/analysis/tools/definitions');
-            if (!resp.ok) throw new Error('Failed to load tools');
-            const data = await resp.json();
-            if (toolboxTotalCount) toolboxTotalCount.textContent = data.total_tools;
-            renderToolbox(data.categories);
-        } catch (err) {
-            toolboxContent.innerHTML = `<div class="error-msg">Error loading tools: ${err.message}</div>`;
-        }
-    }
-
-    function renderToolbox(categories) {
-        if (!toolboxContent) return;
-        toolboxContent.innerHTML = '';
-        const sortedCats = Object.keys(categories).sort();
-        sortedCats.forEach(cat => {
-            const tools = categories[cat];
-            const catDiv = document.createElement('div');
-            catDiv.className = 'toolbox-category collapsed';
-            catDiv.innerHTML = `
-                <div class="toolbox-category-header">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span class="toolbox-chevron">›</span>
-                        <span class="toolbox-category-name">${cat}</span>
-                    </div>
-                    <span class="toolbox-category-count">${tools.length}</span>
-                </div>
-                <div class="toolbox-category-items"></div>
-            `;
-            const header = catDiv.querySelector('.toolbox-category-header');
-            header.onclick = () => catDiv.classList.toggle('collapsed');
-            const itemsContainer = catDiv.querySelector('.toolbox-category-items');
-            tools.forEach(tool => {
-                const toolDiv = document.createElement('div');
-                toolDiv.className = 'toolbox-item';
-                toolDiv.title = tool.description;
-                toolDiv.innerHTML = `<div class="toolbox-item-name">${tool.name}</div><div class="toolbox-item-desc">${tool.description}</div>`;
-                toolDiv.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (chatInput) { chatInput.value = `How do I use the ${tool.name} tool?`; chatInput.focus(); }
-                });
-                itemsContainer.appendChild(toolDiv);
-            });
-            toolboxContent.appendChild(catDiv);
-        });
-    }
-
-    function filterToolbox(query) {
-        const items = document.querySelectorAll('.toolbox-item');
-        items.forEach(item => {
-            const name = item.querySelector('.toolbox-item-name').textContent.toLowerCase();
-            const desc = item.querySelector('.toolbox-item-desc').textContent.toLowerCase();
-            const matches = name.includes(query) || desc.includes(query);
-            item.style.display = matches ? 'block' : 'none';
-        });
-        document.querySelectorAll('.toolbox-category').forEach(cat => {
-            const visibleItems = cat.querySelectorAll('.toolbox-item[style="display: block;"]').length;
-            cat.style.display = (query === '' || visibleItems > 0) ? 'block' : 'none';
-        });
     }
 
     function renderPromptLibrary(filter = 'all', query = '') {

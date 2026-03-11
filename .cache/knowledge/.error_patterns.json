@@ -1,5 +1,5 @@
 {
-  "saved_at": "2026-02-22T13:16:08.619185",
+  "saved_at": "2026-03-08T19:16:39.439186",
   "patterns": {
     "486535486817": {
       "pattern_id": "486535486817",
@@ -352,6 +352,278 @@
       "last_encountered": "2026-02-22T13:16:08.597427",
       "tags": [
         "generation_failure"
+      ]
+    },
+    "ec64e74e93eb": {
+      "pattern_id": "ec64e74e93eb",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/index.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 3,
+      "severity": "medium",
+      "last_encountered": "2026-03-08T19:16:39.423317",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "42f6a69e989f": {
+      "pattern_id": "42f6a69e989f",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/components/ui/Input.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 2,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T23:13:50.771044",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "1a9a0b376641": {
+      "pattern_id": "1a9a0b376641",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/components/ui/Modal.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 2,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T23:15:03.130491",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "9aee4ce4d4a9": {
+      "pattern_id": "9aee4ce4d4a9",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/components/layout/Header.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 2,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T23:16:08.227895",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "c720cbd03be9": {
+      "pattern_id": "c720cbd03be9",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/components/layout/Footer.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 2,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T23:17:16.961425",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "da17a0ed3d7a": {
+      "pattern_id": "da17a0ed3d7a",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/components/layout/Sidebar.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 2,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T23:18:27.495227",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "6445f470a9df": {
+      "pattern_id": "6445f470a9df",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/utils/index.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T22:10:43.577735",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "b7ab4da11a25": {
+      "pattern_id": "b7ab4da11a25",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/utils/helpers/date.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T22:11:49.410297",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "1e626d150745": {
+      "pattern_id": "1e626d150745",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/utils/helpers/string.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T22:12:39.411589",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "98eba55ba1fa": {
+      "pattern_id": "98eba55ba1fa",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/utils/validators/form.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T22:13:29.180897",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "e12ef1a67818": {
+      "pattern_id": "e12ef1a67818",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/utils/validators/input.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T22:14:10.505549",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "687f8fb96eb0": {
+      "pattern_id": "687f8fb96eb0",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/utils/api/client.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T22:15:00.252028",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "d1463d85c6ec": {
+      "pattern_id": "d1463d85c6ec",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/utils/api/middleware.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T22:15:49.841785",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "ed31a60322e8": {
+      "pattern_id": "ed31a60322e8",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/main.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T23:06:40.402199",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "f7d1ba436d33": {
+      "pattern_id": "f7d1ba436d33",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/components/index.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T23:08:33.511903",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "3d12fb5df9c0": {
+      "pattern_id": "3d12fb5df9c0",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/components/constants.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T23:09:35.975009",
+      "tags": [
+        "micro_task_failure"
+      ]
+    },
+    "8b44688aa798": {
+      "pattern_id": "8b44688aa798",
+      "error_type": "micro_task_failure",
+      "affected_file_type": ".js",
+      "description": "Error in src/components/ui/Modal.js: 'AgentLogger' object has no attribute 'warning_sync'",
+      "example_error": "'AgentLogger' object has no attribute 'warning_sync'",
+      "prevention_tip": "Review error carefully and test thoroughly",
+      "solution_template": "Review error message and fix code",
+      "language": "javascript",
+      "frequency": 1,
+      "severity": "medium",
+      "last_encountered": "2026-03-06T23:12:36.970434",
+      "tags": [
+        "micro_task_failure"
       ]
     }
   }

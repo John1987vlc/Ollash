@@ -260,17 +260,50 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'audit': if (window.AuditModule) window.AuditModule.init(); break;
             case 'policies': if (window.PoliciesModule) window.PoliciesModule.init(); break;
             case 'benchmark': if (window.BenchmarkModule) window.BenchmarkModule.init(); break;
+            case 'analytics': if (window.AnalyticsDashboard) window.AnalyticsDashboard.init(); break;
             case 'checkpoints': if (typeof loadCheckpoints !== 'undefined') loadCheckpoints(); break;
             case 'integrations': if (window.IntegrationsModule) window.IntegrationsModule.init(); break;
             case 'knowledge': if (typeof loadKnowledgeData !== 'undefined') loadKnowledgeData(); break;
             case 'decisions': if (typeof loadDecisions !== 'undefined') loadDecisions(); break;
             case 'pair-programming': if (typeof loadPairProgramming !== 'undefined') loadPairProgramming(); break;
-            case 'sandbox':
+            case 'sandbox': {
                 const sbView = document.getElementById('sandbox-view');
                 if (sbView) sbView.classList.add('active');
                 break;
+            }
         }
     }
+
+    // ==================== Project Context (Proyecto Activo) ====================
+
+    function setActiveProject(name) {
+        window.activeProject = name || null;
+        const group = document.getElementById('nav-group-project');
+        const label = document.getElementById('active-project-label');
+        if (!group) return;
+
+        if (name) {
+            group.style.display = 'block';
+            group.classList.add('expanded');
+            const header = group.querySelector('.nav-group-header');
+            if (header) header.setAttribute('aria-expanded', 'true');
+            if (label) label.textContent = name;
+        } else {
+            group.style.display = 'none';
+            group.classList.remove('expanded');
+        }
+    }
+
+    // Watch the project selector in the Projects view
+    const projectSelectEl = document.getElementById('existing-projects');
+    if (projectSelectEl) {
+        projectSelectEl.addEventListener('change', function() {
+            setActiveProject(this.value || null);
+        });
+    }
+
+    // Expose globally so other modules can call it
+    window.setActiveProject = setActiveProject;
 
     // ==================== Global Helpers ====================
     async function checkOllamaStatus() {

@@ -10,8 +10,7 @@ const ChatModule = (function() {
         historyList: null,
         currentSessionId: null,
         isStreaming: false,
-        selectedAgent: 'orchestrator',
-        messageCount: 0 // Used to track if session should be saved
+        messageCount: 0
     };
 
     function init(elements) {
@@ -45,32 +44,6 @@ const ChatModule = (function() {
             }
         };
 
-        // Agent Card Selection -> Starts NEW session
-        document.querySelectorAll('.agent-card').forEach(card => {
-            card.onclick = function() {
-                const newAgent = this.dataset.agent;
-                
-                // Update header
-                const headerName = document.getElementById('chat-header-agent-name');
-                const headerIcon = document.getElementById('chat-header-icon');
-                if (headerName) headerName.textContent = newAgent.charAt(0).toUpperCase() + newAgent.slice(1);
-                if (headerIcon) {
-                    const icon = this.querySelector('.agent-card-icon')?.textContent || '🤖';
-                    headerIcon.textContent = icon;
-                }
-
-                // If switching or re-clicking, start new session
-                if (state.messageCount > 0 || state.selectedAgent !== newAgent) {
-                    startNewSession(newAgent);
-                }
-
-                document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
-                this.classList.add('active');
-                state.selectedAgent = newAgent;
-                state.chatInput.placeholder = `Ask ${newAgent}...`;
-            };
-        });
-
         const backBtn = document.getElementById('back-to-welcome-btn');
         if (backBtn) {
             backBtn.onclick = () => {
@@ -85,54 +58,17 @@ const ChatModule = (function() {
     function resetToWelcome() {
         state.currentSessionId = null;
         state.messageCount = 0;
-        
-        // Restore Welcome UI
+
         if (state.chatMessages) {
             state.chatMessages.innerHTML = `
                 <div class="chat-welcome">
-                    <h2>Ollash Agent</h2>
-                    <p>Select a specialist or start typing to use the auto-routing orchestrator.</p>
-                    <div class="agent-cards">
-                        <button class="btn btn-card active" data-agent="orchestrator">
-                            <div class="agent-card-icon">🎯</div>
-                            <div class="agent-card-title">Orchestrator</div>
-                        </button>
-                        <button class="btn btn-card" data-agent="code">
-                            <div class="agent-card-icon">💻</div>
-                            <div class="agent-card-title">Code</div>
-                        </button>
-                        <button class="btn btn-card" data-agent="network">
-                            <div class="agent-card-icon">🌐</div>
-                            <div class="agent-card-title">Network</div>
-                        </button>
-                        <button class="btn btn-card" data-agent="system">
-                            <div class="agent-card-icon">⚙️</div>
-                            <div class="agent-card-title">System</div>
-                        </button>
-                        <button class="btn btn-card" data-agent="cybersecurity">
-                            <div class="agent-card-icon">🛡️</div>
-                            <div class="agent-card-title">Security</div>
-                        </button>
-                    </div>
+                    <h2>Ollash Chat</h2>
+                    <p>Ask questions, discuss code, or get technical help. Project generation is available separately via the Agent view.</p>
                 </div>
             `;
-            
-            // Re-attach listeners to the new agent cards
-            state.chatMessages.querySelectorAll('.agent-card').forEach(card => {
-                card.onclick = function() {
-                    const newAgent = this.dataset.agent;
-                    updateHeader(newAgent, this.querySelector('.agent-card-icon')?.textContent);
-                    startNewSession(newAgent);
-                    
-                    state.chatMessages.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
-                    this.classList.add('active');
-                    state.selectedAgent = newAgent;
-                };
-            });
         }
 
-        // Update Header to default
-        updateHeader('Orchestrator', '🎯');
+        updateHeader('Chat', '&#x1f4ac;');
         loadHistory();
     }
 
@@ -252,7 +188,6 @@ const ChatModule = (function() {
                 body: JSON.stringify({
                     message: message,
                     session_id: state.currentSessionId,
-                    agent_type: state.selectedAgent
                 })
             });
 
@@ -566,10 +501,7 @@ const ChatModule = (function() {
     }
 
     async function deleteAllSessions() {
-        const confirmed = window.ConfirmDialog
-            ? await window.ConfirmDialog.ask('Delete all conversations? This cannot be undone.')
-            : confirm('Delete all conversations? This cannot be undone.');
-        if (!confirmed) return;
+        if (!confirm('¿Borrar todas las conversaciones? Esta acción no se puede deshacer.')) return;
 
         try {
             await fetch('/api/chat/sessions', { method: 'DELETE' });

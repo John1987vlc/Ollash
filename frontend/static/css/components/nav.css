@@ -7,6 +7,34 @@
     padding: var(--spacing-sm);
     overflow-y: auto;
     flex: 1;
+    min-height: 0; /* allows flex child to shrink and scroll */
+}
+
+/* Proyecto Activo group — accent border to distinguish it */
+.nav-group--project {
+    border-left: 2px solid var(--color-primary);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding-left: 2px;
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+    margin-bottom: var(--spacing-xs);
+}
+
+.nav-group-header--project {
+    color: var(--color-primary) !important;
+}
+
+.project-label-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.project-label-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 150px;
 }
 
 .nav-item {

@@ -4,14 +4,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional
 
-from backend.agents.default_agent import DefaultAgent
+from backend.agents.simple_chat_agent import SimpleChatAgent
 from backend.services.chat_event_bridge import ChatEventBridge
 
 
 @dataclass
 class ChatSession:
     session_id: str
-    agent: DefaultAgent
+    agent: SimpleChatAgent
     bridge: ChatEventBridge
     thread: Optional[threading.Thread] = None
 
@@ -63,7 +63,7 @@ class ChatSessionManager:
         model: Optional[str] = None,
         mode: Optional[str] = None,
     ) -> str:
-        """Create a new chat session with its own DefaultAgent instance."""
+        """Create a new lightweight chat session backed by SimpleChatAgent."""
         with self._lock:
             self._cleanup_finished()
 
@@ -72,42 +72,13 @@ class ChatSessionManager:
 
             session_id = uuid.uuid4().hex
             bridge = ChatEventBridge(self.event_publisher)
-            actual_project_root = project_path if project_path else str(self.ollash_root_dir)
 
-            # F31: Respect global auto_confirm setting from config
-            tool_config = self.ollash_root_dir / "backend" / "config" / "tool_settings.json"
-            auto_confirm = False
-            try:
-                import json
-
-                with open(tool_config, "r") as f:
-                    config_data = json.load(f)
-                    auto_confirm = config_data.get("auto_confirm_tools", False)
-            except:
-                pass
-
-            agent = DefaultAgent(
-                project_root=actual_project_root,
-                auto_confirm=auto_confirm,
-                base_path=self.ollash_root_dir,
-                event_bridge=bridge,
-                event_publisher=self.event_publisher,
-            )
-
-            # Support for dynamic model/mode if the agent supports it
-            if model and hasattr(agent, "model"):
-                agent.model = model
-            if mode and hasattr(agent, "mode"):
-                agent.mode = mode
-
-            if agent_type and agent_type in agent._agent_tool_name_mappings:
-                agent.active_agent_type = agent_type
-                agent.active_tool_names = agent._agent_tool_name_mappings[agent_type]
+            agent = SimpleChatAgent(event_bridge=bridge, model=model)
 
             # Save session to DB
             self.db.execute(
                 "INSERT INTO chat_sessions (id, agent_type, project_path, title) VALUES (?, ?, ?, ?)",
-                (session_id, agent_type or "orchestrator", actual_project_root, f"New {agent_type or 'Chat'}"),
+                (session_id, "chat", str(self.ollash_root_dir), "New Chat"),
             )
 
             self.sessions[session_id] = ChatSession(
@@ -149,11 +120,16 @@ class ChatSessionManager:
             "UPDATE chat_sessions SET title = ? WHERE id = ? AND title LIKE 'New %'", (message[:30] + "...", session_id)
         )
 
+        # Create a fresh bridge for each message turn (the previous one is closed after each reply)
+        fresh_bridge = ChatEventBridge(self.event_publisher)
+        session.bridge = fresh_bridge
+        session.agent.event_bridge = fresh_bridge
+
         def _run():
             import asyncio
 
             try:
-                # F31: Robust event loop management for background thread
+                # Robust event loop management for background thread
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
 

@@ -154,7 +154,12 @@
     // -------------------------------------------------------------------------
 
     async function loadProjects() {
-        const projects = await fetchJson('/api/analytics/projects');
+        let projects = [];
+        try {
+            projects = await fetchJson('/api/analytics/projects');
+        } catch {
+            return projects;
+        }
         const sel = document.getElementById('analytics-project-select');
         if (!sel) return projects;
 
@@ -252,26 +257,6 @@
         }
     }
 
-    // Run when the analytics view becomes active (SPA navigation)
-    function waitForView() {
-        const view = document.getElementById('analytics-view');
-        if (view) {
-            init();
-            return;
-        }
-        // Observe DOM changes if SPA hasn't rendered yet
-        const observer = new MutationObserver(() => {
-            if (document.getElementById('analytics-view')) {
-                observer.disconnect();
-                init();
-            }
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', waitForView);
-    } else {
-        waitForView();
-    }
+    // Expose init so main.js can call it when the view becomes active
+    window.AnalyticsDashboard = { init };
 })();

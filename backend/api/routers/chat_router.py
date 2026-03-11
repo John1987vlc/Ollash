@@ -52,10 +52,9 @@ class ChatRequest(BaseModel):
 @router.post("/api/chat")
 async def send_chat(
     payload: ChatRequest,
-    background_tasks: BackgroundTasks,
     request: Request,
 ):
-    """Initiate a chat turn. Processing runs as a background task."""
+    """Initiate a chat turn. send_message() starts a thread and returns immediately."""
     mgr = _get_session_manager(request)
 
     session_id = payload.session_id
@@ -65,7 +64,9 @@ async def send_chat(
             mode=payload.mode,
         )
 
-    background_tasks.add_task(mgr.send_message, session_id, payload.message)
+    # Call synchronously — it just starts a background thread, so it returns instantly.
+    # This ensures the fresh bridge is set before the response reaches the client.
+    mgr.send_message(session_id, payload.message)
     return {"status": "started", "session_id": session_id}
 
 

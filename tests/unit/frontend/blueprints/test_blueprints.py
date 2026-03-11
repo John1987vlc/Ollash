@@ -24,10 +24,11 @@ class TestCommonBlueprint:
         assert resp.status_code == 200
         assert b"Ollash" in resp.data
 
-    def test_index_has_agent_cards(self, client):
+    def test_index_has_nav_structure(self, client):
         resp = client.get("/")
-        assert b"agent-card" in resp.data
-        assert b"orchestrator" in resp.data
+        # Verify the SPA shell renders with sidebar nav and core view containers
+        assert b"chat-view" in resp.data
+        assert b"data-view" in resp.data
 
 
 class TestChatBlueprint:
