@@ -7,7 +7,7 @@ Tests cover:
 
 import asyncio
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 from pathlib import Path
 
 from backend.agents.auto_agent import RescuePhase
@@ -21,7 +21,7 @@ from backend.agents.auto_agent import RescuePhase
 def _make_phase_context():
     ctx = MagicMock()
     ctx.logger.info = MagicMock()
-    ctx.event_publisher.publish = MagicMock()
+    ctx.event_publisher.publish = AsyncMock()
     return ctx
 
 

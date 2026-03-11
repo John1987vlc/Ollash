@@ -66,6 +66,9 @@ export interface ChatModuleAPI {
     sendChatMessage(message: string): Promise<void>;
     appendMessage(role: MessageRole, content: string): HTMLElement;
     respondHIL(requestId: string, response: 'approve' | 'reject'): Promise<void>;
+    deleteSession(sessionId: string): Promise<void>;
+    deleteCurrentSession(): Promise<void>;
+    deleteAllSessions(): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +158,9 @@ const ChatModule: ChatModuleAPI = (function (): ChatModuleAPI {
 
         const refreshHistoryBtn = document.getElementById('refresh-history-btn');
         if (refreshHistoryBtn) refreshHistoryBtn.onclick = loadHistory;
+
+        const clearAllHistoryBtn = document.getElementById('clear-all-history-btn');
+        if (clearAllHistoryBtn) clearAllHistoryBtn.onclick = () => deleteAllSessions();
 
         const backBtn = document.getElementById('back-to-welcome-btn');
         if (backBtn) {
@@ -255,14 +261,24 @@ const ChatModule: ChatModuleAPI = (function (): ChatModuleAPI {
 
                 const date = new Date(session.created_at).toLocaleDateString();
                 item.innerHTML = `
-                    <div class="history-item-title">${session.title}</div>
-                    <div class="history-item-meta">
-                        <span>${session.agent_type}</span>
-                        <span>${date}</span>
+                    <div class="history-item-body" style="flex:1;min-width:0;cursor:pointer;">
+                        <div class="history-item-title">${session.title}</div>
+                        <div class="history-item-meta">
+                            <span>${session.agent_type}</span>
+                            <span>${date}</span>
+                        </div>
                     </div>
+                    <button class="history-item-delete" title="Delete conversation" style="flex-shrink:0;background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:1rem;padding:2px 4px;line-height:1;opacity:0.6;" data-session-id="${session.id}">&#x2715;</button>
                 `;
+                item.style.display = 'flex';
+                item.style.alignItems = 'center';
+                item.style.gap = '4px';
 
-                item.onclick = () => loadSessionHistory(session.id, session.agent_type);
+                item.querySelector<HTMLElement>('.history-item-body')!.onclick = () => loadSessionHistory(session.id, session.agent_type);
+                item.querySelector<HTMLButtonElement>('.history-item-delete')!.onclick = (e: MouseEvent) => {
+                    e.stopPropagation();
+                    deleteSession(session.id);
+                };
                 state.historyList!.appendChild(item);
             });
         } catch (_e) {
@@ -274,7 +290,7 @@ const ChatModule: ChatModuleAPI = (function (): ChatModuleAPI {
         if (state.isStreaming) return;
 
         try {
-            const resp = await fetch(`/api/chat/sessions/${sessionId}`);
+            const resp = await fetch(`/api/chat/sessions/${sessionId}/history`);
             const data: SessionHistory = await resp.json();
 
             state.currentSessionId = sessionId;
@@ -552,7 +568,49 @@ const ChatModule: ChatModuleAPI = (function (): ChatModuleAPI {
         if (state.chatMessages) state.chatMessages.scrollTop = state.chatMessages.scrollHeight;
     }
 
-    return { init, sendChatMessage, appendMessage, respondHIL };
+    async function deleteSession(sessionId: string): Promise<void> {
+        if (!sessionId) {
+            resetToWelcome();
+            return;
+        }
+        try {
+            await fetch(`/api/chat/sessions/${sessionId}`, { method: 'DELETE' });
+            if (sessionId === state.currentSessionId) {
+                resetToWelcome();
+            } else {
+                loadHistory();
+            }
+            window.NotificationToast?.show('Conversation deleted', 'info');
+        } catch (_e) {
+            window.NotificationToast?.show('Failed to delete conversation', 'error');
+        }
+    }
+
+    async function deleteCurrentSession(): Promise<void> {
+        const sessionId = state.currentSessionId;
+        if (!sessionId) {
+            resetToWelcome();
+            return;
+        }
+        await deleteSession(sessionId);
+    }
+
+    async function deleteAllSessions(): Promise<void> {
+        const confirmed = window.ConfirmDialog
+            ? await window.ConfirmDialog.ask('Delete all conversations? This cannot be undone.')
+            : confirm('Delete all conversations? This cannot be undone.');
+        if (!confirmed) return;
+
+        try {
+            await fetch('/api/chat/sessions', { method: 'DELETE' });
+            resetToWelcome();
+            window.NotificationToast?.show('All conversations deleted', 'info');
+        } catch (_e) {
+            window.NotificationToast?.show('Failed to delete all conversations', 'error');
+        }
+    }
+
+    return { init, sendChatMessage, appendMessage, respondHIL, deleteSession, deleteCurrentSession, deleteAllSessions };
 })();
 
 window.ChatModule = ChatModule;

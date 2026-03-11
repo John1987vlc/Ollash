@@ -211,6 +211,14 @@ class ChatSessionManager:
     def delete_session(self, session_id: str):
         with self._lock:
             self.sessions.pop(session_id, None)
+        self.db.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+
+    def delete_all_sessions(self):
+        """Delete all sessions from DB and clear in-memory sessions."""
+        with self._lock:
+            self.sessions.clear()
+        self.db.execute("DELETE FROM chat_messages")
+        self.db.execute("DELETE FROM chat_sessions")
 
     def _cleanup_finished(self):
         """Remove sessions whose threads have completed."""

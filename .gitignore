@@ -56,6 +56,11 @@ generated_images/
 flask_venv/
 sandbox/
 .claude/
+MagicMock/
+trainer/
+.agent_memory.json
+phase_benchmark_results.txt
+scenarios_report.jsonl
 
 # Local State and Agent Data
 .ollash/

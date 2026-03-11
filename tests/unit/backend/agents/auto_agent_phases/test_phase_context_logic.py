@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
 
@@ -62,12 +62,13 @@ def test_select_related_files_heuristic(context):
     assert "README.md" in related
 
 
-def test_implement_plan_create_file(context):
+@pytest.mark.unit
+async def test_implement_plan_create_file(context):
     plan = {"actions": [{"type": "create_file", "path": "new.txt", "content": "hello"}]}
     files = {}
     file_paths = []
 
-    res_files, _, res_paths = context.implement_plan(plan, Path("/tmp"), "readme", {}, files, file_paths)
+    res_files, _, res_paths = await context.implement_plan(plan, Path("/tmp"), "readme", {}, files, file_paths)
 
     assert "new.txt" in res_files
     assert res_files["new.txt"] == "hello"
@@ -75,12 +76,13 @@ def test_implement_plan_create_file(context):
     context.file_manager.write_file.assert_called()
 
 
-def test_implement_plan_refine_file(context):
+@pytest.mark.unit
+async def test_implement_plan_refine_file(context):
     plan = {"actions": [{"type": "refine_file", "path": "old.py", "issues": ["bug"]}]}
     files = {"old.py": "print(1)"}
-    context.file_refiner.refine_file.return_value = "print(2)"
+    context.file_refiner.refine_file = AsyncMock(return_value="print(2)")
 
-    res_files, _, _ = context.implement_plan(plan, Path("/tmp"), "readme", {}, files, [])
+    res_files, _, _ = await context.implement_plan(plan, Path("/tmp"), "readme", {}, files, [])
 
     assert res_files["old.py"] == "print(2)"
     context.file_refiner.refine_file.assert_called_with("old.py", "print(1)", "readme", ["bug"])

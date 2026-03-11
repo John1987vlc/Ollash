@@ -111,6 +111,14 @@ async def list_sessions(background_tasks: BackgroundTasks, request: Request):
     return {"sessions": [dict(s) for s in sessions]}
 
 
+@router.delete("/api/chat/sessions")
+async def delete_all_sessions(request: Request):
+    """Delete all chat sessions and their history."""
+    mgr = _get_session_manager(request)
+    mgr.delete_all_sessions()
+    return {"status": "deleted_all"}
+
+
 @router.delete("/api/chat/sessions/{session_id}")
 async def delete_session(session_id: str, request: Request):
     mgr = _get_session_manager(request)
@@ -121,7 +129,5 @@ async def delete_session(session_id: str, request: Request):
 @router.get("/api/chat/sessions/{session_id}/history")
 async def get_session_history(session_id: str, request: Request):
     mgr = _get_session_manager(request)
-    session = mgr.get_session(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found.")
-    return {"session_id": session_id, "history": session.get_history()}
+    history = mgr.get_session_history(session_id)
+    return {"session_id": session_id, "history": [dict(row) for row in history]}

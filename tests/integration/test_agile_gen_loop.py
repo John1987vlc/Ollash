@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 from pathlib import Path
 from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
 
@@ -10,9 +10,11 @@ async def test_execution_loop_with_retries():
     mock_context = MagicMock()
     mock_context.logger = MagicMock()
     mock_context.event_publisher = MagicMock()
+    mock_context.event_publisher.publish = AsyncMock()
     mock_context.file_manager = MagicMock()
     mock_context.llm_manager = MagicMock()
     mock_context.select_related_files.return_value = {}
+    mock_context.project_type_info = None
 
     # Mock Validator
     mock_validator = MagicMock()
@@ -28,9 +30,9 @@ async def test_execution_loop_with_retries():
     # Response 2: Missing XML
     # Response 3: Good XML
     mock_client.chat.side_effect = [
-        ({"content": "Fail 1"}, {}),
-        ({"content": "Fail 2"}, {}),
-        ({"content": "<thinking_process>Fixed</thinking_process><code_created>print('hello')</code_created>"}, {}),
+        ({"content": ""}, {}),   # Empty → triggers retry
+        ({"content": ""}, {}),   # Empty → triggers retry
+        ({"content": "```python\nprint('hello')\n```"}, {}),  # Valid code block
     ]
     # Use side_effect to return the same client every time get_client is called
     mock_context.llm_manager.get_client.side_effect = lambda role: mock_client

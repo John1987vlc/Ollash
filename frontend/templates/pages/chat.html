@@ -132,7 +132,10 @@
                         <div class="chat-history-panel">
                             <div class="history-header">
                                 <h3>Past Conversations</h3>
-                                <button class="btn-badge-action" id="refresh-history-btn" title="Refresh History">Refresh</button>
+                                <div style="display:flex;gap:4px;">
+                                    <button class="btn-badge-action" id="refresh-history-btn" title="Refresh History">Refresh</button>
+                                    <button class="btn-badge-action" id="clear-all-history-btn" title="Delete all conversations" style="color:var(--color-error,#ef4444);">Clear All</button>
+                                </div>
                             </div>
                             <div class="history-list" id="chat-history-list">
                                 <div class="history-empty">No past sessions found.</div>
