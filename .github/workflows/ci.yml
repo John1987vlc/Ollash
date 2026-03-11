@@ -108,6 +108,8 @@ jobs:
 
     - name: Run unit tests with coverage
       run: |
+        # Remove stale coverage files to prevent "can't combine statement/branch data" errors
+        rm -f .coverage .coverage.* || true
         pytest tests/unit/ -n auto --dist=loadfile \
           -m "not e2e" \
           --cov=backend --cov-report=xml --cov-report=html \
