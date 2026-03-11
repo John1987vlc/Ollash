@@ -1,7 +1,7 @@
 {
   "sandbox": "limited",
-  "max_context_tokens": 16384,
-  "max_output_tokens": 4096,
+  "max_context_tokens": 4096,
+  "max_output_tokens": 2048,
   "summarize_threshold_ratio": 0.85,
   "history_limit": 200,
   "log_level": "debug",

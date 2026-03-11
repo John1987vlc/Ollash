@@ -20,7 +20,17 @@ const ChatModule = (function() {
         state.sendBtn = elements.sendBtn;
         state.historyList = document.getElementById('chat-history-list');
 
-        if (!state.chatInput || !state.sendBtn) return;
+        // Wire history buttons (available regardless of chat input presence)
+        const refreshHistoryBtnEarly = document.getElementById('refresh-history-btn');
+        if (refreshHistoryBtnEarly) refreshHistoryBtnEarly.onclick = loadHistory;
+
+        const clearAllHistoryBtnEarly = document.getElementById('clear-all-history-btn');
+        if (clearAllHistoryBtnEarly) clearAllHistoryBtnEarly.onclick = () => deleteAllSessions();
+
+        if (!state.chatInput || !state.sendBtn) {
+            loadHistory();
+            return;
+        }
 
         // --- Events ---
         state.sendBtn.onclick = () => {
@@ -60,12 +70,6 @@ const ChatModule = (function() {
                 state.chatInput.placeholder = `Ask ${newAgent}...`;
             };
         });
-
-        const refreshHistoryBtn = document.getElementById('refresh-history-btn');
-        if (refreshHistoryBtn) refreshHistoryBtn.onclick = loadHistory;
-
-        const clearAllHistoryBtn = document.getElementById('clear-all-history-btn');
-        if (clearAllHistoryBtn) clearAllHistoryBtn.onclick = () => deleteAllSessions();
 
         const backBtn = document.getElementById('back-to-welcome-btn');
         if (backBtn) {
