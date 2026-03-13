@@ -24,7 +24,9 @@ from backend.agents.core_agent import CoreAgent
 from backend.core.kernel import AgentKernel
 
 # Agent Phases & Context
+from backend.agents.auto_agent_phases.phase_groups import PhaseGroup, build_phase_groups
 from backend.interfaces.iagent_phase import IAgentPhase
+from backend.utils.core.exceptions import ParallelPhaseError
 from backend.interfaces.imodel_provider import IModelProvider
 from backend.utils.core.analysis.scanners.dependency_scanner import DependencyScanner
 from backend.utils.core.system.execution_plan import ExecutionPlan
@@ -220,26 +222,44 @@ class AutoAgent(CoreAgent):
             if bool(ctx._is_small_model()):
                 from backend.agents.auto_agent_phases.clarification_phase import ClarificationPhase
 
-                _NANO_SKIP = (
-                    ExhaustiveReviewRepairPhase,
-                    DynamicDocumentationPhase,
-                    CICDHealingPhase,
-                    LicenseCompliancePhase,
-                    PlanValidationPhase,
-                    ApiContractPhase,
-                    TestPlanningPhase,
-                    ComponentTreePhase,
-                    ClarificationPhase,
-                )
-                filtered = [p for p in self.phases if not isinstance(p, _NANO_SKIP)]
+                is_micro = bool(ctx._is_micro_model())
 
-                skipped_names = [c.__name__ for c in _NANO_SKIP]
-                self.logger.info(
-                    f"[AdaptivePipeline] nano tier — skipping {len(self.phases) - len(filtered)} "
-                    f"heavy phases: {skipped_names}"
-                )
-                # F31: Enable active shadow repair by default for nano models
-                ctx.feature_flags["opt6_active_shadow"] = True
+                if is_micro:
+                    # True micro tier (≤2B, e.g. qwen3.5:0.8b): skip all heavy phases
+                    _MICRO_SKIP = (
+                        ExhaustiveReviewRepairPhase,
+                        DynamicDocumentationPhase,
+                        CICDHealingPhase,
+                        LicenseCompliancePhase,
+                        PlanValidationPhase,
+                        ApiContractPhase,
+                        TestPlanningPhase,
+                        ComponentTreePhase,
+                        ClarificationPhase,
+                    )
+                    filtered = [p for p in self.phases if not isinstance(p, _MICRO_SKIP)]
+                    skipped_names = [c.__name__ for c in _MICRO_SKIP]
+                    self.logger.info(
+                        f"[AdaptivePipeline] micro tier (≤2B) — skipping {len(self.phases) - len(filtered)} "
+                        f"heavy phases: {skipped_names}"
+                    )
+                    ctx.feature_flags["opt6_active_shadow"] = True
+                else:
+                    # Small tier (3–8B, e.g. qwen3.5:4b, custom-coder:7b): skip only the
+                    # truly expensive / interactive phases; keep validation and analysis phases.
+                    _SMALL_SKIP = (
+                        ExhaustiveReviewRepairPhase,
+                        DynamicDocumentationPhase,
+                        CICDHealingPhase,
+                        LicenseCompliancePhase,
+                        ClarificationPhase,
+                    )
+                    filtered = [p for p in self.phases if not isinstance(p, _SMALL_SKIP)]
+                    skipped_names = [c.__name__ for c in _SMALL_SKIP]
+                    self.logger.info(
+                        f"[AdaptivePipeline] small tier (3–8B) — skipping {len(self.phases) - len(filtered)} "
+                        f"phases, keeping validation/analysis: {skipped_names}"
+                    )
                 return filtered
 
             if ctx._is_mid_model():
@@ -394,13 +414,15 @@ class AutoAgent(CoreAgent):
         heartbeat_task = asyncio.create_task(heartbeat_loop())
 
         # Mejora 6b: Convert to list so we can splice rescue phases in dynamically
-        phases = list(phases)
+        # Group independent phases for parallel execution where possible
+        phases = list(build_phase_groups(phases))
 
         try:
             for i, phase in enumerate(phases):
                 next_phase = phases[i + 1] if i + 1 < len(phases) else None
                 keep_alive = "10m" if next_phase else "0s"
-                phase_name = phase.__class__.__name__
+                is_group = isinstance(phase, PhaseGroup)
+                phase_name = phase.name if is_group else phase.__class__.__name__
                 milestone_id = execution_plan.get_milestone_id_by_phase_class_name(phase_name)
 
                 self.logger.info(f"🚀 EXECUTING PHASE: {phase_name}")
@@ -471,6 +493,9 @@ class AutoAgent(CoreAgent):
                             pass
 
                 except Exception as e:
+                    if isinstance(e, ParallelPhaseError):
+                        for sub_name, sub_err in e.failed_phases.items():
+                            self.logger.error(f"  [ParallelPhaseError] sub-phase '{sub_name}': {sub_err}")
                     self.logger.error(f"Error in phase {phase_name}: {e}", exc_info=True)
                     if milestone_id:
                         execution_plan.fail_milestone(milestone_id, str(e))

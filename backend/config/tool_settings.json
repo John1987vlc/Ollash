@@ -1,7 +1,7 @@
 {
   "sandbox": "limited",
-  "max_context_tokens": 4096,
-  "max_output_tokens": 2048,
+  "max_context_tokens": 8192,
+  "max_output_tokens": 4096,
   "summarize_threshold_ratio": 0.85,
   "history_limit": 200,
   "log_level": "debug",
@@ -27,6 +27,9 @@
   "semantic_similarity_threshold": 0.95,
   "parallel_generation_max_concurrent": 3,
   "parallel_generation_max_rpm": 10,
+  "nano_parallel_generation_max_concurrent": 3,
+  "nano_parallel_generation_max_rpm": 15,
+  "model_size_overrides": {},
   "senior_review_max_attempts": 5,
   "completeness_checker_max_retries": 2,
   "token_encoding_name": "cl100k_base"

@@ -418,7 +418,9 @@ class PhaseContext:
     def _is_small_model(self, role: str = "coder") -> bool:
         """Return True if the LLM for *role* has ≤8B parameters (nano tier).
 
-        Inspects the model name string for size suffixes like '3b', '4b', '7b', '8b'.
+        Detection order:
+        1. Per-role override in config["model_size_overrides"][role] (int/float).
+        2. Regex size suffix on model name, e.g. '7b', '0.8b', 'custom-coder:7b'.
         Falls back to False (treat as large model) on any error.
 
         Args:
@@ -430,11 +432,49 @@ class PhaseContext:
         import re as _re_model
 
         try:
+            # Layer 1: explicit config override (for opaque names like "my-model:latest")
+            overrides = self.config.get("model_size_overrides", {})
+            if role in overrides:
+                return float(overrides[role]) <= 8.0
+            # Layer 2: regex on full model string (name + tag)
             client = self.llm_manager.get_client(role)
             model_name = getattr(client, "model", "") or ""
             match = _re_model.search(r"(\d+(?:\.\d+)?)b", model_name.lower())
             if match:
                 return float(match.group(1)) <= 8.0
+        except Exception:
+            pass
+        return False
+
+    def _is_micro_model(self, role: str = "coder") -> bool:
+        """Return True if the LLM for *role* has ≤2B parameters (true micro/nano tier).
+
+        Use this to gate the most aggressive optimizations that are only needed for
+        sub-2B models (e.g. qwen3.5:0.8b, qwen:1b). The 4B tier is "small" but
+        capable enough to run more pipeline phases and a relaxed temperature.
+
+        Detection order:
+        1. Per-role override in config["model_size_overrides"][role] (int/float).
+        2. Regex size suffix on model name, e.g. '0.8b', '1b', '1.5b'.
+        Falls back to False on any error.
+
+        Args:
+            role: Agent role whose client to inspect (default: "coder").
+
+        Returns:
+            True if model parameter count is ≤2B, False otherwise.
+        """
+        import re as _re_model
+
+        try:
+            overrides = self.config.get("model_size_overrides", {})
+            if role in overrides:
+                return float(overrides[role]) <= 2.0
+            client = self.llm_manager.get_client(role)
+            model_name = getattr(client, "model", "") or ""
+            match = _re_model.search(r"(\d+(?:\.\d+)?)b", model_name.lower())
+            if match:
+                return float(match.group(1)) <= 2.0
         except Exception:
             pass
         return False
@@ -609,7 +649,10 @@ class PhaseContext:
     def _is_mid_model(self, role: str = "coder") -> bool:
         """Return True if the LLM for *role* has 9–29B parameters (slim tier).
 
-        Uses the same regex as _is_small_model(). Falls back to False on any error.
+        Detection order:
+        1. Per-role override in config["model_size_overrides"][role] (int/float).
+        2. Regex size suffix on model name, e.g. '14b', '13b', 'custom-mid:14b'.
+        Falls back to False on any error.
 
         Args:
             role: Agent role whose client to inspect (default: "coder").
@@ -620,6 +663,12 @@ class PhaseContext:
         import re as _re_model
 
         try:
+            # Layer 1: explicit config override
+            overrides = self.config.get("model_size_overrides", {})
+            if role in overrides:
+                size = float(overrides[role])
+                return 9.0 <= size <= 29.0
+            # Layer 2: regex on full model string
             client = self.llm_manager.get_client(role)
             model_name = getattr(client, "model", "") or ""
             match = _re_model.search(r"(\d+(?:\.\d+)?)b", model_name.lower())

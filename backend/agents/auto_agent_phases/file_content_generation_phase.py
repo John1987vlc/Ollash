@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -36,6 +37,7 @@ class FileContentGenerationPhase(BasePhase):
             self.context.build_api_map(generated_files)
 
         is_nano = bool(self.context._is_small_model())
+        is_micro = bool(self.context._is_micro_model()) if is_nano else False
         _use_signatures = is_nano or bool(self.context._is_small_model("coder"))
 
         await self.context.event_publisher.publish("phase_start", phase="4", message="Starting agile backlog execution")
@@ -80,351 +82,43 @@ class FileContentGenerationPhase(BasePhase):
         completed_tasks = 0
         completed_task_ids: List[str] = []  # Mejora 3: track completed IDs for progress injection
 
-        for task in backlog:
-            task_id = task.get("id", "UNKNOWN")
-            title = task.get("title", "Untitled")
+        # Execute tasks level by level; tasks within the same level have no inter-dependencies
+        # and are dispatched concurrently via asyncio.gather (uses achat() via run_in_executor).
+        levels = self._compute_levels(backlog)
+        max_concurrent = self.context.config.get(
+            "nano_parallel_generation_max_concurrent" if is_nano else "parallel_generation_max_concurrent",
+            5 if is_nano else 3,
+        )
+        semaphore = asyncio.Semaphore(max_concurrent)
 
-            # F29: Ensure file_path is a string (handle cases where LLM might provide a list)
-            raw_file_path = task.get("file_path", "")
-            if isinstance(raw_file_path, list) and raw_file_path:
-                file_path = str(raw_file_path[0])
-            else:
-                file_path = str(raw_file_path)
-
-            task_type = task.get("task_type", "create_file")
-
-            completed_tasks += 1
-            self.context.logger.info(f"  [Task {completed_tasks}/{total_tasks}] {task_id}: {title}")
-
-            # CRITICAL: Binary Guard - Skip LLM call for binary files
-            if self._is_binary_file(file_path):
-                self.context.logger.info(f"    Skipped: Binary file detected ({file_path})")
-                generated_files[file_path] = ""
-                # Move to done in Kanban anyway
-                await self.context.event_publisher.publish(
-                    "agent_board_update", action="move_task", task_id=task_id, new_status="done"
-                )
-                continue
-
-            # Extension guard: skip files whose extension is not allowed for the detected project type
-            _ptype = getattr(self.context, "project_type_info", None)
-            if _ptype and _ptype.project_type != "unknown" and _ptype.confidence >= 0.10:
-                from pathlib import Path as _Path
-
-                _suffix = _Path(file_path).suffix.lower()
-                if _suffix and _suffix not in _ptype.allowed_extensions:
-                    self.context.logger.warning(
-                        f"    [ExtensionGuard] Skipped '{file_path}': "
-                        f"extension '{_suffix}' not allowed for "
-                        f"project type '{_ptype.project_type}'"
-                    )
-                    generated_files[file_path] = ""
-                    await self.context.event_publisher.publish(
-                        "agent_board_update",
-                        action="move_task",
-                        task_id=task_id,
-                        new_status="skipped_extension",
-                    )
-                    continue
-
-            # Notify progress to Kanban Board
-            await self.context.event_publisher.publish(
-                "agent_board_update", action="move_task", task_id=task_id, new_status="in_progress"
-            )
-
-            try:
-                # 1. Prepare context + build prompts
-                ctx_data = await self._prepare_task_context(
+        async def _bounded_process(task: Dict[str, Any], task_display_num: int) -> None:
+            async with semaphore:
+                await self._process_single_task(
                     task=task,
-                    file_path=file_path,
-                    task_type=task_type,
                     generated_files=generated_files,
                     readme_content=readme_content,
                     project_name=project_name,
-                    _use_signatures=_use_signatures,
+                    project_root=project_root,
                     is_nano=is_nano,
+                    is_micro=is_micro,
+                    _use_signatures=_use_signatures,
+                    task_display_num=task_display_num,
+                    total_tasks=total_tasks,
+                    completed_task_ids=completed_task_ids,
+                    backlog=backlog,
                 )
-                context_files_content = ctx_data["context_files_content"]
 
-                is_nano_subtask = task.get("is_nano_subtask", False)
-                if is_nano_subtask:
-                    system_prompt, user_prompt = await AutoGenPrompts.nano_coder(
-                        function_name=task.get("function_name", "unknown"),
-                        signature=task.get("function_signature", ""),
-                        docstring=task.get("function_docstring", ""),
-                        context_snippet=generated_files.get(file_path, ""),
-                    )
-                else:
-                    system_prompt, user_prompt = await AutoGenPrompts.micro_task_execution(
-                        title=title,
-                        description=task.get("description", ""),
-                        file_path=file_path,
-                        task_type=task_type,
-                        readme_content=readme_content[:1000],
-                        context_files_content=context_files_content[:4000],
-                        logic_plan_section=ctx_data["logic_plan_section"],
-                        allowed_actions=ctx_data["allowed_actions"],
-                        anti_pattern_warnings=ctx_data["anti_pattern_warnings"],
-                        few_shot_section=ctx_data["few_shot_section"],
-                    )
-
-                content = ""
-                attempts = 0
-                max_attempts = 5  # F31: Increased retries
-                last_error = ""
-                current_coder_role = "nano_coder" if is_nano else "coder"
-
-                # 3. Self-Reflection and Correction Loop
-                while attempts < max_attempts:
-                    attempts += 1
-                    current_user_prompt = user_prompt
-
-                    # --- Escalation Logic (Mejora 4) ---
-                    if attempts > 3:
-                        # Switch to a stronger model tier if persistent failures
-                        # We use the new get_escalated_client to follow the configured JSON tiers
-                        old_model = self.context.llm_manager.get_client(current_coder_role).model
-                        new_client = self.context.llm_manager.get_escalated_client(old_model)
-
-                        # We update current_coder_role only if a better model was actually found
-                        if new_client.model != old_model:
-                            current_coder_role = "escalation"  # Use a generic role for the escalated client
-                            self.context.llm_manager.clients_by_model[new_client.model] = new_client  # Cache it
-                            self.context.logger.info(
-                                f"  [Escalation] Switching to {new_client.model} tier for attempt {attempts}"
-                            )
-
-                    if last_error:
-                        # Implement Chain of Thought (CoT) for retries
-                        is_code = file_path.endswith((".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".go", ".rs"))
-                        cot_instruction = ""
-                        if is_code:
-                            if is_nano:
-                                cot_instruction = (
-                                    "\n\nCRITICAL: The previous code failed validation. "
-                                    "Fix the error and return ONLY the corrected implementation."
-                                )
-                            else:
-                                cot_instruction = (
-                                    "\n\nCRITICAL: You previously generated code that failed validation. "
-                                    "First, explain WHY the previous logic failed (in a <reflection> tag), "
-                                    "then provide the corrected implementation in <code_created>."
-                                )
-
-                        current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}{cot_instruction}"
-
-                    res = self.context.llm_manager.get_client(current_coder_role).chat(
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": current_user_prompt},
-                        ],
-                        tools=[],
-                        options_override={"temperature": 0.0 if is_nano else 0.1},
-                    )
-                    # Handle both tuple (response_data, usage) and direct response_data
-                    if isinstance(res, tuple):
-                        response_data, _ = res
-                    else:
-                        response_data = res
-
-                    raw_response = response_data.get("content", "").strip()
-
-                    # 4. Extract content using the robust unified parser
-                    from backend.utils.core.llm.llm_response_parser import LLMResponseParser
-
-                    if is_nano_subtask:
-                        # For nano subtasks, we expect ONLY the function body, no explanation
-                        content = LLMResponseParser.extract_code_block(raw_response) or raw_response.strip()
-                        # Aggressive cleaning: remove common SLM prose and tags
-                        content = LLMResponseParser.clean_markdown_artifacts(content)
-                        for tag in ["code_created", "file_content", "code_fixed"]:
-                            content = content.replace(f"<{tag}>", "").replace(f"</{tag}>", "")
-                    else:
-                        content = LLMResponseParser.extract_code(raw_response, file_path)
-
-                    if not content or (is_nano_subtask and len(content.strip()) < 5):
-                        last_error = "FORMAT FAILURE: Empty response or could not extract valid code."
-                        self.context.logger.warning(f"    ⚠ Attempt {attempts}: Extraction failed.")
-                        continue
-
-                    # If it's a nano subtask, we need to merge it into the existing file (replacing the stub)
-                    if is_nano_subtask:
-                        full_content = generated_files.get(file_path, "")
-                        func_name = task.get("function_name")
-                        signature = task.get("function_signature")
-
-                        import re as _re
-
-                        # Support for Python (pass/...) and JS/TS ({ // placeholder })
-                        if file_path.endswith((".py", ".pyi")):
-                            # Signature + optional docstring + pass/...
-                            stub_pattern = _re.escape(signature).replace(r"\(", r"\s*\(").replace(r"\)", r"\)\s*")
-                            stub_pattern += r"(?:\s*(?:\"\"\"[\s\S]*?\"\"\"|\'\'\'[\s\S]*?\'\'\'))?"
-                            stub_pattern += r"(?:\s*pass|\s*\.\.\.)"
-                        else:
-                            # JS/TS/JSX/TSX pattern: signature followed by { // placeholder }
-                            stub_pattern = _re.escape(signature).replace(r"\(", r"\s*\(").replace(r"\)", r"\)\s*")
-                            stub_pattern += r"\s*\{\s*(?://|/\*)[\s\S]*?(?:\*/)?\s*\}"
-
-                        if _re.search(stub_pattern, full_content):
-                            # Ensure the implementation starts with the signature if it's missing from LLM output
-                            if not content.strip().startswith(signature[:10]):
-                                if file_path.endswith(".py"):
-                                    content = signature + "\n    " + content
-                                else:
-                                    content = signature + " {\n" + content + "\n}"
-
-                            content = _re.sub(stub_pattern, content, full_content, count=1)
-                        else:
-                            # Fallback: if stub not found exactly, try to find just the function name
-                            escaped_name = _re.escape(func_name)
-                            name_pattern = r"\b" + escaped_name + r"\b.*?(?:\s*pass|\s*\{\s*//.*?\s*\})"
-                            if _re.search(name_pattern, full_content):
-                                content = _re.sub(name_pattern, content, full_content, count=1)
-                            else:
-                                # Final fallback: append
-                                content = full_content.rstrip() + "\n\n" + content
-
-                    # Fix 3: Ensure HTML files declare UTF-8 charset so suit symbols render correctly
-                    if file_path.endswith(".html") and "<meta charset" not in content.lower():
-                        content = content.replace("<head>", '<head>\n  <meta charset="UTF-8">', 1)
-
-                    # Opt 6: Active shadow validation — format check + nano repair
-                    if self.context._opt_enabled("opt6_active_shadow"):
-                        try:
-                            lang = self.context.infer_language(file_path)
-                            shadow = getattr(self.context, "shadow_evaluator", None)
-                            if shadow is not None:
-                                content, _ = await shadow.active_shadow_validate(
-                                    file_path,
-                                    content,
-                                    lang,
-                                    self.context.llm_manager,
-                                    self.context.logger,
-                                )
-                        except Exception:
-                            pass
-
-                    # Feature 1: Critic-Correction Closed Loop
-                    # F31: Disable critic loop for nano models to avoid infinite loops/heavy overhead
-                    if not is_nano:
-                        critic_cfg = getattr(self.context, "config", {})
-                        if isinstance(critic_cfg, dict):
-                            critic_cfg = critic_cfg.get("critic_loop", {})
-                        else:
-                            critic_cfg = {}
-
-                        if critic_cfg.get("enabled", True):
-                            try:
-                                from backend.utils.core.analysis.critic_loop import CriticLoop
-
-                                if not hasattr(self, "_critic_loop"):
-                                    self._critic_loop = CriticLoop(self.context.llm_manager, self.context.logger)
-                                _lang = self.context.infer_language(file_path)
-                                _critic_feedback = await self._critic_loop.review(file_path, content, _lang)
-                                if _critic_feedback:
-                                    last_error = f"CRITIC FEEDBACK: {_critic_feedback}"
-                                    self.context.logger.info(
-                                        f"    [Critic] Issues in '{file_path}': {_critic_feedback}"
-                                    )
-                                    content = ""
-                                    continue
-                            except Exception:
-                                pass  # Critic must never abort generation
-
-                    # Opt 3: Exit Contract — structural validation before syntax check
-                    if self.context._opt_enabled("opt3_exit_contract") and task_type:
-                        contract_error = self._check_output_contract(file_path, content, task_type)
-                        if contract_error:
-                            last_error = f"CONTRACT VIOLATION: {contract_error}"
-                            self.context.logger.warning(
-                                f"    ⚠ Attempt {attempts} contract violation: {contract_error}"
-                            )
-                            content = ""
-                            continue
-
-                    # 5. AST/Syntax Validation
-                    validation_result = self.context.files_ctx.validator.validate(file_path, content)
-
-                    # Handle Semantic Warnings (Auto-Heal) - F31: Skip auto-heal for nano
-                    if not is_nano and (
-                        "logical integrity issues" in validation_result.message
-                        or "SEMANTIC WARNING" in str(validation_result)
-                    ):
-                        self.context.logger.info(
-                            f"    ⚠ Attempt {attempts}: Integrity issues detected. Attempting auto-heal..."
-                        )
-
-                        # Extract the missing requirement from the warning
-                        missing_req = "missing function or logic"
-                        if "missing" in validation_result.message:
-                            missing_req = validation_result.message.split("missing")[-1].strip()
-
-                        # Use CodePatcher to inject
-                        from backend.utils.domains.auto_generation.code_patcher import CodePatcher
-
-                        patcher = CodePatcher(
-                            self.context.llm_manager.get_client("coder"),
-                            self.context.logger,
-                            self.context.response_parser,
-                        )
-                        content = await patcher.inject_missing_function(
-                            file_path=file_path,
-                            content=content,
-                            requirement=missing_req,
-                            related_context=context_files_content,
-                        )
-
-                        # Re-validate after healing
-                        validation_result = self.context.files_ctx.validator.validate(file_path, content)
-
-                    _status = validation_result.status
-                    _is_valid = False
-
-                    # Robust check for VALID status (works with Enums and Mocks)
-                    if hasattr(_status, "name"):
-                        _sn = str(_status.name)
-                        _is_valid = _sn == "VALID" or "MagicMock" in _sn
-                    else:
-                        _is_valid = str(_status) == "VALID"
-
-                    if _is_valid:
-                        self.context.logger.info(f"    ✓ {file_path} syntactically validated (Attempt {attempts})")
-                        break
-                    else:
-                        last_error = f"SYNTAX ERROR: {validation_result.message}"
-                        self.context.logger.warning(
-                            f"    ⚠ Attempt {attempts} failed validation: {validation_result.message}"
-                        )
-                        # We NO LONGER clear content on final failure.
-                        # We prefer saving "best effort" clean code over a 0-byte file.
-
-                # F2: TDD Agéntico — run a minimal unit test and auto-correct on failure
-                if content and file_path.endswith(".py"):
-                    content = await self._run_tdd_loop(file_path, content)
-
-                # 6. Final Save and Notification
-                if content and content.strip():
-                    await self._save_task_result(
-                        file_path=file_path,
-                        content=content,
-                        task=task,
-                        task_id=task_id,
-                        title=title,
-                        project_root=project_root,
-                        generated_files=generated_files,
-                        backlog=backlog,
-                        completed_task_ids=completed_task_ids,
-                        completed_tasks=completed_tasks,
-                        total_tasks=total_tasks,
-                    )
-                else:
-                    self.context.logger.error(f"    ✖ Task {task_id} failed after {max_attempts} attempts.")
-
-            except Exception as e:
-                self.context.logger.error(f"Fatal error in task {task_id}: {e}")
-                # Record error in knowledge base
-                self.context.error_knowledge_base.record_error(file_path, "micro_task_failure", str(e), task_id, title)
+        for level_tasks in levels:
+            if len(level_tasks) == 1:
+                completed_tasks += 1
+                await _bounded_process(level_tasks[0], completed_tasks)
+            else:
+                start_num = completed_tasks + 1
+                completed_tasks += len(level_tasks)
+                await asyncio.gather(*[
+                    _bounded_process(t, start_num + k)
+                    for k, t in enumerate(level_tasks)
+                ])
 
         self.context.logger.info(
             f"[PROJECT_NAME:{project_name}] PHASE 4: "
@@ -432,6 +126,392 @@ class FileContentGenerationPhase(BasePhase):
         )
 
         return generated_files, initial_structure, file_paths
+
+    def _compute_levels(self, tasks: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+        """Group a topologically-sorted task list into BFS dependency levels.
+
+        Tasks in the same level have no declared dependencies on each other and
+        can be executed concurrently. Returns a list of levels (each level is a
+        list of tasks), preserving the topological order between levels.
+        """
+        done_ids: set = set()
+        remaining = list(tasks)
+        levels: List[List[Dict[str, Any]]] = []
+        while remaining:
+            level = [t for t in remaining if all(d in done_ids for d in t.get("dependencies", []))]
+            if not level:
+                # Cycle or unresolvable deps — dump the rest as a single sequential level
+                levels.append(remaining)
+                break
+            levels.append(level)
+            done_ids.update(t["id"] for t in level)
+            remaining = [t for t in remaining if t["id"] not in done_ids]
+        return levels
+
+    async def _process_single_task(
+        self,
+        task: Dict[str, Any],
+        generated_files: Dict[str, str],
+        readme_content: str,
+        project_name: str,
+        project_root: Path,
+        is_nano: bool,
+        is_micro: bool = False,
+        _use_signatures: bool = False,
+        task_display_num: int = 0,
+        total_tasks: int = 0,
+        completed_task_ids: List[str] = None,
+        backlog: List[Dict[str, Any]] = None,
+    ) -> None:
+        """Process a single backlog task: generate content, validate, and save.
+
+        Extracted from the main backlog loop in ``run()`` to enable level-based
+        parallel execution via ``asyncio.gather`` for tasks with no inter-dependencies.
+        """
+        task_id = task.get("id", "UNKNOWN")
+        title = task.get("title", "Untitled")
+
+        # F29: Ensure file_path is a string (handle cases where LLM might provide a list)
+        raw_file_path = task.get("file_path", "")
+        if isinstance(raw_file_path, list) and raw_file_path:
+            file_path = str(raw_file_path[0])
+        else:
+            file_path = str(raw_file_path)
+
+        task_type = task.get("task_type", "create_file")
+
+        self.context.logger.info(f"  [Task {task_display_num}/{total_tasks}] {task_id}: {title}")
+
+        # CRITICAL: Binary Guard - Skip LLM call for binary files
+        if self._is_binary_file(file_path):
+            self.context.logger.info(f"    Skipped: Binary file detected ({file_path})")
+            generated_files[file_path] = ""
+            # Move to done in Kanban anyway
+            await self.context.event_publisher.publish(
+                "agent_board_update", action="move_task", task_id=task_id, new_status="done"
+            )
+            return
+
+        # Extension guard: skip files whose extension is not allowed for the detected project type
+        _ptype = getattr(self.context, "project_type_info", None)
+        if _ptype and _ptype.project_type != "unknown" and _ptype.confidence >= 0.10:
+            from pathlib import Path as _Path
+
+            _suffix = _Path(file_path).suffix.lower()
+            if _suffix and _suffix not in _ptype.allowed_extensions:
+                self.context.logger.warning(
+                    f"    [ExtensionGuard] Skipped '{file_path}': "
+                    f"extension '{_suffix}' not allowed for "
+                    f"project type '{_ptype.project_type}'"
+                )
+                generated_files[file_path] = ""
+                await self.context.event_publisher.publish(
+                    "agent_board_update",
+                    action="move_task",
+                    task_id=task_id,
+                    new_status="skipped_extension",
+                )
+                return
+
+        # Notify progress to Kanban Board
+        await self.context.event_publisher.publish(
+            "agent_board_update", action="move_task", task_id=task_id, new_status="in_progress"
+        )
+
+        try:
+            # 1. Prepare context + build prompts
+            ctx_data = await self._prepare_task_context(
+                task=task,
+                file_path=file_path,
+                task_type=task_type,
+                generated_files=generated_files,
+                readme_content=readme_content,
+                project_name=project_name,
+                _use_signatures=_use_signatures,
+                is_nano=is_nano,
+            )
+            context_files_content = ctx_data["context_files_content"]
+
+            is_nano_subtask = task.get("is_nano_subtask", False)
+            if is_nano_subtask:
+                system_prompt, user_prompt = await AutoGenPrompts.nano_coder(
+                    function_name=task.get("function_name", "unknown"),
+                    signature=task.get("function_signature", ""),
+                    docstring=task.get("function_docstring", ""),
+                    context_snippet=generated_files.get(file_path, ""),
+                )
+            else:
+                system_prompt, user_prompt = await AutoGenPrompts.micro_task_execution(
+                    title=title,
+                    description=task.get("description", ""),
+                    file_path=file_path,
+                    task_type=task_type,
+                    readme_content=readme_content[:1000],
+                    context_files_content=context_files_content[:4000],
+                    logic_plan_section=ctx_data["logic_plan_section"],
+                    allowed_actions=ctx_data["allowed_actions"],
+                    anti_pattern_warnings=ctx_data["anti_pattern_warnings"],
+                    few_shot_section=ctx_data["few_shot_section"],
+                )
+
+            content = ""
+            attempts = 0
+            max_attempts = 5  # F31: Increased retries
+            last_error = ""
+            current_coder_role = "nano_coder" if is_nano else "coder"
+
+            # 3. Self-Reflection and Correction Loop
+            while attempts < max_attempts:
+                attempts += 1
+                current_user_prompt = user_prompt
+
+                # --- Escalation Logic (Mejora 4) ---
+                if attempts > 3:
+                    # Switch to a stronger model tier if persistent failures
+                    # We use the new get_escalated_client to follow the configured JSON tiers
+                    old_model = self.context.llm_manager.get_client(current_coder_role).model
+                    new_client = self.context.llm_manager.get_escalated_client(old_model)
+
+                    # We update current_coder_role only if a better model was actually found
+                    if new_client.model != old_model:
+                        current_coder_role = "escalation"  # Use a generic role for the escalated client
+                        self.context.llm_manager.clients_by_model[new_client.model] = new_client  # Cache it
+                        self.context.logger.info(
+                            f"  [Escalation] Switching to {new_client.model} tier for attempt {attempts}"
+                        )
+
+                if last_error:
+                    # Implement Chain of Thought (CoT) for retries
+                    is_code = file_path.endswith((".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".go", ".rs"))
+                    cot_instruction = ""
+                    if is_code:
+                        if is_nano:
+                            cot_instruction = (
+                                "\n\nCRITICAL: The previous code failed validation. "
+                                "Fix the error and return ONLY the corrected implementation."
+                            )
+                        else:
+                            cot_instruction = (
+                                "\n\nCRITICAL: You previously generated code that failed validation. "
+                                "First, explain WHY the previous logic failed (in a <reflection> tag), "
+                                "then provide the corrected implementation in <code_created>."
+                            )
+
+                    current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}{cot_instruction}"
+
+                res = await self.context.llm_manager.get_client(current_coder_role).achat(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": current_user_prompt},
+                    ],
+                    tools=[],
+                    options_override={"temperature": 0.0 if is_micro else (0.05 if is_nano else 0.1)},
+                )
+                # Handle both tuple (response_data, usage) and direct response_data
+                if isinstance(res, tuple):
+                    response_data, _ = res
+                else:
+                    response_data = res
+
+                raw_response = response_data.get("content", "").strip()
+
+                # 4. Extract content using the robust unified parser
+                from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
+                if is_nano_subtask:
+                    # For nano subtasks, we expect ONLY the function body, no explanation
+                    content = LLMResponseParser.extract_code_block(raw_response) or raw_response.strip()
+                    # Aggressive cleaning: remove common SLM prose and tags
+                    content = LLMResponseParser.clean_markdown_artifacts(content)
+                    for tag in ["code_created", "file_content", "code_fixed"]:
+                        content = content.replace(f"<{tag}>", "").replace(f"</{tag}>", "")
+                else:
+                    content = LLMResponseParser.extract_code(raw_response, file_path)
+
+                if not content or (is_nano_subtask and len(content.strip()) < 5):
+                    last_error = "FORMAT FAILURE: Empty response or could not extract valid code."
+                    self.context.logger.warning(f"    ⚠ Attempt {attempts}: Extraction failed.")
+                    continue
+
+                # If it's a nano subtask, we need to merge it into the existing file (replacing the stub)
+                if is_nano_subtask:
+                    full_content = generated_files.get(file_path, "")
+                    func_name = task.get("function_name")
+                    signature = task.get("function_signature")
+
+                    import re as _re
+
+                    # Support for Python (pass/...) and JS/TS ({ // placeholder })
+                    if file_path.endswith((".py", ".pyi")):
+                        # Signature + optional docstring + pass/...
+                        stub_pattern = _re.escape(signature).replace(r"\(", r"\s*\(").replace(r"\)", r"\)\s*")
+                        stub_pattern += r"(?:\s*(?:\"\"\"[\s\S]*?\"\"\"|\'\'\'[\s\S]*?\'\'\'))?"
+                        stub_pattern += r"(?:\s*pass|\s*\.\.\.)"
+                    else:
+                        # JS/TS/JSX/TSX pattern: signature followed by { // placeholder }
+                        stub_pattern = _re.escape(signature).replace(r"\(", r"\s*\(").replace(r"\)", r"\)\s*")
+                        stub_pattern += r"\s*\{\s*(?://|/\*)[\s\S]*?(?:\*/)?\s*\}"
+
+                    if _re.search(stub_pattern, full_content):
+                        # Ensure the implementation starts with the signature if it's missing from LLM output
+                        if not content.strip().startswith(signature[:10]):
+                            if file_path.endswith(".py"):
+                                content = signature + "\n    " + content
+                            else:
+                                content = signature + " {\n" + content + "\n}"
+
+                        content = _re.sub(stub_pattern, content, full_content, count=1)
+                    else:
+                        # Fallback: if stub not found exactly, try to find just the function name
+                        escaped_name = _re.escape(func_name)
+                        name_pattern = r"\b" + escaped_name + r"\b.*?(?:\s*pass|\s*\{\s*//.*?\s*\})"
+                        if _re.search(name_pattern, full_content):
+                            content = _re.sub(name_pattern, content, full_content, count=1)
+                        else:
+                            # Final fallback: append
+                            content = full_content.rstrip() + "\n\n" + content
+
+                # Fix 3: Ensure HTML files declare UTF-8 charset so suit symbols render correctly
+                if file_path.endswith(".html") and "<meta charset" not in content.lower():
+                    content = content.replace("<head>", '<head>\n  <meta charset="UTF-8">', 1)
+
+                # Opt 6: Active shadow validation — format check + nano repair
+                if self.context._opt_enabled("opt6_active_shadow"):
+                    try:
+                        lang = self.context.infer_language(file_path)
+                        shadow = getattr(self.context, "shadow_evaluator", None)
+                        if shadow is not None:
+                            content, _ = await shadow.active_shadow_validate(
+                                file_path,
+                                content,
+                                lang,
+                                self.context.llm_manager,
+                                self.context.logger,
+                            )
+                    except Exception:
+                        pass
+
+                # Feature 1: Critic-Correction Closed Loop
+                # Enabled for full and small (4B) models; disabled only for micro (≤2B)
+                # to avoid infinite loops and heavy overhead on weakest models.
+                if not is_micro:
+                    critic_cfg = getattr(self.context, "config", {})
+                    if isinstance(critic_cfg, dict):
+                        critic_cfg = critic_cfg.get("critic_loop", {})
+                    else:
+                        critic_cfg = {}
+
+                    if critic_cfg.get("enabled", True):
+                        try:
+                            from backend.utils.core.analysis.critic_loop import CriticLoop
+
+                            if not hasattr(self, "_critic_loop"):
+                                self._critic_loop = CriticLoop(self.context.llm_manager, self.context.logger)
+                            _lang = self.context.infer_language(file_path)
+                            _critic_feedback = await self._critic_loop.review(file_path, content, _lang)
+                            if _critic_feedback:
+                                last_error = f"CRITIC FEEDBACK: {_critic_feedback}"
+                                self.context.logger.info(
+                                    f"    [Critic] Issues in '{file_path}': {_critic_feedback}"
+                                )
+                                content = ""
+                                continue
+                        except Exception:
+                            pass  # Critic must never abort generation
+
+                # Opt 3: Exit Contract — structural validation before syntax check
+                if self.context._opt_enabled("opt3_exit_contract") and task_type:
+                    contract_error = self._check_output_contract(file_path, content, task_type)
+                    if contract_error:
+                        last_error = f"CONTRACT VIOLATION: {contract_error}"
+                        self.context.logger.warning(
+                            f"    ⚠ Attempt {attempts} contract violation: {contract_error}"
+                        )
+                        content = ""
+                        continue
+
+                # 5. AST/Syntax Validation
+                validation_result = self.context.files_ctx.validator.validate(file_path, content)
+
+                # Handle Semantic Warnings (Auto-Heal) - skip only for micro (≤2B)
+                if not is_micro and (
+                    "logical integrity issues" in validation_result.message
+                    or "SEMANTIC WARNING" in str(validation_result)
+                ):
+                    self.context.logger.info(
+                        f"    ⚠ Attempt {attempts}: Integrity issues detected. Attempting auto-heal..."
+                    )
+
+                    # Extract the missing requirement from the warning
+                    missing_req = "missing function or logic"
+                    if "missing" in validation_result.message:
+                        missing_req = validation_result.message.split("missing")[-1].strip()
+
+                    # Use CodePatcher to inject
+                    from backend.utils.domains.auto_generation.code_patcher import CodePatcher
+
+                    patcher = CodePatcher(
+                        self.context.llm_manager.get_client("coder"),
+                        self.context.logger,
+                        self.context.response_parser,
+                    )
+                    content = await patcher.inject_missing_function(
+                        file_path=file_path,
+                        content=content,
+                        requirement=missing_req,
+                        related_context=context_files_content,
+                    )
+
+                    # Re-validate after healing
+                    validation_result = self.context.files_ctx.validator.validate(file_path, content)
+
+                _status = validation_result.status
+                _is_valid = False
+
+                # Robust check for VALID status (works with Enums and Mocks)
+                if hasattr(_status, "name"):
+                    _sn = str(_status.name)
+                    _is_valid = _sn == "VALID" or "MagicMock" in _sn
+                else:
+                    _is_valid = str(_status) == "VALID"
+
+                if _is_valid:
+                    self.context.logger.info(f"    ✓ {file_path} syntactically validated (Attempt {attempts})")
+                    break
+                else:
+                    last_error = f"SYNTAX ERROR: {validation_result.message}"
+                    self.context.logger.warning(
+                        f"    ⚠ Attempt {attempts} failed validation: {validation_result.message}"
+                    )
+                    # We NO LONGER clear content on final failure.
+                    # We prefer saving "best effort" clean code over a 0-byte file.
+
+            # F2: TDD Agéntico — run a minimal unit test and auto-correct on failure
+            if content and file_path.endswith(".py"):
+                content = await self._run_tdd_loop(file_path, content)
+
+            # 6. Final Save and Notification
+            if content and content.strip():
+                await self._save_task_result(
+                    file_path=file_path,
+                    content=content,
+                    task=task,
+                    task_id=task_id,
+                    title=title,
+                    project_root=project_root,
+                    generated_files=generated_files,
+                    backlog=backlog,
+                    completed_task_ids=completed_task_ids,
+                    completed_tasks=task_display_num,
+                    total_tasks=total_tasks,
+                )
+            else:
+                self.context.logger.error(f"    ✖ Task {task_id} failed after {max_attempts} attempts.")
+
+        except Exception as e:
+            self.context.logger.error(f"Fatal error in task {task_id}: {e}")
+            # Record error in knowledge base
+            self.context.error_knowledge_base.record_error(file_path, "micro_task_failure", str(e), task_id, title)
 
     async def _prepare_task_context(
         self,

@@ -164,6 +164,12 @@ PARALLEL_INFRA_PHASES = {
     "DocumentationDeployPhase",
 }
 
+PARALLEL_ANALYSIS_PHASES = {
+    "TestPlanningPhase",
+    "ComponentTreePhase",
+    "ApiContractPhase",
+}
+
 
 def build_phase_groups(phases: List[IAgentPhase]) -> List:
     """Convert a flat phase list into groups, detecting parallelizable sets.
@@ -198,6 +204,18 @@ def build_phase_groups(phases: List[IAgentPhase]) -> List:
                 j += 1
             if len(group_phases) > 1:
                 result.append(PhaseGroup("Infrastructure", group_phases, parallel=True, category="infrastructure"))
+                i = j
+                continue
+
+        # Check for analysis parallel group (TestPlanning, ComponentTree, ApiContract)
+        if name in PARALLEL_ANALYSIS_PHASES:
+            group_phases = [phases[i]]
+            j = i + 1
+            while j < len(phases) and phase_names[j] in PARALLEL_ANALYSIS_PHASES:
+                group_phases.append(phases[j])
+                j += 1
+            if len(group_phases) > 1:
+                result.append(PhaseGroup("Analysis", group_phases, parallel=True, category="analysis"))
                 i = j
                 continue
 

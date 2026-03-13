@@ -18,6 +18,7 @@ def mock_context():
     ctx.llm_manager = MagicMock()
     ctx.response_parser = MagicMock()
     ctx.file_content_generator = MagicMock()
+    ctx.config = {}
 
     # Files sub-context
     ctx.files_ctx = MagicMock()
@@ -105,12 +106,12 @@ def index(): return 'hi'"""
             {"id": "T2", "title": "Main", "file_path": "main.py", "task_type": "create_file"},
         ]
 
-        # Mock LLM for the non-binary file
+        # Mock LLM for the non-binary file (phase uses achat now)
         mock_client = MagicMock()
-        mock_client.chat.return_value = (
+        mock_client.achat = AsyncMock(return_value=(
             {"content": "<thinking_process>Análisis</thinking_process><code_created>print('ok')</code_created>"},
             {"prompt_tokens": 10, "completion_tokens": 10},
-        )
+        ))
         mock_context.llm_manager.get_client.return_value = mock_client
 
         # Mock Validator

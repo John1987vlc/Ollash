@@ -46,6 +46,30 @@ def context(mock_deps):
     return PhaseContext(**mock_deps)
 
 
+@pytest.mark.unit
+def test_is_small_model_config_override_small(mock_deps):
+    """model_size_overrides config entry forces nano-tier regardless of model name."""
+    mock_deps["config"] = {"model_size_overrides": {"coder": 7}}
+    ctx = PhaseContext(**mock_deps)
+    assert ctx._is_small_model("coder") is True
+
+
+@pytest.mark.unit
+def test_is_small_model_config_override_large(mock_deps):
+    """model_size_overrides with value >8 must NOT be treated as small model."""
+    mock_deps["config"] = {"model_size_overrides": {"coder": 30}}
+    ctx = PhaseContext(**mock_deps)
+    assert ctx._is_small_model("coder") is False
+
+
+@pytest.mark.unit
+def test_is_mid_model_config_override(mock_deps):
+    """model_size_overrides with mid-tier value is correctly detected by _is_mid_model."""
+    mock_deps["config"] = {"model_size_overrides": {"coder": 14}}
+    ctx = PhaseContext(**mock_deps)
+    assert ctx._is_mid_model("coder") is True
+
+
 def test_select_related_files_heuristic(context):
     generated_files = {
         "src/app.py": "content",

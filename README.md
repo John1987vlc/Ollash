@@ -1,204 +1,309 @@
-# <img src="Ollash.jpg" width="48" height="48" valign="middle"> Ollash - Local IT Agent
+# <img src="Ollash.jpg" width="48" height="48" valign="middle"> Ollash — Local AI Agent Platform
 
-**Ollash** is an advanced AI-powered Code and IT Assistant designed to operate entirely on your local infrastructure using **Ollama**. It combines multiple specialized agents into a cohesive "Agent-per-Domain" architecture to handle everything from complex software development to network analysis and cybersecurity audits.
+**Ollash** is a local AI agent platform powered entirely by **Ollama**. It combines a multi-phase **Auto-Agent** project generation pipeline with a live **multi-agent swarm** (Agent-per-Domain), exposes both a **FastAPI Web UI** and a **CLI**, and is optimised to run high-quality code generation on consumer-grade hardware with models as small as 4B parameters.
+
+> All LLM calls go to a local Ollama instance. No cloud APIs, no data leaves your machine.
 
 ---
 
 ## 🚀 Key Features
 
-### 🧠 Specialized Multi-Agent Swarm
-Ollash doesn't rely on a single generic prompt. It employs a team of specialized agents coordinated by a central orchestrator:
-*   **Architect Agent:** Designs project structures and identifies dependencies.
-*   **Developer Agent:** Writes, refines, and patches code across multiple languages.
-*   **DevOps Agent:** Manages CI/CD pipelines and infrastructure generation.
-*   **Auditor Agent:** Performs security scans and code quality reviews.
-*   **Security Agent:** Monitors for vulnerabilities and enforces safety policies.
-*   **Cybersecurity Agent:** Specialized in network audits and vulnerability research.
+### 🏗️ Auto-Agent — Multi-Phase Project Generator
 
-### 🏗️ Auto-Agent Project Pipeline
-Generate complete, production-ready projects from a single text description through a rigorous 8-phase pipeline:
-1.  **Analysis & Planning:** Detailed requirement breakdown.
-2.  **Structure Generation:** Scaffolding the entire project tree.
-3.  **Logic Design:** Planning function-level logic before coding.
-4.  **Content Generation:** Parallelized file content creation.
-5.  **Iterative Refinement:** Multiple passes to improve code quality.
-6.  **Verification:** Automated testing and syntax validation.
-7.  **Security & Compliance:** Vulnerability scanning and license checks.
-8.  **Final Review:** Senior-level holistic project audit.
+Generate complete, production-ready projects from a single description through a rigorously sequenced pipeline with **adaptive phase filtering** based on model tier:
 
-### 🌐 Modern Web UI (SPA) — Powered by FastAPI & Vite
-A rich, interactive Single Page Application built with FastAPI and modern frontend tools:
-*   **Real-time Chat:** Interactive terminal-like chat with tool-calling capabilities.
-*   **Architecture Visualization:** Dynamic graphs of your project's structure (Project Graph).
-*   **Intelligence Hub:** Explore the agent's Knowledge Base (RAG), Episodic Memory, and Learned Error Patterns.
-*   **Time Machine:** Create and restore project checkpoints.
-*   **Ops Center:** Monitor background jobs, automation triggers, and system health.
-*   **Model Benchmarker:** Compare local LLM performance on standardized tasks.
-*   **Prompt Studio:** Integrated environment for live prompt editing and versioning.
-*   **Cost Analyzer:** Real-time token usage tracking, cost reports, and model downgrade suggestions.
+| Tier | Model range | Phases active |
+|------|-------------|---------------|
+| **micro** | ≤ 2B (e.g. `qwen3.5:0.8b`) | Core pipeline only (9 heavy phases skipped) |
+| **small** | 3–8B (e.g. `qwen3.5:4b`, `custom-coder:7b`) | Full pipeline minus docs/CI/interactive phases |
+| **slim** | 9–29B | Full pipeline minus documentation deploy and CICD healing |
+| **full** | ≥ 30B (e.g. `qwen3-coder:30b`) | All phases active |
 
-### 🛠️ Advanced Infrastructure
-*   **FastAPI & Uvicorn:** High-performance asynchronous backend.
-*   **Smart RAG (ChromaDB):** Semantic search over project documentation.
-*   **Self-Healing Loops:** Automatically detects and fixes errors during generation via **Resilience Manager**.
-*   **Safe Sandbox:** Executes commands in a controlled environment with policy enforcement.
-*   **Hybrid Model Routing:** Automatically selects the best model for each specific task.
-*   **HIL (Human In The Loop):** Intercept and edit task instructions in real-time within the DAG dashboard.
-
----
-
-## 💻 CLI Usage Examples
-
-Ollash provides a powerful CLI to interact with its multi-agent swarm and utility tools.
-
-### 💬 Interactive Chat
-Enter an interactive chat session with specialized agents:
-```bash
-# Start a chat session
-python ollash_cli.py chat
+Core phase sequence (24 phases):
+```
+ReadmeGeneration → StructureGeneration → LogicPlanning → StructurePreReview
+→ EmptyFileScaffolding → FileContentGeneration → FileRefinement
+→ JavaScriptOptimization → Verification → CodeQuarantine
+→ SecurityScan → LicenseCompliance → DependencyReconciliation
+→ TestGenerationExecution → InfrastructureGeneration
+→ ExhaustiveReviewRepair → FinalReview → CICDHealing
+→ DocumentationDeploy → IterativeImprovement → DynamicDocumentation
+→ ContentCompleteness → SeniorReview
 ```
 
-### 🛠️ Project Generation (Multi-Agent Swarm)
-Kickstart a new project with parallel Developer Agents:
-```bash
-# Generate a modern dashboard with 5 parallel developer agents
-python ollash_cli.py agent "Create a React dashboard with TailwindCSS and Chart.js" --name dashboard_pro --pool-size 5
-```
+### 🧠 Domain Agent Swarm
 
-### 🐝 Swarm Tasks
-Invoke the swarm for quick data processing tasks:
-```bash
-# Summarize a large document and extract key tasks
-python ollash_cli.py swarm "Summarize docs/api_specification.pdf and list required endpoints"
-```
+A live cooperative swarm dispatched by `DomainAgentOrchestrator`:
 
-### 🛡️ Security Operations
-Perform automated vulnerability scans:
-```bash
-# Scan a directory for common security issues
-python ollash_cli.py security scan ./my_new_project
-```
+- **ArchitectAgent** — project structure and tech-stack decisions
+- **DeveloperAgent** (pool of 3) — parallel code generation and patching
+- **AuditorAgent** — security scans and code quality reviews
+- **DevOpsAgent** — CI/CD and infrastructure generation
 
-### 📊 Benchmarking & Testing
-Test local models or generate test suites:
-```bash
-# Run the model benchmarking suite
-python ollash_cli.py benchmark
+Shared state flows through a `Blackboard`. The swarm supports `SelfHealingLoop`, `DebateNodeRunner` (Architect vs Auditor), and `CheckpointManager`.
 
-# Generate unit tests for a Python project
-python ollash_cli.py test-gen ./src/core_logic.py
-```
+### 🌐 Modern Web UI — FastAPI + Vite SPA
 
-### 📁 Git Management
-Automate PR creation and management:
-```bash
-# Prepare a PR description from recent changes
-python ollash_cli.py git pr prepare
-```
-
----
-
-## 🛠️ Technology Stack
-*   **Backend:** Python 3.x, **FastAPI**, **Uvicorn**, Dependency Injector.
-*   **Frontend Integration:** **Vite**, Jinja2, Vanilla CSS/JS (SPA architecture).
-*   **LLM Engine:** Ollama (Recommended: `qwen3.5:0.8b`, `qwen3-coder:30b` or `ministral-3:8b`).
-*   **Vector DB:** ChromaDB (for long-term memory and RAG).
-*   **Memory:** SQLite (for episodic logs and decision tracking).
+- **Real-time Chat** with tool-calling and SSE streaming
+- **Architecture Visualizer** — dynamic project graph (Cytoscape)
+- **Intelligence Hub** — RAG Knowledge Base, Episodic Memory, Error Patterns
+- **Time Machine** — git-backed project checkpoints
+- **Ops Center** — background jobs, automation triggers, system health
+- **Model Benchmarker** — compare local model tiers
+- **Prompt Studio** — live prompt editing and versioning
+- **Cost Analyzer** — token usage tracking and model downgrade suggestions
+- **HIL DAG Dashboard** — Human-in-the-Loop task interception
 
 ---
 
 ## ⚡ Quick Start
 
 ### Prerequisites
-1.  Install [Ollama](https://ollama.ai/).
-2.  Pull the required models:
-    ```bash
-    ollama pull qwen3.5:0.8b
-    ollama pull qwen3-coder:30b
-    ollama pull qwen3-embedding:0.8b
-    ```
+
+1. Install [Ollama](https://ollama.ai/)
+2. Pull the recommended models:
+
+```bash
+# Core models (required)
+ollama pull qwen3.5:4b            # default — planner, generalist, orchestration
+ollama pull qwen3-embedding:4b    # semantic search / RAG
+
+# Optional tiers
+ollama pull qwen3.5:0.8b          # micro tasks (writer, suggester, nano_reviewer)
+ollama pull qwen3-coder:30b       # senior reviewer, supervisor (needs 20+ GB VRAM)
+```
+
+> Your custom `custom-coder:7b` model is used automatically for the `coder` and `test_generator` roles if present in Ollama.
 
 ### Installation
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/your-repo/ollash.git
-    cd ollash
-    ```
-2.  Set up a virtual environment:
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # Windows: .\venv\Scripts\activate
-    ```
-3.  Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-4.  Configure your environment:
-    ```bash
-    cp .env.example .env
-    # Edit .env to set your OLLAMA_URL
-    ```
 
-### Execution
-*   **Start the Web UI:** `python run_web.py`
-*   **Start the CLI Agent:** `python ollash_cli.py --chat`
-*   **Generate a Project:** `python backend/agents/auto_agent.py "Create a FastAPI app with SQLite and JWT"`
+```bash
+git clone https://github.com/your-repo/ollash.git
+cd ollash
 
----
+python -m venv venv
+source venv/bin/activate       # Windows: .\venv\Scripts\activate
 
-## 📂 Project Structure
-```text
-ollash/
-├── backend/            # Core logic, agents, and utilities
-│   ├── agents/         # specialized agent implementations
-│   ├── api/            # FastAPI application, routers and dependencies
-│   │   └── routers/    # Domain-specific API endpoints (chat, git, cost, etc.)
-│   ├── config/         # JSON configurations and policies
-│   ├── core/           # Kernel, containers, and loaders
-│   ├── services/       # Core business logic services
-│   └── utils/          # Domain-specific tools (git, code, net, etc.)
-├── frontend/           # Web UI (templates, static assets)
-├── docs/               # Detailed documentation and status reports
-├── prompts/            # System prompts for all agent roles
-└── .ollash/            # Local data (ChromaDB, logs, checkpoints)
+pip install -r requirements.txt
+
+cp .env.example .env
+# Edit .env: set OLLAMA_URL=http://localhost:11434
+```
+
+### Running
+
+```bash
+# Web UI (FastAPI + uvicorn on :5000)
+python run_web.py
+
+# CLI chat
+python ollash_cli.py chat
+
+# Generate a full project
+python ollash_cli.py agent "Create a FastAPI REST API with SQLite and JWT auth" --name my_api
+
+# Run a swarm task
+python ollash_cli.py swarm "Audit ./my_project for security issues"
+
+# Security scan
+python ollash_cli.py security-scan ./my_project
+
+# Benchmark model tiers
+python run_phase_benchmark_custom.py
 ```
 
 ---
 
-## ⚡ Optimizaciones para Modelos Pequeños (≤8B)
+## 📂 Project Structure
 
-Ollash incluye 6 optimizaciones ortogonales diseñadas para que modelos pequeños (Qwen2.5-Coder 7B, Llama3.1 8B, Ministral 3B, etc.) generen código de calidad sin saturar su ventana de contexto ni reescribir código ya funcional.
-
-| # | Optimización | Descripción |
-|---|---|---|
-| **F1** | **Interface Skeleton Scaffolding** | Antes de generar implementaciones, `InterfaceScaffoldingPhase` crea archivos `.pyi` (Python) y `.d.ts` (TypeScript) a partir de los exports del `logic_plan`. El LLM solo "rellena los huecos" de un contrato ya definido. |
-| **F2** | **TDD Agéntico en Caliente** | Tras generar cada archivo `.py`, `FileContentGenerationPhase._run_tdd_loop()` genera un test mínimo, lo ejecuta con `pytest` y corrige el código si falla. |
-| **F3** | **API Maps (Compresión de Contexto)** | Detecta modelos ≤8B y activa `select_related_files(signatures_only=True)`, reduciendo el contexto a solo cabeceras de funciones/clases. |
-| **F4** | **Capas de Abstracción (TACTICAL/CRITIC)** | Agentes `TacticalAgent` (implementación quirúrgica) y `CriticAgent` (escaneo estático contra base de conocimientos de errores). |
-| **F5** | **Blackboard como Memoria de Corto Plazo** | Notas concisas en el Blackboard sobre dependencias y exports inyectadas como contexto previo en la tarea siguiente. |
-| **F6** | **Parches SEARCH/REPLACE (Diff Quirúrgico)** | Aplica cambios quirúrgicamente sin tocar el resto del archivo mediante bloques `<<<SEARCH>>>...<<<REPLACE>>>`. |
+```text
+ollash/
+├── backend/
+│   ├── agents/
+│   │   ├── auto_agent.py                    # Pipeline orchestrator
+│   │   ├── auto_agent_phases/               # 24 pipeline phases + PhaseContext
+│   │   ├── domain_agents/                   # Swarm agents (Architect, Developer, Auditor, DevOps)
+│   │   └── core_agent.py                    # Base agent with mixin composition
+│   ├── api/
+│   │   ├── app.py                           # FastAPI factory (create_app)
+│   │   ├── deps.py                          # FastAPI dependency providers
+│   │   └── routers/                         # 45 APIRouter files
+│   ├── config/
+│   │   ├── llm_models.json                  # Ollama URL + per-role model assignments
+│   │   ├── tool_settings.json               # Context limits, concurrency, sandbox level
+│   │   └── agent_features.json              # Feature flags
+│   ├── core/
+│   │   └── containers.py                    # Dependency-injector ApplicationContainer
+│   ├── services/
+│   │   └── language_manager.py              # LLMClientManager, OllamaClient
+│   └── utils/
+│       ├── core/
+│       │   ├── llm/                         # LLMResponseParser, TokenTracker, PromptLoader
+│       │   ├── memory/                      # SQLiteVectorStore, FragmentCache, EpisodicMemory
+│       │   └── system/                      # RetryPolicy, CommandExecutor, PolicyEnforcer
+│       └── domains/
+│           └── auto_generation/
+│               ├── planning/                # ProjectPlanner, ImprovementPlanner, …
+│               ├── generation/              # EnhancedFileContentGenerator, StructureGenerator, …
+│               ├── review/                  # ProjectReviewer, SeniorReviewer, QualityGate, …
+│               └── utilities/               # CodePatcher, ProjectTypeDetector, SignatureExtractor, …
+├── frontend/
+│   ├── templates/                           # Jinja2 HTML templates
+│   └── static/                             # CSS, JS (Vite-bundled TypeScript)
+├── prompts/                                 # YAML prompt templates per domain
+├── tests/
+│   ├── unit/                               # 1 500+ unit tests (pytest.mark.unit)
+│   ├── integration/                        # Integration tests
+│   └── e2e/                               # Playwright E2E tests
+└── run_web.py                              # Uvicorn entry point
+```
 
 ---
 
-## 🔬 Agent Reliability Pack — Small Model Closed-Loop Features
+## 🛠️ Technology Stack
 
-Six orthogonal features that turn small Ollama models (≤8B) into reliable code generators by adding self-correction, memory, predictive loading, chaos testing, live task visibility, and cognitive-load guards.
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Python 3.10+, FastAPI, Uvicorn, dependency-injector |
+| **Database** | SQLAlchemy 2.0 async (SQLite), AsyncSession |
+| **Frontend** | TypeScript + Vite, Jinja2 templates |
+| **LLM Engine** | Ollama — `qwen3.5:4b` (default), `custom-coder:7b`, `qwen3-coder:30b` |
+| **Vector Store** | `SQLiteVectorStore` — zero extra deps, cosine similarity, keyword fallback |
+| **Memory** | SQLite — episodic logs, decision tracking, fragment cache |
+| **Streaming** | SSE via `asyncio.Queue` + `StreamingResponse` |
+| **Testing** | pytest, pytest-asyncio (`asyncio_mode=auto`), Playwright |
 
-| # | Feature | File | Default |
-|---|---------|------|---------|
-| **R1** | **Critic-Correction Closed Loop** | `backend/utils/core/analysis/critic_loop.py` | ✅ enabled |
-| **R2** | **Few-Shot Dynamic Store** | `backend/utils/core/memory/fragment_cache.py` | ✅ enabled |
-| **R3** | **Predictive Context Loading** | `backend/agents/auto_agent_phases/phase_context.py` | ✅ always-on |
-| **R4** | **Chaos Engineering Mode** | `backend/agents/auto_agent_phases/chaos_injection_phase.py` | ❌ disabled |
-| **R5** | **HITL Micro-Level DAG Dashboard** | `backend/api/routers/hil_router.py` | ✅ always-on |
-| **R6** | **Context Saturation Alerts** | `backend/utils/core/llm/context_saturation.py` | ✅ enabled |
+> ChromaDB has been fully removed. All vector/RAG functionality runs on the built-in `SQLiteVectorStore`.
+
+---
+
+## ⚙️ Configuration
+
+### `backend/config/llm_models.json` — Model roles
+
+```json
+{
+  "default_model":  "qwen3.5:4b",
+  "embedding":      "qwen3-embedding:4b",
+  "agent_roles": {
+    "planner":             "qwen3.5:4b",
+    "coder":               "custom-coder:7b",
+    "nano_coder":          "custom-coder:7b",
+    "senior_reviewer":     "qwen3-coder:30b",
+    "planner_supervisor":  "qwen3-coder:30b",
+    "generalist":          "qwen3.5:4b",
+    "analyst":             "qwen3.5:4b",
+    "improvement_planner": "qwen3.5:4b",
+    "writer":              "qwen3.5:0.8b",
+    "suggester":           "qwen3.5:0.8b"
+  }
+}
+```
+
+### `backend/config/tool_settings.json` — Key limits
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| `max_context_tokens` | 8192 | Input context budget (4B supports 32K natively) |
+| `max_output_tokens` | 4096 | Prevents truncated file generation |
+| `parallel_generation_max_concurrent` | 3 | Concurrent file generation tasks |
+| `nano_parallel_generation_max_concurrent` | 3 | Same for small/micro models |
+
+Override model size detection without renaming models:
+```json
+"model_size_overrides": { "coder": 7 }
+```
+
+---
+
+## 🔬 4B Model Optimisations
+
+Ollash is built around the assumption that your primary model is **4B parameters** (the "small" tier). All of the following apply automatically when `_is_small_model()` returns `True` and `_is_micro_model()` returns `False`:
+
+| Feature | Behaviour on 4B |
+|---------|----------------|
+| **Phase filtering** | Skips `ExhaustiveReviewRepair`, `DynamicDocumentation`, `CICDHealing`, `LicenseCompliance`, `Clarification`; keeps `PlanValidation`, `ApiContract`, `TestPlanning`, `ComponentTree` |
+| **Temperature** | `0.05` (vs `0.0` for micro, `0.1` for large) |
+| **Critic loop** | Enabled — LLM reviews its own output before validation |
+| **Auto-heal** | Enabled — `CodePatcher` injects missing functions on semantic warnings |
+| **Signatures-only context** | `select_related_files(signatures_only=True)` — only headers, not full files |
+| **NanoTaskExpander** | Splits `implement_function` tasks into per-function sub-tasks |
+| **Anti-pattern injection** | Error knowledge base warnings always injected |
+| **Planner model** | `qwen3.5:4b` — produces significantly better project structures than 0.8B |
+
+### Model tier detection
+
+Detection is based on the size suffix in the Ollama model tag (e.g. `qwen3.5:4b` → 4B):
+
+```
+≤ 2B  →  micro  (most aggressive optimisations, active-shadow repair enabled)
+3–8B  →  small  (4B default — balanced quality/speed)
+9–29B →  slim   (skips docs/CI phases only)
+≥ 30B →  full   (all phases active)
+```
+
+---
+
+## 🏗️ Architecture — Dependency Injection
+
+All services wired via `dependency-injector`:
+
+```
+ApplicationContainer
+└── CoreContainer
+    ├── LoggingContainer    → core.logging.logger / agent_kernel / event_publisher
+    ├── StorageContainer    → core.storage.file_manager / response_parser / fragment_cache
+    ├── AnalysisContainer   → core.analysis.code_quarantine / dependency_graph / rag_context_selector
+    ├── SecurityContainer   → core.security.permission_manager / policy_enforcer
+    └── MemoryContainer     → core.memory.error_knowledge_base / episodic_memory
+```
+
+Override in tests:
+```python
+main_container.core.logging.logger.override(mock_logger)
+```
 
 ---
 
 ## 🛡️ Security & Safety
-Ollash is built with security in mind. It includes a **Policy Enforcer** that intercepts all system commands, a **Code Quarantine** for analyzing suspicious snippets, and a **Vulnerability Scanner** to ensure generated code follows best practices.
+
+- **PolicyEnforcer** intercepts all shell commands before execution
+- **CodeQuarantine** isolates and analyses suspicious generated snippets
+- **VulnerabilityScanner** checks generated code for OWASP top-10 issues
+- **Confirmation gate** in `confirmation_manager.py` for all state-modifying tool calls (`write_file`, `run_command`)
+- Sandbox levels: `none | limited | strict | docker` (configured in `tool_settings.json`)
+
+---
+
+## 🧪 Testing
+
+```bash
+# Unit tests (fast, no Ollama required)
+pytest tests/unit/ -q
+
+# Integration tests
+pytest tests/integration/ -q
+
+# E2E tests (requires running server + Playwright)
+playwright install chromium
+pytest tests/e2e/ -m e2e
+
+# Single phase
+pytest tests/unit/backend/agents/auto_agent_phases/test_file_content_generation_phase.py
+```
+
+Current test suite: **1 553 unit tests**, 2 skipped, 1 xfailed.
+
+---
+
+## 🐳 Docker
+
+```bash
+docker-compose up --build
+```
 
 ---
 
 ## 📜 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+
+MIT License — see [LICENSE](LICENSE) for details.

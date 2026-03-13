@@ -17,6 +17,7 @@ def mock_context():
     ctx.llm_manager = MagicMock()
     ctx.response_parser = MagicMock()
     ctx.file_content_generator = MagicMock()
+    ctx.config = {}
 
     # Default project type info to avoid extension guard skipping files
     from backend.utils.domains.auto_generation.utilities.project_type_detector import ProjectTypeInfo
@@ -53,12 +54,12 @@ class TestFileContentGenerationPhase:
         mock_context.backlog = [{"id": "T1", "title": "Task 1", "file_path": "main.py", "task_type": "create_file"}]
         mock_context.select_related_files.return_value = {}
 
-        # Mock LLM Client
+        # Mock LLM Client (phase now uses achat for parallel-safe async calls)
         mock_client = MagicMock()
-        mock_client.chat.return_value = (
+        mock_client.achat = AsyncMock(return_value=(
             {"content": "<thinking_process>Análisis</thinking_process><code_created>def main(): pass</code_created>"},
             {"prompt_tokens": 10, "completion_tokens": 10},
-        )
+        ))
         mock_context.llm_manager.get_client.return_value = mock_client
 
         # Mock Validator
@@ -107,3 +108,56 @@ class TestFileContentGenerationPhase:
         assert phase._infer_language("app.js") == "javascript"
         assert phase._infer_language("main.go") == "go"
         assert phase._infer_language("unknown.xyz") == "unknown"
+
+    # ------------------------------------------------------------------
+    # _compute_levels
+    # ------------------------------------------------------------------
+
+    @pytest.mark.unit
+    def test_compute_levels_independent_tasks(self, mock_context):
+        """Tasks with no declared dependencies all land in a single level-0 batch."""
+        phase = FileContentGenerationPhase(mock_context)
+        tasks = [
+            {"id": "T1", "dependencies": []},
+            {"id": "T2", "dependencies": []},
+            {"id": "T3", "dependencies": []},
+        ]
+        levels = phase._compute_levels(tasks)
+        assert len(levels) == 1
+        assert len(levels[0]) == 3
+
+    @pytest.mark.unit
+    def test_compute_levels_chain_dependency(self, mock_context):
+        """T1 → T2 → T3 produces three levels, one task each."""
+        phase = FileContentGenerationPhase(mock_context)
+        tasks = [
+            {"id": "T1", "dependencies": []},
+            {"id": "T2", "dependencies": ["T1"]},
+            {"id": "T3", "dependencies": ["T2"]},
+        ]
+        levels = phase._compute_levels(tasks)
+        assert len(levels) == 3
+        assert levels[0][0]["id"] == "T1"
+        assert levels[1][0]["id"] == "T2"
+        assert levels[2][0]["id"] == "T3"
+
+    @pytest.mark.unit
+    def test_compute_levels_mixed(self, mock_context):
+        """T1 and T2 independent; T3 depends on T1; T4 depends on T2 and T3."""
+        phase = FileContentGenerationPhase(mock_context)
+        tasks = [
+            {"id": "T1", "dependencies": []},
+            {"id": "T2", "dependencies": []},
+            {"id": "T3", "dependencies": ["T1"]},
+            {"id": "T4", "dependencies": ["T2", "T3"]},
+        ]
+        levels = phase._compute_levels(tasks)
+        # Level 0: T1, T2 (both independent)
+        assert len(levels[0]) == 2
+        assert {t["id"] for t in levels[0]} == {"T1", "T2"}
+        # Level 1: T3 (depends on T1 which is done)
+        assert len(levels[1]) == 1
+        assert levels[1][0]["id"] == "T3"
+        # Level 2: T4 (depends on T2 and T3, both done)
+        assert len(levels[2]) == 1
+        assert levels[2][0]["id"] == "T4"
