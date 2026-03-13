@@ -112,6 +112,14 @@ def pytest_runtest_makereport(item, call):
 
 
 @pytest.fixture
+def page_isolated(context):
+    """Playwright page for component-only tests — no server required."""
+    _page = context.new_page()
+    _page.on("pageerror", lambda exc: print(f"BROWSER PAGE ERROR: {exc}"))
+    yield _page
+
+
+@pytest.fixture
 def page(context, flask_server, request):
     """Enhanced Playwright page fixture with trace capture on failure."""
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
