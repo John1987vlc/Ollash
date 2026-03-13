@@ -96,9 +96,7 @@ def test_command_palette_closes_on_escape(page, base_url):
     page.keyboard.press("Control+k")
     page.locator("#command-palette-overlay.active").wait_for(timeout=3_000)
     page.keyboard.press("Escape")
-    expect(page.locator("#command-palette-overlay")).not_to_have_class(
-        re.compile(r"active"), timeout=3_000
-    )
+    expect(page.locator("#command-palette-overlay")).not_to_have_class(re.compile(r"active"), timeout=3_000)
 
 
 @pytest.mark.e2e

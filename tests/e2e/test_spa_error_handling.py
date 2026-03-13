@@ -70,6 +70,7 @@ def test_sse_reconnect_banner_appears_on_disconnect(page, base_url):
 @pytest.mark.e2e
 def test_sandbox_run_button_disabled_during_execution(page, base_url):
     """The sandbox run button becomes disabled while a run is in progress."""
+
     # Mock the sandbox run endpoint to return a slow/pending status
     def _handle_sandbox(route):
         route.fulfill(

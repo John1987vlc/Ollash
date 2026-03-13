@@ -22,9 +22,7 @@ def test_sidebar_present_on_mobile(page, base_url):
     page.set_viewport_size(_MOBILE)
     page.goto(base_url)
     # Verify the sidebar element exists regardless of visibility (some designs keep it open)
-    assert page.locator("aside.sidebar").count() > 0, (
-        "aside.sidebar must be present in the DOM on mobile viewport"
-    )
+    assert page.locator("aside.sidebar").count() > 0, "aside.sidebar must be present in the DOM on mobile viewport"
 
 
 @pytest.mark.e2e

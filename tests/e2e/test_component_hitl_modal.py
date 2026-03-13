@@ -62,9 +62,7 @@ def test_modal_hidden_by_default(page_isolated: Page) -> None:
 def test_show_makes_modal_visible(page_isolated: Page) -> None:
     """HITLModal.show() removes the hidden attribute and shows the overlay."""
     page_isolated.set_content(_html())
-    page_isolated.evaluate(
-        "() => window.HITLModal.show('task-42', 'developer_0', 'Confirm deployment?')"
-    )
+    page_isolated.evaluate("() => window.HITLModal.show('task-42', 'developer_0', 'Confirm deployment?')")
     expect(page_isolated.locator("#hitl-modal-overlay")).to_be_visible()
     expect(page_isolated.locator("#hitl-modal-question")).to_have_text("Confirm deployment?")
     expect(page_isolated.locator("#hitl-task-id-display")).to_have_text("task-42")

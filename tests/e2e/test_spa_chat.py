@@ -70,9 +70,7 @@ def test_sent_message_appears_in_chat(page, base_url):
 def test_agent_card_gets_active_class(page, base_url):
     """Clicking an agent card (.btn-card) gives it the 'active' CSS class."""
     page.goto(base_url)
-    page.locator(".nav-item[data-view='chat']").click() if page.locator(
-        ".nav-item[data-view='chat']"
-    ).count() else None
+    page.locator(".nav-item[data-view='chat']").click() if page.locator(".nav-item[data-view='chat']").count() else None
 
     cards = page.locator(".btn-card")
     if cards.count() == 0:
@@ -86,9 +84,7 @@ def test_agent_card_gets_active_class(page, base_url):
 def test_clear_chat_shows_confirmation_modal(page, base_url):
     """Clicking 'Clear Chat' opens #confirm-modal instead of native browser confirm()."""
     page.goto(base_url)
-    page.locator(".nav-item[data-view='chat']").click() if page.locator(
-        ".nav-item[data-view='chat']"
-    ).count() else None
+    page.locator(".nav-item[data-view='chat']").click() if page.locator(".nav-item[data-view='chat']").count() else None
 
     clear_btn = page.locator("#clear-chat-btn")
     if not clear_btn.is_visible():
@@ -100,9 +96,7 @@ def test_clear_chat_shows_confirmation_modal(page, base_url):
     clear_btn.click()
 
     expect(page.locator("#confirm-modal")).to_be_visible(timeout=3_000)
-    assert not native_seen["value"], (
-        "Native window.confirm() must NOT be used — custom modal should appear"
-    )
+    assert not native_seen["value"], "Native window.confirm() must NOT be used — custom modal should appear"
 
     # Dismiss via Cancel so state is clean
     page.locator("#confirm-modal-cancel").click()

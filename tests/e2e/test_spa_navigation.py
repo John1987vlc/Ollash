@@ -75,6 +75,4 @@ def test_nav_group_header_toggles_children(page, base_url):
 
     after = header.get_attribute("aria-expanded")
     expected = "true" if before == "false" else "false"
-    assert after == expected, (
-        f"Expected aria-expanded to toggle from '{before}' to '{expected}', got '{after}'"
-    )
+    assert after == expected, f"Expected aria-expanded to toggle from '{before}' to '{expected}', got '{after}'"
