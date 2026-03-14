@@ -147,14 +147,22 @@ def plugins_directory(user: dict = Depends(get_current_user_dep)) -> dict:
     return {"path": str(d)}
 
 
+_ALLOWED_PLUGIN_SOURCES = [
+    Path(".ollash").resolve(),
+    Path("uploads").resolve(),
+]
+
+
 @router.post("/install", status_code=201)
 def install_plugin(
     body: PluginInstall,
     user: dict = Depends(get_current_user_dep),
 ) -> dict:
-    src = Path(body.source_path)
+    src = Path(body.source_path).resolve()
+    if not any(src.is_relative_to(b) for b in _ALLOWED_PLUGIN_SOURCES):
+        raise HTTPException(400, detail="source_path must be within .ollash/ or uploads/.")
     if not src.exists():
-        raise HTTPException(400, detail=f"Source not found: {src}")
+        raise HTTPException(400, detail="Source not found.")
 
     plugins_dir = _ensure_plugins_dir()
 

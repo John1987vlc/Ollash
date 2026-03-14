@@ -356,12 +356,13 @@ class WasmTestRunner:
 
         # wasmtime doesn't directly run Python/Node - this is a conceptual integration
         # In practice, you'd use a Wasm-compiled Python or language runtime
-        cmd = f"{self.sandbox.runtime} run --dir {instance.work_dir} -- {command}"
+        import shlex
+        cmd = shlex.split(f"{self.sandbox.runtime} run --dir {instance.work_dir} -- {command}")
 
         try:
             result = subprocess.run(
                 cmd,
-                shell=True,
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -385,12 +386,13 @@ class WasmTestRunner:
 
     async def _run_in_subprocess(self, instance: SandboxInstance, command: str, timeout: int) -> TestResult:
         """Fallback: run in a subprocess with limited permissions."""
+        import shlex
         import subprocess
 
         try:
             result = subprocess.run(
-                command,
-                shell=True,
+                shlex.split(command),
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=timeout,

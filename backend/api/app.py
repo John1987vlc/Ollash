@@ -13,13 +13,15 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
+
+from backend.api._limiter import limiter
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +49,17 @@ async def _lifespan(app: FastAPI):
     # --- Startup ---
     _init_app_state(app)
     _wire_di_container(app)
+    # Safety guard: auto_confirm_tools=true in a non-dev environment is dangerous.
+    _env = os.environ.get("OLLASH_ENV", "development").lower()
+    if _env not in ("development", "dev", "test"):
+        from backend.core.config import config as _cfg
+        if _cfg.get("auto_confirm_tools", False):
+            import logging as _log
+            _log.getLogger(__name__).warning(
+                "auto_confirm_tools=true is set in a non-development environment (%s). "
+                "All tool calls will execute without confirmation — set it to false in production.",
+                _env,
+            )
     automation_manager = getattr(app.state, "automation_manager", None)
     if automation_manager and hasattr(automation_manager, "start") and callable(automation_manager.start):
         import asyncio
@@ -135,22 +148,38 @@ def create_app(ollash_root_dir: Path | None = None) -> FastAPI:
         lifespan=_lifespan,
     )
 
-    # Rate limiter (per-IP; override key_func for per-user in individual routes)
-    limiter = Limiter(key_func=get_remote_address, default_limits=["300/minute"])
+    # Rate limiter — shared instance; 300 req/min per IP globally via SlowAPIMiddleware.
+    # Individual routes can add tighter limits with @limiter.limit("N/minute").
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
 
-    # CORS — restrict to localhost in production; wildcard kept for dev convenience.
-    # Override OLLASH_CORS_ORIGINS env var (comma-separated) to lock down further.
+    # CORS — defaults to localhost only. Set OLLASH_CORS_ORIGINS (comma-separated) to expand.
+    # Never combine allow_origins=["*"] with allow_credentials=True (CORS spec violation).
     _cors_origins_env = os.environ.get("OLLASH_CORS_ORIGINS", "")
-    _cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] if _cors_origins_env else ["*"]
+    _cors_origins = (
+        [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+        if _cors_origins_env
+        else ["http://localhost:5000", "http://127.0.0.1:5000"]
+    )
+    _wildcard = "*" in _cors_origins
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_credentials=not _wildcard,  # credentials incompatible with wildcard
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "X-API-Key"],
     )
+
+    # Security headers — applied to every response.
+    @app.middleware("http")
+    async def _security_headers(request: Request, call_next) -> Response:
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return response
 
     # Static files: /static → frontend/static/
     app.mount("/static", StaticFiles(directory="frontend/static"), name="static")

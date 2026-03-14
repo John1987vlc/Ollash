@@ -143,7 +143,8 @@ class TestPushToRemoteDispatch:
 
         assert mock_subprocess.called
         cmd = mock_subprocess.call_args[0][0]
-        assert "gh repo create" in cmd
+        # cmd is now a list (shell=False); check the relevant tokens are present.
+        assert "gh" in cmd and "repo" in cmd and "create" in cmd
         assert result["method"] == "gh_cli"
 
     @patch("subprocess.run")

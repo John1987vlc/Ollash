@@ -54,13 +54,19 @@ async def terminal_ws(websocket: WebSocket):
             if message.startswith("cd "):
                 target = message[3:].strip()
                 new_dir = os.path.abspath(os.path.join(working_dir, target))
-                if os.path.isdir(new_dir):
+                # Guard: only allow navigation within the workspace (allowed_dirs subtree).
+                if os.path.isdir(new_dir) and any(
+                    new_dir == d or new_dir.startswith(d + os.sep) for d in allowed_dirs
+                ):
                     working_dir = new_dir
                     await websocket.send_text(f"\r\n$ cd {target}\r\n")
-                else:
+                elif not os.path.isdir(new_dir):
                     await websocket.send_text(f"\r\nDirectory not found: {target}\r\n")
+                else:
+                    await websocket.send_text(f"\r\nAccess denied: outside workspace\r\n")
                 continue
 
+            logger.info("TERM_EXEC cwd=%s cmd=%.200s", working_dir, message)
             await websocket.send_text(f"\r\n$ {message}\r\n")
 
             try:

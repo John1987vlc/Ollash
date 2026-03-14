@@ -10,7 +10,7 @@ from typing import AsyncIterator, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 router = APIRouter(tags=["chat"])
@@ -38,11 +38,11 @@ def _get_session_manager(request: Request):
 
 
 class ChatRequest(BaseModel):
-    message: str
-    session_id: Optional[str] = None
-    model: Optional[str] = None
-    mode: Optional[str] = "simple"
-    project_path: Optional[str] = None
+    message: str = Field(..., min_length=1, max_length=100_000)
+    session_id: Optional[str] = Field(default=None, max_length=64)
+    model: Optional[str] = Field(default=None, max_length=100, pattern=r"^[a-zA-Z0-9_\-.:]+$")
+    mode: Optional[str] = Field(default="simple", pattern=r"^(simple|advanced|coding)$")
+    project_path: Optional[str] = Field(default=None, max_length=500)
 
 
 # ---------------------------------------------------------------------------

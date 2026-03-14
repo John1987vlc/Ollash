@@ -67,7 +67,7 @@ async def cmd_swarm(args):
     al = AgentLogger(sl, "SwarmCLI")
 
     # Using default ollama client from container
-    ollama_client = main_container.auto_agent.llm_client_manager().get_client("generalist")
+    ollama_client = main_container.auto_agent_module.llm_client_manager().get_client("generalist")
     doc_manager = DocumentationManager(project_root, al, None, {})
     workspace_path = project_root / ".ollash" / "knowledge_workspace"
 
@@ -186,18 +186,53 @@ async def cmd_vision_ocr(args):
         print(f"[-] OCR failed: {e}")
 
 
+async def cmd_auto_agent(args):
+    """Run the full AutoAgent 32-phase project pipeline."""
+    print(f"[*] Running AutoAgent pipeline for: {args.task}")
+    try:
+        auto_agent = main_container.auto_agent_module.auto_agent()
+        result_path = await auto_agent.run(
+            project_description=args.task,
+            project_name=args.name or "auto_project",
+        )
+        print(f"\n[+] Project generated at: {result_path}")
+    except Exception as e:
+        print(f"[-] AutoAgent error: {e}")
+        sys.exit(1)
+
+
 async def cmd_benchmark(args):
     """Run model benchmarking."""
-    # Adapting logic from legacy/auto_benchmark.py
-    # For now, we'll try to import it if possible or run as subprocess
-    print("[*] Starting Model Benchmarking suite...")
-    legacy_path = project_root / "legacy" / "auto_benchmark.py"
-    if legacy_path.exists():
-        import subprocess
+    from backend.agents.auto_benchmarker import ModelBenchmarker
+    from backend.core.config import get_config
 
-        subprocess.run([sys.executable, str(legacy_path)])
-    else:
-        print("[-] Benchmarking script not found in legacy/")
+    print("[*] Starting Model Benchmarking suite...")
+    config = get_config()
+    benchmarker = ModelBenchmarker()
+
+    all_local_models = benchmarker.get_local_models()
+    if not all_local_models:
+        print("[-] No local Ollama models found. Pull some first (e.g., 'ollama pull qwen3.5:4b').")
+        return
+
+    embedding_models = getattr(benchmarker, "embedding_models", set())
+    chat_models = [m for m in all_local_models if m not in embedding_models and "embed" not in m]
+    excluded = [m for m in all_local_models if m not in chat_models]
+    if excluded:
+        print(f"    Excluding embedding models: {', '.join(excluded)}")
+
+    models_to_run = getattr(args, "models", None) or chat_models
+    benchmarker.run_benchmark(models_to_run)
+    log_path = benchmarker.save_logs()
+
+    summary_model = config.LLM_MODELS.get("models", {}).get("summarization", config.DEFAULT_MODEL)
+    print(f"\n[*] Generating summary with model: {summary_model}")
+    report = benchmarker.generate_summary(summary_model)
+    print("\n" + "=" * 50)
+    print("AUTO-BENCHMARK REPORT")
+    print("=" * 50)
+    print(report)
+    print(f"\n[+] Results saved to: {log_path.parent}")
 
 
 async def cmd_test_gen(args):
@@ -207,7 +242,7 @@ async def cmd_test_gen(args):
     from backend.utils.core.command_executor import CommandExecutor
 
     al = AgentLogger(StructuredLogger(project_root / ".ollash" / "test_gen.log", "test_gen"), "TestGenCLI")
-    ollama_client = main_container.auto_agent.llm_client_manager().get_client("test_generator")
+    ollama_client = main_container.auto_agent_module.llm_client_manager().get_client("test_generator")
     parser = LLMResponseParser(al)
     executor = CommandExecutor(al)
 
@@ -560,7 +595,7 @@ async def cmd_chat(args):
                 if user_input.startswith("/model "):
                     new_model = user_input[7:].strip()
                     try:
-                        agent.llm_client = main_container.auto_agent.llm_client_manager().get_client_by_model(new_model)
+                        agent.llm_client = main_container.auto_agent_module.llm_client_manager().get_client_by_model(new_model)
                         current_model = new_model
                         repo.set_model(new_model)
                         console.print(f"[info]Switched to model: [bold]{new_model}[/bold][/info]")
@@ -698,8 +733,14 @@ def main():
     ocr_parser = vision_sub.add_parser("ocr", help="Run OCR on file")
     ocr_parser.add_argument("file", help="Image or PDF file")
 
+    # auto-agent <task>
+    aa_parser = subparsers.add_parser("auto-agent", help="Run AutoAgent 32-phase pipeline")
+    aa_parser.add_argument("task", help="Project description")
+    aa_parser.add_argument("--name", help="Project name (default: auto_project)")
+
     # benchmark
-    subparsers.add_parser("benchmark", help="Run model benchmarking suite")
+    bench_parser = subparsers.add_parser("benchmark", help="Run model benchmarking suite")
+    bench_parser.add_argument("--models", nargs="*", help="Models to benchmark (default: all local)")
 
     # test-gen <file> --lang <lang>
     test_gen_parser = subparsers.add_parser("test-gen", help="Generate multi-language tests")
@@ -735,6 +776,8 @@ def main():
             loop.run_until_complete(cmd_cron_add(args))
         elif args.command == "vision" and args.subcommand == "ocr":
             loop.run_until_complete(cmd_vision_ocr(args))
+        elif args.command == "auto-agent":
+            loop.run_until_complete(cmd_auto_agent(args))
         elif args.command == "benchmark":
             loop.run_until_complete(cmd_benchmark(args))
         elif args.command == "test-gen":

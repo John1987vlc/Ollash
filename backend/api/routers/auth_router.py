@@ -15,8 +15,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+
+from backend.api._limiter import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -91,7 +93,8 @@ async def register(req: RegisterRequest):
 
 
 @router.post("/login")
-async def login(req: LoginRequest):
+@limiter.limit("10/minute")
+async def login(request: Request, req: LoginRequest):
     """Authenticate and return a JWT Bearer token (valid 24 h by default)."""
     store = _store()
     user = store.get_user_by_username(req.username.strip())

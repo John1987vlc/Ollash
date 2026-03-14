@@ -65,7 +65,7 @@ async def generate_cicd(req: CICDGenerateRequest):
     try:
         from backend.core.containers import main_container
 
-        llm_manager = main_container.auto_agent.llm_client_manager()
+        llm_manager = main_container.auto_agent_module.llm_client_manager()
         client = llm_manager.get_client("coder")
 
         project_path = Path(req.project_path).resolve()

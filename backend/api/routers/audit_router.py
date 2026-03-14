@@ -64,7 +64,7 @@ async def code_review(req: ReviewRequest):
     try:
         from backend.core.containers import main_container
 
-        llm_manager = main_container.auto_agent.llm_client_manager()
+        llm_manager = main_container.auto_agent_module.llm_client_manager()
         client = llm_manager.get_client("senior_reviewer")
 
         messages = [

@@ -156,14 +156,23 @@ class FinalReviewPhase(IAgentPhase):
             return self._push_to_existing_repo(git, git_repo_url, token, git_branch)
 
         # --- Create-and-push path (no pre-created repo) ---
+        # Validate repo_name and organization before passing to subprocess.
+        _SAFE_REPO_RE = __import__("re").compile(r"^[a-zA-Z0-9_.\-]{1,100}$")
+        if not _SAFE_REPO_RE.match(repo_name):
+            return {"success": False, "error": "Invalid repo_name — only alphanumeric, -, _, . allowed."}
+        if organization and not _SAFE_REPO_RE.match(organization):
+            return {"success": False, "error": "Invalid organization — only alphanumeric, -, _, . allowed."}
+
         visibility = "--private"
-        org_flag = f"--org {organization}" if organization else ""
+        cmd = ["gh", "repo", "create", repo_name, visibility, "--source=.", "--push"]
+        if organization:
+            cmd.extend(["--org", organization])
         env = {**os.environ, "GH_TOKEN": token}
 
         try:
             result = subprocess.run(
-                f"gh repo create {repo_name} {visibility} {org_flag} --source=. --push",
-                shell=True,
+                cmd,
+                shell=False,
                 capture_output=True,
                 text=True,
                 cwd=git.repo_path,

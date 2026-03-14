@@ -25,6 +25,7 @@
 | **Streaming shell output** — live pytest/npm/cargo lines via SSE | ✅ **new** |
 | Privacy monitor — network call audit, 🔒 local mode badge | ✅ |
 | 1 334 tests — unit · integration · E2E (Playwright, Ollama-free) | ✅ |
+| **Security hardening** — CORS, rate limiting, input validation, command injection fixes | ✅ **new** |
 
 ---
 
@@ -66,7 +67,10 @@ python run_web.py
 # Interactive CLI (repo-aware, file editing, tool loop)
 python ollash_cli.py chat
 
-# Generate a full project from a description
+# Generate a full project with the 32-phase AutoAgent pipeline
+python ollash_cli.py auto-agent "Create a FastAPI REST API with SQLite and JWT auth" --name my_api
+
+# Generate a full project using the Domain Agent Swarm (multi-agent)
 python ollash_cli.py agent "Create a FastAPI REST API with SQLite and JWT auth" --name my_api
 
 # Domain Agent Swarm task
@@ -78,9 +82,38 @@ python ollash_cli.py security-scan ./my_project
 # Expose Ollash tools to Claude Code / Cline via MCP stdio
 python -m backend.mcp
 
-# Benchmark model tiers
+# Benchmark model tiers (phase benchmarker)
 python run_phase_benchmark_custom.py
+
+# Benchmark via CLI (uses ModelBenchmarker, supports --models filter)
+python ollash_cli.py benchmark
+python ollash_cli.py benchmark --models qwen3.5:4b qwen3-coder:30b
+
+# Generate multi-language tests for a source file
+python ollash_cli.py test-gen backend/agents/auto_agent.py --lang python
 ```
+
+---
+
+## Security
+
+Ollash runs entirely locally. No data leaves your machine. The following hardening is applied:
+
+| Layer | Control |
+|-------|---------|
+| **Rate limiting** | `SlowAPIMiddleware` — 300 req/min per IP globally; `/api/auth/login` capped at 10/min (brute-force protection) |
+| **CORS** | Defaults to `localhost:5000` only. Set `OLLASH_CORS_ORIGINS` (comma-separated) to expand. `allow_credentials` disabled when wildcard is active. |
+| **Command injection** | All `subprocess` calls use `shell=False` with list arguments. User-supplied `repo_name`/`org` are regex-validated before shell invocation. |
+| **Path traversal** | `_safe_resolve()` used on all file operations. Knowledge graph and plugin install endpoints restrict paths to workspace subtree. |
+| **Input validation** | All Pydantic models include `min_length`/`max_length`/`pattern` constraints. File saves are capped at 10 MB. |
+| **Error leakage** | `service_error_handler` returns opaque `ref: <id>` to clients; full tracebacks go to server logs only. |
+| **SSRF** | Ollama URL validated against an allowlist (`localhost`, `127.0.0.1`). Extend via `OLLAMA_HOSTS_ALLOWLIST` env var. |
+| **Security headers** | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy` on every response. |
+| **Plugin install** | Source path restricted to `.ollash/` and `uploads/` — cannot copy arbitrary server files into the plugin dir. |
+| **Terminal** | `cd` navigation bounded to workspace `allowed_dirs`; every command is audit-logged (`INFO TERM_EXEC`). |
+| **JWT** | `python-jose` validates `exp` claim automatically; tokens expire in 24 h (configurable via `OLLASH_JWT_EXPIRE_HOURS`). |
+
+> **Note:** The terminal WebSocket (`/api/terminal/ws`) has no authentication — only expose Ollash on trusted networks.
 
 ---
 

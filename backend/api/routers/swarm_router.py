@@ -34,7 +34,7 @@ def _get_cowork_tools():
     log_path.parent.mkdir(parents=True, exist_ok=True)
     sl = StructuredLogger(log_path, "swarm")
     al = AgentLogger(sl, "SwarmAPI")
-    llm_client = main_container.auto_agent.llm_client_manager().get_client("generalist")
+    llm_client = main_container.auto_agent_module.llm_client_manager().get_client("generalist")
     doc_manager = DocumentationManager(root, al, None, {})
     workspace = root / ".ollash" / "knowledge_workspace"
     return CoworkTools(doc_manager, llm_client, al, workspace)

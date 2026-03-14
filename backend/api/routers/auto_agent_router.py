@@ -27,7 +27,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.core.containers import main_container
 
@@ -71,28 +71,31 @@ def _validate_image_magic(data: bytes) -> bool:
 # ---------------------------------------------------------------------------
 
 
+_PROJECT_NAME_RE = re.compile(r"^[a-zA-Z0-9_\-]{1,80}$")
+
+
 class ProjectCreateRequest(BaseModel):
-    project_name: str
-    project_description: str
+    project_name: str = Field(..., min_length=1, max_length=80, pattern=r"^[a-zA-Z0-9_\-]+$")
+    project_description: str = Field(..., min_length=1, max_length=20000)
     git_push: bool = False
-    git_token: str = ""
+    git_token: str = Field(default="", max_length=200)
     maintenance_enabled: bool = False
     use_rag: bool = False
-    target_language: str = ""
-    preferred_stack: str = ""
-    resume_from_phase: Optional[int] = None
+    target_language: str = Field(default="", max_length=50)
+    preferred_stack: str = Field(default="", max_length=200)
+    resume_from_phase: Optional[int] = Field(default=None, ge=0, le=50)
     # Extended fields from the wizard
-    template_name: Optional[str] = None
-    python_version: Optional[str] = None
-    license_type: Optional[str] = None
+    template_name: Optional[str] = Field(default=None, max_length=100)
+    python_version: Optional[str] = Field(default=None, max_length=20)
+    license_type: Optional[str] = Field(default=None, max_length=50)
     include_docker: bool = False
     include_terraform: bool = False
-    num_refine_loops: int = 1
+    num_refine_loops: int = Field(default=1, ge=1, le=10)
     git_auto_create: bool = False
-    git_repo_url: str = ""
-    maintenance_interval: Optional[int] = None
-    pool_size: Optional[int] = None
-    timeout: Optional[int] = None
+    git_repo_url: str = Field(default="", max_length=500)
+    maintenance_interval: Optional[int] = Field(default=None, ge=1, le=1440)
+    pool_size: Optional[int] = Field(default=None, ge=1, le=20)
+    timeout: Optional[int] = Field(default=None, ge=30, le=7200)
     parallel_generation_enabled: bool = False
     security_scanning_enabled: bool = False
     block_security_critical: bool = False
@@ -170,7 +173,12 @@ async def stream_project_logs(project_name: str, request: Request):
 
 
 class FilePathRequest(BaseModel):
-    file_path_relative: str
+    file_path_relative: str = Field(..., min_length=1, max_length=500)
+
+
+class FileSaveRequest(BaseModel):
+    file_path_relative: str = Field(..., min_length=1, max_length=500)
+    content: str = Field(default="", max_length=10 * 1024 * 1024)  # 10 MB cap
 
 
 @router.post("/api/projects/{project_name}/file")
@@ -200,19 +208,19 @@ async def read_file_content(
 @router.put("/api/projects/{project_name}/file")
 async def save_file_content(
     project_name: str,
-    body: dict,
+    body: FileSaveRequest,
     request: Request,
 ):
     ollash_root_dir = request.app.state.ollash_root_dir
     project_base = ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
 
     try:
-        full_path = _safe_resolve(project_base, body.get("file_path_relative", ""))
+        full_path = _safe_resolve(project_base, body.file_path_relative)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid file path.")
 
     full_path.parent.mkdir(parents=True, exist_ok=True)
-    full_path.write_text(body.get("content", ""), encoding="utf-8")
+    full_path.write_text(body.content, encoding="utf-8")
     return {"status": "success"}
 
 

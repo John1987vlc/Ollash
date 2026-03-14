@@ -7,6 +7,7 @@ FastAPI dependencies using `request.app.state`.
 
 import logging
 import os
+import uuid
 from functools import wraps
 from pathlib import Path
 
@@ -68,7 +69,11 @@ def get_optional_user_dep(
 
 
 def service_error_handler(fn):
-    """Decorator: convert unhandled exceptions to HTTP 500 (pass through HTTPException)."""
+    """Decorator: convert unhandled exceptions to HTTP 500 (pass through HTTPException).
+
+    Exception details are logged server-side only — the client receives an opaque
+    request ID so operators can correlate logs without leaking internals.
+    """
 
     @wraps(fn)
     async def wrapper(*args, **kwargs):
@@ -77,8 +82,9 @@ def service_error_handler(fn):
         except HTTPException:
             raise
         except Exception as exc:
-            logger.error("Unhandled error in %s: %s", fn.__name__, exc)
-            raise HTTPException(status_code=500, detail=str(exc))
+            req_id = uuid.uuid4().hex[:12]
+            logger.error("Unhandled error in %s [req=%s]: %s", fn.__name__, req_id, exc, exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Internal server error (ref: {req_id})")
 
     return wrapper
 

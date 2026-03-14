@@ -5,7 +5,6 @@ APScheduler==3.10.4
 colorama==0.4.6
 dependency-injector==4.41.0
 docker==7.1.0
-Flask==3.0.1
 Jinja2==3.1.2
 numpy==1.26.4
 ollama==0.6.1
@@ -29,14 +28,11 @@ fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
 
-# WebSocket support for terminal (keep for CLI compatibility)
-flask-sock==0.7.0
-
 # Type checking support
 typing_extensions>=4.8.0
 
 # System monitoring
-psutil==5.9.8
+psutil>=6.0.0
 
 # Document processing
 pypdf==4.2.0

@@ -96,7 +96,7 @@ async def update_model_config(req: ModelConfigRequest):
         try:
             from backend.core.containers import main_container
 
-            mgr = main_container.auto_agent.llm_client_manager()
+            mgr = main_container.auto_agent_module.llm_client_manager()
             if hasattr(mgr, "reload"):
                 mgr.reload()
         except Exception:

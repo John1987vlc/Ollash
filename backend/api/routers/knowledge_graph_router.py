@@ -27,8 +27,12 @@ async def get_project_graph(
         from backend.core.containers import main_container
 
         root = Path(project_path).resolve()
+        # Restrict traversal to workspace subtree only — never allow arbitrary FS paths.
+        _cwd = Path(".").resolve()
+        if not root.is_relative_to(_cwd):
+            raise HTTPException(status_code=400, detail="project_path must be within the workspace.")
         if not root.exists():
-            raise HTTPException(status_code=404, detail=f"Path not found: {project_path}")
+            raise HTTPException(status_code=404, detail="Path not found.")
 
         dep_graph = main_container.core.analysis.dependency_graph()
 
@@ -80,5 +84,5 @@ async def get_project_graph(
         }
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to build knowledge graph.")

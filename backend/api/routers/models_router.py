@@ -6,6 +6,8 @@ import json
 from typing import Any
 
 import requests
+from urllib.parse import urlparse
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -15,8 +17,27 @@ from backend.core.config import config as app_config
 router = APIRouter(prefix="/api/models", tags=["models"])
 
 
+_OLLAMA_ALLOWED_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+
+
 def _ollama_url() -> str:
-    return str(app_config.get("ollama_url", "http://localhost:11434")).rstrip("/")
+    """Return the configured Ollama base URL, validated against an allowlist.
+
+    Extra hosts can be whitelisted via the OLLAMA_HOSTS_ALLOWLIST env var
+    (comma-separated). This prevents SSRF via a compromised config file.
+    """
+    import os
+
+    url = str(app_config.get("ollama_url", "http://localhost:11434")).rstrip("/")
+    parsed = urlparse(url)
+    extra = {h.strip() for h in os.environ.get("OLLAMA_HOSTS_ALLOWLIST", "").split(",") if h.strip()}
+    allowed = _OLLAMA_ALLOWED_HOSTS | extra
+    if parsed.hostname not in allowed:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ollama host '{parsed.hostname}' is not in the allowlist.",
+        )
+    return url
 
 
 class PullRequest(BaseModel):
