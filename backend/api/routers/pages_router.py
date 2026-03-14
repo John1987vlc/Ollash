@@ -77,3 +77,8 @@ async def terminal_page(request: Request):
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     return _render(request, "pages/settings.html")
+
+
+@router.get("/pipeline", response_class=HTMLResponse)
+async def pipeline_page(request: Request):
+    return _render(request, "pages/pipeline.html")

@@ -16,9 +16,9 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent
 sys.path.insert(0, str(project_root))
 
-from backend.core.containers import main_container
-from backend.utils.core.system.structured_logger import StructuredLogger
-from backend.utils.core.system.agent_logger import AgentLogger
+from backend.core.containers import main_container  # noqa: E402
+from backend.utils.core.system.structured_logger import StructuredLogger  # noqa: E402
+from backend.utils.core.system.agent_logger import AgentLogger  # noqa: E402
 
 
 def setup_global_configs(args):
@@ -66,8 +66,8 @@ async def cmd_swarm(args):
     sl = StructuredLogger(log_path, "swarm")
     al = AgentLogger(sl, "SwarmCLI")
 
-    # Using default ollama client from container if possible
-    ollama_client = main_container.core.llm_client()
+    # Using default ollama client from container
+    ollama_client = main_container.auto_agent.llm_client_manager().get_client("generalist")
     doc_manager = DocumentationManager(project_root, al, None, {})
     workspace_path = project_root / ".ollash" / "knowledge_workspace"
 
@@ -207,7 +207,7 @@ async def cmd_test_gen(args):
     from backend.utils.core.command_executor import CommandExecutor
 
     al = AgentLogger(StructuredLogger(project_root / ".ollash" / "test_gen.log", "test_gen"), "TestGenCLI")
-    ollama_client = main_container.core.llm_client()
+    ollama_client = main_container.auto_agent.llm_client_manager().get_client("test_generator")
     parser = LLMResponseParser(al)
     executor = CommandExecutor(al)
 
@@ -239,15 +239,24 @@ async def cmd_test_gen(args):
 
 
 async def cmd_chat(args):
-    """Start interactive chat mode with DefaultAgent and Rich UI."""
+    """Start interactive chat mode with DefaultAgent and Rich UI (Claude Code-style)."""
     try:
+        from pathlib import Path as _Path
+
         from rich.console import Console, Group
         from rich.panel import Panel
         from rich.markdown import Markdown
         from rich.live import Live
         from rich.text import Text
         from rich.theme import Theme
+        from rich.table import Table
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.history import FileHistory
+        from prompt_toolkit.completion import WordCompleter
+        from prompt_toolkit.styles import Style as PTStyle
         from backend.agents.default_agent import DefaultAgent
+        from backend.cli.repo_context import RepoContext
+        from backend.cli.file_editor import FileEditor
 
         custom_theme = Theme(
             {
@@ -266,185 +275,352 @@ async def cmd_chat(args):
             auto_confirm=False,
         )
 
+        repo = RepoContext(project_root)
+        editor = FileEditor(console, project_root)
+
+        # Detect current model from agent config
+        current_model = "qwen3.5:4b"
+        try:
+            current_model = agent.llm_client.model
+            repo.set_model(current_model)
+        except AttributeError:
+            pass
+
+        # prompt_toolkit session with persistent history + slash-command completion
+        history_file = _Path.home() / ".ollash_history"
+        slash_commands = [
+            "/add",
+            "/remove",
+            "/files",
+            "/show",
+            "/edit",
+            "/run",
+            "/model",
+            "/status",
+            "/rescan",
+            "/clear",
+            "/clean",
+            "/new-session",
+            "/help",
+            "/exit",
+        ]
+        completer = WordCompleter(slash_commands, pattern=r"^/\S*", sentence=True)
+        pt_style = PTStyle.from_dict({"prompt": "bold ansipurple"})
+        session: PromptSession = PromptSession(
+            history=FileHistory(str(history_file)),
+            completer=completer,
+            style=pt_style,
+        )
+
+        is_debug = getattr(args, "debug", False)
+
         console.print(
             Panel.fit(
-                "[bold purple]Ollash Enterprise Chat[/bold purple]\n"
-                f"[dim]Project: {project_root}[/dim]\n"
-                "Type [bold yellow]exit[/bold yellow] to quit, [bold yellow]help[/bold yellow] for commands.",
+                f"[bold purple]Ollash Chat[/bold purple]  [dim]— {current_model}[/dim]\n"
+                f"[dim]Repo: {project_root}[/dim]\n"
+                "Type [yellow]/help[/yellow] for commands, [yellow]/exit[/yellow] to quit.",
                 title="\U0001f916 Welcome",
                 border_style="purple",
             )
         )
 
+        def _show_help():
+            table = Table(title="Slash Commands", show_header=False, box=None, padding=(0, 2))
+            table.add_row("[yellow]/add <file>[/yellow]", "Add a file to the context window")
+            table.add_row("[yellow]/remove <file>[/yellow]", "Remove a file from context")
+            table.add_row("[yellow]/files[/yellow]", "List files in context")
+            table.add_row("[yellow]/show <file>[/yellow]", "View a file with syntax highlighting")
+            table.add_row("[yellow]/edit <file>[/yellow]", "Ask AI to edit a file (shows diff first)")
+            table.add_row("[yellow]/run <command>[/yellow]", "Execute a shell command with live output")
+            table.add_row("[yellow]/model <name>[/yellow]", "Switch the active model")
+            table.add_row("[yellow]/status[/yellow]", "Show model, context, and token stats")
+            table.add_row("[yellow]/rescan[/yellow]", "Rescan repo structure")
+            table.add_row("[yellow]/clean[/yellow]", "Clear conversation history")
+            table.add_row("[yellow]/new-session[/yellow]", "Reset history and metrics")
+            table.add_row("[yellow]/clear[/yellow]", "Clear the screen")
+            table.add_row("[yellow]/exit[/yellow]", "Quit")
+            console.print(table)
+            console.print("\n[info]Available agent tools:[/info]")
+            console.print("[dim]" + ", ".join(sorted(agent.tool_functions.keys())) + "[/dim]")
+
+        async def _run_agent(user_message: str):
+            """Run the agent and display streaming thoughts + final answer."""
+            # Prepend repo context if any files are added
+            full_message = user_message
+            if repo.has_context():
+                ctx_block = repo.build_context_block()
+                full_message = f"{ctx_block}\n\n---\n\n{user_message}"
+
+            with Live(vertical_overflow="visible", console=console) as live:
+                thoughts = []
+                current_cot = ""
+
+                def update_thoughts(event_type, event_data):
+                    nonlocal current_cot
+                    if event_type == "thinking":
+                        msg = event_data.get("message", "")
+                        thoughts.append(f"[dim]\u2022 {msg}[/dim]")
+                    elif event_type == "thinking_token":
+                        token = event_data.get("token", "")
+                        current_cot += token
+                        display_cot = current_cot.strip().split("\n")[-1]
+                        if len(display_cot) > 100:
+                            display_cot = "..." + display_cot[-97:]
+                        content = Group(*[Text.from_markup(t) for t in thoughts])
+                        cot_text = Text(f"  > {display_cot}", style="dim italic gray")
+                        live.update(Group(content, cot_text))
+                        return
+                    elif event_type == "tool_start":
+                        tn = event_data.get("tool_name", "")
+                        args_data = event_data.get("args", {})
+                        if is_debug:
+                            thoughts.append(f"[bold cyan]\U0001f527 Tool Call: {tn}[/bold cyan]")
+                            thoughts.append(f"[dim]{json.dumps(args_data, indent=2)}[/dim]")
+                        else:
+                            thoughts.append(f"[italic cyan]\U0001f527 Using tool: {tn}...[/italic cyan]")
+                    elif event_type == "tool_end":
+                        success = event_data.get("success", True)
+                        res_data = event_data.get("result", "")
+                        status_icon = "[green]✓[/green]" if success else "[red]✗[/red]"
+                        if is_debug:
+                            thoughts.append(f"[dim]  └ Result: {status_icon} {res_data}[/dim]")
+                        else:
+                            thoughts.append(f"[dim]  └ {status_icon}[/dim]")
+                    elif event_type == "llm_request" and is_debug:
+                        model = event_data.get("model", "")
+                        thoughts.append(f"[bold magenta]\U0001f4e1 LLM ({model})[/bold magenta]")
+                    elif event_type == "llm_response" and is_debug:
+                        model = event_data.get("model", "")
+                        thoughts.append(f"[bold magenta]\U0001f4e8 LLM response ({model})[/bold magenta]")
+                    elif event_type == "debug":
+                        msg = event_data.get("message", "")
+                        thoughts.append(f"[bold yellow]DEBUG:[/bold yellow] [dim]{msg}[/dim]")
+                    elif event_type == "iteration":
+                        it = event_data.get("current")
+                        mx = event_data.get("max")
+                        thoughts.append(f"[italic blue]\U0001f504 Iteration {it}/{mx}...[/italic blue]")
+
+                    live.update(Group(*[Text.from_markup(t) for t in thoughts]))
+
+                events = [
+                    "thinking",
+                    "thinking_token",
+                    "tool_start",
+                    "tool_end",
+                    "iteration",
+                    "llm_request",
+                    "llm_response",
+                    "debug",
+                ]
+                for e in events:
+                    agent.event_publisher.subscribe(e, update_thoughts)
+
+                def handle_hil(event_type, event_data):
+                    live.stop()
+                    console.print("\n")
+                    action = event_data.get("type", "unknown")
+                    details = event_data.get("details", {})
+                    detail_str = json.dumps(details, indent=2)
+                    console.print(
+                        Panel(
+                            f"[bold yellow]The agent needs permission:[/bold yellow]\n"
+                            f"[bold cyan]Action:[/bold cyan] {action}\n\n"
+                            f"[dim]Parameters:[/dim]\n{detail_str}",
+                            title="\U0001f6e1\ufe0f Security Gate",
+                            border_style="yellow",
+                        )
+                    )
+                    from rich.prompt import Confirm
+                    from backend.utils.core.system.execution_bridge import bridge
+
+                    approved = Confirm.ask(f"[bold green]Allow {action}?[/bold green]", default=True)
+                    bridge.run(
+                        agent.event_publisher.publish(
+                            "hil_response",
+                            {"request_id": event_data.get("id"), "response": "approve" if approved else "reject"},
+                        )
+                    )
+                    live.start()
+
+                agent.event_publisher.subscribe("hil_request", handle_hil)
+
+                try:
+                    result = await agent.chat(full_message, auto_confirm=agent.auto_confirm)
+                finally:
+                    for e in events:
+                        agent.event_publisher.unsubscribe(e, update_thoughts)
+                    agent.event_publisher.unsubscribe("hil_request", handle_hil)
+                    live.update(Text(""))
+
+            if isinstance(result, dict):
+                answer = result.get("text", "")
+                metrics = result.get("metrics", {})
+                console.print(Panel(Markdown(answer), title="\U0001f916 [agent]Ollash[/agent]", border_style="purple"))
+                console.print(
+                    f"[metrics]\u23f1\ufe0f {metrics.get('duration_sec')}s | "
+                    f"\U0001fa99 {metrics.get('total_tokens')} tokens | "
+                    f"\U0001f504 {metrics.get('iterations')} iter[/metrics]"
+                )
+            else:
+                console.print(Panel(str(result), title="\U0001f916 [agent]Ollash[/agent]", border_style="red"))
+
+        # ── Main REPL loop ──────────────────────────────────────────────────────
         while True:
             try:
-                user_input = console.input("\n[user]\U0001f464 You:[/user] ").strip()
+                prompt_text = f"[{current_model}] > "
+                user_input = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: session.prompt(prompt_text),
+                )
+                user_input = user_input.strip()
 
                 if not user_input:
                     continue
 
-                if user_input.lower() in {"exit", "quit", "salir"}:
-                    agent.memory_manager.update_conversation_history(agent.conversation)
-                    agent.memory_manager.update_domain_context_memory(agent.domain_context_memory)
+                # ── Slash commands ──────────────────────────────────────────────
+                cmd_lower = user_input.lower()
+
+                if cmd_lower in {"exit", "quit", "salir", "/exit", "/quit"}:
+                    try:
+                        agent.memory_manager.update_conversation_history(agent.conversation)
+                        agent.memory_manager.update_domain_context_memory(agent.domain_context_memory)
+                    except Exception:
+                        pass
                     console.print("\n[metrics]" + agent.token_tracker.get_session_summary() + "[/metrics]")
                     console.print("[user]\U0001f44b Goodbye![/user]")
                     break
 
-                if user_input.lower() in {"/help", "help"}:
-                    from rich.table import Table
-
-                    table = Table(title="Available Commands", show_header=False, box=None)
-                    table.add_row("[yellow]/help[/yellow]", "Show this help message")
-                    table.add_row("[yellow]/clean[/yellow]", "Clear conversation history (keep metrics)")
-                    table.add_row(
-                        "[yellow]/new-session[/yellow]", "Start a completely fresh session (reset history & metrics)"
-                    )
-                    table.add_row("[yellow]/clear[/yellow]", "Clear the terminal screen")
-                    table.add_row("[yellow]/exit[/yellow]", "End the chat session")
-                    console.print(table)
-                    console.print("\n[info]Available Tools:[/info]")
-                    console.print(", ".join(sorted(agent.tool_functions.keys())))
+                if cmd_lower in {"/help", "help"}:
+                    _show_help()
                     continue
 
-                if user_input.lower() in {"/clear", "clear"}:
+                if cmd_lower in {"/clear", "clear"}:
                     console.clear()
                     continue
 
-                if user_input.lower() == "/clean":
+                if cmd_lower == "/clean":
                     agent.conversation = []
-                    console.print("[info]\U0001f9f9 Conversation history cleared. Starting fresh![/info]")
+                    console.print("[info]\U0001f9f9 Conversation cleared.[/info]")
                     continue
 
-                if user_input.lower() in {"/new-session", "new-session"}:
+                if cmd_lower in {"/new-session", "new-session"}:
                     agent.conversation = []
                     from backend.utils.core.llm.token_tracker import TokenTracker
 
                     agent.token_tracker = TokenTracker()
-                    console.print("[info]\u267b\ufe0f New session started. History and metrics have been reset.[/info]")
+                    console.print("[info]\u267b\ufe0f New session started.[/info]")
                     continue
 
-                with Live(vertical_overflow="visible", console=console) as live:
-                    thoughts = []
-                    current_cot = ""
-                    is_debug = getattr(args, "debug", False)
-
-                    def update_thoughts(event_type, event_data):
-                        nonlocal current_cot
-                        if event_type == "thinking":
-                            msg = event_data.get("message", "")
-                            thoughts.append(f"[dim]\u2022 {msg}[/dim]")
-                        elif event_type == "thinking_token":
-                            token = event_data.get("token", "")
-                            current_cot += token
-                            display_cot = current_cot.strip().split("\n")[-1]
-                            if len(display_cot) > 100:
-                                display_cot = "..." + display_cot[-97:]
-                            content = Group(*[Text.from_markup(t) for t in thoughts])
-                            cot_text = Text(f"  > {display_cot}", style="dim italic gray")
-                            live.update(Group(content, cot_text))
-                            return  # Avoid double update
-                        elif event_type == "tool_start":
-                            tn = event_data.get("tool_name", "")
-                            args_data = event_data.get("args", {})
-                            if is_debug:
-                                thoughts.append(f"[bold cyan]\U0001f527 Tool Call: {tn}[/bold cyan]")
-                                thoughts.append(f"[dim]{json.dumps(args_data, indent=2)}[/dim]")
-                            else:
-                                thoughts.append(f"[italic cyan]\U0001f527 Using tool: {tn}...[/italic cyan]")
-                        elif event_type == "tool_end":
-                            success = event_data.get("success", True)
-                            res_data = event_data.get("result", "")
-                            status = "[green]OK[/green]" if success else "[red]FAILED[/red]"
-                            if is_debug:
-                                thoughts.append(f"[dim]  \u2514 Result: {status}[/dim]")
-                                thoughts.append(f"[dim]Output: {res_data}[/dim]")
-                            else:
-                                thoughts.append(f"[dim]  \u2514 Result: {status}[/dim]")
-                        elif event_type == "llm_request" and is_debug:
-                            model = event_data.get("model", "")
-                            payload = event_data.get("payload", {})
-                            thoughts.append(f"[bold magenta]\U0001f4e1 LLM Request ({model})[/bold magenta]")
-                            thoughts.append(f"[dim]{json.dumps(payload, indent=2)}[/dim]")
-                        elif event_type == "llm_response" and is_debug:
-                            model = event_data.get("model", "")
-                            response = event_data.get("response", {})
-                            thoughts.append(f"[bold magenta]\U0001f4e8 LLM Response ({model})[/bold magenta]")
-                            thoughts.append(f"[dim]{json.dumps(response, indent=2)}[/dim]")
-                        elif event_type == "debug":
-                            msg = event_data.get("message", "")
-                            thoughts.append(f"[bold yellow]DEBUG:[/bold yellow] [dim]{msg}[/dim]")
-                        elif event_type == "iteration":
-                            it = event_data.get("current")
-                            mx = event_data.get("max")
-                            thoughts.append(f"[italic blue]\U0001f504 Iteration {it}/{mx}...[/italic blue]")
-
-                        live.update(Group(*[Text.from_markup(t) for t in thoughts]))
-
-                    events = [
-                        "thinking",
-                        "thinking_token",
-                        "tool_start",
-                        "tool_end",
-                        "iteration",
-                        "llm_request",
-                        "llm_response",
-                        "debug",
-                    ]
-                    for e in events:
-                        agent.event_publisher.subscribe(e, update_thoughts)
-
-                    def handle_hil(event_type, event_data):
-                        live.stop()
-                        console.print("\n")
-                        action = event_data.get("type", "unknown")
-                        details = event_data.get("details", {})
-                        detail_str = json.dumps(details, indent=2)
-                        console.print(
-                            Panel(
-                                f"[bold yellow]The agent needs permission:[/bold yellow]\n[bold cyan]Action:[/bold cyan] {action}\n\n[dim]Parameters:[/dim]\n{detail_str}",
-                                title="\U0001f6e1\ufe0f Security Gate",
-                                border_style="yellow",
-                            )
-                        )
-                        from rich.prompt import Confirm
-
-                        result = Confirm.ask(f"[bold green]Allow {action}?[/bold green]", default=True)
-                        await agent.event_publisher.publish(
-                            "hil_response",
-                            {"request_id": event_data.get("id"), "response": "approve" if result else "reject"},
-                        )
-                        live.start()
-
-                    agent.event_publisher.subscribe("hil_request", handle_hil)
-
+                if cmd_lower == "/status":
+                    st = repo.status()
+                    table = Table(show_header=False, box=None, padding=(0, 2))
+                    table.add_row("[cyan]Model[/cyan]", current_model)
+                    table.add_row("[cyan]Repo root[/cyan]", st["root"])
+                    table.add_row("[cyan]Context files[/cyan]", str(st["added_files"]))
+                    table.add_row("[cyan]Repo structure[/cyan]", f"{st['structure_lines']} lines")
                     try:
-                        result = await agent.chat(user_input, auto_confirm=agent.auto_confirm)
-                    finally:
-                        for e in events:
-                            agent.event_publisher.unsubscribe(e, update_thoughts)
-                        agent.event_publisher.unsubscribe("hil_request", handle_hil)
-                        live.update(Text(""))
+                        table.add_row("[cyan]Tokens used[/cyan]", agent.token_tracker.get_session_summary())
+                    except Exception:
+                        pass
+                    console.print(Panel(table, title="Status", border_style="cyan"))
+                    continue
 
-                if isinstance(result, dict):
-                    content = result.get("text", "")
-                    metrics = result.get("metrics", {})
-                    console.print(
-                        Panel(Markdown(content), title="\U0001f916 [agent]Ollash[/agent]", border_style="purple")
+                if cmd_lower == "/files":
+                    files = repo.list_files()
+                    if files:
+                        console.print("[info]Context files:[/info]")
+                        for f in files:
+                            console.print(f"  [green]•[/green] {f}")
+                    else:
+                        console.print("[dim]No files in context. Use /add <file> to add one.[/dim]")
+                    continue
+
+                if cmd_lower == "/rescan":
+                    repo.rescan()
+                    console.print("[info]Repo structure rescanned.[/info]")
+                    continue
+
+                if user_input.startswith("/add "):
+                    target = user_input[5:].strip()
+                    msg = repo.add_file(target)
+                    console.print(f"[info]{msg}[/info]")
+                    continue
+
+                if user_input.startswith("/remove "):
+                    target = user_input[8:].strip()
+                    msg = repo.remove_file(target)
+                    console.print(f"[info]{msg}[/info]")
+                    continue
+
+                if user_input.startswith("/show "):
+                    target = user_input[6:].strip()
+                    editor.show_file(target)
+                    continue
+
+                if user_input.startswith("/model "):
+                    new_model = user_input[7:].strip()
+                    try:
+                        agent.llm_client = main_container.auto_agent.llm_client_manager().get_client_by_model(new_model)
+                        current_model = new_model
+                        repo.set_model(new_model)
+                        console.print(f"[info]Switched to model: [bold]{new_model}[/bold][/info]")
+                    except Exception as e:
+                        console.print(f"[error]Could not switch model: {e}[/error]")
+                    continue
+
+                if user_input.startswith("/run "):
+                    cmd_str = user_input[5:].strip()
+                    console.print(f"[dim]$ {cmd_str}[/dim]")
+                    try:
+                        proc = await asyncio.create_subprocess_shell(
+                            cmd_str,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.STDOUT,
+                            cwd=str(project_root),
+                        )
+                        if proc.stdout:
+                            async for line in proc.stdout:
+                                console.print(line.decode("utf-8", errors="replace").rstrip())
+                        await proc.wait()
+                        exit_color = "green" if proc.returncode == 0 else "red"
+                        console.print(f"[{exit_color}]Exit code: {proc.returncode}[/{exit_color}]")
+                    except Exception as e:
+                        console.print(f"[error]Run error: {e}[/error]")
+                    continue
+
+                if user_input.startswith("/edit "):
+                    target = user_input[6:].strip()
+                    # Ask AI to propose an edit to the file, then show diff
+                    file_path = project_root / target
+                    if not file_path.exists():
+                        console.print(f"[error]File not found: {target}[/error]")
+                        continue
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    edit_prompt = (
+                        f"Please propose improvements to the following file `{target}`. "
+                        f"Return ONLY the complete updated file content, no explanations:\n\n"
+                        f"```\n{content[:6000]}\n```"
                     )
-                    console.print(
-                        f"[metrics]\u23f1\ufe0f {metrics.get('duration_sec')}s | \U0001fa99 {metrics.get('total_tokens')} tokens | \U0001f504 {metrics.get('iterations')} iterations[/metrics]"
-                    )
-                else:
-                    console.print(Panel(result, title="\U0001f916 [agent]Ollash[/agent]", border_style="red"))
+                    console.print(f"[dim]Asking AI to propose edits for {target}...[/dim]")
+                    await _run_agent(edit_prompt)
+                    # Note: the user can /add the file and ask specific edits in follow-up messages
+                    continue
+
+                # ── Normal message → agent ─────────────────────────────────────
+                await _run_agent(user_input)
 
             except KeyboardInterrupt:
-                console.print("\n[warning]Interrupted by user. Exiting...[/warning]")
-                agent.memory_manager.update_conversation_history(agent.conversation)
-                agent.memory_manager.update_domain_context_memory(agent.domain_context_memory)
+                console.print("\n[warning]Interrupted. Type /exit to quit.[/warning]")
+                continue
+            except EOFError:
+                console.print("\n[user]\U0001f44b Goodbye![/user]")
                 break
             except Exception as e:
                 console.print(f"\n[error]\u274c Error: {e}[/error]")
-                console.print("[info]Check agent.log for details[/info]")
+                if is_debug:
+                    import traceback
+
+                    traceback.print_exc()
 
     except Exception as e:
         print(f"[-] Error starting chat: {e}")

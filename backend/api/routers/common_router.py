@@ -3,11 +3,25 @@ common_router - migrated from common_bp.py.
 Handles shared routes like index and health status.
 """
 
+import json
 import os
+from pathlib import Path
+
 import requests
-from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse
+from pydantic import BaseModel
+
 from backend.api.app import get_templates
+
+_LLM_MODELS_PATH = Path(__file__).parent.parent.parent / "config" / "llm_models.json"
+
+
+class ModelConfigRequest(BaseModel):
+    role: str | None = None
+    model: str | None = None
+    default_model: str | None = None
+
 
 router = APIRouter(tags=["common"])
 
@@ -42,6 +56,57 @@ async def status(request: Request):
         return {"status": "error", "message": "Cannot connect to Ollama (Connection Refused or Timeout)"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+@router.get("/api/config/model")
+async def get_model_config():
+    """Return current model configuration (roles, defaults, tiers)."""
+    try:
+        config = json.loads(_LLM_MODELS_PATH.read_text(encoding="utf-8"))
+        safe = {k: v for k, v in config.items() if k != "training"}
+        return {"status": "ok", "config": safe}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/config/model")
+async def update_model_config(req: ModelConfigRequest):
+    """Update a role→model mapping or the default_model at runtime.
+
+    Examples::
+
+        {"role": "coder", "model": "qwen3-coder:30b"}
+        {"default_model": "qwen3.5:4b"}
+    """
+    try:
+        config: dict = json.loads(_LLM_MODELS_PATH.read_text(encoding="utf-8"))
+
+        if req.default_model:
+            config["default_model"] = req.default_model
+
+        if req.role and req.model:
+            config.setdefault("agent_roles", {})[req.role] = req.model
+
+        if not req.default_model and not (req.role and req.model):
+            raise HTTPException(status_code=400, detail="Provide role+model or default_model")
+
+        _LLM_MODELS_PATH.write_text(json.dumps(config, indent=4), encoding="utf-8")
+
+        # Best-effort hot-reload of LLMClientManager
+        try:
+            from backend.core.containers import main_container
+
+            mgr = main_container.auto_agent.llm_client_manager()
+            if hasattr(mgr, "reload"):
+                mgr.reload()
+        except Exception:
+            pass
+
+        return {"status": "ok", "updated": req.model_dump(exclude_none=True)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/api/docs/tree")

@@ -1,0 +1,289 @@
+<div class="view" id="pipeline-view">
+    <div class="view-header">
+        <h1>Pipeline Builder</h1>
+        <p class="subtitle">Compose, save and run custom AutoAgent phase pipelines.</p>
+    </div>
+
+    <div class="pipeline-layout">
+
+        <!-- Left: Saved pipelines list -->
+        <div class="pipeline-sidebar">
+            <div class="sidebar-header">
+                <span>Saved Pipelines</span>
+                <button class="btn btn-primary btn-sm" id="new-pipeline-btn">+ New</button>
+            </div>
+            <div id="pipeline-list" class="pipeline-list">
+                <div class="loading-placeholder">Loading pipelines…</div>
+            </div>
+        </div>
+
+        <!-- Center: Builder canvas -->
+        <div class="pipeline-canvas">
+            <div class="canvas-toolbar">
+                <input type="text" id="pipeline-name-input" class="form-input" placeholder="Pipeline name…" />
+                <input type="text" id="pipeline-desc-input" class="form-input" placeholder="Description (optional)" style="flex:2" />
+                <button class="btn btn-secondary" id="save-pipeline-btn" disabled>Save</button>
+                <button class="btn btn-primary" id="run-pipeline-btn" disabled>&#9654; Run</button>
+            </div>
+
+            <div class="canvas-drop-area" id="phase-drop-area">
+                <div class="drop-hint" id="drop-hint">Drag phases from the palette →</div>
+                <div id="phase-sequence" class="phase-sequence"></div>
+            </div>
+
+            <!-- Run config panel -->
+            <div class="run-config" id="run-config" style="display:none">
+                <label class="form-label">Project path (optional)</label>
+                <div style="display:flex;gap:8px">
+                    <input type="text" id="project-path-input" class="form-input" placeholder="./generated_projects/…" style="flex:1" />
+                    <button class="btn btn-primary" id="confirm-run-btn">Run Pipeline</button>
+                    <button class="btn btn-secondary" id="cancel-run-btn">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Execution log -->
+            <div class="pipeline-log" id="pipeline-log" style="display:none">
+                <div class="log-header">
+                    <span id="log-title">Execution log</span>
+                    <span id="log-status" class="log-status"></span>
+                    <button class="btn btn-secondary btn-sm" id="close-log-btn">Close</button>
+                </div>
+                <div id="log-phases" class="log-phases"></div>
+            </div>
+        </div>
+
+        <!-- Right: Phase palette -->
+        <div class="pipeline-palette">
+            <div class="palette-header">Phase Palette</div>
+            <div class="palette-search-wrap">
+                <input type="text" id="palette-search" class="form-input" placeholder="Search phases…" />
+            </div>
+            <div id="palette-categories"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+.pipeline-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr 240px;
+    gap: var(--spacing-md);
+    height: calc(100vh - 180px);
+    min-height: 500px;
+}
+.pipeline-sidebar {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+.pipeline-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+.pipeline-item {
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    margin-bottom: 4px;
+    border: 1px solid transparent;
+    font-size: 0.85rem;
+    transition: background 0.15s;
+}
+.pipeline-item:hover { background: var(--bg-tertiary); }
+.pipeline-item.active { border-color: var(--accent-primary); background: rgba(99,102,241,0.08); }
+.pipeline-item .pip-name { font-weight: 500; }
+.pipeline-item .pip-phases { color: var(--text-secondary); font-size: 0.75rem; margin-top: 2px; }
+.pipeline-item .pip-builtin { font-size: 0.7rem; color: var(--text-secondary); }
+
+/* Canvas */
+.pipeline-canvas {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.canvas-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    align-items: center;
+}
+.canvas-drop-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    position: relative;
+}
+.drop-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    pointer-events: none;
+    text-align: center;
+}
+.phase-sequence {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 40px;
+}
+.phase-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: grab;
+    user-select: none;
+    transition: box-shadow 0.15s;
+}
+.phase-card:active { cursor: grabbing; }
+.phase-card.dragging { opacity: 0.4; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.phase-card.drag-over { border-color: var(--accent-primary); background: rgba(99,102,241,0.08); }
+.phase-card .phase-index {
+    width: 22px; height: 22px;
+    background: var(--accent-primary);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.phase-card .phase-info { flex: 1; }
+.phase-card .phase-card-label { font-size: 0.85rem; font-weight: 500; }
+.phase-card .phase-card-cat { font-size: 0.72rem; color: var(--text-secondary); }
+.phase-card .remove-phase-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+.phase-card .remove-phase-btn:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+
+/* Run config */
+.run-config {
+    padding: 14px 16px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+}
+
+/* Log */
+.pipeline-log {
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    max-height: 260px;
+    display: flex;
+    flex-direction: column;
+}
+.log-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.log-status { margin-left: auto; }
+.log-phases {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.log-phase-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+}
+.log-phase-row .lpr-icon { font-size: 1rem; }
+.log-phase-row .lpr-label { flex: 1; }
+.log-phase-row .lpr-dur { color: var(--text-secondary); font-size: 0.72rem; }
+.log-phase-row.pending .lpr-icon { color: var(--text-secondary); }
+.log-phase-row.running .lpr-icon { color: #f59e0b; }
+.log-phase-row.done .lpr-icon { color: #10b981; }
+.log-phase-row.error .lpr-icon { color: #ef4444; }
+.log-phase-row.error .lpr-error { color: #ef4444; font-size: 0.72rem; }
+
+/* Palette */
+.pipeline-palette {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.palette-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+.palette-search-wrap {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+#palette-categories {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+.palette-category {
+    margin-bottom: 10px;
+}
+.palette-cat-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding: 4px 4px 6px;
+    letter-spacing: 0.05em;
+}
+.palette-phase-item {
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    cursor: grab;
+    font-size: 0.8rem;
+    border: 1px solid transparent;
+    margin-bottom: 2px;
+    transition: background 0.1s;
+    user-select: none;
+}
+.palette-phase-item:hover { background: var(--bg-tertiary); border-color: var(--border-color); }
+.palette-phase-item.in-pipeline { opacity: 0.4; cursor: default; }
+.palette-phase-item .pal-label { font-weight: 500; }
+.palette-phase-item .pal-desc { color: var(--text-secondary); font-size: 0.7rem; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+</style>

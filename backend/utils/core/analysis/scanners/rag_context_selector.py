@@ -43,6 +43,7 @@ class RAGContextSelector:
         self.project_root = project_root
         self.docs_retriever = docs_retriever
         self.max_context_tokens = 4000
+        self._embedding_client = None  # lazily created
 
         try:
             self.client = ChromaClientManager.get_client(settings_manager or {}, project_root or Path.cwd())
@@ -77,18 +78,40 @@ class RAGContextSelector:
                 self.knowledge_collection = None
                 self.error_collection = None
 
+    def _get_embedding_client(self):
+        """Lazily create an OllamaClient for embeddings using the settings config."""
+        if self._embedding_client is None:
+            try:
+                from backend.utils.core.llm.ollama_client import OllamaClient
+
+                llm_cfg = self.settings.get("llm_models", self.settings)
+                model = llm_cfg.get("embedding", "nomic-embed-text")
+                url = llm_cfg.get("ollama_url", "http://localhost:11434")
+                self._embedding_client = OllamaClient(url=url, model=model, timeout=30, logger=self.logger, config={})
+            except Exception as e:
+                self.logger.debug(f"RAG embedding client unavailable: {e}")
+        return self._embedding_client
+
     def index_code_fragments(self, files: Dict[str, str]) -> None:
-        """Index code fragments for semantic search."""
+        """Index code fragments for semantic search, storing real embeddings when available."""
         if not self.knowledge_collection:
             self.logger.warning("Knowledge collection not available for indexing.")
             return
 
         try:
+            emb_client = self._get_embedding_client()
             for file_path, content in files.items():
+                embeddings = None
+                if emb_client:
+                    try:
+                        embeddings = [emb_client.get_embedding(content[:2048])]
+                    except Exception:
+                        pass
                 self.knowledge_collection.add(
                     documents=[content],
                     metadatas=[{"source": file_path}],
                     ids=[file_path],
+                    embeddings=embeddings,
                 )
             self.logger.info(f"Indexed {len(files)} files.")
         except Exception as e:
@@ -199,30 +222,41 @@ class RAGContextSelector:
         return "\n---\n".join(context)
 
     def select_relevant_files(self, query: str, available_files: Dict[str, str], max_files: int = 5) -> Dict[str, str]:
-        """Selects contextually relevant files using semantic search."""
+        """Selects contextually relevant files using semantic (embedding) or keyword search."""
         if not self.knowledge_collection:
             logger.warning("Knowledge collection not available for file selection.")
             return {}
 
-        query_texts = [query] + list(available_files.keys())
-
         try:
-            results = self.knowledge_collection.query(
-                query_texts=query_texts, n_results=max_files, include=["metadatas"]
-            )
+            # Prefer cosine similarity when embedding client is available
+            emb_client = self._get_embedding_client()
+            if emb_client:
+                try:
+                    query_emb = emb_client.get_embedding(query[:512])
+                    results = self.knowledge_collection.query(
+                        query_embeddings=[query_emb], n_results=max_files, include=["metadatas"]
+                    )
+                except Exception:
+                    results = self.knowledge_collection.query(
+                        query_texts=[query], n_results=max_files, include=["metadatas"]
+                    )
+            else:
+                results = self.knowledge_collection.query(
+                    query_texts=[query] + list(available_files.keys()),
+                    n_results=max_files,
+                    include=["metadatas"],
+                )
 
             if not results or not results.get("metadatas"):
                 return {}
 
-            relevant_paths = set()
+            relevant_paths: set[str] = set()
             for metadata_list in results["metadatas"]:
                 for metadata in metadata_list:
                     if "source" in metadata:
                         relevant_paths.add(metadata["source"])
 
-            # Return the content of the relevant files
             context_files = {path: available_files[path] for path in relevant_paths if path in available_files}
-
             return dict(list(context_files.items())[:max_files])
 
         except Exception as e:

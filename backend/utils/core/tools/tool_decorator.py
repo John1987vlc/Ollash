@@ -92,6 +92,11 @@ def get_discovered_definitions() -> List[Dict]:
     return list(_DISCOVERED_DEFINITIONS)
 
 
+def get_discovered_tools() -> Dict[str, Dict]:
+    """Returns the full _DISCOVERED_TOOLS registry {name: {toolset_id, method_name, ...}}."""
+    return dict(_DISCOVERED_TOOLS)
+
+
 def get_discovered_summaries() -> List[Dict]:
     """Returns only names and descriptions of all discovered tools for lightweight selection."""
     return [

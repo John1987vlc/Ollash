@@ -236,6 +236,36 @@ class FileContentGenerationPhase(BasePhase):
                     few_shot_section=ctx_data["few_shot_section"],
                 )
 
+            # Chain-of-Draft (S5): for small models generate a pseudocode outline first,
+            # then inject it into the user prompt to guide the main generation call.
+            # Skipped for micro (≤2B), nano subtasks (already scoped to one function),
+            # and full-tier models (full context is sufficient).
+            if is_nano and not is_micro and not is_nano_subtask:
+                try:
+                    _cod_system, _cod_user = AutoGenPrompts.chain_of_draft_plan(
+                        file_path=file_path,
+                        purpose=task.get("description", "")[:300],
+                        language=self.context.infer_language(file_path),
+                    )
+                    _cod_res = self.context.llm_manager.get_client("nano_coder").chat(
+                        messages=[
+                            {"role": "system", "content": _cod_system},
+                            {"role": "user", "content": _cod_user},
+                        ],
+                        tools=[],
+                        options_override={"temperature": 0.0},
+                    )
+                    if isinstance(_cod_res, tuple):
+                        _cod_res, _ = _cod_res
+                    _draft = _cod_res.get("content", "").strip()[:500]
+                    if _draft:
+                        user_prompt += (
+                            f"\n\n## IMPLEMENTATION OUTLINE\n{_draft}"
+                            "\n\nExpand the outline above into complete, working code."
+                        )
+                except Exception:
+                    pass  # Draft is best-effort; never abort generation
+
             content = ""
             attempts = 0
             max_attempts = 5  # F31: Increased retries

@@ -9,6 +9,7 @@ Replaces frontend/app.py (Flask factory). Supports:
 - dependency-injector wiring via Depends()
 """
 
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -16,6 +17,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 
 # ---------------------------------------------------------------------------
@@ -43,6 +47,14 @@ async def _lifespan(app: FastAPI):
     # --- Startup ---
     _init_app_state(app)
     _wire_di_container(app)
+    automation_manager = getattr(app.state, "automation_manager", None)
+    if automation_manager and hasattr(automation_manager, "start") and callable(automation_manager.start):
+        import asyncio
+
+        if asyncio.iscoroutinefunction(automation_manager.start):
+            await automation_manager.start()
+        else:
+            automation_manager.start()
     yield
     # --- Shutdown ---
     automation_manager = getattr(app.state, "automation_manager", None)
@@ -82,17 +94,21 @@ def _init_app_state(app: FastAPI) -> None:
     if not getattr(app.state, "ollash_root_dir", None):
         app.state.ollash_root_dir = ollash_root_dir
 
-    automation_manager = app.state.automation_manager
-    if hasattr(automation_manager, "start") and callable(automation_manager.start):
-        import asyncio
-
-        if asyncio.iscoroutinefunction(automation_manager.start):
-            # If it's a coroutine but we are in a sync function, we might have an issue.
-            # But _init_app_state is called from _lifespan which IS async.
-            # Wait, let me check if _init_app_state is async.
-            pass
-
     app.state._services_initialized = True
+
+    # Load local plugins (best-effort — failures are logged, never fatal)
+    try:
+        from backend.api.routers.plugins_router import load_all_plugins
+
+        loaded = load_all_plugins()
+        if loaded:
+            import logging as _logging
+
+            _logging.getLogger(__name__).info("Plugins loaded: %s", loaded)
+    except Exception as _plug_exc:
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning("Plugin load error: %s", _plug_exc)
 
 
 def _wire_di_container(app: FastAPI) -> None:
@@ -119,10 +135,18 @@ def create_app(ollash_root_dir: Path | None = None) -> FastAPI:
         lifespan=_lifespan,
     )
 
-    # CORS (same as Flask after_request hook)
+    # Rate limiter (per-IP; override key_func for per-user in individual routes)
+    limiter = Limiter(key_func=get_remote_address, default_limits=["300/minute"])
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # CORS — restrict to localhost in production; wildcard kept for dev convenience.
+    # Override OLLASH_CORS_ORIGINS env var (comma-separated) to lock down further.
+    _cors_origins_env = os.environ.get("OLLASH_CORS_ORIGINS", "")
+    _cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] if _cors_origins_env else ["*"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=_cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -136,7 +160,6 @@ def create_app(ollash_root_dir: Path | None = None) -> FastAPI:
 
     # Register Vite asset URL helper as template global
     from backend.api.vite import asset_url
-    import os
 
     templates.env.globals["asset_url"] = asset_url
     templates.env.globals["use_vite"] = os.getenv("USE_VITE_ASSETS", "false").lower() == "true"
@@ -194,8 +217,17 @@ def _register_routers(app: FastAPI) -> None:
     from backend.api.routers.insights_router import router as insights_router
     from backend.api.routers.translator_router import router as translator_router
     from backend.api.routers.pages_router import router as pages_router
+    from backend.api.routers.models_router import router as models_router
+    from backend.api.routers.auth_router import router as auth_router
+    from backend.api.routers.pipeline_router import router as pipeline_router
+    from backend.api.routers.privacy_router import router as privacy_router
+    from backend.api.routers.mcp_router import router as mcp_router
 
     routers = [
+        auth_router,
+        privacy_router,
+        pipeline_router,
+        mcp_router,
         health_router,
         chat_router,
         alerts_router,
@@ -241,6 +273,7 @@ def _register_routers(app: FastAPI) -> None:
         insights_router,
         translator_router,
         pages_router,
+        models_router,
     ]
 
     for router in routers:

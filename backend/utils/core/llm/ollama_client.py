@@ -3,9 +3,20 @@ import asyncio
 import aiohttp
 import requests
 import time
+import math
 from typing import Optional
 from backend.utils.core.llm.token_tracker import TokenTracker
 from backend.utils.core.system.execution_bridge import bridge
+from backend.utils.core.system.network_monitor import network_monitor as _net_monitor
+
+
+def _hash_embedding(text: str, dim: int = 384) -> list[float]:
+    """Fallback: deterministic char-frequency embedding, no external deps."""
+    vec = [0.0] * dim
+    for i, ch in enumerate(text[:4096]):
+        vec[ord(ch) % dim] += 1.0
+    norm = math.sqrt(sum(x * x for x in vec)) or 1.0
+    return [x / norm for x in vec]
 
 
 class OllamaClient:
@@ -32,6 +43,7 @@ class OllamaClient:
         self._aiohttp_session = None
         self._aiohttp_session_lock = asyncio.Lock()
         self._gpu_limiter_enabled = False
+        self._embedding_model = "nomic-embed-text"  # overridable via set_embedding_model()
 
     async def _get_aiohttp_session(self):
         # Check if current loop is different from session's loop
@@ -93,9 +105,9 @@ class OllamaClient:
         if context:
             payload["context"] = context
 
-        # Debug logging before request
-        print(f"\n[OllamaClient] Calling model: {self.model} (SYNC via requests) ...")
-        print(f"[OllamaClient] Options: num_ctx={opts['num_ctx']}, num_predict={opts['num_predict']}")
+        self.logger.debug(
+            f"[OllamaClient] Calling model: {self.model} | num_ctx={opts['num_ctx']}, num_predict={opts['num_predict']}"
+        )
         if self.logger.event_publisher:
             await self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
 
@@ -115,15 +127,15 @@ class OllamaClient:
         def _do_post():
             return self.http_session.post(self.chat_url, json=payload, timeout=self.timeout)
 
-        print(f"[OllamaClient] Sending SYNC POST to {self.chat_url} ...")
+        self.logger.debug(f"[OllamaClient] Sending POST to {self.chat_url}")
         try:
             resp = await loop.run_in_executor(None, _do_post)
-            print(f"[OllamaClient] Response status: {resp.status_code}")
+            _net_monitor.record(self.chat_url, "POST", resp.status_code)
+            self.logger.debug(f"[OllamaClient] Response status: {resp.status_code}")
 
             data = resp.json()
             latency = time.time() - start_time
-
-            print(f"[OllamaClient] Received response in {latency:.2f}s")
+            self.logger.debug(f"[OllamaClient] Response received in {latency:.2f}s")
 
             # Debug logging after response
             if self.logger.event_publisher:
@@ -142,7 +154,7 @@ class OllamaClient:
                 "completion_tokens": completion_tokens,
             }
 
-            print(f"[OllamaClient] Tokens: {prompt_tokens} prompt, {completion_tokens} completion")
+            self.logger.debug(f"[OllamaClient] Tokens: {prompt_tokens} prompt, {completion_tokens} completion")
 
             if self.token_tracker:
                 self.token_tracker.add_usage(prompt_tokens, completion_tokens)
@@ -150,23 +162,33 @@ class OllamaClient:
             if self._llm_recorder:
                 self._llm_recorder.record_response(self.model, res, usage, latency, True)
 
+            from backend.utils.core.llm.call_log import llm_call_log
+
+            llm_call_log.record(self.model, prompt_tokens, completion_tokens, latency * 1000, True)
+
             if "context" in data:
                 res["context"] = data["context"]
             return res, usage
         except requests.exceptions.Timeout:
-            print("[OllamaClient] TIMEOUT ERROR (Requests)")
+            self.logger.debug("[OllamaClient] TIMEOUT ERROR (Requests)")
             latency = time.time() - start_time
             if self._llm_recorder:
                 self._llm_recorder.record_response(self.model, {}, {}, latency, False, "Timeout")
+            from backend.utils.core.llm.call_log import llm_call_log
+
+            llm_call_log.record(self.model, 0, 0, latency * 1000, False, "Timeout")
             return {"error": "Ollama request timed out", "message": {"content": ""}}, {
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
             }
         except Exception as e:
-            print(f"[OllamaClient] UNEXPECTED ERROR (Requests): {e}")
+            self.logger.debug(f"[OllamaClient] UNEXPECTED ERROR (Requests): {e}")
             latency = time.time() - start_time
             if self._llm_recorder:
                 self._llm_recorder.record_response(self.model, {}, {}, latency, False, str(e))
+            from backend.utils.core.llm.call_log import llm_call_log
+
+            llm_call_log.record(self.model, 0, 0, latency * 1000, False, str(e))
             raise
 
     def chat(self, messages, tools=None, options_override=None, context=None):
@@ -286,13 +308,59 @@ class OllamaClient:
         self._keep_alive = keep_alive
 
     def unload_model(self, model=None):
-        pass
+        target = model or self.model
+        try:
+            self.http_session.post(
+                f"{self.base_url}/api/generate",
+                json={"model": target, "keep_alive": 0},
+                timeout=10,
+            )
+        except Exception as e:
+            self.logger.debug(f"[OllamaClient] unload_model failed: {e}")
 
-    def get_embedding(self, text, max_chars=None):
-        return [0.0] * 384
+    def set_embedding_model(self, model_name: str) -> None:
+        self._embedding_model = model_name
 
-    async def aget_embedding(self, text):
-        return [0.0] * 384
+    def get_embedding(self, text: str, max_chars: int = None) -> list[float]:
+        """Return embedding vector via Ollama /api/embed; falls back to hash embedding."""
+        if max_chars:
+            text = text[:max_chars]
+        try:
+            resp = self.http_session.post(
+                f"{self.base_url}/api/embed",
+                json={"model": self._embedding_model, "input": text},
+                timeout=30,
+            )
+            _net_monitor.record(f"{self.base_url}/api/embed", "POST", resp.status_code)
+            resp.raise_for_status()
+            embeddings = resp.json().get("embeddings", [[]])[0]
+            if embeddings:
+                return embeddings
+        except Exception as e:
+            self.logger.debug(f"[OllamaClient] get_embedding failed ({e}), using hash fallback")
+        return _hash_embedding(text)
+
+    async def aget_embedding(self, text: str) -> list[float]:
+        """Async embedding via Ollama /api/embed; falls back to hash embedding."""
+        loop = asyncio.get_event_loop()
+
+        def _do_embed():
+            return self.http_session.post(
+                f"{self.base_url}/api/embed",
+                json={"model": self._embedding_model, "input": text},
+                timeout=30,
+            )
+
+        try:
+            resp = await loop.run_in_executor(None, _do_embed)
+            _net_monitor.record(f"{self.base_url}/api/embed", "POST", resp.status_code)
+            resp.raise_for_status()
+            embeddings = resp.json().get("embeddings", [[]])[0]
+            if embeddings:
+                return embeddings
+        except Exception as e:
+            self.logger.debug(f"[OllamaClient] aget_embedding failed ({e}), using hash fallback")
+        return _hash_embedding(text)
 
     async def close(self):
         """Properly closes the aiohttp session."""

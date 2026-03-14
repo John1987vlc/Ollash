@@ -277,9 +277,10 @@ class AutoAgent(CoreAgent):
         # 1. Language Standardization
         try:
             from backend.services.language_manager import LanguageManager
+            from backend.utils.core.system.execution_bridge import bridge
 
             lang_manager = LanguageManager(self.llm_manager)
-            project_description, _ = lang_manager.ensure_english_input(project_description)
+            project_description, _ = bridge.run(lang_manager.ensure_english_input(project_description))
         except Exception as e:
             self.logger.warning(f"Language standardization failed in AutoAgent: {e}")
 

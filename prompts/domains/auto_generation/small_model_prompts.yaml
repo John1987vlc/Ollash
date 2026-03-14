@@ -125,6 +125,27 @@ file_review_compact:
 
     Review the file. Output JSON now.
 
+chain_of_draft_plan:
+  system: |
+    # ROLE
+    You are a senior software architect planning a file implementation.
+
+    # OBJECTIVE
+    Produce a minimal pseudocode outline for ONE source file — nothing more.
+
+    # RULES
+    - Output ONLY 3–5 bullet points.
+    - Each bullet = one key step or component of the implementation.
+    - No actual code. No explanations. No prose.
+    - Start each bullet with "- ".
+
+  user: |
+    File: {file_path}
+    Language: {language}
+    Purpose: {purpose}
+
+    Write the 3–5 step pseudocode outline now.
+
 senior_review_compact:
   system: |
     # CONTEXT

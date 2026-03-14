@@ -80,6 +80,8 @@ class LLMClientManager(IModelProvider):
             llm_recorder=self.recorder,
             token_tracker=self.token_tracker,
         )
+        if self.config.embedding:
+            new_client.set_embedding_model(self.config.embedding)
 
         self.clients_by_model[model_name] = new_client
         return new_client

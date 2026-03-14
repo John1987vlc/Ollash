@@ -690,6 +690,24 @@ class AutoGenPrompts:
         return system, user
 
     @staticmethod
+    def chain_of_draft_plan(file_path: str, purpose: str, language: str) -> Tuple[str, str]:
+        """Returns (system, user) for Chain-of-Draft first step.
+
+        Asks the model for a 3-5 bullet pseudocode outline before the main
+        code-generation call.  The outline is injected into the generation
+        prompt to guide the small model and reduce blank-slate hallucination.
+
+        Used only for small models (≤8B, non-micro, non-nano-subtask).
+        """
+        system, user_template = AutoGenPrompts._get_prompt_pair(
+            "chain_of_draft_plan",
+            "domains/auto_generation/small_model_prompts.yaml",
+            "chain_of_draft_plan",
+        )
+        user = user_template.format(file_path=file_path, purpose=purpose, language=language)
+        return system, user
+
+    @staticmethod
     def nano_critic_review(language: str, code: str) -> Tuple[str, str]:
         """Returns (system, user) for the Critic-Correction Loop.
 

@@ -101,11 +101,45 @@
                     <h2 id="current-view-title">Dashboard</h2>
                 </div>
                 <div class="view-actions-area">
+                    <!-- Privacy badge: shown/hidden by JS after /api/privacy/status -->
+                    <div id="privacy-badge" style="display:none;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:0.75rem;font-weight:600;border:1px solid transparent;cursor:pointer;" title="Ver auditoría de privacidad" onclick="window.location.hash='#privacy'">
+                        <span id="privacy-badge-icon">🔒</span>
+                        <span id="privacy-badge-text">Local</span>
+                    </div>
                     <button class="btn-secondary theme-toggle-btn" id="theme-toggle" data-theme-toggle title="Cambiar tema">
                         <span id="theme-icon">☀️</span>
                         <span class="theme-label-text">Tema</span>
                     </button>
                 </div>
+                <script>
+                (function() {
+                    fetch('/api/privacy/status')
+                        .then(function(r) { return r.json(); })
+                        .then(function(d) {
+                            var badge = document.getElementById('privacy-badge');
+                            var icon  = document.getElementById('privacy-badge-icon');
+                            var text  = document.getElementById('privacy-badge-text');
+                            if (!badge) return;
+                            badge.style.display = 'flex';
+                            if (d.is_local) {
+                                badge.style.background = 'rgba(16,185,129,0.12)';
+                                badge.style.borderColor = 'rgba(16,185,129,0.3)';
+                                badge.style.color = '#10b981';
+                                icon.textContent = '🔒';
+                                text.textContent = '100% Local';
+                                badge.title = 'Modo privado — todas las llamadas van a ' + d.ollama_url;
+                            } else {
+                                badge.style.background = 'rgba(245,158,11,0.12)';
+                                badge.style.borderColor = 'rgba(245,158,11,0.3)';
+                                badge.style.color = '#f59e0b';
+                                icon.textContent = '⚠️';
+                                text.textContent = 'Remoto';
+                                badge.title = 'Ollama en host remoto: ' + d.ollama_url;
+                            }
+                        })
+                        .catch(function() {});
+                }());
+                </script>
             </header>
 
             <!-- Global View Loader -->

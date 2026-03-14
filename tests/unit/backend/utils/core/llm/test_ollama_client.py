@@ -144,3 +144,100 @@ class TestOllamaClient:
             ollama_client.chat([{"role": "user", "content": "test"}])
             _, kwargs = mock_post.call_args
             assert kwargs["json"]["options"]["keep_alive"] == "10m"
+
+    def test_get_embedding_calls_api_embed(self, ollama_client):
+        """get_embedding() must POST to /api/embed, not /api/chat."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"embeddings": [[0.1, 0.2, 0.3]]}
+        mock_response.raise_for_status = MagicMock()
+
+        with patch.object(ollama_client.http_session, "post", return_value=mock_response) as mock_post:
+            result = ollama_client.get_embedding("hello world")
+
+        call_url = mock_post.call_args[0][0]
+        assert "/api/embed" in call_url
+        assert isinstance(result, list)
+        assert len(result) == 3
+
+    def test_get_embedding_uses_embedding_model(self, ollama_client):
+        """get_embedding() payload must use the embedding model, not the chat model."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"embeddings": [[0.5]]}
+        mock_response.raise_for_status = MagicMock()
+
+        ollama_client.set_embedding_model("nomic-embed-text")
+
+        with patch.object(ollama_client.http_session, "post", return_value=mock_response) as mock_post:
+            ollama_client.get_embedding("test text")
+
+        payload = mock_post.call_args[1]["json"]
+        assert payload["model"] == "nomic-embed-text"
+        assert payload["input"] == "test text"
+
+    def test_get_embedding_fallback_on_error(self, ollama_client):
+        """get_embedding() must return a hash-based fallback when Ollama is unreachable."""
+        with patch.object(ollama_client.http_session, "post", side_effect=ConnectionError("refused")):
+            result = ollama_client.get_embedding("fallback text")
+
+        assert isinstance(result, list)
+        assert len(result) == 384  # hash fallback dimension
+
+    def test_achat_records_to_network_monitor(self, ollama_client):
+        """achat() must call network_monitor.record() after each HTTP call."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"message": {"content": "ok"}}
+
+        from backend.utils.core.system.network_monitor import network_monitor
+
+        network_monitor.clear()
+
+        with patch.object(ollama_client.http_session, "post", return_value=mock_response):
+            ollama_client.chat([{"role": "user", "content": "hi"}])
+
+        log = network_monitor.get_log(limit=5)
+        assert any(e["url"] == ollama_client.chat_url for e in log)
+
+    def test_get_embedding_records_to_network_monitor(self, ollama_client):
+        """get_embedding() must record its HTTP call in the network monitor."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"embeddings": [[0.1]]}
+        mock_response.raise_for_status = MagicMock()
+
+        from backend.utils.core.system.network_monitor import network_monitor
+
+        network_monitor.clear()
+
+        with patch.object(ollama_client.http_session, "post", return_value=mock_response):
+            ollama_client.get_embedding("track this")
+
+        log = network_monitor.get_log(limit=5)
+        assert any("/api/embed" in e["url"] for e in log)
+
+    def test_no_print_statements_in_source(self):
+        """ollama_client.py must contain no bare print() calls (only logger.debug)."""
+        import inspect
+        from backend.utils.core.llm import ollama_client as oc_module
+
+        source = inspect.getsource(oc_module)
+        # Allow 'print' only in string literals or comments, not bare calls
+        import re
+
+        # Find bare print( that is not inside a string or comment
+        # Simple heuristic: count non-commented, non-string print( occurrences
+        lines = source.splitlines()
+        for lineno, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            # Detect bare print( call (not inside a string)
+            if re.search(r"\bprint\s*\(", stripped):
+                # Allow if it's inside a string (very rough check)
+                if '"print(' not in stripped and "'print(" not in stripped:
+                    pytest.fail(
+                        f"Bare print() found in ollama_client.py line {lineno}: {stripped!r}\n"
+                        "Use self.logger.debug() instead."
+                    )
