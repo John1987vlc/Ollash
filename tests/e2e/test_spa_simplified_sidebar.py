@@ -105,14 +105,21 @@ def test_herramientas_group_collapsed_by_default(page, base_url):
 
 
 @pytest.mark.e2e
-def test_herramientas_items_not_visible_until_expanded(page, base_url):
-    """Knowledge, Seguridad, Benchmark are hidden until HERRAMIENTAS is expanded."""
+def test_herramientas_items_clipped_until_expanded(page, base_url):
+    """Knowledge, Seguridad, Benchmark are not interactable until HERRAMIENTAS is expanded.
+
+    The collapse uses max-height:0 + overflow:hidden CSS animation, so elements
+    remain in the layout tree but are visually clipped to height 0.  We verify
+    the container itself has 0 height (i.e. nothing overflows into view).
+    """
     _load(page, base_url)
-    for view in ("knowledge", "security", "benchmark"):
-        item = page.locator(f".nav-item[data-view='{view}']")
-        if item.count() == 0:
-            pytest.skip(f"nav-item[data-view='{view}'] not found")
-        expect(item).to_be_hidden(timeout=3_000)
+    # The .nav-group-content container for HERRAMIENTAS must have zero height
+    container = page.locator("#nav-group-herramientas")
+    if container.count() == 0:
+        pytest.skip("nav-group-herramientas not found")
+    bounding_box = container.bounding_box()
+    height = bounding_box["height"] if bounding_box else 0
+    assert height == 0, f"HERRAMIENTAS group content should have height 0 when collapsed, got {height}px"
 
 
 @pytest.mark.e2e
