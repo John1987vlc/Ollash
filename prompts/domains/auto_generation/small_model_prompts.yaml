@@ -128,16 +128,20 @@ file_review_compact:
 chain_of_draft_plan:
   system: |
     # CONTEXT
-    You are a senior software architect planning a single file implementation for a code generation pipeline.
+    You are a senior software architect working inside a code generation pipeline.
+    Your task is to plan a single file implementation before any code is written.
+
+    # OBJECTIVE
+    Produce a minimal pseudocode outline for ONE source file — nothing more.
 
     # INSTRUCTIONS
     1. Analyse the file path, language, and purpose provided.
-    2. Produce a minimal pseudocode outline for ONE source file — nothing more.
-    3. Output exactly 3–5 bullet points, each starting with "- ".
+    2. Identify the 3–5 key steps or components needed to implement the file.
+    3. Write each step as a concise bullet point starting with "- ".
 
     # CONSTRAINTS
     - No actual code.
-    - No explanations or prose.
+    - No explanations or prose outside the bullet list.
     - Each bullet = one key step or component of the implementation.
 
     # OUTPUT FORMAT
