@@ -221,6 +221,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Delegated handler for [data-view] buttons outside the sidebar nav (e.g. CTAs in help page)
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-view]:not(.nav-item)');
+        if (!btn) return;
+        var viewId = btn.dataset.view;
+        if (!viewId) return;
+        var navItem = document.querySelector('.nav-item[data-view="' + viewId + '"]');
+        if (navItem) navItem.click();
+    });
+
     function triggerViewLoad(viewId) {
         switch(viewId) {
             case 'chat':
@@ -271,6 +281,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (sbView) sbView.classList.add('active');
                 break;
             }
+            case 'help':
+                // Página de ayuda estática — sin módulo JS adicional
+                break;
         }
     }
 

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/resilience.css') }}">
     <link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/git.css') }}">
     <link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/insights.css') }}">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='css/pages/help.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -38,6 +39,7 @@
     {% include 'pages/insights.html' %}
     {% include 'pages/decisions.html' %}
     {% include 'pages/pair_programming.html' %}
+    {% include 'pages/help.html' %}
 {% endblock %}
 
 {% block scripts %}

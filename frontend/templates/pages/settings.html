@@ -4,82 +4,165 @@
 
 <div class="view" id="settings-view">
     <div class="view-header">
-        <h1>Settings</h1>
-        <p class="subtitle">Configuration, Model Management, and System Preferences.</p>
+        <h1>Configuración</h1>
+        <p class="subtitle">Personaliza Ollash según tus necesidades.</p>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: var(--spacing-xl);">
-        <!-- Model Health & Routing Card -->
-        <div class="card-panel" style="grid-column: 1 / -1;">
-            <h3>Model Health & Routing</h3>
-            <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: var(--spacing-md);">
-                Real-time latency monitoring and fallback strategies.
-            </p>
-            
-            <div id="model-health-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
-                <!-- Injected via JS -->
-                <div class="skeleton-pulse" style="height: 100px;"></div>
-                <div class="skeleton-pulse" style="height: 100px;"></div>
-            </div>
-        </div>
+    <!-- Pestañas General / Avanzado -->
+    <div class="settings-tabs" role="tablist">
+        <button class="settings-tab active" data-tab="general"
+                role="tab" aria-selected="true" aria-controls="settings-tab-general">
+            General
+        </button>
+        <button class="settings-tab" data-tab="advanced"
+                role="tab" aria-selected="false" aria-controls="settings-tab-advanced">
+            Avanzado
+            <span class="tab-badge">Para técnicos</span>
+        </button>
+    </div>
 
-        <!-- General Settings -->
-        <div class="card-panel">
-            <h3>General Configuration</h3>
-            <div class="form-group">
-                <label>Agent Name</label>
-                <input type="text" id="config-agent-name" class="form-input" value="Ollash Default Agent">
-                
-                <label>Ollama API URL</label>
-                <input type="text" id="config-ollama-url" class="form-input" placeholder="http://localhost:11434">
-                <p class="help-text">Point this to your local or remote Ollama instance.</p>
+    <!-- ── PESTAÑA GENERAL ─────────────────────────────────────── -->
+    <div class="settings-tab-panel active" id="settings-tab-general"
+         role="tabpanel" aria-labelledby="tab-general">
 
-                <label>Workspace Root</label>
-                <input type="text" class="form-input" value="./projects" disabled>
-                
-                <div style="display: flex; align-items: center; margin-top: 10px;">
-                    <input type="checkbox" id="auto-update" checked>
-                    <label for="auto-update" style="margin-left: 8px;">Auto-update Core</label>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: var(--spacing-xl);">
+
+            <!-- Conexión a Ollama -->
+            <div class="card-panel">
+                <h3>Conexión a Ollama</h3>
+                <div class="form-group">
+                    <label>URL de Ollama</label>
+                    <input type="text" id="config-ollama-url" class="form-input" placeholder="http://localhost:11434">
+                    <p class="help-text">Si Ollama está en otro ordenador de tu red, cambia esta dirección. En la mayoría de casos no es necesario modificarla.</p>
                 </div>
             </div>
-        </div>
 
-        <!-- Advanced LLM Settings -->
-        <div class="card-panel">
-            <h3>LLM Parameters</h3>
-            <div class="form-group">
-                <label>Temperature (Creativity)</label>
-                <input type="range" min="0" max="1" step="0.1" value="0.7">
-                
-                <label>Context Window</label>
-                <select class="form-input">
-                    <option>4096 Tokens</option>
-                    <option selected>8192 Tokens</option>
-                    <option>16384 Tokens</option>
-                </select>
+            <!-- Modelo de IA -->
+            <div class="card-panel">
+                <h3>Modelo de IA</h3>
+                <div class="form-group">
+                    <label>Modelo principal</label>
+                    <select id="config-model-selector" class="form-input">
+                        <option value="qwen2.5:0.8b">Rápido (0.8B) — Respuestas inmediatas, ~1 GB RAM</option>
+                        <option value="qwen2.5:4b" selected>Equilibrado (4B) — Recomendado para uso diario, ~5 GB RAM</option>
+                        <option value="qwen2.5-coder:7b">Código (7B) — Optimizado para programación, ~8 GB RAM</option>
+                        <option value="qwen3-coder:30b">Potente (30B) — Proyectos complejos, requiere GPU</option>
+                    </select>
+                    <p class="help-text">Modelos más grandes dan respuestas de mayor calidad pero son más lentos. El <strong>Equilibrado (4B)</strong> funciona bien para la mayoría de tareas.</p>
+                </div>
             </div>
-        </div>
 
-        <!-- Customization & Limits -->
-        <div class="card-panel">
-            <h3>Customization & Limits</h3>
-            <div class="form-group">
-                <label>Mermaid Diagram Theme</label>
-                <select id="mermaid-theme-selector" class="form-input">
-                    <option value="default">Default</option>
-                    <option value="forest">Forest</option>
-                    <option value="dark">Dark</option>
-                    <option value="neutral">Neutral</option>
-                </select>
-
-                <label style="margin-top: 15px;">Token Budget (Alert threshold)</label>
-                <input type="number" id="token-budget" class="form-input" placeholder="e.g. 50000">
-                <p class="help-text">Interface will show a visual warning when reached.</p>
+            <!-- Apariencia -->
+            <div class="card-panel">
+                <h3>Apariencia</h3>
+                <div class="form-group">
+                    <label>Tema visual</label>
+                    <select id="config-theme-selector" class="form-input">
+                        <option value="dark" selected>Oscuro</option>
+                        <option value="light">Claro</option>
+                    </select>
+                    <p class="help-text">También puedes cambiar el tema con el botón sol/luna en la barra superior.</p>
+                </div>
             </div>
+
+            <!-- Estado de modelos -->
+            <div class="card-panel" style="grid-column: 1 / -1;">
+                <h3>Estado de los modelos</h3>
+                <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: var(--spacing-md);">
+                    Latencia en tiempo real. Un indicador verde significa que el modelo responde correctamente.
+                </p>
+                <div id="model-health-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
+                    <div class="skeleton-pulse" style="height: 100px;"></div>
+                    <div class="skeleton-pulse" style="height: 100px;"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ── PESTAÑA AVANZADO ────────────────────────────────────── -->
+    <div class="settings-tab-panel" id="settings-tab-advanced"
+         role="tabpanel" aria-labelledby="tab-advanced">
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: var(--spacing-xl);">
+
+            <!-- Configuración del agente -->
+            <div class="card-panel">
+                <h3>Configuración del agente</h3>
+                <div class="form-group">
+                    <label>Nombre del agente</label>
+                    <input type="text" id="config-agent-name" class="form-input" value="Ollash Default Agent">
+
+                    <label>Workspace Root</label>
+                    <input type="text" class="form-input" value="./projects" disabled>
+
+                    <div style="display: flex; align-items: center; margin-top: 10px;">
+                        <input type="checkbox" id="auto-update" checked>
+                        <label for="auto-update" style="margin-left: 8px;">Auto-actualizar Core</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parámetros del LLM -->
+            <div class="card-panel">
+                <h3>Parámetros del LLM</h3>
+                <div class="form-group">
+                    <label>Temperatura (Creatividad)</label>
+                    <input type="range" min="0" max="1" step="0.1" value="0.7">
+                    <p class="help-text">Valores altos (0.8–1.0) dan respuestas más creativas. Valores bajos (0.1–0.3) son más predecibles y precisos.</p>
+
+                    <label>Ventana de contexto</label>
+                    <select class="form-input">
+                        <option>4096 Tokens</option>
+                        <option selected>8192 Tokens</option>
+                        <option>16384 Tokens</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Personalización técnica -->
+            <div class="card-panel">
+                <h3>Personalización</h3>
+                <div class="form-group">
+                    <label>Tema de diagramas Mermaid</label>
+                    <select id="mermaid-theme-selector" class="form-input">
+                        <option value="default">Default</option>
+                        <option value="forest">Forest</option>
+                        <option value="dark">Dark</option>
+                        <option value="neutral">Neutral</option>
+                    </select>
+
+                    <label style="margin-top: 15px;">Presupuesto de tokens (alerta)</label>
+                    <input type="number" id="token-budget" class="form-input" placeholder="ej. 50000">
+                    <p class="help-text">Se muestra una alerta visual al alcanzar este límite de tokens.</p>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
 
 {% block scripts %}
 <script src="{{ request.url_for('static', path='js/pages/settings.js') }}"></script>
+<script>
+(function () {
+    var tabs = document.querySelectorAll('#settings-view .settings-tab');
+    var panels = document.querySelectorAll('#settings-view .settings-tab-panel');
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            tabs.forEach(function (t) {
+                t.classList.remove('active');
+                t.setAttribute('aria-selected', 'false');
+            });
+            panels.forEach(function (p) { p.classList.remove('active'); });
+
+            this.classList.add('active');
+            this.setAttribute('aria-selected', 'true');
+            var panel = document.getElementById('settings-tab-' + this.dataset.tab);
+            if (panel) panel.classList.add('active');
+        });
+    });
+}());
+</script>
 {% endblock %}

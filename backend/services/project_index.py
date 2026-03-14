@@ -26,16 +26,50 @@ from typing import Any, Dict, List, Optional
 
 _log = logging.getLogger("ollash.project_index")
 
-_EXCLUDE_DIRS = frozenset({
-    "__pycache__", ".git", ".venv", "venv", "node_modules", ".cache",
-    "dist", "build", ".pytest_cache", ".mypy_cache", "target", ".ollash",
-    ".idea", ".vscode",
-})
-_SOURCE_EXTS = frozenset({
-    ".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java", ".cpp", ".c",
-    ".cs", ".rb", ".php", ".swift", ".kt", ".json", ".yaml", ".yml", ".html",
-    ".css", ".sh", ".toml",
-})
+_EXCLUDE_DIRS = frozenset(
+    {
+        "__pycache__",
+        ".git",
+        ".venv",
+        "venv",
+        "node_modules",
+        ".cache",
+        "dist",
+        "build",
+        ".pytest_cache",
+        ".mypy_cache",
+        "target",
+        ".ollash",
+        ".idea",
+        ".vscode",
+    }
+)
+_SOURCE_EXTS = frozenset(
+    {
+        ".py",
+        ".js",
+        ".ts",
+        ".jsx",
+        ".tsx",
+        ".go",
+        ".rs",
+        ".java",
+        ".cpp",
+        ".c",
+        ".cs",
+        ".rb",
+        ".php",
+        ".swift",
+        ".kt",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".html",
+        ".css",
+        ".sh",
+        ".toml",
+    }
+)
 _MAX_FILE_SIZE = 128 * 1024  # 128 KB — skip large generated files
 
 

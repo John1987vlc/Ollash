@@ -24,9 +24,35 @@
                         </div>
 
                         <div class="chat-messages" id="chat-messages">
-                            <div class="chat-welcome">
-                                <h2>Ollash Chat</h2>
-                                <p>Ask questions, discuss code, or get technical help. Project generation is available separately via the Agent view.</p>
+                            <div class="chat-welcome" id="chat-welcome-screen">
+                                <div class="welcome-hero">
+                                    <div class="welcome-logo-badge">&#x1f4ac;</div>
+                                    <h2>Bienvenido a Ollash</h2>
+                                    <p class="welcome-subtitle">Tu asistente de IA local. Selecciona un ejemplo o escribe tu pregunta.</p>
+                                </div>
+                                <div class="welcome-examples">
+                                    <button class="welcome-example-card" data-prompt="Explícame qué hace este código Python:\ndef calcular(n):\n    return n * 2 + 1">
+                                        <span class="example-icon">&#x1f4cb;</span>
+                                        <span class="example-label">Explícame qué hace este código</span>
+                                    </button>
+                                    <button class="welcome-example-card" data-prompt="Crea un proyecto Python de gestión de tareas con interfaz web simple usando Flask">
+                                        <span class="example-icon">&#x2728;</span>
+                                        <span class="example-label">Crea un proyecto Python de gestión de tareas</span>
+                                    </button>
+                                    <button class="welcome-example-card" data-prompt="¿Cómo funciona una API REST? Explícalo de forma sencilla con un ejemplo práctico">
+                                        <span class="example-icon">&#x1f310;</span>
+                                        <span class="example-label">¿Cómo funciona una API REST?</span>
+                                    </button>
+                                    <button class="welcome-example-card" data-prompt="Revisa mi código y sugiere mejoras:\n[pega tu código aquí]">
+                                        <span class="example-icon">&#x1f50d;</span>
+                                        <span class="example-label">Revisa mi código y sugiere mejoras</span>
+                                    </button>
+                                    <button class="welcome-example-card" data-prompt="Genera tests unitarios para esta función:\n[pega tu función aquí]">
+                                        <span class="example-icon">&#x2705;</span>
+                                        <span class="example-label">Genera tests para mi función</span>
+                                    </button>
+                                </div>
+                                <p class="welcome-hint">Escribe tu pregunta o selecciona un ejemplo para empezar</p>
                             </div>
                         </div>
 
@@ -35,7 +61,7 @@
                             <div id="chat-attachment-preview" class="chat-attachment-preview" style="display: none;"></div>
 
                             <div class="chat-input-wrapper">
-                                <textarea id="chat-input" class="form-textarea" placeholder="Ask Ollash anything..." rows="1"></textarea>
+                                <textarea id="chat-input" class="form-textarea" placeholder="Escribe tu pregunta..." rows="1"></textarea>
                                 <button id="send-btn" class="btn-send" title="Send">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -96,14 +122,14 @@
                     <div class="chat-right-panel">
                         <div class="chat-history-panel">
                             <div class="history-header">
-                                <h3>Past Conversations</h3>
+                                <h3>Conversaciones</h3>
                                 <div style="display:flex;gap:4px;">
-                                    <button class="btn-badge-action" id="refresh-history-btn" title="Refresh History">Refresh</button>
-                                    <button class="btn-badge-action" id="clear-all-history-btn" title="Delete all conversations" style="color:var(--color-error,#ef4444);">Clear All</button>
+                                    <button class="btn-badge-action" id="refresh-history-btn" title="Actualizar historial">Actualizar</button>
+                                    <button class="btn-badge-action" id="clear-all-history-btn" title="Borrar todas las conversaciones" style="color:var(--color-error,#ef4444);">Borrar todo</button>
                                 </div>
                             </div>
                             <div class="history-list" id="chat-history-list">
-                                <div class="history-empty">No past sessions found.</div>
+                                <div class="history-empty">Sin conversaciones anteriores.</div>
                             </div>
                         </div>
 
@@ -177,3 +203,18 @@
                     </div>
                 </div>
             </div>
+
+<script>
+(function () {
+    document.querySelectorAll('.welcome-example-card').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var input = document.getElementById('chat-input');
+            if (!input) return;
+            input.value = this.dataset.prompt.replace(/\\n/g, '\n');
+            input.focus();
+            var welcome = document.getElementById('chat-welcome-screen');
+            if (welcome) welcome.style.display = 'none';
+        });
+    });
+}());
+</script>

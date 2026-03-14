@@ -133,21 +133,20 @@ class CodePatcher:
             normalised_old = textwrap.dedent(old_string).strip()
             normalised_content = textwrap.dedent(file_content)
             if normalised_old not in normalised_content:
-                # Build a short context diff to show what was expected
-                expected_lines = old_string.splitlines(keepends=True)
                 # Find the closest 5-line window in the file for the error message
                 content_preview = file_content[:500] + ("..." if len(file_content) > 500 else "")
-                diff = list(difflib.unified_diff(
-                    [content_preview],
-                    [old_string],
-                    fromfile="file (excerpt)",
-                    tofile="expected old_string",
-                    lineterm="",
-                ))
+                diff = list(
+                    difflib.unified_diff(
+                        [content_preview],
+                        [old_string],
+                        fromfile="file (excerpt)",
+                        tofile="expected old_string",
+                        lineterm="",
+                    )
+                )
                 raise ValueError(
-                    f"old_string not found in file. "
-                    f"Make sure the text matches exactly (including indentation).\n"
-                    + "\n".join(diff[:20])
+                    "old_string not found in file. "
+                    "Make sure the text matches exactly (including indentation).\n" + "\n".join(diff[:20])
                 )
             # Normalised match found — use it directly
             new_content = normalised_content.replace(normalised_old, new_string, 1)
@@ -163,16 +162,17 @@ class CodePatcher:
         else:
             new_content = file_content.replace(old_string, new_string, 1)
 
-        diff = list(difflib.unified_diff(
-            file_content.splitlines(keepends=True),
-            new_content.splitlines(keepends=True),
-            fromfile="a/original",
-            tofile="b/modified",
-            lineterm="",
-        ))
+        diff = list(
+            difflib.unified_diff(
+                file_content.splitlines(keepends=True),
+                new_content.splitlines(keepends=True),
+                fromfile="a/original",
+                tofile="b/modified",
+                lineterm="",
+            )
+        )
         self.logger.info(
-            f"  apply_unique_edit: {len(old_string)} chars → {len(new_string)} chars "
-            f"({len(diff)} diff lines)"
+            f"  apply_unique_edit: {len(old_string)} chars → {len(new_string)} chars ({len(diff)} diff lines)"
         )
         return new_content, diff
 

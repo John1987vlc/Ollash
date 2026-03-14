@@ -1,0 +1,189 @@
+<!-- Help View — Ayuda y Guías -->
+<div class="view" id="help-view">
+    <div class="help-view">
+
+        <!-- HERO -->
+        <div class="help-hero">
+            <h1>Ayuda y Guías</h1>
+            <p>Todo lo que necesitas saber para sacar el máximo partido a Ollash, tu asistente de IA local.</p>
+        </div>
+
+        <!-- SECCIÓN 1: Qué es Ollash -->
+        <section class="help-section" id="help-que-es">
+            <h2>¿Qué es Ollash?</h2>
+            <p>Ollash es un asistente de inteligencia artificial que funciona completamente en tu ordenador, sin enviar ningún dato a internet. Puedes preguntarle cualquier cosa, pedirle que escriba código, que revise tus proyectos o que te explique conceptos técnicos en lenguaje sencillo.</p>
+            <p>A diferencia de ChatGPT o GitHub Copilot, todo el procesamiento ocurre localmente gracias a <strong>Ollama</strong>. Tus conversaciones son privadas, el sistema funciona sin conexión a internet y puedes elegir el modelo que mejor se adapta a tu ordenador.</p>
+        </section>
+
+        <!-- SECCIÓN 2: Primeros pasos -->
+        <section class="help-section" id="help-primeros-pasos">
+            <h2>Primeros pasos</h2>
+            <div class="help-steps">
+                <div class="help-step">
+                    <div class="help-step-number">1</div>
+                    <div class="help-step-content">
+                        <h4>Instala Ollama</h4>
+                        <p>Descarga Ollama desde <strong>ollama.com</strong> e instálalo. Después abre una terminal y descarga el modelo recomendado:<br>
+                        <code>ollama pull qwen2.5:4b</code></p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <div class="help-step-number">2</div>
+                    <div class="help-step-content">
+                        <h4>Inicia Ollash</h4>
+                        <p>En la carpeta de Ollash, ejecuta: <code>python run_web.py</code><br>
+                        Abre tu navegador en <strong>http://localhost:5000</strong></p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <div class="help-step-number">3</div>
+                    <div class="help-step-content">
+                        <h4>Escribe tu primera pregunta</h4>
+                        <p>Haz clic en <strong>Chat</strong> en el menú lateral y escribe lo que necesites. Por ejemplo: <em>"¿Qué hace este código Python?"</em> o <em>"Explícame qué es una variable"</em>.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <div class="help-step-number">4</div>
+                    <div class="help-step-content">
+                        <h4>Crea tu primer proyecto (opcional)</h4>
+                        <p>Haz clic en <strong>Nuevo Proyecto</strong> y sigue el asistente de 3 pasos. Ollash generará la estructura completa de un proyecto de código a partir de tu descripción.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 3: Casos de uso prácticos -->
+        <section class="help-section" id="help-casos">
+            <h2>Casos de uso prácticos</h2>
+            <div class="help-use-case-grid">
+                <div class="help-use-case-card">
+                    <h4>&#x1f4cb; Explicar código existente</h4>
+                    <div class="help-use-case-input">Explícame qué hace esta función Python:
+def calcular(n):
+    return n * 2 + 1</div>
+                    <div class="help-use-case-output">El AI explica la lógica línea por línea en lenguaje sencillo, sin tecnicismos innecesarios.</div>
+                </div>
+
+                <div class="help-use-case-card">
+                    <h4>&#x2728; Crear un proyecto desde cero</h4>
+                    <div class="help-use-case-input">Crea una aplicación web de lista de tareas con Python y Flask, con base de datos SQLite</div>
+                    <div class="help-use-case-output">Genera todos los archivos: app.py, templates HTML, CSS, requirements.txt y README con instrucciones.</div>
+                </div>
+
+                <div class="help-use-case-card">
+                    <h4>&#x1f50d; Revisar y mejorar código</h4>
+                    <div class="help-use-case-input">Revisa este código y dime si hay errores o mejoras posibles: [pega tu código aquí]</div>
+                    <div class="help-use-case-output">Recibe sugerencias concretas con ejemplos de código corregido y explicaciones del por qué.</div>
+                </div>
+
+                <div class="help-use-case-card">
+                    <h4>&#x1f310; Aprender conceptos técnicos</h4>
+                    <div class="help-use-case-input">¿Qué es una API REST y cómo funciona? Explícalo de forma sencilla con un ejemplo</div>
+                    <div class="help-use-case-output">Una explicación clara con analogías del mundo real, ejemplos de código y pasos a seguir.</div>
+                </div>
+
+                <div class="help-use-case-card">
+                    <h4>&#x2705; Generar tests automáticamente</h4>
+                    <div class="help-use-case-input">Genera tests unitarios para esta función: [pega tu función aquí]</div>
+                    <div class="help-use-case-output">Crea un archivo de tests completo listo para ejecutar con pytest, con casos positivos y negativos.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 4: Crear primer proyecto — walkthrough -->
+        <section class="help-section" id="help-proyecto">
+            <h2>Crear tu primer proyecto</h2>
+            <div class="help-steps">
+                <div class="help-step">
+                    <div class="help-step-number">1</div>
+                    <div class="help-step-content">
+                        <h4>Haz clic en "Nuevo Proyecto"</h4>
+                        <p>En el menú lateral, bajo <strong>Principal</strong>, encontrarás el botón <em>"+ Nuevo Proyecto"</em>. Se abre un asistente de 3 pasos.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <div class="help-step-number">2</div>
+                    <div class="help-step-content">
+                        <h4>Pon nombre y elige una plantilla</h4>
+                        <p>Escribe el nombre del proyecto y selecciona el tipo: <em>Default</em> (genérico), <em>FastAPI</em> (API web), <em>React</em> (interfaz web) o <em>Automation</em> (scripts).</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <div class="help-step-number">3</div>
+                    <div class="help-step-content">
+                        <h4>Describe tu proyecto con detalle</h4>
+                        <p>Cuanto más detallada sea la descripción, mejor será el resultado. Por ejemplo: <em>"Una aplicación para gestionar tareas diarias con Python. Debe tener login de usuario, base de datos SQLite, y una interfaz web simple con Flask."</em></p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <div class="help-step-number">4</div>
+                    <div class="help-step-content">
+                        <h4>Revisa el resultado en "Mis Proyectos"</h4>
+                        <p>Ollash genera todos los archivos en tiempo real (puedes ver el progreso en pantalla). Una vez terminado, ve a <strong>Mis Proyectos</strong>, selecciona el tuyo y explora la estructura en <strong>Archivos</strong>.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 5: FAQ -->
+        <section class="help-section" id="help-faq">
+            <h2>Preguntas frecuentes</h2>
+
+            <details class="help-faq-item">
+                <summary>¿Mis conversaciones se envían a internet?</summary>
+                <p>No. Todo el procesamiento ocurre en tu ordenador mediante Ollama. Ningún dato sale de tu máquina. Puedes usar Ollash incluso sin conexión a internet (una vez descargado el modelo).</p>
+            </details>
+
+            <details class="help-faq-item">
+                <summary>¿Qué modelo debo usar?</summary>
+                <p><strong>Equilibrado (4B)</strong> es el más recomendado para uso diario: buena calidad y velocidad razonable. <strong>Rápido (0.8B)</strong> responde en segundos pero con menos precisión. <strong>Potente (30B)</strong> es ideal para proyectos complejos pero requiere una GPU con bastante VRAM.</p>
+            </details>
+
+            <details class="help-faq-item">
+                <summary>El AI da respuestas incorrectas o con errores, ¿qué hago?</summary>
+                <p>Los modelos locales pequeños cometen errores. Si recibes código incorrecto, pide una revisión directamente en el chat: <em>"Hay un error en el código anterior, el problema es que..."</em>. También puedes probar con un modelo más grande en Configuración.</p>
+            </details>
+
+            <details class="help-faq-item">
+                <summary>¿Por qué aparece el indicador "Ollama offline"?</summary>
+                <p>Ollama debe estar ejecutándose en tu ordenador. Abre una terminal y ejecuta <code>ollama serve</code>. El indicador verde en la barra lateral o en la cabecera confirmará la conexión correcta.</p>
+            </details>
+
+            <details class="help-faq-item">
+                <summary>¿Puedo usar mis propios modelos de Ollama?</summary>
+                <p>Sí. Descarga cualquier modelo compatible con Ollama (<code>ollama pull nombre-modelo</code>) y luego ve a <strong>Configuración → Avanzado</strong> para asignarlo. Cualquier modelo del catálogo de Ollama es compatible.</p>
+            </details>
+
+            <details class="help-faq-item">
+                <summary>¿Cómo funciona "Mis Proyectos"?</summary>
+                <p>Muestra todos los proyectos que Ollash ha generado, almacenados en la carpeta <code>./generated_projects</code> del servidor. Selecciona uno para ver su estructura de archivos, historial de versiones Git y documentación generada automáticamente.</p>
+            </details>
+
+            <details class="help-faq-item">
+                <summary>¿Cuánta RAM necesito?</summary>
+                <p>El modelo 0.8B necesita ~1 GB de RAM. El 4B necesita ~4-5 GB. El 7B necesita ~8 GB. El 30B necesita ~20 GB y se recomienda GPU dedicada. Si tu ordenador tiene poca RAM, usa el modelo <em>Rápido (0.8B)</em>.</p>
+            </details>
+
+            <details class="help-faq-item">
+                <summary>¿Cómo cambio el tema visual (claro/oscuro)?</summary>
+                <p>Haz clic en el icono de sol/luna en la barra superior, o ve a <strong>Configuración → General</strong> y selecciona el tema que prefieras. La preferencia se guarda automáticamente.</p>
+            </details>
+        </section>
+
+        <!-- SECCIÓN 6: Guía de Configuración -->
+        <section class="help-section" id="help-config">
+            <h2>Guía de Configuración</h2>
+            <p>La mayoría de usuarios no necesitan cambiar nada. Sin embargo, si quieres ajustar el comportamiento:</p>
+            <ul class="help-config-list">
+                <li><strong>URL de Ollama</strong> — Cambia si tienes Ollama en otro ordenador de tu red. Por defecto: <code>http://localhost:11434</code></li>
+                <li><strong>Modelo principal</strong> — Elige según la RAM disponible y la velocidad que necesitas.</li>
+                <li><strong>Tema</strong> — Claro u oscuro según tu preferencia.</li>
+            </ul>
+            <p>Para opciones avanzadas (roles de modelo, flags de funcionalidades, nivel de sandbox, parámetros del LLM), ve a la pestaña <strong>Avanzado</strong> en la página de Configuración. Estas opciones están pensadas para usuarios técnicos.</p>
+            <button class="btn btn-primary help-cta-link" data-view="settings">
+                Ir a Configuración
+            </button>
+        </section>
+
+    </div>
+</div>

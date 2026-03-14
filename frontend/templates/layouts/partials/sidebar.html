@@ -3,20 +3,21 @@
     {% include 'layouts/partials/_sidebar_header.html' %}
 
     <nav class="sidebar-nav" aria-label="Menú principal">
-        <!-- Operaciones Group -->
+
+        <!-- PRINCIPAL -->
         <div class="nav-group expanded">
-            <button class="nav-group-header" aria-expanded="true" aria-controls="nav-group-operaciones">
-                <span>Operaciones</span>
+            <button class="nav-group-header" aria-expanded="true" aria-controls="nav-group-principal">
+                <span>Principal</span>
                 <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true" focusable="false">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
             </button>
-            <div class="nav-group-content" id="nav-group-operaciones">
+            <div class="nav-group-content" id="nav-group-principal">
                 <button class="nav-item active" data-view="chat">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                     </svg>
-                    <span>Chat Principal</span>
+                    <span>Chat</span>
                 </button>
                 <button class="nav-item" data-view="create">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -28,19 +29,19 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                     </svg>
-                    <span>Proyectos</span>
+                    <span>Mis Proyectos</span>
                 </button>
             </div>
         </div>
 
-        <!-- Proyecto Activo Group (hidden until a project is selected) -->
+        <!-- MI PROYECTO — oculto hasta que se selecciona un proyecto (JS hook: id="nav-group-project") -->
         <div class="nav-group nav-group--project" id="nav-group-project" style="display:none;">
             <button class="nav-group-header nav-group-header--project" aria-expanded="true" aria-controls="nav-group-proyecto-content">
                 <div class="project-label-wrap">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                         <circle cx="12" cy="12" r="3"></circle>
                     </svg>
-                    <span id="active-project-label" class="project-label-text">Proyecto</span>
+                    <span id="active-project-label" class="project-label-text">Mi Proyecto</span>
                 </div>
                 <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true" focusable="false">
                     <polyline points="9 18 15 12 9 6"></polyline>
@@ -51,7 +52,7 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
                     </svg>
-                    <span>Arquitectura</span>
+                    <span>Archivos</span>
                 </button>
                 <button class="nav-item" data-view="git">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -60,19 +61,13 @@
                         <circle cx="6" cy="18" r="3"></circle>
                         <path d="M18 9a9 9 0 0 1-9 9"></path>
                     </svg>
-                    <span>Git Control</span>
+                    <span>Git</span>
                 </button>
                 <button class="nav-item" data-view="checkpoints">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <span>Time Machine</span>
-                </button>
-                <button class="nav-item" data-view="cicd">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                    </svg>
-                    <span>CI/CD & Healer</span>
+                    <span>Historial</span>
                 </button>
                 <button class="nav-item" data-view="docs">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -81,137 +76,54 @@
                     </svg>
                     <span>Documentación</span>
                 </button>
-                <button class="nav-item" data-view="operations">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                    <span>Ops Center</span>
-                </button>
             </div>
         </div>
 
-        <!-- Memoria y Conocimiento -->
+        <!-- HERRAMIENTAS — colapsado por defecto -->
         <div class="nav-group">
-            <button class="nav-group-header" aria-expanded="false" aria-controls="nav-group-memoria">
-                <span>Memoria y Conocimiento</span>
+            <button class="nav-group-header" aria-expanded="false" aria-controls="nav-group-herramientas">
+                <span>Herramientas</span>
                 <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true" focusable="false">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
             </button>
-            <div class="nav-group-content" id="nav-group-memoria">
+            <div class="nav-group-content" id="nav-group-herramientas">
                 <button class="nav-item" data-view="knowledge">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
                         <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
                     </svg>
-                    <span>Knowledge Base</span>
+                    <span>Base de Conocimiento</span>
                 </button>
-                <button class="nav-item" data-view="brain">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.54-2.44V4.5A2.5 2.5 0 0 1 7 2h2.5z"></path>
-                        <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.54-2.44V4.5A2.5 2.5 0 0 0 17 2h-2.5z"></path>
-                    </svg>
-                    <span>Intelligence Hub</span>
-                </button>
-                <button class="nav-item" data-view="resilience">
+                <button class="nav-item" data-view="security">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                        <polyline points="8 11 12 15 16 11"></polyline>
                     </svg>
-                    <span>Resilience</span>
+                    <span>Seguridad</span>
                 </button>
-                <button class="nav-item" data-view="insights">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
-                        <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
-                    </svg>
-                    <span>Insights</span>
-                </button>
-                <button class="nav-item" data-view="analytics">
+                <button class="nav-item" data-view="benchmark">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="20" x2="18" y2="10"></line>
                         <line x1="12" y1="20" x2="12" y2="4"></line>
                         <line x1="6" y1="20" x2="6" y2="14"></line>
                     </svg>
-                    <span>Analytics</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Sistema Group -->
-        <div class="nav-group">
-            <button class="nav-group-header" aria-expanded="false" aria-controls="nav-group-sistema">
-                <span>Sistema</span>
-                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true" focusable="false">
-                    <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-            </button>
-            <div class="nav-group-content" id="nav-group-sistema">
-                <button class="nav-item" data-view="automations">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="7"></circle>
-                        <polyline points="12 9 12 12 13.5 13.5"></polyline>
-                        <path d="M16.51 7.35l-.35-3.35c0-1.1-.9-2-2-2h-4.32c-1.1 0-2 .9-2 2l-.35 3.35"></path>
-                    </svg>
-                    <span>Automations</span>
-                </button>
-                <button class="nav-item" data-view="costs">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="1" x2="12" y2="23"></line>
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                    </svg>
-                    <span>Costs & Usage</span>
-                </button>
-                <button class="nav-item" data-view="sandbox">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
-                        <line x1="12" y1="18" x2="12" y2="18"></line>
-                        <line x1="12" y1="6" x2="12" y2="10"></line>
-                    </svg>
-                    <span>Safe Sandbox</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Seguridad Group -->
-        <div class="nav-group">
-            <button class="nav-group-header" aria-expanded="false" aria-controls="nav-group-seguridad">
-                <span>Seguridad</span>
-                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true" focusable="false">
-                    <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-            </button>
-            <div class="nav-group-content" id="nav-group-seguridad">
-                <button class="nav-item" data-view="security">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                    </svg>
-                    <span>Cybersecurity</span>
-                </button>
-                <button class="nav-item" data-view="policies">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                        <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                    <span>Policies</span>
+                    <span>Benchmark</span>
                 </button>
             </div>
         </div>
 
         <div class="nav-divider" style="height: 1px; background: var(--color-border); margin: var(--spacing-sm) var(--spacing-md); opacity: 0.5;"></div>
 
-        <button class="nav-item" data-view="benchmark">
+        <!-- Ítems sueltos al fondo -->
+        <button class="nav-item" data-view="help">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="20" x2="18" y2="10"></line>
-                <line x1="12" y1="20" x2="12" y2="4"></line>
-                <line x1="6" y1="20" x2="6" y2="14"></line>
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
             </svg>
-            <span>Benchmarker</span>
+            <span>Ayuda y Guías</span>
         </button>
+
         <button class="nav-item" data-view="settings">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="3"></circle>
@@ -219,6 +131,7 @@
             </svg>
             <span>Configuración</span>
         </button>
+
     </nav>
 
     {% include 'layouts/partials/_sidebar_footer.html' %}

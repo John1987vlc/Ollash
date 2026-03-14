@@ -229,7 +229,9 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
                     self.logger.warning(f"System prompt field empty in {default_prompt_path}. Using default fallback.")
                     self.system_prompt = self._get_fallback_system_prompt()
             except Exception as e:
-                self.logger.error(f"Error loading system prompt from {default_prompt_path}: {e}. Using default fallback.")
+                self.logger.error(
+                    f"Error loading system prompt from {default_prompt_path}: {e}. Using default fallback."
+                )
                 self.system_prompt = self._get_fallback_system_prompt()
 
         self.conversation: List[Dict] = []

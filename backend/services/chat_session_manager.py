@@ -16,15 +16,50 @@ _log = logging.getLogger("ollash")
 # Helpers
 # ---------------------------------------------------------------------------
 
-_EXCLUDE_DIRS = frozenset({
-    "__pycache__", ".git", ".venv", "venv", "node_modules", ".cache",
-    "dist", "build", ".pytest_cache", ".mypy_cache", "target", ".ollash",
-})
-_SOURCE_EXTS = frozenset({
-    ".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java", ".cpp", ".c",
-    ".cs", ".rb", ".php", ".swift", ".kt", ".json", ".yaml", ".yml", ".md",
-    ".html", ".css", ".sh", ".toml", ".env.example",
-})
+_EXCLUDE_DIRS = frozenset(
+    {
+        "__pycache__",
+        ".git",
+        ".venv",
+        "venv",
+        "node_modules",
+        ".cache",
+        "dist",
+        "build",
+        ".pytest_cache",
+        ".mypy_cache",
+        "target",
+        ".ollash",
+    }
+)
+_SOURCE_EXTS = frozenset(
+    {
+        ".py",
+        ".js",
+        ".ts",
+        ".jsx",
+        ".tsx",
+        ".go",
+        ".rs",
+        ".java",
+        ".cpp",
+        ".c",
+        ".cs",
+        ".rb",
+        ".php",
+        ".swift",
+        ".kt",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".md",
+        ".html",
+        ".css",
+        ".sh",
+        ".toml",
+        ".env.example",
+    }
+)
 
 
 def _build_project_tree(project_path: str, max_files: int = 120) -> str:
@@ -70,6 +105,7 @@ def _load_coding_system_prompt(project_path: str, prompts_base: Path) -> str:
     prompt_text = ""
     try:
         from backend.utils.core.llm.prompt_loader import PromptLoader
+
         loader = PromptLoader(prompts_dir=prompts_base)
         data = loader.load_prompt_sync("roles/interactive_coding_agent.yaml")
         prompt_text = data.get("interactive_coding_agent", {}).get("system", "")
@@ -105,7 +141,7 @@ def _load_coding_system_prompt(project_path: str, prompts_base: Path) -> str:
 @dataclass
 class ChatSession:
     session_id: str
-    agent: Union[SimpleChatAgent, "DefaultAgent"]  # type: ignore[name-defined]
+    agent: Union[SimpleChatAgent, "DefaultAgent"]  # type: ignore[name-defined]  # noqa: F821
     bridge: ChatEventBridge
     thread: Optional[threading.Thread] = None
 
@@ -181,9 +217,7 @@ class ChatSessionManager:
                 from backend.services.project_index import ProjectIndex
 
                 # Build system prompt: role description + project tree + OLLASH.md
-                coding_prompt = system_prompt_override or _load_coding_system_prompt(
-                    resolved_root, self._prompts_base
-                )
+                coding_prompt = system_prompt_override or _load_coding_system_prompt(resolved_root, self._prompts_base)
                 agent = DefaultAgent(
                     project_root=resolved_root,
                     event_bridge=bridge,

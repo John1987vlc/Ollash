@@ -460,6 +460,7 @@ class FileSystemTools:
             try:
                 hits = []
                 import os as _os
+
                 _exclude = {"__pycache__", ".git", "node_modules", "venv", ".venv", "dist", "build"}
                 _src_exts = {".py", ".js", ".ts", ".go", ".rs", ".java", ".cpp", ".c", ".cs", ".rb"}
                 query_lower = query.lower()
