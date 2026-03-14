@@ -29,7 +29,6 @@ class TestMainSuite:
         # Unit test requirements
         unit_requirements = {
             "backend/agents": ["test_default_agent.py", "test_auto_agent.py"],
-            "frontend/blueprints": ["test_chat_bp.py", "test_common_bp.py"],
         }
 
         for module, test_files in unit_requirements.items():

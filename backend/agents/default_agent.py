@@ -256,18 +256,6 @@ RULES:
 5. Use analyze_project to get a comprehensive overview of the project
 6. Be clear and concise in your explanations"""
 
-    def _create_checkpoint(self):
-        """Creates a git checkpoint of the current project state."""
-        self.logger.info("Creating a new checkpoint...")
-        try:
-            self.git_manager.stage_all()
-            commit_message = f"Checkpoint {self.checkpoint_counter}"
-            self.git_manager.commit(commit_message)
-            self.logger.info(f"Successfully created checkpoint: {commit_message}")
-            self.checkpoint_counter += 1
-        except Exception as e:
-            self.logger.error(f"Failed to create checkpoint: {e}")
-
     async def _preprocess_instruction(self, instruction: str) -> tuple[str, str]:
         """
         Detects the language, translates to English, and refines the instruction.
@@ -324,13 +312,6 @@ RULES:
         Returns the OpenAPI-like definitions for the currently active tool functions.
         """
         return self.tool_executor.get_tool_definitions(self.active_tool_names)
-
-    @property
-    def preference_manager(self):
-        """
-        Dynamically provides the currently active preference manager for the agent.
-        """
-        return self.memory_manager.get_preference_manager()
 
     async def _execute_single_tool(self, tool_call: Dict) -> Any:
         """

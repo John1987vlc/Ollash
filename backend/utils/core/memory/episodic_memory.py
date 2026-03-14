@@ -11,7 +11,6 @@ Enhanced with:
 - Async query support
 """
 
-import asyncio
 import json
 import sqlite3
 import uuid
@@ -379,39 +378,6 @@ class EpisodicMemory:
             return 0.0
         return dot / (norm_a * norm_b)
 
-    def get_best_solution(self, error_pattern_id: str) -> Optional[EpisodicEntry]:
-        """Get the best known solution for a specific error pattern."""
-        with sqlite3.connect(str(self._db_path)) as conn:
-            conn.row_factory = sqlite3.Row
-            row = conn.execute(
-                """SELECT * FROM episodes
-                   WHERE error_pattern_id = ? AND outcome = 'success'
-                   ORDER BY timestamp DESC LIMIT 1""",
-                (error_pattern_id,),
-            ).fetchone()
-
-        if not row:
-            return None
-        return self._row_to_entry(row)
-
-    def get_success_rate(self, error_pattern_id: str) -> float:
-        """Get the success rate for solutions to a specific error pattern."""
-        with sqlite3.connect(str(self._db_path)) as conn:
-            total = conn.execute(
-                "SELECT COUNT(*) FROM episodes WHERE error_pattern_id = ?",
-                (error_pattern_id,),
-            ).fetchone()[0]
-
-            if total == 0:
-                return 0.0
-
-            successes = conn.execute(
-                "SELECT COUNT(*) FROM episodes WHERE error_pattern_id = ? AND outcome = 'success'",
-                (error_pattern_id,),
-            ).fetchone()[0]
-
-            return successes / total
-
     def get_statistics(self) -> Dict[str, Any]:
         """Get overall episodic memory statistics."""
         with sqlite3.connect(str(self._db_path)) as conn:
@@ -431,25 +397,6 @@ class EpisodicMemory:
             "total_sessions": total_sessions,
             "total_decisions": total_decisions,
         }
-
-    # --------------- Async Wrappers ---------------
-
-    async def async_query_solutions(
-        self, error_type: str, language: str = "", max_results: int = 5
-    ) -> List[EpisodicEntry]:
-        """Async wrapper for query_solutions using executor."""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self.query_solutions, error_type, language, max_results)
-
-    async def async_record_episode(self, entry: EpisodicEntry) -> None:
-        """Async wrapper for record_episode using executor."""
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.record_episode, entry)
-
-    async def async_record_decision(self, decision: DecisionRecord) -> None:
-        """Async wrapper for record_decision using executor."""
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.record_decision, decision)
 
     # --------------- Helpers ---------------
 

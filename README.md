@@ -6,9 +6,9 @@
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
-### 🏗️ Auto-Agent — Multi-Phase Project Generator
+### Auto-Agent — Multi-Phase Project Generator
 
 Generate complete, production-ready projects from a single description through a rigorously sequenced pipeline with **adaptive phase filtering** based on model tier:
 
@@ -19,7 +19,7 @@ Generate complete, production-ready projects from a single description through a
 | **slim** | 9–29B | Full pipeline minus documentation deploy and CICD healing |
 | **full** | ≥ 30B (e.g. `qwen3-coder:30b`) | All phases active |
 
-Core phase sequence (24 phases):
+Core phase sequence (23 phases):
 ```
 ReadmeGeneration → StructureGeneration → LogicPlanning → StructurePreReview
 → EmptyFileScaffolding → FileContentGeneration → FileRefinement
@@ -31,7 +31,7 @@ ReadmeGeneration → StructureGeneration → LogicPlanning → StructurePreRevie
 → ContentCompleteness → SeniorReview
 ```
 
-### 🧠 Domain Agent Swarm
+### Domain Agent Swarm
 
 A live cooperative swarm dispatched by `DomainAgentOrchestrator`:
 
@@ -42,7 +42,7 @@ A live cooperative swarm dispatched by `DomainAgentOrchestrator`:
 
 Shared state flows through a `Blackboard`. The swarm supports `SelfHealingLoop`, `DebateNodeRunner` (Architect vs Auditor), and `CheckpointManager`.
 
-### 🌐 Modern Web UI — FastAPI + Vite SPA
+### Modern Web UI — FastAPI + Vite SPA
 
 - **Real-time Chat** with tool-calling and SSE streaming
 - **Architecture Visualizer** — dynamic project graph (Cytoscape)
@@ -56,7 +56,7 @@ Shared state flows through a `Blackboard`. The swarm supports `SelfHealingLoop`,
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -114,70 +114,84 @@ python run_phase_benchmark_custom.py
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```text
 ollash/
 ├── backend/
 │   ├── agents/
-│   │   ├── auto_agent.py                    # Pipeline orchestrator
-│   │   ├── auto_agent_phases/               # 24 pipeline phases + PhaseContext
-│   │   ├── domain_agents/                   # Swarm agents (Architect, Developer, Auditor, DevOps)
-│   │   └── core_agent.py                    # Base agent with mixin composition
+│   │   ├── auto_agent.py                    # Pipeline orchestrator (adaptive phase filtering)
+│   │   ├── default_agent.py                 # Chat agent (IntentRouting + ToolLoop + ContextSummarizer)
+│   │   ├── auto_agent_phases/               # 39 pipeline phases + PhaseContext singleton
+│   │   ├── domain_agents/                   # Swarm: Architect, Developer ×3, Auditor, DevOps
+│   │   ├── mixins/                          # ContextSummarizer, IntentRouting, ToolLoop
+│   │   └── orchestrators/                   # Blackboard, TaskDAG, SelfHealingLoop, DebateNodeRunner
 │   ├── api/
-│   │   ├── app.py                           # FastAPI factory (create_app)
-│   │   ├── deps.py                          # FastAPI dependency providers
-│   │   └── routers/                         # 45 APIRouter files
+│   │   ├── app.py                           # FastAPI factory (create_app + lifespan DI wiring)
+│   │   ├── deps.py                          # FastAPI dependency providers + service_error_handler
+│   │   ├── vite.py                          # Vite manifest asset URL resolver
+│   │   └── routers/                         # 46 APIRouter files (8 implemented + 38 stubs)
 │   ├── config/
 │   │   ├── llm_models.json                  # Ollama URL + per-role model assignments
 │   │   ├── tool_settings.json               # Context limits, concurrency, sandbox level
-│   │   └── agent_features.json              # Feature flags
+│   │   └── agent_features.json              # Feature flags for optional capabilities
 │   ├── core/
-│   │   └── containers.py                    # Dependency-injector ApplicationContainer
+│   │   ├── containers.py                    # ApplicationContainer (5 semantic sub-containers)
+│   │   └── kernel.py                        # AgentKernel — tool execution core
+│   ├── interfaces/                          # ABCs to break circular imports
 │   ├── services/
-│   │   └── language_manager.py              # LLMClientManager, OllamaClient
+│   │   ├── llm_client_manager.py            # LLMClientManager — factory of OllamaClient by role
+│   │   └── chat_session_manager.py          # Session storage + ChatEventBridge (sync→SSE)
 │   └── utils/
 │       ├── core/
-│       │   ├── llm/                         # LLMResponseParser, TokenTracker, PromptLoader
-│       │   ├── memory/                      # SQLiteVectorStore, FragmentCache, EpisodicMemory
-│       │   └── system/                      # RetryPolicy, CommandExecutor, PolicyEnforcer
-│       └── domains/
+│       │   ├── analysis/                    # CodeQuarantine, RAGContextSelector, VulnerabilityScanner
+│       │   ├── io/                          # FileManager, CheckpointManager, MultiFormatIngester
+│       │   ├── llm/                         # OllamaClient, PromptLoader, LLMResponseParser, TokenTracker
+│       │   ├── memory/                      # EpisodicMemory, ErrorKnowledgeBase, FragmentCache, SQLiteVectorStore
+│       │   ├── system/                      # AgentLogger, TriggerManager, RetryPolicy, ConfirmationManager
+│       │   └── tools/                       # ToolRegistry, @ollash_tool decorator, sandboxes
+│       └── domains/                         # 11 domain toolsets (auto_generation, git, network, …)
 │           └── auto_generation/
-│               ├── planning/                # ProjectPlanner, ImprovementPlanner, …
-│               ├── generation/              # EnhancedFileContentGenerator, StructureGenerator, …
-│               ├── review/                  # ProjectReviewer, SeniorReviewer, QualityGate, …
-│               └── utilities/               # CodePatcher, ProjectTypeDetector, SignatureExtractor, …
+│               ├── generation/              # EnhancedFileContentGenerator, StructureGenerator, InfraGenerator
+│               ├── planning/                # ProjectPlanner, ImprovementPlanner, ContingencyPlanner
+│               ├── review/                  # ProjectReviewer, SeniorReviewer, QualityGate
+│               └── utilities/               # CodePatcher, ProjectTypeDetector, SignatureExtractor
 ├── frontend/
-│   ├── templates/                           # Jinja2 HTML templates
-│   └── static/                             # CSS, JS (Vite-bundled TypeScript)
-├── prompts/                                 # YAML prompt templates per domain
+│   ├── schemas/                             # Pydantic request/response models
+│   ├── templates/                           # Jinja2 HTML (base.html + 30+ page partials)
+│   └── static/
+│       ├── css/                             # Per-page stylesheets
+│       ├── js/                              # JS legacy + TypeScript (core/, pages/)
+│       └── dist/                            # Vite bundle output (npm run build)
+├── prompts/domains/auto_generation/         # YAML prompt templates (DB-first via PromptLoader)
 ├── tests/
-│   ├── unit/                               # 1 500+ unit tests (pytest.mark.unit)
-│   ├── integration/                        # Integration tests
-│   └── e2e/                               # Playwright E2E tests
-└── run_web.py                              # Uvicorn entry point
+│   ├── unit/                               # 1 203 unit tests (pytest.mark.unit, no Ollama)
+│   ├── integration/                        # 20 integration tests
+│   └── e2e/                               # 51 Playwright E2E tests (Ollama-free)
+├── .github/workflows/ci.yml                # CI: lint → unit → integration + e2e (parallel)
+└── run_web.py                              # Uvicorn entry point (:5000)
 ```
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | Python 3.10+, FastAPI, Uvicorn, dependency-injector |
 | **Database** | SQLAlchemy 2.0 async (SQLite), AsyncSession |
-| **Frontend** | TypeScript + Vite, Jinja2 templates |
+| **Frontend** | TypeScript + Vite, Jinja2 templates, CDN libs (Cytoscape, Monaco, Chart.js…) |
 | **LLM Engine** | Ollama — `qwen3.5:4b` (default), `custom-coder:7b`, `qwen3-coder:30b` |
-| **Vector Store** | `SQLiteVectorStore` — zero extra deps, cosine similarity, keyword fallback |
+| **Vector Store** | `SQLiteVectorStore` — zero extra deps, cosine similarity + keyword fallback |
 | **Memory** | SQLite — episodic logs, decision tracking, fragment cache |
 | **Streaming** | SSE via `asyncio.Queue` + `StreamingResponse` |
-| **Testing** | pytest, pytest-asyncio (`asyncio_mode=auto`), Playwright |
+| **Testing** | pytest + pytest-asyncio (`asyncio_mode=auto`), Playwright, Vitest |
 
-> ChromaDB has been fully removed. All vector/RAG functionality runs on the built-in `SQLiteVectorStore`.
+> ChromaDB has been fully removed (Sprint 9). All vector/RAG functionality runs on the built-in `SQLiteVectorStore`.
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### `backend/config/llm_models.json` — Model roles
 
@@ -216,7 +230,7 @@ Override model size detection without renaming models:
 
 ---
 
-## 🔬 4B Model Optimisations
+## 4B Model Optimisations
 
 Ollash is built around the assumption that your primary model is **4B parameters** (the "small" tier). All of the following apply automatically when `_is_small_model()` returns `True` and `_is_micro_model()` returns `False`:
 
@@ -244,16 +258,16 @@ Detection is based on the size suffix in the Ollama model tag (e.g. `qwen3.5:4b`
 
 ---
 
-## 🏗️ Architecture — Dependency Injection
+## Architecture — Dependency Injection
 
-All services wired via `dependency-injector`:
+All services wired via `dependency-injector`. Access via full dotted path (short paths were removed in Sprint 2):
 
 ```
 ApplicationContainer
 └── CoreContainer
     ├── LoggingContainer    → core.logging.logger / agent_kernel / event_publisher
-    ├── StorageContainer    → core.storage.file_manager / response_parser / fragment_cache
-    ├── AnalysisContainer   → core.analysis.code_quarantine / dependency_graph / rag_context_selector
+    ├── StorageContainer    → core.storage.file_manager / response_parser / fragment_cache / file_validator
+    ├── AnalysisContainer   → core.analysis.code_quarantine / dependency_graph / rag_context_selector / vulnerability_scanner
     ├── SecurityContainer   → core.security.permission_manager / policy_enforcer
     └── MemoryContainer     → core.memory.error_knowledge_base / episodic_memory
 ```
@@ -265,38 +279,99 @@ main_container.core.logging.logger.override(mock_logger)
 
 ---
 
-## 🛡️ Security & Safety
+## Tool System
+
+Register tools with the `@ollash_tool` decorator anywhere under `backend/utils/domains/`. The `ToolRegistry` auto-discovers them at startup — no manual registration needed:
+
+```python
+from backend.utils.core.tools.tool_decorator import ollash_tool
+
+@ollash_tool(
+    name="my_tool",
+    description="...",
+    parameters={"prop": {"type": "string", "description": "..."}},
+    toolset_id="my_tools",
+    agent_types=["code", "system"],
+    is_async_safe=True,
+)
+async def my_tool_impl(self, prop: str) -> str: ...
+```
+
+Domain toolsets: `file_system_tools`, `command_line_tools`, `network_tools`, `system_tools`, `cybersecurity_tools`, `git_tools`, `auto_generation`.
+
+---
+
+## Security & Safety
 
 - **PolicyEnforcer** intercepts all shell commands before execution
-- **CodeQuarantine** isolates and analyses suspicious generated snippets
-- **VulnerabilityScanner** checks generated code for OWASP top-10 issues
-- **Confirmation gate** in `confirmation_manager.py` for all state-modifying tool calls (`write_file`, `run_command`)
+- **CodeQuarantine** isolates and analyses suspicious generated snippets in `.quarantine/`
+- **VulnerabilityScanner** checks generated code for OWASP Top-10 issues
+- **ConfirmationManager** gates all state-modifying tool calls (`write_file`, `run_command`)
 - Sandbox levels: `none | limited | strict | docker` (configured in `tool_settings.json`)
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Unit tests (fast, no Ollama required)
 pytest tests/unit/ -q
+# → 1 203 passed, 2 skipped, 1 xfailed
 
 # Integration tests
 pytest tests/integration/ -q
+# → 20 passed, 1 skipped
 
-# E2E tests (requires running server + Playwright)
+# E2E tests (Playwright, Ollama-free suite)
 playwright install chromium
 pytest tests/e2e/ -m e2e
+# → 51 passed, 3 skipped
+
+# Frontend tests (Vitest)
+npm run test
+# → 50 passed (4 test files)
 
 # Single phase
 pytest tests/unit/backend/agents/auto_agent_phases/test_file_content_generation_phase.py
 ```
 
-Current test suite: **1 553 unit tests**, 2 skipped, 1 xfailed.
+CI runs: `lint → unit-tests → integration-tests + e2e-tests (parallel)` on every push to `master`.
 
 ---
 
-## 🐳 Docker
+## Folder-level Technical Docs
+
+Each major directory has a `README.md` with implementation details, class references, and usage patterns:
+
+| Directory | Document |
+|-----------|---------|
+| `backend/` | [Architecture overview](backend/README.md) |
+| `backend/agents/` | [Agent types, mixins, tiers](backend/agents/README.md) |
+| `backend/agents/auto_agent_phases/` | [All 23+ phases, PhaseContext](backend/agents/auto_agent_phases/README.md) |
+| `backend/agents/domain_agents/` | [Swarm agents + Blackboard](backend/agents/domain_agents/README.md) |
+| `backend/agents/mixins/` | [ContextSummarizer, IntentRouting, ToolLoop](backend/agents/mixins/README.md) |
+| `backend/agents/orchestrators/` | [TaskDAG, SelfHealingLoop, DebateNodeRunner](backend/agents/orchestrators/README.md) |
+| `backend/api/` | [FastAPI factory, SSE, Vite](backend/api/README.md) |
+| `backend/api/routers/` | [All 46 routers](backend/api/routers/README.md) |
+| `backend/core/` | [DI container hierarchy](backend/core/README.md) |
+| `backend/interfaces/` | [ABCs for cycle-breaking](backend/interfaces/README.md) |
+| `backend/services/` | [LLMClientManager, sessions](backend/services/README.md) |
+| `backend/utils/core/` | [5 sub-packages overview](backend/utils/core/README.md) |
+| `backend/utils/core/analysis/` | [Quarantine, RAG, validators](backend/utils/core/analysis/README.md) |
+| `backend/utils/core/io/` | [FileManager, CheckpointManager, ingestion](backend/utils/core/io/README.md) |
+| `backend/utils/core/llm/` | [OllamaClient, PromptLoader, parser](backend/utils/core/llm/README.md) |
+| `backend/utils/core/memory/` | [EpisodicMemory, ErrorKB, FragmentCache, VectorStore](backend/utils/core/memory/README.md) |
+| `backend/utils/core/system/` | [Logger, triggers, RetryPolicy, DB](backend/utils/core/system/README.md) |
+| `backend/utils/core/tools/` | [ToolRegistry, @ollash_tool, sandboxes](backend/utils/core/tools/README.md) |
+| `backend/utils/domains/` | [11 domain toolsets](backend/utils/domains/README.md) |
+| `backend/utils/domains/auto_generation/` | [generation/, planning/, review/, utilities/](backend/utils/domains/auto_generation/README.md) |
+| `frontend/` | [Templates, Vite, TypeScript modules](frontend/README.md) |
+| `tests/` | [How to run, fixtures, conventions](tests/README.md) |
+| `prompts/` | [YAML format, PromptLoader, small model prompts](prompts/README.md) |
+
+---
+
+## Docker
 
 ```bash
 docker-compose up --build
@@ -304,6 +379,6 @@ docker-compose up --build
 
 ---
 
-## 📜 License
+## License
 
 MIT License — see [LICENSE](LICENSE) for details.

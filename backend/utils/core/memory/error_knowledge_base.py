@@ -240,20 +240,6 @@ class ErrorKnowledgeBase:
             "by_severity": by_severity,
         }
 
-    def export_knowledge(self, output_file: Path) -> None:
-        """Export knowledge base for inspection/backup."""
-        data = {
-            "exported_at": datetime.now().isoformat(),
-            "total_patterns": len(self.patterns),
-            "patterns": [p.to_dict() for p in self.patterns.values()],
-        }
-
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-
-        self.logger.info(f"Knowledge base exported to {output_file}")
-
     def _generate_pattern_id(self, error_msg: str, file_content: str) -> str:
         """Generate unique ID for error pattern."""
         combined = f"{error_msg[:100]}{file_content[:100]}"

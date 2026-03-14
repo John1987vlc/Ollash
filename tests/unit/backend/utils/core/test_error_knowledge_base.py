@@ -2,7 +2,6 @@
 Unit tests for ErrorKnowledgeBase system.
 """
 
-import json
 from unittest.mock import Mock
 
 import pytest
@@ -224,17 +223,3 @@ class TestKnowledgeBasePersistence:
         kb2 = ErrorKnowledgeBase(temp_kb_dir, logger_mock, enable_persistence=True)
 
         assert len(kb2.patterns) > 0
-
-    def test_export_knowledge(self, error_kb, tmp_path):
-        """Test exporting knowledge base."""
-        error_kb.record_error("test.py", "syntax", "Error", "code")
-
-        export_file = tmp_path / "exported_knowledge.json"
-        error_kb.export_knowledge(export_file)
-
-        assert export_file.exists()
-
-        with open(export_file) as f:
-            data = json.load(f)
-            assert "patterns" in data
-            assert len(data["patterns"]) > 0
