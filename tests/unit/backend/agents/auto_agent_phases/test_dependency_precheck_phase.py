@@ -30,27 +30,24 @@ class TestDependencyPrecheckPhase:
         ctx.response_parser.extract_json.side_effect = json.loads
         return ctx
 
-    @pytest.mark.asyncio
-    async def test_no_deps_skips_phase(self, tmp_path):
+    def test_no_deps_skips_phase(self, tmp_path):
         ctx = self._make_context()
         ctx.logic_plan = {}  # no imports
         phase = DependencyPrecheckPhase(ctx)
-        gf, _, _ = await phase.run("desc", "proj", tmp_path, "", {}, {}, [])
+        gf, _, _ = phase.run("desc", "proj", tmp_path, "", {}, {}, [])
         ctx.llm_manager.get_client.assert_not_called()
 
-    @pytest.mark.asyncio
-    async def test_no_conflicts_writes_report(self, tmp_path):
+    def test_no_conflicts_writes_report(self, tmp_path):
         ctx = self._make_context(conflicts=[])
         phase = DependencyPrecheckPhase(ctx)
-        gf, _, fps = await phase.run(
+        gf, _, fps = phase.run(
             "Flask app", "app", tmp_path, "", {}, {"requirements.txt": "flask==2.3.0"}, ["requirements.txt"]
         )
         assert "dependency_precheck_report.json" in gf
         report = json.loads(gf["dependency_precheck_report.json"])
         assert report["conflicts"] == []
 
-    @pytest.mark.asyncio
-    async def test_high_conflict_triggers_autofix(self, tmp_path):
+    def test_high_conflict_triggers_autofix(self, tmp_path):
         conflict = {
             "severity": "HIGH",
             "package": "flask",
@@ -76,7 +73,7 @@ class TestDependencyPrecheckPhase:
         ]
 
         phase = DependencyPrecheckPhase(ctx)
-        gf, _, _ = await phase.run(
+        gf, _, _ = phase.run(
             "Flask app", "app", tmp_path, "", {}, {"requirements.txt": "flask==2.0.0"}, ["requirements.txt"]
         )
         # Auto-fix should have updated requirements.txt

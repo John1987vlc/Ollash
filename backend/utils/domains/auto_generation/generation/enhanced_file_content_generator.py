@@ -52,7 +52,7 @@ class EnhancedFileContentGenerator:
 
             self._code_patcher = CodePatcher(llm_client, logger, self.response_parser)
 
-    async def generate_file_with_plan(
+    def generate_file_with_plan(
         self,
         file_path: str,
         logic_plan: Dict[str, Any],
@@ -87,7 +87,7 @@ class EnhancedFileContentGenerator:
         dependencies = logic_plan.get("dependencies", [])
 
         # Build context for generation
-        context = await self._build_detailed_context(
+        context = self._build_detailed_context(
             file_path,
             purpose,
             exports,
@@ -103,7 +103,7 @@ class EnhancedFileContentGenerator:
         # Generate with retry logic
         for attempt in range(self.max_retries):
             try:
-                content = await self._generate_with_prompt(file_path, context, purpose, exports, main_logic, validation)
+                content = self._generate_with_prompt(file_path, context, purpose, exports, main_logic, validation)
 
                 if self._validate_content(content, file_path, exports, validation):
                     return content
@@ -117,7 +117,7 @@ class EnhancedFileContentGenerator:
         self.logger.error(f"Failed to generate valid {file_path} after {self.max_retries} attempts")
         return self._generate_fallback_skeleton(file_path, purpose, exports, imports)
 
-    async def generate_file_with_plan_streaming(
+    def generate_file_with_plan_streaming(
         self,
         file_path: str,
         logic_plan: Dict[str, Any],
@@ -127,15 +127,14 @@ class EnhancedFileContentGenerator:
         related_files: Dict[str, str],
         chunk_callback: Optional[Callable] = None,
     ) -> str:
-        """Async streaming variant of ``generate_file_with_plan``.
+        """Streaming variant of ``generate_file_with_plan``.
 
-        Calls *chunk_callback* (sync or async) for each token chunk produced by
+        Calls *chunk_callback* (sync) for each token chunk produced by
         the LLM, enabling live streaming to the Blackboard / SSE frontend.
         Falls back to the synchronous path on any error.
 
         Args:
             chunk_callback: Called with each streamed token chunk (str).
-                            May be an async coroutine function.
 
         Returns:
             Full generated file content (post-processed, same as sync version).
@@ -147,7 +146,7 @@ class EnhancedFileContentGenerator:
         validation = logic_plan.get("validation", [])
         dependencies = logic_plan.get("dependencies", [])
 
-        context = await self._build_detailed_context(
+        context = self._build_detailed_context(
             file_path,
             purpose,
             exports,
@@ -165,7 +164,7 @@ class EnhancedFileContentGenerator:
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = await loader.load_prompt("domains/auto_generation/code_gen.yaml")
+            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
             lang_rules_map = prompts.get("language_rules", {})
             lang_rule = lang_rules_map.get(file_ext, lang_rules_map.get("default", ""))
             system_template = prompts.get("file_gen_v2", {}).get("system", "")
@@ -176,7 +175,7 @@ class EnhancedFileContentGenerator:
             user = user_template.format(file_path=file_path, context=context, exports=", ".join(exports))
         except Exception as exc:
             self.logger.warning(f"[streaming] Prompt load failed for '{file_path}': {exc}; using sync fallback")
-            return await self.generate_file_with_plan(
+            return self.generate_file_with_plan(
                 file_path=file_path,
                 logic_plan=logic_plan,
                 project_description=project_description,
@@ -190,7 +189,7 @@ class EnhancedFileContentGenerator:
             {"role": "user", "content": user},
         ]
         try:
-            result, _ = await self.llm_client.stream_chat(
+            result, _ = self.llm_client.stream_chat(
                 messages=messages,
                 chunk_callback=chunk_callback,
                 options_override=self.options,
@@ -199,7 +198,7 @@ class EnhancedFileContentGenerator:
             return self.response_parser.extract_code(content, file_path)
         except Exception as exc:
             self.logger.warning(f"[streaming] stream_chat failed for '{file_path}': {exc}; using sync fallback")
-            return await self.generate_file_with_plan(
+            return self.generate_file_with_plan(
                 file_path=file_path,
                 logic_plan=logic_plan,
                 project_description=project_description,
@@ -208,7 +207,7 @@ class EnhancedFileContentGenerator:
                 related_files=related_files,
             )
 
-    async def _build_detailed_context(
+    def _build_detailed_context(
         self,
         file_path: str,
         purpose: str,
@@ -241,22 +240,18 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
 {chr(10).join(f"- {v}" for v in validation)}
 """
         # Append RAG documentation snippets when available
-        doc_snippets = await self._get_documentation_snippets(file_path, purpose)
+        doc_snippets = self._get_documentation_snippets(file_path, purpose)
         if doc_snippets:
             context += doc_snippets
 
         return context
 
-    async def _get_documentation_snippets(self, file_path: str, purpose: str) -> str:
+    def _get_documentation_snippets(self, file_path: str, purpose: str) -> str:
         """Query documentation manager for relevant code examples (RAG)."""
         if not self.documentation_manager:
             return ""
         try:
             query = f"How to implement {file_path}: {purpose[:200]}"
-            # DocumentationManager.query_documentation is typically sync, but checking its signature
-            # Assuming it might be async in some implementations or needs awaiting if wrapped
-            # If it's sync, this won't hurt much, but let's check.
-            # In PhaseContext it's DocumentationManager.
             docs = self.documentation_manager.query_documentation(query, n_results=2)
             if docs:
                 snippets = "\n---\n".join(d["document"] for d in docs)
@@ -265,7 +260,7 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
             self.logger.warning(f"RAG lookup failed: {e}")
         return ""
 
-    async def _generate_with_prompt(
+    def _generate_with_prompt(
         self,
         file_path: str,
         context: str,
@@ -282,7 +277,7 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = await loader.load_prompt("domains/auto_generation/code_gen.yaml")
+            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
 
             if not prompts:
                 return self._generate_fallback_skeleton(file_path, purpose, exports, [])
@@ -423,7 +418,7 @@ TODO: Implement {file_path}
 
         return skeleton
 
-    async def edit_existing_file(
+    def edit_existing_file(
         self,
         file_path: str,
         current_content: str,
@@ -444,7 +439,4 @@ TODO: Implement {file_path}
         Returns:
             Updated file content
         """
-        # Checking if CodePatcher.edit_existing_file is async
-        return await self._code_patcher.edit_existing_file(
-            file_path, current_content, readme, issues_to_fix, edit_strategy
-        )
+        return self._code_patcher.edit_existing_file(file_path, current_content, readme, issues_to_fix, edit_strategy)

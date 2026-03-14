@@ -66,7 +66,7 @@ class ArchitectAgent(BaseDomainAgent):
     # Public API
     # ------------------------------------------------------------------
 
-    async def plan_dag(
+    def plan_dag(
         self,
         project_description: str,
         project_name: str,
@@ -87,7 +87,7 @@ class ArchitectAgent(BaseDomainAgent):
                                  included in the LLM prompt if supported.
         """
         self._log_info(f"Planning DAG for project '{project_name}'")
-        await self._publish_event("architect_planning_started", project=project_name)
+        self._publish_event("architect_planning_started", project=project_name)
 
         # P7 — Encode images and store in Blackboard for UI "Visual Context" panel
         encoded_images: List[Dict[str, str]] = []
@@ -119,7 +119,7 @@ class ArchitectAgent(BaseDomainAgent):
                     self._log_warning(f"Could not encode image '{img_path}': {exc}")
 
         if encoded_images:
-            await blackboard.write("context_images", encoded_images, self.agent_id)
+            blackboard.write_sync("context_images", encoded_images, self.agent_id)
             self._log_info(f"Stored {len(encoded_images)} context image(s) in Blackboard")
 
         node = TaskNode(
@@ -131,11 +131,11 @@ class ArchitectAgent(BaseDomainAgent):
                 "context_images": encoded_images,
             },
         )
-        dag = await self.run(node, blackboard)
-        await self._publish_event("architect_planning_completed", project=project_name)
+        dag = self.run(node, blackboard)
+        self._publish_event("architect_planning_completed", project=project_name)
         return dag
 
-    async def run(self, node: TaskNode, blackboard: "Blackboard") -> TaskDAG:
+    def run(self, node: TaskNode, blackboard: "Blackboard") -> TaskDAG:
         """Execute the planning task and return the assembled TaskDAG."""
         project_description: str = node.task_data.get("project_description", "")
         project_name: str = node.task_data.get("project_name", "project")
@@ -145,8 +145,8 @@ class ArchitectAgent(BaseDomainAgent):
         structure = blackboard.read("project_structure")
         if structure is None:
             self._log_info("Generating project structure…")
-            structure = await self._generate_structure(project_description, project_name, readme_content)
-            await blackboard.write("project_structure", structure, self.agent_id)
+            structure = self._generate_structure(project_description, project_name, readme_content)
+            blackboard.write_sync("project_structure", structure, self.agent_id)
 
         # Step 2 — Build dependency graph
         self._dep_graph.build_from_structure(structure, readme_content)
@@ -157,8 +157,8 @@ class ArchitectAgent(BaseDomainAgent):
         dag = self._build_dag(generation_order, structure)
 
         # Step 4 — Write outputs to Blackboard
-        await blackboard.write("task_dag", dag, self.agent_id)
-        await blackboard.write("codebase_stable", False, self.agent_id)
+        blackboard.write_sync("task_dag", dag, self.agent_id)
+        blackboard.write_sync("codebase_stable", False, self.agent_id)
         self._log_info(
             f"TaskDAG built: {len(dag.all_nodes())} nodes "
             f"({sum(1 for n in dag.all_nodes() if n.agent_type == AgentType.DEVELOPER)} DEVELOPER, "
@@ -170,7 +170,7 @@ class ArchitectAgent(BaseDomainAgent):
     # Private helpers
     # ------------------------------------------------------------------
 
-    async def _generate_structure(
+    def _generate_structure(
         self,
         project_description: str,
         project_name: str,

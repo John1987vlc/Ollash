@@ -62,7 +62,7 @@ class WebSmokeTestPhase(BasePhase):
     category: str = "verification"
     REQUIRED_TOOLS: List[str] = []
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -91,7 +91,7 @@ class WebSmokeTestPhase(BasePhase):
         port = _free_port()
 
         self.context.logger.info(f"[WebSmokeTest] Starting HTTP server on :{port}, testing {index_html}...")
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_start",
             phase=self.phase_id,
             message=f"Browser smoke test on port {port}",
@@ -122,7 +122,7 @@ class WebSmokeTestPhase(BasePhase):
             self.context.logger.info(
                 f"[WebSmokeTest] ✓ Page loaded successfully — {visible} interactive element(s) visible."
             )
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_complete",
                 phase=self.phase_id,
                 message=f"Smoke test passed ({visible} elements visible)",
@@ -132,9 +132,9 @@ class WebSmokeTestPhase(BasePhase):
         # Smoke test found issues — attempt a single repair pass
         self.context.logger.warning(f"[WebSmokeTest] Browser console errors detected ({len(errors)}): {errors[:3]}")
         if errors:
-            generated_files = await self._repair_from_errors(errors, generated_files, project_root, readme_content)
+            generated_files = self._repair_from_errors(errors, generated_files, project_root, readme_content)
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_complete",
             phase=self.phase_id,
             message=f"Smoke test finished with {len(errors)} error(s) — repair attempted",
@@ -170,7 +170,7 @@ class WebSmokeTestPhase(BasePhase):
             self.context.logger.warning(f"[WebSmokeTest] Playwright run error: {exc}")
         return {"errors": [], "visible_elements": 0}
 
-    async def _repair_from_errors(
+    def _repair_from_errors(
         self,
         errors: List[str],
         generated_files: Dict[str, str],
@@ -191,9 +191,7 @@ class WebSmokeTestPhase(BasePhase):
 
             try:
                 issues = [{"description": f"Browser console error: {e}", "severity": "high"} for e in errors[:3]]
-                refined = await self.context.file_refiner.refine_file(
-                    rel_path, content, readme_content[:300], issues=issues
-                )
+                refined = self.context.file_refiner.refine_file(rel_path, content, readme_content[:300], issues=issues)
                 if refined and refined != content:
                     generated_files[rel_path] = refined
                     self.context.file_manager.write_file(project_root / rel_path, refined)

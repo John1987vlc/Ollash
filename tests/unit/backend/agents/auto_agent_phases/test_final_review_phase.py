@@ -1,7 +1,7 @@
 """Unit tests for FinalReviewPhase — git decision gate and push helpers."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -14,7 +14,7 @@ def _make_context():
     ctx = MagicMock()
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
-    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.publish = MagicMock()
     ctx.file_completeness_checker = MagicMock()
     ctx.project_reviewer = MagicMock()
     ctx.file_manager = MagicMock()
@@ -190,12 +190,11 @@ class TestFinalReviewPhaseExecute:
         base.update(overrides)
         return base
 
-    @pytest.mark.asyncio
-    async def test_no_git_push_skips_git_operations(self, tmp_path):
+    def test_no_git_push_skips_git_operations(self, tmp_path):
         """When git_push=False, no git operations are performed."""
         phase = _make_phase()
         with patch("backend.agents.auto_agent_phases.final_review_phase.GitManager") as mock_git_cls:
-            await phase.execute(
+            phase.execute(
                 project_description="desc",
                 project_name="proj",
                 project_root=tmp_path,
@@ -206,8 +205,7 @@ class TestFinalReviewPhaseExecute:
             )
             mock_git_cls.assert_not_called()
 
-    @pytest.mark.asyncio
-    async def test_git_push_with_url_initializes_repo_and_pushes(self, tmp_path):
+    def test_git_push_with_url_initializes_repo_and_pushes(self, tmp_path):
         """When git_push=True and git_repo_url is set, git is initialized and pushed."""
         phase = _make_phase()
         phase._push_to_existing_repo = MagicMock(
@@ -219,7 +217,7 @@ class TestFinalReviewPhaseExecute:
             mock_git_cls.return_value = mock_git
             mock_git._run_git.return_value = {"success": True}
 
-            await phase.execute(
+            phase.execute(
                 project_description="desc",
                 project_name="proj",
                 project_root=tmp_path,
@@ -237,8 +235,7 @@ class TestFinalReviewPhaseExecute:
         mock_git_cls.assert_called_once_with(repo_path=str(tmp_path))
         phase._push_to_existing_repo.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_git_push_true_repo_name_only_uses_gh_create_path(self, tmp_path):
+    def test_git_push_true_repo_name_only_uses_gh_create_path(self, tmp_path):
         """When git_push=True but no git_repo_url, the gh-create path is taken."""
         phase = _make_phase()
         phase._push_to_existing_repo = MagicMock()
@@ -251,7 +248,7 @@ class TestFinalReviewPhaseExecute:
             with patch("subprocess.run") as mock_sub:
                 mock_sub.return_value = MagicMock(returncode=0, stdout="created", stderr="")
 
-                await phase.execute(
+                phase.execute(
                     project_description="desc",
                     project_name="proj",
                     project_root=tmp_path,
@@ -269,8 +266,7 @@ class TestFinalReviewPhaseExecute:
         # _push_to_existing_repo must NOT have been called
         phase._push_to_existing_repo.assert_not_called()
 
-    @pytest.mark.asyncio
-    async def test_git_push_no_token_only_inits_locally(self, tmp_path):
+    def test_git_push_no_token_only_inits_locally(self, tmp_path):
         """When git_push=True but no token, only a local git init is done."""
         phase = _make_phase()
 
@@ -279,7 +275,7 @@ class TestFinalReviewPhaseExecute:
             mock_git_cls.return_value = mock_git
             mock_git._run_git.return_value = {"success": True}
 
-            await phase.execute(
+            phase.execute(
                 project_description="desc",
                 project_name="proj",
                 project_root=tmp_path,

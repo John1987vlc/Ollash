@@ -57,7 +57,7 @@ class ApiContractPhase(BasePhase):
     phase_label = "API Contract Generation"
     _MAX_RETRIES = 3
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -74,7 +74,7 @@ class ApiContractPhase(BasePhase):
 
         self.context.logger.info("[ApiContract] Generating OpenAPI 3.0 contract...")
 
-        openapi_yaml = await self._generate_contract(project_description, project_name, initial_structure)
+        openapi_yaml = self._generate_contract(project_description, project_name, initial_structure)
 
         if not openapi_yaml:
             self.context.logger.warning("[ApiContract] Failed to generate valid OpenAPI spec — skipping.")
@@ -111,7 +111,7 @@ class ApiContractPhase(BasePhase):
 
         return False
 
-    async def _generate_contract(
+    def _generate_contract(
         self,
         project_description: str,
         project_name: str,

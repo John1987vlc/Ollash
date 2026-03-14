@@ -96,8 +96,7 @@ class TestOllamaClient:
             assert payload["stream"] is False
             assert isinstance(payload["messages"], list)
 
-    @pytest.mark.asyncio
-    async def test_achat_success(self, ollama_client):
+    def test_chat_async_success(self, ollama_client):
         mock_data = {"message": {"content": "async hello"}, "prompt_eval_count": 10, "eval_count": 5}
 
         mock_response = MagicMock()
@@ -107,7 +106,7 @@ class TestOllamaClient:
 
         with patch.object(ollama_client.http_session, "post", return_value=mock_response) as mock_post:
             messages = [{"role": "user", "content": "hi"}]
-            data, usage = await ollama_client.achat(messages, tools=[])
+            data, usage = ollama_client.chat(messages, tools=[])
 
             assert data["message"]["content"] == "async hello"
             assert usage["prompt_tokens"] == 10
@@ -121,10 +120,9 @@ class TestOllamaClient:
         assert len(emb) > 0
         assert all(isinstance(v, float) for v in emb)
 
-    @pytest.mark.asyncio
-    async def test_aget_embedding_returns_vector(self, ollama_client):
-        """aget_embedding must return a non-empty float list."""
-        emb = await ollama_client.aget_embedding("async text")
+    def test_get_embedding_async_returns_vector(self, ollama_client):
+        """get_embedding must return a non-empty float list."""
+        emb = ollama_client.get_embedding("async text")
         assert isinstance(emb, list)
         assert len(emb) > 0
 

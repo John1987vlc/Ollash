@@ -36,14 +36,14 @@ class TestGenerator:
         self.command_executor = command_executor
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    async def generate_tests(self, file_path: str, content: str, readme_context: str) -> Optional[str]:
+    def generate_tests(self, file_path: str, content: str, readme_context: str) -> Optional[str]:
         """
         Generates pytest unit tests for a given file content.
         Returns the generated test file content or None if generation fails.
         """
         self.logger.info(f"  Generating tests for {file_path}...")
 
-        system_prompt, user_prompt = await AutoGenPrompts.generate_unit_tests(file_path, content, readme_context)
+        system_prompt, user_prompt = AutoGenPrompts.generate_unit_tests(file_path, content, readme_context)
 
         try:
             response_data, usage = self.llm_client.chat(

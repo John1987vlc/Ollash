@@ -13,7 +13,7 @@ class LicenseCompliancePhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -26,7 +26,7 @@ class LicenseCompliancePhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5.56: License Compliance Check...")
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_start", phase="5.56", message="Starting license compliance check"
         )
 
@@ -34,7 +34,7 @@ class LicenseCompliancePhase(IAgentPhase):
             if not self.context.policy_enforcer.is_license_compliant(project_root / rel_path):
                 self.context.logger.warning(f"  File {rel_path} has a non-compliant license.")
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_complete", phase="5.56", message="License compliance check complete"
         )
         self.context.logger.info("PHASE 5.56 complete.")

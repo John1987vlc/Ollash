@@ -61,7 +61,7 @@ class QualityGate:
         self.logger = logger
         self._sandbox = sandbox
 
-    async def run_quality_check(
+    def run_quality_check(
         self,
         project_root: Path,
         language: str = "python",
@@ -95,7 +95,7 @@ class QualityGate:
 
         # --- Test step ---
         try:
-            test_result = await self._run_tests(project_root, test_command, language)
+            test_result = self._run_tests(project_root, test_command, language)
             if test_result is not None:
                 report.tests_passed = test_result.tests_passed
                 report.tests_failed = test_result.tests_failed
@@ -114,14 +114,14 @@ class QualityGate:
         report.failure_reasons = failure_reasons
         return report
 
-    async def _run_tests(self, project_root: Path, test_command: str, language: str):
+    def _run_tests(self, project_root: Path, test_command: str, language: str):
         """Run tests via WasmTestRunner if available, else subprocess."""
         if self._sandbox is not None:
             try:
                 from backend.utils.core.tools.wasm_sandbox import WasmTestRunner
 
                 runner = WasmTestRunner(self._sandbox, self.logger)
-                return await runner.run_tests(project_root, test_command, language=language)
+                return runner.run_tests(project_root, test_command, language=language)
             except Exception as exc:
                 self.logger.warning(f"WasmTestRunner unavailable, falling back to subprocess: {exc}")
 

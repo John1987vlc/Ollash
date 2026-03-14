@@ -1,4 +1,3 @@
-import asyncio
 import json
 from typing import Dict
 
@@ -41,9 +40,8 @@ class FileCompletenessChecker:
         self.max_retries = max_retries_per_file
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    async def verify_and_fix(self, files: Dict[str, str], readme_context: str = "") -> Dict[str, str]:
+    def verify_and_fix(self, files: Dict[str, str], readme_context: str = "") -> Dict[str, str]:
         """Validate all files. For failures, attempt LLM-based fix up to max_retries times.
-        Parallelizes fixing for multiple files.
 
         Args:
             files: {relative_path: content} dict
@@ -66,7 +64,7 @@ class FileCompletenessChecker:
         if not to_fix:
             return fixed_files
 
-        async def fix_single_file(result_obj):
+        def fix_single_file(result_obj):
             file_path = result_obj.file_path
             is_empty = result_obj.status == ValidationStatus.EMPTY
             current_content = fixed_files.get(file_path, "")
@@ -83,38 +81,21 @@ class FileCompletenessChecker:
                 )
 
                 if is_empty:
-                    system, user = await AutoGenPrompts.file_content_generation(
-                        file_path, current_content, readme_context
-                    )
+                    system, user = AutoGenPrompts.file_content_generation(file_path, current_content, readme_context)
                 else:
-                    system, user = await AutoGenPrompts.file_fix(
+                    system, user = AutoGenPrompts.file_fix(
                         file_path, current_content, current_result.message, readme_context
                     )
 
                 try:
-                    # ACHTUNG: checking if achat exists or chat should be used.
-                    # Based on project overview, most calls are Chat.
-                    # MultiLanguageTestGenerator and others used .chat (sync).
-                    # If llm_client is OllamaClient, .chat is sync.
-                    # Some files use await self.llm_client.achat, but I should check if it exists.
-                    if hasattr(self.llm_client, "achat"):
-                        response_data, usage = await self.llm_client.achat(
-                            messages=[
-                                {"role": "system", "content": system},
-                                {"role": "user", "content": user},
-                            ],
-                            tools=[],
-                            options_override=self.options,
-                        )
-                    else:
-                        response_data, usage = self.llm_client.chat(
-                            messages=[
-                                {"role": "system", "content": system},
-                                {"role": "user", "content": user},
-                            ],
-                            tools=[],
-                            options_override=self.options,
-                        )
+                    response_data, usage = self.llm_client.chat(
+                        messages=[
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user},
+                        ],
+                        tools=[],
+                        options_override=self.options,
+                    )
                     raw = response_data.get("message", {}).get("content", "") or response_data.get("content", "")
 
                     if file_path.lower().endswith(".json"):
@@ -155,11 +136,9 @@ class FileCompletenessChecker:
             self.logger.error(f"  GAVE UP: {file_path} after {self.max_retries} attempts")
             return file_path, current_content
 
-        # Run all fixes in parallel
-        tasks = [fix_single_file(r) for r in to_fix]
-        updated_results = await asyncio.gather(*tasks)
-
-        for path, content in updated_results:
+        # Run all fixes sequentially
+        for result_obj in to_fix:
+            path, content = fix_single_file(result_obj)
             fixed_files[path] = content
 
         return fixed_files

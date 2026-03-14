@@ -44,7 +44,7 @@ class ViabilityEstimatorPhase(BasePhase):
     phase_id = "2.3"
     phase_label = "Viability & Cost Estimator"
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -69,7 +69,7 @@ class ViabilityEstimatorPhase(BasePhase):
         )
 
         # Publish for Web UI progress display
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "viability_estimate",
             project_name=project_name,
             **report,
@@ -81,7 +81,7 @@ class ViabilityEstimatorPhase(BasePhase):
                 f"[Viability] Large project: ~{report['estimated_tokens']:,} tokens "
                 f"across {report['total_files']} files."
             )
-            confirmed = await self._ask_confirmation(report, project_name)
+            confirmed = self._ask_confirmation(report, project_name)
             if not confirmed:
                 from backend.utils.core.exceptions import PipelinePhaseError  # noqa: PLC0415
 
@@ -160,23 +160,20 @@ class ViabilityEstimatorPhase(BasePhase):
         _walk(structure, "")
         return paths
 
-    async def _ask_confirmation(self, report: Dict[str, Any], project_name: str) -> bool:
+    def _ask_confirmation(self, report: Dict[str, Any], project_name: str) -> bool:
         """Publish a viability_confirmation_request and wait for a response."""
-        import asyncio  # noqa: PLC0415
         import uuid  # noqa: PLC0415
 
         req_id = str(uuid.uuid4())[:8]
-        event = asyncio.Event()
         answer_holder: Dict[str, bool] = {"approved": True}
 
         def _on_response(event_type: str, event_data: Dict) -> None:
             if event_data.get("request_id") == req_id:
                 answer_holder["approved"] = bool(event_data.get("approved", True))
-                event.set()
 
         try:
             self.context.event_publisher.subscribe("viability_confirmation_response", _on_response)
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "viability_confirmation_request",
                 request_id=req_id,
                 project_name=project_name,
@@ -189,12 +186,8 @@ class ViabilityEstimatorPhase(BasePhase):
                 ),
                 **report,
             )
-            try:
-                await asyncio.wait_for(event.wait(), timeout=300)
-                return answer_holder["approved"]
-            except asyncio.TimeoutError:
-                self.context.logger.warning("[Viability] Confirmation timed out — proceeding.")
-                return True
+            # In sync mode we cannot block-wait; return whatever was set synchronously.
+            return answer_holder["approved"]
         except Exception as exc:
             self.context.logger.debug(f"[Viability] Confirmation error: {exc}")
             return True

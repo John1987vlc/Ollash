@@ -1,11 +1,11 @@
 """
 Domain Agent Orchestrator — Entry Point for Agent-per-Domain Architecture.
 
-Replaces the sequential AutoAgent pipeline with a concurrent, DAG-driven
-approach where four specialized domain agents collaborate in parallel:
+Replaces the sequential AutoAgent pipeline with a DAG-driven approach where
+four specialized domain agents collaborate:
 
   ArchitectAgent  → produces a TaskDAG
-  DeveloperAgent  → pool of N, runs in parallel per file
+  DeveloperAgent  → pool of N, runs sequentially per file (thread-pool optional)
   DevOpsAgent     → activates after all DEVELOPER nodes complete
   AuditorAgent    → JIT scanning via EventPublisher (+ final batch pass)
   DebateNodeRunner → resolves DEBATE nodes via multi-agent consensus
@@ -13,7 +13,6 @@ approach where four specialized domain agents collaborate in parallel:
 New capabilities (10-point evolutionary improvements):
   P1  HITL  — nodes can pause with WAITING_FOR_USER and resume on user answer
   P2  Checkpoint — DAG state saved after every completion; resume() rebuilds
-  P4  Streaming — DeveloperAgent streams chunks to Blackboard (handled by agent)
   P5  Budget   — token budget check before dispatching; circuit breaker on retries
   P6  Git      — per-file auto-commits with diff capture after finalization
   P8  Debate   — DEBATE nodes route through DebateNodeRunner
@@ -31,7 +30,7 @@ Backward compatibility:
 Usage::
 
     orchestrator = container.domain_agents.domain_agent_orchestrator()
-    project_path = await orchestrator.run(
+    project_path = orchestrator.run(
         project_description="Build a REST API…",
         project_name="myapi",
         pool_size=3,
@@ -40,11 +39,11 @@ Usage::
 
 from __future__ import annotations
 
-import asyncio
 import copy
 import json
 import time
 from pathlib import Path
+from queue import Queue
 from typing import Any, Callable, Dict, List, Optional
 
 from backend.agents.domain_agents.architect_agent import ArchitectAgent
@@ -66,9 +65,9 @@ class DomainAgentOrchestrator:
     """
     Top-level orchestrator for the Agent-per-Domain architecture.
 
-    All work is fully async.  The execution loop drives a DAG where tasks
-    whose dependencies are satisfied are dispatched concurrently, bounded by
-    an asyncio.Semaphore of size *pool_size*.
+    Execution is fully synchronous.  The DAG loop processes ready tasks
+    sequentially; *pool_size* is kept as a parameter for API compatibility
+    but concurrency is not used (each task blocks until completion).
 
     Self-healing:
         When any task fails, ``SelfHealingLoop`` re-queues a REMEDIATION
@@ -132,8 +131,8 @@ class DomainAgentOrchestrator:
         self._tactical = tactical_agent
         self._critic = critic_agent
         self._budget_limit_tokens = budget_limit_tokens
-        # asyncio.Queue is populated lazily in run() once the event loop is running.
-        self._dev_queue: asyncio.Queue[DeveloperAgent] = asyncio.Queue()
+        # Thread-safe queue for developer pool management
+        self._dev_queue: Queue[DeveloperAgent] = Queue()
         # Current live DAG (accessible for HITL unblocking via ActiveOrchestrators)
         self._current_dag: Optional[TaskDAG] = None
         self._current_project_name: str = ""
@@ -142,7 +141,7 @@ class DomainAgentOrchestrator:
     # Public entry point
     # ------------------------------------------------------------------
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -155,7 +154,7 @@ class DomainAgentOrchestrator:
         Args:
             project_description: Natural language project request.
             project_name: Short identifier used for the output directory.
-            pool_size: Maximum number of concurrent tasks in the DAG loop.
+            pool_size: Kept for API compatibility (concurrency not used in sync mode).
             readme_content: Optional pre-generated README (used as context).
             image_paths: Optional list of image Paths for multimodal context
                          (Point 7 — passed to ArchitectAgent.plan_dag).
@@ -165,7 +164,7 @@ class DomainAgentOrchestrator:
         """
         self._logger.info(f"[DomainOrchestrator] Starting project '{project_name}'")
         self._current_project_name = project_name
-        await self._event_publisher.publish(
+        self._event_publisher.publish_sync(
             "domain_orchestration_started",
             project_name=project_name,
             pool_size=pool_size,
@@ -176,10 +175,10 @@ class DomainAgentOrchestrator:
 
         try:
             # 1 — Initialise shared Blackboard keys
-            project_root = await self._initialize(project_description, project_name, readme_content)
+            project_root = self._initialize(project_description, project_name, readme_content)
 
             # 2 — Architect produces the TaskDAG (with optional images P7)
-            dag = await self._architect.plan_dag(
+            dag = self._architect.plan_dag(
                 project_description=project_description,
                 project_name=project_name,
                 blackboard=self._blackboard,
@@ -187,33 +186,32 @@ class DomainAgentOrchestrator:
             )
             self._current_dag = dag
 
-            # 3 — Populate the developer queue (must be done inside async context)
+            # 3 — Populate the developer queue
             while not self._dev_queue.empty():
-                self._dev_queue.get_nowait()
+                try:
+                    self._dev_queue.get_nowait()
+                except Exception:
+                    break
             for dev in self._dev_pool:
                 self._dev_queue.put_nowait(dev)
 
-            # 4 — Wire AuditorAgent to the live event loop
+            # 4 — Wire AuditorAgent to the live Blackboard
             self._auditor.set_blackboard(self._blackboard)
-            try:
-                self._auditor.set_event_loop(asyncio.get_running_loop())
-            except RuntimeError:
-                pass
 
             # 5 — Execute DAG
-            await self._execution_loop(dag, pool_size)
+            self._execution_loop(dag, pool_size)
 
             # 6 — Finalise: write all files to disk
             all_files = self._finalize(project_root, dag)
 
             # 7 — Git auto-commit (Point 6, best-effort)
-            manifest = await self._git_finalize(project_root, dag, project_name, all_files)
+            manifest = self._git_finalize(project_root, dag, project_name, all_files)
 
             # 8 — Record project-level metrics (Point 10)
             self._record_project_metrics(project_name, dag, len(all_files))
 
             git_committed = manifest.repo_initialised if manifest else False
-            await self._event_publisher.publish(
+            self._event_publisher.publish_sync(
                 "domain_orchestration_completed",
                 project_name=project_name,
                 project_root=str(project_root),
@@ -238,7 +236,7 @@ class DomainAgentOrchestrator:
     # Public: resume from checkpoint (Point 2)
     # ------------------------------------------------------------------
 
-    async def resume(self, project_name: str) -> Optional[Path]:
+    def resume(self, project_name: str) -> Optional[Path]:
         """Resume a paused/interrupted project from its latest DAG checkpoint.
 
         Loads the serialised DAG, skips COMPLETED nodes, and re-enters the
@@ -264,7 +262,7 @@ class DomainAgentOrchestrator:
 
         # Restore Blackboard from snapshot (best-effort)
         for key, value in bb_data.items():
-            await self._blackboard.write(key, value, "checkpoint_restore")
+            self._blackboard.write_sync(key, value, "checkpoint_restore")
 
         self._current_dag = dag
         self._current_project_name = project_name
@@ -280,26 +278,25 @@ class DomainAgentOrchestrator:
         ActiveOrchestrators.register(project_name, self)
         try:
             self._auditor.set_blackboard(self._blackboard)
-            try:
-                self._auditor.set_event_loop(asyncio.get_running_loop())
-            except RuntimeError:
-                pass
 
             while not self._dev_queue.empty():
-                self._dev_queue.get_nowait()
+                try:
+                    self._dev_queue.get_nowait()
+                except Exception:
+                    break
             for dev in self._dev_pool:
                 self._dev_queue.put_nowait(dev)
 
-            await self._event_publisher.publish(
+            self._event_publisher.publish_sync(
                 "domain_orchestration_resumed",
                 project_name=project_name,
                 completed=dag.stats().get("COMPLETED", 0),
                 total=len(dag.all_nodes()),
             )
 
-            await self._execution_loop(dag, pool_size)
+            self._execution_loop(dag, pool_size)
             all_files = self._finalize(project_root, dag)
-            await self._git_finalize(project_root, dag, project_name, all_files)
+            self._git_finalize(project_root, dag, project_name, all_files)
             return project_root
         finally:
             ActiveOrchestrators.deregister(project_name)
@@ -308,7 +305,7 @@ class DomainAgentOrchestrator:
     # Initialisation
     # ------------------------------------------------------------------
 
-    async def _initialize(
+    def _initialize(
         self,
         project_description: str,
         project_name: str,
@@ -318,12 +315,12 @@ class DomainAgentOrchestrator:
         project_root = self._generated_projects_dir / project_name
         project_root.mkdir(parents=True, exist_ok=True)
 
-        await self._blackboard.write("project_description", project_description, "orchestrator")
-        await self._blackboard.write("project_name", project_name, "orchestrator")
-        await self._blackboard.write("readme_content", readme_content, "orchestrator")
-        await self._blackboard.write("generated_files", {}, "orchestrator")
-        await self._blackboard.write("codebase_stable", False, "orchestrator")
-        await self._blackboard.write("project_root", str(project_root), "orchestrator")
+        self._blackboard.write_sync("project_description", project_description, "orchestrator")
+        self._blackboard.write_sync("project_name", project_name, "orchestrator")
+        self._blackboard.write_sync("readme_content", readme_content, "orchestrator")
+        self._blackboard.write_sync("generated_files", {}, "orchestrator")
+        self._blackboard.write_sync("codebase_stable", False, "orchestrator")
+        self._blackboard.write_sync("project_root", str(project_root), "orchestrator")
 
         self._logger.debug(f"[DomainOrchestrator] project_root: {project_root}")
         return project_root
@@ -332,63 +329,48 @@ class DomainAgentOrchestrator:
     # DAG execution loop
     # ------------------------------------------------------------------
 
-    async def _execution_loop(self, dag: TaskDAG, pool_size: int) -> None:
-        """Drive the DAG by continuously dispatching ready tasks.
+    def _execution_loop(self, dag: TaskDAG, pool_size: int) -> None:
+        """Drive the DAG by continuously dispatching ready tasks sequentially.
 
-        Uses a Semaphore to cap concurrency at *pool_size*.
         Loops until every node is COMPLETED or FAILED (or WAITING_FOR_USER
         with no other tasks in flight — which signals a full HITL pause).
         """
-        semaphore = asyncio.Semaphore(pool_size)
-        in_flight: set = set()
+        max_iterations = len(dag.all_nodes()) * 10  # safety guard
+        iteration = 0
 
         while not dag.is_complete():
-            ready = await dag.get_ready_tasks()
+            iteration += 1
+            if iteration > max_iterations:
+                self._logger.warning("[DomainOrchestrator] Execution loop exceeded max iterations — breaking")
+                break
 
-            for node in ready:
-                if node.id in in_flight:
-                    continue
+            ready = dag.get_ready_tasks()
 
-                # P5 — Budget check before dispatching
-                if self._budget_exceeded():
-                    await self._apply_budget_pause(dag)
-                    break
-
-                in_flight.add(node.id)
-                await dag.mark_in_progress(node.id)
-
-                task = asyncio.create_task(self._dispatch_with_semaphore(node, dag, semaphore))
-                task.add_done_callback(lambda t, nid=node.id: in_flight.discard(nid))
-
-            # P1 — Re-queue nodes that have been answered by the user
-            for node in dag.get_waiting_nodes():
-                if node.hitl_answer is not None:
-                    await dag.mark_unblocked(node.id, node.hitl_answer)
-
-            if not ready and not in_flight:
+            if not ready:
                 # No progress possible — check if stuck on WAITING_FOR_USER
                 waiting = dag.get_waiting_nodes()
                 if waiting:
-                    await asyncio.sleep(0.5)  # Poll for user answer
+                    # P1 — Re-queue nodes that have been answered by the user
+                    for node in waiting:
+                        if node.hitl_answer is not None:
+                            dag.mark_unblocked(node.id, node.hitl_answer)
                     continue
-                await asyncio.sleep(0.1)
-            else:
-                await asyncio.sleep(0.05)
+                # No ready and no waiting — check if truly stuck
+                all_in_progress = [n for n in dag.all_nodes() if n.status == TaskStatus.IN_PROGRESS]
+                if not all_in_progress:
+                    break  # Deadlock or all done
+                continue
 
-        # Allow final background audit tasks to complete
-        await asyncio.sleep(0.2)
+            for node in ready:
+                # P5 — Budget check before dispatching
+                if self._budget_exceeded():
+                    self._apply_budget_pause(dag)
+                    break
 
-    async def _dispatch_with_semaphore(
-        self,
-        node: TaskNode,
-        dag: TaskDAG,
-        semaphore: asyncio.Semaphore,
-    ) -> None:
-        """Acquire semaphore slot, dispatch task, release on completion."""
-        async with semaphore:
-            await self._dispatch_task(node, dag)
+                dag.mark_in_progress(node.id)
+                self._dispatch_task(node, dag)
 
-    async def _dispatch_task(self, node: TaskNode, dag: TaskDAG) -> None:
+    def _dispatch_task(self, node: TaskNode, dag: TaskDAG) -> None:
         """Route a task to its domain agent and handle success / failure."""
         project_description: str = self._blackboard.read("project_description", "")
         readme: str = self._blackboard.read("readme_content", "")
@@ -396,7 +378,7 @@ class DomainAgentOrchestrator:
         node_start_time = time.monotonic()
 
         # Notify UI that this task is starting
-        await self._event_publisher.publish(
+        self._event_publisher.publish_sync(
             "task_status_changed",
             task_id=node.id,
             status=TaskStatus.IN_PROGRESS.value,
@@ -413,17 +395,17 @@ class DomainAgentOrchestrator:
             node.task_data["previous_context"] = "\n---\n".join(dep_notes)
 
         try:
-            result = await self._route_to_agent(node)
-            await dag.mark_complete(node.id, result)
+            result = self._route_to_agent(node)
+            dag.mark_complete(node.id, result)
 
             # F5: Persist the agent's context note to Blackboard for downstream tasks
             if isinstance(result, dict) and result.get("context_note"):
-                await self._blackboard.write(f"context_notes/{node.id}", result["context_note"], node.id)
+                self._blackboard.write_sync(f"context_notes/{node.id}", result["context_note"], node.id)
                 node.context_note = result["context_note"]
 
             duration_ms = int((time.monotonic() - node_start_time) * 1000)
 
-            await self._event_publisher.publish(
+            self._event_publisher.publish_sync(
                 "task_status_changed",
                 task_id=node.id,
                 status=TaskStatus.COMPLETED.value,
@@ -435,8 +417,8 @@ class DomainAgentOrchestrator:
             if node.agent_type == AgentType.DEVELOPER:
                 self._check_and_set_stable(dag)
 
-            # P2 — Save checkpoint after each completion (fire-and-forget)
-            asyncio.create_task(self._save_checkpoint(dag))
+            # P2 — Save checkpoint after each completion
+            self._save_checkpoint(dag)
 
             # P10 — Record node metrics
             self._record_node_metrics(node, duration_ms)
@@ -444,8 +426,8 @@ class DomainAgentOrchestrator:
         except HITLPauseException as hitl_exc:
             # P1 — Agent requested human input: pause node, keep DAG running
             self._logger.info(f"[DomainOrchestrator] HITL pause on '{node.id}': {hitl_exc.question}")
-            await dag.mark_waiting(node.id, hitl_exc.question)
-            await self._event_publisher.publish(
+            dag.mark_waiting(node.id, hitl_exc.question)
+            self._event_publisher.publish_sync(
                 "hitl_requested",
                 task_id=node.id,
                 agent_type=node.agent_type.value,
@@ -456,9 +438,9 @@ class DomainAgentOrchestrator:
         except Exception as exc:
             self._logger.error(f"[DomainOrchestrator] Task '{node.id}' failed: {exc}")
             node.error = str(exc)
-            await dag.mark_failed(node.id, str(exc))
+            dag.mark_failed(node.id, str(exc))
 
-            await self._event_publisher.publish(
+            self._event_publisher.publish_sync(
                 "task_status_changed",
                 task_id=node.id,
                 status=TaskStatus.FAILED.value,
@@ -468,7 +450,7 @@ class DomainAgentOrchestrator:
 
             # Self-healing: re-queue remediation
             try:
-                await self._healing_loop.handle_failure(
+                self._healing_loop.handle_failure(
                     failed_node=node,
                     dag=dag,
                     blackboard=self._blackboard,
@@ -479,60 +461,40 @@ class DomainAgentOrchestrator:
             except Exception as heal_exc:
                 self._logger.error(f"[DomainOrchestrator] SelfHealingLoop failed for '{node.id}': {heal_exc}")
 
-    async def _route_to_agent(self, node: TaskNode, timeout: float = 300.0) -> Any:
-        """Dispatch a node to the correct domain agent with a per-task timeout."""
+    def _route_to_agent(self, node: TaskNode, timeout: float = 300.0) -> Any:
+        """Dispatch a node to the correct domain agent."""
         if node.agent_type == AgentType.ARCHITECT:
-            try:
-                return await asyncio.wait_for(self._architect.run(node, self._blackboard), timeout=timeout)
-            except asyncio.TimeoutError:
-                raise RuntimeError(f"ARCHITECT task '{node.id}' timed out after {timeout}s")
+            return self._architect.run(node, self._blackboard)
 
         if node.agent_type == AgentType.DEVELOPER:
-            agent = await self._checkout_developer()
+            agent = self._checkout_developer()
             try:
-                return await asyncio.wait_for(agent.run(node, self._blackboard), timeout=timeout)
-            except asyncio.TimeoutError:
-                raise RuntimeError(f"DEVELOPER task '{node.id}' timed out after {timeout}s")
+                return agent.run(node, self._blackboard)
             finally:
                 self._return_developer(agent)
 
         if node.agent_type == AgentType.DEVOPS:
-            try:
-                return await asyncio.wait_for(self._devops.run(node, self._blackboard), timeout=timeout)
-            except asyncio.TimeoutError:
-                raise RuntimeError(f"DEVOPS task '{node.id}' timed out after {timeout}s")
+            return self._devops.run(node, self._blackboard)
 
         if node.agent_type == AgentType.AUDITOR:
-            try:
-                return await asyncio.wait_for(self._auditor.run(node, self._blackboard), timeout=timeout)
-            except asyncio.TimeoutError:
-                raise RuntimeError(f"AUDITOR task '{node.id}' timed out after {timeout}s")
+            return self._auditor.run(node, self._blackboard)
 
         if node.agent_type == AgentType.DEBATE:
             # P8 — Route through DebateNodeRunner
             if self._debate_runner is None:
                 raise RuntimeError("DEBATE node requires a DebateNodeRunner (not configured)")
-            try:
-                return await asyncio.wait_for(self._debate_runner.run(node, self._blackboard), timeout=timeout)
-            except asyncio.TimeoutError:
-                raise RuntimeError(f"DEBATE task '{node.id}' timed out after {timeout}s")
+            return self._debate_runner.run(node, self._blackboard)
 
         # F4: Granularity sub-roles
         if node.agent_type == AgentType.TACTICAL:
             if self._tactical is None:
                 raise RuntimeError("TACTICAL node requires a TacticalAgent (not configured)")
-            try:
-                return await asyncio.wait_for(self._tactical.run(node, self._blackboard), timeout=timeout)
-            except asyncio.TimeoutError:
-                raise RuntimeError(f"TACTICAL task '{node.id}' timed out after {timeout}s")
+            return self._tactical.run(node, self._blackboard)
 
         if node.agent_type == AgentType.CRITIC:
             if self._critic is None:
                 raise RuntimeError("CRITIC node requires a CriticAgent (not configured)")
-            try:
-                return await asyncio.wait_for(self._critic.run(node, self._blackboard), timeout=timeout)
-            except asyncio.TimeoutError:
-                raise RuntimeError(f"CRITIC task '{node.id}' timed out after {timeout}s")
+            return self._critic.run(node, self._blackboard)
 
         raise ValueError(f"Unknown agent type: {node.agent_type}")
 
@@ -540,9 +502,9 @@ class DomainAgentOrchestrator:
     # Developer queue helpers
     # ------------------------------------------------------------------
 
-    async def _checkout_developer(self) -> DeveloperAgent:
+    def _checkout_developer(self) -> DeveloperAgent:
         """Claim the next available developer agent from the queue."""
-        return await self._dev_queue.get()
+        return self._dev_queue.get()
 
     def _return_developer(self, agent: DeveloperAgent) -> None:
         """Return a developer agent to the available pool."""
@@ -558,7 +520,7 @@ class DomainAgentOrchestrator:
             n.status == TaskStatus.COMPLETED for n in dag.all_nodes() if n.agent_type == AgentType.DEVELOPER
         )
         if all_dev_done and not self._blackboard.read("codebase_stable"):
-            asyncio.create_task(self._blackboard.write("codebase_stable", True, "orchestrator"))
+            self._blackboard.write_sync("codebase_stable", True, "orchestrator")
             self._logger.info("[DomainOrchestrator] All DEVELOPER tasks done — codebase_stable=True")
 
     # ------------------------------------------------------------------
@@ -572,13 +534,13 @@ class DomainAgentOrchestrator:
         total = self._cost_analyzer.get_total_tokens(self._current_project_name)
         return total >= self._budget_limit_tokens
 
-    async def _apply_budget_pause(self, dag: TaskDAG) -> None:
+    def _apply_budget_pause(self, dag: TaskDAG) -> None:
         """Pause all PENDING nodes as WAITING_FOR_USER due to budget limit."""
         question = f"Budget limit of {self._budget_limit_tokens:,} tokens reached. Continue generating?"
         for node in dag.all_nodes():
             if node.status == TaskStatus.PENDING:
-                await dag.mark_waiting(node.id, question)
-        await self._event_publisher.publish(
+                dag.mark_waiting(node.id, question)
+        self._event_publisher.publish_sync(
             "budget_exceeded",
             project_name=self._current_project_name,
             limit=self._budget_limit_tokens,
@@ -620,7 +582,7 @@ class DomainAgentOrchestrator:
     # Git finalization (Point 6)
     # ------------------------------------------------------------------
 
-    async def _git_finalize(
+    def _git_finalize(
         self,
         project_root: Path,
         dag: TaskDAG,
@@ -629,8 +591,7 @@ class DomainAgentOrchestrator:
     ) -> Optional[Any]:
         """Create per-file git commits in topological order, write git_manifest.json.
 
-        Runs blocking git operations via asyncio.to_thread so the event loop
-        is never blocked.  Returns a GitManifest (or None on error).
+        Returns a GitManifest (or None on error).
         """
         if self._git_committer_factory is None:
             return None
@@ -685,13 +646,13 @@ class DomainAgentOrchestrator:
                     )
 
             committer = self._git_committer_factory(project_root)
-            manifest = await asyncio.to_thread(committer.commit_all, ordered_files, project_name)
+            manifest = committer.commit_all(ordered_files, project_name)
 
             manifest_path = project_root / "git_manifest.json"
             manifest_json = json.dumps(manifest.to_dict(), indent=2, ensure_ascii=False)
-            await asyncio.to_thread(manifest_path.write_text, manifest_json, "utf-8")
+            manifest_path.write_text(manifest_json, "utf-8")
 
-            await self._event_publisher.publish(
+            self._event_publisher.publish_sync(
                 "file_committed",
                 project_name=project_name,
                 project_root=str(project_root),
@@ -709,15 +670,14 @@ class DomainAgentOrchestrator:
     # Checkpoint (Point 2)
     # ------------------------------------------------------------------
 
-    async def _save_checkpoint(self, dag: TaskDAG) -> None:
-        """Serialise DAG + Blackboard to disk (called fire-and-forget)."""
+    def _save_checkpoint(self, dag: TaskDAG) -> None:
+        """Serialise DAG + Blackboard to disk."""
         if self._checkpoint_manager is None:
             return
         try:
             dag_dict = dag.to_dict()
             bb_dict = self._blackboard.snapshot_serializable()
-            await asyncio.to_thread(
-                self._checkpoint_manager.save_dag,
+            self._checkpoint_manager.save_dag(
                 self._current_project_name,
                 dag_dict,
                 bb_dict,

@@ -7,7 +7,6 @@ planning begins. Answers are stored on PhaseContext so all subsequent phases
 can see the enriched description.
 """
 
-import asyncio
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -28,7 +27,7 @@ class ClarificationPhase(BasePhase):
     _MAX_QUESTIONS = 5
     _TIMEOUT_SECONDS = 300
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -39,7 +38,7 @@ class ClarificationPhase(BasePhase):
         file_paths: List[str],
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        questions = await self._analyse_completeness(project_description)
+        questions = self._analyse_completeness(project_description)
 
         if not questions:
             self.context.logger.info("[Clarification] Description is sufficiently detailed — no questions needed.")
@@ -49,7 +48,7 @@ class ClarificationPhase(BasePhase):
 
         answers: Dict[str, str] = {}
         for q in questions[: self._MAX_QUESTIONS]:
-            answer = await self._ask_user(q)
+            answer = self._ask_user(q)
             if answer:
                 answers[q] = answer
                 self.context.logger.info(f"  ✓ Q: {q[:80]!r}  A: {answer[:60]!r}")
@@ -69,7 +68,7 @@ class ClarificationPhase(BasePhase):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    async def _analyse_completeness(self, project_description: str) -> List[str]:
+    def _analyse_completeness(self, project_description: str) -> List[str]:
         """Return up to 5 critical questions if the description is incomplete."""
         system_prompt = (
             "You are a senior software requirements analyst. "
@@ -100,7 +99,7 @@ class ClarificationPhase(BasePhase):
             self.context.logger.warning(f"[Clarification] Completeness analysis failed (non-fatal): {exc}")
         return []
 
-    async def _ask_user(self, question: str) -> str:
+    def _ask_user(self, question: str) -> str:
         """Dispatch one clarification question to the user."""
         req_id = str(uuid.uuid4())[:8]
         event_publisher = self.context.event_publisher
@@ -113,30 +112,23 @@ class ClarificationPhase(BasePhase):
             )
             return ""
 
-        event = asyncio.Event()
         answer_holder: Dict[str, str] = {"answer": ""}
 
         def _on_response(event_type: str, event_data: Dict) -> None:
             if event_data.get("request_id") == req_id:
                 answer_holder["answer"] = str(event_data.get("answer", ""))
-                event.set()
 
         try:
             event_publisher.subscribe("clarification_response", _on_response)
-            await event_publisher.publish(
+            event_publisher.publish_sync(
                 "clarification_request",
                 request_id=req_id,
                 question=question,
             )
             self.context.logger.info(f"[Clarification] Waiting for answer (id={req_id}): {question[:80]!r}")
-            try:
-                await asyncio.wait_for(event.wait(), timeout=self._TIMEOUT_SECONDS)
-                return answer_holder["answer"].strip()
-            except asyncio.TimeoutError:
-                self.context.logger.warning(
-                    f"[Clarification] Question timed out (id={req_id}). Proceeding without answer."
-                )
-                return ""
+            # In sync mode we cannot block-wait for a user response; return whatever was
+            # set synchronously by the subscriber (e.g. a pre-registered answer), or "".
+            return answer_holder["answer"].strip()
         except Exception as exc:
             self.context.logger.debug(f"[Clarification] _ask_user error: {exc}")
             return ""

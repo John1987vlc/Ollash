@@ -127,7 +127,7 @@ class TestFrameworkSelection:
 class TestGenerateTests:
     """Test test generation."""
 
-    async def test_generate_python_tests(self, test_generator, mock_llm_client, mock_response_parser):
+    def test_generate_python_tests(self, test_generator, mock_llm_client, mock_response_parser):
         """Test Python test generation."""
         # Setup mock
         mock_llm_client.chat.return_value = (
@@ -136,12 +136,12 @@ class TestGenerateTests:
         )
         mock_response_parser.extract_code.return_value = "def test_func(): pass"
 
-        result = await test_generator.generate_tests("module.py", "def my_func(): return 42", "A simple module")
+        result = test_generator.generate_tests("module.py", "def my_func(): return 42", "A simple module")
 
         assert result is not None
         assert isinstance(result, str)
 
-    async def test_framework_auto_detection(self, test_generator, mock_llm_client):
+    def test_framework_auto_detection(self, test_generator, mock_llm_client):
         """Test automatic framework detection."""
         mock_llm_client.chat.return_value = (
             {"message": {"content": "test content"}},
@@ -149,7 +149,7 @@ class TestGenerateTests:
         )
 
         # Generate for Python file without specifying framework
-        await test_generator.generate_tests(
+        test_generator.generate_tests(
             "test.py",
             "code",
             "readme",
@@ -163,7 +163,7 @@ class TestGenerateTests:
 class TestIntegrationTests:
     """Test integration test generation."""
 
-    async def test_generate_integration_tests(self, test_generator, mock_llm_client):
+    def test_generate_integration_tests(self, test_generator, mock_llm_client):
         """Test integration test generation."""
         mock_llm_client.chat.return_value = (
             {"message": {"content": "integration test code"}},
@@ -172,7 +172,7 @@ class TestIntegrationTests:
 
         services = [{"name": "api", "port": 8000}, {"name": "db", "port": 5432}]
 
-        test_content, docker_compose, _ext = await test_generator.generate_integration_tests(
+        test_content, docker_compose, _ext = test_generator.generate_integration_tests(
             Path("/project"), "A multi-service app", services
         )
 

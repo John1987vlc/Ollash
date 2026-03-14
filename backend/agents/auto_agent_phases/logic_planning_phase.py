@@ -26,7 +26,7 @@ class LogicPlanningPhase(BasePhase):
     phase_id = "2.5"
     phase_label = "Logic Planning"
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -71,7 +71,7 @@ class LogicPlanningPhase(BasePhase):
         # F31: If nano, we might prefer incremental or simplified planning to avoid hangs
         if is_nano:
             self.context.logger.info("  [Nano] Using specialized NanoPlanner for architecture mapping.")
-            system_prompt, user_prompt = await AutoGenPrompts.nano_planner(project_name, project_description)
+            system_prompt, user_prompt = AutoGenPrompts.nano_planner(project_name, project_description)
 
             try:
                 response_data, _ = self.context.llm_manager.get_client("nano_planner").chat(
@@ -143,11 +143,11 @@ class LogicPlanningPhase(BasePhase):
 
             except Exception as e:
                 self.context.logger.warning(f"  [Nano] Specialized planning failed: {e}. Falling back.")
-                logic_plan, backlog = await self._create_deterministic_backlog(
+                logic_plan, backlog = self._create_deterministic_backlog(
                     file_paths, project_description, initial_structure
                 )
         else:
-            system_prompt, user_prompt = await AutoGenPrompts.logic_planning(
+            system_prompt, user_prompt = AutoGenPrompts.logic_planning(
                 project_description,
                 json.dumps(initial_structure, indent=2),
                 planning_files,
@@ -198,7 +198,7 @@ class LogicPlanningPhase(BasePhase):
 
                     # --- New: Planner Supervisor Review ---
                     self.context.logger.info("  [Supervisor] Calling planner_supervisor for architectural audit...")
-                    supervisor_plan, supervisor_backlog = await self._supervise_plan(
+                    supervisor_plan, supervisor_backlog = self._supervise_plan(
                         project_description, initial_structure, logic_plan, backlog
                     )
                     if supervisor_plan and supervisor_backlog:
@@ -217,7 +217,7 @@ class LogicPlanningPhase(BasePhase):
                             "  ✖ Logic planning failed after max retries. Using legacy categorization fallback."
                         )
                         # Legacy fallback logic
-                        logic_plan, backlog = await self._legacy_planning_fallback(
+                        logic_plan, backlog = self._legacy_planning_fallback(
                             file_paths, project_description, readme_content, initial_structure
                         )
 
@@ -277,7 +277,7 @@ class LogicPlanningPhase(BasePhase):
         self.context.backlog = backlog
 
         # Publish event for UI Kanban initialization
-        await self.context.event_publisher.publish("agent_board_update", action="init_backlog", tasks=backlog)
+        self.context.event_publisher.publish_sync("agent_board_update", action="init_backlog", tasks=backlog)
 
         self.context.logger.info(
             f"[PROJECT_NAME:{project_name}] PHASE 2.5: Logic plan and Backlog ({len(backlog)} tasks) created."
@@ -285,7 +285,7 @@ class LogicPlanningPhase(BasePhase):
 
         return generated_files, initial_structure, file_paths
 
-    async def _create_deterministic_backlog(
+    def _create_deterministic_backlog(
         self, file_paths: List[str], project_description: str, initial_structure: Dict
     ) -> Tuple[Dict[str, Any], List[Dict]]:
         """Creates a 100% deterministic backlog by mapping every file path to a task."""
@@ -329,7 +329,7 @@ class LogicPlanningPhase(BasePhase):
 
         return logic_plan, backlog
 
-    async def _supervise_plan(
+    def _supervise_plan(
         self,
         project_description: str,
         initial_structure: Dict,
@@ -421,7 +421,7 @@ class LogicPlanningPhase(BasePhase):
             pass
         self.context.logger.info(f"  [Fix1] Module system decided: {module_system.upper()}")
 
-    async def _legacy_planning_fallback(self, file_paths, project_description, readme_content, initial_structure):
+    def _legacy_planning_fallback(self, file_paths, project_description, readme_content, initial_structure):
         """Original categorized planning logic as a safe fallback."""
         logic_plan = {}
 
@@ -438,7 +438,7 @@ class LogicPlanningPhase(BasePhase):
         for category, files in files_by_category.items():
             _max_files = 15
             files_to_plan = files[:_max_files]
-            category_plan = await self._plan_category(
+            category_plan = self._plan_category(
                 category,
                 files_to_plan,
                 project_description,
@@ -452,13 +452,13 @@ class LogicPlanningPhase(BasePhase):
 
         # Incremental backlog fallback
         if self.context._opt_enabled("opt4_incremental_backlog"):
-            backlog = await self._generate_backlog_incrementally(project_description, readme_content, initial_structure)
+            backlog = self._generate_backlog_incrementally(project_description, readme_content, initial_structure)
         else:
-            backlog = await self._generate_backlog(project_description, readme_content, initial_structure)
+            backlog = self._generate_backlog(project_description, readme_content, initial_structure)
 
         return logic_plan, backlog
 
-    async def _generate_backlog_incrementally(
+    def _generate_backlog_incrementally(
         self,
         project_description: str,
         readme_content: str,
@@ -475,7 +475,7 @@ class LogicPlanningPhase(BasePhase):
         self.context.logger.info(f"  [Opt4] Generating backlog incrementally (limit: {max_tasks})...")
 
         while len(backlog) < max_tasks:
-            system_prompt, user_prompt = await AutoGenPrompts.next_backlog_task(
+            system_prompt, user_prompt = AutoGenPrompts.next_backlog_task(
                 project_description=project_description,
                 initial_structure=structure_str,
                 backlog_so_far=backlog,
@@ -530,17 +530,15 @@ class LogicPlanningPhase(BasePhase):
                 break
 
         if not backlog:
-            return await self._generate_backlog(project_description, readme_content, initial_structure)
+            return self._generate_backlog(project_description, readme_content, initial_structure)
 
         return backlog
 
-    async def _generate_backlog(
-        self, project_description: str, readme_content: str, initial_structure: Dict
-    ) -> List[Dict]:
+    def _generate_backlog(self, project_description: str, readme_content: str, initial_structure: Dict) -> List[Dict]:
         """Generates a list of micro-tasks from project context with retries and robust parsing."""
         from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
-        system_prompt, user_prompt = await AutoGenPrompts.agile_backlog_planning(
+        system_prompt, user_prompt = AutoGenPrompts.agile_backlog_planning(
             project_description=project_description,
             initial_structure=json.dumps(initial_structure, indent=2),
             readme_content=readme_content[:2000],
@@ -649,13 +647,13 @@ class LogicPlanningPhase(BasePhase):
                 categories["other"].append(file_path)
         return {k: v for k, v in categories.items() if v}
 
-    async def _plan_category(
+    def _plan_category(
         self, category, files, project_description, readme_content, initial_structure, already_planned_contracts
     ):
         """Legacy categorized planning."""
         from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
-        system_prompt, user_prompt = await AutoGenPrompts.architecture_planning_detailed(
+        system_prompt, user_prompt = AutoGenPrompts.architecture_planning_detailed(
             category=category,
             files_list="\n".join(f"- {f}" for f in files),
             project_description=project_description,

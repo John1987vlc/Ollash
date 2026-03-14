@@ -1,20 +1,21 @@
-import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 from pathlib import Path
 from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
 
 
-@pytest.mark.asyncio
-async def test_execution_loop_with_retries():
+def test_execution_loop_with_retries():
     # 1. Setup Mocks
     mock_context = MagicMock()
     mock_context.logger = MagicMock()
     mock_context.event_publisher = MagicMock()
-    mock_context.event_publisher.publish = AsyncMock()
+    mock_context.event_publisher.publish_sync = MagicMock()
     mock_context.file_manager = MagicMock()
     mock_context.llm_manager = MagicMock()
     mock_context.select_related_files.return_value = {}
     mock_context.project_type_info = None
+    mock_context._is_small_model.return_value = False
+    mock_context._opt_enabled.return_value = False
+    mock_context.config = {"critic_loop": {"enabled": False}}
 
     # Mock Validator
     mock_validator = MagicMock()
@@ -26,9 +27,9 @@ async def test_execution_loop_with_retries():
 
     # 2. Mock LLM Response (Fail twice, then succeed)
     mock_client = MagicMock()
-    # Response 1: Missing XML
-    # Response 2: Missing XML
-    # Response 3: Good XML
+    # Response 1: Empty
+    # Response 2: Empty
+    # Response 3: Valid code block
     mock_client.chat.side_effect = [
         ({"content": ""}, {}),  # Empty → triggers retry
         ({"content": ""}, {}),  # Empty → triggers retry
@@ -48,7 +49,7 @@ async def test_execution_loop_with_retries():
     phase._validate_file_content = MagicMock(return_value=True)
     generated_files = {}
 
-    generated_files, _, _ = await phase.execute(
+    generated_files, _, _ = phase.execute(
         project_description="Test",
         project_name="TestProj",
         project_root=Path("/tmp"),
@@ -59,12 +60,11 @@ async def test_execution_loop_with_retries():
     )
 
     # 4. Assertions
-    print(f"DEBUG: generated_files keys: {generated_files.keys()}")
     assert "test.py" in generated_files
     assert generated_files["test.py"] == "print('hello')"
     assert mock_context.file_manager.write_file.called
     # Check if move_task to 'done' was published
-    mock_context.event_publisher.publish.assert_any_call(
+    mock_context.event_publisher.publish_sync.assert_any_call(
         "agent_board_update", action="move_task", task_id="T1", new_status="done"
     )
     # Chat should have been called three times due to retries

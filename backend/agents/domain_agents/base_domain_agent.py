@@ -66,7 +66,7 @@ class BaseDomainAgent(ABC):
     # ------------------------------------------------------------------
 
     @abstractmethod
-    async def run(
+    def run(
         self,
         node: "TaskNode",
         blackboard: "Blackboard",
@@ -105,9 +105,9 @@ class BaseDomainAgent(ABC):
     # Event helpers
     # ------------------------------------------------------------------
 
-    async def _publish_event(self, event_type: str, **kwargs: Any) -> None:
+    def _publish_event(self, event_type: str, **kwargs: Any) -> None:
         """Publish an event with this agent's id attached."""
-        await self._event_publisher.publish(event_type, agent_id=self.agent_id, **kwargs)
+        self._event_publisher.publish_sync(event_type, agent_id=self.agent_id, **kwargs)
 
     def _log_info(self, msg: str) -> None:
         self._logger.info(f"[{self.agent_id}] {msg}")

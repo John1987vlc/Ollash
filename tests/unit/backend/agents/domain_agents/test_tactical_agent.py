@@ -1,7 +1,7 @@
 """Unit tests for F4 — TacticalAgent."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 from backend.agents.domain_agents.tactical_agent import TacticalAgent
 from backend.agents.orchestrators.task_dag import AgentType, TaskNode
@@ -23,7 +23,9 @@ def mock_validator():
 
 @pytest.fixture
 def mock_event_publisher():
-    return MagicMock()
+    ep = MagicMock()
+    ep.publish_sync = MagicMock()
+    return ep
 
 
 @pytest.fixture
@@ -52,20 +54,18 @@ def agent(mock_patcher, mock_validator, mock_event_publisher, mock_logger, mock_
 def blackboard():
     bb = MagicMock()
     bb.read = MagicMock(return_value="def target():\n    pass\n")
-    bb.write = AsyncMock()
+    bb.write_sync = MagicMock()
     return bb
 
 
 @pytest.mark.unit
 class TestTacticalAgentRun:
-    @pytest.mark.asyncio
-    async def test_raises_if_missing_task_data(self, agent, blackboard):
+    def test_raises_if_missing_task_data(self, agent, blackboard):
         node = TaskNode(id="t", agent_type=AgentType.TACTICAL)
         with pytest.raises(ValueError, match="file_path"):
-            await agent.run(node, blackboard)
+            agent.run(node, blackboard)
 
-    @pytest.mark.asyncio
-    async def test_raises_if_no_content_on_blackboard(self, agent, blackboard):
+    def test_raises_if_no_content_on_blackboard(self, agent, blackboard):
         blackboard.read.return_value = ""
         node = TaskNode(
             id="t",
@@ -73,21 +73,19 @@ class TestTacticalAgentRun:
             task_data={"file_path": "f.py", "function_name": "target"},
         )
         with pytest.raises(RuntimeError, match="no content"):
-            await agent.run(node, blackboard)
+            agent.run(node, blackboard)
 
-    @pytest.mark.asyncio
-    async def test_skips_when_function_not_found(self, agent, blackboard):
+    def test_skips_when_function_not_found(self, agent, blackboard):
         blackboard.read.return_value = "def other(): pass\n"
         node = TaskNode(
             id="t",
             agent_type=AgentType.TACTICAL,
             task_data={"file_path": "f.py", "function_name": "missing_func"},
         )
-        result = await agent.run(node, blackboard)
+        result = agent.run(node, blackboard)
         assert "Skipped" in result["context_note"]
 
-    @pytest.mark.asyncio
-    async def test_patch_failure_returns_original(self, agent, blackboard, mock_patcher):
+    def test_patch_failure_returns_original(self, agent, blackboard, mock_patcher):
         blackboard.read.return_value = "def target():\n    pass\n"
         mock_patcher.apply_search_replace.return_value = ("", ["def target():\n    pass\n"])
         node = TaskNode(
@@ -96,7 +94,7 @@ class TestTacticalAgentRun:
             task_data={"file_path": "f.py", "function_name": "target"},
         )
         # No LLM client → _generate_implementation returns ""
-        result = await agent.run(node, blackboard)
+        result = agent.run(node, blackboard)
         # No improvement generated → early return
         assert "context_note" in result
 

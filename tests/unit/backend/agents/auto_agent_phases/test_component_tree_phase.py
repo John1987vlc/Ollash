@@ -44,22 +44,20 @@ class TestComponentTreePhase:
         ctx.response_parser.extract_json.side_effect = json.loads
         return ctx
 
-    @pytest.mark.asyncio
-    async def test_generates_for_react_project(self, tmp_path):
+    def test_generates_for_react_project(self, tmp_path):
         ctx = self._make_context(framework="react")
         phase = ComponentTreePhase(ctx)
-        gf, _, fps = await phase.run("React SPA", "myapp", tmp_path, "", {}, {}, ["src/App.tsx", "src/Header.tsx"])
+        gf, _, fps = phase.run("React SPA", "myapp", tmp_path, "", {}, {}, ["src/App.tsx", "src/Header.tsx"])
         assert "component_tree.md" in gf
         assert "Component Tree" in gf["component_tree.md"]
         assert ctx.component_tree is not None
 
-    @pytest.mark.asyncio
-    async def test_skips_non_frontend_project(self, tmp_path):
+    def test_skips_non_frontend_project(self, tmp_path):
         ctx = self._make_context(framework="django")
         # Override project type to backend
         ctx.project_type_info.project_type = "backend"
         phase = ComponentTreePhase(ctx)
-        gf, _, _ = await phase.run("Django API", "api", tmp_path, "", {}, {}, [])
+        gf, _, _ = phase.run("Django API", "api", tmp_path, "", {}, {}, [])
         assert "component_tree.md" not in gf
         assert ctx.component_tree is None
 
@@ -76,11 +74,10 @@ class TestComponentTreePhase:
         assert "Context" in md
         assert "user" in md
 
-    @pytest.mark.asyncio
-    async def test_llm_failure_returns_unchanged(self, tmp_path):
+    def test_llm_failure_returns_unchanged(self, tmp_path):
         ctx = self._make_context(framework="react")
         ctx.llm_manager.get_client.return_value.chat.side_effect = RuntimeError("LLM down")
         ctx.response_parser.extract_json.side_effect = RuntimeError("parse failed")
         phase = ComponentTreePhase(ctx)
-        gf, _, _ = await phase.run("React app", "app", tmp_path, "", {}, {}, ["src/App.tsx"])
+        gf, _, _ = phase.run("React app", "app", tmp_path, "", {}, {}, ["src/App.tsx"])
         assert "component_tree.md" not in gf

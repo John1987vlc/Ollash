@@ -20,25 +20,22 @@ class TestTaskDAGHITL:
         )
         return dag
 
-    @pytest.mark.asyncio
-    async def test_mark_waiting_sets_status_and_question(self):
+    def test_mark_waiting_sets_status_and_question(self):
         dag = self._make_dag()
-        await dag.mark_waiting("node_a", "Should I overwrite existing file?")
+        dag.mark_waiting("node_a", "Should I overwrite existing file?")
         node = dag.get_node("node_a")
         assert node.status == TaskStatus.WAITING_FOR_USER
         assert node.hitl_question == "Should I overwrite existing file?"
 
-    @pytest.mark.asyncio
-    async def test_mark_unblocked_resets_to_pending(self):
+    def test_mark_unblocked_resets_to_pending(self):
         dag = self._make_dag()
-        await dag.mark_waiting("node_a", "Question?")
-        await dag.mark_unblocked("node_a", "yes, proceed")
+        dag.mark_waiting("node_a", "Question?")
+        dag.mark_unblocked("node_a", "yes, proceed")
         node = dag.get_node("node_a")
         assert node.status == TaskStatus.PENDING
         assert node.hitl_answer == "yes, proceed"
 
-    @pytest.mark.asyncio
-    async def test_get_waiting_nodes_returns_only_waiting(self):
+    def test_get_waiting_nodes_returns_only_waiting(self):
         dag = self._make_dag()
         dag.add_task(
             TaskNode(
@@ -47,25 +44,23 @@ class TestTaskDAGHITL:
                 task_data={"file_path": "bar.py"},
             )
         )
-        await dag.mark_waiting("node_a", "Question?")
+        dag.mark_waiting("node_a", "Question?")
         waiting = dag.get_waiting_nodes()
         ids = [n.id for n in waiting]
         assert "node_a" in ids
         assert "node_b" not in ids
 
-    @pytest.mark.asyncio
-    async def test_is_complete_ignores_waiting_nodes(self):
+    def test_is_complete_ignores_waiting_nodes(self):
         dag = self._make_dag()
-        await dag.mark_waiting("node_a", "Question?")
+        dag.mark_waiting("node_a", "Question?")
         # DAG should NOT be complete — WAITING_FOR_USER is not terminal
         assert not dag.is_complete()
 
-    @pytest.mark.asyncio
-    async def test_mark_waiting_unknown_node_no_error(self):
+    def test_mark_waiting_unknown_node_no_error(self):
         """Marking an unknown node should not raise."""
         dag = self._make_dag()
         # Should not raise; just silently no-op
-        await dag.mark_waiting("does_not_exist", "?")
+        dag.mark_waiting("does_not_exist", "?")
 
 
 @pytest.mark.unit

@@ -14,7 +14,7 @@ class VerificationPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -27,11 +27,9 @@ class VerificationPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5.5: Verification loop...")
-        await self.context.event_publisher.publish("phase_start", phase="5.5", message="Starting verification loop")
+        self.context.event_publisher.publish_sync("phase_start", phase="5.5", message="Starting verification loop")
 
-        generated_files = await self.context.file_completeness_checker.verify_and_fix(
-            generated_files, readme_content[:1000]
-        )
+        generated_files = self.context.file_completeness_checker.verify_and_fix(generated_files, readme_content[:1000])
 
         for rel_path, content in generated_files.items():
             if content:
@@ -40,7 +38,7 @@ class VerificationPhase(IAgentPhase):
         # Fix 2: DOM contract consistency check (warning only — non-blocking)
         self._check_dom_id_consistency(generated_files)
 
-        await self.context.event_publisher.publish("phase_complete", phase="5.5", message="Verification loop complete")
+        self.context.event_publisher.publish_sync("phase_complete", phase="5.5", message="Verification loop complete")
         self.context.logger.info("PHASE 5.5 complete.")
 
         return generated_files, initial_structure, file_paths

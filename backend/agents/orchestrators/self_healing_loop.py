@@ -69,7 +69,7 @@ class SelfHealingLoop:
     # Primary entry point
     # ------------------------------------------------------------------
 
-    async def handle_failure(
+    def handle_failure(
         self,
         failed_node: "TaskNode",
         dag: "TaskDAG",
@@ -101,7 +101,7 @@ class SelfHealingLoop:
                 f"[SelfHealingLoop] Task '{node_id}' exhausted max retries "
                 f"({self.max_retries}). Marking as permanently failed."
             )
-            await self._event_publisher.publish(
+            self._event_publisher.publish_sync(
                 "task_permanently_failed",
                 task_id=node_id,
                 retry_count=failed_node.retry_count,
@@ -140,7 +140,7 @@ class SelfHealingLoop:
             self._logger.info(f"[SelfHealingLoop] Injecting sandbox errors for '{failed_node.id}'")
         plan: Dict[str, Any] = {}
         try:
-            plan = await self._cp.generate_contingency_plan(
+            plan = self._cp.generate_contingency_plan(
                 issues=issues,
                 project_description=project_description,
                 readme=readme_content,
@@ -169,7 +169,7 @@ class SelfHealingLoop:
             dag.add_task(remediation_node)
 
         # 6. Publish event
-        await self._event_publisher.publish(
+        self._event_publisher.publish_sync(
             "task_remediation_queued",
             original_task_id=node_id,
             remediation_task_id=remediation_node.id,
@@ -185,7 +185,7 @@ class SelfHealingLoop:
             plan=plan,
         )
 
-    async def handle_validation_failure(
+    def handle_validation_failure(
         self,
         file_path: str,
         content: str,
@@ -236,7 +236,7 @@ class SelfHealingLoop:
         except ValueError:
             pass  # Already queued
 
-        await self._event_publisher.publish(
+        self._event_publisher.publish_sync(
             "task_remediation_queued",
             original_task_id=file_path,
             remediation_task_id=remediation_id,

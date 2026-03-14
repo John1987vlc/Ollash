@@ -14,7 +14,7 @@ class DependencyReconciliationPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -27,7 +27,7 @@ class DependencyReconciliationPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 5.6: Reconciling dependency files with actual imports...")
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_start", phase="5.6", message="Starting dependency reconciliation"
         )
 
@@ -69,7 +69,7 @@ class DependencyReconciliationPhase(IAgentPhase):
             except Exception as e:
                 self.context.logger.info(f"[Opt5] Could not record dependency patterns: {e}")
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_complete", phase="5.6", message="Dependency reconciliation complete"
         )
         self.context.logger.info("PHASE 5.6 complete.")

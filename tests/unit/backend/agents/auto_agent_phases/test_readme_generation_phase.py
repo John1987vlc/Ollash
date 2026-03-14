@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from backend.agents.auto_agent_phases.readme_generation_phase import ReadmeGenerationPhase
 
 
@@ -8,12 +8,12 @@ def mock_context():
     ctx = MagicMock()
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
-    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.publish_sync = MagicMock()
     ctx.event_publisher.subscribe = MagicMock()
     ctx.event_publisher.unsubscribe = MagicMock()
     ctx.project_planner = MagicMock()
-    # generate_readme is called with await, so it must be an AsyncMock
-    ctx.project_planner.generate_readme = AsyncMock(return_value="# My Project\nDescription")
+    # generate_readme is called synchronously
+    ctx.project_planner.generate_readme = MagicMock(return_value="# My Project\nDescription")
     ctx.file_manager = MagicMock()
     ctx._is_small_model = MagicMock(return_value=False)
     # LLM mock for Mermaid generation — return content without ```mermaid so README is unchanged
@@ -31,14 +31,13 @@ def mock_context():
 class TestReadmeGenerationPhase:
     """Test suite for Phase 1: README Generation."""
 
-    @pytest.mark.asyncio
-    async def test_execute_success(self, mock_context, tmp_path):
+    def test_execute_success(self, mock_context, tmp_path):
         phase = ReadmeGenerationPhase(mock_context)
 
         generated_files = {}
         initial_structure = {}
 
-        result_files, result_struct, file_paths = await phase.execute(
+        result_files, result_struct, file_paths = phase.execute(
             project_description="A test project",
             project_name="test_proj",
             project_root=tmp_path,
@@ -52,4 +51,4 @@ class TestReadmeGenerationPhase:
         assert file_paths == ["README.md"]
 
         mock_context.project_planner.generate_readme.assert_called_once()
-        mock_context.event_publisher.publish.assert_called()
+        mock_context.event_publisher.publish_sync.assert_called()

@@ -8,7 +8,6 @@ assigned to a specific domain agent type.
 
 from __future__ import annotations
 
-import asyncio
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
@@ -129,8 +128,8 @@ class TaskDAG:
     """
     Directed Acyclic Graph of TaskNodes for concurrent domain agent execution.
 
-    Thread/coroutine safety: all mutations are guarded by an asyncio.Lock so
-    that multiple coroutines can call mark_complete / mark_failed / get_ready_tasks
+    Thread/coroutine safety: all mutations are guarded by an threading.Lock so
+    that multiple callers can call mark_complete / mark_failed / get_ready_tasks
     concurrently without data races.
 
     Typical usage::
@@ -140,13 +139,15 @@ class TaskDAG:
         dag.add_task(TaskNode(id="main.py",  agent_type=AgentType.DEVELOPER,
                               dependencies=["utils.py"]))
         while not dag.is_complete():
-            for node in await dag.get_ready_tasks():
-                asyncio.create_task(agent.run(node, ...))
+            for node in dag.get_ready_tasks():
+                agent.run(node, ...)
     """
 
     def __init__(self) -> None:
         self._nodes: Dict[str, TaskNode] = {}
-        self._lock = asyncio.Lock()
+        import threading
+
+        self._lock = threading.Lock()
 
     # ------------------------------------------------------------------
     # Mutation (not lock-guarded — call from single-threaded setup)
@@ -180,14 +181,14 @@ class TaskDAG:
     def has_failures(self) -> bool:
         return any(n.status == TaskStatus.FAILED for n in self._nodes.values())
 
-    async def get_ready_tasks(self) -> List[TaskNode]:
+    def get_ready_tasks(self) -> List[TaskNode]:
         """Return PENDING nodes whose every dependency is COMPLETED.
 
-        Atomically marks returned nodes as READY under the asyncio.Lock so
+        Atomically marks returned nodes as READY under the threading.Lock so
         that concurrent callers cannot double-schedule the same node.
         """
         ready: List[TaskNode] = []
-        async with self._lock:
+        with self._lock:
             for node in self._nodes.values():
                 if node.status != TaskStatus.PENDING:
                     continue
@@ -200,48 +201,48 @@ class TaskDAG:
         return ready
 
     # ------------------------------------------------------------------
-    # Async state transitions
+    # State transitions
     # ------------------------------------------------------------------
 
-    async def mark_in_progress(self, task_id: str) -> None:
-        async with self._lock:
+    def mark_in_progress(self, task_id: str) -> None:
+        with self._lock:
             node = self._nodes.get(task_id)
             if node is not None:
                 node.status = TaskStatus.IN_PROGRESS
 
-    async def mark_complete(self, task_id: str, result: Any = None) -> None:
+    def mark_complete(self, task_id: str, result: Any = None) -> None:
         """Mark a task as COMPLETED and store its result."""
-        async with self._lock:
+        with self._lock:
             node = self._nodes.get(task_id)
             if node is not None:
                 node.status = TaskStatus.COMPLETED
                 node.result = result
 
-    async def mark_failed(self, task_id: str, error: str) -> None:
+    def mark_failed(self, task_id: str, error: str) -> None:
         """Mark a task as FAILED and store the error message."""
-        async with self._lock:
+        with self._lock:
             node = self._nodes.get(task_id)
             if node is not None:
                 node.status = TaskStatus.FAILED
                 node.error = error
 
-    async def mark_waiting(self, task_id: str, question: str) -> None:
+    def mark_waiting(self, task_id: str, question: str) -> None:
         """Pause a task awaiting human input.
 
         The DAG loop will skip this node until ``mark_unblocked`` is called
         with the user's answer, at which point the node returns to PENDING
         and re-enters the normal execution queue.
         """
-        async with self._lock:
+        with self._lock:
             node = self._nodes.get(task_id)
             if node is not None:
                 node.status = TaskStatus.WAITING_FOR_USER
                 node.hitl_question = question
                 node.hitl_answer = None
 
-    async def mark_unblocked(self, task_id: str, answer: str) -> None:
+    def mark_unblocked(self, task_id: str, answer: str) -> None:
         """Receive a user answer and re-queue the node as PENDING."""
-        async with self._lock:
+        with self._lock:
             node = self._nodes.get(task_id)
             if node is not None and node.status == TaskStatus.WAITING_FOR_USER:
                 node.hitl_answer = answer

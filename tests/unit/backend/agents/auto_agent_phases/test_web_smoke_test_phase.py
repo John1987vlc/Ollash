@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 from typing import Dict
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,9 +19,9 @@ def context():
     ctx = MagicMock()
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
-    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.publish_sync = MagicMock()
     ctx.file_refiner = MagicMock()
-    ctx.file_refiner.refine_file = AsyncMock(return_value="")
+    ctx.file_refiner.refine_file = MagicMock(return_value="")
     ctx.file_manager = MagicMock()
     return ctx
 
@@ -45,15 +45,14 @@ def html_files() -> Dict[str, str]:
 class TestWebSmokeTestPhaseSkipGuards:
     """Phase skips when conditions are not met."""
 
-    @pytest.mark.asyncio
-    async def test_skips_when_playwright_not_installed(self, phase, project_root):
+    def test_skips_when_playwright_not_installed(self, phase, project_root):
         """Phase skips gracefully when playwright is not available."""
         with (
             patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value=None),
             patch("backend.agents.auto_agent_phases.web_smoke_test_phase._playwright_importable", return_value=False),
         ):
             files = {"app.py": "print('hello')"}
-            result_files, _, _ = await phase.run(
+            result_files, _, _ = phase.run(
                 project_description="test",
                 project_name="test",
                 project_root=project_root,
@@ -65,15 +64,14 @@ class TestWebSmokeTestPhaseSkipGuards:
         assert result_files == files
         phase.context.logger.info.assert_called()
 
-    @pytest.mark.asyncio
-    async def test_skips_for_non_web_project(self, phase, project_root):
+    def test_skips_for_non_web_project(self, phase, project_root):
         """Phase skips when no HTML files are present."""
         with (
             patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value="playwright"),
             patch("backend.agents.auto_agent_phases.web_smoke_test_phase._playwright_importable", return_value=True),
         ):
             files = {"app.py": "def main(): pass"}
-            result_files, _, _ = await phase.run(
+            result_files, _, _ = phase.run(
                 project_description="test",
                 project_name="test",
                 project_root=project_root,
@@ -89,8 +87,7 @@ class TestWebSmokeTestPhaseSkipGuards:
 class TestWebSmokeTestPhasePassScenario:
     """Phase passes when browser reports no errors and finds visible elements."""
 
-    @pytest.mark.asyncio
-    async def test_smoke_pass_no_repair(self, phase, project_root, html_files):
+    def test_smoke_pass_no_repair(self, phase, project_root, html_files):
         """Smoke test passes → repair is NOT triggered."""
         playwright_result = json.dumps({"errors": [], "visible_elements": 3})
 
@@ -107,7 +104,7 @@ class TestWebSmokeTestPhasePassScenario:
             mock_run.return_value.stdout = playwright_result
             mock_run.return_value.returncode = 0
 
-            result_files, _, _ = await phase.run(
+            result_files, _, _ = phase.run(
                 project_description="poker game",
                 project_name="poker",
                 project_root=project_root,
@@ -127,8 +124,7 @@ class TestWebSmokeTestPhasePassScenario:
 class TestWebSmokeTestPhaseRepairScenario:
     """Phase triggers repair when browser reports console errors."""
 
-    @pytest.mark.asyncio
-    async def test_smoke_fail_triggers_repair(self, phase, project_root):
+    def test_smoke_fail_triggers_repair(self, phase, project_root):
         """Smoke test fails → refine_file called for the referenced JS file."""
         js_content = "document.getElementById('wrong-id');"
         files = {
@@ -142,7 +138,7 @@ class TestWebSmokeTestPhaseRepairScenario:
             }
         )
         repaired = "document.getElementById('game');"
-        phase.context.file_refiner.refine_file = AsyncMock(return_value=repaired)
+        phase.context.file_refiner.refine_file = MagicMock(return_value=repaired)
 
         with (
             patch("backend.agents.auto_agent_phases.web_smoke_test_phase.shutil.which", return_value="playwright"),
@@ -156,7 +152,7 @@ class TestWebSmokeTestPhaseRepairScenario:
             mock_run.return_value.stdout = playwright_result
             mock_run.return_value.returncode = 0
 
-            result_files, _, _ = await phase.run(
+            result_files, _, _ = phase.run(
                 project_description="poker",
                 project_name="poker",
                 project_root=project_root,

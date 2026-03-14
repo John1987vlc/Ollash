@@ -89,8 +89,9 @@ class TestDefaultAgent:
         assert default_agent.active_agent_type == "orchestrator"
         assert "disciplined coding agent" in default_agent.system_prompt
 
-    @pytest.mark.asyncio
-    async def test_chat_simple_response(self, default_agent):
+    def test_chat_simple_response(self, default_agent):
+        import asyncio
+
         default_agent._preprocess_instruction = AsyncMock(return_value=("refined", "en"))
         default_agent._classify_intent = AsyncMock(return_value="coding")
         default_agent.language_manager = MagicMock()
@@ -108,13 +109,14 @@ class TestDefaultAgent:
         )
         default_agent._select_model_for_intent = MagicMock(return_value=mock_client)
 
-        result = await default_agent.chat("hello")
+        result = asyncio.run(default_agent.chat("hello"))
 
         assert isinstance(result, dict)
         assert "Final answer" in result.get("text", "")
 
-    @pytest.mark.asyncio
-    async def test_chat_tool_call_loop(self, default_agent):
+    def test_chat_tool_call_loop(self, default_agent):
+        import asyncio
+
         default_agent._preprocess_instruction = AsyncMock(return_value=("refined", "en"))
         default_agent._classify_intent = AsyncMock(return_value="coding")
         default_agent.language_manager = MagicMock()
@@ -139,7 +141,7 @@ class TestDefaultAgent:
         )
         default_agent._select_model_for_intent = MagicMock(return_value=mock_client)
 
-        result = await default_agent.chat("do tool")
+        result = asyncio.run(default_agent.chat("do tool"))
 
         assert isinstance(result, dict)
         assert "Task done" in result.get("text", "")

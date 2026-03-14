@@ -22,7 +22,6 @@ from fastapi import (
     APIRouter,
     BackgroundTasks,
     File,
-    Form,
     HTTPException,
     Request,
     UploadFile,
@@ -72,19 +71,44 @@ def _validate_image_magic(data: bytes) -> bool:
 # ---------------------------------------------------------------------------
 
 
+class ProjectCreateRequest(BaseModel):
+    project_name: str
+    project_description: str
+    git_push: bool = False
+    git_token: str = ""
+    maintenance_enabled: bool = False
+    use_rag: bool = False
+    target_language: str = ""
+    preferred_stack: str = ""
+    resume_from_phase: Optional[int] = None
+    # Extended fields from the wizard
+    template_name: Optional[str] = None
+    python_version: Optional[str] = None
+    license_type: Optional[str] = None
+    include_docker: bool = False
+    include_terraform: bool = False
+    num_refine_loops: int = 1
+    git_auto_create: bool = False
+    git_repo_url: str = ""
+    maintenance_interval: Optional[int] = None
+    pool_size: Optional[int] = None
+    timeout: Optional[int] = None
+    parallel_generation_enabled: bool = False
+    security_scanning_enabled: bool = False
+    block_security_critical: bool = False
+    checkpoint_enabled: bool = False
+    cost_tracking_enabled: bool = False
+    senior_review_as_pr: bool = False
+    enable_github_wiki: bool = False
+    enable_github_pages: bool = False
+    feature_flags: Dict[str, bool] = {}
+
+
 @router.post("/api/projects/create")
 async def create_project(
     request: Request,
     background_tasks: BackgroundTasks,
-    project_description: str = Form(...),
-    project_name: str = Form(...),
-    git_push: bool = Form(False),
-    git_token: str = Form(""),
-    maintenance_enabled: bool = Form(False),
-    use_rag: bool = Form(False),
-    target_language: str = Form(""),
-    preferred_stack: str = Form(""),
-    resume_from_phase: Optional[int] = Form(None),
+    body: ProjectCreateRequest,
 ):
     """
     Start the 22-phase AutoAgent pipeline as a background task.
@@ -93,19 +117,20 @@ async def create_project(
     event_publisher = request.app.state.event_publisher
     chat_event_bridge = request.app.state.chat_event_bridge
 
+    # Extract fields from body for easier access or pass as dict
+    params = body.model_dump()
+    project_description = params.pop("project_description")
+    project_name = params.pop("project_name")
+
     async def _run_agent():
         try:
             agent = main_container.auto_agent_module.auto_agent()
             agent.event_publisher = event_publisher
-            agent.run(
-                project_description=project_description,
-                project_name=project_name,
-                git_push=git_push,
-                git_token=git_token,
-                use_rag=use_rag,
-                target_language=target_language,
-                preferred_stack=preferred_stack,
-                resume_from_phase=resume_from_phase,
+            await asyncio.to_thread(
+                agent.run,
+                project_description,
+                project_name,
+                **params,
             )
             chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' generated."})
         except Exception as exc:

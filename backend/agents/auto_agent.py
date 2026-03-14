@@ -2,8 +2,8 @@
 AutoAgent Refactored with Dependency Injection
 """
 
-import asyncio
 import datetime
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -103,7 +103,7 @@ class RescuePhase:
     def phase_name(self) -> str:
         return self.phase_id
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -115,7 +115,7 @@ class RescuePhase:
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         file_paths: List[str] = kwargs.pop("file_paths", [])
         self.context.logger.info(f"[RESCUE] Step {self._step_index}: {self._step} → Action: {self._action}")
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "rescue_step_executed",
             step=self._step,
             action=self._action,
@@ -178,14 +178,6 @@ class AutoAgent(CoreAgent):
         self.git_tool = None  # Lazy load later if needed
 
         self.logger.info("AutoAgent initialized with a modular phase pipeline and sequential flow.")
-
-    def _get_or_create_loop(self):
-        try:
-            return asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop
 
     def _build_adaptive_phases(self) -> List[IAgentPhase]:
         """Return a phase list adapted to the detected model tier.
@@ -287,8 +279,7 @@ class AutoAgent(CoreAgent):
             from backend.services.language_manager import LanguageManager
 
             lang_manager = LanguageManager(self.llm_manager)
-            loop = self._get_or_create_loop()
-            project_description, _ = loop.run_until_complete(lang_manager.ensure_english_input(project_description))
+            project_description, _ = lang_manager.ensure_english_input(project_description)
         except Exception as e:
             self.logger.warning(f"Language standardization failed in AutoAgent: {e}")
 
@@ -362,25 +353,22 @@ class AutoAgent(CoreAgent):
 
                 os.environ["GITHUB_TOKEN"] = kwargs.get("github_token")
 
-        loop = self._get_or_create_loop()
-        execution_plan = loop.run_until_complete(
-            self._setup_and_run_phases_async(
-                active_phases,
-                project_description,
-                project_name,
-                project_root,
-                project_exists,
-                readme_content,
-                initial_structure,
-                generated_files,
-                file_paths,
-            )
+        execution_plan = self._run_phases(
+            active_phases,
+            project_description,
+            project_name,
+            project_root,
+            project_exists,
+            readme_content,
+            initial_structure,
+            generated_files,
+            file_paths,
         )
 
         self._finalize_project(project_name, project_root, len(file_paths), execution_plan)
         return project_root
 
-    async def _setup_and_run_phases_async(
+    def _run_phases(
         self,
         phases: List[IAgentPhase],
         project_description: str,
@@ -396,22 +384,21 @@ class AutoAgent(CoreAgent):
         execution_plan = ExecutionPlan(project_name, is_existing_project=project_exists)
         execution_plan.define_milestones(phases)
 
-        await self.event_publisher.publish(
+        self.event_publisher.publish_sync(
             "execution_plan_initialized",
             plan=execution_plan.to_dict(),
             milestones=execution_plan.get_milestones_list(),
         )
 
-        # Heartbeat task
-        async def heartbeat_loop():
-            while True:
-                try:
-                    await asyncio.sleep(60)
-                    self.logger.heartbeat()
-                except asyncio.CancelledError:
-                    break
+        # Heartbeat thread
+        _stop_heartbeat = threading.Event()
 
-        heartbeat_task = asyncio.create_task(heartbeat_loop())
+        def _heartbeat_worker():
+            while not _stop_heartbeat.wait(60):
+                self.logger.heartbeat()
+
+        heartbeat_thread = threading.Thread(target=_heartbeat_worker, daemon=True)
+        heartbeat_thread.start()
 
         # Mejora 6b: Convert to list so we can splice rescue phases in dynamically
         # Group independent phases for parallel execution where possible
@@ -428,7 +415,7 @@ class AutoAgent(CoreAgent):
                 self.logger.info(f"🚀 EXECUTING PHASE: {phase_name}")
                 if milestone_id:
                     execution_plan.start_milestone(milestone_id)
-                    await self.event_publisher.publish("milestone_started", milestone_id=milestone_id, phase=phase_name)
+                    self.event_publisher.publish_sync("milestone_started", milestone_id=milestone_id, phase=phase_name)
 
                 try:
                     # Run the phase execution
@@ -436,7 +423,7 @@ class AutoAgent(CoreAgent):
                         generated_files,
                         initial_structure,
                         file_paths,
-                    ) = await phase.execute(
+                    ) = phase.execute(
                         project_description=project_description,
                         project_name=project_name,
                         project_root=project_root,
@@ -471,7 +458,7 @@ class AutoAgent(CoreAgent):
                     if milestone_id:
                         summary = f"Phase completed. Files: {len(generated_files)}."
                         execution_plan.complete_milestone(milestone_id, summary)
-                        await self.event_publisher.publish(
+                        self.event_publisher.publish_sync(
                             "milestone_completed",
                             milestone_id=milestone_id,
                             phase=phase_name,
@@ -479,7 +466,7 @@ class AutoAgent(CoreAgent):
                         )
 
                     # F10: Git checkpoint after each successful phase (feature-flagged)
-                    await self._maybe_git_checkpoint(phase_name, project_root)
+                    self._maybe_git_checkpoint(phase_name, project_root)
 
                     # Cycle of Life: If this was a code generation phase, we might want to PR it
                     if phase_name == "FileContentGenerationPhase":
@@ -499,16 +486,16 @@ class AutoAgent(CoreAgent):
                     self.logger.error(f"Error in phase {phase_name}: {e}", exc_info=True)
                     if milestone_id:
                         execution_plan.fail_milestone(milestone_id, str(e))
-                        await self.event_publisher.publish(
+                        self.event_publisher.publish_sync(
                             "milestone_failed",
                             milestone_id=milestone_id,
                             phase=phase_name,
                             error=str(e),
                         )
-                    await self.event_publisher.publish("phase_error", phase=phase_name, error=str(e))
+                    self.event_publisher.publish_sync("phase_error", phase=phase_name, error=str(e))
 
                     # Mejora 6b: Attempt dynamic rescue planning before aborting
-                    rescue_phases = await self._request_rescue_plan(phase_name, str(e))
+                    rescue_phases = self._request_rescue_plan(phase_name, str(e))
                     if rescue_phases:
                         self.logger.info(f"[RESCUE] Injecting {len(rescue_phases)} rescue steps after '{phase_name}'")
                         # Splice rescue phases right after current index
@@ -517,15 +504,11 @@ class AutoAgent(CoreAgent):
                     else:
                         raise
         finally:
-            heartbeat_task.cancel()
-            try:
-                await heartbeat_task
-            except asyncio.CancelledError:
-                pass
+            _stop_heartbeat.set()
 
         return execution_plan
 
-    async def _request_rescue_plan(self, failed_phase_name: str, error: str) -> List["RescuePhase"]:
+    def _request_rescue_plan(self, failed_phase_name: str, error: str) -> List["RescuePhase"]:
         """Ask the LLM for a 3-step rescue plan and return RescuePhase instances (Mejora 6b).
 
         The rescue plan asks for lightweight context-repair actions that do NOT write
@@ -583,7 +566,7 @@ class AutoAgent(CoreAgent):
             self.logger.warning(f"[RESCUE] Failed to get rescue plan: {exc}")
             return []
 
-    async def _maybe_git_checkpoint(self, phase_name: str, project_root: Any) -> None:
+    def _maybe_git_checkpoint(self, phase_name: str, project_root: Any) -> None:
         """Commit all project files as a git checkpoint after a phase succeeds (F10).
 
         Only runs when ``git_checkpoints.enabled`` is True in agent_features.json
@@ -698,13 +681,13 @@ class AutoAgent(CoreAgent):
                     new_body = f"{desc}\n\n🚫 Blocked by: {', '.join(blocked_by)}"
                     self.git_tool.update_issue_body(github_number, new_body)
 
-    async def _update_ollash_manifest(self, current_task_id: str = "N/A") -> str:
+    def _update_ollash_manifest(self, current_task_id: str = "N/A") -> str:
         """Generates the content for OLLASH.md manifest."""
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = await loader.load_prompt("domains/auto_generation/manifest.yaml")
+            prompts = loader.load_prompt("domains/auto_generation/manifest.yaml")
 
             system = prompts.get("generate_manifest", {}).get("system", "")
             user_template = prompts.get("generate_manifest", {}).get("user", "")
@@ -769,16 +752,9 @@ class AutoAgent(CoreAgent):
         self.logger.info(f"Knowledge Base Stats: {self.phase_context.error_knowledge_base.get_error_statistics()}")
         # Log fragment cache statistics
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import nest_asyncio
-
-                nest_asyncio.apply()
-            cache_stats = loop.run_until_complete(self.phase_context.fragment_cache.stats())
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            cache_stats = loop.run_until_complete(self.phase_context.fragment_cache.stats())
+            cache_stats = self.phase_context.fragment_cache.stats()
+        except Exception:
+            cache_stats = {}
 
         self.logger.info(f"Fragment Cache Stats: {cache_stats}")
 
@@ -805,30 +781,12 @@ class AutoAgent(CoreAgent):
             )
         ]
 
-        # F27: Handle existing loops correctly
-        try:
-            loop = asyncio.get_running_loop()
-            import nest_asyncio
+        return self._run_structure_phases(structure_phases, project_description, project_name)
 
-            nest_asyncio.apply()
-            return loop.run_until_complete(
-                self._run_structure_phases_async(structure_phases, project_description, project_name)
-            )
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                readme, structure = loop.run_until_complete(
-                    self._run_structure_phases_async(structure_phases, project_description, project_name)
-                )
-                return readme, structure
-            finally:
-                loop.close()
-
-    async def _run_structure_phases_async(
+    def _run_structure_phases(
         self, phases: List[IAgentPhase], project_description: str, project_name: str
     ) -> Tuple[str, Dict]:
-        """Helper to run structure-related phases asynchronously."""
+        """Helper to run structure-related phases synchronously."""
         project_root = self.generated_projects_dir / project_name
         generated_files, initial_structure, readme_content, file_paths = {}, {}, "", []
 
@@ -836,7 +794,7 @@ class AutoAgent(CoreAgent):
             next_phase = phases[i + 1] if i + 1 < len(phases) else None
             keep_alive = "10m" if next_phase else "0s"
             self.logger.info(f"Executing phase: {phase.__class__.__name__}")
-            generated_files, initial_structure, file_paths = await phase.execute(
+            generated_files, initial_structure, file_paths = phase.execute(
                 project_description=project_description,
                 project_name=project_name,
                 project_root=project_root,

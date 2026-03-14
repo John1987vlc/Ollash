@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -17,7 +16,7 @@ class FileContentGenerationPhase(BasePhase):
     phase_id = "4"
     phase_label = "File Content Generation"
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -40,7 +39,7 @@ class FileContentGenerationPhase(BasePhase):
         is_micro = bool(self.context._is_micro_model()) if is_nano else False
         _use_signatures = is_nano or bool(self.context._is_small_model("coder"))
 
-        await self.context.event_publisher.publish("phase_start", phase="4", message="Starting agile backlog execution")
+        self.context.event_publisher.publish_sync("phase_start", phase="4", message="Starting agile backlog execution")
 
         backlog = getattr(self.context, "backlog", [])
         if not backlog and hasattr(self.context, "logic_plan"):
@@ -82,18 +81,13 @@ class FileContentGenerationPhase(BasePhase):
         completed_tasks = 0
         completed_task_ids: List[str] = []  # Mejora 3: track completed IDs for progress injection
 
-        # Execute tasks level by level; tasks within the same level have no inter-dependencies
-        # and are dispatched concurrently via asyncio.gather (uses achat() via run_in_executor).
+        # Execute tasks level by level; tasks within the same level have no inter-dependencies.
         levels = self._compute_levels(backlog)
-        max_concurrent = self.context.config.get(
-            "nano_parallel_generation_max_concurrent" if is_nano else "parallel_generation_max_concurrent",
-            5 if is_nano else 3,
-        )
-        semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def _bounded_process(task: Dict[str, Any], task_display_num: int) -> None:
-            async with semaphore:
-                await self._process_single_task(
+        for level_tasks in levels:
+            for k, task in enumerate(level_tasks):
+                completed_tasks += 1
+                self._process_single_task(
                     task=task,
                     generated_files=generated_files,
                     readme_content=readme_content,
@@ -102,23 +96,11 @@ class FileContentGenerationPhase(BasePhase):
                     is_nano=is_nano,
                     is_micro=is_micro,
                     _use_signatures=_use_signatures,
-                    task_display_num=task_display_num,
+                    task_display_num=completed_tasks,
                     total_tasks=total_tasks,
                     completed_task_ids=completed_task_ids,
                     backlog=backlog,
                 )
-
-        for level_tasks in levels:
-            if len(level_tasks) == 1:
-                completed_tasks += 1
-                await _bounded_process(level_tasks[0], completed_tasks)
-            else:
-                start_num = completed_tasks + 1
-                completed_tasks += len(level_tasks)
-                await asyncio.gather(*[
-                    _bounded_process(t, start_num + k)
-                    for k, t in enumerate(level_tasks)
-                ])
 
         self.context.logger.info(
             f"[PROJECT_NAME:{project_name}] PHASE 4: "
@@ -148,7 +130,7 @@ class FileContentGenerationPhase(BasePhase):
             remaining = [t for t in remaining if t["id"] not in done_ids]
         return levels
 
-    async def _process_single_task(
+    def _process_single_task(
         self,
         task: Dict[str, Any],
         generated_files: Dict[str, str],
@@ -187,7 +169,7 @@ class FileContentGenerationPhase(BasePhase):
             self.context.logger.info(f"    Skipped: Binary file detected ({file_path})")
             generated_files[file_path] = ""
             # Move to done in Kanban anyway
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "agent_board_update", action="move_task", task_id=task_id, new_status="done"
             )
             return
@@ -205,7 +187,7 @@ class FileContentGenerationPhase(BasePhase):
                     f"project type '{_ptype.project_type}'"
                 )
                 generated_files[file_path] = ""
-                await self.context.event_publisher.publish(
+                self.context.event_publisher.publish_sync(
                     "agent_board_update",
                     action="move_task",
                     task_id=task_id,
@@ -214,13 +196,13 @@ class FileContentGenerationPhase(BasePhase):
                 return
 
         # Notify progress to Kanban Board
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "agent_board_update", action="move_task", task_id=task_id, new_status="in_progress"
         )
 
         try:
             # 1. Prepare context + build prompts
-            ctx_data = await self._prepare_task_context(
+            ctx_data = self._prepare_task_context(
                 task=task,
                 file_path=file_path,
                 task_type=task_type,
@@ -234,14 +216,14 @@ class FileContentGenerationPhase(BasePhase):
 
             is_nano_subtask = task.get("is_nano_subtask", False)
             if is_nano_subtask:
-                system_prompt, user_prompt = await AutoGenPrompts.nano_coder(
+                system_prompt, user_prompt = AutoGenPrompts.nano_coder(
                     function_name=task.get("function_name", "unknown"),
                     signature=task.get("function_signature", ""),
                     docstring=task.get("function_docstring", ""),
                     context_snippet=generated_files.get(file_path, ""),
                 )
             else:
-                system_prompt, user_prompt = await AutoGenPrompts.micro_task_execution(
+                system_prompt, user_prompt = AutoGenPrompts.micro_task_execution(
                     title=title,
                     description=task.get("description", ""),
                     file_path=file_path,
@@ -299,7 +281,7 @@ class FileContentGenerationPhase(BasePhase):
 
                     current_user_prompt += f"\n\nRETRY DUE TO PREVIOUS ERROR:\n{last_error}{cot_instruction}"
 
-                res = await self.context.llm_manager.get_client(current_coder_role).achat(
+                res = self.context.llm_manager.get_client(current_coder_role).chat(
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": current_user_prompt},
@@ -381,7 +363,7 @@ class FileContentGenerationPhase(BasePhase):
                         lang = self.context.infer_language(file_path)
                         shadow = getattr(self.context, "shadow_evaluator", None)
                         if shadow is not None:
-                            content, _ = await shadow.active_shadow_validate(
+                            content, _ = shadow.active_shadow_validate(
                                 file_path,
                                 content,
                                 lang,
@@ -408,12 +390,10 @@ class FileContentGenerationPhase(BasePhase):
                             if not hasattr(self, "_critic_loop"):
                                 self._critic_loop = CriticLoop(self.context.llm_manager, self.context.logger)
                             _lang = self.context.infer_language(file_path)
-                            _critic_feedback = await self._critic_loop.review(file_path, content, _lang)
+                            _critic_feedback = self._critic_loop.review(file_path, content, _lang)
                             if _critic_feedback:
                                 last_error = f"CRITIC FEEDBACK: {_critic_feedback}"
-                                self.context.logger.info(
-                                    f"    [Critic] Issues in '{file_path}': {_critic_feedback}"
-                                )
+                                self.context.logger.info(f"    [Critic] Issues in '{file_path}': {_critic_feedback}")
                                 content = ""
                                 continue
                         except Exception:
@@ -424,9 +404,7 @@ class FileContentGenerationPhase(BasePhase):
                     contract_error = self._check_output_contract(file_path, content, task_type)
                     if contract_error:
                         last_error = f"CONTRACT VIOLATION: {contract_error}"
-                        self.context.logger.warning(
-                            f"    ⚠ Attempt {attempts} contract violation: {contract_error}"
-                        )
+                        self.context.logger.warning(f"    ⚠ Attempt {attempts} contract violation: {contract_error}")
                         content = ""
                         continue
 
@@ -455,7 +433,7 @@ class FileContentGenerationPhase(BasePhase):
                         self.context.logger,
                         self.context.response_parser,
                     )
-                    content = await patcher.inject_missing_function(
+                    content = patcher.inject_missing_function(
                         file_path=file_path,
                         content=content,
                         requirement=missing_req,
@@ -488,11 +466,11 @@ class FileContentGenerationPhase(BasePhase):
 
             # F2: TDD Agéntico — run a minimal unit test and auto-correct on failure
             if content and file_path.endswith(".py"):
-                content = await self._run_tdd_loop(file_path, content)
+                content = self._run_tdd_loop(file_path, content)
 
             # 6. Final Save and Notification
             if content and content.strip():
-                await self._save_task_result(
+                self._save_task_result(
                     file_path=file_path,
                     content=content,
                     task=task,
@@ -513,7 +491,7 @@ class FileContentGenerationPhase(BasePhase):
             # Record error in knowledge base
             self.context.error_knowledge_base.record_error(file_path, "micro_task_failure", str(e), task_id, title)
 
-    async def _prepare_task_context(
+    def _prepare_task_context(
         self,
         task: Dict[str, Any],
         file_path: str,
@@ -615,7 +593,7 @@ class FileContentGenerationPhase(BasePhase):
             try:
                 _fs_language = self.context.infer_language(file_path)
                 _fs_purpose = task.get("description", task.get("title", ""))
-                _examples = await self.context.fragment_cache.get_similar_examples(
+                _examples = self.context.fragment_cache.get_similar_examples(
                     language=_fs_language, purpose=_fs_purpose, max_examples=2
                 )
                 if _examples:
@@ -635,7 +613,7 @@ class FileContentGenerationPhase(BasePhase):
             "few_shot_section": few_shot_section,
         }
 
-    async def _save_task_result(
+    def _save_task_result(
         self,
         file_path: str,
         content: str,
@@ -663,7 +641,7 @@ class FileContentGenerationPhase(BasePhase):
             try:
                 _s_language = self.context.infer_language(file_path)
                 _s_purpose = task.get("description", title)
-                await self.context.fragment_cache.store_example(language=_s_language, purpose=_s_purpose, code=content)
+                self.context.fragment_cache.store_example(language=_s_language, purpose=_s_purpose, code=content)
             except Exception:
                 pass
 
@@ -680,11 +658,11 @@ class FileContentGenerationPhase(BasePhase):
             current_objective=next_title,
         )
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "agent_board_update", action="move_task", task_id=task_id, new_status="done"
         )
 
-    async def _generate_with_plan(
+    def _generate_with_plan(
         self,
         file_path: str,
         plan: Dict,
@@ -704,7 +682,7 @@ class FileContentGenerationPhase(BasePhase):
                 self.context.response_parser,
             )
 
-            content = await enhanced_gen.generate_file_with_plan(file_path, plan, "", readme, structure, related)
+            content = enhanced_gen.generate_file_with_plan(file_path, plan, "", readme, structure, related)
             return content
         except Exception as e:
             self.context.logger.debug(f"Enhanced generation failed, falling back: {e}")
@@ -796,7 +774,7 @@ class FileContentGenerationPhase(BasePhase):
                 lines.append(f"  {step}")
         return "\n".join(lines) if lines else "(Plan has no structured details)"
 
-    async def _run_tdd_loop(self, file_path: str, content: str, max_retries: int = 2) -> str:
+    def _run_tdd_loop(self, file_path: str, content: str, max_retries: int = 2) -> str:
         """F2: TDD Agéntico — generate a minimal unit test, run it, auto-correct on failure.
 
         Only operates on Python files. For all other file types the content is
@@ -818,7 +796,7 @@ class FileContentGenerationPhase(BasePhase):
             return content
 
         try:
-            test_code = await self._generate_minimal_test(file_path, content)
+            test_code = self._generate_minimal_test(file_path, content)
             if not test_code:
                 return content
 
@@ -847,7 +825,7 @@ class FileContentGenerationPhase(BasePhase):
 
                     error_output = (result.stdout + result.stderr)[-1500:]
                     self.context.logger.info(f"  [TDD] Test failed (attempt {attempt}/{max_retries}), correcting...")
-                    content = await self._correct_via_tdd_error(file_path, content, error_output)
+                    content = self._correct_via_tdd_error(file_path, content, error_output)
                     src_file.write_text(content, encoding="utf-8")
 
         except subprocess.TimeoutExpired:
@@ -859,7 +837,7 @@ class FileContentGenerationPhase(BasePhase):
 
         return content
 
-    async def _generate_minimal_test(self, file_path: str, content: str) -> str:
+    def _generate_minimal_test(self, file_path: str, content: str) -> str:
         """Ask the LLM for a single unit test for the most complex function in *content*."""
         try:
             import ast as _ast
@@ -881,7 +859,7 @@ class FileContentGenerationPhase(BasePhase):
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = await loader.load_prompt("domains/auto_generation/code_gen.yaml")
+            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
             system = prompts.get("tdd_minimal_test", {}).get("system", "")
             user_template = prompts.get("tdd_minimal_test", {}).get("user", "")
             if not system or not user_template:
@@ -908,7 +886,7 @@ class FileContentGenerationPhase(BasePhase):
             self.context.logger.debug(f"  [TDD] Test generation failed: {exc}")
             return ""
 
-    async def _correct_via_tdd_error(self, file_path: str, content: str, error_output: str) -> str:
+    def _correct_via_tdd_error(self, file_path: str, content: str, error_output: str) -> str:
         """Ask the LLM to fix *content* given the pytest *error_output*."""
         try:
             correction_prompt = (

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 from backend.agents.auto_agent import AutoAgent
 
 
@@ -19,7 +19,7 @@ def mock_context(tmp_path):
     ctx.generated_projects_dir = tmp_path / "gen"
     ctx.error_knowledge_base = MagicMock()
     ctx.fragment_cache = MagicMock()
-    ctx.fragment_cache.stats = AsyncMock(return_value={})
+    ctx.fragment_cache.stats = MagicMock(return_value={})
     ctx.file_manager = MagicMock()
     ctx.initial_exec_params = {}
     ctx.ingest_existing_project.return_value = ({}, {}, [])
@@ -62,7 +62,7 @@ class TestAutoAgent:
 
     def test_run_orchestration(self, auto_agent, mock_context, tmp_path):
         mock_phase = MagicMock()
-        mock_phase.execute = AsyncMock(return_value=({}, {}, []))
+        mock_phase.execute = MagicMock(return_value=({}, {}, []))
         auto_agent.phases = [mock_phase]
 
         with patch("backend.agents.auto_agent.ExecutionPlan") as mock_plan_cls:
@@ -80,7 +80,7 @@ class TestAutoAgent:
         (project_dir / "file.txt").write_text("content")
 
         mock_analysis_phase = MagicMock()
-        mock_analysis_phase.execute = AsyncMock(return_value=({}, {}, []))
+        mock_analysis_phase.execute = MagicMock(return_value=({}, {}, []))
         auto_agent.project_analysis_phase_factory.return_value = mock_analysis_phase
 
         auto_agent.phases = []
@@ -91,11 +91,11 @@ class TestAutoAgent:
             mock_analysis_phase.execute.assert_called_once()
 
     def test_generate_structure_only(self, auto_agent, mock_context):
-        with patch.object(auto_agent, "_run_structure_phases_async", new=AsyncMock()) as mock_run_async:
-            mock_run_async.return_value = ("readme", {"struct": "data"})
+        with patch.object(auto_agent, "_run_structure_phases", new=MagicMock()) as mock_run:
+            mock_run.return_value = ("readme", {"struct": "data"})
 
             readme, struct = auto_agent.generate_structure_only("desc", "name")
 
             assert readme == "readme"
             assert struct == {"struct": "data"}
-            mock_run_async.assert_called_once()
+            mock_run.assert_called_once()

@@ -27,12 +27,11 @@ def test_execute_invalid_command(executor):
     assert result.return_code != 0
 
 
-@pytest.mark.asyncio
-async def test_async_execute_basic(executor):
+def test_async_execute_basic_sync(executor):
     import platform
 
     cmd = ["cmd", "/c", "echo hello"] if platform.system() == "Windows" else ["echo", "hello"]
-    result = await executor.async_execute(cmd)
+    result = executor.execute(cmd)
     assert result.success is True
     assert "hello" in result.stdout.lower()
 

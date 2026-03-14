@@ -35,7 +35,7 @@ class DependencyPrecheckPhase(BasePhase):
     phase_id = "2.95"
     phase_label = "Dependency Conflict Pre-Check"
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -61,13 +61,13 @@ class DependencyPrecheckPhase(BasePhase):
 
         self.context.logger.info(f"[DepPrecheck] Checking {len(declared_deps)} dependency declaration(s)...")
 
-        report = await self._check_conflicts(declared_deps, runtime_info, project_description)
+        report = self._check_conflicts(declared_deps, runtime_info, project_description)
 
         conflicts: List[Dict] = [c for c in report.get("conflicts", []) if c.get("severity") in ("HIGH", "MEDIUM")]
 
         if conflicts:
             self.context.logger.warning(f"[DepPrecheck] {len(conflicts)} conflict(s) detected — attempting auto-fix.")
-            generated_files = await self._auto_fix_manifests(
+            generated_files = self._auto_fix_manifests(
                 conflicts, generated_files, file_paths, project_root, runtime_info
             )
         else:
@@ -121,7 +121,7 @@ class DependencyPrecheckPhase(BasePhase):
 
         return result
 
-    async def _check_conflicts(
+    def _check_conflicts(
         self,
         declared_deps: Dict[str, str],
         runtime_info: Dict[str, str],
@@ -160,7 +160,7 @@ class DependencyPrecheckPhase(BasePhase):
             self.context.logger.warning(f"[DepPrecheck] LLM check failed: {exc}")
         return default
 
-    async def _auto_fix_manifests(
+    def _auto_fix_manifests(
         self,
         conflicts: List[Dict[str, Any]],
         generated_files: Dict[str, str],

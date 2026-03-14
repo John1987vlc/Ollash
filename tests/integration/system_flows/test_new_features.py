@@ -12,7 +12,7 @@ import json
 import struct
 import zlib
 from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -573,7 +573,7 @@ class TestBasePhase:
         c = MagicMock()
         c.logger = _mock_logger()
         c.event_publisher = MagicMock()
-        c.event_publisher.publish = AsyncMock()
+        c.event_publisher.publish_sync = MagicMock()
         c.file_manager = MagicMock()
         return c
 
@@ -633,20 +633,18 @@ class TestBasePhase:
         class Ok(BasePhase):
             phase_id = "ok"
 
-            async def run(self, **kw):
+            def run(self, **kw):
                 return {}, {}, []
 
-        asyncio.run(
-            Ok(ctx).execute(
-                project_description="",
-                project_name="",
-                project_root=tmp_path,
-                readme_content="",
-                initial_structure={},
-                generated_files={},
-            )
+        Ok(ctx).execute(
+            project_description="",
+            project_name="",
+            project_root=tmp_path,
+            readme_content="",
+            initial_structure={},
+            generated_files={},
         )
-        calls = ctx.event_publisher.publish.call_args_list
+        calls = ctx.event_publisher.publish_sync.call_args_list
         assert calls[0][0][0] == "phase_start"
         # shadow_evaluate is published between start and complete
         assert calls[1][0][0] == "shadow_evaluate"
@@ -659,19 +657,17 @@ class TestBasePhase:
         class Bad(BasePhase):
             phase_id = "bad"
 
-            async def run(self, **kw):
+            def run(self, **kw):
                 raise ValueError("boom")
 
         with pytest.raises(PipelinePhaseError):
-            asyncio.run(
-                Bad(ctx).execute(
-                    project_description="",
-                    project_name="",
-                    project_root=tmp_path,
-                    readme_content="",
-                    initial_structure={},
-                    generated_files={},
-                )
+            Bad(ctx).execute(
+                project_description="",
+                project_name="",
+                project_root=tmp_path,
+                readme_content="",
+                initial_structure={},
+                generated_files={},
             )
 
     def test_file_paths_extracted(self, ctx, tmp_path):
@@ -719,7 +715,7 @@ class TestPhaseGroups:
         from backend.interfaces.iagent_phase import IAgentPhase
 
         class A(IAgentPhase):
-            async def execute(
+            def execute(
                 self,
                 project_description,
                 project_name,
@@ -733,7 +729,7 @@ class TestPhaseGroups:
                 return generated_files, initial_structure, kw.get("file_paths", [])
 
         class B(IAgentPhase):
-            async def execute(
+            def execute(
                 self,
                 project_description,
                 project_name,
@@ -746,16 +742,14 @@ class TestPhaseGroups:
                 generated_files["b.py"] = "b"
                 return generated_files, initial_structure, kw.get("file_paths", [])
 
-        f, _, _ = asyncio.run(
-            PhaseGroup("t", [A(), B()]).execute(
-                project_description="",
-                project_name="",
-                project_root=Path("/tmp"),
-                readme_content="",
-                initial_structure={},
-                generated_files={},
-                file_paths=[],
-            )
+        f, _, _ = PhaseGroup("t", [A(), B()]).execute(
+            project_description="",
+            project_name="",
+            project_root=Path("/tmp"),
+            readme_content="",
+            initial_structure={},
+            generated_files={},
+            file_paths=[],
         )
         assert "a.py" in f and "b.py" in f
 
@@ -764,7 +758,7 @@ class TestPhaseGroups:
         from backend.interfaces.iagent_phase import IAgentPhase
 
         class C(IAgentPhase):
-            async def execute(
+            def execute(
                 self,
                 project_description,
                 project_name,
@@ -778,7 +772,7 @@ class TestPhaseGroups:
                 return generated_files, initial_structure, ["c.py"]
 
         class D(IAgentPhase):
-            async def execute(
+            def execute(
                 self,
                 project_description,
                 project_name,
@@ -791,16 +785,14 @@ class TestPhaseGroups:
                 generated_files["d.py"] = "d"
                 return generated_files, initial_structure, ["d.py"]
 
-        f, _, p = asyncio.run(
-            PhaseGroup("t", [C(), D()], parallel=True).execute(
-                project_description="",
-                project_name="",
-                project_root=Path("/tmp"),
-                readme_content="",
-                initial_structure={},
-                generated_files={},
-                file_paths=[],
-            )
+        f, _, p = PhaseGroup("t", [C(), D()], parallel=True).execute(
+            project_description="",
+            project_name="",
+            project_root=Path("/tmp"),
+            readme_content="",
+            initial_structure={},
+            generated_files={},
+            file_paths=[],
         )
         assert "c.py" in f and "d.py" in f
 
@@ -1868,7 +1860,7 @@ class TestBasePhaseHooks:
 
         mock_context = MagicMock()
         mock_context.event_publisher = MagicMock()
-        mock_context.event_publisher.publish = AsyncMock()
+        mock_context.event_publisher.publish_sync = MagicMock()
         mock_context.logger = _mock_logger()
 
         phase = BasePhase.__new__(BasePhase)
@@ -1877,10 +1869,10 @@ class TestBasePhaseHooks:
         phase.phase_label = "Test"
 
         result = ({"file.py": "content"}, {}, ["file.py"])
-        asyncio.run(phase._publish_shadow_evaluate(result))
+        phase._publish_shadow_evaluate(result)
 
-        mock_context.event_publisher.publish.assert_called_once()
-        call_args = mock_context.event_publisher.publish.call_args
+        mock_context.event_publisher.publish_sync.assert_called_once()
+        call_args = mock_context.event_publisher.publish_sync.call_args
         assert call_args[0][0] == "shadow_evaluate"
 
     def test_phase_failure_publish(self):
@@ -1888,7 +1880,7 @@ class TestBasePhaseHooks:
 
         mock_context = MagicMock()
         mock_context.event_publisher = MagicMock()
-        mock_context.event_publisher.publish = AsyncMock()
+        mock_context.event_publisher.publish_sync = MagicMock()
         mock_context.logger = _mock_logger()
 
         phase = BasePhase.__new__(BasePhase)
@@ -1896,17 +1888,17 @@ class TestBasePhaseHooks:
         phase.phase_id = "TestPhase"
         phase.phase_label = "Test"
 
-        asyncio.run(phase._publish_phase_failure("exception", "some error"))
+        phase._publish_phase_failure("exception", "some error")
 
-        mock_context.event_publisher.publish.assert_called_once()
-        call_args = mock_context.event_publisher.publish.call_args
+        mock_context.event_publisher.publish_sync.assert_called_once()
+        call_args = mock_context.event_publisher.publish_sync.call_args
         assert call_args[0][0] == "phase_failure"
 
     def test_shadow_hooks_never_raise(self):
         from backend.agents.auto_agent_phases.base_phase import BasePhase
 
         mock_context = MagicMock()
-        mock_context.event_publisher.publish = AsyncMock(side_effect=RuntimeError("boom"))
+        mock_context.event_publisher.publish_sync = MagicMock(side_effect=RuntimeError("boom"))
         mock_context.logger = _mock_logger()
 
         phase = BasePhase.__new__(BasePhase)
@@ -1915,8 +1907,8 @@ class TestBasePhaseHooks:
         phase.phase_label = "Test"
 
         # These should not raise despite the RuntimeError
-        asyncio.run(phase._publish_shadow_evaluate(None))
-        asyncio.run(phase._publish_phase_failure("exception", "details"))
+        phase._publish_shadow_evaluate(None)
+        phase._publish_phase_failure("exception", "details")
 
 
 # ============================================================

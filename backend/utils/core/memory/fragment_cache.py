@@ -3,25 +3,23 @@ Fragment Cache System for Auto-Generated Projects
 
 Caches reusable code fragments (headers, boilerplate, standard structures)
 to avoid redundant LLM calls and improve generation speed.
-Backed by SQLAlchemy 2.0 async SQLite for improved performance and concurrency.
+Backed by stdlib sqlite3 for zero-dependency synchronous access.
 """
 
 import hashlib
 import json
+import sqlite3
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
-
 from backend.utils.core.system.agent_logger import AgentLogger
-from backend.utils.core.system.db.engine import make_async_engine, make_session_factory
-from backend.utils.core.system.db.sqlite_manager import AsyncDatabaseManager
 
 
 class FragmentCache:
     """
-    Caches common code fragments to reduce LLM calls using SQLAlchemy async SQLite.
+    Caches common code fragments to reduce LLM calls using sqlite3 (sync).
 
     Fragments are indexed by:
     - Fragment type (license_header, class_boilerplate, etc.)
@@ -46,35 +44,72 @@ class FragmentCache:
         db_path: Optional[Path] = None,
         logger: Optional[AgentLogger] = None,
         cache_dir: Optional[Path] = None,
-        session_factory: Optional[async_sessionmaker[AsyncSession]] = None,
+        session_factory=None,  # kept for DI backward-compat; ignored
         **kwargs,
     ):
-        """
-        Initialize the fragment cache with SQLAlchemy async SQLite.
+        if cache_dir and not db_path:
+            db_path = cache_dir / "fragments.db"
+        if not db_path:
+            db_path = Path(".cache/fragments.db")
 
-        Args:
-            db_path: Path to the SQLite database file.
-            logger: Logger instance.
-            cache_dir: Optional directory for cache (for DI compatibility).
-            session_factory: Pre-built async_sessionmaker (injected via DI).
-            **kwargs: Catch-all for extra configuration from containers.
-        """
-        if session_factory is not None:
-            self._session_factory = session_factory
-        else:
-            if cache_dir and not db_path:
-                db_path = cache_dir / "fragments.db"
-            if not db_path:
-                db_path = Path(".cache/fragments.db")
-            engine = make_async_engine(db_path)
-            self._session_factory = make_session_factory(engine)
-
-        self.db = AsyncDatabaseManager(self._session_factory)
+        self._db_path = Path(db_path)
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self.logger = logger
 
-    async def _init_db(self) -> None:
-        """Initialize the fragments table (idempotent, call once at startup)."""
-        await self.db.execute("""
+        # Initialise schema immediately (sync, idempotent)
+        self._init_db()
+
+    # ------------------------------------------------------------------
+    # Internal sqlite3 helpers
+    # ------------------------------------------------------------------
+
+    @contextmanager
+    def _conn(self):
+        conn = sqlite3.connect(str(self._db_path))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def _execute(self, query: str, params=()) -> None:
+        with self._conn() as conn:
+            conn.execute(query, params)
+
+    def _fetch_all(self, query: str, params=()) -> List[Dict]:
+        with self._conn() as conn:
+            cursor = conn.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def _fetch_one(self, query: str, params=()) -> Optional[Dict]:
+        with self._conn() as conn:
+            cursor = conn.execute(query, params)
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def _upsert(self, table: str, data: Dict, unique_keys: List[str]) -> None:
+        columns = ", ".join(data.keys())
+        placeholders = ", ".join([f":{k}" for k in data.keys()])
+        updates = ", ".join([f"{k}=excluded.{k}" for k in data.keys() if k not in unique_keys])
+        query = (
+            f"INSERT INTO {table} ({columns}) VALUES ({placeholders}) "
+            f"ON CONFLICT({', '.join(unique_keys)}) DO UPDATE SET {updates}"
+        )
+        self._execute(query, data)
+
+    # ------------------------------------------------------------------
+    # Schema
+    # ------------------------------------------------------------------
+
+    def _init_db(self) -> None:
+        """Initialise the fragments table (idempotent)."""
+        self._execute("""
             CREATE TABLE IF NOT EXISTS fragments (
                 key TEXT PRIMARY KEY,
                 fragment_type TEXT NOT NULL,
@@ -87,24 +122,29 @@ class FragmentCache:
                 is_favorite BOOLEAN DEFAULT 0
             )
         """)
-        await self.db.execute("CREATE INDEX IF NOT EXISTS idx_fragments_type ON fragments(fragment_type, language)")
+        self._execute("CREATE INDEX IF NOT EXISTS idx_fragments_type ON fragments(fragment_type, language)")
+
+    # ------------------------------------------------------------------
+    # Key helpers
+    # ------------------------------------------------------------------
 
     def _generate_cache_key(self, fragment_type: str, language: str, context_hash: str = "") -> str:
-        """Generate a unique cache key."""
         context_part = f":{context_hash}" if context_hash else ""
         return f"{fragment_type}:{language}{context_part}".lower()
 
     def _compute_context_hash(self, context: str) -> str:
-        """Compute MD5 hash of context."""
         return hashlib.md5(context.encode()).hexdigest()[:8]
 
-    async def get(self, fragment_type: str, language: str, context: str = "", validate_fn=None) -> Optional[str]:
+    # ------------------------------------------------------------------
+    # Public API (sync)
+    # ------------------------------------------------------------------
+
+    def get(self, fragment_type: str, language: str, context: str = "", validate_fn=None) -> Optional[str]:
         """Retrieve a cached fragment."""
         context_hash = self._compute_context_hash(context) if context else ""
         cache_key = self._generate_cache_key(fragment_type, language, context_hash)
 
-        row = await self.db.fetch_one("SELECT * FROM fragments WHERE key = :key", {"key": cache_key})
-
+        row = self._fetch_one("SELECT * FROM fragments WHERE key = :key", {"key": cache_key})
         if row:
             content = row["content"]
             if validate_fn and not validate_fn(content):
@@ -113,14 +153,14 @@ class FragmentCache:
                 return None
             if self.logger:
                 self.logger.debug(f"Fragment cache HIT for {cache_key}")
-            await self.db.execute("UPDATE fragments SET hits = hits + 1 WHERE key = :key", {"key": cache_key})
+            self._execute("UPDATE fragments SET hits = hits + 1 WHERE key = :key", {"key": cache_key})
             return content
 
         if self.logger:
             self.logger.debug(f"Fragment cache MISS for {cache_key}")
         return None
 
-    async def set(
+    def set(
         self,
         fragment_type: str,
         language: str,
@@ -131,10 +171,8 @@ class FragmentCache:
         """Store a fragment in the cache."""
         if not content:
             return
-
         context_hash = self._compute_context_hash(context) if context else ""
         cache_key = self._generate_cache_key(fragment_type, language, context_hash)
-
         data = {
             "key": cache_key,
             "fragment_type": fragment_type,
@@ -145,28 +183,27 @@ class FragmentCache:
             "metadata": json.dumps(metadata or {}),
             "hits": 0,
         }
-
-        await self.db.upsert("fragments", data, ["key"])
+        self._upsert("fragments", data, ["key"])
         if self.logger:
             self.logger.debug(f"Fragment cached: {cache_key}")
 
-    async def get_by_pattern(self, fragment_type: str, language: str) -> List[str]:
+    def get_by_pattern(self, fragment_type: str, language: str) -> List[str]:
         """Get all cached fragments matching a type and language."""
-        results = await self.db.fetch_all(
+        results = self._fetch_all(
             "SELECT content FROM fragments WHERE fragment_type = :fragment_type AND language = :language",
             {"fragment_type": fragment_type, "language": language},
         )
         return [r["content"] for r in results]
 
-    async def clear(self) -> None:
+    def clear(self) -> None:
         """Clear all cached fragments."""
-        await self.db.execute("DELETE FROM fragments")
+        self._execute("DELETE FROM fragments")
         if self.logger:
             self.logger.info("Fragment cache cleared")
 
-    async def stats(self) -> Dict:
+    def stats(self) -> Dict:
         """Return cache statistics."""
-        row = await self.db.fetch_one("""
+        row = self._fetch_one("""
             SELECT
                 COUNT(*) as total_fragments,
                 SUM(hits) as total_hits,
@@ -174,36 +211,34 @@ class FragmentCache:
                 COUNT(DISTINCT language) as languages
             FROM fragments
         """)
+        result = dict(row) if row else {}
+        total = result.get("total_fragments", 0)
+        result["avg_hits_per_fragment"] = (result.get("total_hits", 0) / total) if total > 0 else 0
+        return result
 
-        stats = dict(row) if row else {}
-        total = stats.get("total_fragments", 0)
-        stats["avg_hits_per_fragment"] = (stats.get("total_hits", 0) / total) if total > 0 else 0
-        return stats
-
-    async def preload_common_fragments(self, language: str) -> None:
+    def preload_common_fragments(self, language: str) -> None:
         """Preload common fragments for a language."""
         common_fragments = self._get_common_fragments_for_language(language)
         for fragment_type, content, metadata in common_fragments:
-            if await self.get(fragment_type, language) is None:
-                await self.set(fragment_type, language, content, metadata=metadata)
+            if self.get(fragment_type, language) is None:
+                self.set(fragment_type, language, content, metadata=metadata)
         if self.logger:
             self.logger.info(f"Preloaded common fragments for {language}")
 
     @staticmethod
     def _get_common_fragments_for_language(language: str) -> List[tuple]:
-        """Return a list of (fragment_type, content, metadata) for common language patterns."""
         fragments = {
             "python": [
                 (
                     "license_header",
-                    '"""\\nMIT License\\n\\nCopyright (c) 2026\\n\\nPermission is hereby granted...\\n"""\\n',
+                    '"""\nMIT License\n\nCopyright (c) 2026\n\nPermission is hereby granted...\n"""\n',
                     {"license": "MIT", "language": "python"},
                 ),
                 (
                     "test_boilerplate",
                     (
-                        "import pytest\\nfrom unittest.mock import Mock, patch\\n\\n\\n"
-                        "class Test{{ClassName}}:\\n    def setup_method(self):\\n        pass\\n"
+                        "import pytest\nfrom unittest.mock import Mock, patch\n\n\n"
+                        "class Test{{ClassName}}:\n    def setup_method(self):\n        pass\n"
                     ),
                     {"test_framework": "pytest"},
                 ),
@@ -211,21 +246,20 @@ class FragmentCache:
         }
         return fragments.get(language, [])
 
-    async def list_all(self) -> List[Dict]:
+    def list_all(self) -> List[Dict]:
         """List all fragments ordered by hits descending."""
-        rows = await self.db.fetch_all("SELECT * FROM fragments ORDER BY hits DESC")
+        rows = self._fetch_all("SELECT * FROM fragments ORDER BY hits DESC")
         result = []
         for row in rows:
-            data = dict(row)
             try:
-                data["metadata"] = json.loads(data["metadata"])
+                row["metadata"] = json.loads(row["metadata"])
             except Exception:
-                data["metadata"] = {}
-            result.append(data)
+                row["metadata"] = {}
+            result.append(row)
         return result
 
-    async def set_favorite(self, key: str, is_favorite: bool) -> None:
-        await self.db.execute(
+    def set_favorite(self, key: str, is_favorite: bool) -> None:
+        self._execute(
             "UPDATE fragments SET is_favorite = :is_favorite WHERE key = :key",
             {"key": key, "is_favorite": is_favorite},
         )
@@ -234,11 +268,11 @@ class FragmentCache:
     # Feature: Few-Shot Dynamic Store
     # ------------------------------------------------------------------
 
-    async def store_example(self, language: str, purpose: str, code: str) -> None:
+    def store_example(self, language: str, purpose: str, code: str) -> None:
         """Store a validated (purpose, code) pair as a few-shot example."""
         if not purpose or not code:
             return
-        await self.set(
+        self.set(
             fragment_type="successful_task_example",
             language=language,
             content=code,
@@ -246,14 +280,14 @@ class FragmentCache:
             metadata={"purpose": purpose},
         )
 
-    async def get_similar_examples(
+    def get_similar_examples(
         self,
         language: str,
         purpose: str,
         max_examples: int = 2,
     ) -> List[Tuple[str, str]]:
         """Retrieve up to *max_examples* few-shot examples by keyword overlap."""
-        rows = await self.db.fetch_all(
+        rows = self._fetch_all(
             "SELECT content, metadata FROM fragments "
             "WHERE fragment_type = :fragment_type AND language = :language "
             "ORDER BY hits DESC LIMIT 50",

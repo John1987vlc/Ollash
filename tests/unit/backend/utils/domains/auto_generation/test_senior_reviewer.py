@@ -27,12 +27,12 @@ def reviewer(mock_llm_client, mock_logger, mock_parser):
 class TestSeniorReviewer:
     """Test suite for Senior Architect Review logic."""
 
-    async def test_perform_review_success(self, reviewer, mock_llm_client, mock_parser):
+    def test_perform_review_success(self, reviewer, mock_llm_client, mock_parser):
         mock_review_data = {"status": "passed", "summary": "Great work", "issues": []}
         mock_llm_client.chat.return_value = ({"message": {"content": json.dumps(mock_review_data)}}, {})
         mock_parser.extract_json.return_value = mock_review_data
 
-        result = await reviewer.perform_review(
+        result = reviewer.perform_review(
             project_description="desc",
             project_name="name",
             readme_content="# Title",
@@ -44,7 +44,7 @@ class TestSeniorReviewer:
         assert result["status"] == "passed"
         assert result["summary"] == "Great work"
 
-    async def test_perform_review_json_retry(self, reviewer, mock_llm_client, mock_parser):
+    def test_perform_review_json_retry(self, reviewer, mock_llm_client, mock_parser):
         # 1. First call returns garbage
         # 2. Second call (retry) returns JSON
 
@@ -58,7 +58,7 @@ class TestSeniorReviewer:
             {"status": "failed", "summary": "fixed"},  # Second success
         ]
 
-        result = await reviewer.perform_review(
+        result = reviewer.perform_review(
             project_description="desc",
             project_name="name",
             readme_content="# Title",
@@ -70,11 +70,11 @@ class TestSeniorReviewer:
         assert result["summary"] == "fixed"
         assert mock_llm_client.chat.call_count == 2
 
-    async def test_perform_review_total_failure(self, reviewer, mock_llm_client, mock_parser):
+    def test_perform_review_total_failure(self, reviewer, mock_llm_client, mock_parser):
         mock_llm_client.chat.return_value = ({"message": {"content": "Always garbage"}}, {})
         mock_parser.extract_json.return_value = None
 
-        result = await reviewer.perform_review(
+        result = reviewer.perform_review(
             project_description="desc",
             project_name="name",
             readme_content="# Title",

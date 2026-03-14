@@ -42,7 +42,7 @@ class SeniorReviewer:
         self.options = options or self.DEFAULT_OPTIONS.copy()
         self.retry_policy = RetryPolicy(max_attempts=2)
 
-    async def perform_review(
+    def perform_review(
         self,
         project_description: str,
         project_name: str,
@@ -63,7 +63,7 @@ class SeniorReviewer:
             f"File Structure:\n{json.dumps(json_structure, indent=2)}\n\n"
             f"Files:\n" + "\n".join(current_files.keys())
         )
-        system, user = await AutoGenPrompts.senior_review_prompt(project_summary)
+        system, user = AutoGenPrompts.senior_review_prompt(project_summary)
 
         last_error = ""
         for attempt in range(1, 3):

@@ -11,15 +11,15 @@ class ProjectPlanner:
     """Phase 1: Generates a README.md from a project description."""
 
     DEFAULT_OPTIONS = {
-        "num_ctx": 4096,
-        "num_predict": 2048,
+        "num_ctx": 8192,
+        "num_predict": 4096,
         "temperature": 0.4,
         "keep_alive": "0s",
     }
 
     DOC_OPTIONS = {
-        "num_ctx": 4096,
-        "num_predict": 1024,
+        "num_ctx": 8192,
+        "num_predict": 2048,
         "temperature": 0.3,
         "keep_alive": "0s",
     }
@@ -29,11 +29,11 @@ class ProjectPlanner:
         self.logger = logger
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    async def generate_readme(
+    def generate_readme(
         self, project_name: str, project_description: str, features_and_stack: str = "", project_structure: str = ""
     ) -> str:
         """Generate a comprehensive README.md using specialized prompts."""
-        system, user = await AutoGenPrompts.readme_generation(
+        system, user = AutoGenPrompts.readme_generation(
             project_name=project_name,
             project_description=project_description,
             features_and_stack=features_and_stack,
@@ -56,7 +56,7 @@ class ProjectPlanner:
     # E7: Dynamic documentation helpers
     # ------------------------------------------------------------------
 
-    async def generate_changelog_entry(
+    def generate_changelog_entry(
         self,
         project_name: str,
         changes: List[str],
@@ -72,7 +72,7 @@ class ProjectPlanner:
         Returns:
             Markdown string for a single changelog entry block.
         """
-        system, user = await AutoGenPrompts.changelog_entry_prompt(
+        system, user = AutoGenPrompts.changelog_entry_prompt(
             project_name=project_name,
             changes=changes,
             version=version,
@@ -90,7 +90,7 @@ class ProjectPlanner:
         self.logger.info(f"Changelog entry generated: {len(content)} chars")
         return content
 
-    async def generate_roadmap(
+    def generate_roadmap(
         self,
         project_name: str,
         improvement_gaps: Dict[str, Any],
@@ -110,7 +110,7 @@ class ProjectPlanner:
         if tech_stack_info is not None and hasattr(tech_stack_info, "prompt_hints"):
             tech_hints = tech_stack_info.prompt_hints or []
 
-        system, user = await AutoGenPrompts.roadmap_prompt(
+        system, user = AutoGenPrompts.roadmap_prompt(
             project_name=project_name,
             improvement_gaps=improvement_gaps,
             tech_hints=tech_hints,
@@ -128,7 +128,7 @@ class ProjectPlanner:
         self.logger.info(f"Roadmap generated: {len(content)} chars")
         return content
 
-    async def update_readme_summary(
+    def update_readme_summary(
         self,
         existing_readme: str,
         cycle_summary: str,
@@ -142,7 +142,7 @@ class ProjectPlanner:
         Returns:
             Updated README.md content with refreshed auto-update section.
         """
-        system, user = await AutoGenPrompts.readme_summary_update_prompt(
+        system, user = AutoGenPrompts.readme_summary_update_prompt(
             existing_readme=existing_readme,
             cycle_summary=cycle_summary,
         )

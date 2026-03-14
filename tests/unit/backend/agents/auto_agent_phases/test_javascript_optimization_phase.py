@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from pathlib import Path
 from backend.agents.auto_agent_phases.javascript_optimization_phase import JavaScriptOptimizationPhase
 
@@ -15,24 +15,23 @@ class TestJavaScriptOptimizationPhase:
         ctx = MagicMock()
         ctx.logger = MagicMock()
         ctx.event_publisher = MagicMock()
-        ctx.event_publisher.publish = AsyncMock()
+        ctx.event_publisher.publish = MagicMock()
+        ctx.event_publisher.publish_sync = MagicMock()
         ctx.file_manager = MagicMock()
         ctx.llm_manager.get_client.return_value.chat = MagicMock(return_value=({"content": ""}, {}))
         ctx.response_parser.extract_code = MagicMock(return_value="")
         ctx._is_small_model.return_value = True
         return ctx
 
-    @pytest.mark.asyncio
-    async def test_execute_runs_even_without_js(self, mock_context):
+    def test_execute_runs_even_without_js(self, mock_context):
         phase = JavaScriptOptimizationPhase(mock_context)
         files = {"index.html": "<html></html>", "style.css": "body {}"}
-        new_files, _, _ = await phase.execute("", "", Path("."), "", {}, files)
+        new_files, _, _ = phase.execute("", "", Path("."), "", {}, files)
         # It should publish start and complete events
-        assert mock_context.event_publisher.publish.call_count == 2
+        assert mock_context.event_publisher.publish_sync.call_count == 2
         assert new_files == files
 
-    @pytest.mark.asyncio
-    async def test_html_js_integration_check(self, mock_context):
+    def test_html_js_integration_check(self, mock_context):
         phase = JavaScriptOptimizationPhase(mock_context)
         html_content = "<html><body><script src='wrong.js'></script></body></html>"
         files = {"src/index.html": html_content, "src/app.js": "console.log('hi');"}
@@ -43,13 +42,12 @@ class TestJavaScriptOptimizationPhase:
         mock_context.response_parser.extract_code.return_value = fixed_html
 
         with patch(_PROMPT_LOADER_PATH) as ml:
-            ml.return_value.load_prompt = AsyncMock(return_value=_HTML_PROMPTS)
-            new_files, _, _ = await phase.execute("", "", Path("."), "", {}, files)
+            ml.return_value.load_prompt = MagicMock(return_value=_HTML_PROMPTS)
+            new_files, _, _ = phase.execute("", "", Path("."), "", {}, files)
 
         assert "app.js" in new_files["src/index.html"]
 
-    @pytest.mark.asyncio
-    async def test_cross_js_coherence_check(self, mock_context):
+    def test_cross_js_coherence_check(self, mock_context):
         phase = JavaScriptOptimizationPhase(mock_context)
         mock_context.logic_plan = {"src/engine.js": {"exports": ["Engine", "start"]}}
 
@@ -63,8 +61,8 @@ class TestJavaScriptOptimizationPhase:
         mock_context.response_parser.extract_code.return_value = fixed_code
 
         with patch(_PROMPT_LOADER_PATH) as ml:
-            ml.return_value.load_prompt = AsyncMock(return_value=_CROSS_JS_PROMPTS)
-            new_files, _, _ = await phase.execute("", "", Path("."), "", {}, files)
+            ml.return_value.load_prompt = MagicMock(return_value=_CROSS_JS_PROMPTS)
+            new_files, _, _ = phase.execute("", "", Path("."), "", {}, files)
 
         assert "start() {}" in new_files["src/engine.js"]
         mock_context.file_manager.write_file.assert_called()

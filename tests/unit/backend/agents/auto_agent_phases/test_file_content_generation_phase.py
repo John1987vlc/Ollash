@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
@@ -9,7 +9,7 @@ def mock_context():
     ctx = MagicMock(spec=PhaseContext)
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
-    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.publish_sync = MagicMock()
     ctx.dependency_graph = MagicMock()
     ctx.parallel_generator = MagicMock()
     ctx.error_knowledge_base = MagicMock()
@@ -17,6 +17,8 @@ def mock_context():
     ctx.llm_manager = MagicMock()
     ctx.response_parser = MagicMock()
     ctx.file_content_generator = MagicMock()
+    ctx._is_small_model.return_value = False
+    ctx._opt_enabled.return_value = False
     ctx.config = {}
 
     # Default project type info to avoid extension guard skipping files
@@ -46,20 +48,19 @@ def mock_context():
 class TestFileContentGenerationPhase:
     """Test suite for Phase 4: File Content Generation."""
 
-    @pytest.mark.asyncio
-    async def test_execute_success(self, mock_context, tmp_path):
+    def test_execute_success(self, mock_context, tmp_path):
         phase = FileContentGenerationPhase(mock_context)
 
         # Setup Mock Backlog
         mock_context.backlog = [{"id": "T1", "title": "Task 1", "file_path": "main.py", "task_type": "create_file"}]
         mock_context.select_related_files.return_value = {}
 
-        # Mock LLM Client (phase now uses achat for parallel-safe async calls)
+        # Mock LLM Client
         mock_client = MagicMock()
-        mock_client.achat = AsyncMock(return_value=(
+        mock_client.chat.return_value = (
             {"content": "<thinking_process>Análisis</thinking_process><code_created>def main(): pass</code_created>"},
             {"prompt_tokens": 10, "completion_tokens": 10},
-        ))
+        )
         mock_context.llm_manager.get_client.return_value = mock_client
 
         # Mock Validator
@@ -68,7 +69,7 @@ class TestFileContentGenerationPhase:
         mock_context.files_ctx.validator = mock_validator
 
         generated_files = {}
-        result_files, result_struct, result_paths = await phase.execute(
+        result_files, result_struct, result_paths = phase.execute(
             project_description="desc",
             project_name="name",
             project_root=tmp_path,

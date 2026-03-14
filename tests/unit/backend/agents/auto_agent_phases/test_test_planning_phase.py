@@ -32,16 +32,14 @@ class TestTDDPlanningPhase:
         ctx.response_parser = MagicMock()
         return ctx
 
-    @pytest.mark.asyncio
-    async def test_creates_test_skeletons(self, tmp_path):
+    def test_creates_test_skeletons(self, tmp_path):
         ctx = self._make_context()
         phase = TDDPlanningPhase(ctx)
-        gf, _, fps = await phase.run("Flask app", "myapp", tmp_path, "", {}, {}, [])
+        gf, _, fps = phase.run("Flask app", "myapp", tmp_path, "", {}, {}, [])
         # Should have written at least one skeleton
         assert len(ctx.test_skeletons) >= 1
 
-    @pytest.mark.asyncio
-    async def test_skips_config_files(self, tmp_path):
+    def test_skips_config_files(self, tmp_path):
         ctx = self._make_context(
             logic_plan={
                 "requirements.txt": {"purpose": "deps", "exports": []},
@@ -49,17 +47,16 @@ class TestTDDPlanningPhase:
             }
         )
         phase = TDDPlanningPhase(ctx)
-        await phase.run("app", "proj", tmp_path, "", {}, {}, [])
+        phase.run("app", "proj", tmp_path, "", {}, {}, [])
         assert len(ctx.test_skeletons) == 0
 
-    @pytest.mark.asyncio
-    async def test_skips_existing_test_file(self, tmp_path):
+    def test_skips_existing_test_file(self, tmp_path):
         ctx = self._make_context(logic_plan={"src/main.py": {"purpose": "main", "exports": []}})
         phase = TDDPlanningPhase(ctx)
         # Pre-populate the test file
         test_path = "tests/test_main.py"
         gf = {test_path: "# already has tests\n\ndef test_existing(): pass"}
-        gf_out, _, _ = await phase.run("app", "proj", tmp_path, "", {}, gf, [test_path])
+        gf_out, _, _ = phase.run("app", "proj", tmp_path, "", {}, gf, [test_path])
         # The existing test must not be overwritten
         assert gf_out[test_path].startswith("# already has tests")
 

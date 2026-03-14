@@ -1,22 +1,22 @@
 """Unit tests for DeveloperAgent."""
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 from backend.agents.domain_agents.developer_agent import DeveloperAgent
 from backend.agents.orchestrators.task_dag import AgentType, TaskNode
 
 
 def _make_ep():
     ep = MagicMock()
-    ep.publish = AsyncMock()
+    ep.publish_sync = MagicMock()
     return ep
 
 
 @pytest.fixture
 def mock_file_gen():
     fg = MagicMock()
-    fg.generate_file_with_plan.return_value = "def main(): pass\n"
-    fg.generate_file.return_value = "def main(): pass\n"
+    fg.generate_file_with_plan = MagicMock(return_value="def main(): pass\n")
+    fg.generate_file = MagicMock(return_value="def main(): pass\n")
     return fg
 
 
@@ -24,7 +24,7 @@ def mock_file_gen():
 def mock_blackboard():
     bb = MagicMock()
     bb.read.return_value = None
-    bb.write = AsyncMock()
+    bb.write_sync = MagicMock()
     bb.get_all_generated_files.return_value = {}
     return bb
 
@@ -45,32 +45,29 @@ def developer(mock_file_gen):
 
 @pytest.mark.unit
 class TestDeveloperAgent:
-    @pytest.mark.asyncio
-    async def test_run_returns_file_dict(self, developer, mock_blackboard):
+    def test_run_returns_file_dict(self, developer, mock_blackboard):
         node = TaskNode(
             id="src/main.py", agent_type=AgentType.DEVELOPER, task_data={"file_path": "src/main.py", "plan": {}}
         )
-        result = await developer.run(node, mock_blackboard)
+        result = developer.run(node, mock_blackboard)
         assert "src/main.py" in result
         assert isinstance(result["src/main.py"], str)
 
-    @pytest.mark.asyncio
-    async def test_run_writes_to_blackboard(self, developer, mock_blackboard):
+    def test_run_writes_to_blackboard(self, developer, mock_blackboard):
         node = TaskNode(
             id="src/main.py", agent_type=AgentType.DEVELOPER, task_data={"file_path": "src/main.py", "plan": {}}
         )
-        await developer.run(node, mock_blackboard)
-        mock_blackboard.write.assert_called_once()
-        call_key = mock_blackboard.write.call_args.args[0]
+        developer.run(node, mock_blackboard)
+        mock_blackboard.write_sync.assert_called_once()
+        call_key = mock_blackboard.write_sync.call_args.args[0]
         assert "generated_files/src/main.py" in call_key
 
-    @pytest.mark.asyncio
-    async def test_run_publishes_file_generated_event(self, developer, mock_blackboard):
+    def test_run_publishes_file_generated_event(self, developer, mock_blackboard):
         node = TaskNode(
             id="src/main.py", agent_type=AgentType.DEVELOPER, task_data={"file_path": "src/main.py", "plan": {}}
         )
-        await developer.run(node, mock_blackboard)
-        developer._event_publisher.publish.assert_called_with(
+        developer.run(node, mock_blackboard)
+        developer._event_publisher.publish_sync.assert_called_with(
             "file_generated",
             file_path="src/main.py",
             agent_id="developer_0",
@@ -79,12 +76,11 @@ class TestDeveloperAgent:
             is_remediation=False,
         )
 
-    @pytest.mark.asyncio
-    async def test_small_file_init_py_returns_empty(self, developer, mock_blackboard):
+    def test_small_file_init_py_returns_empty(self, developer, mock_blackboard):
         node = TaskNode(
             id="src/__init__.py", agent_type=AgentType.DEVELOPER, task_data={"file_path": "src/__init__.py", "plan": {}}
         )
-        result = await developer.run(node, mock_blackboard)
+        result = developer.run(node, mock_blackboard)
         content = result["src/__init__.py"]
         assert isinstance(content, str)  # Could be empty string or stub
 

@@ -48,26 +48,23 @@ class TestApiContractPhase:
         ctx.response_parser = MagicMock()
         return ctx
 
-    @pytest.mark.asyncio
-    async def test_generates_openapi_for_backend(self, tmp_path):
+    def test_generates_openapi_for_backend(self, tmp_path):
         ctx = self._make_context(framework="fastapi")
         phase = ApiContractPhase(ctx)
-        gf, struct, fps = await phase.run("REST API", "myapi", tmp_path, "", {}, {}, [])
+        gf, struct, fps = phase.run("REST API", "myapi", tmp_path, "", {}, {}, [])
         assert "openapi.yaml" in gf
         assert "openapi: " in gf["openapi.yaml"]
         assert ctx.api_contract is not None
         assert len(ctx.api_endpoints) >= 1
 
-    @pytest.mark.asyncio
-    async def test_skips_non_backend_project(self, tmp_path):
+    def test_skips_non_backend_project(self, tmp_path):
         ctx = self._make_context(framework="pygame", project_type="cli")
         phase = ApiContractPhase(ctx)
-        gf, _, _ = await phase.run("CLI tool", "mytool", tmp_path, "", {}, {}, [])
+        gf, _, _ = phase.run("CLI tool", "mytool", tmp_path, "", {}, {}, [])
         assert "openapi.yaml" not in gf
         assert ctx.api_contract is None
 
-    @pytest.mark.asyncio
-    async def test_strips_markdown_fences(self, tmp_path):
+    def test_strips_markdown_fences(self, tmp_path):
         ctx = self._make_context()
         fenced = f"```yaml\n{_VALID_YAML}\n```"
         ctx.llm_manager.get_client.return_value.chat.return_value = (
@@ -75,13 +72,12 @@ class TestApiContractPhase:
             {},
         )
         phase = ApiContractPhase(ctx)
-        gf, _, _ = await phase.run("REST API", "myapi", tmp_path, "", {}, {}, [])
+        gf, _, _ = phase.run("REST API", "myapi", tmp_path, "", {}, {}, [])
         # Should have stripped fences and produced valid YAML
         assert ctx.api_contract is not None
         assert "```" not in ctx.api_contract
 
-    @pytest.mark.asyncio
-    async def test_retries_on_invalid_yaml(self, tmp_path):
+    def test_retries_on_invalid_yaml(self, tmp_path):
         ctx = self._make_context()
         call_count = [0]
 
@@ -93,7 +89,7 @@ class TestApiContractPhase:
 
         ctx.llm_manager.get_client.return_value.chat.side_effect = _chat
         phase = ApiContractPhase(ctx)
-        gf, _, _ = await phase.run("REST API", "myapi", tmp_path, "", {}, {}, [])
+        gf, _, _ = phase.run("REST API", "myapi", tmp_path, "", {}, {}, [])
         assert call_count[0] == 3
         assert "openapi.yaml" in gf
 

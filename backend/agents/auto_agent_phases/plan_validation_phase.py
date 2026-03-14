@@ -27,7 +27,7 @@ class PlanValidationPhase(BasePhase):
     phase_label = "Plan Validation (Architect vs Critic)"
     MAX_ROUNDS = 3
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -53,7 +53,7 @@ class PlanValidationPhase(BasePhase):
         for round_idx in range(1, self.MAX_ROUNDS + 1):
             self.context.logger.info(f"[PlanValidation] Round {round_idx}/{self.MAX_ROUNDS} — Critic reviewing plan...")
 
-            critique = await self._critic_review(current_plan, project_description)
+            critique = self._critic_review(current_plan, project_description)
             high_issues = [i for i in critique.get("issues", []) if i.get("severity") == "HIGH"]
 
             report["rounds"].append(
@@ -77,7 +77,7 @@ class PlanValidationPhase(BasePhase):
                 f"[PlanValidation] Critic found {len(high_issues)} HIGH issue(s) — asking Architect to revise."
             )
 
-            revised_plan = await self._architect_revise(current_plan, high_issues, project_description)
+            revised_plan = self._architect_revise(current_plan, high_issues, project_description)
             if revised_plan:
                 current_plan = revised_plan
             else:
@@ -116,7 +116,7 @@ class PlanValidationPhase(BasePhase):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    async def _critic_review(self, logic_plan: Dict[str, Any], project_description: str) -> Dict[str, Any]:
+    def _critic_review(self, logic_plan: Dict[str, Any], project_description: str) -> Dict[str, Any]:
         """Invoke the Critic LLM to review the plan."""
         plan_summary = json.dumps(
             {
@@ -155,7 +155,7 @@ class PlanValidationPhase(BasePhase):
             self.context.logger.warning(f"[PlanValidation] Critic call failed: {exc}")
         return default
 
-    async def _architect_revise(
+    def _architect_revise(
         self,
         logic_plan: Dict[str, Any],
         high_issues: List[Dict[str, Any]],

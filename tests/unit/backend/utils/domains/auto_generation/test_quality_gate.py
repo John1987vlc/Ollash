@@ -1,7 +1,7 @@
 """Unit tests for QualityGate (E3)."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 
 @pytest.mark.unit
@@ -43,8 +43,7 @@ class TestQualityGate:
         assert errors == 0
         assert "not found" in output
 
-    @pytest.mark.asyncio
-    async def test_run_quality_check_passes_when_all_ok(self, mock_logger, tmp_path):
+    def test_run_quality_check_passes_when_all_ok(self, mock_logger, tmp_path):
         from backend.utils.domains.auto_generation.quality_gate import QualityGate
         from backend.utils.core.tools.wasm_sandbox import TestResult
 
@@ -61,16 +60,15 @@ class TestQualityGate:
 
         with (
             patch.object(gate, "run_linter", return_value=(0, "")),
-            patch.object(gate, "_run_tests", new=AsyncMock(return_value=passing_test_result)),
+            patch.object(gate, "_run_tests", new=MagicMock(return_value=passing_test_result)),
         ):
-            report = await gate.run_quality_check(tmp_path)
+            report = gate.run_quality_check(tmp_path)
 
         assert report.overall_pass is True
         assert report.tests_failed == 0
         assert report.linter_errors == 0
 
-    @pytest.mark.asyncio
-    async def test_run_quality_check_fails_when_tests_fail(self, mock_logger, tmp_path):
+    def test_run_quality_check_fails_when_tests_fail(self, mock_logger, tmp_path):
         from backend.utils.domains.auto_generation.quality_gate import QualityGate
         from backend.utils.core.tools.wasm_sandbox import TestResult
 
@@ -87,16 +85,15 @@ class TestQualityGate:
 
         with (
             patch.object(gate, "run_linter", return_value=(0, "")),
-            patch.object(gate, "_run_tests", new=AsyncMock(return_value=failing_test_result)),
+            patch.object(gate, "_run_tests", new=MagicMock(return_value=failing_test_result)),
         ):
-            report = await gate.run_quality_check(tmp_path)
+            report = gate.run_quality_check(tmp_path)
 
         assert report.overall_pass is False
         assert report.tests_failed == 2
         assert len(report.failure_reasons) > 0
 
-    @pytest.mark.asyncio
-    async def test_run_quality_check_fails_when_lint_errors(self, mock_logger, tmp_path):
+    def test_run_quality_check_fails_when_lint_errors(self, mock_logger, tmp_path):
         from backend.utils.domains.auto_generation.quality_gate import QualityGate
         from backend.utils.core.tools.wasm_sandbox import TestResult
 
@@ -113,9 +110,9 @@ class TestQualityGate:
 
         with (
             patch.object(gate, "run_linter", return_value=(3, "3 errors found")),
-            patch.object(gate, "_run_tests", new=AsyncMock(return_value=passing_test_result)),
+            patch.object(gate, "_run_tests", new=MagicMock(return_value=passing_test_result)),
         ):
-            report = await gate.run_quality_check(tmp_path)
+            report = gate.run_quality_check(tmp_path)
 
         assert report.overall_pass is False
         assert report.linter_errors == 3

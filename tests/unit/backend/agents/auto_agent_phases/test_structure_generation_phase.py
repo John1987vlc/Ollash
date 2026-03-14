@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from backend.agents.auto_agent_phases.structure_generation_phase import StructureGenerationPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
@@ -9,7 +9,7 @@ def mock_context():
     ctx = MagicMock(spec=PhaseContext)
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
-    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.publish_sync = MagicMock()
     ctx.structure_generator = MagicMock()
     ctx.file_manager = MagicMock()
     return ctx
@@ -18,17 +18,16 @@ def mock_context():
 class TestStructureGenerationPhase:
     """Test suite for Phase 2: Structure Generation."""
 
-    @pytest.mark.asyncio
-    async def test_execute_success(self, mock_context, tmp_path):
+    def test_execute_success(self, mock_context, tmp_path):
         phase = StructureGenerationPhase(mock_context)
 
         mock_structure = {"folders": ["src", "tests"], "files": ["src/main.py", "tests/test_main.py"]}
-        mock_context.structure_generator.generate = AsyncMock(return_value=mock_structure)
+        mock_context.structure_generator.generate = MagicMock(return_value=mock_structure)
 
         from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
 
         with patch.object(StructureGenerator, "extract_file_paths", return_value=["src/main.py", "tests/test_main.py"]):
-            result_files, result_struct, file_paths = await phase.execute(
+            result_files, result_struct, file_paths = phase.execute(
                 project_description="desc",
                 project_name="name",
                 project_root=tmp_path,
@@ -44,10 +43,9 @@ class TestStructureGenerationPhase:
             mock_context.structure_generator.generate.assert_called_once()
             mock_context.file_manager.write_file.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_execute_fallback(self, mock_context, tmp_path):
+    def test_execute_fallback(self, mock_context, tmp_path):
         phase = StructureGenerationPhase(mock_context)
-        mock_context.structure_generator.generate = AsyncMock(return_value=None)
+        mock_context.structure_generator.generate = MagicMock(return_value=None)
 
         from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
 
@@ -55,7 +53,7 @@ class TestStructureGenerationPhase:
             with patch.object(StructureGenerator, "extract_file_paths", return_value=["fallback.py"]):
                 mock_fallback.return_value = {"files": ["fallback.py"]}
 
-                result_files, result_struct, file_paths = await phase.execute(
+                result_files, result_struct, file_paths = phase.execute(
                     project_description="desc",
                     project_name="name",
                     project_root=tmp_path,

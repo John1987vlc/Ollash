@@ -56,7 +56,7 @@ class TestPlanningPhase(BasePhase):
     phase_id = "2.6"
     phase_label = "Test-Driven Planning"
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -83,7 +83,7 @@ class TestPlanningPhase(BasePhase):
             if test_path in generated_files and generated_files[test_path].strip():
                 continue
 
-            skeleton = await self._generate_skeleton(source_path, plan, project_description)
+            skeleton = self._generate_skeleton(source_path, plan, project_description)
             if skeleton:
                 self._write_file(project_root, test_path, skeleton, generated_files, file_paths)
                 self.context.test_skeletons[source_path] = skeleton
@@ -109,7 +109,7 @@ class TestPlanningPhase(BasePhase):
             result.append(fp)
         return result
 
-    async def _generate_skeleton(self, source_path: str, plan: Dict[str, Any], project_description: str) -> str:
+    def _generate_skeleton(self, source_path: str, plan: Dict[str, Any], project_description: str) -> str:
         """Ask the LLM for a test skeleton for *source_path*."""
         exports = plan.get("exports", [])
         purpose = plan.get("purpose", "")

@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from backend.agents.auto_agent import AutoAgent
 
 
@@ -43,8 +43,7 @@ def test_manage_github_issues_basic(agent):
     agent.git_tool.update_issue_body.assert_called_with(123, "Desc 2\n\n🚫 Blocked by: #123")
 
 
-@pytest.mark.asyncio
-async def test_update_ollash_manifest(agent):
+def test_update_ollash_manifest(agent):
     mock_writer = MagicMock()
     mock_writer.chat.return_value = ({"content": "# Manifest content"}, {})
     agent.llm_manager.get_client.return_value = mock_writer
@@ -65,8 +64,8 @@ async def test_update_ollash_manifest(agent):
     }
 
     with patch("backend.utils.core.llm.prompt_loader.PromptLoader") as mock_loader_cls:
-        mock_loader_cls.return_value.load_prompt = AsyncMock(return_value=mock_prompts)
-        content = await agent._update_ollash_manifest("T1")
+        mock_loader_cls.return_value.load_prompt = MagicMock(return_value=mock_prompts)
+        content = agent._update_ollash_manifest("T1")
 
     assert content == "# Manifest content"
     agent.llm_manager.get_client.assert_called_with("writer")
@@ -76,7 +75,7 @@ def test_finalize_project(agent):
     execution_plan = MagicMock()
     project_root = Path("/tmp/project")
     agent.event_publisher = MagicMock()
-    agent.phase_context.fragment_cache.stats = AsyncMock(return_value={})
+    agent.phase_context.fragment_cache.stats = MagicMock(return_value={})
 
     agent._finalize_project("test", project_root, 5, execution_plan)
 

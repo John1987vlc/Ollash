@@ -32,38 +32,34 @@ class TestTaskDAG:
         with pytest.raises(ValueError, match="Duplicate"):
             dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
 
-    @pytest.mark.asyncio
-    async def test_get_ready_no_deps(self):
+    def test_get_ready_no_deps(self):
         dag = TaskDAG()
         dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
         dag.add_task(TaskNode(id="b.py", agent_type=AgentType.DEVELOPER, task_data={}))
-        ready = await dag.get_ready_tasks()
+        ready = dag.get_ready_tasks()
         assert len(ready) == 2
 
-    @pytest.mark.asyncio
-    async def test_get_ready_respects_deps(self):
+    def test_get_ready_respects_deps(self):
         dag = TaskDAG()
         dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
         dag.add_task(TaskNode(id="b.py", agent_type=AgentType.DEVELOPER, task_data={}, dependencies=["a.py"]))
-        ready = await dag.get_ready_tasks()
+        ready = dag.get_ready_tasks()
         assert len(ready) == 1
         assert ready[0].id == "a.py"
 
-    @pytest.mark.asyncio
-    async def test_mark_complete_unlocks_dependent(self):
+    def test_mark_complete_unlocks_dependent(self):
         dag = TaskDAG()
         dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
         dag.add_task(TaskNode(id="b.py", agent_type=AgentType.DEVELOPER, task_data={}, dependencies=["a.py"]))
-        await dag.get_ready_tasks()  # mark a.py READY
-        await dag.mark_complete("a.py", result="content")
-        ready = await dag.get_ready_tasks()
+        dag.get_ready_tasks()  # mark a.py READY
+        dag.mark_complete("a.py", result="content")
+        ready = dag.get_ready_tasks()
         assert any(n.id == "b.py" for n in ready)
 
-    @pytest.mark.asyncio
-    async def test_mark_failed(self):
+    def test_mark_failed(self):
         dag = TaskDAG()
         dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
-        await dag.mark_failed("a.py", "SyntaxError")
+        dag.mark_failed("a.py", "SyntaxError")
         assert dag.get_node("a.py").status == TaskStatus.FAILED
         assert dag.get_node("a.py").error == "SyntaxError"
 
@@ -72,12 +68,11 @@ class TestTaskDAG:
         dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
         assert not dag.is_complete()
 
-    @pytest.mark.asyncio
-    async def test_is_complete_true_when_all_done(self):
+    def test_is_complete_true_when_all_done(self):
         dag = TaskDAG()
         dag.add_task(TaskNode(id="a.py", agent_type=AgentType.DEVELOPER, task_data={}))
-        await dag.get_ready_tasks()
-        await dag.mark_complete("a.py")
+        dag.get_ready_tasks()
+        dag.mark_complete("a.py")
         assert dag.is_complete()
 
     def test_topological_sort_linear(self):

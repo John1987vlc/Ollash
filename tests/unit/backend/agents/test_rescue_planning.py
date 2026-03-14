@@ -5,9 +5,8 @@ Tests cover:
 - RescuePhase.execute: event publishing and passthrough of generated data
 """
 
-import asyncio
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 from pathlib import Path
 
 from backend.agents.auto_agent import RescuePhase
@@ -21,7 +20,7 @@ from backend.agents.auto_agent import RescuePhase
 def _make_phase_context():
     ctx = MagicMock()
     ctx.logger.info = MagicMock()
-    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.publish_sync = MagicMock()
     return ctx
 
 
@@ -51,20 +50,18 @@ class TestRescuePhase:
         generated_files = {"src/main.py": "# code"}
         initial_structure = {"files": ["src/main.py"]}
 
-        result = asyncio.get_event_loop().run_until_complete(
-            rp.execute(
-                project_description="desc",
-                project_name="test",
-                project_root=Path("/tmp/test"),
-                readme_content="",
-                initial_structure=initial_structure,
-                generated_files=generated_files,
-                file_paths=["src/main.py"],
-            )
+        result = rp.execute(
+            project_description="desc",
+            project_name="test",
+            project_root=Path("/tmp/test"),
+            readme_content="",
+            initial_structure=initial_structure,
+            generated_files=generated_files,
+            file_paths=["src/main.py"],
         )
 
-        ctx.event_publisher.publish.assert_called_once()
-        call_kwargs = ctx.event_publisher.publish.call_args
+        ctx.event_publisher.publish_sync.assert_called_once()
+        call_kwargs = ctx.event_publisher.publish_sync.call_args
         assert call_kwargs[0][0] == "rescue_step_executed"
 
     def test_execute_returns_unchanged_generated_files(self):
@@ -72,16 +69,14 @@ class TestRescuePhase:
         rp = RescuePhase(ctx, step="s", action="a", step_index=1)
 
         generated_files = {"x.py": "content"}
-        gf, structure, fps = asyncio.get_event_loop().run_until_complete(
-            rp.execute(
-                project_description="",
-                project_name="",
-                project_root=Path("/tmp"),
-                readme_content="",
-                initial_structure={},
-                generated_files=generated_files,
-                file_paths=[],
-            )
+        gf, structure, fps = rp.execute(
+            project_description="",
+            project_name="",
+            project_root=Path("/tmp"),
+            readme_content="",
+            initial_structure={},
+            generated_files=generated_files,
+            file_paths=[],
         )
 
         assert gf is generated_files
@@ -91,16 +86,14 @@ class TestRescuePhase:
         ctx = _make_phase_context()
         rp = RescuePhase(ctx, step="s", action="a", step_index=1)
 
-        gf, _, fps = asyncio.get_event_loop().run_until_complete(
-            rp.execute(
-                project_description="",
-                project_name="",
-                project_root=Path("/tmp"),
-                readme_content="",
-                initial_structure={},
-                generated_files={},
-                file_paths=["a.py", "b.py"],
-            )
+        gf, _, fps = rp.execute(
+            project_description="",
+            project_name="",
+            project_root=Path("/tmp"),
+            readme_content="",
+            initial_structure={},
+            generated_files={},
+            file_paths=["a.py", "b.py"],
         )
         assert fps == ["a.py", "b.py"]
 
@@ -146,29 +139,29 @@ class TestRequestRescuePlan:
             ' {"step": "Retry coder", "action": "Reattempt file generation"}]'
         )
         agent = self._make_agent(llm_response_raw=raw)
-        phases = asyncio.get_event_loop().run_until_complete(agent._request_rescue_plan("SomePhase", "SomeError"))
+        phases = agent._request_rescue_plan("SomePhase", "SomeError")
         assert len(phases) == 3
         assert all(isinstance(p, RescuePhase) for p in phases)
 
     def test_success_sets_step_index(self):
         raw = '[{"step": "A", "action": "a"}, {"step": "B", "action": "b"}, {"step": "C", "action": "c"}]'
         agent = self._make_agent(llm_response_raw=raw)
-        phases = asyncio.get_event_loop().run_until_complete(agent._request_rescue_plan("P", "E"))
+        phases = agent._request_rescue_plan("P", "E")
         assert [p._step_index for p in phases] == [1, 2, 3]
 
     def test_llm_failure_returns_empty_list(self):
         agent = self._make_agent(raise_exc=True)
-        phases = asyncio.get_event_loop().run_until_complete(agent._request_rescue_plan("P", "E"))
+        phases = agent._request_rescue_plan("P", "E")
         assert phases == []
 
     def test_invalid_json_returns_empty_list(self):
         agent = self._make_agent(llm_response_raw="NOT JSON AT ALL")
-        phases = asyncio.get_event_loop().run_until_complete(agent._request_rescue_plan("P", "E"))
+        phases = agent._request_rescue_plan("P", "E")
         assert phases == []
 
     def test_non_list_json_returns_empty_list(self):
         agent = self._make_agent(llm_response_raw='{"step": "one", "action": "do it"}')
-        phases = asyncio.get_event_loop().run_until_complete(agent._request_rescue_plan("P", "E"))
+        phases = agent._request_rescue_plan("P", "E")
         assert phases == []
 
     def test_caps_at_three_steps(self):
@@ -181,5 +174,5 @@ class TestRequestRescuePlan:
             ' {"step": "E", "action": "e"}]'
         )
         agent = self._make_agent(llm_response_raw=raw)
-        phases = asyncio.get_event_loop().run_until_complete(agent._request_rescue_plan("P", "E"))
+        phases = agent._request_rescue_plan("P", "E")
         assert len(phases) <= 3

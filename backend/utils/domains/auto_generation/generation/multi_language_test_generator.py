@@ -113,7 +113,7 @@ class MultiLanguageTestGenerator:
         # Fix 1: module system ("esm" or "cjs") — synced from PhaseContext by TestGenerationExecutionPhase
         self.module_system: str = ""
 
-    async def generate_tests(
+    def generate_tests(
         self,
         file_path: str,
         content: str,
@@ -144,9 +144,7 @@ class MultiLanguageTestGenerator:
         self.logger.info(f"Generating {framework.value} tests for {file_path} ({language})...")
 
         # Get language-specific prompts
-        system_prompt, user_prompt = await self._get_test_prompts(
-            file_path, content, readme_context, language, framework
-        )
+        system_prompt, user_prompt = self._get_test_prompts(file_path, content, readme_context, language, framework)
 
         try:
             response_data, usage = self.llm_client.chat(
@@ -171,7 +169,7 @@ class MultiLanguageTestGenerator:
             self.logger.error(f"Error generating tests for {file_path}: {e}")
             return None
 
-    async def generate_integration_tests(
+    def generate_integration_tests(
         self,
         project_root: Path,
         readme_context: str,
@@ -446,7 +444,7 @@ Format as a single test file with clear organization. Use {primary_lang} syntax.
                 "framework": framework.value,
             }
 
-    async def _get_test_prompts(
+    def _get_test_prompts(
         self,
         file_path: str,
         content: str,
@@ -470,7 +468,7 @@ Format as a single test file with clear organization. Use {primary_lang} syntax.
             return template_fn(file_path, content, readme)
         else:
             # Fallback to generic
-            return await AutoGenPrompts.generate_unit_tests(file_path, content, readme)
+            return AutoGenPrompts.generate_unit_tests(file_path, content, readme)
 
     def _pytest_prompt(self, file_path: str, content: str, readme: str) -> Tuple[str, str]:
         """Generate pytest-specific prompt."""

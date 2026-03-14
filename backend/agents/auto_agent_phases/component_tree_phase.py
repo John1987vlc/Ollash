@@ -27,7 +27,7 @@ class ComponentTreePhase(BasePhase):
     phase_id = "2.7"
     phase_label = "Component Tree Blueprinting"
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -45,9 +45,7 @@ class ComponentTreePhase(BasePhase):
 
         self.context.logger.info(f"[ComponentTree] {framework} project detected — generating component tree.")
 
-        tree_data = await self._generate_tree(
-            project_description, project_name, framework, initial_structure, file_paths
-        )
+        tree_data = self._generate_tree(project_description, project_name, framework, initial_structure, file_paths)
 
         if not tree_data:
             self.context.logger.warning("[ComponentTree] Generation failed — skipping.")
@@ -83,7 +81,7 @@ class ComponentTreePhase(BasePhase):
 
         return None
 
-    async def _generate_tree(
+    def _generate_tree(
         self,
         project_description: str,
         project_name: str,

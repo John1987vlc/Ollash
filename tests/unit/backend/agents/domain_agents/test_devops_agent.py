@@ -1,14 +1,14 @@
 """Unit tests for DevOpsAgent."""
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 from backend.agents.domain_agents.devops_agent import DevOpsAgent
 from backend.agents.orchestrators.task_dag import AgentType, TaskNode
 
 
 def _make_ep():
     ep = MagicMock()
-    ep.publish = AsyncMock()
+    ep.publish_sync = MagicMock()
     return ep
 
 
@@ -36,7 +36,7 @@ def mock_blackboard_stable():
         return data.get(key, default)
 
     bb.read = bb_read
-    bb.write = AsyncMock()
+    bb.write_sync = MagicMock()
     bb.get_all_generated_files.return_value = {"src/main.py": "def main(): pass"}
     return bb
 
@@ -45,7 +45,7 @@ def mock_blackboard_stable():
 def mock_blackboard_unstable():
     bb = MagicMock()
     bb.read.return_value = False
-    bb.write = AsyncMock()
+    bb.write_sync = MagicMock()
     bb.get_all_generated_files.return_value = {}
     return bb
 
@@ -63,29 +63,25 @@ def devops(mock_infra_gen):
 
 @pytest.mark.unit
 class TestDevOpsAgent:
-    @pytest.mark.asyncio
-    async def test_skips_when_not_stable(self, devops, mock_blackboard_unstable):
+    def test_skips_when_not_stable(self, devops, mock_blackboard_unstable):
         node = TaskNode(id="__devops__", agent_type=AgentType.DEVOPS, task_data={})
-        result = await devops.run(node, mock_blackboard_unstable)
+        result = devops.run(node, mock_blackboard_unstable)
         assert result == {}
 
-    @pytest.mark.asyncio
-    async def test_generates_infra_when_stable(self, devops, mock_blackboard_stable):
+    def test_generates_infra_when_stable(self, devops, mock_blackboard_stable):
         node = TaskNode(id="__devops__", agent_type=AgentType.DEVOPS, task_data={})
-        result = await devops.run(node, mock_blackboard_stable)
+        result = devops.run(node, mock_blackboard_stable)
         assert len(result) >= 1
 
-    @pytest.mark.asyncio
-    async def test_writes_infra_to_blackboard(self, devops, mock_blackboard_stable):
+    def test_writes_infra_to_blackboard(self, devops, mock_blackboard_stable):
         node = TaskNode(id="__devops__", agent_type=AgentType.DEVOPS, task_data={})
-        await devops.run(node, mock_blackboard_stable)
-        assert mock_blackboard_stable.write.called
+        devops.run(node, mock_blackboard_stable)
+        assert mock_blackboard_stable.write_sync.called
 
-    @pytest.mark.asyncio
-    async def test_publishes_infra_generated_event(self, devops, mock_blackboard_stable):
+    def test_publishes_infra_generated_event(self, devops, mock_blackboard_stable):
         node = TaskNode(id="__devops__", agent_type=AgentType.DEVOPS, task_data={})
-        await devops.run(node, mock_blackboard_stable)
-        event_calls = [c.args[0] for c in devops._event_publisher.publish.call_args_list]
+        devops.run(node, mock_blackboard_stable)
+        event_calls = [c.args[0] for c in devops._event_publisher.publish_sync.call_args_list]
         assert "infra_generated" in event_calls
 
     def test_required_tools(self, devops):

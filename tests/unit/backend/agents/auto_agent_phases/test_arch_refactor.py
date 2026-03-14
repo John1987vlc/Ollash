@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
 from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
@@ -10,7 +10,7 @@ def mock_context():
     ctx = MagicMock(spec=PhaseContext)
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
-    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.publish = MagicMock()
     ctx.dependency_graph = MagicMock()
     ctx.parallel_generator = MagicMock()
     ctx.error_knowledge_base = MagicMock()
@@ -95,8 +95,7 @@ def index(): return 'hi'"""
         assert "trading bot" in plans["bot.py"]["main_logic"][0]
         assert project_desc in plans["bot.py"]["main_logic"][0]
 
-    @pytest.mark.asyncio
-    async def test_file_gen_skips_binary(self, mock_context, tmp_path):
+    def test_file_gen_skips_binary(self, mock_context, tmp_path):
         """Test that Phase 4 actually skips binary files during execution."""
         phase = FileContentGenerationPhase(mock_context)
 
@@ -106,12 +105,12 @@ def index(): return 'hi'"""
             {"id": "T2", "title": "Main", "file_path": "main.py", "task_type": "create_file"},
         ]
 
-        # Mock LLM for the non-binary file (phase uses achat now)
+        # Mock LLM for the non-binary file (phase uses chat synchronously)
         mock_client = MagicMock()
-        mock_client.achat = AsyncMock(return_value=(
+        mock_client.chat.return_value = (
             {"content": "<thinking_process>Análisis</thinking_process><code_created>print('ok')</code_created>"},
             {"prompt_tokens": 10, "completion_tokens": 10},
-        ))
+        )
         mock_context.llm_manager.get_client.return_value = mock_client
 
         # Mock Validator
@@ -120,7 +119,7 @@ def index(): return 'hi'"""
         mock_context.files_ctx.validator = mock_validator
 
         generated_files = {}
-        await phase.execute(
+        phase.execute(
             project_description="desc",
             project_name="name",
             project_root=tmp_path,

@@ -39,7 +39,7 @@ class StructureGenerator:
         config = get_config()
         self.max_depth = getattr(config.TOOL_SETTINGS, "max_depth", 2)
 
-    async def generate(
+    def generate(
         self,
         readme_content: str,
         max_retries: int = 3,
@@ -58,6 +58,8 @@ class StructureGenerator:
             "0.8b" in self.llm_client.model
             or "1.5b" in self.llm_client.model
             or "3b" in self.llm_client.model
+            or "4b" in self.llm_client.model
+            or "6b" in self.llm_client.model
             or "7b" in self.llm_client.model
             or "8b" in self.llm_client.model
         )
@@ -77,10 +79,10 @@ class StructureGenerator:
             self.logger.info_sync(f"  Small model ({self.llm_client.model}) detected: Using Skeleton-First approach.")
             # For small models, we use the base_structure as the master and only ask for minor additions
             # instead of a recursive generation that often fails or hangs.
-            final_structure = await self._generate_small_model_additions(base_structure, readme_content, p_type)
+            final_structure = self._generate_small_model_additions(base_structure, readme_content, p_type)
         else:
             # Phase 2: Recursively generate sub-structures only for key folders with DEPTH LIMIT
-            final_structure = await self._recursively_generate_sub_structure(
+            final_structure = self._recursively_generate_sub_structure(
                 base_structure,
                 readme_content,
                 max_retries,
@@ -93,9 +95,7 @@ class StructureGenerator:
         self.logger.info_sync(f"  Successfully generated structure with {file_count} files")
         return final_structure
 
-    async def _generate_small_model_additions(
-        self, base_structure: dict, readme_content: str, project_type: str
-    ) -> dict:
+    def _generate_small_model_additions(self, base_structure: dict, readme_content: str, project_type: str) -> dict:
         """Ask small model for only 2-3 extra files to add to the deterministic scaffold."""
         try:
             prompt = (
@@ -145,9 +145,9 @@ class StructureGenerator:
             self.logger.info_sync(f"  Error getting small model additions: {e}. Returning base scaffold.")
             return base_structure
 
-    async def _generate_high_level_structure(self, context_text: str, max_retries: int, template_name: str) -> dict:
+    def _generate_high_level_structure(self, context_text: str, max_retries: int, template_name: str) -> dict:
         """Generates the high-level (root) folders and files for the project."""
-        system_prompt, user_prompt = await AutoGenPrompts.high_level_structure_generation(context_text)
+        system_prompt, user_prompt = AutoGenPrompts.high_level_structure_generation(context_text)
 
         for attempt in range(max_retries):
             try:
@@ -184,12 +184,12 @@ class StructureGenerator:
                     (
                         system_prompt,
                         user_prompt,
-                    ) = await AutoGenPrompts.high_level_structure_generation_simplified(context_text)
+                    ) = AutoGenPrompts.high_level_structure_generation_simplified(context_text)
                 else:
                     return {}
         return {}
 
-    async def _recursively_generate_sub_structure(
+    def _recursively_generate_sub_structure(
         self,
         current_structure: dict,
         context_text: str,
@@ -223,7 +223,7 @@ class StructureGenerator:
                     f"    Generating sub-structure for folder: {full_folder_path} (Depth: {current_depth})"
                 )
 
-                sub_structure_content = await self._generate_folder_sub_structure(
+                sub_structure_content = self._generate_folder_sub_structure(
                     full_folder_path,
                     context_text,
                     max_retries,
@@ -269,7 +269,7 @@ class StructureGenerator:
                     folder_data["folders"] = normalized_sub_folders
                     folder_data["files"] = normalized_sub_files
 
-                    detailed_structure["folders"][i] = await self._recursively_generate_sub_structure(
+                    detailed_structure["folders"][i] = self._recursively_generate_sub_structure(
                         folder_data,
                         context_text,
                         max_retries,
@@ -281,7 +281,7 @@ class StructureGenerator:
 
         return detailed_structure
 
-    async def _generate_folder_sub_structure(
+    def _generate_folder_sub_structure(
         self,
         folder_path: str,
         context_text: str,
@@ -292,7 +292,7 @@ class StructureGenerator:
         """Generates the immediate sub-folders and files for a specific folder path."""
         overall_structure_str = json.dumps(overall_structure, indent=2)
         _hint = getattr(self, "_constraint_hint", "")
-        system_prompt, user_prompt = await AutoGenPrompts.sub_structure_generation(
+        system_prompt, user_prompt = AutoGenPrompts.sub_structure_generation(
             folder_path,
             context_text,
             overall_structure_str,
@@ -353,7 +353,7 @@ class StructureGenerator:
                     (
                         system_prompt,
                         user_prompt,
-                    ) = await AutoGenPrompts.sub_structure_generation_simplified(
+                    ) = AutoGenPrompts.sub_structure_generation_simplified(
                         folder_path,
                         context_text,
                         overall_structure_str,

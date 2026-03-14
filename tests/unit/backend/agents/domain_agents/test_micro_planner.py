@@ -4,17 +4,16 @@ Tests cover _decompose_micro_steps: success, failure, caps, padding.
 All LLM calls are mocked — no network I/O.
 """
 
-import asyncio
 import json
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
 from backend.agents.domain_agents.developer_agent import DeveloperAgent
 
 
 def _make_ep():
     ep = MagicMock()
-    ep.publish = AsyncMock()
+    ep.publish_sync = MagicMock()
     return ep
 
 
@@ -58,14 +57,12 @@ class TestDecomposeMicroSteps:
     def test_success_returns_step_list(self):
         raw = json.dumps(["Define imports", "Define Config class", "Implement load()"])
         agent = _make_developer_agent(llm_response=raw)
-        steps = asyncio.get_event_loop().run_until_complete(
-            agent._decompose_micro_steps("src/config.py", {"purpose": "Load config"})
-        )
+        steps = agent._decompose_micro_steps("src/config.py", {"purpose": "Load config"})
         assert steps == ["Define imports", "Define Config class", "Implement load()"]
 
     def test_llm_failure_returns_fallback(self):
         agent = _make_developer_agent(raise_exc=True)
-        steps = asyncio.get_event_loop().run_until_complete(agent._decompose_micro_steps("src/config.py", {}))
+        steps = agent._decompose_micro_steps("src/config.py", {})
         assert len(steps) == 1
         assert "config.py" in steps[0]
 
@@ -81,32 +78,32 @@ class TestDecomposeMicroSteps:
             instance_id=0,
             llm_client=None,
         )
-        steps = asyncio.get_event_loop().run_until_complete(agent._decompose_micro_steps("src/main.py", {}))
+        steps = agent._decompose_micro_steps("src/main.py", {})
         assert len(steps) == 1
         assert "main.py" in steps[0]
 
     def test_caps_at_seven_steps(self):
         raw = json.dumps([f"Step {i}" for i in range(10)])
         agent = _make_developer_agent(llm_response=raw)
-        steps = asyncio.get_event_loop().run_until_complete(agent._decompose_micro_steps("src/x.py", {}))
+        steps = agent._decompose_micro_steps("src/x.py", {})
         assert len(steps) <= 7
 
     def test_pads_to_three_when_fewer(self):
         raw = json.dumps(["Only one step"])
         agent = _make_developer_agent(llm_response=raw)
-        steps = asyncio.get_event_loop().run_until_complete(agent._decompose_micro_steps("src/x.py", {}))
+        steps = agent._decompose_micro_steps("src/x.py", {})
         assert len(steps) >= 3
 
     def test_invalid_json_returns_fallback(self):
         agent = _make_developer_agent(llm_response="NOT A JSON ARRAY")
-        steps = asyncio.get_event_loop().run_until_complete(agent._decompose_micro_steps("src/x.py", {}))
+        steps = agent._decompose_micro_steps("src/x.py", {})
         assert len(steps) == 1
         assert "x.py" in steps[0]
 
     def test_non_string_items_in_list_returns_fallback(self):
         raw = json.dumps([1, 2, 3])  # list of ints, not strings
         agent = _make_developer_agent(llm_response=raw)
-        steps = asyncio.get_event_loop().run_until_complete(agent._decompose_micro_steps("src/x.py", {}))
+        steps = agent._decompose_micro_steps("src/x.py", {})
         # Should fallback since not all items are strings
         assert len(steps) == 1
 
@@ -116,8 +113,11 @@ class TestDecomposeMicroSteps:
         mock_client = MagicMock()
         mock_client.chat.return_value = ({"message": {"content": raw}}, None)
 
+        mock_file_gen = MagicMock()
+        mock_file_gen.generate_file_with_plan.return_value = "# generated content"
+
         agent = DeveloperAgent(
-            file_content_generator=MagicMock(),
+            file_content_generator=mock_file_gen,
             code_patcher=MagicMock(),
             locked_file_manager=MagicMock(),
             parallel_file_generator=MagicMock(),
@@ -127,12 +127,6 @@ class TestDecomposeMicroSteps:
             instance_id=0,
             llm_client=mock_client,
         )
-
-        # Mock the actual file generation so run() doesn't fail
-        async def fake_generate_single_file(**kwargs):
-            return "# generated content"
-
-        agent._generate_single_file = fake_generate_single_file
 
         node = MagicMock()
         node.task_data = {
@@ -147,9 +141,9 @@ class TestDecomposeMicroSteps:
 
         blackboard = MagicMock()
         blackboard.read.return_value = None
-        blackboard.write = AsyncMock()
+        blackboard.write_sync = MagicMock()
 
-        asyncio.get_event_loop().run_until_complete(agent.run(node, blackboard))
+        agent.run(node, blackboard)
 
         assert "plan_steps" in node.task_data
         assert isinstance(node.task_data["plan_steps"], list)

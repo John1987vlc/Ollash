@@ -36,7 +36,7 @@ class ImprovementSuggester:
         self.options = options or self.DEFAULT_OPTIONS.copy()
         self.vulnerability_scanner = vulnerability_scanner
 
-    async def _build_risk_context(self, current_files: Dict[str, str]) -> Optional[Dict[str, Any]]:
+    def _build_risk_context(self, current_files: Dict[str, str]) -> Optional[Dict[str, Any]]:
         """Run a vulnerability scan and return a risk context dict, or None."""
         if not self.vulnerability_scanner or not current_files:
             return None
@@ -46,7 +46,7 @@ class ImprovementSuggester:
             import inspect
 
             if inspect.iscoroutinefunction(self.vulnerability_scanner.scan_project):
-                report = await self.vulnerability_scanner.scan_project(current_files, block_on_critical=False)
+                report = self.vulnerability_scanner.scan_project(current_files, block_on_critical=False)
             else:
                 report = self.vulnerability_scanner.scan_project(current_files, block_on_critical=False)
 
@@ -71,7 +71,7 @@ class ImprovementSuggester:
             self.logger.warning(f"Vulnerability scan skipped during improvement suggestion: {exc}")
             return None
 
-    async def suggest_improvements(
+    def suggest_improvements(
         self,
         project_description: str,
         readme_content: str,
@@ -86,14 +86,14 @@ class ImprovementSuggester:
 
         Returns a list of suggested improvements (strings).
         """
-        risk_context = await self._build_risk_context(current_files)
+        risk_context = self._build_risk_context(current_files)
         if risk_context and (risk_context["critical_vulns"] > 0 or risk_context["high_vulns"] > 0):
             self.logger.info(
                 f"Risk-based suggestions: {risk_context['critical_vulns']} critical, "
                 f"{risk_context['high_vulns']} high vulnerabilities detected"
             )
 
-        system, user = await AutoGenPrompts.suggest_improvements_prompt(
+        system, user = AutoGenPrompts.suggest_improvements_prompt(
             project_description,
             readme_content,
             json_structure,

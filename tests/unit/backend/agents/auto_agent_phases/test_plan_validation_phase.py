@@ -31,17 +31,15 @@ class TestPlanValidationPhase:
         ctx.response_parser.extract_json.side_effect = json.loads
         return ctx
 
-    @pytest.mark.asyncio
-    async def test_passes_immediately_on_no_issues(self, tmp_path):
+    def test_passes_immediately_on_no_issues(self, tmp_path):
         ctx = self._make_context(critic_verdict="PASS")
         phase = PlanValidationPhase(ctx)
-        gf, _, _ = await phase.run("desc", "proj", tmp_path, "", {}, {}, [])
+        gf, _, _ = phase.run("desc", "proj", tmp_path, "", {}, {}, [])
         assert ctx.plan_validation_report["final_verdict"] == "PASS"
         assert ctx.plan_validation_report["total_rounds"] == 1
         assert "PLAN_VALIDATION_REPORT.json" in gf
 
-    @pytest.mark.asyncio
-    async def test_iterates_on_high_issues(self, tmp_path):
+    def test_iterates_on_high_issues(self, tmp_path):
         """Critic always fails but after MAX_ROUNDS we stop."""
         high_issue = {"severity": "HIGH", "file": "src/db.py", "description": "SQL injection risk"}
         ctx = self._make_context(
@@ -63,25 +61,23 @@ class TestPlanValidationPhase:
             {"verdict": "FAIL", "issues": [high_issue]},
         ]
         phase = PlanValidationPhase(ctx)
-        gf, _, _ = await phase.run("desc", "proj", tmp_path, "", {}, {}, [])
+        gf, _, _ = phase.run("desc", "proj", tmp_path, "", {}, {}, [])
         assert ctx.plan_validation_report["final_verdict"] == "MAX_ROUNDS_REACHED"
         assert ctx.plan_validation_report["total_rounds"] == PlanValidationPhase.MAX_ROUNDS
 
-    @pytest.mark.asyncio
-    async def test_no_logic_plan_skips_phase(self, tmp_path):
+    def test_no_logic_plan_skips_phase(self, tmp_path):
         ctx = MagicMock()
         ctx.logger = MagicMock()
         ctx.logic_plan = {}
         phase = PlanValidationPhase(ctx)
-        gf, struct, fps = await phase.run("desc", "proj", tmp_path, "", {}, {}, [])
+        gf, struct, fps = phase.run("desc", "proj", tmp_path, "", {}, {}, [])
         # ctx.llm_manager should NOT have been called
         ctx.llm_manager.get_client.assert_not_called()
 
-    @pytest.mark.asyncio
-    async def test_report_written_to_disk(self, tmp_path):
+    def test_report_written_to_disk(self, tmp_path):
         ctx = self._make_context(critic_verdict="PASS")
         phase = PlanValidationPhase(ctx)
-        gf, _, _ = await phase.run("desc", "proj", tmp_path, "", {}, {}, [])
+        gf, _, _ = phase.run("desc", "proj", tmp_path, "", {}, {}, [])
         report_content = gf.get("PLAN_VALIDATION_REPORT.json", "")
         parsed = json.loads(report_content)
         assert "final_verdict" in parsed

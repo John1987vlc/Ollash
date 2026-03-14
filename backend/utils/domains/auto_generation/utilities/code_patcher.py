@@ -32,7 +32,7 @@ class CodePatcher:
         self.logger = logger
         self.response_parser = response_parser or LLMResponseParser()
 
-    async def edit_existing_file(
+    def edit_existing_file(
         self,
         file_path: str,
         current_content: str,
@@ -59,11 +59,11 @@ class CodePatcher:
             return ""
 
         if edit_strategy == "partial" and issues_to_fix:
-            return await self._apply_partial_edits(file_path, current_content, readme, issues_to_fix)
+            return self._apply_partial_edits(file_path, current_content, readme, issues_to_fix)
         elif edit_strategy == "merge":
-            return await self._merge_original_with_improvements(file_path, current_content, readme)
+            return self._merge_original_with_improvements(file_path, current_content, readme)
         elif edit_strategy == "search_replace":
-            return await self._apply_search_replace_strategy(file_path, current_content, readme, issues_to_fix)
+            return self._apply_search_replace_strategy(file_path, current_content, readme, issues_to_fix)
         else:
             return current_content
 
@@ -125,7 +125,7 @@ class CodePatcher:
                 failed.append(search)
         return result, failed
 
-    async def _apply_search_replace_strategy(
+    def _apply_search_replace_strategy(
         self,
         file_path: str,
         current_content: str,
@@ -141,7 +141,7 @@ class CodePatcher:
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = await loader.load_prompt("domains/auto_generation/code_repair.yaml")
+            prompts = loader.load_prompt("domains/auto_generation/code_repair.yaml")
             system = prompts.get("search_replace_edit", {}).get("system", "")
             user_template = prompts.get("search_replace_edit", {}).get("user", "")
             issues_str = "\n".join(f"- {i.get('description', '')}" for i in (issues_to_fix or []))
@@ -172,7 +172,7 @@ class CodePatcher:
             self.logger.error(f"SEARCH/REPLACE strategy failed for {file_path}: {e}")
             return current_content
 
-    async def _apply_partial_edits(
+    def _apply_partial_edits(
         self,
         file_path: str,
         current_content: str,
@@ -193,7 +193,7 @@ class CodePatcher:
             if problem_section:
                 self.logger.info(f"    Found: {issue_desc[:40]}...")
 
-                fix = await self._generate_section_fix(file_path, problem_section, issue_desc, readme)
+                fix = self._generate_section_fix(file_path, problem_section, issue_desc, readme)
 
                 if fix and fix != problem_section:
                     edited_content = edited_content.replace(problem_section, fix, 1)
@@ -201,7 +201,7 @@ class CodePatcher:
 
         return edited_content
 
-    async def _merge_original_with_improvements(self, file_path: str, current_content: str, readme: str) -> str:
+    def _merge_original_with_improvements(self, file_path: str, current_content: str, readme: str) -> str:
         """Generate an improved version and intelligently merge it with the original."""
 
         self.logger.info("  Merging improvements with existing content...")
@@ -302,7 +302,7 @@ Output the improved version only, no explanations."""
 
         return ""
 
-    async def _generate_section_fix(self, file_path: str, problem_section: str, issue_desc: str, readme: str) -> str:
+    def _generate_section_fix(self, file_path: str, problem_section: str, issue_desc: str, readme: str) -> str:
         """Generate a fix for a specific section."""
 
         fix_prompt = f"""Fix this specific issue in {file_path}:
@@ -340,9 +340,7 @@ Generate ONLY the fixed code (same language), no explanations."""
             self.logger.warning(f"Could not generate fix: {e}")
             return problem_section
 
-    async def inject_missing_function(
-        self, file_path: str, content: str, requirement: str, related_context: str = ""
-    ) -> str:
+    def inject_missing_function(self, file_path: str, content: str, requirement: str, related_context: str = "") -> str:
         """Inject a missing function or method into the code using centralized prompts."""
         self.logger.info(f"  Injecting missing logic for '{requirement}' into {file_path}...")
 
@@ -350,7 +348,7 @@ Generate ONLY the fixed code (same language), no explanations."""
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = await loader.load_prompt("domains/auto_generation/code_repair.yaml")
+            prompts = loader.load_prompt("domains/auto_generation/code_repair.yaml")
 
             system = prompts.get("surgical_injection", {}).get("system", "")
             user_template = prompts.get("surgical_injection", {}).get("user", "")

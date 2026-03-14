@@ -1,7 +1,7 @@
 """Unit tests for F1 — InterfaceScaffoldingPhase."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 from backend.agents.auto_agent_phases.interface_scaffolding_phase import InterfaceScaffoldingPhase
 
@@ -10,7 +10,7 @@ from backend.agents.auto_agent_phases.interface_scaffolding_phase import Interfa
 def context():
     ctx = MagicMock()
     ctx.logic_plan = {}
-    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.publish = MagicMock()
     return ctx
 
 
@@ -74,10 +74,9 @@ class TestTypeScriptStub:
 
 @pytest.mark.unit
 class TestRunPhase:
-    @pytest.mark.asyncio
-    async def test_no_logic_plan_skips(self, phase, context, tmp_path):
+    def test_no_logic_plan_skips(self, phase, context, tmp_path):
         context.logic_plan = {}
-        gf, structure, fp = await phase.run(
+        gf, structure, fp = phase.run(
             project_description="test",
             project_name="test",
             project_root=tmp_path,
@@ -89,15 +88,14 @@ class TestRunPhase:
         # No stubs generated
         assert all(not k.endswith(".pyi") for k in gf)
 
-    @pytest.mark.asyncio
-    async def test_generates_pyi_for_py_with_exports(self, phase, context, tmp_path):
+    def test_generates_pyi_for_py_with_exports(self, phase, context, tmp_path):
         context.logic_plan = {
             "src/utils.py": {
                 "exports": ["helper_func"],
                 "imports": [],
             }
         }
-        gf, _, fp = await phase.run(
+        gf, _, fp = phase.run(
             project_description="test",
             project_name="test",
             project_root=tmp_path,
@@ -111,10 +109,9 @@ class TestRunPhase:
         assert "src/utils.pyi" in gf_norm
         assert "def helper_func" in gf_norm["src/utils.pyi"]
 
-    @pytest.mark.asyncio
-    async def test_skips_file_with_no_exports(self, phase, context, tmp_path):
+    def test_skips_file_with_no_exports(self, phase, context, tmp_path):
         context.logic_plan = {"src/empty.py": {"exports": [], "imports": []}}
-        gf, _, fp = await phase.run(
+        gf, _, fp = phase.run(
             project_description="test",
             project_name="test",
             project_root=tmp_path,

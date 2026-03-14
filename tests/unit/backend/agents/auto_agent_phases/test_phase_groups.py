@@ -1,4 +1,5 @@
 """Unit tests for phase_groups.py — parallel phase grouping in AutoAgent pipeline."""
+
 import pytest
 from unittest.mock import MagicMock
 
@@ -97,6 +98,6 @@ def test_build_phase_groups_mixed_sequence():
 
     assert len(result) == 3
     assert not isinstance(result[0], PhaseGroup)  # ReadmeGenerationPhase
-    assert isinstance(result[1], PhaseGroup)       # Validation group
+    assert isinstance(result[1], PhaseGroup)  # Validation group
     assert result[1].parallel is True
     assert not isinstance(result[2], PhaseGroup)  # FinalReviewPhase

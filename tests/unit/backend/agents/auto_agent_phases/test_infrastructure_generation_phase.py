@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from pathlib import Path
 from backend.agents.auto_agent_phases.infrastructure_generation_phase import InfrastructureGenerationPhase
 
@@ -11,7 +11,7 @@ def mock_context():
     ctx.file_manager = MagicMock()
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
-    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.publish = MagicMock()
     return ctx
 
 
@@ -20,8 +20,7 @@ def phase(mock_context):
     return InfrastructureGenerationPhase(mock_context)
 
 
-@pytest.mark.asyncio
-async def test_infrastructure_generation_all_disabled(phase, mock_context):
+def test_infrastructure_generation_all_disabled(phase, mock_context):
     """If flags are False, only CI and Dependabot should be generated."""
     project_root = Path("/tmp/test")
     generated_files = {}
@@ -34,7 +33,7 @@ async def test_infrastructure_generation_all_disabled(phase, mock_context):
         "has_web_server": False,
     }
 
-    result_files, _, _ = await phase.execute(
+    result_files, _, _ = phase.execute(
         "desc",
         "project",
         project_root,
@@ -56,8 +55,7 @@ async def test_infrastructure_generation_all_disabled(phase, mock_context):
     assert ".github/workflows/deploy.yml" not in result_files
 
 
-@pytest.mark.asyncio
-async def test_infrastructure_generation_docker_enabled(phase, mock_context):
+def test_infrastructure_generation_docker_enabled(phase, mock_context):
     """If include_docker=True, Docker and K8s files should be generated."""
     project_root = Path("/tmp/test")
     generated_files = {}
@@ -72,7 +70,7 @@ async def test_infrastructure_generation_docker_enabled(phase, mock_context):
     mock_context.infra_generator.generate_docker_compose.return_value = "version: 3"
     mock_context.infra_generator.generate_k8s_deployment.return_value = "apiVersion: apps/v1"
 
-    result_files, _, _ = await phase.execute(
+    result_files, _, _ = phase.execute(
         "desc",
         "project",
         project_root,
@@ -91,8 +89,7 @@ async def test_infrastructure_generation_docker_enabled(phase, mock_context):
     assert "terraform/main.tf" not in result_files
 
 
-@pytest.mark.asyncio
-async def test_infrastructure_generation_terraform_enabled(phase, mock_context):
+def test_infrastructure_generation_terraform_enabled(phase, mock_context):
     """If include_terraform=True, Terraform files should be generated."""
     project_root = Path("/tmp/test")
     generated_files = {}
@@ -105,7 +102,7 @@ async def test_infrastructure_generation_terraform_enabled(phase, mock_context):
     }
     mock_context.infra_generator.generate_terraform_main.return_value = "resource aws_s3_bucket"
 
-    result_files, _, _ = await phase.execute(
+    result_files, _, _ = phase.execute(
         "desc",
         "project",
         project_root,

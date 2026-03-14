@@ -99,21 +99,21 @@ class TestCheckFormat:
 
 class TestActiveShadowValidate:
     @pytest.mark.unit
-    async def test_valid_code_returns_unchanged(self, shadow, mock_llm):
+    def test_valid_code_returns_unchanged(self, shadow, mock_llm):
         code = "def f():\n    return 1\n"
         # The new logic calls nano_reviewer for code that passes basic checks
         mock_llm.get_client.return_value.chat.return_value = (
             {"content": '{"has_errors": false, "errors": []}'},
             {},
         )
-        result, repaired = await shadow.active_shadow_validate("f.py", code, "python", mock_llm, MagicMock())
+        result, repaired = shadow.active_shadow_validate("f.py", code, "python", mock_llm, MagicMock())
         assert result == code
         assert repaired is False
         # Should have called get_client('nano_reviewer')
         mock_llm.get_client.assert_called_with("nano_reviewer")
 
     @pytest.mark.unit
-    async def test_invalid_python_triggers_nano_reviewer(self, shadow, mock_llm):
+    def test_invalid_python_triggers_nano_reviewer(self, shadow, mock_llm):
         broken = "def f(:\n    return 1"
         fixed = "def f():\n    return 1\n"
         mock_llm.get_client.return_value.chat.return_value = (
@@ -125,12 +125,12 @@ class TestActiveShadowValidate:
 
             orig = pt.AutoGenPrompts.nano_format_corrector
 
-            async def _async_nano(**kwargs):
+            def _sync_nano(**kwargs):
                 return ("sys", "usr")
 
-            pt.AutoGenPrompts.nano_format_corrector = staticmethod(_async_nano)
+            pt.AutoGenPrompts.nano_format_corrector = staticmethod(_sync_nano)
             try:
-                result, repaired = await shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
+                result, repaired = shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
             finally:
                 pt.AutoGenPrompts.nano_format_corrector = orig
 
@@ -138,7 +138,7 @@ class TestActiveShadowValidate:
         assert "def f():" in result
 
     @pytest.mark.unit
-    async def test_nano_reviewer_failure_returns_original(self, shadow, mock_llm):
+    def test_nano_reviewer_failure_returns_original(self, shadow, mock_llm):
         broken = "def f(:\n    pass"
         mock_llm.get_client.return_value.chat.side_effect = RuntimeError("network down")
 
@@ -146,12 +146,12 @@ class TestActiveShadowValidate:
 
         orig = pt.AutoGenPrompts.nano_format_corrector
 
-        async def _async_nano(**kwargs):
+        def _sync_nano(**kwargs):
             return ("sys", "usr")
 
-        pt.AutoGenPrompts.nano_format_corrector = staticmethod(_async_nano)
+        pt.AutoGenPrompts.nano_format_corrector = staticmethod(_sync_nano)
         try:
-            result, repaired = await shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
+            result, repaired = shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
         finally:
             pt.AutoGenPrompts.nano_format_corrector = orig
 
@@ -159,7 +159,7 @@ class TestActiveShadowValidate:
         assert repaired is False
 
     @pytest.mark.unit
-    async def test_nano_repair_that_still_has_errors_returns_original(self, shadow, mock_llm):
+    def test_nano_repair_that_still_has_errors_returns_original(self, shadow, mock_llm):
         """If the nano model returns still-broken code, return original."""
         broken = "def f(:\n    return 1"
         still_broken = "def g(:\n    return 2"  # Also invalid Python
@@ -171,12 +171,12 @@ class TestActiveShadowValidate:
 
         orig = pt.AutoGenPrompts.nano_format_corrector
 
-        async def _async_nano(**kwargs):
+        def _sync_nano(**kwargs):
             return ("sys", "usr")
 
-        pt.AutoGenPrompts.nano_format_corrector = staticmethod(_async_nano)
+        pt.AutoGenPrompts.nano_format_corrector = staticmethod(_sync_nano)
         try:
-            result, repaired = await shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
+            result, repaired = shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
         finally:
             pt.AutoGenPrompts.nano_format_corrector = orig
 
@@ -185,14 +185,14 @@ class TestActiveShadowValidate:
         assert repaired is False
 
     @pytest.mark.unit
-    async def test_valid_json_not_repaired(self, shadow, mock_llm):
+    def test_valid_json_not_repaired(self, shadow, mock_llm):
         code = '{"ok": true}'
-        result, repaired = await shadow.active_shadow_validate("data.json", code, "json", mock_llm, MagicMock())
+        result, repaired = shadow.active_shadow_validate("data.json", code, "json", mock_llm, MagicMock())
         assert result == code
         assert repaired is False
 
     @pytest.mark.unit
-    async def test_shadow_log_recorded_on_repair(self, shadow, mock_llm):
+    def test_shadow_log_recorded_on_repair(self, shadow, mock_llm):
         broken = "def f(:\n    return 1"
         fixed = "def f():\n    return 1\n"
         mock_llm.get_client.return_value.chat.return_value = (
@@ -205,12 +205,12 @@ class TestActiveShadowValidate:
 
         orig = pt.AutoGenPrompts.nano_format_corrector
 
-        async def _async_nano(**kwargs):
+        def _sync_nano(**kwargs):
             return ("sys", "usr")
 
-        pt.AutoGenPrompts.nano_format_corrector = staticmethod(_async_nano)
+        pt.AutoGenPrompts.nano_format_corrector = staticmethod(_sync_nano)
         try:
-            await shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
+            shadow.active_shadow_validate("f.py", broken, "python", mock_llm, MagicMock())
         finally:
             pt.AutoGenPrompts.nano_format_corrector = orig
 

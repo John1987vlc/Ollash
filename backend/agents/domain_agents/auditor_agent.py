@@ -15,7 +15,6 @@ batch final audit (DAG node ``__auditor_final__``) catches cross-file issues.
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from backend.agents.domain_agents.base_domain_agent import BaseDomainAgent
@@ -37,8 +36,7 @@ class AuditorAgent(BaseDomainAgent):
     AUDITOR domain agent — event-driven JIT scanning + empirical linter sandbox.
 
     Subscribes to ``file_generated`` at construction time.  Each event
-    triggers ``_audit_file()`` as an asyncio background task, so auditing
-    never blocks the DeveloperAgent pool.
+    triggers ``_audit_file()`` synchronously.
 
     P3 (Empirical Validation): After static vulnerability scan, the SandboxRunner
     executes ``ruff`` on the generated file. Real linter errors are written to
@@ -68,7 +66,6 @@ class AuditorAgent(BaseDomainAgent):
         self._quarantine = code_quarantine
         self._sandbox: Optional[SandboxRunner] = sandbox_runner
         self._blackboard: Optional["Blackboard"] = None
-        self._event_loop: Optional[asyncio.AbstractEventLoop] = None
 
         # JIT subscription — active from construction
         self._event_publisher.subscribe("file_generated", self._on_file_generated)
@@ -81,19 +78,15 @@ class AuditorAgent(BaseDomainAgent):
         """Inject the Blackboard reference before the DAG loop starts."""
         self._blackboard = blackboard
 
-    def set_event_loop(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Inject the running event loop for create_task() calls."""
-        self._event_loop = loop
+    def set_event_loop(self, loop: Any) -> None:
+        """No-op: kept for API backward compatibility (event loop no longer needed)."""
 
     # ------------------------------------------------------------------
-    # JIT subscription callback (synchronous — EventPublisher requirement)
+    # JIT subscription callback
     # ------------------------------------------------------------------
 
-    async def _on_file_generated(self, event_type: str, event_data: Dict[str, Any]) -> None:
-        """EventPublisher callback — async.
-
-        Triggers the audit for the generated file.
-        """
+    def _on_file_generated(self, event_type: str, event_data: Dict[str, Any]) -> None:
+        """EventPublisher callback — triggered when a file is generated."""
         if self._blackboard is None:
             return
 
@@ -103,13 +96,13 @@ class AuditorAgent(BaseDomainAgent):
         if not file_path or not content:
             return
 
-        await self._audit_file(file_path, content)
+        self._audit_file(file_path, content)
 
     # ------------------------------------------------------------------
     # Audit implementation
     # ------------------------------------------------------------------
 
-    async def _audit_file(self, file_path: str, content: str) -> None:
+    def _audit_file(self, file_path: str, content: str) -> None:
         """Scan a single file and write results to Blackboard."""
         if self._blackboard is None:
             return
@@ -117,18 +110,14 @@ class AuditorAgent(BaseDomainAgent):
         language = LanguageUtils.infer_language(file_path)
         self._log_debug(f"JIT audit: '{file_path}' ({language})")
 
-        loop = asyncio.get_event_loop()
         try:
-            scan_result = await loop.run_in_executor(
-                None,
-                lambda: self._vuln_scanner.scan_file(file_path, content, language),
-            )
+            scan_result = self._vuln_scanner.scan_file(file_path, content, language)
         except Exception as exc:
             self._log_error(f"VulnerabilityScanner failed on '{file_path}': {exc}")
             return
 
         # Write static scan results
-        await self._blackboard.write(
+        self._blackboard.write_sync(
             f"scan_results/{file_path}",
             scan_result,
             self.agent_id,
@@ -137,11 +126,8 @@ class AuditorAgent(BaseDomainAgent):
         # P3 — Empirical validation: run real linter in sandbox
         if self._sandbox is not None:
             try:
-                sandbox_result = await loop.run_in_executor(
-                    None,
-                    lambda: self._sandbox.run_linter(file_path, content),
-                )
-                await self._publish_event(
+                sandbox_result = self._sandbox.run_linter(file_path, content)
+                self._publish_event(
                     "audit_sandbox_result",
                     rel_path=file_path,
                     passed=sandbox_result.passed,
@@ -150,7 +136,7 @@ class AuditorAgent(BaseDomainAgent):
                 )
                 if not sandbox_result.passed and sandbox_result.errors:
                     # Store real errors for SelfHealingLoop to inject into prompt
-                    await self._blackboard.write(
+                    self._blackboard.write_sync(
                         f"sandbox_errors/{file_path}",
                         "\n".join(sandbox_result.errors),
                         self.agent_id,
@@ -164,24 +150,21 @@ class AuditorAgent(BaseDomainAgent):
         if has_critical:
             self._log_warning(f"CRITICAL vulnerability found in '{file_path}'!")
             try:
-                await loop.run_in_executor(
-                    None,
-                    lambda: self._quarantine.quarantine_file(
-                        file_path=file_path,
-                        content=content,
-                        reason="Critical vulnerability detected by AuditorAgent",
-                    ),
+                self._quarantine.quarantine_file(
+                    file_path=file_path,
+                    content=content,
+                    reason="Critical vulnerability detected by AuditorAgent",
                 )
             except Exception as exc:
                 self._log_error(f"Quarantine failed for '{file_path}': {exc}")
 
-            await self._publish_event(
+            self._publish_event(
                 "audit_critical_found",
                 file_path=file_path,
                 vulnerability_count=self._count_critical(scan_result),
             )
         else:
-            await self._publish_event(
+            self._publish_event(
                 "audit_completed",
                 file_path=file_path,
                 max_severity=self._max_severity(scan_result),
@@ -191,7 +174,7 @@ class AuditorAgent(BaseDomainAgent):
     # DAG node: final batch audit
     # ------------------------------------------------------------------
 
-    async def run(
+    def run(
         self,
         node: "TaskNode",
         blackboard: "Blackboard",
@@ -218,7 +201,7 @@ class AuditorAgent(BaseDomainAgent):
             # Skip already-scanned files
             if blackboard.read(f"scan_results/{file_path}") is not None:
                 continue
-            await self._audit_file(file_path, content)
+            self._audit_file(file_path, content)
             scanned += 1
 
         summary: Dict[str, Any] = {
@@ -226,8 +209,8 @@ class AuditorAgent(BaseDomainAgent):
             "newly_scanned": scanned,
             "critical_files": critical_files,
         }
-        await blackboard.write("audit_summary", summary, self.agent_id)
-        await self._publish_event("batch_audit_completed", **summary)
+        blackboard.write_sync("audit_summary", summary, self.agent_id)
+        self._publish_event("batch_audit_completed", **summary)
         self._log_info(f"Batch audit complete: {scanned} files scanned, {len(critical_files)} critical issues.")
         return summary
 

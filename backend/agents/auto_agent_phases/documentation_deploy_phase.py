@@ -24,7 +24,7 @@ class DocumentationDeployPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -47,7 +47,7 @@ class DocumentationDeployPhase(IAgentPhase):
             return generated_files, initial_structure, file_paths
 
         self.context.logger.info("PHASE DOCS: Starting documentation deployment...")
-        self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_start", phase="documentation_deploy", message="Deploying documentation"
         )
 
@@ -60,7 +60,7 @@ class DocumentationDeployPhase(IAgentPhase):
 
         # Initialize GitHub Wiki
         if enable_wiki and doc_files and git_token:
-            await self._initialize_wiki(project_root, doc_files, repo_owner, repo_name, git_token)
+            self._initialize_wiki(project_root, doc_files, repo_owner, repo_name, git_token)
 
         # Setup GitHub Pages
         if enable_pages:
@@ -84,7 +84,7 @@ class DocumentationDeployPhase(IAgentPhase):
                 self.context.file_manager.write_file(project_root / "README.md", updated_readme)
                 self.context.logger.info("  Badges inserted into README.md")
 
-        self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_complete",
             phase="documentation_deploy",
             message="Documentation deployment complete",
@@ -93,7 +93,7 @@ class DocumentationDeployPhase(IAgentPhase):
 
         return generated_files, initial_structure, file_paths
 
-    async def _initialize_wiki(
+    def _initialize_wiki(
         self,
         project_root: Path,
         doc_files: Dict[str, str],

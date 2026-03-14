@@ -5,9 +5,9 @@ Monitors GitHub Actions after git push and automatically fixes CI failures
 using the CICDHealer service. Runs after FinalReviewPhase.
 """
 
-import asyncio
 import json
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -35,7 +35,7 @@ class CICDHealingPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -57,14 +57,16 @@ class CICDHealingPhase(IAgentPhase):
             return generated_files, initial_structure, file_paths
 
         self.context.logger.info("PHASE CI/CD: Starting CI/CD healing monitor...")
-        self.context.event_publisher.publish("phase_start", phase="cicd_healing", message="Monitoring CI/CD pipeline")
+        self.context.event_publisher.publish_sync(
+            "phase_start", phase="cicd_healing", message="Monitoring CI/CD pipeline"
+        )
 
         healing_attempt = 0
         ci_passed = False
 
         while not ci_passed and healing_attempt < self.MAX_HEALING_ATTEMPTS:
             # Wait for workflow to complete
-            run_result = await self._wait_for_workflow_completion(project_root)
+            run_result = self._wait_for_workflow_completion(project_root)
 
             if run_result is None:
                 self.context.logger.warning("CICD Healing: Could not detect workflow run")
@@ -73,7 +75,7 @@ class CICDHealingPhase(IAgentPhase):
             if run_result.get("conclusion") == "success":
                 ci_passed = True
                 self.context.logger.info("CICD Healing: CI passed successfully!")
-                self.context.event_publisher.publish(
+                self.context.event_publisher.publish_sync(
                     "tool_output",
                     tool_name="cicd_healing",
                     status="passed",
@@ -84,7 +86,7 @@ class CICDHealingPhase(IAgentPhase):
             # CI failed - attempt healing
             healing_attempt += 1
             self.context.logger.info(f"CICD Healing: Attempt {healing_attempt}/{self.MAX_HEALING_ATTEMPTS}")
-            self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "tool_start",
                 tool_name="cicd_healing",
                 attempt=healing_attempt,
@@ -103,7 +105,7 @@ class CICDHealingPhase(IAgentPhase):
                 workflow_log, workflow_name=run_result.get("name", "CI")
             )
 
-            self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "tool_output",
                 tool_name="cicd_healing_analysis",
                 category=analysis.category,
@@ -128,7 +130,7 @@ class CICDHealingPhase(IAgentPhase):
             # Commit and push
             self._commit_and_push_fix(project_root, healing_attempt, analysis.root_cause)
 
-            self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "tool_end",
                 tool_name="cicd_healing",
                 attempt=healing_attempt,
@@ -137,7 +139,7 @@ class CICDHealingPhase(IAgentPhase):
 
         # Final status
         if ci_passed:
-            self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_complete",
                 phase="cicd_healing",
                 message="CI/CD pipeline passed",
@@ -145,7 +147,7 @@ class CICDHealingPhase(IAgentPhase):
             )
         else:
             self.context.logger.warning(f"CICD Healing: CI still failing after {healing_attempt} attempts")
-            self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_complete",
                 phase="cicd_healing",
                 message=f"CI healing exhausted ({healing_attempt} attempts)",
@@ -154,7 +156,7 @@ class CICDHealingPhase(IAgentPhase):
 
         return generated_files, initial_structure, file_paths
 
-    async def _wait_for_workflow_completion(self, project_root: Path) -> Dict[str, Any] | None:
+    def _wait_for_workflow_completion(self, project_root: Path) -> Dict[str, Any] | None:
         """Poll GitHub Actions for the latest workflow run status."""
         elapsed = 0
 
@@ -189,7 +191,7 @@ class CICDHealingPhase(IAgentPhase):
             except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception) as e:
                 self.context.logger.debug(f"  Polling error: {e}")
 
-            await asyncio.sleep(self.POLL_INTERVAL_SECONDS)
+            time.sleep(self.POLL_INTERVAL_SECONDS)
             elapsed += self.POLL_INTERVAL_SECONDS
 
         return None

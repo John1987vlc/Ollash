@@ -28,12 +28,11 @@ Usage::
         logger=logger,
         max_rounds=3,
     )
-    consensus = await runner.run(node, blackboard)
+    consensus = runner.run(node, blackboard)
 """
 
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING, Any, List, Optional
 
 from backend.utils.core.system.agent_logger import AgentLogger
@@ -83,7 +82,7 @@ class DebateNodeRunner:
         self._logger = logger
         self._max_rounds = max_rounds
 
-    async def run(self, node: "TaskNode", blackboard: "Blackboard") -> str:
+    def run(self, node: "TaskNode", blackboard: "Blackboard") -> str:
         """Execute the debate and return the consensus string.
 
         Args:
@@ -103,10 +102,11 @@ class DebateNodeRunner:
 
         history: List[str] = []
         consensus: Optional[str] = None
+        round_num: int = 0
 
         for round_num in range(1, max_rounds + 1):
             # Agent A argues
-            arg_a = await self._get_argument(
+            arg_a = self._get_argument(
                 agent=self._agent_a,
                 node=node,
                 blackboard=blackboard,
@@ -116,12 +116,12 @@ class DebateNodeRunner:
                 round_num=round_num,
             )
             history.append(f"Agent A (round {round_num}): {arg_a}")
-            await blackboard.write(
+            blackboard.write_sync(
                 f"debate/{node.id}/round_{round_num}_a",
                 arg_a,
                 self._agent_a.agent_id,
             )
-            await self._event_publisher.publish(
+            self._event_publisher.publish_sync(
                 "debate_round_completed",
                 task_id=node.id,
                 round=round_num,
@@ -131,7 +131,7 @@ class DebateNodeRunner:
             )
 
             # Agent B argues
-            arg_b = await self._get_argument(
+            arg_b = self._get_argument(
                 agent=self._agent_b,
                 node=node,
                 blackboard=blackboard,
@@ -141,12 +141,12 @@ class DebateNodeRunner:
                 round_num=round_num,
             )
             history.append(f"Agent B (round {round_num}): {arg_b}")
-            await blackboard.write(
+            blackboard.write_sync(
                 f"debate/{node.id}/round_{round_num}_b",
                 arg_b,
                 self._agent_b.agent_id,
             )
-            await self._event_publisher.publish(
+            self._event_publisher.publish_sync(
                 "debate_round_completed",
                 task_id=node.id,
                 round=round_num,
@@ -168,8 +168,8 @@ class DebateNodeRunner:
                 f"[DebateNodeRunner] No consensus after {max_rounds} rounds — using final Agent B statement."
             )
 
-        await blackboard.write(f"debate/{node.id}/consensus", consensus, "debate_runner")
-        await self._event_publisher.publish(
+        blackboard.write_sync(f"debate/{node.id}/consensus", consensus, "debate_runner")
+        self._event_publisher.publish_sync(
             "debate_consensus_reached",
             task_id=node.id,
             consensus=consensus,
@@ -178,7 +178,7 @@ class DebateNodeRunner:
 
         return consensus
 
-    async def _get_argument(
+    def _get_argument(
         self,
         agent: Any,
         node: "TaskNode",
@@ -203,10 +203,7 @@ class DebateNodeRunner:
             },
         )
         try:
-            result = await asyncio.wait_for(
-                agent.run(debate_node, blackboard),
-                timeout=120.0,
-            )
+            result = agent.run(debate_node, blackboard)
             if isinstance(result, dict):
                 return str(next(iter(result.values()), ""))
             return str(result or "")

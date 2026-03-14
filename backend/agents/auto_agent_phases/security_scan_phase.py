@@ -26,7 +26,7 @@ class SecurityScanPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -44,7 +44,7 @@ class SecurityScanPhase(IAgentPhase):
             return generated_files, initial_structure, file_paths
 
         self.context.logger.info("PHASE SECURITY: Starting security scan...")
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_start", phase="security_scan", message="Scanning for vulnerabilities"
         )
 
@@ -68,7 +68,7 @@ class SecurityScanPhase(IAgentPhase):
         if "SECURITY_SCAN_REPORT.md" not in file_paths:
             file_paths.append("SECURITY_SCAN_REPORT.md")
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "tool_output",
             tool_name="security_scan",
             total_vulnerabilities=scan_report.total_vulnerabilities,
@@ -96,7 +96,7 @@ class SecurityScanPhase(IAgentPhase):
         # Block on critical if configured
         if block_on_critical and scan_report.critical_count > 0:
             self.context.logger.error(f"SECURITY SCAN: {scan_report.critical_count} CRITICAL vulnerabilities found!")
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_complete",
                 phase="security_scan",
                 message=f"BLOCKED: {scan_report.critical_count} critical vulnerabilities",
@@ -113,7 +113,7 @@ class SecurityScanPhase(IAgentPhase):
                 generated_files["SECURITY_BLOCKED.md"],
             )
         else:
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_complete",
                 phase="security_scan",
                 message="Security scan complete",

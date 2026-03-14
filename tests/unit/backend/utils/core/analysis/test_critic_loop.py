@@ -18,24 +18,24 @@ class TestCriticLoopReview:
         mock_logger = MagicMock()
         return CriticLoop(mock_manager, mock_logger)
 
-    async def test_no_errors_returns_none(self):
+    def test_no_errors_returns_none(self):
         critic = self._make_critic('{"has_errors": false, "errors": []}')
-        result = await critic.review("test.py", "import os\n\nos.getcwd()", "python")
+        result = critic.review("test.py", "import os\n\nos.getcwd()", "python")
         assert result is None
 
-    async def test_errors_returns_joined_string(self):
+    def test_errors_returns_joined_string(self):
         critic = self._make_critic('{"has_errors": true, "errors": ["Missing colon on line 2", "Indentation error"]}')
-        result = await critic.review("test.py", "def foo()\n  pass", "python")
+        result = critic.review("test.py", "def foo()\n  pass", "python")
         assert result is not None
         assert "Missing colon" in result
         assert "Indentation error" in result
 
-    async def test_malformed_json_returns_none(self):
+    def test_malformed_json_returns_none(self):
         critic = self._make_critic("This is not JSON at all")
-        result = await critic.review("test.py", "x = 1", "python")
+        result = critic.review("test.py", "x = 1", "python")
         assert result is None
 
-    async def test_llm_exception_returns_none(self):
+    def test_llm_exception_returns_none(self):
         from backend.utils.core.analysis.critic_loop import CriticLoop
 
         mock_manager = MagicMock()
@@ -43,25 +43,25 @@ class TestCriticLoopReview:
         mock_logger = MagicMock()
 
         critic = CriticLoop(mock_manager, mock_logger)
-        result = await critic.review("test.py", "x = 1", "python")
+        result = critic.review("test.py", "x = 1", "python")
         assert result is None
 
-    async def test_unknown_language_returns_none(self):
+    def test_unknown_language_returns_none(self):
         critic = self._make_critic('{"has_errors": false, "errors": []}')
-        result = await critic.review("file.bin", "binary", "unknown")
+        result = critic.review("file.bin", "binary", "unknown")
         assert result is None
 
-    async def test_empty_content_returns_none(self):
+    def test_empty_content_returns_none(self):
         critic = self._make_critic('{"has_errors": true, "errors": ["X"]}')
-        result = await critic.review("test.py", "", "python")
+        result = critic.review("test.py", "", "python")
         assert result is None
 
-    async def test_errors_list_is_semicolon_joined(self):
+    def test_errors_list_is_semicolon_joined(self):
         critic = self._make_critic('{"has_errors": true, "errors": ["err1", "err2", "err3"]}')
-        result = await critic.review("test.py", "x = 1", "python")
+        result = critic.review("test.py", "x = 1", "python")
         assert result == "err1; err2; err3"
 
-    async def test_markdown_fenced_json_is_parsed(self):
+    def test_markdown_fenced_json_is_parsed(self):
         critic = self._make_critic('```json\n{"has_errors": false, "errors": []}\n```')
-        result = await critic.review("test.py", "x = 1", "python")
+        result = critic.review("test.py", "x = 1", "python")
         assert result is None

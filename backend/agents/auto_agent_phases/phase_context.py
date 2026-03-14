@@ -578,7 +578,7 @@ class PhaseContext:
         """Get test file path based on language conventions."""
         return LanguageUtils.get_test_file_path(source_file, language)
 
-    async def implement_plan(
+    def implement_plan(
         self,
         plan: Dict,
         project_root: Path,
@@ -617,9 +617,7 @@ class PhaseContext:
                 if target_path and target_path in files:
                     try:
                         self.logger.info(f"    Refining {target_path} as part of contingency plan...")
-                        refined = await self.file_refiner.refine_file(
-                            target_path, files[target_path], readme[:2000], issues
-                        )
+                        refined = self.file_refiner.refine_file(target_path, files[target_path], readme[:2000], issues)
                         if refined:
                             files[target_path] = refined
                             self.file_manager.write_file(project_root / target_path, refined)

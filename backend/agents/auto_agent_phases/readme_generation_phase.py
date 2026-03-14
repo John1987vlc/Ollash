@@ -13,7 +13,7 @@ class ReadmeGenerationPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -24,7 +24,7 @@ class ReadmeGenerationPhase(IAgentPhase):
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1: Generating README.md...")
-        await self.context.event_publisher.publish("phase_start", phase="1", message="Generating README.md")
+        self.context.event_publisher.publish_sync("phase_start", phase="1", message="Generating README.md")
 
         _template_name = kwargs.get("template_name", "default")
         _python_version = kwargs.get("python_version", "3.12")
@@ -32,7 +32,7 @@ class ReadmeGenerationPhase(IAgentPhase):
         _include_docker = kwargs.get("include_docker", False)
 
         # Generate README with richer context
-        readme = await self.context.project_planner.generate_readme(
+        readme = self.context.project_planner.generate_readme(
             project_name=project_name, project_description=project_description, project_structure=str(initial_structure)
         )
 
@@ -92,9 +92,7 @@ class ReadmeGenerationPhase(IAgentPhase):
         # F31: Completely skip diagrams for nano models to avoid hangs
         if not bool(self.context._is_small_model()):
             try:
-                readme = await self._append_mermaid_diagrams(
-                    readme, project_description, project_name, initial_structure
-                )
+                readme = self._append_mermaid_diagrams(readme, project_description, project_name, initial_structure)
                 generated_files[readme_file_path] = readme
                 self.context.file_manager.write_file(full_readme_path, readme)
             except Exception as e:
@@ -102,7 +100,7 @@ class ReadmeGenerationPhase(IAgentPhase):
         else:
             self.context.logger.info("[Mermaid] Skipping diagram generation for nano model tier.")
 
-        await self.context.event_publisher.publish("phase_complete", phase="1", message="README generated")
+        self.context.event_publisher.publish_sync("phase_complete", phase="1", message="README generated")
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 1 complete.")
 
         return (
@@ -111,7 +109,7 @@ class ReadmeGenerationPhase(IAgentPhase):
             [readme_file_path],
         )  # Return readme_file_path as first generated file path
 
-    async def _append_mermaid_diagrams(
+    def _append_mermaid_diagrams(
         self,
         readme: str,
         project_description: str,

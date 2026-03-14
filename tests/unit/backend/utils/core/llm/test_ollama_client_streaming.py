@@ -28,8 +28,9 @@ def _ndjson(*chunks: dict) -> bytes:
 
 @pytest.mark.unit
 class TestOllamaClientStreamChat:
-    @pytest.mark.asyncio
-    async def test_stream_chat_accumulates_content(self):
+    def test_stream_chat_accumulates_content(self):
+        import asyncio
+
         client = _make_client()
 
         chunks = [
@@ -40,7 +41,7 @@ class TestOllamaClientStreamChat:
         ndjson_data = _ndjson(*chunks)
 
         # Mock aiohttp response
-        mock_resp = AsyncMock()
+        mock_resp = MagicMock()
         mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
         mock_resp.__aexit__ = AsyncMock(return_value=False)
 
@@ -50,22 +51,25 @@ class TestOllamaClientStreamChat:
 
         mock_resp.content.__aiter__ = _iter_lines
 
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_resp)
         mock_session.closed = False
 
         with patch.object(client, "_get_aiohttp_session", return_value=mock_session):
-            result, usage = await client.stream_chat(
-                messages=[{"role": "user", "content": "Hi"}],
-                chunk_callback=None,
+            result, usage = asyncio.run(
+                client.stream_chat(
+                    messages=[{"role": "user", "content": "Hi"}],
+                    chunk_callback=None,
+                )
             )
 
         assert result["content"] == "Hello, world!"
         assert usage["prompt_tokens"] == 5
         assert usage["completion_tokens"] == 3
 
-    @pytest.mark.asyncio
-    async def test_stream_chat_calls_chunk_callback(self):
+    def test_stream_chat_calls_chunk_callback(self):
+        import asyncio
+
         client = _make_client()
         received = []
 
@@ -78,7 +82,7 @@ class TestOllamaClientStreamChat:
         ]
         ndjson_data = _ndjson(*chunks)
 
-        mock_resp = AsyncMock()
+        mock_resp = MagicMock()
         mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
         mock_resp.__aexit__ = AsyncMock(return_value=False)
 
@@ -88,14 +92,16 @@ class TestOllamaClientStreamChat:
 
         mock_resp.content.__aiter__ = _iter_lines
 
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_resp)
         mock_session.closed = False
 
         with patch.object(client, "_get_aiohttp_session", return_value=mock_session):
-            await client.stream_chat(
-                messages=[{"role": "user", "content": "Hi"}],
-                chunk_callback=callback,
+            asyncio.run(
+                client.stream_chat(
+                    messages=[{"role": "user", "content": "Hi"}],
+                    chunk_callback=callback,
+                )
             )
 
         assert "A" in received

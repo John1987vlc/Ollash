@@ -28,7 +28,7 @@ class InterfaceScaffoldingPhase(BasePhase):
     category: str = "generation"
     REQUIRED_TOOLS: List[str] = []
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -39,14 +39,14 @@ class InterfaceScaffoldingPhase(BasePhase):
         file_paths: List[str],
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_start", phase=self.phase_id, message="Generating interface skeletons"
         )
 
         logic_plan = getattr(self.context, "logic_plan", {})
         if not logic_plan:
             self.context.logger.info("[InterfaceScaffolding] No logic plan found — skipping")
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_complete", phase=self.phase_id, message="Skipped (no logic plan)"
             )
             return generated_files, initial_structure, file_paths
@@ -79,14 +79,14 @@ class InterfaceScaffoldingPhase(BasePhase):
         # Fix 2: Extract or Generate DOM contracts for coherence
         is_web = any(p.endswith(".html") for p in file_paths)
         if is_web:
-            await self._ensure_dom_contract(logic_plan, project_root, generated_files, is_nano)
+            self._ensure_dom_contract(logic_plan, project_root, generated_files, is_nano)
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_complete", phase=self.phase_id, message=f"Generated {stub_count} skeletons"
         )
         return generated_files, initial_structure, file_paths
 
-    async def _ensure_dom_contract(self, logic_plan, project_root, generated_files, is_nano):
+    def _ensure_dom_contract(self, logic_plan, project_root, generated_files, is_nano):
         """Ensure a DOM contract exists, generating one via LLM if necessary for nano models."""
         self._extract_dom_contracts(logic_plan, project_root, generated_files)
 

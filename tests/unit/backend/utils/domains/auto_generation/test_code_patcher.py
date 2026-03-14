@@ -101,28 +101,28 @@ class TestIsBetterLine:
 
 @pytest.mark.unit
 class TestEditExistingFile:
-    async def test_returns_empty_string_for_empty_content(self, patcher):
-        result = await patcher.edit_existing_file("f.py", "", "# README")
+    def test_returns_empty_string_for_empty_content(self, patcher):
+        result = patcher.edit_existing_file("f.py", "", "# README")
         assert result == ""
 
-    async def test_partial_strategy_with_no_issues_returns_original(self, patcher):
+    def test_partial_strategy_with_no_issues_returns_original(self, patcher):
         content = "def foo():\n    pass\n"
-        result = await patcher.edit_existing_file("f.py", content, "# README", [], "partial")
+        result = patcher.edit_existing_file("f.py", content, "# README", [], "partial")
         assert result == content
 
-    async def test_unknown_strategy_returns_original(self, patcher):
+    def test_unknown_strategy_returns_original(self, patcher):
         content = "def foo():\n    pass\n"
-        result = await patcher.edit_existing_file("f.py", content, "# README", None, "unknown")
+        result = patcher.edit_existing_file("f.py", content, "# README", None, "unknown")
         assert result == content
 
-    async def test_partial_strategy_applies_fixes(self, patcher, mock_llm):
+    def test_partial_strategy_applies_fixes(self, patcher, mock_llm):
         content = "def foo():\n    badcode()\n    return None\n"
         mock_llm.chat.return_value = (
             {"content": "    return 42"},
             {},
         )
         issues = [{"description": "badcode should return 42"}]
-        result = await patcher.edit_existing_file("f.py", content, "# README", issues, "partial")
+        result = patcher.edit_existing_file("f.py", content, "# README", issues, "partial")
         assert isinstance(result, str)
         assert len(result) > 0
 

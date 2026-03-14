@@ -12,25 +12,25 @@ from pathlib import Path
 
 BATCHES = [
     # (label, path)
-    ("memory",      "tests/unit/backend/utils/core/memory"),
-    ("core utils",  "tests/unit/backend/utils/core/llm"),
-    ("auto_gen",    "tests/unit/backend/utils/domains/auto_generation"),
-    ("domains",     "tests/unit/backend/utils/domains"),
-    ("phases",      "tests/unit/backend/agents/auto_agent_phases"),
-    ("agents",      "tests/unit/backend/agents"),
-    ("services",    "tests/unit/backend/services"),
-    ("core",        "tests/unit/backend/core"),
-    ("frontend",    "tests/unit/frontend"),
-    ("llm",         "tests/unit/llm"),
+    ("memory", "tests/unit/backend/utils/core/memory"),
+    ("core utils", "tests/unit/backend/utils/core/llm"),
+    ("auto_gen", "tests/unit/backend/utils/domains/auto_generation"),
+    ("domains", "tests/unit/backend/utils/domains"),
+    ("phases", "tests/unit/backend/agents/auto_agent_phases"),
+    ("agents", "tests/unit/backend/agents"),
+    ("services", "tests/unit/backend/services"),
+    ("core", "tests/unit/backend/core"),
+    ("frontend", "tests/unit/frontend"),
+    ("llm", "tests/unit/llm"),
 ]
 
 
 def run_batch(label: str, path: str, extra_args: list[str]) -> int:
     if not Path(path).exists():
         return 0
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {label.upper()}: {path}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     result = subprocess.run(
         [sys.executable, "-m", "pytest", path, "-q", "--tb=short", "--no-header", *extra_args],
         check=False,
@@ -50,7 +50,7 @@ def main() -> None:
         if rc != 0:
             failures += 1
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     if failures:
         print(f"  {failures} batch(es) had failures.")
     else:

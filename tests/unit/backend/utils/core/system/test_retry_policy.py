@@ -1,6 +1,5 @@
 """Unit tests for RetryPolicy (backend/utils/core/system/retry_policy.py)."""
 
-import asyncio
 import time
 from unittest.mock import MagicMock, call
 
@@ -81,47 +80,36 @@ class TestRetryPolicySync:
         assert fn.call_args_list == [call(1, 2, key="value"), call(1, 2, key="value")]
 
 
-class TestRetryPolicyAsync:
+class TestRetryPolicyAsyncRefactored:
     @pytest.mark.unit
-    def test_async_succeeds_on_first_attempt(self):
-        async def run():
-            async def fn():
-                return "async_ok"
+    def test_async_succeeds_on_first_attempt_sync(self):
+        def fn():
+            return "async_ok"
 
-            policy = RetryPolicy(max_attempts=3)
-            return await policy.aexecute(fn)
-
-        assert asyncio.run(run()) == "async_ok"
+        policy = RetryPolicy(max_attempts=3)
+        assert policy.execute(fn) == "async_ok"
 
     @pytest.mark.unit
-    def test_async_retries_on_exception(self):
+    def test_async_retries_on_exception_sync(self):
         call_count = 0
 
-        async def run():
+        def fn():
             nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise ValueError("not yet")
+            return "success"
 
-            async def fn():
-                nonlocal call_count
-                call_count += 1
-                if call_count < 3:
-                    raise ValueError("not yet")
-                return "success"
-
-            policy = RetryPolicy(max_attempts=3, base_delay=0)
-            return await policy.aexecute(fn)
-
-        result = asyncio.run(run())
+        policy = RetryPolicy(max_attempts=3, base_delay=0)
+        result = policy.execute(fn)
         assert result == "success"
         assert call_count == 3
 
     @pytest.mark.unit
-    def test_async_raises_after_max_attempts(self):
-        async def run():
-            async def fn():
-                raise RuntimeError("always fails")
+    def test_async_raises_after_max_attempts_sync(self):
+        def fn():
+            raise RuntimeError("always fails")
 
-            policy = RetryPolicy(max_attempts=2, base_delay=0)
-            await policy.aexecute(fn)
-
+        policy = RetryPolicy(max_attempts=2, base_delay=0)
         with pytest.raises(RuntimeError):
-            asyncio.run(run())
+            policy.execute(fn)

@@ -28,7 +28,7 @@ class ContingencyPlanner:
         self.logger = logger
         self.parser = parser
 
-    async def generate_contingency_plan(
+    def generate_contingency_plan(
         self, issues: List[Dict[str, Any]], project_description: str, readme: str
     ) -> Dict[str, Any]:
         """
@@ -48,7 +48,7 @@ class ContingencyPlanner:
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = await loader.load_prompt("domains/auto_generation/planning.yaml")
+            prompts = loader.load_prompt("domains/auto_generation/planning.yaml")
 
             system = prompts.get("contingency_planning", {}).get("system", "")
             user_template = prompts.get("contingency_planning", {}).get("user", "")

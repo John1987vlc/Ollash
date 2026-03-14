@@ -14,7 +14,7 @@ class StructurePreReviewPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -27,7 +27,7 @@ class StructurePreReviewPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2.5: PreReview of structure...")
-        await self.context.event_publisher.publish("phase_start", phase="2.5", message="Starting structure pre-review")
+        self.context.event_publisher.publish_sync("phase_start", phase="2.5", message="Starting structure pre-review")
 
         structure_review = self.context.structure_pre_reviewer.review_structure(
             readme_content, initial_structure, project_name
@@ -48,7 +48,7 @@ class StructurePreReviewPhase(IAgentPhase):
                 f"[PROJECT_NAME:{project_name}] Structure review: {structure_review.status} (score: {structure_review.quality_score:.1f})"
             )
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_complete",
             phase="2.5",
             message="Structure pre-review complete",

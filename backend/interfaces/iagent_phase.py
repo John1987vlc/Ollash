@@ -11,7 +11,7 @@ class IAgentPhase(ABC):
     """
 
     @abstractmethod
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,

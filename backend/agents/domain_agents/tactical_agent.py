@@ -54,7 +54,7 @@ class TacticalAgent(BaseDomainAgent):
         self._validator = file_validator
         self._llm_client = llm_client
 
-    async def run(
+    def run(
         self,
         node: "TaskNode",
         blackboard: "Blackboard",
@@ -108,7 +108,7 @@ class TacticalAgent(BaseDomainAgent):
             return {file_path: current_content, "context_note": f"Syntax error: {function_name}"}
 
         # 6. Write back to Blackboard
-        await blackboard.write(f"generated_files/{file_path}", updated_content, self.agent_id)
+        blackboard.write_sync(f"generated_files/{file_path}", updated_content, self.agent_id)
         self._log_info(f"[Tactical] '{function_name}' implemented in '{file_path}'")
 
         # F5: context note for downstream tasks

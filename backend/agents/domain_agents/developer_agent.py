@@ -14,7 +14,6 @@ distinguished by an ``instance_id`` integer set at construction time.
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
@@ -90,7 +89,7 @@ class DeveloperAgent(BaseDomainAgent):
     # Public interface
     # ------------------------------------------------------------------
 
-    async def run(
+    def run(
         self,
         node: "TaskNode",
         blackboard: "Blackboard",
@@ -119,11 +118,11 @@ class DeveloperAgent(BaseDomainAgent):
 
         # Mejora 1: Micro-planner — decompose file into 3-7 atomic steps for small models
         if not is_validation_fix and not self._is_small_file(file_path):
-            plan_steps = await self._decompose_micro_steps(file_path, plan)
+            plan_steps = self._decompose_micro_steps(file_path, plan)
             if plan_steps:
                 node.task_data["plan_steps"] = plan_steps
                 self._log_info(f"Micro-steps for '{file_path}': {plan_steps}")
-                await self._event_publisher.publish(
+                self._event_publisher.publish_sync(
                     "micro_steps_planned",
                     file_path=file_path,
                     agent_id=self.agent_id,
@@ -133,7 +132,7 @@ class DeveloperAgent(BaseDomainAgent):
 
         # Choose generation strategy
         if is_validation_fix:
-            content = await self._fix_validation(
+            content = self._fix_validation(
                 file_path=file_path,
                 original_content=node.task_data.get("original_content", ""),
                 validation_error=node.task_data.get("validation_error", ""),
@@ -141,9 +140,9 @@ class DeveloperAgent(BaseDomainAgent):
             )
         elif self._is_small_file(file_path):
             # Batch strategy: use ParallelFileGenerator for efficiency
-            content = await self._generate_small_file(file_path, plan, context_files)
+            content = self._generate_small_file(file_path, plan, context_files)
         else:
-            content = await self._generate_single_file(
+            content = self._generate_single_file(
                 file_path=file_path,
                 plan=plan,
                 context_files=context_files,
@@ -158,11 +157,11 @@ class DeveloperAgent(BaseDomainAgent):
         if content is None:
             raise RuntimeError(f"DeveloperAgent failed to generate content for '{file_path}'")
 
-        # Write to Blackboard (async-safe)
-        await blackboard.write(f"generated_files/{file_path}", content, self.agent_id)
+        # Write to Blackboard
+        blackboard.write_sync(f"generated_files/{file_path}", content, self.agent_id)
 
         # Publish event — triggers AuditorAgent JIT audit
-        await self._event_publisher.publish(
+        self._event_publisher.publish_sync(
             "file_generated",
             file_path=file_path,
             agent_id=self.agent_id,
@@ -188,7 +187,7 @@ class DeveloperAgent(BaseDomainAgent):
     # Generation strategies
     # ------------------------------------------------------------------
 
-    async def _decompose_micro_steps(
+    def _decompose_micro_steps(
         self,
         file_path: str,
         plan: Dict[str, Any],
@@ -226,17 +225,13 @@ class DeveloperAgent(BaseDomainAgent):
             "Output JSON array only."
         )
 
-        loop = asyncio.get_event_loop()
         try:
-            response_data, _ = await loop.run_in_executor(
-                None,
-                lambda: self._llm_client.chat(
-                    [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    tools=[],
-                ),
+            response_data, _ = self._llm_client.chat(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                tools=[],
             )
             raw = response_data.get("message", {}).get("content", "")
             from backend.utils.core.llm.llm_response_parser import LLMResponseParser
@@ -253,7 +248,7 @@ class DeveloperAgent(BaseDomainAgent):
 
         return [f"Generate full content for {file_path}"]
 
-    async def _generate_single_file(
+    def _generate_single_file(
         self,
         file_path: str,
         plan: Dict[str, Any],
@@ -267,17 +262,11 @@ class DeveloperAgent(BaseDomainAgent):
     ) -> Optional[str]:
         """Generate a single file via EnhancedFileContentGenerator with fallback.
 
-        When *blackboard* is supplied and the generator supports streaming, each
-        token chunk is forwarded to ``blackboard.write_stream_chunk()`` so the
-        frontend can render live output via SSE.
-
         Args:
             plan_steps: Optional micro-steps from ``_decompose_micro_steps()`` (Mejora 1).
                         If provided, they are injected into the logic plan so the
                         generator can use them to structure its output.
         """
-        loop = asyncio.get_event_loop()
-
         effective_plan = dict(plan)
         if is_remediation and remediation_actions:
             effective_plan["remediation_actions"] = remediation_actions
@@ -289,39 +278,18 @@ class DeveloperAgent(BaseDomainAgent):
         if plan_steps:
             effective_plan["plan_steps"] = plan_steps
 
-        # Strategy 1 (streaming): generate_file_with_plan_streaming()
-        if blackboard is not None and hasattr(self._file_gen, "generate_file_with_plan_streaming"):
-            try:
-
-                async def _on_chunk(chunk: str) -> None:
-                    await blackboard.write_stream_chunk(file_path, chunk, self.agent_id)
-
-                content = await self._file_gen.generate_file_with_plan_streaming(
-                    file_path=file_path,
-                    logic_plan=effective_plan,
-                    project_description="",
-                    readme="",
-                    structure={},
-                    related_files=context_files,
-                    chunk_callback=_on_chunk,
-                )
-                if content:
-                    return content
-            except Exception as exc:
-                self._log_error(f"Streaming generation failed for '{file_path}': {exc}; falling back")
+        # Strategy 1: generate_file_with_plan_streaming() — skip in sync context
+        # (streaming requires async callbacks; not supported in sync mode)
 
         # Strategy 2 (sync): EnhancedFileContentGenerator.generate_file_with_plan()
         try:
-            content = await loop.run_in_executor(
-                None,
-                lambda: self._file_gen.generate_file_with_plan(
-                    file_path=file_path,
-                    logic_plan=effective_plan,
-                    project_description="",
-                    readme="",
-                    structure={},
-                    related_files=context_files,
-                ),
+            content = self._file_gen.generate_file_with_plan(
+                file_path=file_path,
+                logic_plan=effective_plan,
+                project_description="",
+                readme="",
+                structure={},
+                related_files=context_files,
             )
             if content:
                 return content
@@ -332,20 +300,17 @@ class DeveloperAgent(BaseDomainAgent):
 
         # Strategy 3 (sync fallback): FileContentGenerator.generate_file()
         try:
-            content = await loop.run_in_executor(
-                None,
-                lambda: self._file_gen.generate_file(
-                    file_path=file_path,
-                    context=context_files,
-                    plan=effective_plan,
-                ),
+            content = self._file_gen.generate_file(
+                file_path=file_path,
+                context=context_files,
+                plan=effective_plan,
             )
             return content if content else None
         except Exception as exc:
             self._log_error(f"File generation fallback failed for '{file_path}': {exc}")
             return None
 
-    async def _generate_small_file(
+    def _generate_small_file(
         self,
         file_path: str,
         plan: Dict[str, Any],
@@ -378,9 +343,9 @@ class DeveloperAgent(BaseDomainAgent):
             )
 
         # Fallback to regular generation
-        return await self._generate_single_file(file_path, plan, context_files)
+        return self._generate_single_file(file_path, plan, context_files)
 
-    async def _fix_validation(
+    def _fix_validation(
         self,
         file_path: str,
         original_content: str,
@@ -388,15 +353,11 @@ class DeveloperAgent(BaseDomainAgent):
         context_files: Dict[str, str],
     ) -> Optional[str]:
         """Attempt to fix a file that failed FileValidator checks."""
-        loop = asyncio.get_event_loop()
         try:
-            fixed = await loop.run_in_executor(
-                None,
-                lambda: self._code_patcher.edit_existing_file(
-                    existing_content=original_content,
-                    improvement_instructions=f"Fix the following validation error: {validation_error}",
-                    file_path=file_path,
-                ),
+            fixed = self._code_patcher.edit_existing_file(
+                existing_content=original_content,
+                improvement_instructions=f"Fix the following validation error: {validation_error}",
+                file_path=file_path,
             )
             return fixed if fixed else original_content
         except Exception as exc:

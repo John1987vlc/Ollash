@@ -29,7 +29,7 @@ def generator(mock_llm_client, mock_logger, mock_parser):
 class TestStructureGenerator:
     """Test suite for Phase 2: Structure Generation."""
 
-    async def test_generate_success(self, generator, mock_llm_client, mock_parser):
+    def test_generate_success(self, generator, mock_llm_client, mock_parser):
         # 1. Start with create_fallback_structure (default)
         # 2. _recursively_generate_sub_structure called for root
 
@@ -38,7 +38,7 @@ class TestStructureGenerator:
 
         mock_llm_client.chat.return_value = ({"message": {"content": '{"files": ["main.py"]}'}}, {})
 
-        result = await generator.generate("# Readme")
+        result = generator.generate("# Readme")
 
         assert "files" in result
         assert "folders" in result

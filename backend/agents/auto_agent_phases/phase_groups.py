@@ -4,7 +4,6 @@ Defines PhaseGroup for organizing phases by category and enabling
 parallel execution of independent phases via asyncio.gather().
 """
 
-import asyncio
 import copy
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -35,7 +34,7 @@ class PhaseGroup:
         self.parallel = parallel
         self.category = category
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -48,7 +47,7 @@ class PhaseGroup:
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         """Execute all phases in the group, either sequentially or in parallel."""
         if self.parallel and len(self.phases) > 1:
-            return await self._execute_parallel(
+            return self._execute_parallel(
                 project_description,
                 project_name,
                 project_root,
@@ -58,7 +57,7 @@ class PhaseGroup:
                 file_paths,
                 **kwargs,
             )
-        return await self._execute_sequential(
+        return self._execute_sequential(
             project_description,
             project_name,
             project_root,
@@ -69,7 +68,7 @@ class PhaseGroup:
             **kwargs,
         )
 
-    async def _execute_sequential(
+    def _execute_sequential(
         self,
         project_description: str,
         project_name: str,
@@ -82,7 +81,7 @@ class PhaseGroup:
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         """Execute phases one after another, passing state forward."""
         for phase in self.phases:
-            generated_files, initial_structure, file_paths = await phase.execute(
+            generated_files, initial_structure, file_paths = phase.execute(
                 project_description=project_description,
                 project_name=project_name,
                 project_root=project_root,
@@ -95,7 +94,7 @@ class PhaseGroup:
             readme_content = generated_files.get("README.md", readme_content)
         return generated_files, initial_structure, file_paths
 
-    async def _execute_parallel(
+    def _execute_parallel(
         self,
         project_description: str,
         project_name: str,
@@ -106,15 +105,20 @@ class PhaseGroup:
         file_paths: List[str],
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        """Execute independent phases concurrently and merge results."""
-        tasks = []
-        for phase in self.phases:
-            phase_files = copy.copy(generated_files)
-            phase_paths = list(file_paths)
-            phase_structure = copy.copy(initial_structure)
+        """Execute independent phases sequentially and merge results."""
+        # Note: originally used asyncio.gather for concurrency; now runs sequentially.
+        failed_phases: Dict[str, str] = {}
+        merged_files = dict(generated_files)
+        merged_paths = list(file_paths)
+        merged_structure = dict(initial_structure)
 
-            tasks.append(
-                phase.execute(
+        for phase in self.phases:
+            phase_files = copy.copy(merged_files)
+            phase_paths = list(merged_paths)
+            phase_structure = copy.copy(merged_structure)
+
+            try:
+                r_files, r_structure, r_paths = phase.execute(
                     project_description=project_description,
                     project_name=project_name,
                     project_root=project_root,
@@ -124,27 +128,14 @@ class PhaseGroup:
                     file_paths=phase_paths,
                     **kwargs,
                 )
-            )
-
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Merge results and collect errors
-        failed_phases: Dict[str, str] = {}
-        merged_files = dict(generated_files)
-        merged_paths = list(file_paths)
-        merged_structure = dict(initial_structure)
-
-        for phase, result in zip(self.phases, results):
-            phase_name = phase.__class__.__name__
-            if isinstance(result, Exception):
-                failed_phases[phase_name] = str(result)
-                continue
-            r_files, r_structure, r_paths = result
-            merged_files.update(r_files)
-            merged_structure.update(r_structure)
-            for p in r_paths:
-                if p not in merged_paths:
-                    merged_paths.append(p)
+                merged_files.update(r_files)
+                merged_structure.update(r_structure)
+                for p in r_paths:
+                    if p not in merged_paths:
+                        merged_paths.append(p)
+            except Exception as exc:
+                phase_name = phase.__class__.__name__
+                failed_phases[phase_name] = str(exc)
 
         if failed_phases:
             raise ParallelPhaseError(failed_phases)

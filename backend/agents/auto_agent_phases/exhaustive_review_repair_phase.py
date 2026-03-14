@@ -23,7 +23,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -37,7 +37,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
         test_results = kwargs.get("test_results", {})
 
         self.context.logger.info("PHASE 5.75: Exhaustive Review and Repair...")
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_start", phase="5.75", message="Starting Exhaustive Review & Repair"
         )
 
@@ -71,7 +71,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
             self.context.logger.info(f"  Total issues to address: {len(all_issues)}")
 
             # Generate comprehensive repair plan
-            repair_plan = await self.context.contingency_planner.generate_contingency_plan(
+            repair_plan = self.context.contingency_planner.generate_contingency_plan(
                 all_issues, project_description, readme_content
             )
 
@@ -83,7 +83,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
                     generated_files,
                     initial_structure,
                     file_paths,
-                ) = await self._implement_repair_plan(
+                ) = self._implement_repair_plan(
                     repair_plan,
                     project_root,
                     readme_content,
@@ -100,11 +100,11 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
             else:
                 self.context.logger.warning("  Could not generate repair plan, proceeding with best effort fixes")
                 # Fall back to simpler fixes
-                generated_files = await self._apply_fallback_fixes(all_issues, project_root, generated_files)
+                generated_files = self._apply_fallback_fixes(all_issues, project_root, generated_files)
         else:
             self.context.logger.info("  No critical issues detected, proceeding to final phases")
 
-        await self.context.event_publisher.publish("phase_end", phase="5.75", status="completed")
+        self.context.event_publisher.publish_sync("phase_end", phase="5.75", status="completed")
         return generated_files, initial_structure, file_paths
 
     def _perform_diagnostic_analysis(
@@ -227,7 +227,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
         return issues
 
-    async def _implement_repair_plan(
+    def _implement_repair_plan(
         self,
         repair_plan: Dict[str, Any],
         project_root: Path,
@@ -254,7 +254,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
                 try:
                     # Use enhanced generator with maximum compatibility mode
-                    new_content = await self.context.enhanced_file_content_generator.generate_file_with_plan(
+                    new_content = self.context.enhanced_file_content_generator.generate_file_with_plan(
                         file_path,
                         context_info.get("logic_plan", ""),
                         readme_content,
@@ -279,7 +279,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
                 if file_path in generated_files:
                     try:
                         # Use FileRefiner for targeted fixes
-                        fixed_content = await self.context.file_refiner.refine_file_content(
+                        fixed_content = self.context.file_refiner.refine_file_content(
                             file_path,
                             generated_files[file_path],
                             issue_description,
@@ -300,7 +300,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
 
                 if file_path in generated_files:
                     try:
-                        simplified_content = await self.context.file_refiner.simplify_file_content(
+                        simplified_content = self.context.file_refiner.simplify_file_content(
                             file_path,
                             generated_files[file_path],
                             remove_redundancy=True,
@@ -320,7 +320,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
                 self.context.logger.info(f"      Creating {file_path}...")
 
                 try:
-                    new_content = await self.context.enhanced_file_content_generator.generate_file_with_plan(
+                    new_content = self.context.enhanced_file_content_generator.generate_file_with_plan(
                         file_path,
                         content_template,
                         readme_content,
@@ -341,7 +341,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
         self.context.logger.info(f"    Implemented {len(actions)} repair actions")
         return generated_files, initial_structure, file_paths
 
-    async def _apply_fallback_fixes(
+    def _apply_fallback_fixes(
         self,
         issues: List[Dict[str, Any]],
         project_root: Path,
@@ -362,7 +362,7 @@ class ExhaustiveReviewRepairPhase(IAgentPhase):
             if file_path in generated_files:
                 try:
                     # Use FileRefiner with generic fix attempt
-                    fixed_content = await self.context.file_refiner.refine_file_content(
+                    fixed_content = self.context.file_refiner.refine_file_content(
                         file_path,
                         generated_files[file_path],
                         "Fix common compatibility issues",

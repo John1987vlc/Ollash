@@ -16,7 +16,7 @@ class StructureGenerationPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -27,7 +27,7 @@ class StructureGenerationPhase(IAgentPhase):
         **kwargs: Any,
     ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 2: Generating project structure...")
-        await self.context.event_publisher.publish("phase_start", phase="2", message="Generating project structure")
+        self.context.event_publisher.publish_sync("phase_start", phase="2", message="Generating project structure")
 
         template_name = kwargs.get("template_name", "default")
         python_version = kwargs.get("python_version", "3.12")
@@ -50,7 +50,7 @@ class StructureGenerationPhase(IAgentPhase):
                 f"[Phase2] Applying extension constraint for '{_type_info.project_type}': {_allowed_exts}"
             )
 
-        structure = await self.context.structure_generator.generate(
+        structure = self.context.structure_generator.generate(
             readme_content,
             max_retries=3,
             template_name=template_name,
@@ -85,7 +85,7 @@ class StructureGenerationPhase(IAgentPhase):
 
         file_paths = StructureGenerator.extract_file_paths(structure)
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_complete",
             phase="2",
             message="Project structure generated",

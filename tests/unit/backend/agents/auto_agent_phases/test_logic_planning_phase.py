@@ -1,6 +1,6 @@
 import pytest
 import json
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, patch
 from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
@@ -10,7 +10,8 @@ def mock_context():
     ctx = MagicMock(spec=PhaseContext)
     ctx.logger = MagicMock()
     ctx.event_publisher = MagicMock()
-    ctx.event_publisher.publish = AsyncMock()
+    ctx.event_publisher.publish = MagicMock()
+    ctx.event_publisher.publish_sync = MagicMock()
     ctx.llm_manager = MagicMock()
     ctx.file_manager = MagicMock()
     ctx.response_parser = MagicMock()
@@ -23,13 +24,12 @@ def mock_context():
 class TestLogicPlanningPhase:
     """Test suite for Phase 2.5: Logic Planning."""
 
-    @pytest.mark.asyncio
-    async def test_execute_success(self, mock_context, tmp_path):
+    def test_execute_success(self, mock_context, tmp_path):
         phase = LogicPlanningPhase(mock_context)
 
         # Mock AutoGenPrompts
         with patch("backend.agents.auto_agent_phases.logic_planning_phase.AutoGenPrompts") as mock_prompts:
-            mock_prompts.logic_planning = AsyncMock(return_value=("system", "user"))
+            mock_prompts.logic_planning.return_value = ("system", "user")
 
             # Mock LLM response
             mock_planner = MagicMock()
@@ -71,7 +71,7 @@ class TestLogicPlanningPhase:
 
             # Fix: execute is actually run in the current LogicPlanningPhase implementation
             # Checking logic_planning_phase.py again... it uses async def run
-            result_files, result_struct, result_paths = await phase.run(
+            result_files, result_struct, result_paths = phase.run(
                 project_description="desc",
                 project_name="name",
                 project_root=tmp_path,
@@ -103,12 +103,11 @@ class TestLogicPlanningPhase:
         assert "utils" in categories
         assert "src/main.py" in categories["main"]
 
-    @pytest.mark.asyncio
-    async def test_plan_category_fallback(self, mock_context):
+    def test_plan_category_fallback(self, mock_context):
         phase = LogicPlanningPhase(mock_context)
 
         with patch("backend.agents.auto_agent_phases.logic_planning_phase.AutoGenPrompts") as mock_prompts:
-            mock_prompts.architecture_planning_detailed = AsyncMock(return_value=("system", "user"))
+            mock_prompts.architecture_planning_detailed.return_value = ("system", "user")
 
             # Mock LLM response
             mock_planner = MagicMock()
@@ -128,7 +127,7 @@ class TestLogicPlanningPhase:
                 mock_extract.return_value = valid_cat_plan
 
                 files = ["unknown.py"]
-                plan = await phase._plan_category("other", files, "desc", "readme", {}, {})
+                plan = phase._plan_category("other", files, "desc", "readme", {}, {})
 
                 # Should use basic plan fallback or LLM result
                 assert "unknown.py" in plan

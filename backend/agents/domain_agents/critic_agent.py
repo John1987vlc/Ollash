@@ -48,7 +48,7 @@ class CriticAgent(BaseDomainAgent):
         super().__init__(event_publisher, logger, tool_dispatcher)
         self._ekb = error_knowledge_base
 
-    async def run(
+    def run(
         self,
         node: "TaskNode",
         blackboard: "Blackboard",
@@ -95,12 +95,12 @@ class CriticAgent(BaseDomainAgent):
                 "warnings": warnings,
                 "pattern_count": len(patterns),
             }
-            await blackboard.write(f"critique/{file_path}", report, self.agent_id)
+            blackboard.write_sync(f"critique/{file_path}", report, self.agent_id)
             self._log_info(f"[Critic] {file_path}: {len(warnings)} prevention tip(s) written")
             critique_count += 1
             total_warnings += len(warnings)
 
-        await self._event_publisher.publish(
+        self._event_publisher.publish_sync(
             "critic_scan_complete",
             agent_id=self.agent_id,
             files_scanned=len(generated),

@@ -23,7 +23,7 @@ class FinalReviewPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -36,18 +36,18 @@ class FinalReviewPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])
 
         self.context.logger.info("PHASE 6: Final review...")
-        await self.context.event_publisher.publish("phase_start", phase="6", message="Starting final review")
+        self.context.event_publisher.publish_sync("phase_start", phase="6", message="Starting final review")
 
         # --- Standard review ---
         validation_summary = self.context.file_completeness_checker.get_validation_summary(generated_files)
         try:
-            review = await self.context.project_reviewer.review(
+            review = self.context.project_reviewer.review(
                 project_name, readme_content[:500], file_paths, validation_summary
             )
             review_file_path = "PROJECT_REVIEW.md"
             generated_files[review_file_path] = review
             self.context.file_manager.write_file(project_root / review_file_path, review)
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_complete",
                 phase="6",
                 message="Final review complete",
@@ -55,7 +55,7 @@ class FinalReviewPhase(IAgentPhase):
             )
         except Exception as e:
             self.context.logger.error(f"  Error during review: {e}")
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_complete",
                 phase="6",
                 message="Final review failed",
@@ -74,7 +74,7 @@ class FinalReviewPhase(IAgentPhase):
 
         if git_push_requested and (git_repo_url or repo_name):
             self.context.logger.info(f"Git decision gate: initializing repo for '{push_target}'")
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_start",
                 phase="6-git",
                 message=f"Initializing Git and pushing to {push_target}",
@@ -94,7 +94,7 @@ class FinalReviewPhase(IAgentPhase):
                         git_branch=git_branch,
                     )
                     self.context.logger.info(f"Git push result: {push_result}")
-                    await self.context.event_publisher.publish(
+                    self.context.event_publisher.publish_sync(
                         "phase_complete",
                         phase="6-git",
                         message=f"Project pushed to {push_target}",
@@ -102,14 +102,14 @@ class FinalReviewPhase(IAgentPhase):
                     )
                 else:
                     self.context.logger.info("Git initialized locally (no token for remote push)")
-                    await self.context.event_publisher.publish(
+                    self.context.event_publisher.publish_sync(
                         "phase_complete",
                         phase="6-git",
                         message="Git initialized locally",
                     )
             except Exception as e:
                 self.context.logger.error(f"Git operation failed: {e}")
-                await self.context.event_publisher.publish(
+                self.context.event_publisher.publish_sync(
                     "phase_complete",
                     phase="6-git",
                     message="Git operation failed",

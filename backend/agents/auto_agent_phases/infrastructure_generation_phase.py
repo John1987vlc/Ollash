@@ -28,7 +28,7 @@ class InfrastructureGenerationPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -47,7 +47,7 @@ class InfrastructureGenerationPhase(IAgentPhase):
             return generated_files, initial_structure, file_paths
 
         self.context.logger.info("PHASE INFRA: Starting infrastructure generation...")
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_start", phase="infrastructure", message="Generating infrastructure files"
         )
 
@@ -122,9 +122,9 @@ class InfrastructureGenerationPhase(IAgentPhase):
         git_push = kwargs.get("git_push", False)
         git_token = kwargs.get("git_token", "")
         if git_push and git_token:
-            await self._setup_github_secrets(project_root, needs, generated_files, git_token)
+            self._setup_github_secrets(project_root, needs, generated_files, git_token)
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_complete",
             phase="infrastructure",
             message="Infrastructure generation complete",
@@ -281,7 +281,7 @@ updates:
 {chr(10).join(updates)}
 """
 
-    async def _setup_github_secrets(
+    def _setup_github_secrets(
         self,
         project_root: Path,
         needs: Dict[str, Any],

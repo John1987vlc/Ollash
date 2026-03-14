@@ -1,7 +1,7 @@
 """Unit tests for AuditorAgent."""
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 from backend.agents.domain_agents.auditor_agent import AuditorAgent
 from backend.agents.orchestrators.task_dag import AgentType, TaskNode
 
@@ -33,7 +33,7 @@ def mock_vuln_scanner(mock_scan_result_clean):
 def auditor(mock_vuln_scanner):
     ep = MagicMock()
     ep.subscribe = MagicMock()
-    ep.publish = AsyncMock()
+    ep.publish_sync = MagicMock()
     return AuditorAgent(
         vulnerability_scanner=mock_vuln_scanner,
         code_quarantine=MagicMock(),
@@ -43,55 +43,49 @@ def auditor(mock_vuln_scanner):
     )
 
 
+def _make_bb():
+    bb = MagicMock()
+    bb.write_sync = MagicMock()
+    return bb
+
+
 @pytest.mark.unit
 class TestAuditorAgent:
     def test_subscribes_to_file_generated_on_init(self, auditor):
         auditor._event_publisher.subscribe.assert_called_with("file_generated", auditor._on_file_generated)
 
-    @pytest.mark.asyncio
-    async def test_audit_file_writes_scan_result(self, auditor, mock_scan_result_clean):
-        bb = MagicMock()
-        bb.write = AsyncMock()
+    def test_audit_file_writes_scan_result(self, auditor, mock_scan_result_clean):
+        bb = _make_bb()
         auditor.set_blackboard(bb)
-        await auditor._audit_file("src/main.py", "def main(): pass")
-        bb.write.assert_called_once()
-        written_key = bb.write.call_args.args[0]
+        auditor._audit_file("src/main.py", "def main(): pass")
+        bb.write_sync.assert_called_once()
+        written_key = bb.write_sync.call_args.args[0]
         assert "scan_results/src/main.py" in written_key
 
-    @pytest.mark.asyncio
-    async def test_audit_file_clean_publishes_audit_completed(self, auditor):
-        bb = MagicMock()
-        bb.write = AsyncMock()
+    def test_audit_file_clean_publishes_audit_completed(self, auditor):
+        bb = _make_bb()
         auditor.set_blackboard(bb)
-        await auditor._audit_file("src/main.py", "x = 1")
-        event_calls = [c.args[0] for c in auditor._event_publisher.publish.call_args_list]
+        auditor._audit_file("src/main.py", "x = 1")
+        event_calls = [c.args[0] for c in auditor._event_publisher.publish_sync.call_args_list]
         assert "audit_completed" in event_calls
 
-    @pytest.mark.asyncio
-    async def test_audit_file_critical_quarantines(self, auditor, mock_vuln_scanner, mock_scan_result_critical):
+    def test_audit_file_critical_quarantines(self, auditor, mock_vuln_scanner, mock_scan_result_critical):
         mock_vuln_scanner.scan_file.return_value = mock_scan_result_critical
-        bb = MagicMock()
-        bb.write = AsyncMock()
+        bb = _make_bb()
         auditor.set_blackboard(bb)
-        await auditor._audit_file("src/dangerous.py", "import os; os.system('rm -rf /')")
+        auditor._audit_file("src/dangerous.py", "import os; os.system('rm -rf /')")
         auditor._quarantine.quarantine_file.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_audit_file_critical_publishes_critical_event(
-        self, auditor, mock_vuln_scanner, mock_scan_result_critical
-    ):
+    def test_audit_file_critical_publishes_critical_event(self, auditor, mock_vuln_scanner, mock_scan_result_critical):
         mock_vuln_scanner.scan_file.return_value = mock_scan_result_critical
-        bb = MagicMock()
-        bb.write = AsyncMock()
+        bb = _make_bb()
         auditor.set_blackboard(bb)
-        await auditor._audit_file("src/evil.py", "import os")
-        event_calls = [c.args[0] for c in auditor._event_publisher.publish.call_args_list]
+        auditor._audit_file("src/evil.py", "import os")
+        event_calls = [c.args[0] for c in auditor._event_publisher.publish_sync.call_args_list]
         assert "audit_critical_found" in event_calls
 
-    @pytest.mark.asyncio
-    async def test_run_batch_scans_all_files(self, auditor):
-        bb = MagicMock()
-        bb.write = AsyncMock()
+    def test_run_batch_scans_all_files(self, auditor):
+        bb = _make_bb()
         bb.read.return_value = None
         bb.get_all_generated_files.return_value = {
             "src/a.py": "a = 1",
@@ -99,6 +93,6 @@ class TestAuditorAgent:
         }
         auditor.set_blackboard(bb)
         node = TaskNode(id="__auditor_final__", agent_type=AgentType.AUDITOR, task_data={})
-        result = await auditor.run(node, bb)
+        result = auditor.run(node, bb)
         assert result["total_files"] == 2
         assert result["newly_scanned"] == 2

@@ -14,8 +14,8 @@ automatically without any additional plumbing.
 
 from __future__ import annotations
 
-import asyncio
 import copy
+import threading
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List
 
@@ -50,10 +50,15 @@ class Blackboard:
         ``project_name``                — Project name
         ``readme_content``              — README generated in planning
 
-    Thread / coroutine safety:
-        write() and invalidate() hold an asyncio.Lock.
+    Thread safety:
+        write_sync() and invalidate_sync() hold a threading.Lock.
         read() and snapshot() are lock-free (read-only access is safe in
         CPython due to the GIL, and we never mutate while iterating).
+
+    Async compatibility:
+        write() and invalidate() are retained as sync aliases so that
+        existing async callers (tests, orchestrator) continue to work when
+        called without await.  They delegate to write_sync/invalidate_sync.
     """
 
     def __init__(
@@ -62,22 +67,22 @@ class Blackboard:
         logger: AgentLogger,
     ) -> None:
         self._store: Dict[str, BlackboardEntry] = {}
-        self._lock = asyncio.Lock()
+        self._lock = threading.Lock()
         self._event_publisher = event_publisher
         self._logger = logger
         self._version_counter: int = 0
 
     # ------------------------------------------------------------------
-    # Write / invalidate
+    # Write / invalidate (sync)
     # ------------------------------------------------------------------
 
-    async def write(self, key: str, value: Any, agent_id: str) -> None:
+    def write_sync(self, key: str, value: Any, agent_id: str) -> None:
         """Store a value under *key*, incrementing the version counter.
 
         Publishes a ``blackboard_updated`` event that other agents or the UI
         can subscribe to.
         """
-        async with self._lock:
+        with self._lock:
             self._version_counter += 1
             entry = BlackboardEntry(
                 key=key,
@@ -88,7 +93,7 @@ class Blackboard:
             )
             self._store[key] = entry
 
-        await self._event_publisher.publish(
+        self._event_publisher.publish_sync(
             "blackboard_updated",
             key=key,
             agent_id=agent_id,
@@ -96,23 +101,32 @@ class Blackboard:
         )
         self._logger.debug(f"[Blackboard] {agent_id} wrote '{key}' (v{self._version_counter})")
 
-    async def invalidate(self, key: str, agent_id: str) -> None:
+    # Alias kept for backward-compat (tests/orchestrator may call write() directly)
+    def write(self, key: str, value: Any, agent_id: str) -> None:
+        """Synchronous write — alias for write_sync()."""
+        self.write_sync(key, value, agent_id)
+
+    def invalidate_sync(self, key: str, agent_id: str) -> None:
         """Mark a key as stale.  Subscribers receive a ``blackboard_invalidated`` event.
 
         Agents holding a cached copy of this key (e.g. a function signature used
         as RAG context) should refresh before their next LLM call.
         """
-        async with self._lock:
+        with self._lock:
             entry = self._store.get(key)
             if entry is not None:
                 entry.invalidated = True
 
-        await self._event_publisher.publish(
+        self._event_publisher.publish_sync(
             "blackboard_invalidated",
             key=key,
             agent_id=agent_id,
         )
         self._logger.debug(f"[Blackboard] {agent_id} invalidated '{key}'")
+
+    def invalidate(self, key: str, agent_id: str) -> None:
+        """Synchronous invalidate — alias for invalidate_sync()."""
+        self.invalidate_sync(key, agent_id)
 
     # ------------------------------------------------------------------
     # Read (synchronous — safe, no lock needed)
@@ -208,12 +222,12 @@ class Blackboard:
     # Streaming (Point 4 — token streaming)
     # ------------------------------------------------------------------
 
-    async def write_stream_chunk(self, rel_path: str, chunk: str, agent_id: str) -> None:
+    def write_stream_chunk(self, rel_path: str, chunk: str, agent_id: str) -> None:
         """Append a streaming token chunk to the live buffer for *rel_path*.
 
-        Unlike ``write()``, this is asynchronous but does NOT increment the
-        global version counter — it is optimised for high-frequency, low-cost
-        updates where every character counts more than consistency metadata.
+        Unlike ``write()``, this does NOT increment the global version counter
+        — it is optimised for high-frequency, low-cost updates where every
+        character counts more than consistency metadata.
 
         The ``blackboard_stream_chunk`` event is published so the frontend
         can append the chunk to the live code panel in real time.
@@ -232,7 +246,7 @@ class Blackboard:
         else:
             entry.value = (entry.value or "") + chunk
 
-        await self._event_publisher.publish(
+        self._event_publisher.publish_sync(
             "blackboard_stream_chunk",
             rel_path=rel_path,
             chunk=chunk,
@@ -248,7 +262,7 @@ class Blackboard:
 
         Used by ``CheckpointManager.save_dag()`` to persist the Blackboard
         alongside the TaskDAG without risking ``json.dumps`` failures on
-        complex objects (TaskDAG instances, asyncio Locks, etc.).
+        complex objects (TaskDAG instances, threading Locks, etc.).
         """
         result: Dict[str, Any] = {}
         for entry in self._store.values():

@@ -1,7 +1,7 @@
 """Unit tests for ViabilityEstimatorPhase."""
 
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -21,18 +21,17 @@ class TestViabilityEstimatorPhase:
         ctx.token_tracker.session_total_tokens = 1000
 
         ep = MagicMock()
-        ep.publish = AsyncMock()
+        ep.publish_sync = MagicMock()
         ep.subscribe = MagicMock()
         ep.unsubscribe = MagicMock()
         ctx.event_publisher = ep
         return ctx
 
-    @pytest.mark.asyncio
-    async def test_writes_report_for_small_project(self, tmp_path):
+    def test_writes_report_for_small_project(self, tmp_path):
         ctx = self._make_context()
         phase = ViabilityEstimatorPhase(ctx)
         files = ["src/main.py", "src/utils.py", "tests/test_main.py", "README.md"]
-        gf, _, fps = await phase.run("desc", "proj", tmp_path, "", {}, {}, files)
+        gf, _, fps = phase.run("desc", "proj", tmp_path, "", {}, {}, files)
         assert "viability_report.json" in gf
         report = json.loads(gf["viability_report.json"])
         assert report["total_files"] == 4
@@ -40,21 +39,19 @@ class TestViabilityEstimatorPhase:
         assert not report["threshold_exceeded"]
         assert ctx.viability_report is not None
 
-    @pytest.mark.asyncio
-    async def test_publishes_viability_event(self, tmp_path):
+    def test_publishes_viability_event(self, tmp_path):
         ctx = self._make_context()
         phase = ViabilityEstimatorPhase(ctx)
-        await phase.run("desc", "proj", tmp_path, "", {}, {}, ["src/main.py"])
-        ctx.event_publisher.publish.assert_called_once()
-        call_kwargs = ctx.event_publisher.publish.call_args
+        phase.run("desc", "proj", tmp_path, "", {}, {}, ["src/main.py"])
+        ctx.event_publisher.publish_sync.assert_called_once()
+        call_kwargs = ctx.event_publisher.publish_sync.call_args
         assert call_kwargs[0][0] == "viability_estimate"
 
-    @pytest.mark.asyncio
-    async def test_large_project_asks_confirmation_and_proceeds(self, tmp_path):
+    def test_large_project_asks_confirmation_and_proceeds(self, tmp_path):
         ctx = self._make_context()
 
         # Simulate fast approval
-        async def patched_confirm(self_inner, report, project_name):
+        def patched_confirm(self_inner, report, project_name):
             return True
 
         phase = ViabilityEstimatorPhase(ctx)
@@ -62,13 +59,13 @@ class TestViabilityEstimatorPhase:
         huge_files = [f"src/module_{i}.py" for i in range(500)]
         with pytest.raises(Exception):
             # threshold_exceeded == True but user cancels
-            async def patched_confirm_cancel(self_inner, report, project_name):
+            def patched_confirm_cancel(self_inner, report, project_name):
                 return False
 
             from unittest.mock import patch
 
             with patch.object(ViabilityEstimatorPhase, "_ask_confirmation", patched_confirm_cancel):
-                await phase.run("huge project", "proj", tmp_path, "", {}, {}, huge_files)
+                phase.run("huge project", "proj", tmp_path, "", {}, {}, huge_files)
 
     def test_classify_file_types(self):
         assert ViabilityEstimatorPhase._classify_file("config.yaml") == "config"
@@ -92,15 +89,14 @@ class TestViabilityEstimatorPhase:
         assert "src/main.py" in paths
         assert "src/utils.py" in paths
 
-    @pytest.mark.asyncio
-    async def test_uses_file_paths_from_structure_when_empty(self, tmp_path):
+    def test_uses_file_paths_from_structure_when_empty(self, tmp_path):
         ctx = self._make_context()
         structure = {
             "files": ["README.md"],
             "folders": [{"name": "src", "files": ["main.py"], "folders": []}],
         }
         phase = ViabilityEstimatorPhase(ctx)
-        gf, _, _ = await phase.run("desc", "proj", tmp_path, "", structure, {}, [])
+        gf, _, _ = phase.run("desc", "proj", tmp_path, "", structure, {}, [])
         assert "viability_report.json" in gf
         report = json.loads(gf["viability_report.json"])
         assert report["total_files"] == 2

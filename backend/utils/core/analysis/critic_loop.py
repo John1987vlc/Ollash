@@ -34,7 +34,7 @@ class CriticLoop:
     # Public API
     # ------------------------------------------------------------------
 
-    async def review(self, file_path: str, content: str, language: str) -> Optional[str]:
+    def review(self, file_path: str, content: str, language: str) -> Optional[str]:
         """Review *content* using the nano critic and return error feedback.
 
         Args:
@@ -52,7 +52,7 @@ class CriticLoop:
             return None
 
         try:
-            system_prompt, user_prompt = await self._build_prompts(language, content)
+            system_prompt, user_prompt = self._build_prompts(language, content)
             client = self._get_client()
             response_data, _ = client.chat(
                 messages=[
@@ -79,12 +79,12 @@ class CriticLoop:
         except Exception:
             return self._llm_manager.get_client("coder")
 
-    async def _build_prompts(self, language: str, code: str):
+    def _build_prompts(self, language: str, code: str):
         """Load the nano_critic_review prompt from YAML."""
         try:
             from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
 
-            return await AutoGenPrompts.nano_critic_review(language, code)
+            return AutoGenPrompts.nano_critic_review(language, code)
         except Exception:
             # Inline fallback so the critic works even without YAML
             system = (

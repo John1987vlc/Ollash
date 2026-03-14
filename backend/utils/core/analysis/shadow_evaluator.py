@@ -80,7 +80,7 @@ class ShadowEvaluator:
         self._persist_logs()
         self.logger.info(f"Shadow evaluator stopped. {len(self._logs)} logs persisted.")
 
-    async def _on_phase_complete(self, event_type: str, event_data: Dict) -> None:
+    def _on_phase_complete(self, event_type: str, event_data: Dict) -> None:
         """Handle phase_complete events for passive logging."""
         if not self._active:
             return
@@ -99,7 +99,7 @@ class ShadowEvaluator:
         )
         self._logs.append(log)
 
-    async def _on_shadow_evaluate(self, event_type: str, event_data: Dict) -> None:
+    def _on_shadow_evaluate(self, event_type: str, event_data: Dict) -> None:
         """Handle explicit shadow evaluation requests from phases."""
         if not self._active:
             return
@@ -249,7 +249,7 @@ class ShadowEvaluator:
             return ""
         return ""
 
-    async def active_shadow_validate(
+    def active_shadow_validate(
         self,
         file_path: str,
         content: str,
@@ -281,7 +281,7 @@ class ShadowEvaluator:
         if not format_error:
             # If basic check passes, use nano_reviewer for a deeper but still restricted audit
             try:
-                system, user = await AutoGenPrompts.nano_reviewer(language, content)
+                system, user = AutoGenPrompts.nano_reviewer(language, content)
                 reviewer = llm_manager.get_client("nano_reviewer")
                 res, _ = reviewer.chat(
                     messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -298,7 +298,7 @@ class ShadowEvaluator:
         logger.info(f"[Opt6] Format issue in '{file_path}': {format_error}. Calling nano_format_corrector...")
 
         try:
-            system_prompt, user_prompt = await AutoGenPrompts.nano_format_corrector(
+            system_prompt, user_prompt = AutoGenPrompts.nano_format_corrector(
                 language=language,
                 format_error=format_error,
                 code=content,

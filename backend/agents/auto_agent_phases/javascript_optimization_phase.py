@@ -16,7 +16,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -29,7 +29,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])
 
         self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE 5.2: Checking Project Coherence...")
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_start", phase="5.2", message="Optimizing project functional coherence"
         )
 
@@ -40,22 +40,20 @@ class JavaScriptOptimizationPhase(IAgentPhase):
         # 2. Entry Point Special Check (HTML/Main)
         html_files = {p: c for p, c in generated_files.items() if p.endswith(".html")}
         for path, content in html_files.items():
-            generated_files = await self._validate_html_references(
-                path, content, actual_files, generated_files, project_root
-            )
+            generated_files = self._validate_html_references(path, content, actual_files, generated_files, project_root)
 
         # 3. Cross-File functional coherence (Imports/Exports)
         # Focus on JS and Python for now
         code_files = {p: c for p, c in generated_files.items() if p.endswith((".js", ".py", ".ts"))}
         if code_files:
-            generated_files = await self._optimize_cross_file_coherence(code_files, generated_files, project_root)
+            generated_files = self._optimize_cross_file_coherence(code_files, generated_files, project_root)
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_complete", phase="5.2", message="Project coherence optimization complete"
         )
         return generated_files, initial_structure, file_paths
 
-    async def _validate_html_references(
+    def _validate_html_references(
         self, html_path: str, html_content: str, actual_files: set, all_files: Dict[str, str], root: Path
     ) -> Dict[str, str]:
         """Ensures HTML references like <script src="..."> match actual files."""
@@ -116,7 +114,7 @@ class JavaScriptOptimizationPhase(IAgentPhase):
 
         return all_files
 
-    async def _optimize_cross_file_coherence(
+    def _optimize_cross_file_coherence(
         self, code_files: Dict[str, str], all_files: Dict[str, str], root: Path
     ) -> Dict[str, str]:
         """Ensures imports and function calls between files are consistent."""

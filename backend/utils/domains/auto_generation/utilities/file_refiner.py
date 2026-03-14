@@ -47,9 +47,7 @@ class FileRefiner:
         self.documentation_manager = documentation_manager
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    async def simplify_file_content(
-        self, file_path: str, content: str, remove_redundancy: bool = True
-    ) -> Optional[str]:
+    def simplify_file_content(self, file_path: str, content: str, remove_redundancy: bool = True) -> Optional[str]:
         """
         Aggressively simplifies a file to resolve persistent logic errors or
         architectural complexity issues.
@@ -92,7 +90,7 @@ FILE: {file_path}
 
         return None
 
-    async def refine_file(
+    def refine_file(
         self,
         file_path: str,
         current_content: str,
@@ -133,18 +131,18 @@ FILE: {file_path}
         is_doc = file_path.lower().endswith((".md", ".txt", ".rst"))
 
         if is_doc:
-            system, user = await AutoGenPrompts.documentation_refinement(
+            system, user = AutoGenPrompts.documentation_refinement(
                 file_path, current_content, project_description=combined_context
             )
         elif issues:
             # Se formatea la cadena de issues para que coincida con el método esperado
             issues_str = "\n".join([f"- {i.get('description')}" for i in issues])
-            system, user = await AutoGenPrompts.file_refinement_with_issues(
+            system, user = AutoGenPrompts.file_refinement_with_issues(
                 file_path, current_content, issues_str, context=combined_context
             )
         else:
             # file_refinement en prompt_templates.py ahora acepta context
-            system, user = await AutoGenPrompts.file_refinement(file_path, current_content, context=combined_context)
+            system, user = AutoGenPrompts.file_refinement(file_path, current_content, context=combined_context)
 
         try:
             response_data, usage = self.llm_client.chat(

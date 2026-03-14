@@ -29,7 +29,7 @@ class ProjectAnalysisPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -48,9 +48,7 @@ class ProjectAnalysisPhase(IAgentPhase):
             f"[PROJECT_NAME:{project_name}] PHASE 0.5: Analyzing existing project "
             f"({len(generated_files)} files, {len(file_paths)} paths)..."
         )
-        await self.context.event_publisher.publish(
-            "phase_start", phase="0.5", message="Analyzing existing project code"
-        )
+        self.context.event_publisher.publish_sync("phase_start", phase="0.5", message="Analyzing existing project code")
 
         # E1: Incremental differential analysis — load previous snapshot
         state_mgr = AnalysisStateManager(self.context.logger)
@@ -70,7 +68,7 @@ class ProjectAnalysisPhase(IAgentPhase):
                 self.context.logger.info(
                     f"  Incremental analysis: {len(changed_files)}/{len(generated_files)} files changed."
                 )
-                delta_analysis = await self._analyze_codebase(changed_files, list(changed_files.keys()))
+                delta_analysis = self._analyze_codebase(changed_files, list(changed_files.keys()))
                 codebase_analysis = state_mgr.merge_analysis(
                     prev_snapshot.full_analysis,
                     delta_analysis,
@@ -78,7 +76,7 @@ class ProjectAnalysisPhase(IAgentPhase):
                 )
                 delta_files_analyzed = len(changed_files)
         else:
-            codebase_analysis = await self._analyze_codebase(generated_files, file_paths)
+            codebase_analysis = self._analyze_codebase(generated_files, file_paths)
 
         # Step 2: Detect tech stack and store in context
         try:
@@ -97,12 +95,10 @@ class ProjectAnalysisPhase(IAgentPhase):
             codebase_analysis["prompt_hints"] = []
 
         # Step 3: Compare with project description
-        gaps = await self._identify_gaps(project_description, codebase_analysis, readme_content)
+        gaps = self._identify_gaps(project_description, codebase_analysis, readme_content)
 
         # Step 4: Generate improvement plan
-        logic_plan = await self._generate_improvement_plan(
-            gaps, codebase_analysis, project_description, generated_files
-        )
+        logic_plan = self._generate_improvement_plan(gaps, codebase_analysis, project_description, generated_files)
 
         # E1: Save snapshot for next incremental run (after full analysis is complete)
         if not used_cache:
@@ -131,7 +127,7 @@ class ProjectAnalysisPhase(IAgentPhase):
         improvement_count = len(gaps.get("improvements", []))
         refactor_count = len(gaps.get("refactoring_opportunities", []))
 
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "phase_complete",
             phase="0.5",
             message=f"Analysis complete: {improvement_count} improvements, {refactor_count} refactoring opportunities",
@@ -143,7 +139,7 @@ class ProjectAnalysisPhase(IAgentPhase):
 
         return generated_files, initial_structure, file_paths
 
-    async def _analyze_codebase(self, generated_files: Dict[str, str], file_paths: List[str]) -> Dict[str, Any]:
+    def _analyze_codebase(self, generated_files: Dict[str, str], file_paths: List[str]) -> Dict[str, Any]:
         """
         Analyzes the existing codebase to understand structure and patterns.
 
@@ -205,7 +201,7 @@ class ProjectAnalysisPhase(IAgentPhase):
 
         return analysis
 
-    async def _identify_gaps(
+    def _identify_gaps(
         self,
         project_description: str,
         codebase_analysis: Dict[str, Any],
@@ -217,7 +213,7 @@ class ProjectAnalysisPhase(IAgentPhase):
         """
         self.context.logger.info("  Identifying gaps between current state and requirements...")
 
-        system_prompt, user_prompt = await AutoGenPrompts.project_analysis_gaps(
+        system_prompt, user_prompt = AutoGenPrompts.project_analysis_gaps(
             total_files=len(codebase_analysis["file_details"]),
             total_loc=codebase_analysis["total_lines_of_code"],
             languages=", ".join(codebase_analysis["files_by_type"].keys()),
@@ -268,7 +264,7 @@ class ProjectAnalysisPhase(IAgentPhase):
                 "summary": f"Error during analysis: {str(e)}",
             }
 
-    async def _generate_improvement_plan(
+    def _generate_improvement_plan(
         self,
         gaps: Dict[str, Any],
         codebase_analysis: Dict[str, Any],
@@ -356,7 +352,7 @@ class ProjectAnalysisPhase(IAgentPhase):
         patterns = []
 
         # Check for async/await
-        if "async def " in content or "async function" in content:
+        if "def " in content or "async function" in content:
             patterns.append("async_patterns")
 
         # Check for documentation

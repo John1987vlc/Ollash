@@ -23,7 +23,7 @@ class ProjectReviewer:
         self.logger = logger
         self.options = options or self.DEFAULT_OPTIONS.copy()
 
-    async def review(
+    def review(
         self,
         project_name: str,
         readme_excerpt: str,
@@ -40,7 +40,7 @@ class ProjectReviewer:
             project_summary += f"... and {len(file_paths) - 20} more\n"
         project_summary += f"\nValidation Summary: {json.dumps(validation_summary)}"
 
-        system, user = await AutoGenPrompts.project_review(project_summary)
+        system, user = AutoGenPrompts.project_review(project_summary)
         response_data, usage = self.llm_client.chat(
             messages=[
                 {"role": "system", "content": system},

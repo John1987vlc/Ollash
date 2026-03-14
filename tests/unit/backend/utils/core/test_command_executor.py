@@ -1,6 +1,6 @@
 import pytest
 import subprocess
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 from backend.utils.core.command_executor import CommandExecutor, SandboxLevel, ExecutionResult
 
 
@@ -73,18 +73,18 @@ class TestCommandExecutor:
         assert "Typo detected" in res.stderr
         assert "python" in res.stderr
 
-    @pytest.mark.asyncio
-    async def test_async_execute_success(self, executor):
-        mock_process = AsyncMock()
-        mock_process.returncode = 0
-        mock_process.communicate.return_value = (b"async out", b"")
+    def test_async_execute_success_sync(self, executor):
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "async out"
+        mock_result.stderr = ""
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_process) as mock_exec:
-            res = await executor.async_execute(["echo", "hi"])
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            res = executor.execute(["echo", "hi"])
 
             assert res.success is True
             assert res.stdout == "async out"
-            mock_exec.assert_called_once()
+            mock_run.assert_called_once()
 
     def test_execute_python_safety_wrapper(self, executor):
         with patch.object(executor, "execute") as mock_exec:

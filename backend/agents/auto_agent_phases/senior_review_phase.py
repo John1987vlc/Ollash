@@ -16,7 +16,7 @@ class SeniorReviewPhase(IAgentPhase):
     def __init__(self, context: PhaseContext):
         self.context = context
 
-    async def execute(
+    def execute(
         self,
         project_description: str,
         project_name: str,
@@ -29,7 +29,7 @@ class SeniorReviewPhase(IAgentPhase):
         file_paths = kwargs.get("file_paths", [])  # Get from kwargs or assume context has it
 
         self.context.logger.info("PHASE 8: Starting Senior Review...")
-        await self.context.event_publisher.publish("phase_start", phase="8", message="Starting Senior Review")
+        self.context.event_publisher.publish_sync("phase_start", phase="8", message="Starting Senior Review")
 
         review_passed = False
         review_attempt = 0
@@ -41,9 +41,9 @@ class SeniorReviewPhase(IAgentPhase):
         while not review_passed and review_attempt < max_review_attempts:
             review_attempt += 1
             self.context.logger.info(f"PHASE 8: Senior Review Attempt {review_attempt}/{max_review_attempts}...")
-            await self.context.event_publisher.publish("tool_start", tool_name="senior_review", attempt=review_attempt)
+            self.context.event_publisher.publish_sync("tool_start", tool_name="senior_review", attempt=review_attempt)
 
-            review_results = await self.context.senior_reviewer.perform_review(
+            review_results = self.context.senior_reviewer.perform_review(
                 project_description,
                 project_name,
                 readme_content,
@@ -61,7 +61,7 @@ class SeniorReviewPhase(IAgentPhase):
                     project_root / review_summary_path,
                     generated_files[review_summary_path],
                 )
-                await self.context.event_publisher.publish(
+                self.context.event_publisher.publish_sync(
                     "tool_output",
                     tool_name="senior_review",
                     status="passed",
@@ -70,7 +70,7 @@ class SeniorReviewPhase(IAgentPhase):
             else:
                 issues = review_results.get("issues", [])
                 self.context.logger.warning(f"PHASE 8: Senior Review Failed. Issues found: {len(issues)}")
-                await self.context.event_publisher.publish(
+                self.context.event_publisher.publish_sync(
                     "tool_output",
                     tool_name="senior_review",
                     status="failed",
@@ -97,7 +97,7 @@ class SeniorReviewPhase(IAgentPhase):
 
                 if issues:
                     self.context.logger.info("  Attempting targeted fixes based on senior review issues...")
-                    await self.context.event_publisher.publish(
+                    self.context.event_publisher.publish_sync(
                         "tool_start",
                         tool_name="fix_senior_review_issues",
                         count=len(issues),
@@ -105,7 +105,7 @@ class SeniorReviewPhase(IAgentPhase):
 
                     # ContingencyPlanner is typically sync, but checking if it uses AutoGenPrompts
                     # Assume generate_contingency_plan might need awaiting if it uses prompts
-                    contingency_plan = await self.context.contingency_planner.generate_contingency_plan(
+                    contingency_plan = self.context.contingency_planner.generate_contingency_plan(
                         issues, project_description, readme_content
                     )
 
@@ -121,7 +121,7 @@ class SeniorReviewPhase(IAgentPhase):
                             generated_files,
                             initial_structure,
                             file_paths,
-                        ) = await self.context.implement_plan(
+                        ) = self.context.implement_plan(
                             contingency_plan,
                             project_root,
                             readme_content,
@@ -156,14 +156,14 @@ class SeniorReviewPhase(IAgentPhase):
                             ):
                                 continue
                             self.context.logger.info(f"    Fixing {rel_path} (targeted)...")
-                            await self.context.event_publisher.publish(
+                            self.context.event_publisher.publish_sync(
                                 "tool_start",
                                 tool_name="refine_from_senior_review",
                                 file=rel_path,
                             )
                             try:
                                 file_issues = [iss for iss in issues if iss.get("file") == rel_path]
-                                refined = await self.context.file_refiner.refine_file(
+                                refined = self.context.file_refiner.refine_file(
                                     rel_path,
                                     generated_files[rel_path],
                                     readme_content[:2000],
@@ -172,7 +172,7 @@ class SeniorReviewPhase(IAgentPhase):
                                 if refined:
                                     generated_files[rel_path] = refined
                                     self.context.file_manager.write_file(project_root / rel_path, refined)
-                                    await self.context.event_publisher.publish(
+                                    self.context.event_publisher.publish_sync(
                                         "tool_output",
                                         tool_name="refine_from_senior_review",
                                         file=rel_path,
@@ -180,7 +180,7 @@ class SeniorReviewPhase(IAgentPhase):
                                     )
                                 else:
                                     self.context.logger.warning(f"    Refiner failed to improve {rel_path}.")
-                                    await self.context.event_publisher.publish(
+                                    self.context.event_publisher.publish_sync(
                                         "tool_output",
                                         tool_name="refine_from_senior_review",
                                         file=rel_path,
@@ -189,14 +189,14 @@ class SeniorReviewPhase(IAgentPhase):
                                     )
                             except Exception as e:
                                 self.context.logger.error(f"    Error fixing {rel_path}: {e}")
-                                await self.context.event_publisher.publish(
+                                self.context.event_publisher.publish_sync(
                                     "tool_output",
                                     tool_name="refine_from_senior_review",
                                     file=rel_path,
                                     status="error",
                                     message=str(e),
                                 )
-                            await self.context.event_publisher.publish(
+                            self.context.event_publisher.publish_sync(
                                 "tool_end",
                                 tool_name="refine_from_senior_review",
                                 file=rel_path,
@@ -210,13 +210,13 @@ class SeniorReviewPhase(IAgentPhase):
                             for rel_path, content in list(generated_files.items()):
                                 if not content or len(content) < 10 or rel_path in files_with_issues:
                                     continue
-                                await self.context.event_publisher.publish(
+                                self.context.event_publisher.publish_sync(
                                     "tool_start",
                                     tool_name="refine_from_senior_review_general",
                                     file=rel_path,
                                 )
                                 try:
-                                    refined = await self.context.file_refiner.refine_file(
+                                    refined = self.context.file_refiner.refine_file(
                                         rel_path,
                                         content,
                                         readme_content[:2000],
@@ -225,7 +225,7 @@ class SeniorReviewPhase(IAgentPhase):
                                     if refined:
                                         generated_files[rel_path] = refined
                                         self.context.file_manager.write_file(project_root / rel_path, refined)
-                                        await self.context.event_publisher.publish(
+                                        self.context.event_publisher.publish_sync(
                                             "tool_output",
                                             tool_name="refine_from_senior_review_general",
                                             file=rel_path,
@@ -233,7 +233,7 @@ class SeniorReviewPhase(IAgentPhase):
                                         )
                                     else:
                                         self.context.logger.warning(f"    Refiner failed to improve {rel_path}.")
-                                        await self.context.event_publisher.publish(
+                                        self.context.event_publisher.publish_sync(
                                             "tool_output",
                                             tool_name="refine_from_senior_review_general",
                                             file=rel_path,
@@ -242,22 +242,22 @@ class SeniorReviewPhase(IAgentPhase):
                                         )
                                 except Exception as e:
                                     self.context.logger.error(f"    Error refining {rel_path}: {e}")
-                                    await self.context.event_publisher.publish(
+                                    self.context.event_publisher.publish_sync(
                                         "tool_output",
                                         tool_name="refine_from_senior_review_general",
                                         file=rel_path,
                                         status="error",
                                         message=str(e),
                                     )
-                                await self.context.event_publisher.publish(
+                                self.context.event_publisher.publish_sync(
                                     "tool_end",
                                     tool_name="refine_from_senior_review_general",
                                     file=rel_path,
                                 )
-                        await self.context.event_publisher.publish("tool_end", tool_name="fix_senior_review_issues")
+                        self.context.event_publisher.publish_sync("tool_end", tool_name="fix_senior_review_issues")
 
                     self.context.logger.info("  Re-running verification after senior review fixes...")
-                    generated_files = await self.context.file_completeness_checker.verify_and_fix(
+                    generated_files = self.context.file_completeness_checker.verify_and_fix(
                         generated_files, readme_content[:2000]
                     )
                     for rel_path, content in generated_files.items():
@@ -265,7 +265,7 @@ class SeniorReviewPhase(IAgentPhase):
                             self.context.file_manager.write_file(project_root / rel_path, content)
                 else:
                     self.context.logger.warning("  No specific issues provided by senior reviewer to fix.")
-            await self.context.event_publisher.publish("tool_end", tool_name="senior_review")
+            self.context.event_publisher.publish_sync("tool_end", tool_name="senior_review")
 
         if not review_passed:
             self.context.logger.error(
@@ -275,14 +275,14 @@ class SeniorReviewPhase(IAgentPhase):
             # NEW: On second failure, attempt aggressive simplification
             if review_attempt >= 2:
                 self.context.logger.warning("  PHASE 8: Attempting aggressive simplification to resolve issues...")
-                await self.context.event_publisher.publish("tool_start", tool_name="aggressive_simplification")
+                self.context.event_publisher.publish_sync("tool_start", tool_name="aggressive_simplification")
 
                 simplified_count = 0
                 for rel_path, content in list(generated_files.items()):
                     if content and len(content) > 100 and not rel_path.endswith((".md", ".json", ".yml", ".yaml")):
                         try:
                             # Use FileRefiner to eliminate redundancy
-                            simplified = await self.context.file_refiner.simplify_file_content(
+                            simplified = self.context.file_refiner.simplify_file_content(
                                 rel_path, content, remove_redundancy=True
                             )
                             if simplified and len(simplified) < len(content):
@@ -294,7 +294,7 @@ class SeniorReviewPhase(IAgentPhase):
                             self.context.logger.debug(f"    Simplification skipped for {rel_path}: {e}")
 
                 self.context.logger.info(f"  Simplified {simplified_count} files to improve stability")
-                await self.context.event_publisher.publish(
+                self.context.event_publisher.publish_sync(
                     "tool_end",
                     tool_name="aggressive_simplification",
                     files_simplified=simplified_count,
@@ -304,14 +304,14 @@ class SeniorReviewPhase(IAgentPhase):
                 project_root / "SENIOR_REVIEW_FAILED.md",
                 "Senior review failed after multiple attempts.",
             )
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_complete",
                 phase="8",
                 message="Senior Review failed",
                 status="error",
             )
         else:
-            await self.context.event_publisher.publish(
+            self.context.event_publisher.publish_sync(
                 "phase_complete",
                 phase="8",
                 message="Senior Review complete",
@@ -319,7 +319,7 @@ class SeniorReviewPhase(IAgentPhase):
             )
 
         self.context.logger.info(f"Project '{project_name}' completed at {project_root}")
-        await self.context.event_publisher.publish(
+        self.context.event_publisher.publish_sync(
             "project_complete",
             project_name=project_name,
             project_root=str(project_root),
@@ -331,7 +331,7 @@ class SeniorReviewPhase(IAgentPhase):
         self.context.logger.info(f"Knowledge Base Stats: {kb_stats}")
 
         # Log fragment cache statistics
-        cache_stats = await self.context.fragment_cache.stats()
+        cache_stats = self.context.fragment_cache.stats()
         self.context.logger.info(f"Fragment Cache Stats: {cache_stats}")
 
         # --- PR-based review (Feature 3) ---
@@ -387,7 +387,7 @@ class SeniorReviewPhase(IAgentPhase):
                 if issues:
                     self._post_review_comments(project_root, pr_result.pr_number, issues)
 
-                self.context.event_publisher.publish(
+                self.context.event_publisher.publish_sync(
                     "tool_output",
                     tool_name="senior_review_pr",
                     pr_url=pr_result.pr_url,

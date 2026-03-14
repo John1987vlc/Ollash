@@ -35,7 +35,7 @@ class ChaosInjectionPhase(BasePhase):
     category = "validation"
     REQUIRED_TOOLS: List[str] = []
 
-    async def run(
+    def run(
         self,
         project_description: str,
         project_name: str,
@@ -71,7 +71,7 @@ class ChaosInjectionPhase(BasePhase):
                 except Exception:
                     pass
                 self.context.logger.info(f"[Chaos] Injected fault into '{file_path}': {description}")
-                await self.context.event_publisher.publish(
+                self.context.event_publisher.publish_sync(
                     "chaos_fault_injected",
                     file_path=file_path,
                     fault_description=description,

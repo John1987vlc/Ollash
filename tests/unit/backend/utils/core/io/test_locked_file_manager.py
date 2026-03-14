@@ -102,17 +102,15 @@ class TestLockedFileManager:
             assert (tmp_path / f"file_{i}.txt").read_text(encoding="utf-8") == f"content-{i}"
 
     # ------------------------------------------------------------------
-    # Async write
+    # Sync write
     # ------------------------------------------------------------------
 
-    @pytest.mark.asyncio
-    async def test_write_file_async_creates_file(self, manager, tmp_path):
-        await manager.write_file_async("async_out.txt", "async content")
+    def test_write_file_async_creates_file_sync(self, manager, tmp_path):
+        manager.write_file("async_out.txt", "async content")
         assert (tmp_path / "async_out.txt").read_text(encoding="utf-8") == "async content"
 
-    @pytest.mark.asyncio
-    async def test_write_file_async_returns_result(self, manager):
-        result = await manager.write_file_async("async_out2.txt", "data")
+    def test_write_file_async_returns_result_sync(self, manager):
+        result = manager.write_file("async_out2.txt", "data")
         assert result is not None
 
     # ------------------------------------------------------------------

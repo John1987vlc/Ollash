@@ -6,7 +6,7 @@ Tests cover LogicPlanningPhase._generate_backlog_incrementally().
 import json
 import pytest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
 
@@ -58,9 +58,8 @@ def phase():
 
 
 class TestGenerateBacklogIncrementally:
-    @pytest.mark.asyncio
     @pytest.mark.unit
-    async def test_generates_tasks_until_complete_signal(self, phase):
+    def test_generates_tasks_until_complete_signal(self, phase):
         """Model produces 2 tasks then signals completion."""
         task1 = _make_task("TASK-001", "utils.py")
         task2 = _make_task("TASK-002", "models.py")
@@ -77,15 +76,14 @@ class TestGenerateBacklogIncrementally:
             "backend.utils.domains.auto_generation.prompt_templates.AutoGenPrompts.next_backlog_task",
             return_value=("sys", "usr"),
         ):
-            backlog = await phase._generate_backlog_incrementally("Test project", "README", {"files": []}, max_tasks=30)
+            backlog = phase._generate_backlog_incrementally("Test project", "README", {"files": []}, max_tasks=30)
 
         assert len(backlog) == 2
         assert backlog[0]["id"] == "TASK-001"
         assert backlog[1]["id"] == "TASK-002"
 
-    @pytest.mark.asyncio
     @pytest.mark.unit
-    async def test_falls_back_when_no_tasks_produced(self, phase):
+    def test_falls_back_when_no_tasks_produced(self, phase):
         """If no tasks come out, fall back to batch generation."""
         complete = _complete_signal()
         phase.context.llm_manager.get_client.return_value.chat.return_value = (
@@ -98,14 +96,13 @@ class TestGenerateBacklogIncrementally:
             "backend.utils.domains.auto_generation.prompt_templates.AutoGenPrompts.next_backlog_task",
             return_value=("sys", "usr"),
         ):
-            with patch.object(phase, "_generate_backlog", AsyncMock(return_value=fallback_backlog)):
-                backlog = await phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
+            with patch.object(phase, "_generate_backlog", MagicMock(return_value=fallback_backlog)):
+                backlog = phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
 
         assert backlog == fallback_backlog
 
-    @pytest.mark.asyncio
     @pytest.mark.unit
-    async def test_respects_max_tasks_limit(self, phase):
+    def test_respects_max_tasks_limit(self, phase):
         """Loop stops at max_tasks even if model never signals complete."""
         single_task = _make_task("TASK-001", "utils.py")
         phase.context.llm_manager.get_client.return_value.chat.return_value = (
@@ -117,14 +114,13 @@ class TestGenerateBacklogIncrementally:
             "backend.utils.domains.auto_generation.prompt_templates.AutoGenPrompts.next_backlog_task",
             return_value=("sys", "usr"),
         ):
-            backlog = await phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=3)
+            backlog = phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=3)
 
         # Should stop at 3 (max_tasks)
         assert len(backlog) <= 3
 
-    @pytest.mark.asyncio
     @pytest.mark.unit
-    async def test_skips_tasks_without_file_path(self, phase):
+    def test_skips_tasks_without_file_path(self, phase):
         """Tasks missing file_path are skipped."""
         bad_task = {"id": "TASK-001", "title": "No path"}
         good_task = _make_task("TASK-002", "app.py")
@@ -141,15 +137,14 @@ class TestGenerateBacklogIncrementally:
             "backend.utils.domains.auto_generation.prompt_templates.AutoGenPrompts.next_backlog_task",
             return_value=("sys", "usr"),
         ):
-            backlog = await phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
+            backlog = phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
 
         # Only the task with file_path should be in backlog
         assert len(backlog) == 1
         assert backlog[0]["file_path"] == "app.py"
 
-    @pytest.mark.asyncio
     @pytest.mark.unit
-    async def test_records_tasks_to_decision_blackboard(self, phase):
+    def test_records_tasks_to_decision_blackboard(self, phase):
         """Each task is recorded in the decision blackboard."""
         task1 = _make_task("TASK-001", "utils.py")
         complete = _complete_signal()
@@ -163,13 +158,12 @@ class TestGenerateBacklogIncrementally:
             "backend.utils.domains.auto_generation.prompt_templates.AutoGenPrompts.next_backlog_task",
             return_value=("sys", "usr"),
         ):
-            await phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
+            phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
 
         phase.context.decision_blackboard.record_decision.assert_called_once()
 
-    @pytest.mark.asyncio
     @pytest.mark.unit
-    async def test_llm_exception_stops_loop_gracefully(self, phase):
+    def test_llm_exception_stops_loop_gracefully(self, phase):
         """If the LLM raises, the loop stops and returns what it has so far."""
         task1 = _make_task("TASK-001", "utils.py")
         responses = [
@@ -189,7 +183,7 @@ class TestGenerateBacklogIncrementally:
             "backend.utils.domains.auto_generation.prompt_templates.AutoGenPrompts.next_backlog_task",
             return_value=("sys", "usr"),
         ):
-            backlog = await phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
+            backlog = phase._generate_backlog_incrementally("Test", "README", {}, max_tasks=30)
 
         # Should have the 1 successful task
         assert len(backlog) == 1
