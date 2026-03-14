@@ -1,17 +1,111 @@
+import logging
+import os
 import threading
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from backend.agents.simple_chat_agent import SimpleChatAgent
 from backend.services.chat_event_bridge import ChatEventBridge
+
+_log = logging.getLogger("ollash")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+_EXCLUDE_DIRS = frozenset({
+    "__pycache__", ".git", ".venv", "venv", "node_modules", ".cache",
+    "dist", "build", ".pytest_cache", ".mypy_cache", "target", ".ollash",
+})
+_SOURCE_EXTS = frozenset({
+    ".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java", ".cpp", ".c",
+    ".cs", ".rb", ".php", ".swift", ".kt", ".json", ".yaml", ".yml", ".md",
+    ".html", ".css", ".sh", ".toml", ".env.example",
+})
+
+
+def _build_project_tree(project_path: str, max_files: int = 120) -> str:
+    """Return a compact file-tree string for the given project directory.
+
+    Only lists source files (up to *max_files*) so the context injection stays
+    small (~100 tokens for a typical project).
+    """
+    root = Path(project_path)
+    if not root.exists():
+        return ""
+
+    lines: List[str] = [f"# Project: {root.name}", ""]
+    file_count = 0
+    truncated = False
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in _EXCLUDE_DIRS)
+        rel_dir = Path(dirpath).relative_to(root)
+        indent = "  " * len(rel_dir.parts)
+
+        if rel_dir.parts:
+            lines.append(f"{indent[:-2]}{rel_dir.parts[-1]}/")
+
+        for fname in sorted(filenames):
+            if Path(fname).suffix.lower() not in _SOURCE_EXTS:
+                continue
+            file_count += 1
+            if file_count > max_files:
+                truncated = True
+                break
+            lines.append(f"{indent}{fname}")
+
+        if truncated:
+            lines.append(f"{indent}... (truncated)")
+            break
+
+    return "\n".join(lines)
+
+
+def _load_coding_system_prompt(project_path: str, prompts_base: Path) -> str:
+    """Load the interactive_coding_agent system prompt and append project context."""
+    prompt_text = ""
+    try:
+        from backend.utils.core.llm.prompt_loader import PromptLoader
+        loader = PromptLoader(prompts_dir=prompts_base)
+        data = loader.load_prompt_sync("roles/interactive_coding_agent.yaml")
+        prompt_text = data.get("interactive_coding_agent", {}).get("system", "")
+    except Exception as exc:
+        _log.warning(f"Could not load interactive_coding_agent prompt: {exc}")
+
+    if not prompt_text:
+        prompt_text = (
+            "You are an interactive coding assistant. "
+            "Always read files before editing them. "
+            "Run tests after making changes to verify correctness."
+        )
+
+    # Inject project tree
+    tree = _build_project_tree(project_path)
+    if tree:
+        prompt_text += f"\n\n## Project file tree\n```\n{tree}\n```"
+
+    # Inject OLLASH.md / CLAUDE.md project instructions if present
+    for instr_file in ("OLLASH.md", "CLAUDE.md"):
+        instr_path = Path(project_path) / instr_file
+        if instr_path.exists():
+            try:
+                instructions = instr_path.read_text(encoding="utf-8", errors="replace")
+                prompt_text += f"\n\n## Project instructions ({instr_file})\n{instructions}"
+                break
+            except Exception:
+                pass
+
+    return prompt_text
 
 
 @dataclass
 class ChatSession:
     session_id: str
-    agent: SimpleChatAgent
+    agent: Union[SimpleChatAgent, "DefaultAgent"]  # type: ignore[name-defined]
     bridge: ChatEventBridge
     thread: Optional[threading.Thread] = None
 
@@ -24,6 +118,7 @@ class ChatSessionManager:
 
     def __init__(self, ollash_root_dir: Path, event_publisher):
         self.ollash_root_dir = ollash_root_dir
+        self._prompts_base = ollash_root_dir / "prompts"
         self.sessions: Dict[str, ChatSession] = {}
         self._lock = threading.Lock()
         self.event_publisher = event_publisher
@@ -62,8 +157,14 @@ class ChatSessionManager:
         agent_type: Optional[str] = None,
         model: Optional[str] = None,
         mode: Optional[str] = None,
+        system_prompt_override: Optional[str] = None,
     ) -> str:
-        """Create a new lightweight chat session backed by SimpleChatAgent."""
+        """Create a new chat session.
+
+        When *mode* is ``"coding"``, a full :class:`DefaultAgent` is used so the
+        session has access to all tools, confirmation gates, and context summarization.
+        Otherwise a lightweight :class:`SimpleChatAgent` is used.
+        """
         with self._lock:
             self._cleanup_finished()
 
@@ -73,12 +174,37 @@ class ChatSessionManager:
             session_id = uuid.uuid4().hex
             bridge = ChatEventBridge(self.event_publisher)
 
-            agent = SimpleChatAgent(event_bridge=bridge, model=model)
+            resolved_root = project_path or str(self.ollash_root_dir)
+
+            if mode == "coding":
+                from backend.agents.default_agent import DefaultAgent
+                from backend.services.project_index import ProjectIndex
+
+                # Build system prompt: role description + project tree + OLLASH.md
+                coding_prompt = system_prompt_override or _load_coding_system_prompt(
+                    resolved_root, self._prompts_base
+                )
+                agent = DefaultAgent(
+                    project_root=resolved_root,
+                    event_bridge=bridge,
+                    auto_confirm=False,
+                    system_prompt_override=coding_prompt,
+                )
+
+                # Build project index (background RAG) and inject into FileSystemTools
+                project_idx = ProjectIndex(resolved_root)
+                project_idx.start_background_index()
+                self._inject_project_index(agent, project_idx)
+
+                db_agent_type = "coding"
+            else:
+                agent = SimpleChatAgent(event_bridge=bridge, model=model)
+                db_agent_type = "chat"
 
             # Save session to DB
             self.db.execute(
                 "INSERT INTO chat_sessions (id, agent_type, project_path, title) VALUES (?, ?, ?, ?)",
-                (session_id, "chat", str(self.ollash_root_dir), "New Chat"),
+                (session_id, db_agent_type, resolved_root, "New Chat"),
             )
 
             self.sessions[session_id] = ChatSession(
@@ -202,3 +328,26 @@ class ChatSessionManager:
         finished = [sid for sid, s in self.sessions.items() if s.thread is not None and not s.thread.is_alive()]
         for sid in finished:
             del self.sessions[sid]
+
+    @staticmethod
+    def _inject_project_index(agent: Any, project_index: Any) -> None:
+        """Inject a :class:`ProjectIndex` into the agent's FileSystemTools instance.
+
+        ``DefaultAgent`` instantiates ``FileSystemTools`` via ``ToolRegistry``.
+        We reach into the registry's tool mapping and set ``_project_index`` so
+        ``search_codebase()`` can delegate to the session-scoped index.
+        """
+        try:
+            from backend.utils.domains.code.file_system_tools import FileSystemTools
+
+            registry = getattr(agent, "_tool_registry", None)
+            if registry is None:
+                return
+            mapping = getattr(registry, "_all_tool_instances_mapping", None) or {}
+            for tool_instance in mapping.values():
+                if isinstance(tool_instance, FileSystemTools):
+                    tool_instance._project_index = project_index
+                    _log.debug("ProjectIndex injected into FileSystemTools")
+                    return
+        except Exception as exc:
+            _log.warning(f"Could not inject ProjectIndex into agent tools: {exc}")

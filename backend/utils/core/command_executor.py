@@ -247,6 +247,105 @@ class CommandExecutor:
                 command=command,
             )
 
+    def execute_streaming(
+        self,
+        command: str,
+        on_line: Any,
+        timeout: int = 300,
+        execution_dir: Optional[str] = None,
+    ) -> ExecutionResult:
+        """Execute *command* and stream each output line to *on_line* as it arrives.
+
+        Unlike :meth:`execute`, which buffers all output until the process exits,
+        this method calls ``on_line(line: str)`` for every stdout/stderr line in
+        real time, enabling live display of long-running commands (pytest, npm
+        install, cargo build, …).
+
+        Args:
+            command: Shell command string.
+            on_line: Callback invoked with each decoded output line (without
+                trailing newline).
+            timeout: Total wall-clock timeout in seconds (default 300).
+            execution_dir: Working directory override (defaults to
+                ``self.working_dir``).
+
+        Returns:
+            :class:`ExecutionResult` with accumulated stdout/stderr.
+        """
+        import shlex as _shlex
+        import subprocess as _sp
+
+        cwd = execution_dir or self.working_dir
+
+        try:
+            cmd_list = _shlex.split(command)
+        except ValueError:
+            cmd_list = command.split()
+
+        if not self._is_allowed(cmd_list):
+            msg = f"Command not allowed by security policy: {command}"
+            on_line(f"[ERROR] {msg}")
+            return ExecutionResult(success=False, stdout="", stderr=msg, return_code=1, command=command)
+
+        stdout_lines: list[str] = []
+        stderr_lines: list[str] = []
+
+        try:
+            proc = _sp.Popen(
+                cmd_list,
+                stdout=_sp.PIPE,
+                stderr=_sp.STDOUT,
+                cwd=cwd,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+
+            import threading as _threading
+
+            def _reader():
+                assert proc.stdout is not None
+                for raw_line in iter(proc.stdout.readline, ""):
+                    line = raw_line.rstrip("\n")
+                    stdout_lines.append(line)
+                    try:
+                        on_line(line)
+                    except Exception:
+                        pass
+
+            reader_thread = _threading.Thread(target=_reader, daemon=True)
+            reader_thread.start()
+            reader_thread.join(timeout=timeout)
+
+            if reader_thread.is_alive():
+                proc.kill()
+                on_line("[TIMEOUT] Command exceeded time limit.")
+                return ExecutionResult(
+                    success=False,
+                    stdout="\n".join(stdout_lines),
+                    stderr="Timeout",
+                    return_code=-1,
+                    command=command,
+                )
+
+            proc.wait()
+            return ExecutionResult(
+                success=proc.returncode == 0,
+                stdout="\n".join(stdout_lines),
+                stderr="\n".join(stderr_lines),
+                return_code=proc.returncode,
+                command=command,
+            )
+
+        except FileNotFoundError:
+            msg = f"Command not found: {cmd_list[0]}"
+            on_line(f"[ERROR] {msg}")
+            return ExecutionResult(success=False, stdout="", stderr=msg, return_code=1, command=command)
+        except Exception as exc:
+            msg = str(exc)
+            on_line(f"[ERROR] {msg}")
+            return ExecutionResult(success=False, stdout="", stderr=msg, return_code=-1, command=command)
+
     def execute_python(self, code: str, timeout: int = 30) -> ExecutionResult:
         """Ejecuta código Python de forma segura."""
         safe_code = f"""

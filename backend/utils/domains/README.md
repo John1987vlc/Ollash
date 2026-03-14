@@ -7,8 +7,8 @@ Herramientas organizadas por dominio funcional. Cada sub-paquete contiene implem
 | Directorio | Toolset ID | Herramientas principales |
 |-----------|-----------|--------------------------|
 | `auto_generation/` | `auto_generation` | Generación de proyectos, código, tests, estructura |
-| `code/` | `code_tools` | Análisis estático, refactoring, formateo |
-| `command_line/` | `command_line_tools` | Ejecución de comandos shell, scripts |
+| `code/` | `file_system_tools` | Lectura/escritura de archivos, diff, glob, `search_codebase` (RAG semántico) |
+| `command_line/` | `command_line_tools` | Ejecución de comandos shell; `run_command_streaming` (output en tiempo real) |
 | `cybersecurity/` | `cybersecurity_tools` | Escaneo de vulnerabilidades, auditoría |
 | `git/` | `git_tools` | Git: status, diff, commit, branch, PR |
 | `multimedia/` | `multimedia_tools` | Generación de imágenes, diagramas |

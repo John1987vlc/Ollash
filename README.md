@@ -11,6 +11,7 @@
 | Capability | Status |
 |---|---|
 | Multi-phase project generator (39 phases, adaptive tier filtering) | ✅ |
+| **Interactive Coding Mode** — `DefaultAgent` in chat, read→edit→verify loop | ✅ **new** |
 | Interactive CLI with repo context, file editing, tool loop | ✅ |
 | Domain Agent Swarm (Architect, Developer ×3, Auditor, DevOps) | ✅ |
 | FastAPI Web UI — 51 routers, SSE streaming, Vite bundle | ✅ |
@@ -20,6 +21,8 @@
 | MCP client (Ollash consumes external MCP server tools) | ✅ |
 | Plugin system — Python files/packages in `~/.ollash/plugins/` | ✅ |
 | RAG with `SQLiteVectorStore` — zero extra dependencies | ✅ |
+| **Per-session project index** — semantic `search_codebase()` tool | ✅ **new** |
+| **Streaming shell output** — live pytest/npm/cargo lines via SSE | ✅ **new** |
 | Privacy monitor — network call audit, 🔒 local mode badge | ✅ |
 | 1 334 tests — unit · integration · E2E (Playwright, Ollama-free) | ✅ |
 
@@ -104,6 +107,39 @@ ReadmeGeneration → StructureGeneration → LogicPlanning → StructurePreRevie
 → ExhaustiveReviewRepair → FinalReview → CICDHealing
 → DocumentationDeploy → IterativeImprovement → DynamicDocumentation
 → ContentCompleteness → SeniorReview
+```
+
+### Interactive Coding Mode — Claude Code-style assistant
+
+Start a coding session against any local project via the Web UI or API:
+
+```bash
+# Via API
+POST /api/chat
+{
+  "message": "Fix the failing tests in tests/unit/",
+  "mode": "coding",
+  "project_path": "/path/to/my-project"
+}
+```
+
+The session uses `DefaultAgent` (full tool loop) instead of the lightweight `SimpleChatAgent`:
+
+| Capability | Detail |
+|---|---|
+| **Project tree** auto-injected | The agent knows all source files from the first message |
+| **Read files** | `read_file(path, start_line, end_line)` — supports line ranges |
+| **Surgical edits** | `apply_unique_edit` — validates uniqueness before replacing, returns diff |
+| **Shell streaming** | `run_command_streaming` — live pytest/npm/cargo output via SSE events |
+| **Semantic search** | `search_codebase(query)` — RAG over all project files (built in background) |
+| **CLAUDE.md / OLLASH.md** | Project-level instructions auto-appended to the system prompt |
+
+Standard agent workflow (enforced by the system prompt):
+```
+1. read_file → understand current code
+2. Propose change (show what will be modified)
+3. write_file / apply_unique_edit
+4. run_command (pytest / ruff / npm test) → verify
 ```
 
 ### Interactive CLI — à la Claude Code

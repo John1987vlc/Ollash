@@ -41,7 +41,8 @@ class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     model: Optional[str] = None
-    mode: Optional[str] = "default"
+    mode: Optional[str] = "simple"
+    project_path: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +63,7 @@ async def send_chat(
         session_id = mgr.create_session(
             model=payload.model,
             mode=payload.mode,
+            project_path=payload.project_path,
         )
 
     # Call synchronously — it just starts a background thread, so it returns instantly.

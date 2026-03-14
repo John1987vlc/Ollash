@@ -96,6 +96,86 @@ class CodePatcher:
         )
         return [(m.group(1), m.group(2)) for m in pattern.finditer(text)]
 
+    def apply_unique_edit(
+        self,
+        file_content: str,
+        old_string: str,
+        new_string: str,
+    ) -> Tuple[str, List[str]]:
+        """Replace *old_string* with *new_string* with strict uniqueness validation.
+
+        Unlike :meth:`apply_search_replace`, this method:
+
+        * Validates that *old_string* appears **exactly once** in the file.
+        * Normalises leading whitespace before matching so minor indentation
+          differences do not silently fail.
+        * Returns a unified-diff alongside the updated content so callers can
+          show a preview before persisting.
+
+        Args:
+            file_content: Current content of the file.
+            old_string: Exact text to find (must be unique).
+            new_string: Replacement text.
+
+        Returns:
+            ``(new_content, diff_lines)`` where *diff_lines* is a list of
+            strings produced by :func:`difflib.unified_diff`.
+
+        Raises:
+            ValueError: If *old_string* is not found or appears more than once.
+        """
+        import textwrap
+
+        count = file_content.count(old_string)
+
+        if count == 0:
+            # Try normalised (dedented) version to give a better error message
+            normalised_old = textwrap.dedent(old_string).strip()
+            normalised_content = textwrap.dedent(file_content)
+            if normalised_old not in normalised_content:
+                # Build a short context diff to show what was expected
+                expected_lines = old_string.splitlines(keepends=True)
+                # Find the closest 5-line window in the file for the error message
+                content_preview = file_content[:500] + ("..." if len(file_content) > 500 else "")
+                diff = list(difflib.unified_diff(
+                    [content_preview],
+                    [old_string],
+                    fromfile="file (excerpt)",
+                    tofile="expected old_string",
+                    lineterm="",
+                ))
+                raise ValueError(
+                    f"old_string not found in file. "
+                    f"Make sure the text matches exactly (including indentation).\n"
+                    + "\n".join(diff[:20])
+                )
+            # Normalised match found — use it directly
+            new_content = normalised_content.replace(normalised_old, new_string, 1)
+        elif count > 1:
+            # Report line numbers of all occurrences to help the caller disambiguate
+            lines = file_content.splitlines()
+            hits = [i + 1 for i, line in enumerate(lines) if old_string.splitlines()[0] in line]
+            raise ValueError(
+                f"old_string appears {count} times in the file "
+                f"(first-line matches near lines {hits}). "
+                f"Add more surrounding context to make it unique."
+            )
+        else:
+            new_content = file_content.replace(old_string, new_string, 1)
+
+        diff = list(difflib.unified_diff(
+            file_content.splitlines(keepends=True),
+            new_content.splitlines(keepends=True),
+            fromfile="a/original",
+            tofile="b/modified",
+            lineterm="",
+        ))
+        self.logger.info(
+            f"  apply_unique_edit: {len(old_string)} chars → {len(new_string)} chars "
+            f"({len(diff)} diff lines)"
+        )
+        return new_content, diff
+
     def apply_search_replace(
         self,
         file_content: str,

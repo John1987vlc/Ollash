@@ -1,13 +1,13 @@
 # backend/agents/
 
-Capa de agentes IA. Dos modos principales: **chat interactivo** (`DefaultAgent`) y **generación de proyectos por fases** (`AutoAgent`).
+Capa de agentes IA. Dos modos principales: **chat interactivo** (`DefaultAgent`) y **generación de proyectos por fases** (`AutoAgent`). `DefaultAgent` también es el motor del nuevo **Interactive Coding Mode** (modo `"coding"` en el chat web).
 
 ## Archivos principales
 
 | Archivo | Responsabilidad |
 |---------|----------------|
 | `core_agent.py` | Clase base `CoreAgent`: gestión de kernel, herramientas, historial |
-| `default_agent.py` | Agente de chat; compone 3 mixins sobre `CoreAgent` |
+| `default_agent.py` | Agente de chat; compone 3 mixins sobre `CoreAgent`; acepta `system_prompt_override` para modo coding |
 | `auto_agent.py` | Pipeline secuencial de 25+ fases para generar proyectos completos |
 | `domain_agent_orchestrator.py` | Orquesta el swarm de agentes por dominio |
 | `simple_chat_agent.py` | Variante ligera sin herramientas (chat directo) |
@@ -32,6 +32,21 @@ Flujo de una petición:
 3. `ToolLoopMixin` ejecuta herramientas, obtiene observaciones, vuelve al LLM
 4. Si el contexto supera `max_context_tokens`, `ContextSummarizerMixin` comprime
 5. Respuesta final formateada con `_format_response()`
+
+### Interactive Coding Mode
+
+`DefaultAgent` ahora se usa directamente en el modo `"coding"` del chat web. Al pasar `system_prompt_override`, el agente adopta el rol de asistente de codificación interactivo (flujo read→edit→verify):
+
+```python
+agent = DefaultAgent(
+    project_root="/ruta/mi-proyecto",
+    event_bridge=bridge,
+    auto_confirm=False,
+    system_prompt_override=coding_prompt,   # cargado desde prompts/roles/interactive_coding_agent.yaml
+)
+```
+
+El system prompt incluye: rol + reglas de edición + árbol de archivos del proyecto + `CLAUDE.md`/`OLLASH.md` si existe.
 
 ## AutoAgent — Tiers de modelo
 

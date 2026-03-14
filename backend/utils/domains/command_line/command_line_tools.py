@@ -5,9 +5,10 @@ from backend.utils.core.tools.tool_decorator import ollash_tool
 
 
 class CommandLineTools:
-    def __init__(self, command_executor: CommandExecutor, logger: Any):
+    def __init__(self, command_executor: CommandExecutor, logger: Any, event_publisher: Any = None):
         self.exec = command_executor
         self.logger = logger
+        self._event_publisher = event_publisher
 
     @ollash_tool(
         name="run_command",
@@ -87,6 +88,61 @@ class CommandLineTools:
         except Exception as e:
             self.logger.error(f"Test execution error: {e}", e)
             return {"ok": False, "error": str(e)}
+
+    @ollash_tool(
+        name="run_command_streaming",
+        description=(
+            "Executes a shell command and streams each output line in real time via SSE events. "
+            "Use this instead of run_command for long-running commands like pytest, npm install, "
+            "cargo build, or any process where you want to see progress as it happens."
+        ),
+        parameters={
+            "command": {
+                "type": "string",
+                "description": "The shell command to execute.",
+            },
+            "timeout": {
+                "type": "integer",
+                "description": "Maximum wall-clock time in seconds (default 300).",
+            },
+        },
+        toolset_id="command_line_tools",
+        agent_types=["code", "system"],
+        required=["command"],
+        is_async_safe=True,
+    )
+    def run_command_streaming(self, command: str, timeout: int = 300):
+        """Run a command and emit each output line as a ``stream_chunk`` SSE event."""
+        self.logger.info(f"▶ Streaming: {command}")
+        lines_collected: list[str] = []
+
+        def _on_line(line: str) -> None:
+            lines_collected.append(line)
+            if self._event_publisher is not None:
+                try:
+                    self._event_publisher.publish("stream_chunk", {"text": line, "stream": "stdout"})
+                except Exception:
+                    pass
+
+        result = self.exec.execute_streaming(command, on_line=_on_line, timeout=timeout)
+
+        # Emit terminal signal
+        if self._event_publisher is not None:
+            try:
+                self._event_publisher.publish(
+                    "stream_chunk",
+                    {"text": "", "stream": "eof", "return_code": result.return_code},
+                )
+            except Exception:
+                pass
+
+        status = "✅" if result.success else "❌"
+        self.logger.info(f"{status} exit={result.return_code}")
+        return {
+            "ok": result.success,
+            "return_code": result.return_code,
+            "stdout": "\n".join(lines_collected[-50:]),  # Last 50 lines in tool response
+        }
 
     @ollash_tool(
         name="validate_change",

@@ -23,6 +23,8 @@ class FileSystemTools:
         self.logger = logger
         self.tool_executor = tool_executor
         self._read_count: Dict[str, int] = {}
+        # Optional: injected by ChatSessionManager when in coding mode
+        self._project_index: Any = None
 
     @ollash_tool(
         name="read_file",
@@ -428,3 +430,63 @@ class FileSystemTools:
         except Exception as e:
             self.logger.error(f"Search error: {e}")
             return {"ok": False, "error": str(e)}
+
+    @ollash_tool(
+        name="search_codebase",
+        description=(
+            "Semantic search across all source files in the project. "
+            "Use this to find where a function, class, or concept is defined or used. "
+            "Returns the most relevant code excerpts with their file paths."
+        ),
+        parameters={
+            "query": {
+                "type": "string",
+                "description": "Natural language or keyword query (e.g. 'authentication middleware', 'OllamaClient', 'database connection').",
+            },
+            "max_results": {
+                "type": "integer",
+                "description": "Maximum number of results to return (default 5).",
+            },
+        },
+        toolset_id="file_system_tools",
+        agent_types=["code", "orchestrator"],
+        required=["query"],
+    )
+    def search_codebase(self, query: str, max_results: int = 5) -> Dict:
+        """Semantic search over project source files using the session's ProjectIndex."""
+        self.logger.info(f"🔎 search_codebase: {query!r}")
+        if self._project_index is None:
+            # Fallback: simple grep-like search
+            try:
+                hits = []
+                import os as _os
+                _exclude = {"__pycache__", ".git", "node_modules", "venv", ".venv", "dist", "build"}
+                _src_exts = {".py", ".js", ".ts", ".go", ".rs", ".java", ".cpp", ".c", ".cs", ".rb"}
+                query_lower = query.lower()
+                for dirpath, dirnames, filenames in _os.walk(self.project_root):
+                    dirnames[:] = [d for d in dirnames if d not in _exclude]
+                    for fname in filenames:
+                        if not any(fname.endswith(ext) for ext in _src_exts):
+                            continue
+                        fpath = Path(dirpath) / fname
+                        try:
+                            content = fpath.read_text(encoding="utf-8", errors="replace")
+                            if query_lower in content.lower():
+                                rel = str(fpath.relative_to(self.project_root)).replace("\\", "/")
+                                # Find matching line
+                                for i, line in enumerate(content.splitlines(), 1):
+                                    if query_lower in line.lower():
+                                        hits.append({"file": rel, "line": i, "text": line.strip()})
+                                        break
+                        except Exception:
+                            pass
+                        if len(hits) >= max_results:
+                            break
+                    if len(hits) >= max_results:
+                        break
+                return {"ok": True, "query": query, "results": hits, "index_ready": False}
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+
+        result_text = self._project_index.search(query, max_results=max_results)
+        return {"ok": True, "query": query, "text": result_text, "index_ready": True}

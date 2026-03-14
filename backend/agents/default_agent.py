@@ -75,6 +75,7 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
         llm_recorder: Optional[LLMRecorder] = None,  # NEW
         tool_span_manager: Optional[ToolSpanManager] = None,  # NEW
         event_publisher: Optional[EventPublisher] = None,  # NEW
+        system_prompt_override: Optional[str] = None,  # Override system prompt (e.g. for coding mode)
     ):
         # Initialize AgentKernel if not provided (should ideally be provided)
         # The kernel now loads configuration from environment variables.
@@ -211,23 +212,25 @@ class DefaultAgent(CoreAgent, IntentRoutingMixin, ToolLoopMixin, ContextSummariz
             )
         )
 
-        # Load system prompt from file
-        default_prompt_path = self.tool_settings_config.default_system_prompt_path  # From tool_settings_config
-        try:
-            loader = PromptLoader(prompts_dir=self._base_path / "prompts")
-            prompt_data = loader.load_prompt_sync(default_prompt_path)
+        # Load system prompt — use override if provided, otherwise load from file
+        if system_prompt_override:
+            self.system_prompt = system_prompt_override
+        else:
+            default_prompt_path = self.tool_settings_config.default_system_prompt_path
+            try:
+                loader = PromptLoader(prompts_dir=self._base_path / "prompts")
+                prompt_data = loader.load_prompt_sync(default_prompt_path)
 
-            self.system_prompt = prompt_data.get("prompt", "")
-            if not self.system_prompt:
-                # Fallback check for 'system' key if 'prompt' is missing
-                self.system_prompt = prompt_data.get("system", "")
+                self.system_prompt = prompt_data.get("prompt", "")
+                if not self.system_prompt:
+                    self.system_prompt = prompt_data.get("system", "")
 
-            if not self.system_prompt:
-                self.logger.warning(f"System prompt field empty in {default_prompt_path}. Using default fallback.")
+                if not self.system_prompt:
+                    self.logger.warning(f"System prompt field empty in {default_prompt_path}. Using default fallback.")
+                    self.system_prompt = self._get_fallback_system_prompt()
+            except Exception as e:
+                self.logger.error(f"Error loading system prompt from {default_prompt_path}: {e}. Using default fallback.")
                 self.system_prompt = self._get_fallback_system_prompt()
-        except Exception as e:
-            self.logger.error(f"Error loading system prompt from {default_prompt_path}: {e}. Using default fallback.")
-            self.system_prompt = self._get_fallback_system_prompt()
 
         self.conversation: List[Dict] = []
         self.domain_context_memory: Dict[str, str] = self.memory_manager.get_domain_context_memory()

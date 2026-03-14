@@ -37,7 +37,7 @@ Motor de generación de proyectos completos. Usado principalmente por `AutoAgent
 
 | Archivo | Clase | Responsabilidad |
 |---------|-------|----------------|
-| `code_patcher.py` | `CodePatcher` | Edita archivos existentes con `difflib.SequenceMatcher` |
+| `code_patcher.py` | `CodePatcher` | Edita archivos existentes; `apply_search_replace` (batch) + `apply_unique_edit` (unicidad validada, retorna diff) |
 | `project_type_detector.py` | `ProjectTypeDetector` | Detecta tipo de proyecto (zero LLM calls, regex keywords) |
 | `tech_stack_detector.py` | `TechStackDetector` | Detecta stack tecnológico de un proyecto |
 | `sandbox_validator.py` | `SandboxValidator` | Valida código en sandbox antes de escribir |
@@ -63,19 +63,33 @@ content = generator.generate_file(
 
 ## CodePatcher
 
-Edita archivos existentes sin sobreescribir si no es necesario:
+Edita archivos existentes sin sobreescribir si no es necesario.
+
+### `apply_search_replace` — Batch patches (pipeline AutoAgent)
 
 ```python
-patcher = CodePatcher()
+patches = CodePatcher.parse_search_replace_patch(llm_output)
+new_content, failed = patcher.apply_search_replace(content, patches)
+```
 
-new_content = patcher.patch_file(
-    original_content=existing_code,
-    patch_instructions="Añadir validación de email en la función register()",
-    file_path="src/auth.py"
+Aplica bloques `<<<SEARCH>>> / <<<REPLACE>>> / <<<END>>>`. Falla silenciosamente si el SEARCH no se encuentra (adecuado para salida LLM en pipelines).
+
+### `apply_unique_edit` — Edición quirúrgica (Interactive Coding Mode)
+
+```python
+new_content, diff_lines = patcher.apply_unique_edit(
+    file_content=content,
+    old_string="def greet(name):\n    return f'Hello, {name}'",
+    new_string="def greet(name):\n    return f'Hi, {name}!'",
 )
 ```
 
-Usa `difflib.SequenceMatcher` — **NO** heurísticas de longitud o llaves.
+- **Valida unicidad**: lanza `ValueError` si `old_string` aparece 0 o más de 1 vez
+- **Normaliza whitespace**: intenta matching con `textwrap.dedent` si el exacto falla
+- **Retorna diff**: lista de líneas `unified_diff` lista para mostrar como preview
+- **No escribe al disco**: el llamador decide si persistir
+
+Usa `difflib.SequenceMatcher` en `_smart_merge` — **NO** heurísticas de longitud o llaves.
 
 ## ProjectTypeDetector
 

@@ -40,3 +40,17 @@ Los niveles de sandbox se configuran en `backend/config/tool_settings.json`:
 - `1` = restricciones de red
 - `2` = filesystem restringido
 - `3` = sandbox completo (aislamiento máximo)
+
+### Streaming de output
+
+`execute_streaming(command, on_line, timeout)` ejecuta con `subprocess.Popen` y emite cada línea al callback en tiempo real:
+
+```python
+def on_line(line: str) -> None:
+    event_publisher.publish("stream_chunk", {"text": line, "stream": "stdout"})
+
+result = executor.execute_streaming("pytest tests/ -v", on_line=on_line, timeout=120)
+# El cliente SSE recibe cada línea de pytest instantáneamente
+```
+
+La tool `run_command_streaming` en `CommandLineTools` usa esta función y publica eventos `stream_chunk` que llegan al browser vía `ChatEventBridge`.

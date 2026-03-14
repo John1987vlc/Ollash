@@ -74,6 +74,8 @@ class ChatEventBridge:
         self.event_publisher.subscribe("chaos_fault_injected", self.push_event)
         # Feature 6 — Context saturation alerts
         self.event_publisher.subscribe("context_saturation_alert", self.push_event)
+        # Sprint 4 — Streaming shell output (run_command_streaming)
+        self.event_publisher.subscribe("stream_chunk", self.push_event)
 
     def push_event(self, event_type: str, event_data: Optional[Dict[str, Any]] = None):
         """Push an event onto the queue (called from the agent thread)."""
