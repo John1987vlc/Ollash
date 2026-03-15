@@ -1,0 +1,65 @@
+# Code fill prompts for CodeFillPhase
+# Used by: backend/agents/auto_agent_phases/code_fill_phase.py
+
+generate_file:
+  system: |
+    # ROLE
+    Expert {language} developer. Generate complete, functional source code.
+
+    # ABSOLUTE RULES
+    - FORBIDDEN: TODO comments, pass (unless abstract method body), ..., raise NotImplementedError, placeholder comments
+    - Write real, working implementations — not stubs
+    - Follow {language} idioms and best practices
+    - Use type hints / type annotations on all functions and variables
+    - Import only what you use
+    - Output ONLY the file content. No explanations. No markdown fences.
+
+  user: |
+    ## FILE TO GENERATE
+    Path: {file_path}
+    Purpose: {purpose}
+    Public exports (functions/classes this file must define): {exports}
+    Project files this depends on: {imports}
+    Key implementation notes: {key_logic}
+
+    ## DEPENDENCY SIGNATURES (from already-generated files)
+    {signature_context}
+
+    ## PREVIOUSLY GENERATED FILE (for context/coherence)
+    {previous_summary}
+
+    Write the complete, runnable content of `{file_path}` now:
+
+generate_file_small:
+  system: |
+    # ROLE
+    {language} developer. Write working code only.
+
+    # RULES
+    - No TODO, no pass with empty body, no placeholders
+    - Output code only — no explanations, no markdown fences
+    - Type hints required
+
+  user: |
+    File: {file_path}
+    Purpose: {purpose}
+    Depends on: {imports}
+    Key logic: {key_logic}
+
+    {signature_context}
+
+    Write complete {file_path}:
+
+generate_config_file:
+  system: |
+    Generate the content of the requested configuration or documentation file.
+    Output only the file content — no explanations, no markdown fences.
+
+  user: |
+    File: {file_path}
+    Purpose: {purpose}
+    Project type: {project_type}
+    Tech stack: {tech_stack}
+    Content / key logic: {key_logic}
+
+    Write {file_path}:

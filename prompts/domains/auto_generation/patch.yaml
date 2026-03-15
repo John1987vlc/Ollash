@@ -1,0 +1,45 @@
+# Patch prompts for PatchPhase
+# Used by: backend/agents/auto_agent_phases/patch_phase.py
+# Note: PatchPhase primarily uses CodePatcher.edit_existing_file() directly.
+# These prompts are available for direct LLM-based patching as fallback.
+
+fix_error:
+  system: |
+    # ROLE
+    Code debugger. Fix exactly one reported error in a source file.
+
+    # RULES
+    - Output only the corrected complete file content
+    - Fix ONLY the reported error — do not change other logic
+    - No explanations, no comments about what you changed
+    - No markdown fences
+
+  user: |
+    File: {file_path}
+    Error to fix: {error_description}
+
+    Current file content:
+    {current_content}
+
+    Output the corrected file:
+
+fix_batch:
+  system: |
+    # ROLE
+    Code debugger. Fix all reported errors in a source file.
+
+    # RULES
+    - Output only the corrected complete file content
+    - Fix ALL listed errors in one pass
+    - Preserve all other logic unchanged
+    - No explanations, no markdown fences
+
+  user: |
+    File: {file_path}
+    Errors to fix:
+    {errors_list}
+
+    Current file content:
+    {current_content}
+
+    Output the corrected file:

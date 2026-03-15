@@ -1,66 +1,52 @@
-# backend/agents/
+# backend/agents
 
-Capa de agentes IA. Dos modos principales: **chat interactivo** (`DefaultAgent`) y **generación de proyectos por fases** (`AutoAgent`). `DefaultAgent` también es el motor del nuevo **Interactive Coding Mode** (modo `"coding"` en el chat web).
+Agent implementations for Ollash.
 
-## Archivos principales
+## Agents
 
-| Archivo | Responsabilidad |
-|---------|----------------|
-| `core_agent.py` | Clase base `CoreAgent`: gestión de kernel, herramientas, historial |
-| `default_agent.py` | Agente de chat; compone 3 mixins sobre `CoreAgent`; acepta `system_prompt_override` para modo coding |
-| `auto_agent.py` | Pipeline secuencial de 25+ fases para generar proyectos completos |
-| `domain_agent_orchestrator.py` | Orquesta el swarm de agentes por dominio |
-| `simple_chat_agent.py` | Variante ligera sin herramientas (chat directo) |
-| `auto_benchmarker.py` | Benchmarking end-to-end de generación de proyectos |
-| `phase_benchmarker.py` | Benchmarking por fase individual |
-| `monitor_agents.py` | Agentes de monitorización del sistema |
+| File | Class | Description |
+|------|-------|-------------|
+| `auto_agent.py` | `AutoAgent` | 8-phase project generator (4B-optimized) |
+| `default_agent.py` | `DefaultAgent` | Chat agent with tool loop (IntentRouting + ContextSummarizer) |
+| `core_agent.py` | `CoreAgent` | Base class: file ops, model selection, context management |
 
-## DefaultAgent
+## Sub-packages
 
-Compone tres mixins sobre `CoreAgent`:
+| Directory | Contents |
+|-----------|---------|
+| `auto_agent_phases/` | 8 pipeline phases + PhaseContext + BasePhase |
+| `domain_agents/` | Swarm: ArchitectAgent, DeveloperAgent ×3, AuditorAgent, DevOpsAgent |
+| `mixins/` | ContextSummarizerMixin, IntentRoutingMixin, ToolLoopMixin |
+| `orchestrators/` | Blackboard, TaskDAG, SelfHealingLoop, DebateNodeRunner, CheckpointManager |
 
-```
-CoreAgent
-  └── IntentRoutingMixin    → detecta keywords de intención, elige modelo/rol
-  └── ToolLoopMixin         → ejecuta bucle tool-call → observe → responde
-  └── ContextSummarizerMixin → resume contexto cuando se acerca al límite de tokens
-```
-
-Flujo de una petición:
-1. `chat(user_input)` → `_process_user_input()` → `IntentRoutingMixin` selecciona rol
-2. LLM genera respuesta con posibles tool-calls
-3. `ToolLoopMixin` ejecuta herramientas, obtiene observaciones, vuelve al LLM
-4. Si el contexto supera `max_context_tokens`, `ContextSummarizerMixin` comprime
-5. Respuesta final formateada con `_format_response()`
-
-### Interactive Coding Mode
-
-`DefaultAgent` ahora se usa directamente en el modo `"coding"` del chat web. Al pasar `system_prompt_override`, el agente adopta el rol de asistente de codificación interactivo (flujo read→edit→verify):
+## AutoAgent Quick Usage
 
 ```python
-agent = DefaultAgent(
-    project_root="/ruta/mi-proyecto",
-    event_bridge=bridge,
-    auto_confirm=False,
-    system_prompt_override=coding_prompt,   # cargado desde prompts/roles/interactive_coding_agent.yaml
+from backend.agents.auto_agent import AutoAgent
+
+agent = AutoAgent(
+    llm_manager=...,
+    file_manager=...,
+    event_publisher=...,
+    logger=...,
+    generated_projects_dir=Path("generated_projects"),
 )
+
+# Full run (8 phases)
+project_path = agent.run("A FastAPI REST API with SQLite", "my_api")
+
+# Structure preview only (phases 1+2, no files written)
+structure = agent.generate_structure_only("A FastAPI REST API", "my_api")
+# → {"files": [...], "project_type": "api", "tech_stack": ["python", "fastapi"]}
 ```
 
-El system prompt incluye: rol + reglas de edición + árbol de archivos del proyecto + `CLAUDE.md`/`OLLASH.md` si existe.
+## DefaultAgent Tool Loop
 
-## AutoAgent — Tiers de modelo
+`DefaultAgent` composes three mixins on `CoreAgent`:
+1. `IntentRoutingMixin` — routes to the correct model role (coder/planner/…)
+2. `ToolLoopMixin` — iterates tool-call → execute → observe until done
+3. `ContextSummarizerMixin` — auto-summarizes when approaching token limit
 
-| Tier | Parámetros | Fases activas |
-|------|-----------|---------------|
-| Full | ≥30B | Todas |
-| Slim | 9–29B | Sin `DynamicDocumentation`, `CICDHealing`, `PlanValidation` |
-| Nano | ≤8B | Slim + sin `ExhaustiveReviewRepair`, `LicenseCompliance`, `ApiContract`, `TestPlanning`, `ComponentTree`, `Clarification`; activa `opt6_active_shadow` |
+## Domain Agent Swarm
 
-## Subdirectorios
-
-| Directorio | Contenido |
-|-----------|-----------|
-| `auto_agent_phases/` | 39 implementaciones de fases + `PhaseContext`, `base_phase`, helpers |
-| `domain_agents/` | Architect, Developer (pool ×3), Auditor, DevOps |
-| `mixins/` | `ContextSummarizerMixin`, `IntentRoutingMixin`, `ToolLoopMixin` |
-| `orchestrators/` | Blackboard, TaskDAG, SelfHealingLoop, DebateNodeRunner, CheckpointManager |
+`DomainAgentOrchestrator` dispatches tasks to specialized agents via a shared `Blackboard`. Supports `DebateNodeRunner` (Architect vs Auditor) and `SelfHealingLoop`.

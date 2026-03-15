@@ -45,48 +45,18 @@ def test_token_tracker_propagation():
 
 
 def test_phase_context_propagation(tmp_path):
-    tracker = TokenTracker()
-    llm_manager = MagicMock()
-    response_parser = MagicMock()
-    logger = MagicMock()
-    blackboard = MagicMock()
-
-    # Create PhaseContext
-    context = PhaseContext(
-        config={},
-        logger=logger,
-        ollash_root_dir=tmp_path,
-        llm_manager=llm_manager,
-        response_parser=response_parser,
+    """PhaseContext.record_tokens / total_tokens correctly aggregate usage."""
+    ctx = PhaseContext(
+        project_name="test",
+        project_description="test",
+        project_root=tmp_path,
+        llm_manager=MagicMock(),
         file_manager=MagicMock(),
-        file_validator=MagicMock(),
-        documentation_manager=MagicMock(),
         event_publisher=MagicMock(),
-        code_quarantine=MagicMock(),
-        fragment_cache=MagicMock(),
-        dependency_graph=MagicMock(),
-        dependency_scanner=MagicMock(),
-        parallel_generator=MagicMock(),
-        error_knowledge_base=MagicMock(),
-        policy_enforcer=MagicMock(),
-        rag_context_selector=MagicMock(),
-        project_planner=MagicMock(),
-        structure_generator=MagicMock(),
-        file_content_generator=MagicMock(),
-        file_refiner=MagicMock(),
-        file_completeness_checker=MagicMock(),
-        project_reviewer=MagicMock(),
-        improvement_suggester=MagicMock(),
-        improvement_planner=MagicMock(),
-        senior_reviewer=MagicMock(),
-        test_generator=MagicMock(),
-        contingency_planner=MagicMock(),
-        structure_pre_reviewer=MagicMock(),
-        generated_projects_dir=tmp_path / "gen",
-        decision_blackboard=blackboard,
-        token_tracker=tracker,
+        logger=MagicMock(),
     )
 
-    assert context.token_tracker == tracker
-    # Verify sub-context has it
-    assert context.llm.token_tracker == tracker
+    assert ctx.total_tokens() == 0
+    ctx.record_tokens("phase1", prompt_tokens=100, completion_tokens=50)
+    ctx.record_tokens("phase2", prompt_tokens=200, completion_tokens=80)
+    assert ctx.total_tokens() == 430

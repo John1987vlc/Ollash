@@ -108,7 +108,7 @@ class StructureGenerator:
 
             response_data, _ = self.llm_client.chat(
                 messages=[{"role": "user", "content": prompt}],
-                options_override={"temperature": 0.1, "num_predict": 512},
+                options_override={"temperature": 0.1, "num_predict": 2048},
             )
             raw = response_data.get("content", "")
             extra_files = self.parser.extract_json(raw)

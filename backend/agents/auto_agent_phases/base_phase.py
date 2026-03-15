@@ -1,237 +1,185 @@
-"""Base phase class with shared boilerplate for all AutoAgent phases.
+"""Simplified base class for all 8 AutoAgent pipeline phases.
 
-Encapsulates common patterns: event publishing, logging, error handling,
-and file_paths extraction from kwargs.
+Key design:
+- execute(ctx) -> None   — mutates ctx in place, no 3-tuple return
+- _llm_call()            — enforces token budgets before sending
+- _llm_json()            — validates output against a Pydantic schema, retries on failure
+- _write_file()          — writes disk + updates ctx.generated_files
 """
 
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import Any, Optional, Type
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
-from backend.interfaces.iagent_phase import IAgentPhase
 from backend.utils.core.exceptions import PipelinePhaseError
 
-# Human-readable descriptions reused by _get_tool_prompt_section()
-_PHASE_TOOL_DESCRIPTIONS: Dict[str, str] = {
-    "dependency_graph": "Analyse file import relationships",
-    "structure_generator": "Generate project directory structure",
-    "file_content_generator": "Generate file content from plan",
-    "code_patcher": "Apply targeted edits to existing files",
-    "rag_context_selector": "Select semantically relevant context files",
-    "infra_generator": "Generate Docker/CI/CD infrastructure files",
-    "cicd_healer": "Detect and fix CI/CD pipeline failures",
-    "vulnerability_scanner": "Scan code for security vulnerabilities",
-    "code_quarantine": "Isolate files with critical vulnerabilities",
-}
+# Token budget constants for 4B / 8K context window
+# 1 token ≈ 4 characters (English text / code)
+_SYSTEM_TOKEN_BUDGET = 800  # ~3200 chars
+_USER_TOKEN_BUDGET = 2200  # ~8800 chars
+_CHARS_PER_TOKEN = 4
 
 
-class BasePhase(IAgentPhase):
-    """Base class for all pipeline phases with shared boilerplate.
-
-    Subclasses should override `run()` instead of `execute()`.
-    The `execute()` method handles event publishing, logging, and error handling.
-    """
+class BasePhase(ABC):
+    """Simplified base class for all 8 pipeline phases."""
 
     phase_id: str = ""
     phase_label: str = ""
-    category: str = "generation"
 
-    # Declare the tools this phase needs.  Domain agents and future phases can
-    # set this list to enable Dynamic Tool Injection — only the listed tools are
-    # included in the LLM system prompt, reducing token usage.
-    # Default is empty: no effect on existing phases.
-    REQUIRED_TOOLS: List[str] = []
+    # ----------------------------------------------------------------
+    # Public API
+    # ----------------------------------------------------------------
 
-    def __init__(self, context: PhaseContext):
-        self.context = context
-
-    @property
-    def phase_name(self) -> str:
-        return self.phase_id or self.__class__.__name__
-
-    def execute(
-        self,
-        project_description: str,
-        project_name: str,
-        project_root: Path,
-        readme_content: str,
-        initial_structure: Dict[str, Any],
-        generated_files: Dict[str, str],
-        **kwargs: Any,
-    ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        file_paths: List[str] = kwargs.pop("file_paths", [])
-
-        self._publish_start()
-        self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name}: {self.phase_label}...")
+    def execute(self, ctx: PhaseContext) -> None:
+        """Wrapper: publish events, time the phase, call run(), handle errors."""
+        ctx.start_phase_timer(self.phase_id)
+        ctx.event_publisher.publish_sync(
+            "phase_start",
+            phase=self.phase_id,
+            label=self.phase_label,
+        )
+        ctx.logger.info(f"[{ctx.project_name}] PHASE {self.phase_id}: {self.phase_label}")
 
         try:
-            result = self.run(
-                project_description=project_description,
-                project_name=project_name,
-                project_root=project_root,
-                readme_content=readme_content,
-                initial_structure=initial_structure,
-                generated_files=generated_files,
-                file_paths=file_paths,
-                **kwargs,
+            self.run(ctx)
+            elapsed = ctx.end_phase_timer(self.phase_id)
+            ctx.event_publisher.publish_sync(
+                "phase_complete",
+                phase=self.phase_id,
+                status="success",
+                elapsed=elapsed,
             )
-
-            # Shadow evaluation hook (non-blocking, best-effort)
-            self._publish_shadow_evaluate(result)
-
-            self._publish_complete()
-            self.context.logger.info(f"[PROJECT_NAME:{project_name}] PHASE {self.phase_name} complete.")
-            return result
+            ctx.logger.info(f"[{ctx.project_name}] PHASE {self.phase_id} done ({elapsed:.1f}s)")
         except PipelinePhaseError:
-            self._publish_phase_failure("pipeline_phase_error")
+            ctx.end_phase_timer(self.phase_id)
+            ctx.event_publisher.publish_sync("phase_complete", phase=self.phase_id, status="error")
             raise
         except Exception as e:
-            self._publish_error(str(e))
-            self._publish_phase_failure("exception", str(e))
-            raise PipelinePhaseError(self.phase_name, str(e)) from e
+            ctx.end_phase_timer(self.phase_id)
+            ctx.event_publisher.publish_sync("phase_complete", phase=self.phase_id, status="error", error=str(e))
+            ctx.logger.error(f"[{ctx.project_name}] PHASE {self.phase_id} failed: {e}", exc_info=True)
+            raise PipelinePhaseError(self.phase_id, str(e)) from e
 
-    def run(
+    @abstractmethod
+    def run(self, ctx: PhaseContext) -> None:
+        """Override this. Mutates ctx in place. Must not return values."""
+        raise NotImplementedError
+
+    # ----------------------------------------------------------------
+    # LLM helpers
+    # ----------------------------------------------------------------
+
+    def _llm_call(
         self,
-        project_description: str,
-        project_name: str,
-        project_root: Path,
-        readme_content: str,
-        initial_structure: Dict[str, Any],
-        generated_files: Dict[str, str],
-        file_paths: List[str],
-        **kwargs: Any,
-    ) -> Tuple[Dict[str, str], Dict[str, Any], List[str]]:
-        """Override this method in subclasses. file_paths is already extracted."""
-        raise NotImplementedError(f"{self.__class__.__name__} must implement run()")
+        ctx: PhaseContext,
+        system: str,
+        user: str,
+        role: str = "coder",
+        temperature: float = 0.1,
+        max_tokens: int = 2048,
+    ) -> str:
+        """Centralized LLM call with token budget enforcement.
 
-    def _publish_start(self, message: Optional[str] = None) -> None:
-        self.context.event_publisher.publish_sync(
-            "phase_start",
-            phase=self.phase_name,
-            message=message or f"Starting {self.phase_label or self.phase_name}",
-        )
-
-    def _publish_complete(self, message: Optional[str] = None) -> None:
-        self.context.event_publisher.publish_sync(
-            "phase_complete",
-            phase=self.phase_name,
-            message=message or f"{self.phase_label or self.phase_name} complete",
-            status="success",
-        )
-
-    def _publish_shadow_evaluate(self, result: Any) -> None:
-        """Publish shadow evaluation event for continuous learning.
-
-        Never raises - shadow logging must not break the pipeline.
+        Truncates system/user if they exceed budget before sending.
+        Returns raw response string. Records token usage in ctx.metrics.
         """
-        try:
-            output_preview = ""
-            if result and isinstance(result, tuple) and len(result) > 0:
-                first = result[0]
-                if isinstance(first, dict):
-                    output_preview = str(first)[:500]
-                elif isinstance(first, str):
-                    output_preview = first[:500]
+        system = self._truncate_to_tokens(system, _SYSTEM_TOKEN_BUDGET)
+        user = self._truncate_to_tokens(user, _USER_TOKEN_BUDGET)
 
-            model_name = "unknown"
-            if hasattr(self.context, "llm") and hasattr(self.context.llm, "llm_manager"):
-                mgr = self.context.llm.llm_manager
-                if hasattr(mgr, "current_model"):
-                    model_name = mgr.current_model or "unknown"
-
-            self.context.event_publisher.publish_sync(
-                "shadow_evaluate",
-                phase=self.phase_name,
-                model_name=model_name,
-                output_preview=output_preview,
-            )
-        except Exception:
-            pass  # Shadow logging must never break the pipeline
-
-    def _publish_phase_failure(self, failure_type: str, details: str = "") -> None:
-        """Publish phase failure event for the failure database.
-
-        Never raises - failure recording must not break the pipeline.
-        """
-        try:
-            model_name = "unknown"
-            if hasattr(self.context, "llm") and hasattr(self.context.llm, "llm_manager"):
-                mgr = self.context.llm.llm_manager
-                if hasattr(mgr, "current_model"):
-                    model_name = mgr.current_model or "unknown"
-
-            self.context.event_publisher.publish_sync(
-                "phase_failure",
-                phase=self.phase_name,
-                model_name=model_name,
-                failure_type=failure_type,
-                details=details,
-            )
-        except Exception:
-            pass  # Failure recording must never break the pipeline
-
-    def _publish_error(self, error: str) -> None:
-        self.context.event_publisher.publish_sync(
-            "phase_complete",
-            phase=self.phase_name,
-            message=f"{self.phase_label or self.phase_name} failed: {error}",
-            status="error",
-        )
-
-    def _get_tool_prompt_section(self) -> str:
-        """Build an 'AVAILABLE TOOLS' system-prompt section from REQUIRED_TOOLS.
-
-        Returns an empty string when ``REQUIRED_TOOLS`` is empty, so this
-        method is safe to call in any phase without affecting existing prompts.
-        Used by domain agents (and optionally by new phases) for Dynamic Tool
-        Injection — only the tools a phase actually needs appear in the LLM
-        context, reducing token waste.
-        """
-        if not self.REQUIRED_TOOLS:
-            return ""
-        lines = ["## AVAILABLE TOOLS"]
-        for tool_name in self.REQUIRED_TOOLS:
-            desc = _PHASE_TOOL_DESCRIPTIONS.get(tool_name, tool_name)
-            lines.append(f"- **{tool_name}**: {desc}")
-        return "\n".join(lines)
-
-    def _format_progress_context(self) -> str:
-        """Return a progress-context string for injection into LLM system prompts (Mejora 3).
-
-        Produces a short Markdown section describing the current pipeline position,
-        which helps small models (≤4B) avoid repeating completed steps or skipping ahead.
-
-        Returns an empty string when no step tracking has been configured, so this is
-        safe to call from any phase without side effects.
-        """
-        progress = getattr(self.context, "step_progress", None)
-        if not progress or progress.get("total_steps", 0) == 0:
-            return ""
-
-        current = progress.get("current_step_index", 0)
-        total = progress.get("total_steps", 0)
-        completed = progress.get("completed_steps", [])
-        objective = progress.get("current_objective", "")
-
-        completed_str = ", ".join(str(s) for s in completed) if completed else "none"
-        lines = [
-            "\n## PROGRESS CONTEXT",
-            f"You are at step {current} of {total}.",
-            f"Completed steps: [{completed_str}].",
+        client = ctx.llm_manager.get_client(role)
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
         ]
-        if objective:
-            lines.append(f"Current objective: {objective}.")
-        return "\n".join(lines) + "\n"
+        response_data, _ = client.chat(
+            messages,
+            tools=[],
+            options={"temperature": temperature, "num_predict": max_tokens},
+        )
+        content: str = response_data.get("message", {}).get("content", "")
 
-    def _write_file(
-        self, project_root: Path, rel_path: str, content: str, generated_files: Dict[str, str], file_paths: List[str]
-    ) -> None:
-        """Helper to write a file and update tracking structures."""
-        generated_files[rel_path] = content
-        self.context.file_manager.write_file(project_root / rel_path, content)
-        if rel_path not in file_paths:
-            file_paths.append(rel_path)
+        # Strip <think> blocks (Qwen3 emits these)
+        from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
-    def _is_nano(self) -> bool:
-        """Check if the project is running on a nano-tier model."""
-        return bool(self.context._is_small_model())
+        content, _ = LLMResponseParser.remove_think_blocks(content)
+
+        # Record token usage
+        prompt_tokens = response_data.get("prompt_eval_count", len(system + user) // _CHARS_PER_TOKEN)
+        completion_tokens = response_data.get("eval_count", len(content) // _CHARS_PER_TOKEN)
+        ctx.record_tokens(self.phase_id, prompt_tokens, completion_tokens)
+
+        return content
+
+    def _llm_json(
+        self,
+        ctx: PhaseContext,
+        system: str,
+        user: str,
+        schema_class: Type[Any],
+        role: str = "coder",
+        retries: int = 2,
+    ) -> Any:
+        """LLM call that validates output against a Pydantic schema.
+
+        Retries up to `retries` times on JSON parse or validation failure.
+        Raises PipelinePhaseError after all retries exhausted.
+        """
+        from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
+        last_error: Optional[str] = None
+        current_user = user
+
+        for attempt in range(retries + 1):
+            raw = self._llm_call(ctx, system, current_user, role=role)
+            try:
+                data = LLMResponseParser.extract_json(raw)
+                if data is None:
+                    raise ValueError("No JSON found in response")
+                return schema_class.model_validate(data)
+            except Exception as e:
+                last_error = str(e)
+                ctx.logger.warning(f"[{self.phase_id}] JSON parse attempt {attempt + 1}/{retries + 1} failed: {e}")
+                if attempt < retries:
+                    current_user = (
+                        user
+                        + f"\n\nPREVIOUS ATTEMPT FAILED: {last_error}"
+                        + "\nFix the JSON and try again. Output ONLY valid JSON, no markdown."
+                    )
+
+        raise PipelinePhaseError(
+            self.phase_id,
+            f"JSON schema validation failed after {retries + 1} attempts: {last_error}",
+        )
+
+    # ----------------------------------------------------------------
+    # File helpers
+    # ----------------------------------------------------------------
+
+    def _write_file(self, ctx: PhaseContext, rel_path: str, content: str) -> None:
+        """Write a file to disk and record it in ctx.generated_files."""
+        abs_path = ctx.project_root / rel_path
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        ctx.file_manager.write_file(str(abs_path), content)
+        ctx.generated_files[rel_path] = content
+
+    def _read_file(self, ctx: PhaseContext, rel_path: str) -> Optional[str]:
+        """Read a file from disk. Returns None if missing."""
+        abs_path = ctx.project_root / rel_path
+        try:
+            return ctx.file_manager.read_file(str(abs_path))
+        except (FileNotFoundError, OSError):
+            return None
+
+    # ----------------------------------------------------------------
+    # Utility helpers
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _truncate_to_tokens(text: str, max_tokens: int) -> str:
+        """Hard-truncate text to approximately max_tokens."""
+        limit = max_tokens * _CHARS_PER_TOKEN
+        if len(text) <= limit:
+            return text
+        return text[:limit]

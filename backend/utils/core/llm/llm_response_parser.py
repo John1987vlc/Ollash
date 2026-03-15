@@ -385,14 +385,21 @@ class LLMResponseParser:
             match = re.search(closed_pattern, text, re.IGNORECASE)
             if match:
                 content = match.group(1).strip()
-                return LLMResponseParser.extract_code_block(content)
+                # Only unwrap a nested code fence if the content itself is a fenced block.
+                # If the content is prose/markdown (e.g. a README with embedded fences),
+                # returning it directly avoids extracting only the first inner code block.
+                if content.startswith("```"):
+                    return LLMResponseParser.extract_code_block(content)
+                return content
 
             # 2b. Try unclosed tag (common in truncated outputs)
             unclosed_pattern = rf"<{tag}(?:\s+[^>]*?)?>([\s\S]*)$"
             match = re.search(unclosed_pattern, text, re.IGNORECASE)
             if match:
                 content = match.group(1).strip()
-                return LLMResponseParser.extract_code_block(content)
+                if content.startswith("```"):
+                    return LLMResponseParser.extract_code_block(content)
+                return content
 
         # 3. Try language-aware markdown extraction if path provided
         if file_path:

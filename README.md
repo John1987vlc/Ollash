@@ -10,7 +10,7 @@
 
 | Capability | Status |
 |---|---|
-| Multi-phase project generator (39 phases, adaptive tier filtering) | ✅ |
+| 8-phase AutoAgent pipeline, 4B-optimized (Plan→Blueprint→Scaffold→Fill→Patch→Infra→Finish) | ✅ |
 | **Interactive Coding Mode** — `DefaultAgent` in chat, read→edit→verify loop | ✅ **new** |
 | Interactive CLI with repo context, file editing, tool loop | ✅ |
 | Domain Agent Swarm (Architect, Developer ×3, Auditor, DevOps) | ✅ |
@@ -121,27 +121,25 @@ Ollash runs entirely locally. No data leaves your machine. The following hardeni
 
 ## Key Features
 
-### Auto-Agent — Multi-Phase Project Generator
+### Auto-Agent — 8-Phase Project Generator
 
-Generate complete, production-ready projects from a single description through a sequenced 39-phase pipeline with **adaptive phase filtering** based on model tier:
+Generate complete, production-ready projects from a single description through an 8-phase pipeline optimized for **4B models** (qwen3.5:4b) with 4K–8K context windows:
 
-| Tier | Model range | Active phases |
-|------|-------------|---------------|
-| **micro** | ≤ 2B (`qwen3.5:0.8b`) | Core pipeline only (9 heavy phases skipped) |
-| **small** | 3–8B (`qwen3.5:4b`) | Full minus docs/CI/interactive phases |
-| **slim** | 9–29B | Full minus documentation deploy and CI/CD healing |
-| **full** | ≥ 30B (`qwen3-coder:30b`) | All phases active |
+| Tier | Range | Phases |
+|------|-------|--------|
+| **small** (default) | ≤ 8B (`qwen3.5:4b`) | Phases 1–6 + 8 (TestRunPhase skipped) |
+| **full** | ≥ 9B | All 8 phases |
 
-Core phase sequence:
+Pipeline:
 ```
-ReadmeGeneration → StructureGeneration → LogicPlanning → StructurePreReview
-→ EmptyFileScaffolding → FileContentGeneration → FileRefinement
-→ JavaScriptOptimization → Verification → CodeQuarantine
-→ SecurityScan → LicenseCompliance → DependencyReconciliation
-→ TestGenerationExecution → InfrastructureGeneration
-→ ExhaustiveReviewRepair → FinalReview → CICDHealing
-→ DocumentationDeploy → IterativeImprovement → DynamicDocumentation
-→ ContentCompleteness → SeniorReview
+Phase 1: ProjectScanPhase  — Zero-LLM: detect type/stack, ingest existing files
+Phase 2: BlueprintPhase    — 1 LLM call: full JSON blueprint (max 20 files, Pydantic validated)
+Phase 3: ScaffoldPhase     — Zero-LLM: create dirs + write stub files
+Phase 4: CodeFillPhase     — Core: generate each file (priority order, syntax validation, 1 retry)
+Phase 5: PatchPhase        — ruff/tsc static analysis + CodePatcher fixes, max 2 passes
+Phase 6: InfraPhase        — Template: requirements.txt, Dockerfile, .gitignore, package.json
+Phase 7: TestRunPhase      — Run pytest, patch failures max 3 iterations [SKIPPED for ≤8B]
+Phase 8: FinishPhase       — Write OLLASH.md, log metrics, fire project_complete event
 ```
 
 ### Interactive Coding Mode — Claude Code-style assistant
@@ -240,7 +238,7 @@ GET /api/mcp/tools
 Build and run custom pipelines through the web UI:
 
 ```
-GET  /api/pipelines/phases      → catalog of all 39 phases
+GET  /api/pipelines/phases      → catalog of all 8 phases
 GET  /api/pipelines             → list saved pipelines
 POST /api/pipelines             → create pipeline (name + phase list)
 POST /api/pipelines/{id}/run    → execute with SSE streaming progress
@@ -300,7 +298,7 @@ ollash/
 │   ├── agents/
 │   │   ├── auto_agent.py                    # Pipeline orchestrator (adaptive phase filtering)
 │   │   ├── default_agent.py                 # Chat agent (IntentRouting + ToolLoop + ContextSummarizer)
-│   │   ├── auto_agent_phases/               # 39 pipeline phases + PhaseContext singleton
+│   │   ├── auto_agent_phases/               # 8 pipeline phases (scan→blueprint→scaffold→fill→patch→infra→testrun→finish)
 │   │   ├── domain_agents/                   # Swarm: Architect, Developer ×3, Auditor, DevOps
 │   │   ├── mixins/                          # ContextSummarizer, IntentRouting, ToolLoop
 │   │   └── orchestrators/                   # Blackboard, TaskDAG, SelfHealingLoop, DebateNodeRunner
@@ -413,17 +411,16 @@ SMTP_SERVER=...
 
 ## 4B Model Optimisations
 
-Ollash is built around **4B parameters** as the primary tier. All of the following apply automatically when `_is_small_model()` is `True`:
+Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeline is designed to fit within 4K–8K context windows:
 
-| Feature | Behaviour on 4B |
-|---------|----------------|
-| Phase filtering | Skips `ExhaustiveReviewRepair`, `DynamicDocumentation`, `CICDHealing`, `LicenseCompliance`, `Clarification` |
-| Temperature | `0.05` (vs `0.0` micro, `0.1` large) |
-| Critic loop | Enabled — LLM reviews its own output before validation |
-| Auto-heal | `CodePatcher` injects missing functions on semantic warnings |
-| Signatures-only context | Only headers injected into context, not full file bodies |
-| NanoTaskExpander | Splits tasks into per-function sub-tasks (20–50 lines each) |
-| Anti-pattern injection | Error knowledge base warnings always injected |
+| Feature | Behaviour on 4B (≤8B) |
+|---------|----------------------|
+| Token budget | ~800 tokens system + ~2200 tokens user per LLM call (~4K total) |
+| TestRunPhase | Skipped — `ctx.is_small()` returns True, phase 7 is omitted |
+| Blueprint size | Max 20 files — prevents context overflow in `BlueprintPhase` |
+| Syntax validation | CodeFillPhase validates output and retries once on syntax error |
+| Patching | PatchPhase runs ruff/tsc + CodePatcher targeted fixes, max 2 passes |
+| Micro tier (≤2B) | `ctx.is_micro()` — uses even shorter prompt variants |
 
 ---
 
@@ -517,7 +514,7 @@ CI pipeline (`.github/workflows/ci.yml`): `ruff lint → unit tests → integrat
 | `GET` | `/api/health/` | — | Ollama connectivity + CPU/RAM |
 | `GET` | `/api/privacy/status` | — | Local mode detection |
 | `GET` | `/api/privacy/audit` | ✓ | Outbound HTTP call log |
-| `GET` | `/api/pipelines/phases` | — | Catalog of 39 phases |
+| `GET` | `/api/pipelines/phases` | — | Catalog of 8 AutoAgent phases |
 | `GET` | `/api/pipelines` | ✓ | List saved pipelines |
 | `POST` | `/api/pipelines` | ✓ | Create pipeline |
 | `POST` | `/api/pipelines/{id}/run` | ✓ | Execute pipeline (SSE) |

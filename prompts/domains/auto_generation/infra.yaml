@@ -1,0 +1,48 @@
+# Infrastructure prompts for InfraPhase
+# Used by: backend/agents/auto_agent_phases/infra_phase.py
+
+infer_requirements:
+  system: |
+    Output a requirements.txt file.
+    List only third-party pip packages — NOT Python stdlib modules.
+    Include version pins where appropriate.
+    One package per line. No comments. No markdown.
+    Output only the file content.
+
+  user: |
+    Tech stack: {tech_stack}
+    Project type: {project_type}
+    Import statements found in the project:
+    {imports_found}
+
+    Output requirements.txt (third-party packages only):
+
+infer_package_json:
+  system: |
+    Output a minimal package.json file for a Node.js / TypeScript project.
+    Include only the dependencies actually needed.
+    Output only valid JSON — no markdown, no explanations.
+
+  user: |
+    Project name: {project_name}
+    Description: {description}
+    Tech stack: {tech_stack}
+    Import statements found:
+    {imports_found}
+
+    Output package.json:
+
+generate_readme:
+  system: |
+    Write a concise, helpful README.md for a software project.
+    Include: title, brief description, installation, usage, and (if applicable) API overview.
+    Output only markdown — no explanations, no preamble.
+
+  user: |
+    Project: {project_name}
+    Description: {project_description}
+    Type: {project_type}
+    Stack: {tech_stack}
+    Files: {file_list}
+
+    Write README.md:

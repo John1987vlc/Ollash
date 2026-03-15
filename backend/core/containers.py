@@ -5,45 +5,6 @@ from pathlib import Path
 from dependency_injector import containers, providers
 
 from backend.agents.auto_agent import AutoAgent
-from backend.agents.auto_agent_phases.cicd_healing_phase import CICDHealingPhase
-from backend.agents.auto_agent_phases.code_quarantine_phase import CodeQuarantinePhase
-from backend.agents.auto_agent_phases.content_completeness_phase import ContentCompletenessPhase
-from backend.agents.auto_agent_phases.dependency_reconciliation_phase import DependencyReconciliationPhase
-from backend.agents.auto_agent_phases.documentation_deploy_phase import DocumentationDeployPhase
-from backend.agents.auto_agent_phases.empty_file_scaffolding_phase import EmptyFileScaffoldingPhase
-from backend.agents.auto_agent_phases.exhaustive_review_repair_phase import ExhaustiveReviewRepairPhase
-from backend.agents.auto_agent_phases.chaos_injection_phase import ChaosInjectionPhase
-from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
-from backend.agents.auto_agent_phases.file_refinement_phase import FileRefinementPhase
-from backend.agents.auto_agent_phases.final_review_phase import FinalReviewPhase
-from backend.agents.auto_agent_phases.infrastructure_generation_phase import InfrastructureGenerationPhase
-from backend.agents.auto_agent_phases.dynamic_documentation_phase import DynamicDocumentationPhase
-from backend.agents.auto_agent_phases.iterative_improvement_phase import IterativeImprovementPhase
-from backend.agents.auto_agent_phases.javascript_optimization_phase import JavaScriptOptimizationPhase
-from backend.agents.auto_agent_phases.license_compliance_phase import LicenseCompliancePhase
-from backend.agents.auto_agent_phases.interface_scaffolding_phase import InterfaceScaffoldingPhase
-from backend.agents.auto_agent_phases.logic_planning_phase import LogicPlanningPhase
-
-# Agent Phases
-from backend.agents.auto_agent_phases.phase_context import PhaseContext
-from backend.agents.auto_agent_phases.project_analysis_phase import ProjectAnalysisPhase
-from backend.agents.auto_agent_phases.readme_generation_phase import ReadmeGenerationPhase
-from backend.agents.auto_agent_phases.security_scan_phase import SecurityScanPhase
-from backend.agents.auto_agent_phases.senior_review_phase import SeniorReviewPhase
-from backend.agents.auto_agent_phases.structure_generation_phase import StructureGenerationPhase
-from backend.agents.auto_agent_phases.structure_pre_review_phase import StructurePreReviewPhase
-from backend.agents.auto_agent_phases.generation_execution_phase import TestGenerationExecutionPhase
-from backend.agents.auto_agent_phases.verification_phase import VerificationPhase
-from backend.agents.auto_agent_phases.web_smoke_test_phase import WebSmokeTestPhase
-
-# Sprint 10 — 10 new pipeline phases
-from backend.agents.auto_agent_phases.clarification_phase import ClarificationPhase
-from backend.agents.auto_agent_phases.viability_estimator_phase import ViabilityEstimatorPhase
-from backend.agents.auto_agent_phases.test_planning_phase import TestPlanningPhase
-from backend.agents.auto_agent_phases.component_tree_phase import ComponentTreePhase
-from backend.agents.auto_agent_phases.api_contract_phase import ApiContractPhase
-from backend.agents.auto_agent_phases.plan_validation_phase import PlanValidationPhase
-from backend.agents.auto_agent_phases.dependency_precheck_phase import DependencyPrecheckPhase
 
 from backend.core.config import config
 from backend.core.kernel import AgentKernel
@@ -74,19 +35,10 @@ from backend.utils.core.analysis.scanners.dependency_scanner import DependencySc
 from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScanner
 from backend.utils.core.system.structured_logger import StructuredLogger
 from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
-from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
 from backend.utils.domains.auto_generation.enhanced_file_content_generator import EnhancedFileContentGenerator
-from backend.utils.domains.auto_generation.file_refiner import FileRefiner
-from backend.utils.domains.auto_generation.improvement_planner import ImprovementPlanner
-from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
 from backend.utils.domains.auto_generation.infra_generator import InfraGenerator
-from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
-from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
-from backend.utils.domains.auto_generation.project_reviewer import ProjectReviewer
-from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
 from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
 from backend.utils.domains.auto_generation.code_patcher import CodePatcher
-from backend.utils.domains.auto_generation.structure_pre_reviewer import StructurePreReviewer
 
 # Domain Agent imports (Agent-per-Domain architecture)
 from backend.agents.domain_agents.architect_agent import ArchitectAgent
@@ -317,7 +269,13 @@ class CoreContainer(containers.DeclarativeContainer):
 
 
 class AutoAgentContainer(containers.DeclarativeContainer):
-    """Container for AutoAgent and its specific dependencies."""
+    """Container for the new 8-phase AutoAgent pipeline.
+
+    Keeps only the providers that:
+    1. AutoAgent itself needs (llm_client_manager, file_manager, event_publisher, logger)
+    2. DomainAgentsContainer still uses (structure_generator, contingency_planner,
+       infra_generator, cicd_healer, file_content_generator)
+    """
 
     core = providers.Container(CoreContainer)
 
@@ -332,12 +290,7 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         token_tracker=core.token_tracker,
     )
 
-    # --- Specialized Service Providers ---
-    project_planner = providers.Factory(
-        ProjectPlanner,
-        llm_client=llm_client_manager.provided.get_client.call("planner"),
-        logger=core.logging.logger,
-    )
+    # --- Providers kept for DomainAgentsContainer backward compatibility ---
     structure_generator = providers.Factory(
         StructureGenerator,
         llm_client=llm_client_manager.provided.get_client.call("prototyper"),
@@ -350,58 +303,6 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         logger=core.logging.logger,
         response_parser=core.storage.response_parser,
         documentation_manager=core.documentation_manager,
-    )
-    file_refiner = providers.Factory(
-        FileRefiner,
-        llm_client=llm_client_manager.provided.get_client.call("coder"),
-        logger=core.logging.logger,
-        response_parser=core.storage.response_parser,
-        documentation_manager=core.documentation_manager,
-    )
-    file_completeness_checker = providers.Factory(
-        FileCompletenessChecker,
-        llm_client=llm_client_manager.provided.get_client.call("coder"),
-        logger=core.logging.logger,
-        response_parser=core.storage.response_parser,
-        file_validator=core.storage.file_validator,
-        max_retries_per_file=core.logging.tool_settings_config.provided.completeness_checker_max_retries,
-    )
-    project_reviewer = providers.Factory(
-        ProjectReviewer,
-        llm_client=llm_client_manager.provided.get_client.call("generalist"),
-        logger=core.logging.logger,
-    )
-    improvement_suggester = providers.Factory(
-        ImprovementSuggester,
-        llm_client=llm_client_manager.provided.get_client.call("suggester"),
-        logger=core.logging.logger,
-        response_parser=core.storage.response_parser,
-        vulnerability_scanner=core.analysis.vulnerability_scanner,
-    )
-    improvement_planner = providers.Factory(
-        ImprovementPlanner,
-        llm_client=llm_client_manager.provided.get_client.call("improvement_planner"),
-        logger=core.logging.logger,
-        response_parser=core.storage.response_parser,
-    )
-    test_generator = providers.Factory(
-        MultiLanguageTestGenerator,
-        llm_client=llm_client_manager.provided.get_client.call("test_generator"),
-        logger=core.logging.logger,
-        response_parser=core.storage.response_parser,
-        command_executor=core.command_executor,
-    )
-    senior_reviewer = providers.Factory(
-        SeniorReviewer,
-        llm_client=llm_client_manager.provided.get_client.call("senior_reviewer"),
-        logger=core.logging.logger,
-        response_parser=core.storage.response_parser,
-    )
-    structure_pre_reviewer = providers.Factory(
-        StructurePreReviewer,
-        llm_client=llm_client_manager.provided.get_client.call("senior_reviewer"),
-        logger=core.logging.logger,
-        response_parser=core.storage.response_parser,
     )
     contingency_planner = providers.Factory(
         ContingencyPlanner,
@@ -422,96 +323,14 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         response_parser=core.storage.response_parser,
     )
 
-    # --- PhaseContext Provider ---
-    phase_context = providers.Singleton(
-        PhaseContext,
-        config=core.config,
-        logger=core.logging.logger,
-        ollash_root_dir=core.ollash_root_dir,
-        llm_manager=llm_client_manager,
-        response_parser=core.storage.response_parser,
-        file_manager=core.storage.file_manager,
-        file_validator=core.storage.file_validator,
-        documentation_manager=core.documentation_manager,
-        event_publisher=core.logging.event_publisher,
-        code_quarantine=core.analysis.code_quarantine,
-        fragment_cache=core.storage.fragment_cache,
-        dependency_graph=core.analysis.dependency_graph,
-        dependency_scanner=core.analysis.dependency_scanner,
-        parallel_generator=core.parallel_generator,
-        error_knowledge_base=core.memory.error_knowledge_base,
-        policy_enforcer=core.security.policy_enforcer,
-        rag_context_selector=core.analysis.rag_context_selector,
-        project_planner=project_planner,
-        structure_generator=structure_generator,
-        file_content_generator=file_content_generator,
-        file_refiner=file_refiner,
-        file_completeness_checker=file_completeness_checker,
-        project_reviewer=project_reviewer,
-        improvement_suggester=improvement_suggester,
-        improvement_planner=improvement_planner,
-        senior_reviewer=senior_reviewer,
-        test_generator=test_generator,
-        contingency_planner=contingency_planner,
-        structure_pre_reviewer=structure_pre_reviewer,
-        generated_projects_dir=core.generated_projects_dir,
-        cicd_healer=cicd_healer,
-        vulnerability_scanner=core.analysis.vulnerability_scanner,
-        export_manager=core.export_manager,
-        infra_generator=infra_generator,
-        command_executor=core.command_executor,
-    )
-
-    project_analysis_phase_factory = providers.Factory(ProjectAnalysisPhase, context=phase_context)
-
-    # --- Phase Providers ---
-    phases_list = providers.List(
-        # Sprint 10: Phase 0 — clarify before planning
-        providers.Factory(ClarificationPhase, context=phase_context),
-        providers.Factory(ReadmeGenerationPhase, context=phase_context),
-        providers.Factory(StructureGenerationPhase, context=phase_context),
-        # Sprint 10: Phase 2.3 — estimate viability before heavy LLM work
-        providers.Factory(ViabilityEstimatorPhase, context=phase_context),
-        providers.Factory(LogicPlanningPhase, context=phase_context),
-        # Sprint 10: Phases 2.6–2.95 — post-planning enrichment
-        providers.Factory(TestPlanningPhase, context=phase_context),
-        providers.Factory(ComponentTreePhase, context=phase_context),
-        providers.Factory(ApiContractPhase, context=phase_context),
-        providers.Factory(PlanValidationPhase, context=phase_context),
-        providers.Factory(DependencyPrecheckPhase, context=phase_context),
-        providers.Factory(InterfaceScaffoldingPhase, context=phase_context),
-        providers.Factory(StructurePreReviewPhase, context=phase_context),
-        providers.Factory(EmptyFileScaffoldingPhase, context=phase_context),
-        providers.Factory(FileContentGenerationPhase, context=phase_context),
-        providers.Factory(ChaosInjectionPhase, context=phase_context),
-        providers.Factory(FileRefinementPhase, context=phase_context),
-        providers.Factory(JavaScriptOptimizationPhase, context=phase_context),
-        providers.Factory(VerificationPhase, context=phase_context),
-        providers.Factory(CodeQuarantinePhase, context=phase_context),
-        providers.Factory(SecurityScanPhase, context=phase_context),
-        providers.Factory(LicenseCompliancePhase, context=phase_context),
-        providers.Factory(DependencyReconciliationPhase, context=phase_context),
-        providers.Factory(TestGenerationExecutionPhase, context=phase_context),
-        providers.Factory(WebSmokeTestPhase, context=phase_context),
-        providers.Factory(InfrastructureGenerationPhase, context=phase_context),
-        providers.Factory(ExhaustiveReviewRepairPhase, context=phase_context),
-        providers.Factory(FinalReviewPhase, context=phase_context),
-        providers.Factory(CICDHealingPhase, context=phase_context),
-        providers.Factory(DocumentationDeployPhase, context=phase_context),
-        providers.Factory(IterativeImprovementPhase, context=phase_context),
-        providers.Factory(DynamicDocumentationPhase, context=phase_context),
-        providers.Factory(ContentCompletenessPhase, context=phase_context),
-        providers.Factory(SeniorReviewPhase, context=phase_context),
-    )
-
+    # --- AutoAgent (new 8-phase pipeline, 5 simple constructor args) ---
     auto_agent = providers.Factory(
         AutoAgent,
-        kernel=core.logging.agent_kernel,
         llm_manager=llm_client_manager,
-        llm_recorder=core.llm_recorder,
-        phase_context=phase_context,
-        phases=phases_list,
-        project_analysis_phase_factory=project_analysis_phase_factory,
+        file_manager=core.storage.file_manager,
+        event_publisher=core.logging.event_publisher,
+        logger=core.logging.logger,
+        generated_projects_dir=core.generated_projects_dir,
     )
 
 

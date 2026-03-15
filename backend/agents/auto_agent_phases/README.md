@@ -1,83 +1,67 @@
-# backend/agents/auto_agent_phases/
+# auto_agent_phases — 8-Phase AutoAgent Pipeline
 
-Implementaciones individuales de cada fase del pipeline `AutoAgent`. Cada fase hereda de `BasePhase` (`base_phase.py`) e implementa el método `run()`.
+Sequential pipeline for project generation optimized for 4B models (qwen3.5:4b).
 
-## Archivos de infraestructura
+## Pipeline
 
-| Archivo | Responsabilidad |
-|---------|----------------|
-| `base_phase.py` | Clase abstracta `BasePhase` / `IAgentPhase`; define `run()`, `REQUIRED_TOOLS` |
-| `phase_context.py` | Singleton `PhaseContext`: estado compartido entre fases (LLM manager, file manager, generators) |
-| `phase_groups.py` | Listas de fases por tier (`FULL_PHASES`, `SLIM_PHASES`, `NANO_PHASES`) |
-| `phase_helpers.py` | Helpers compartidos: `get_type_info_if_active()`, `filter_structure_by_type()` |
-| `nano_task_expander.py` | Expande tareas comprimidas para modelos nano |
+| # | Phase | LLM? | Description |
+|---|-------|------|-------------|
+| 1 | `ProjectScanPhase` | No | Detect project type/stack via keywords; ingest up to 50 existing files |
+| 2 | `BlueprintPhase` | Yes (1 call) | Generate full project blueprint as Pydantic-validated JSON (max 20 files) |
+| 3 | `ScaffoldPhase` | No | Create directories and write language-specific stub files |
+| 4 | `CodeFillPhase` | Yes (1/file) | Generate file content in priority order with syntax validation + 1 retry |
+| 5 | `PatchPhase` | Yes (optional) | `ruff`/`tsc` static analysis + `CodePatcher` targeted fixes, max 2 passes |
+| 6 | `InfraPhase` | Yes (1-2 calls) | requirements.txt, Dockerfile, .gitignore, package.json |
+| 7 | `TestRunPhase` | Yes (optional) | Run pytest, patch up to 3 failures per iteration, max 3 iterations. **Skipped for ≤8B models.** |
+| 8 | `FinishPhase` | No | Write `OLLASH.md` + `.ollash/metrics.json`, fire `project_complete` event |
 
-## Secuencia de fases (tier Full)
+## Token Budget
 
-```
-1.  ReadmeGenerationPhase        — genera README inicial, detecta tipo de proyecto
-2.  StructureGenerationPhase     — genera árbol de directorios/archivos
-3.  LogicPlanningPhase           — crea planes de lógica por archivo
-4.  StructurePreReviewPhase      — revisa la estructura antes de crear archivos
-5.  EmptyFileScaffoldingPhase    — crea archivos vacíos según estructura
-6.  FileContentGenerationPhase   — rellena archivos con código (usa RAG + plan)
-7.  FileRefinementPhase          — refina código generado
-8.  JavaScriptOptimizationPhase  — optimiza JS/TS específicamente
-9.  VerificationPhase            — verifica coherencia de archivos generados
-10. CodeQuarantinePhase          — aisla código problemático
-11. SecurityScanPhase            — escaneo de vulnerabilidades
-12. LicenseCompliancePhase       — verifica licencias de dependencias
-13. DependencyReconciliationPhase — reconcilia dependencias declaradas vs. usadas
-14. TestGenerationExecutionPhase — genera y ejecuta tests
-15. InfrastructureGenerationPhase — genera Dockerfile, CI/CD, configs de infra
-16. ExhaustiveReviewRepairPhase  — revisión exhaustiva y reparación
-17. FinalReviewPhase             — revisión final del proyecto completo
-18. CICDHealingPhase             — sana pipelines CI/CD
-19. DocumentationDeployPhase     — despliega documentación generada
-20. IterativeImprovementPhase    — itera mejoras según feedback
-21. DynamicDocumentationPhase    — genera docs dinámicos
-22. ContentCompletenessPhase     — verifica completitud del contenido
-23. SeniorReviewPhase            — revisión de nivel senior
-```
+Each LLM call stays within ~4K tokens:
+- System prompt: ~800 tokens
+- User context: ~2200 tokens
+- Generation: ~2000 tokens
 
-### Fases opcionales / especiales
+## Key Files
 
-| Fase | Cuándo activa |
-|------|--------------|
-| `ClarificationPhase` | Solo Full/Slim; pide aclaraciones al usuario |
-| `PlanValidationPhase` | Solo Full/Slim; valida plan antes de generar |
-| `ApiContractPhase` | Solo Full/Slim; define contratos de API |
-| `TestPlanningPhase` | Solo Full/Slim; planifica estrategia de tests |
-| `ComponentTreePhase` | Solo Full/Slim; genera árbol de componentes |
-| `ViabilityEstimatorPhase` | Estima viabilidad del proyecto |
-| `ChaosInjectionPhase` | Inyecta errores para probar resiliencia |
-| `WebSmokeTestPhase` | Smoke test de la app web generada |
-| `ProjectAnalysisPhase` | Analiza proyecto existente para mejorarlo |
-| `InterfaceScaffoldingPhase` | Genera interfaces/ABCs |
-| `DependencyPrecheckPhase` | Precomprueba dependencias disponibles |
-| `GenerationExecutionPhase` | Fase de ejecución de generación alternativa |
+| File | Purpose |
+|------|---------|
+| `phase_context.py` | `PhaseContext` dataclass — shared mutable state |
+| `base_phase.py` | `BasePhase(ABC)` — `execute()`, `_llm_call()`, `_llm_json()`, `_write_file()` |
+| `blueprint_models.py` | Pydantic models (`FilePlanModel`, `BlueprintOutput`) — imported only by BlueprintPhase |
+| `project_scan_phase.py` | Phase 1 |
+| `blueprint_phase.py` | Phase 2 |
+| `scaffold_phase.py` | Phase 3 |
+| `code_fill_phase.py` | Phase 4 |
+| `patch_phase.py` | Phase 5 |
+| `infra_phase.py` | Phase 6 |
+| `test_run_phase.py` | Phase 7 |
+| `finish_phase.py` | Phase 8 |
 
 ## PhaseContext
 
-Singleton que viaja por todas las fases. Campos clave:
-
 ```python
-ctx.llm_manager          # LLMClientManager — acceso a modelos
-ctx.file_manager         # FileManager — lectura/escritura de archivos
-ctx.project_name         # Nombre del proyecto en generación
-ctx.project_root         # Ruta raíz del proyecto
-ctx.project_type_info    # ProjectTypeInfo — tipo detectado, extensiones permitidas
-ctx.logic_plans          # Dict[str, str] — planes de lógica por archivo
-ctx.structure            # Dict — árbol de estructura generado
-ctx.readme_content       # Contenido del README generado
-ctx.error_knowledge_base # ErrorKnowledgeBase — patrones de errores aprendidos
-ctx.episodic_memory      # EpisodicMemory — memoria episódica cross-proyecto
+@dataclass
+class PhaseContext:
+    # Immutable inputs
+    project_name: str
+    project_description: str
+    project_root: Path
+    llm_manager: IModelProvider
+    file_manager: FileManager
+    event_publisher: EventPublisher
+    logger: AgentLogger
+
+    # Mutable state (grows through pipeline)
+    project_type: str = "unknown"
+    tech_stack: List[str] = field(default_factory=list)
+    blueprint: List[FilePlan] = field(default_factory=list)
+    generated_files: Dict[str, str] = field(default_factory=dict)
+    errors: List[str] = field(default_factory=list)
+    metrics: Dict[str, Any] = field(default_factory=dict)
 ```
 
-## Convenciones para nuevas fases
+## Model Tiers
 
-1. Heredar de `BasePhase`
-2. Implementar `run(ctx: PhaseContext) -> None`
-3. Declarar `REQUIRED_TOOLS: list[str]` con las herramientas necesarias
-4. Registrar en `phase_groups.py` en el tier correcto
-5. Tests en `tests/unit/backend/agents/auto_agent_phases/`
+- `ctx.is_small()` — True if model ≤8B → skips TestRunPhase
+- `ctx.is_micro()` — True if model ≤2B → uses shorter prompts
