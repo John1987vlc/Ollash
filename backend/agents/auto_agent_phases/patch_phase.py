@@ -471,9 +471,7 @@ class PatchPhase(BasePhase):
                     self._write_file(ctx, file_path, patched)
                     fixed += 1
                 else:
-                    ctx.logger.warning(
-                        f"[Patch] Fix produced no change: {file_path} | {file_errors[0][:80]}"
-                    )
+                    ctx.logger.warning(f"[Patch] Fix produced no change: {file_path} | {file_errors[0][:80]}")
                     ctx.metrics.setdefault("patch_noop_fixes", []).append(file_path)
             except Exception as e:
                 ctx.logger.warning(f"[Patch] Failed to patch {file_path}: {e}")

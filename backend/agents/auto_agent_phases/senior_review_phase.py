@@ -88,6 +88,7 @@ class SeniorReviewPhase(BasePhase):
         try:
             import json as _json
             import re as _re
+
             match = _re.search(r"\{.*\}", raw, _re.DOTALL)
             result = _json.loads(match.group(0)) if match else {}
         except Exception:
