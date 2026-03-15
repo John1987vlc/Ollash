@@ -55,9 +55,7 @@ async def terminal_ws(websocket: WebSocket):
                 target = message[3:].strip()
                 new_dir = os.path.abspath(os.path.join(working_dir, target))
                 # Guard: only allow navigation within the workspace (allowed_dirs subtree).
-                if os.path.isdir(new_dir) and any(
-                    new_dir == d or new_dir.startswith(d + os.sep) for d in allowed_dirs
-                ):
+                if os.path.isdir(new_dir) and any(new_dir == d or new_dir.startswith(d + os.sep) for d in allowed_dirs):
                     working_dir = new_dir
                     await websocket.send_text(f"\r\n$ cd {target}\r\n")
                 elif not os.path.isdir(new_dir):

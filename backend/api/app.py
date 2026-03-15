@@ -53,8 +53,10 @@ async def _lifespan(app: FastAPI):
     _env = os.environ.get("OLLASH_ENV", "development").lower()
     if _env not in ("development", "dev", "test"):
         from backend.core.config import config as _cfg
+
         if _cfg.get("auto_confirm_tools", False):
             import logging as _log
+
             _log.getLogger(__name__).warning(
                 "auto_confirm_tools=true is set in a non-development environment (%s). "
                 "All tool calls will execute without confirmation — set it to false in production.",

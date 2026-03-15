@@ -357,6 +357,7 @@ class WasmTestRunner:
         # wasmtime doesn't directly run Python/Node - this is a conceptual integration
         # In practice, you'd use a Wasm-compiled Python or language runtime
         import shlex
+
         cmd = shlex.split(f"{self.sandbox.runtime} run --dir {instance.work_dir} -- {command}")
 
         try:
