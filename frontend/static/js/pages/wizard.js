@@ -77,13 +77,22 @@ window.WizardModule = (function() {
         console.log('WizardModule V2 initialized');
     }
 
+    const NAME_PATTERN = /^[a-zA-Z0-9_\-]+$/;
+
     function navigateToStep(step) {
         if (step < 1 || step > 3) return;
 
         if (state.currentStep === 1 && step === 2) {
-            const name = document.getElementById('project-name').value.trim();
+            const nameEl = document.getElementById('project-name');
+            const name = nameEl ? nameEl.value.trim() : '';
             if (!name) {
-                window.NotificationToast?.show('Por favor, introduce un nombre para el proyecto', 'error');
+                window.NotificationToast?.show('Introduce un nombre para el proyecto', 'error');
+                nameEl?.focus();
+                return;
+            }
+            if (!NAME_PATTERN.test(name)) {
+                window.NotificationToast?.show('El nombre solo puede contener letras, números, _ y - (sin espacios)', 'error');
+                nameEl?.focus();
                 return;
             }
         }
@@ -145,85 +154,158 @@ window.WizardModule = (function() {
         };
     }
 
-    /** Open SSE connection and wire events to the Kanban board */
-    function startSSE(projectName) {
-        if (state.sseSource) {
-            state.sseSource.close();
+    // ── Progress panel helpers ─────────────────────────────────────────────
+
+    function showProgressPanel(projectName) {
+        // Hide all wizard steps
+        document.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.wizard-step-dot').forEach(d => {
+            d.classList.remove('active');
+            d.classList.add('completed');
+        });
+
+        const panel = document.getElementById('wizard-step-generating');
+        if (panel) {
+            panel.style.display = 'block';
+            const nameEl = document.getElementById('progress-project-name');
+            if (nameEl) nameEl.textContent = projectName;
         }
+    }
+
+    function logLine(text, type) {
+        const log = document.getElementById('generation-log');
+        if (!log) return;
+        const line = document.createElement('div');
+        const color = type === 'error' ? 'var(--color-error)' : type === 'success' ? 'var(--color-success)' : 'var(--color-text-secondary)';
+        line.style.cssText = `color:${color}; padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.04);`;
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function setPhaseLabel(text) {
+        const el = document.getElementById('generation-current-phase');
+        if (el) el.textContent = text;
+    }
+
+    function showDone(projectName) {
+        setPhaseLabel('¡Completado!');
+        const spinner = document.querySelector('#generation-status .generation-spinner');
+        if (spinner) spinner.style.display = 'none';
+        document.getElementById('generation-done').style.display = 'block';
+
+        const viewBtn = document.getElementById('view-project-btn');
+        if (viewBtn) {
+            viewBtn.onclick = () => {
+                const nav = document.querySelector('[data-view="projects"]');
+                if (nav) nav.click();
+                if (window.ProjectsModule) {
+                    window.ProjectsModule.refreshProjects();
+                    setTimeout(() => window.ProjectsModule.loadProject(projectName), 800);
+                }
+            };
+        }
+    }
+
+    function showError(msg) {
+        setPhaseLabel('Error durante la generación');
+        const spinner = document.querySelector('#generation-status .generation-spinner');
+        if (spinner) spinner.style.display = 'none';
+        const errPanel = document.getElementById('generation-error');
+        if (errPanel) {
+            errPanel.style.display = 'block';
+            const errMsg = errPanel.querySelector('.generation-error-msg');
+            if (errMsg) errMsg.textContent = msg || '';
+        }
+
+        const retryBtn = document.getElementById('retry-generation-btn');
+        if (retryBtn) {
+            retryBtn.onclick = () => {
+                document.getElementById('wizard-step-generating').style.display = 'none';
+                navigateToStep(1);
+                const generateBtn = document.getElementById('wizard-generate');
+                if (generateBtn) {
+                    generateBtn.disabled = false;
+                    generateBtn.innerHTML = '✨ Generar Estructura';
+                }
+            };
+        }
+    }
+
+    // ── SSE ────────────────────────────────────────────────────────────────
+
+    function startSSE(projectName) {
+        if (state.sseSource) state.sseSource.close();
 
         const es = new EventSource(`/api/projects/stream/${encodeURIComponent(projectName)}`);
         state.sseSource = es;
 
-        // domain_orchestration_started — DAG nodes arrive, seed the Kanban
-        es.addEventListener('domain_orchestration_started', (e) => {
+        // Generic message fallback
+        es.onmessage = (e) => {
             try {
-                const data = JSON.parse(e.data);
-                // Nothing to init yet; nodes arrive via task_status_changed
-                console.log('[Wizard] Orchestration started', data);
+                const d = JSON.parse(e.data);
+                const msg = d.message || d.phase || JSON.stringify(d);
+                logLine(msg);
+            } catch (_) { logLine(e.data); }
+        };
+
+        es.addEventListener('phase_start', (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                const phase = d.phase || d.message || '';
+                setPhaseLabel(`Fase: ${phase}`);
+                logLine(`▶ ${phase}`, 'info');
             } catch (_) {}
         });
 
-        // task_status_changed — move cards in the Kanban board
+        es.addEventListener('phase_complete', (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                logLine(`✔ ${d.phase || d.message || ''}`, 'success');
+            } catch (_) {}
+        });
+
         es.addEventListener('task_status_changed', (e) => {
             try {
-                const data = JSON.parse(e.data);
-                const { task_id, status } = data;
-                const statusMap = {
-                    IN_PROGRESS: 'in_progress',
-                    COMPLETED: 'done',
-                    FAILED: 'done',
-                    READY: 'todo',
-                    PENDING: 'todo',
-                };
-                const kanbanStatus = statusMap[status] || 'todo';
-
-                if (!document.getElementById(`task-card-${task_id}`)) {
-                    // First time we see this task — add it to the backlog
-                    window.KanbanBoard?.initBacklog([{ id: task_id, title: task_id, description: data.agent_type || '' }]);
-                }
-                window.KanbanBoard?.moveTask(task_id, kanbanStatus);
-
-                // If failed, append error badge
-                if (status === 'FAILED') {
-                    const card = document.getElementById(`task-card-${task_id}`);
-                    if (card && !card.querySelector('.task-error-badge')) {
-                        const badge = document.createElement('span');
-                        badge.className = 'task-error-badge';
-                        badge.textContent = 'FAILED';
-                        badge.style.cssText = 'background:var(--color-error);color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block;';
-                        card.appendChild(badge);
-                    }
-                }
+                const d = JSON.parse(e.data);
+                const label = `${d.task_id || ''} → ${d.status || ''}`;
+                logLine(label, d.status === 'FAILED' ? 'error' : 'info');
+                if (d.status === 'IN_PROGRESS') setPhaseLabel(d.task_id || '');
             } catch (_) {}
         });
 
-        // task_remediation_queued — show orange REMEDIATION badge
-        es.addEventListener('task_remediation_queued', (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                window.NotificationToast?.show(`Auto-sanación iniciada para: ${data.task_id || ''}`, 'warning');
-            } catch (_) {}
+        es.addEventListener('log', (e) => {
+            try { logLine(JSON.parse(e.data).message || e.data); } catch (_) { logLine(e.data); }
         });
 
-        // domain_orchestration_completed — celebrate
+        es.addEventListener('stream_end', (e) => {
+            logLine('Pipeline completado', 'success');
+            es.close();
+            showDone(projectName);
+            window.NotificationToast?.show('Proyecto generado con éxito', 'success');
+        });
+
         es.addEventListener('domain_orchestration_completed', (e) => {
+            logLine('Orquestación completada', 'success');
+            es.close();
+            showDone(projectName);
+            window.NotificationToast?.show('Proyecto generado con éxito', 'success');
+        });
+
+        es.addEventListener('error_event', (e) => {
             try {
-                const data = JSON.parse(e.data);
-                window.NotificationToast?.show('Proyecto generado con éxito', 'success');
-                es.close();
-                setTimeout(() => {
-                    const projectsNav = document.querySelector('[data-view="projects"]');
-                    if (projectsNav) projectsNav.click();
-                    if (window.ProjectsModule) {
-                        window.ProjectsModule.refreshProjects();
-                        setTimeout(() => window.ProjectsModule.loadProject(projectName), 1000);
-                    }
-                }, 1500);
+                const d = JSON.parse(e.data);
+                logLine(d.message || 'Error desconocido', 'error');
+                showError(d.message);
             } catch (_) {}
         });
 
-        es.onerror = () => {
-            // SSE may close naturally after stream_end; no action needed
+        es.onerror = (e) => {
+            // SSE closes naturally on stream end — only treat as error if we haven't finished
+            if (document.getElementById('generation-done')?.style.display === 'none') {
+                logLine('Conexión SSE cerrada', 'error');
+                showError('Conexión perdida con el servidor');
+            }
         };
     }
 
@@ -232,12 +314,6 @@ window.WizardModule = (function() {
 
         if (!formData.project_name || !formData.project_description) {
             window.NotificationToast?.show('Faltan campos obligatorios', 'error');
-            return;
-        }
-
-        const namePattern = /^[a-zA-Z0-9_\-]+$/;
-        if (!namePattern.test(formData.project_name)) {
-            window.NotificationToast?.show('El nombre del proyecto solo puede contener letras, números, guiones y guiones bajos (sin espacios)', 'error');
             return;
         }
 
@@ -306,12 +382,8 @@ window.WizardModule = (function() {
 
             if (data.status === 'started') {
                 state.currentProjectName = formData.project_name;
-                window.NotificationToast?.show('Proyecto iniciado — siguiendo progreso...', 'info');
-
-                // Show Kanban and start listening for events
-                const board = document.getElementById('kanban-board');
-                if (board) board.style.display = 'flex';
-
+                showProgressPanel(formData.project_name);
+                logLine(`Proyecto "${formData.project_name}" iniciado...`, 'info');
                 startSSE(formData.project_name);
             } else {
                 throw new Error(data.message || 'Error desconocido');

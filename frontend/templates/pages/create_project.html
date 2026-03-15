@@ -320,9 +320,37 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Step 4: Generation Progress (shown after submit) -->
+            <div id="wizard-step-generating" style="display:none; padding:1.5rem 0;">
+                <div class="step-header-v2">
+                    <h2>🤖 Generando <span id="progress-project-name" style="color:var(--color-accent)"></span></h2>
+                    <p>El agente trabaja de forma autónoma. Esto puede tardar varios minutos.</p>
+                </div>
+
+                <div id="generation-status" style="display:flex;align-items:center;gap:12px;margin:1.5rem 0;">
+                    <div class="generation-spinner" style="width:20px;height:20px;border:3px solid var(--color-border);border-top-color:var(--color-accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;"></div>
+                    <span id="generation-current-phase" style="font-weight:500;font-size:0.95rem;">Inicializando pipeline...</span>
+                </div>
+
+                <div id="generation-log" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:12px;font-family:monospace;font-size:0.78rem;max-height:260px;overflow-y:auto;margin-bottom:1.5rem;line-height:1.6;"></div>
+
+                <div id="generation-done" style="display:none;text-align:center;padding:1rem;">
+                    <p style="font-size:1.05rem;margin-bottom:1rem;">✅ ¡Proyecto generado con éxito!</p>
+                    <button type="button" class="btn btn-lg btn-primary" id="view-project-btn">Ver Proyecto →</button>
+                </div>
+
+                <div id="generation-error" style="display:none;text-align:center;padding:1rem;">
+                    <p style="color:var(--color-error);margin-bottom:0.5rem;">❌ Error durante la generación</p>
+                    <p class="generation-error-msg" style="font-size:0.85rem;color:var(--color-text-secondary);margin-bottom:1rem;"></p>
+                    <button type="button" class="btn btn-secondary" id="retry-generation-btn">Reintentar</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 
         <!-- Agile Kanban Board (Hidden by default) -->
         <div id="kanban-board" class="kanban-board" style="display: none; margin-top: 30px;">
