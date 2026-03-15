@@ -235,6 +235,12 @@ window.WizardModule = (function() {
             return;
         }
 
+        const namePattern = /^[a-zA-Z0-9_\-]+$/;
+        if (!namePattern.test(formData.project_name)) {
+            window.NotificationToast?.show('El nombre del proyecto solo puede contener letras, números, guiones y guiones bajos (sin espacios)', 'error');
+            return;
+        }
+
         const generateBtn = document.getElementById('wizard-generate');
         generateBtn.disabled = true;
         generateBtn.innerHTML = '✨ Generando...';
@@ -285,6 +291,19 @@ window.WizardModule = (function() {
             });
 
             const data = await response.json();
+
+            if (!response.ok) {
+                // FastAPI validation errors have data.detail (array or string)
+                const detail = data.detail;
+                let msg;
+                if (Array.isArray(detail)) {
+                    msg = detail.map(e => `${e.loc?.slice(1).join('.')}: ${e.msg}`).join(' | ');
+                } else {
+                    msg = String(detail || data.message || `HTTP ${response.status}`);
+                }
+                throw new Error(msg);
+            }
+
             if (data.status === 'started') {
                 state.currentProjectName = formData.project_name;
                 window.NotificationToast?.show('Proyecto iniciado — siguiendo progreso...', 'info');
