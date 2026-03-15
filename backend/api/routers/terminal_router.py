@@ -63,7 +63,7 @@ async def terminal_ws(websocket: WebSocket):
                 elif not os.path.isdir(new_dir):
                     await websocket.send_text(f"\r\nDirectory not found: {target}\r\n")
                 else:
-                    await websocket.send_text(f"\r\nAccess denied: outside workspace\r\n")
+                    await websocket.send_text("\r\nAccess denied: outside workspace\r\n")
                 continue
 
             logger.info("TERM_EXEC cwd=%s cmd=%.200s", working_dir, message)
