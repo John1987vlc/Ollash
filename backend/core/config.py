@@ -54,7 +54,9 @@ class Config:
         self.DEFAULT_TIMEOUT: int = int(os.getenv("DEFAULT_TIMEOUT", ollama.get("timeout", 600)))
         self.DEFAULT_TEMPERATURE: float = float(os.getenv("DEFAULT_TEMPERATURE", ollama.get("temperature", 0.4)))
         self.DEFAULT_NUM_CTX: int = int(os.getenv("DEFAULT_NUM_CTX", ollama.get("num_ctx", 16384)))
-        self.DEFAULT_REPEAT_PENALTY: float = float(os.getenv("DEFAULT_REPEAT_PENALTY", ollama.get("repeat_penalty", 1.15)))
+        self.DEFAULT_REPEAT_PENALTY: float = float(
+            os.getenv("DEFAULT_REPEAT_PENALTY", ollama.get("repeat_penalty", 1.15))
+        )
         self.BENCHMARK_ENABLED: bool = os.getenv("BENCHMARK_ENABLED", "true").lower() == "true"
 
         # --- Backward-compat dicts (used by existing consumers) ---
