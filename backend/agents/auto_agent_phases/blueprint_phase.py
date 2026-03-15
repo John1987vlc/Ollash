@@ -13,7 +13,9 @@ from backend.agents.auto_agent_phases.base_phase import BasePhase
 from backend.agents.auto_agent_phases.blueprint_models import BlueprintOutput
 from backend.agents.auto_agent_phases.phase_context import FilePlan, PhaseContext
 
-# Fallback inline system prompt if the YAML can't be loaded
+# ── Fallback prompts (used when YAML can't be loaded) ────────────────────────
+
+# Large-model fallback (≥9B): up to 20 files, pretty JSON
 _SYSTEM_FALLBACK = """# ROLE
 Software Architect. Output JSON only. No markdown. No prose.
 
@@ -21,42 +23,17 @@ Software Architect. Output JSON only. No markdown. No prose.
 Given a project description, produce a complete project blueprint as JSON.
 
 # RULES
-- Maximum 20 files total. For small models, 10-15 files is ideal.
+- Maximum 20 files total.
 - Files that are depended upon MUST have a lower priority number than their dependents.
 - The "imports" field lists OTHER project files (not pip packages).
 - Output ONLY valid JSON. No markdown fences. No explanations.
 
-# OUTPUT SCHEMA
-{
-  "project_type": "api",
-  "tech_stack": ["python", "fastapi"],
-  "files": [
-    {
-      "path": "main.py",
-      "purpose": "FastAPI app entry point",
-      "exports": ["app"],
-      "imports": ["src/routes/users.py"],
-      "key_logic": "Creates FastAPI app, mounts routers, runs uvicorn",
-      "priority": 2
-    },
-    {
-      "path": "src/routes/users.py",
-      "purpose": "User CRUD endpoints",
-      "exports": ["router"],
-      "imports": ["src/models/user.py"],
-      "key_logic": "GET/POST/DELETE /users endpoints with Pydantic validation",
-      "priority": 1
-    }
-  ]
-}
-
-# EXAMPLE: Simple CLI tool
+# EXAMPLE
 Input: "A Python CLI that converts CSV to JSON"
 Output:
 {"project_type":"cli","tech_stack":["python"],"files":[
-  {"path":"src/converter.py","purpose":"CSV to JSON conversion logic","exports":["convert_csv"],"imports":[],"key_logic":"Uses csv.DictReader, returns json string","priority":1},
-  {"path":"cli.py","purpose":"CLI entry point using argparse","exports":[],"imports":["src/converter.py"],"key_logic":"argparse with --input/--output flags, calls convert_csv","priority":2},
-  {"path":"requirements.txt","purpose":"Python dependencies (stdlib only for this project)","exports":[],"imports":[],"key_logic":"empty or stdlib only","priority":1}
+  {"path":"src/converter.py","purpose":"CSV to JSON logic","exports":["convert_csv"],"imports":[],"key_logic":"csv.DictReader → json.dumps","priority":1},
+  {"path":"cli.py","purpose":"CLI entry point","exports":[],"imports":["src/converter.py"],"key_logic":"argparse --input/--output flags","priority":2}
 ]}"""
 
 _USER_TEMPLATE = """Project name: {project_name}
@@ -64,7 +41,28 @@ Description: {project_description}
 Detected type: {project_type}
 Detected stack: {tech_stack}
 
-Output the blueprint JSON now. Maximum 20 files. Fewer is better for small models."""
+Output blueprint JSON now (max 20 files):"""
+
+# Small-model fallback (≤8B): 5 files max, MINIFIED single-line JSON
+_SYSTEM_FALLBACK_SMALL = """Output ONLY a single-line minified JSON object. No markdown. No prose. No newlines.
+
+SCHEMA: {"project_type":"...","tech_stack":[...],"files":[{"path":"...","purpose":"...","exports":[...],"imports":[...],"key_logic":"...","priority":1}]}
+
+RULES:
+- Maximum 5 files (core code only, no README, no config files).
+- Lower priority number = generated first.
+- "imports" lists only other project files.
+- Output starts with { and ends with } on a SINGLE LINE.
+
+EXAMPLE (frontend card game):
+{"project_type":"frontend_web","tech_stack":["html","javascript","css"],"files":[{"path":"styles.css","purpose":"Card and layout styles","exports":[],"imports":[],"key_logic":".card,.game-board,.stats-panel classes; CSS vars for colors; flexbox grid","priority":1},{"path":"data.js","purpose":"Card definitions and viability report","exports":["cards","generateViabilityReport"],"imports":[],"key_logic":"window.cards=array of {id,name,type,cost,damage}; window.generateViabilityReport()=aggregates stats — NO module.exports","priority":2},{"path":"game.js","purpose":"Game logic and DOM rendering","exports":["initGame"],"imports":["data.js","styles.css"],"key_logic":"window.initGame() renders .card SVG elements into #game-board; calls window.generateViabilityReport(); shows result in #stats-panel — NO require()","priority":3},{"path":"index.html","purpose":"Entry point","exports":[],"imports":["styles.css","data.js","game.js"],"key_logic":"<link href=styles.css>; <script src=data.js defer>; <script src=game.js defer>; <div id=game-board>; <div id=stats-panel>; DOMContentLoaded calls window.initGame()","priority":4}]}"""
+
+_USER_TEMPLATE_SMALL = """Project: {project_name}
+Description: {project_description}
+Type: {project_type}
+Stack: {tech_stack}
+
+Output MINIFIED JSON (max 5 files, single line):"""
 
 
 class BlueprintPhase(BasePhase):
@@ -74,12 +72,18 @@ class BlueprintPhase(BasePhase):
     def run(self, ctx: PhaseContext) -> None:
         system, user_template = self._load_prompt(ctx)
 
+        max_files = self._dynamic_max_files(ctx)  # #15 dynamic limit
+        ctx.metrics["blueprint_max_files"] = max_files
+
         user = user_template.format(
             project_name=ctx.project_name,
             project_description=ctx.project_description[:1200],
             project_type=ctx.project_type,
             tech_stack=", ".join(ctx.tech_stack),
         )
+        # Append dynamic max_files hint so the LLM respects the adjusted limit
+        if not ctx.is_small():
+            user = user.rstrip() + f"\n\nConstraint: generate at most {max_files} files for this project."
 
         result: BlueprintOutput = self._llm_json(
             ctx,
@@ -112,6 +116,13 @@ class BlueprintPhase(BasePhase):
             key=lambda fp: fp.priority,
         )
 
+        # #3 — Validate that import graph is a DAG (no cycles)
+        cycles = self._detect_dag_cycles(ctx.blueprint)
+        if cycles:
+            for cycle in cycles:
+                ctx.logger.warning(f"[Blueprint] Dependency cycle detected: {' → '.join(cycle)}")
+            ctx.errors.append(f"Blueprint: {len(cycles)} dependency cycle(s) detected")
+
         ctx.logger.info(
             f"[Blueprint] {len(ctx.blueprint)} files planned, type={ctx.project_type}, stack={ctx.tech_stack}"
         )
@@ -123,18 +134,78 @@ class BlueprintPhase(BasePhase):
             tech_stack=ctx.tech_stack,
         )
 
+    # ----------------------------------------------------------------
+    # #3 — DAG cycle detection
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _detect_dag_cycles(blueprint) -> list:
+        """Detect cycles in the file import graph using iterative DFS.
+
+        Returns a list of cycles, each cycle is a list of file paths forming the loop.
+        An empty list means the graph is a valid DAG.
+        """
+        from typing import Dict, List, Set
+
+        # Build adjacency: path -> list of imported paths (only those in blueprint)
+        all_paths = {fp.path for fp in blueprint}
+        graph: Dict[str, List[str]] = {fp.path: [dep for dep in fp.imports if dep in all_paths] for fp in blueprint}
+
+        visited: Set[str] = set()
+        rec_stack: Set[str] = set()
+        cycles: list = []
+
+        def dfs(node: str, path: List[str]) -> None:
+            visited.add(node)
+            rec_stack.add(node)
+            path.append(node)
+            for neighbor in graph.get(node, []):
+                if neighbor not in visited:
+                    dfs(neighbor, path)
+                elif neighbor in rec_stack:
+                    # Found a cycle — extract the cycle portion
+                    cycle_start = path.index(neighbor)
+                    cycles.append(path[cycle_start:] + [neighbor])
+            path.pop()
+            rec_stack.discard(node)
+
+        for node in graph:
+            if node not in visited:
+                dfs(node, [])
+
+        return cycles
+
+    # ----------------------------------------------------------------
+    # #15 — Dynamic max_files based on description complexity
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _dynamic_max_files(ctx: PhaseContext) -> int:
+        """Adjust blueprint file limit based on model size and description complexity."""
+        if ctx.is_small():
+            return 5  # Hard cap for small models
+        complexity = ctx.description_complexity()
+        if complexity <= 2:
+            return 8  # Simple project: keep it lean
+        if complexity <= 5:
+            return 14  # Medium project
+        return 20  # Complex project: full budget
+
     def _load_prompt(self, ctx: PhaseContext) -> tuple[str, str]:
-        """Load from YAML, fall back to inline constants."""
+        """Load from YAML; fall back to tier-appropriate inline constants."""
+        small = ctx.is_small()
+        system_fb = _SYSTEM_FALLBACK_SMALL if small else _SYSTEM_FALLBACK
+        user_fb = _USER_TEMPLATE_SMALL if small else _USER_TEMPLATE
+
         try:
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            key = "generate_blueprint_small" if ctx.is_small() else "generate_blueprint"
-            prompts = loader.load_file("domains/auto_generation/blueprint.yaml")
+            key = "generate_blueprint_small" if small else "generate_blueprint"
+            prompts = loader.load_prompt_sync("domains/auto_generation/blueprint.yaml")
             if prompts and key in prompts:
                 tmpl = prompts[key]
-                return tmpl.get("system", _SYSTEM_FALLBACK), tmpl.get("user", _USER_TEMPLATE)
-            # Fall through to fallback
-        except Exception:
-            pass
-        return _SYSTEM_FALLBACK, _USER_TEMPLATE
+                return tmpl.get("system", system_fb), tmpl.get("user", user_fb)
+        except Exception as exc:
+            ctx.logger.debug(f"[Blueprint] YAML load failed ({exc}); using inline fallback")
+        return system_fb, user_fb

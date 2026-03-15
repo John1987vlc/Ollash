@@ -38,25 +38,40 @@ _TECH_KEYWORDS: dict = {
     "fastapi": ["fastapi"],
     "flask": ["flask"],
     "django": ["django"],
-    "javascript": ["javascript", "node", "express", "react", "vue", "angular"],
+    "javascript": ["javascript", "node", "express", "react", "vue", "angular", " js ", " js,", " js."],
     "typescript": ["typescript", ".ts", "tsx"],
     "react": ["react", "jsx", "tsx"],
     "vue": ["vue"],
+    "html": ["html", " htm "],
+    "css": ["css", "stylesheet", "estilo", "estilos"],
+    "svg": ["svg"],
     "sqlite": ["sqlite"],
     "postgresql": ["postgresql", "postgres", "psycopg"],
     "docker": ["docker", "container", "dockerfile"],
     "cli": ["cli", "command line", "terminal", "argparse", "click", "typer"],
     "api": ["api", "rest", "graphql", "endpoint", "openapi"],
-    "game": ["game", "pygame", "unity", "phaser", "canvas"],
+    "game": ["game", "pygame", "unity", "phaser", "canvas", "juego", "carta", "cartas"],
     "data": ["pandas", "numpy", "sklearn", "machine learning", "data science", "jupyter"],
 }
 
 _TYPE_HINTS: dict = {
-    "web_app": ["web app", "website", "frontend", "html", "css", "react", "vue"],
+    "frontend_web": [
+        "html",
+        "css",
+        " js ",
+        "javascript",
+        "frontend",
+        "web app",
+        "website",
+        "browser",
+        "svg",
+        "juego de cartas",
+        "card game",
+    ],
     "api": ["api", "rest", "fastapi", "flask", "django", "endpoint", "graphql"],
     "cli": ["cli", "command line", "terminal", "script"],
     "library": ["library", "package", "module", "sdk"],
-    "game": ["game", "pygame", "canvas", "phaser"],
+    "game": ["game", "pygame", "canvas", "phaser", "juego", "pygame"],
     "data": ["data", "pandas", "ml", "machine learning", "jupyter", "analysis"],
 }
 
@@ -106,7 +121,13 @@ class ProjectScanPhase(BasePhase):
         for tech, patterns in _TECH_KEYWORDS.items():
             if any(p in desc_lower for p in patterns):
                 stack.append(tech)
-        return stack or ["python"]  # default to python
+        if not stack:
+            # Infer default from detected type
+            ptype = self._detect_type(desc_lower)
+            if ptype == "frontend_web":
+                return ["html", "javascript", "css"]
+            return ["python"]
+        return stack
 
     def _ingest_existing(self, ctx: PhaseContext) -> None:
         """Load existing source files into ctx.generated_files (cap at 50)."""

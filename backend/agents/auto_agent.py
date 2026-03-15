@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Type
 
 from backend.agents.auto_agent_phases.base_phase import BasePhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
@@ -104,8 +104,18 @@ class AutoAgent:
         project_name: str,
         project_root: Optional[Path] = None,
         skip_phases: Optional[List[str]] = None,
+        resume: bool = False,
+        on_blueprint_ready: Optional[Callable[[Dict[str, Any]], bool]] = None,
     ) -> Path:
-        """Run the full pipeline. Returns project_root Path on completion."""
+        """Run the full pipeline. Returns project_root Path on completion.
+
+        Args:
+            resume: If True, load checkpoint from .ollash/checkpoint.json and
+                    skip already-completed phases.
+            on_blueprint_ready: Optional callback invoked after BlueprintPhase.
+                    Receives the blueprint dict; return False to abort the pipeline.
+                    The callback may mutate the dict to adjust the plan.
+        """
         if project_root is None:
             project_root = self.generated_projects_dir / project_name
 
@@ -117,6 +127,7 @@ class AutoAgent:
             file_manager=self.file_manager,
             event_publisher=self.event_publisher,
             logger=self.logger,
+            on_blueprint_ready=on_blueprint_ready,
         )
 
         # Determine tier before importing phases (ctx.is_small() is fast)
@@ -128,17 +139,58 @@ class AutoAgent:
         tier = "small (<=8B)" if is_small else "full (>8B)"
         self.logger.info(f"[AutoAgent] Starting '{project_name}' | {tier} | {len(phase_order)} phases")
 
+        # #15 — Warn when description complexity exceeds small model capacity
+        complexity = ctx.description_complexity()
+        if is_small and complexity >= 5:
+            self.logger.warning(
+                f"[AutoAgent] Complex project (score {complexity}/10) with a <=8B model — "
+                "consider using a larger model for better results"
+            )
+        ctx.metrics["description_complexity"] = complexity
+
+        # #1 — Checkpoint/resume: restore state and determine which phases to skip
+        completed_phases: List[str] = []
+        if resume:
+            checkpoint = PhaseContext.load_checkpoint(project_root)
+            if checkpoint:
+                ctx.apply_checkpoint_dict(checkpoint)
+                completed_phases = checkpoint.get("completed_phases", [])
+                self.logger.info(f"[AutoAgent] Resumed from checkpoint — skipping phases: {completed_phases}")
+            else:
+                self.logger.warning("[AutoAgent] --resume requested but no checkpoint found; starting fresh")
+
         phase_classes = _load_phases()
         phases: List[BasePhase] = [phase_classes[name]() for name in phase_order]
 
         start = time.monotonic()
         for phase in phases:
+            # Skip already-completed phases when resuming (#1)
+            # Only active when resume=True was passed — not for fresh runs.
+            if resume and getattr(phase, "phase_id", None) in completed_phases:
+                self.logger.info(f"[AutoAgent] Phase {phase.phase_id} skipped (checkpoint)")
+                continue
+
             try:
                 phase.execute(ctx)
             except PipelinePhaseError as e:
                 self.logger.error(f"[AutoAgent] Phase {e.phase_name} failed: {e}")
                 ctx.errors.append(f"Phase {e.phase_name}: {str(e)}")
                 # Continue with remaining phases — best-effort delivery
+                continue
+
+            # Save checkpoint after each successful phase (#1)
+            phase_id = getattr(phase, "phase_id", None)
+            if phase_id:
+                completed_phases.append(phase_id)
+                ctx.save_checkpoint(completed_phases)
+
+            # #9 — Interactive pause: invoke callback after BlueprintPhase
+            if phase_id == "2" and on_blueprint_ready is not None:
+                blueprint_dict = self._blueprint_to_dict(ctx)
+                should_continue = on_blueprint_ready(blueprint_dict)
+                if not should_continue:
+                    self.logger.info("[AutoAgent] Pipeline aborted by on_blueprint_ready callback")
+                    return project_root
 
         elapsed = time.monotonic() - start
         self.logger.info(
@@ -146,6 +198,26 @@ class AutoAgent:
             f"{len(ctx.generated_files)} files | {ctx.total_tokens():,} tokens"
         )
         return project_root
+
+    @staticmethod
+    def _blueprint_to_dict(ctx: PhaseContext) -> Dict[str, Any]:
+        """Serialize current blueprint for the on_blueprint_ready callback."""
+        return {
+            "project_name": ctx.project_name,
+            "project_type": ctx.project_type,
+            "tech_stack": ctx.tech_stack,
+            "files": [
+                {
+                    "path": fp.path,
+                    "purpose": fp.purpose,
+                    "priority": fp.priority,
+                    "exports": fp.exports,
+                    "imports": fp.imports,
+                    "key_logic": fp.key_logic,
+                }
+                for fp in ctx.blueprint
+            ],
+        }
 
     def generate_structure_only(
         self,

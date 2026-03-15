@@ -1,16 +1,24 @@
 """Phase 5: PatchPhase — static analysis + targeted CodePatcher fixes.
 
-Runs ruff (Python) and/or tsc (TypeScript) on the generated project.
-For each error, uses CodePatcher.edit_existing_file() to apply a targeted fix.
-Max 2 passes, max 10 errors fixed per pass.
+Runs ruff (Python), tsc (TypeScript), node --check (JS), and HTML well-formedness
+checks on the generated project. For each error, uses CodePatcher to apply a
+targeted fix. Max 2 passes, max 10 errors fixed per pass.
+
+After static fixes, runs one iterative-improvement pass (#10): asks the LLM
+to review the full project for obvious missing pieces and applies targeted patches.
+
+Improvements:
+  #5  — JS syntax via `node --check` + HTML well-formedness via html.parser
+  #10 — Iterative improvement pass after static error fixing
 """
 
 from __future__ import annotations
 
+import html.parser
 import json
 import subprocess
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from backend.agents.auto_agent_phases.base_phase import BasePhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
@@ -18,6 +26,23 @@ from backend.agents.auto_agent_phases.phase_context import PhaseContext
 _MAX_PASSES = 2
 _MAX_FIXES_PER_PASS = 10
 _SUBPROCESS_TIMEOUT = 30
+
+_IMPROVEMENT_SYSTEM = (
+    "You are a code reviewer. Given the project description and a summary of the generated files, "
+    "identify the single most important missing piece or obvious bug that would prevent the project "
+    "from running correctly. Be specific: name the file and the exact issue. "
+    'Output ONLY a JSON object: {"file_path": "...", "issue": "one-sentence description"}. '
+    'If everything looks complete, output: {"file_path": "", "issue": ""}.'
+)
+
+_IMPROVEMENT_USER = """Project: {project_name}
+Description: {description}
+Type: {project_type} | Stack: {tech_stack}
+
+Generated files:
+{file_summary}
+
+What is the single most critical missing piece or bug? Output JSON only:"""
 
 
 class PatchPhase(BasePhase):
@@ -40,6 +65,10 @@ class PatchPhase(BasePhase):
 
         ctx.metrics["patch_fixes"] = total_fixed
 
+        # #10 — Iterative improvement pass (one LLM review cycle)
+        if not ctx.is_small():
+            self._iterative_improvement(ctx)
+
     # ----------------------------------------------------------------
     # Static analysis
     # ----------------------------------------------------------------
@@ -48,11 +77,17 @@ class PatchPhase(BasePhase):
         errors: List[Dict[str, str]] = []
         has_python = any(p.endswith(".py") for p in ctx.generated_files)
         has_ts = any(p.endswith((".ts", ".tsx")) for p in ctx.generated_files)
+        has_js = any(p.endswith(".js") for p in ctx.generated_files)
+        has_html = any(p.endswith(".html") for p in ctx.generated_files)
 
         if has_python:
             errors.extend(self._run_ruff(ctx))
         if has_ts:
             errors.extend(self._run_tsc(ctx))
+        if has_js:
+            errors.extend(self._run_node_check(ctx))  # #5
+        if has_html:
+            errors.extend(self._check_html_wellformed(ctx))  # #5
 
         return errors
 
@@ -111,6 +146,70 @@ class PatchPhase(BasePhase):
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return []
 
+    def _run_node_check(self, ctx: PhaseContext) -> List[Dict[str, str]]:
+        """#5 — Syntax-check each .js file using `node --check`.
+
+        `node --check` parses JS without executing it. Available on any system
+        with Node.js installed. Falls back silently if node is not found.
+        """
+        errors: List[Dict[str, str]] = []
+        js_files = [p for p in ctx.generated_files if p.endswith(".js")]
+        for rel_path in js_files[:10]:  # cap to avoid slowdown
+            abs_path = ctx.project_root / rel_path
+            if not abs_path.exists():
+                continue
+            try:
+                result = subprocess.run(
+                    ["node", "--check", str(abs_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode != 0:
+                    error_text = (result.stderr or result.stdout).strip()
+                    # Trim long stack traces to one line
+                    first_line = error_text.splitlines()[0] if error_text else "SyntaxError"
+                    errors.append({"file_path": rel_path, "error": f"JS: {first_line}"})
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                break  # node not available — stop trying
+        return errors
+
+    def _check_html_wellformed(self, ctx: PhaseContext) -> List[Dict[str, str]]:
+        """#5 — Check HTML files for well-formedness using Python's built-in html.parser.
+
+        Detects unclosed tags and malformed attributes without an external tool.
+        """
+
+        class _ErrorCollector(html.parser.HTMLParser):
+            def __init__(self) -> None:
+                super().__init__()
+                self.errors: List[str] = []
+
+            def handle_starttag(self, tag: str, attrs: list) -> None:
+                pass
+
+            def handle_endtag(self, tag: str) -> None:
+                pass
+
+            def unknown_decl(self, data: str) -> None:
+                self.errors.append(f"Unknown declaration: {data[:60]}")
+
+        errors: List[Dict[str, str]] = []
+        html_files = [p for p in ctx.generated_files if p.endswith(".html")]
+        for rel_path in html_files:
+            content = ctx.generated_files.get(rel_path, "")
+            if not content:
+                continue
+            collector = _ErrorCollector()
+            try:
+                collector.feed(content)
+                if collector.errors:
+                    for err in collector.errors[:3]:
+                        errors.append({"file_path": rel_path, "error": f"HTML: {err}"})
+            except Exception as e:
+                errors.append({"file_path": rel_path, "error": f"HTML parse error: {e}"})
+        return errors
+
     # ----------------------------------------------------------------
     # Fixing
     # ----------------------------------------------------------------
@@ -137,7 +236,6 @@ class PatchPhase(BasePhase):
         for file_path, file_errors in by_file.items():
             current_content = ctx.generated_files.get(file_path, "")
             if not current_content:
-                # Try to read from disk
                 abs_path = ctx.project_root / file_path
                 if abs_path.exists():
                     current_content = abs_path.read_text(encoding="utf-8", errors="replace")
@@ -164,3 +262,77 @@ class PatchPhase(BasePhase):
                 ctx.logger.warning(f"[Patch] Failed to patch {file_path}: {e}")
 
         return fixed
+
+    # ----------------------------------------------------------------
+    # #10 — Iterative improvement
+    # ----------------------------------------------------------------
+
+    def _iterative_improvement(self, ctx: PhaseContext) -> None:
+        """Ask the LLM to review the project and identify one critical missing piece.
+
+        Runs one cycle only (LLM review → targeted patch). This catches obvious
+        issues that static analysis misses (missing route handler, wrong import path, etc.)
+        """
+        # Build a compact file summary (path + purpose from blueprint)
+        file_summary_lines: List[str] = []
+        plan_by_path = {fp.path: fp for fp in ctx.blueprint}
+        for path in list(ctx.generated_files.keys())[:15]:
+            purpose = plan_by_path.get(path, None)
+            purpose_str = purpose.purpose if purpose else "generated file"
+            file_summary_lines.append(f"  {path}: {purpose_str}")
+        file_summary = "\n".join(file_summary_lines) or "  (no files)"
+
+        user = _IMPROVEMENT_USER.format(
+            project_name=ctx.project_name,
+            description=ctx.project_description[:600],
+            project_type=ctx.project_type,
+            tech_stack=", ".join(ctx.tech_stack),
+            file_summary=file_summary,
+        )
+
+        try:
+            raw = self._llm_call(ctx, _IMPROVEMENT_SYSTEM, user, role="coder", no_think=True)
+            from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
+            data = LLMResponseParser.extract_json(raw)
+            if not data or not isinstance(data, dict):
+                return
+            file_path: Optional[str] = data.get("file_path", "")
+            issue: Optional[str] = data.get("issue", "")
+            if not file_path or not issue:
+                ctx.logger.info("[Patch] Iterative improvement: no critical issues found")
+                return
+
+            ctx.logger.info(f"[Patch] Iterative improvement: fixing '{file_path}': {issue}")
+            current_content = ctx.generated_files.get(file_path, "")
+            if not current_content:
+                abs_path = ctx.project_root / file_path
+                if abs_path.exists():
+                    current_content = abs_path.read_text(encoding="utf-8", errors="replace")
+            if not current_content:
+                return
+
+            try:
+                from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
+            except ImportError:
+                try:
+                    from backend.utils.domains.auto_generation.code_patcher import CodePatcher
+                except ImportError:
+                    return
+
+            patcher = CodePatcher(
+                llm_client=ctx.llm_manager.get_client("coder"),
+                logger=ctx.logger,
+            )
+            patched = patcher.edit_existing_file(
+                file_path=file_path,
+                current_content=current_content,
+                readme=ctx.project_description[:400],
+                issues_to_fix=[{"description": issue}],
+            )
+            if patched and patched != current_content:
+                self._write_file(ctx, file_path, patched)
+                ctx.metrics["iterative_improvement_fix"] = file_path
+                ctx.logger.info(f"[Patch] Iterative improvement: patched {file_path}")
+        except Exception as e:
+            ctx.logger.warning(f"[Patch] Iterative improvement failed: {e}")

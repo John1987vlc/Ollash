@@ -79,12 +79,18 @@ class BasePhase(ABC):
         role: str = "coder",
         temperature: float = 0.1,
         max_tokens: int = 2048,
+        no_think: bool = False,
     ) -> str:
         """Centralized LLM call with token budget enforcement.
 
         Truncates system/user if they exceed budget before sending.
         Returns raw response string. Records token usage in ctx.metrics.
+
+        no_think=True prepends /no_think to the user message, disabling Qwen3's
+        extended thinking mode so that all token budget is used for the actual output.
         """
+        from backend.utils.core.llm.llm_response_parser import LLMResponseParser
+
         system = self._truncate_to_tokens(system, _SYSTEM_TOKEN_BUDGET)
         user = self._truncate_to_tokens(user, _USER_TOKEN_BUDGET)
 
@@ -93,17 +99,37 @@ class BasePhase(ABC):
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
+        # no_think=True → pass "think": False as a top-level Ollama API field (Qwen3 thinking mode).
+        # Also keep the /no_think prefix as belt-and-suspenders for older Ollama versions.
+        opts: dict = {"temperature": temperature, "num_predict": max_tokens}
+        if no_think:
+            opts["think"] = False
+            if not user.startswith("/no_think"):
+                messages[-1]["content"] = "/no_think\n" + user
         response_data, _ = client.chat(
             messages,
             tools=[],
-            options_override={"temperature": temperature, "num_predict": max_tokens},
+            options_override=opts,
         )
-        content: str = response_data.get("message", {}).get("content", "")
+        msg = response_data.get("message", {})
+        content: str = msg.get("content", "")
 
-        # Strip <think> blocks (Qwen3 emits these)
-        from backend.utils.core.llm.llm_response_parser import LLMResponseParser
-
+        # Strip <think> blocks (Qwen3 emits these in content when not using no_think)
         content, _ = LLMResponseParser.remove_think_blocks(content)
+
+        # Fallback: if content is empty, model used all tokens for thinking
+        # (done_reason=="length"). Try to salvage a JSON object from the thinking field.
+        if not content.strip():
+            thinking: str = msg.get("thinking", "")
+            # Only use thinking fallback when it contains an actual JSON object (starts with {)
+            if thinking and "{" in thinking:
+                ctx.logger.warning(
+                    f"[{self.phase_id}] content empty (model exhausted tokens in think block); "
+                    "attempting to extract JSON object from thinking field"
+                )
+                # Extract only the JSON object portion to avoid returning arbitrary list values
+                start = thinking.find("{")
+                content = thinking[start:]
 
         # Record token usage
         prompt_tokens = response_data.get("prompt_eval_count", len(system + user) // _CHARS_PER_TOKEN)
@@ -125,6 +151,10 @@ class BasePhase(ABC):
 
         Retries up to `retries` times on JSON parse or validation failure.
         Raises PipelinePhaseError after all retries exhausted.
+
+        Uses no_think=True (Qwen3 /no_think control token) so the model does not
+        exhaust its token budget on chain-of-thought reasoning before writing JSON.
+        Uses a higher num_predict budget so the full JSON object fits in one reply.
         """
         from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
@@ -132,11 +162,24 @@ class BasePhase(ABC):
         current_user = user
 
         for attempt in range(retries + 1):
-            raw = self._llm_call(ctx, system, current_user, role=role)
+            raw = self._llm_call(
+                ctx,
+                system,
+                current_user,
+                role=role,
+                max_tokens=4096,
+                no_think=True,
+            )
             try:
                 data = LLMResponseParser.extract_json(raw)
+                # Attempt to recover truncated JSON when bracket matching fails
+                if data is None and raw and "{" in raw:
+                    data = self._recover_truncated_json(raw)
                 if data is None:
                     raise ValueError("No JSON found in response")
+                # For schema validation, we need a dict not a list
+                if not isinstance(data, dict):
+                    raise ValueError(f"Expected JSON object, got {type(data).__name__}")
                 return schema_class.model_validate(data)
             except Exception as e:
                 last_error = str(e)
@@ -183,3 +226,56 @@ class BasePhase(ABC):
         if len(text) <= limit:
             return text
         return text[:limit]
+
+    @staticmethod
+    def _recover_truncated_json(text: str) -> Optional[Any]:
+        """Try to recover a valid JSON object from truncated output.
+
+        When a model runs out of tokens mid-JSON, the bracket counts reveal exactly
+        how many closing brackets are missing. We append them and try to parse.
+        Only returns a dict (not a list) to guard against false positives.
+        """
+        import json
+
+        # Start from the first { in the text
+        start = text.find("{")
+        if start == -1:
+            return None
+        candidate = text[start:]
+
+        # Count unmatched brackets
+        open_curly = 0
+        open_square = 0
+        in_string = False
+        escape_next = False
+        for ch in candidate:
+            if escape_next:
+                escape_next = False
+                continue
+            if ch == "\\" and in_string:
+                escape_next = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if ch == "{":
+                open_curly += 1
+            elif ch == "}":
+                open_curly -= 1
+            elif ch == "[":
+                open_square += 1
+            elif ch == "]":
+                open_square -= 1
+
+        if open_curly <= 0 and open_square <= 0:
+            return None  # Already balanced — bracket matcher should have caught it
+
+        # Append missing closing brackets (innermost first)
+        tail = "]" * max(0, open_square) + "}" * max(0, open_curly)
+        try:
+            result = json.loads(candidate + tail)
+            return result if isinstance(result, dict) else None
+        except json.JSONDecodeError:
+            return None

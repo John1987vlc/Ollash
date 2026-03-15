@@ -7,11 +7,13 @@ singleton with 30+ constructor arguments.
 
 from __future__ import annotations
 
+import dataclasses
+import json
 import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from backend.interfaces.imodel_provider import IModelProvider
@@ -86,6 +88,10 @@ class PhaseContext:
     # --- Internal ---
     _phase_start_times: Dict[str, float] = field(default_factory=dict, repr=False)
 
+    # Optional callback invoked after BlueprintPhase: on_blueprint_ready(blueprint_dict) -> bool.
+    # Return False to abort the pipeline.
+    on_blueprint_ready: Optional[Callable[[Dict[str, Any]], bool]] = field(default=None, repr=False)
+
     # ----------------------------------------------------------------
     # Model-size helpers
     # ----------------------------------------------------------------
@@ -133,3 +139,101 @@ class PhaseContext:
     def total_tokens(self) -> int:
         usage = self.metrics.get("token_usage", {})
         return sum(v["prompt"] + v["completion"] for v in usage.values())
+
+    # ----------------------------------------------------------------
+    # Description complexity (#15)
+    # ----------------------------------------------------------------
+
+    def description_complexity(self) -> int:
+        """Return a complexity score 0-10 based on description length and keywords.
+
+        Used by AutoAgent to warn when a complex project is run on a small model,
+        and by BlueprintPhase to adjust max_files dynamically.
+        """
+        desc = self.project_description.lower()
+        score = min(3, len(desc) // 200)  # 0-3 pts from length
+        complexity_words = [
+            "complex",
+            "full",
+            "complete",
+            "enterprise",
+            "advanced",
+            "production",
+            "scalable",
+            "microservice",
+            "distributed",
+            "authentication",
+            "authorization",
+            "database",
+            "real-time",
+            "websocket",
+            "async",
+            "multi-user",
+            "role",
+        ]
+        score += sum(1 for w in complexity_words if w in desc)
+        return min(10, score)
+
+    # ----------------------------------------------------------------
+    # Checkpoint / resume (#1)
+    # ----------------------------------------------------------------
+
+    def to_checkpoint_dict(self, completed_phases: List[str]) -> Dict[str, Any]:
+        """Serialize pipeline state for checkpoint/resume.
+
+        Does NOT serialize non-picklable objects (llm_manager, file_manager, etc.).
+        generated_files content is NOT saved here — it lives on disk.
+        """
+        return {
+            "project_name": self.project_name,
+            "project_description": self.project_description,
+            "project_type": self.project_type,
+            "tech_stack": self.tech_stack,
+            "blueprint": [dataclasses.asdict(fp) for fp in self.blueprint],
+            "generated_file_paths": list(self.generated_files.keys()),
+            "errors": self.errors,
+            "metrics": self.metrics,
+            "completed_phases": completed_phases,
+        }
+
+    def apply_checkpoint_dict(self, data: Dict[str, Any]) -> None:
+        """Restore pipeline state from checkpoint dict.
+
+        Re-reads generated file contents from disk (content not stored in checkpoint).
+        """
+        self.project_type = data.get("project_type", self.project_type)
+        self.tech_stack = data.get("tech_stack", self.tech_stack)
+        self.blueprint = [FilePlan(**fp) for fp in data.get("blueprint", [])]
+        self.errors = data.get("errors", [])
+        self.metrics = data.get("metrics", {})
+
+        # Re-read generated files from disk
+        for rel_path in data.get("generated_file_paths", []):
+            abs_path = self.project_root / rel_path
+            if abs_path.exists():
+                try:
+                    self.generated_files[rel_path] = abs_path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    pass
+
+    def save_checkpoint(self, completed_phases: List[str]) -> None:
+        """Write checkpoint JSON to .ollash/checkpoint.json inside the project root."""
+        checkpoint_dir = self.project_root / ".ollash"
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        checkpoint_path = checkpoint_dir / "checkpoint.json"
+        data = self.to_checkpoint_dict(completed_phases)
+        try:
+            checkpoint_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except OSError as e:
+            self.logger.warning(f"[Checkpoint] Could not save: {e}")
+
+    @staticmethod
+    def load_checkpoint(project_root: Path) -> Optional[Dict[str, Any]]:
+        """Load checkpoint JSON from .ollash/checkpoint.json. Returns None if absent."""
+        checkpoint_path = project_root / ".ollash" / "checkpoint.json"
+        if not checkpoint_path.exists():
+            return None
+        try:
+            return json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None

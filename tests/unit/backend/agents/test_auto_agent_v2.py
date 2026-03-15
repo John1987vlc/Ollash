@@ -45,9 +45,11 @@ class TestAutoAgent:
                 with patch("backend.agents.auto_agent.PhaseContext") as MockCtx:
                     mock_ctx = MagicMock()
                     mock_ctx.is_small.return_value = True
+                    mock_ctx.description_complexity.return_value = 0
                     mock_ctx.errors = []
                     mock_ctx.generated_files = {}
                     mock_ctx.total_tokens.return_value = 0
+                    mock_ctx.metrics = {}
                     MockCtx.return_value = mock_ctx
 
                     agent.run("A test project", "test_project")
@@ -62,9 +64,11 @@ class TestAutoAgent:
             with patch("backend.agents.auto_agent.PhaseContext") as MockCtx:
                 mock_ctx = MagicMock()
                 mock_ctx.is_small.return_value = True
+                mock_ctx.description_complexity.return_value = 0
                 mock_ctx.errors = []
                 mock_ctx.generated_files = {}
                 mock_ctx.total_tokens.return_value = 0
+                mock_ctx.metrics = {}
                 MockCtx.return_value = mock_ctx
 
                 fake_phase = MagicMock()
@@ -86,9 +90,11 @@ class TestAutoAgent:
             with patch("backend.agents.auto_agent.PhaseContext") as MockCtx:
                 mock_ctx = MagicMock()
                 mock_ctx.is_small.return_value = True
+                mock_ctx.description_complexity.return_value = 0
                 mock_ctx.errors = []
                 mock_ctx.generated_files = {}
                 mock_ctx.total_tokens.return_value = 0
+                mock_ctx.metrics = {}
                 MockCtx.return_value = mock_ctx
 
                 call_count = [0]
@@ -126,9 +132,11 @@ class TestAutoAgent:
             with patch("backend.agents.auto_agent.PhaseContext") as MockCtx:
                 mock_ctx = MagicMock()
                 mock_ctx.is_small.return_value = True
+                mock_ctx.description_complexity.return_value = 0
                 mock_ctx.errors = []
                 mock_ctx.generated_files = {}
                 mock_ctx.total_tokens.return_value = 0
+                mock_ctx.metrics = {}
                 MockCtx.return_value = mock_ctx
 
                 fake_phase_cls = MagicMock()
