@@ -96,7 +96,7 @@ class BasePhase(ABC):
         response_data, _ = client.chat(
             messages,
             tools=[],
-            options={"temperature": temperature, "num_predict": max_tokens},
+            options_override={"temperature": temperature, "num_predict": max_tokens},
         )
         content: str = response_data.get("message", {}).get("content", "")
 

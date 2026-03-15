@@ -125,31 +125,27 @@ async def create_project(
     project_description = params.pop("project_description")
     project_name = params.pop("project_name")
 
-    async def _run_agent():
+    def _run_agent_sync():
+        """Runs AutoAgent synchronously in a background thread."""
         try:
             agent = main_container.auto_agent_module.auto_agent()
             agent.event_publisher = event_publisher
-            # Pass only kwargs AutoAgent.run() accepts — the request body has many
-            # legacy wizard fields (git_push, security_scanning_enabled, etc.) that
-            # the 8-phase pipeline does not use.
+            # Pass only kwargs AutoAgent.run() accepts — request body has many legacy
+            # wizard fields (git_push, security_scanning_enabled, etc.) not used here.
             run_kwargs = {
-                k: params[k]
-                for k in ("project_root", "skip_phases")
-                if k in params and params[k] is not None
+                k: params[k] for k in ("project_root", "skip_phases") if k in params and params[k] is not None
             }
-            await asyncio.to_thread(
-                agent.run,
-                project_description,
-                project_name,
-                **run_kwargs,
-            )
+            agent.run(project_description, project_name, **run_kwargs)
             chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' generated."})
         except Exception as exc:
-            logger = main_container.core.logging.logger()
-            logger.error(f"AutoAgent error: {exc}", exc_info=True)
+            _logger = main_container.core.logging.logger()
+            _logger.error(f"AutoAgent error: {exc}", exc_info=True)
             chat_event_bridge.push_event("error", {"message": str(exc)})
 
-    background_tasks.add_task(_run_agent)
+    import threading
+
+    threading.Thread(target=_run_agent_sync, daemon=True).start()
+    background_tasks.add_task(lambda: None)  # keep BackgroundTasks lifecycle intact
     return {"status": "started", "project_name": project_name}
 
 
@@ -160,13 +156,15 @@ async def stream_project_logs(project_name: str, request: Request):
     loop = asyncio.get_event_loop()
 
     async def _gen() -> AsyncIterator[str]:
+        # Use a sentinel to detect exhaustion — StopIteration must NOT be raised
+        # inside an async generator (PEP 479 / Python 3.7+).
+        _sentinel = object()
         it = iter(chat_event_bridge.iter_events())
         while True:
-            try:
-                chunk = await loop.run_in_executor(None, next, it)
-                yield chunk
-            except StopIteration:
+            chunk = await loop.run_in_executor(None, next, it, _sentinel)
+            if chunk is _sentinel:
                 break
+            yield chunk
 
     return StreamingResponse(
         _gen(),
