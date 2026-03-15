@@ -35,15 +35,17 @@ def _expand_sidebar(page):
     mode all nav-group contents are forced open with max-height override so
     normal collapse CSS does not apply.  Tests that assert on HERRAMIENTAS
     height or on visible-item counts must expand the sidebar first.
+
+    The collapse-toggle button is display:none in icon-rail mode (by CSS design).
+    Use is_visible() — not count() — to decide which button to click.
     """
     sidebar = page.locator(".sidebar")
     if not sidebar.evaluate("el => el.classList.contains('sidebar--expanded')"):
-        # Click the collapse-toggle button (which also acts as expand in collapsed state)
         toggle = page.locator("#sidebar-collapse-toggle")
-        if toggle.count():
+        if toggle.is_visible():
             toggle.click()
         else:
-            # Fallback: click the logo button which also expands the sidebar
+            # In collapsed mode the logo button acts as the expand trigger
             page.locator("#sidebar-logo-btn").click()
         page.wait_for_timeout(300)
 
@@ -155,8 +157,13 @@ def test_herramientas_items_clipped_until_expanded(page, base_url):
 
 @pytest.mark.e2e
 def test_herramientas_expands_on_click(page, base_url):
-    """Clicking HERRAMIENTAS header reveals its child nav items."""
+    """Clicking HERRAMIENTAS header reveals its child nav items.
+
+    Must expand the sidebar first — in icon-rail mode nav-group-headers have
+    pointer-events:none and are not clickable.
+    """
     _load(page, base_url)
+    _expand_sidebar(page)  # headers need sidebar--expanded to be interactive
     header = page.locator(".nav-group-header", has_text="Herramientas")
     if header.count() == 0:
         pytest.skip("HERRAMIENTAS group header not found")

@@ -13,6 +13,8 @@ Covers:
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 
@@ -47,23 +49,32 @@ def test_sidebar_starts_collapsed(page, base_url):
 
 @pytest.mark.e2e
 def test_sidebar_expands_on_collapse_toggle_click(page, base_url):
-    """Clicking #sidebar-collapse-toggle expands the sidebar to 240px mode."""
+    """Expanding the sidebar adds .sidebar--expanded.
+
+    In icon-rail (collapsed) mode the toggle button is display:none — the logo
+    button acts as the expand trigger instead.  Once expanded, the toggle button
+    becomes visible and can collapse the sidebar again.
+    """
     _load(page, base_url)
-    toggle = page.locator("#sidebar-collapse-toggle")
-    if toggle.count() == 0:
-        pytest.skip("#sidebar-collapse-toggle not found")
-
-    # Ensure collapsed first
     sidebar = page.locator(".sidebar")
-    if sidebar.evaluate("el => el.classList.contains('sidebar--expanded')"):
-        toggle.click()
-        page.wait_for_timeout(300)
 
-    toggle.click()
+    # Ensure we start collapsed
+    if sidebar.evaluate("el => el.classList.contains('sidebar--expanded')"):
+        toggle = page.locator("#sidebar-collapse-toggle")
+        if toggle.is_visible():
+            toggle.click()
+            page.wait_for_timeout(300)
+
+    # In collapsed mode: use logo btn (toggle is display:none per CSS)
+    logo_btn = page.locator("#sidebar-logo-btn")
+    if logo_btn.count() == 0:
+        pytest.skip("#sidebar-logo-btn not found")
+
+    logo_btn.click()
     page.wait_for_timeout(350)
 
     has_expanded = sidebar.evaluate("el => el.classList.contains('sidebar--expanded')")
-    assert has_expanded, "Sidebar should have .sidebar--expanded class after toggle click"
+    assert has_expanded, "Sidebar should have .sidebar--expanded class after logo click"
 
 
 @pytest.mark.e2e
@@ -130,21 +141,26 @@ def test_chat_history_drawer_opens_on_button_click(page, base_url):
 @pytest.mark.e2e
 def test_chat_history_drawer_closes_on_close_button(page, base_url):
     """Clicking #close-history-drawer closes the drawer."""
+    from playwright.sync_api import expect as pw_expect
+
     _go_to_chat(page, base_url)
     open_btn = page.locator("#open-history-drawer")
     if open_btn.count() == 0:
         pytest.skip("#open-history-drawer not found")
 
     open_btn.click()
-    page.wait_for_timeout(350)
+    # Wait for the drawer to be fully open before trying to close
+    drawer = page.locator("#chat-history-drawer")
+    pw_expect(drawer).to_have_class(re.compile(r"drawer--open"), timeout=5_000)
 
     close_btn = page.locator("#close-history-drawer")
     if close_btn.count() == 0:
         pytest.skip("#close-history-drawer not found")
+    # Wait for the close button to be visible (it's inside the open drawer)
+    pw_expect(close_btn).to_be_visible(timeout=5_000)
     close_btn.click()
     page.wait_for_timeout(350)
 
-    drawer = page.locator("#chat-history-drawer")
     has_open = drawer.evaluate("el => el.classList.contains('drawer--open')")
     assert not has_open, "History drawer should close after clicking close button"
 

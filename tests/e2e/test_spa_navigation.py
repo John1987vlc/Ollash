@@ -68,11 +68,12 @@ def test_nav_group_header_toggles_children(page, base_url):
     """
     page.goto(base_url)
 
-    # Expand sidebar to full mode so group headers are interactive
+    # Expand sidebar to full mode so group headers are interactive.
+    # The collapse toggle is display:none in icon-rail mode — use logo btn instead.
     sidebar = page.locator(".sidebar")
     if not sidebar.evaluate("el => el.classList.contains('sidebar--expanded')"):
         toggle = page.locator("#sidebar-collapse-toggle")
-        (toggle if toggle.count() else page.locator("#sidebar-logo-btn")).click()
+        (toggle if toggle.is_visible() else page.locator("#sidebar-logo-btn")).click()
         page.wait_for_timeout(300)
 
     headers = page.locator(".nav-group-header[aria-expanded]")
