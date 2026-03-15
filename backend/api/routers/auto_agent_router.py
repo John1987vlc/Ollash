@@ -129,11 +129,19 @@ async def create_project(
         try:
             agent = main_container.auto_agent_module.auto_agent()
             agent.event_publisher = event_publisher
+            # Pass only kwargs AutoAgent.run() accepts — the request body has many
+            # legacy wizard fields (git_push, security_scanning_enabled, etc.) that
+            # the 8-phase pipeline does not use.
+            run_kwargs = {
+                k: params[k]
+                for k in ("project_root", "skip_phases")
+                if k in params and params[k] is not None
+            }
             await asyncio.to_thread(
                 agent.run,
                 project_description,
                 project_name,
-                **params,
+                **run_kwargs,
             )
             chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' generated."})
         except Exception as exc:
