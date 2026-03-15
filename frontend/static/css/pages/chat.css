@@ -92,9 +92,9 @@
     height: 100vh;
     background: var(--color-surface);
     border-right: 1px solid var(--color-border);
-    z-index: var(--z-sidebar);
+    z-index: var(--z-sidebar, 1100);  /* fallback if variables.css not loaded */
     transform: translateX(-100%);
-    transition: transform var(--transition-base);
+    transition: transform var(--transition-base, 250ms ease);
     display: flex;
     flex-direction: column;
     box-shadow: var(--shadow-lg);
