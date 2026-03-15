@@ -1,10 +1,10 @@
-"""AutoAgent — 8-phase project generation pipeline optimized for 4B models.
+"""AutoAgent — 10-phase project generation pipeline optimized for 4B models.
 
 Design decisions:
 - No CoreAgent inheritance: standalone orchestrator with 5 simple constructor args
 - Phases are lazily imported inside run() — avoids loading ~1567 modules at startup
 - Error handling: PipelinePhaseError is caught per-phase; pipeline continues best-effort
-- Small models (<=8B) skip TestRunPhase automatically
+- Small models (<=8B) skip TestRunPhase and SeniorReviewPhase automatically
 - generate_structure_only() supports the wizard step-1 preview flow
 """
 
@@ -20,12 +20,14 @@ from backend.utils.core.exceptions import PipelinePhaseError
 
 
 def _load_phases() -> dict[str, Type[BasePhase]]:
-    """Import all 8 phase classes. Called once per run() invocation."""
+    """Import all phase classes. Called once per run() invocation."""
     from backend.agents.auto_agent_phases.project_scan_phase import ProjectScanPhase
     from backend.agents.auto_agent_phases.blueprint_phase import BlueprintPhase
     from backend.agents.auto_agent_phases.scaffold_phase import ScaffoldPhase
     from backend.agents.auto_agent_phases.code_fill_phase import CodeFillPhase
+    from backend.agents.auto_agent_phases.cross_file_validation_phase import CrossFileValidationPhase
     from backend.agents.auto_agent_phases.patch_phase import PatchPhase
+    from backend.agents.auto_agent_phases.senior_review_phase import SeniorReviewPhase
     from backend.agents.auto_agent_phases.infra_phase import InfraPhase
     from backend.agents.auto_agent_phases.test_run_phase import TestRunPhase
     from backend.agents.auto_agent_phases.finish_phase import FinishPhase
@@ -35,7 +37,9 @@ def _load_phases() -> dict[str, Type[BasePhase]]:
         "BlueprintPhase": BlueprintPhase,
         "ScaffoldPhase": ScaffoldPhase,
         "CodeFillPhase": CodeFillPhase,
+        "CrossFileValidationPhase": CrossFileValidationPhase,
         "PatchPhase": PatchPhase,
+        "SeniorReviewPhase": SeniorReviewPhase,
         "InfraPhase": InfraPhase,
         "TestRunPhase": TestRunPhase,
         "FinishPhase": FinishPhase,
@@ -43,19 +47,22 @@ def _load_phases() -> dict[str, Type[BasePhase]]:
 
 
 class AutoAgent:
-    """8-phase project generation pipeline optimized for 4B parameter models.
+    """10-phase project generation pipeline optimized for 4B parameter models.
 
-    Phase sequence (full tier, >=9B):
-      1. ProjectScanPhase  — zero-LLM: detect type/stack, ingest existing files
-      2. BlueprintPhase    — 1 LLM call: full JSON blueprint (max 20 files)
-      3. ScaffoldPhase     — zero-LLM: create dirs + write stub files
-      4. CodeFillPhase     — core: generate each file in priority order
-      5. PatchPhase        — static analysis (ruff/tsc) + targeted fixes
-      6. InfraPhase        — templates: requirements.txt, Dockerfile, .gitignore
-      7. TestRunPhase      — run tests, patch failures (max 3 iterations)
-      8. FinishPhase       — write OLLASH.md, log metrics, fire project_complete
+    Phase sequence (full tier, >8B):
+      1.  ProjectScanPhase          — zero-LLM: detect type/stack, ingest existing files
+      2.  BlueprintPhase            — 1 LLM call: full JSON blueprint (max 20 files)
+      3.  ScaffoldPhase             — zero-LLM: create dirs + write stub files
+      4.  CodeFillPhase             — core: generate each file in priority order
+      4b. CrossFileValidationPhase  — zero-LLM: HTML↔JS id contract, CSS class check
+      5.  PatchPhase                — static analysis + multi-round improvement (3 rounds)
+      6b. SeniorReviewPhase         — comprehensive LLM review + auto-repair loop
+      6.  InfraPhase                — templates: requirements.txt, Dockerfile, .gitignore
+      7.  TestRunPhase              — run tests, patch failures (max 3 iterations)
+      8.  FinishPhase               — write OLLASH.md, log metrics, fire project_complete
 
-    Small model tier (<=8B, e.g. qwen3.5:4b): skips TestRunPhase.
+    Small model tier (<=8B, e.g. qwen3.5:4b): skips TestRunPhase and SeniorReviewPhase.
+    CrossFileValidationPhase runs on all tiers (zero-LLM, minimal cost).
     """
 
     FULL_PHASE_ORDER: List[str] = [
@@ -63,7 +70,9 @@ class AutoAgent:
         "BlueprintPhase",
         "ScaffoldPhase",
         "CodeFillPhase",
+        "CrossFileValidationPhase",
         "PatchPhase",
+        "SeniorReviewPhase",
         "InfraPhase",
         "TestRunPhase",
         "FinishPhase",
@@ -74,6 +83,7 @@ class AutoAgent:
         "BlueprintPhase",
         "ScaffoldPhase",
         "CodeFillPhase",
+        "CrossFileValidationPhase",
         "PatchPhase",
         "InfraPhase",
         "FinishPhase",

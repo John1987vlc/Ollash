@@ -82,6 +82,10 @@ class PhaseContext:
     errors: List[str] = field(default_factory=list)
     # Non-fatal errors collected for FinishPhase summary.
 
+    cross_file_errors: List[Dict[str, Any]] = field(default_factory=list)
+    # Written by CrossFileValidationPhase (4b). Consumed by PatchPhase improvement rounds.
+    # Each entry: {file_a, file_b, error_type, description, suggestion}
+
     metrics: Dict[str, Any] = field(default_factory=dict)
     # token_usage per phase, phase_timings, schema_validity_rate, etc.
 

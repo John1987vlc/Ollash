@@ -4,12 +4,17 @@ Runs ruff (Python), tsc (TypeScript), node --check (JS), and HTML well-formednes
 checks on the generated project. For each error, uses CodePatcher to apply a
 targeted fix. Max 2 passes, max 10 errors fixed per pass.
 
-After static fixes, runs one iterative-improvement pass (#10): asks the LLM
-to review the full project for obvious missing pieces and applies targeted patches.
+After static fixes, runs multi-round iterative-improvement (#10):
+  - Up to 3 rounds (large models) / 2 rounds (small models)
+  - Round 0: seeds from ctx.cross_file_errors if CrossFileValidationPhase left any
+  - Subsequent rounds: LLM review, identify one critical issue, patch it
+  - For small projects (<=6 files, <=8000 chars): includes actual file content in
+    LLM prompt so it can spot HTML id mismatches, truncated SVGs, etc.
+  - Between rounds: re-runs zero-LLM HTML↔JS ID check to refresh cross_file_errors
 
 Improvements:
   #5  — JS syntax via `node --check` + HTML well-formedness via html.parser
-  #10 — Iterative improvement pass after static error fixing
+  #10 — Multi-round iterative improvement with content inclusion and cross-file seeding
 """
 
 from __future__ import annotations
@@ -27,10 +32,26 @@ _MAX_PASSES = 2
 _MAX_FIXES_PER_PASS = 10
 _SUBPROCESS_TIMEOUT = 30
 
+# Multi-round improvement constants
+_MAX_IMPROVEMENT_ROUNDS = 3  # large (>8B) models
+_MAX_IMPROVEMENT_ROUNDS_SMALL = 2  # small (<=8B) models
+_CONTENT_INCLUDE_MAX_FILES = 6  # include actual file content below this file count
+_CONTENT_INCLUDE_MAX_CHARS = 8_000  # and below this total character count
+
 _IMPROVEMENT_SYSTEM = (
     "You are a code reviewer. Given the project description and a summary of the generated files, "
     "identify the single most important missing piece or obvious bug that would prevent the project "
     "from running correctly. Be specific: name the file and the exact issue. "
+    'Output ONLY a JSON object: {"file_path": "...", "issue": "one-sentence description"}. '
+    'If everything looks complete, output: {"file_path": "", "issue": ""}.'
+)
+
+# Variant that includes actual file content — catches id mismatches, truncated SVGs, etc.
+_IMPROVEMENT_SYSTEM_WITH_CONTENT = (
+    "You are a code reviewer. Given the project description and the FULL CONTENT of generated files, "
+    "identify the single most important missing piece or obvious bug that would prevent the project "
+    "from running correctly. Pay special attention to: HTML element IDs vs JS getElementById calls, "
+    "missing DOM elements referenced in JS, incomplete game logic, truncated or malformed content. "
     'Output ONLY a JSON object: {"file_path": "...", "issue": "one-sentence description"}. '
     'If everything looks complete, output: {"file_path": "", "issue": ""}.'
 )
@@ -47,6 +68,15 @@ Type: {project_type} | Stack: {tech_stack}
 
 Generated files:
 {file_summary}
+
+What is the single most critical missing piece or bug? Output JSON only:"""
+
+_IMPROVEMENT_USER_WITH_CONTENT = """Project: {project_name}
+Description: {description}
+Type: {project_type}
+
+FILE CONTENTS:
+{file_contents}
 
 What is the single most critical missing piece or bug? Output JSON only:"""
 
@@ -412,28 +442,107 @@ class PatchPhase(BasePhase):
         return fixed
 
     # ----------------------------------------------------------------
-    # #10 — Iterative improvement
+    # #10 — Multi-round iterative improvement
     # ----------------------------------------------------------------
 
     def _iterative_improvement(self, ctx: PhaseContext) -> None:
-        """Ask the LLM to review the project and identify one critical missing piece.
+        """Multi-round improvement loop: identify issue → patch → repeat.
 
-        Runs one cycle only (LLM review → targeted patch). This catches obvious
-        issues that static analysis misses (missing route handler, wrong import path, etc.).
-        Uses compact prompts for small (≤8B) models.
+        Up to 3 rounds for large models, 2 for small (<=8B).
+        Round 0 seeds from ctx.cross_file_errors if CrossFileValidationPhase left any,
+        skipping the LLM discovery call for that round.
+        For small projects (<=6 files, <=8000 total chars), actual file content is
+        included in the LLM prompt so it can spot HTML id mismatches, truncated SVGs, etc.
+        Between rounds, a zero-LLM HTML↔JS ID re-check refreshes cross_file_errors.
         """
         small = ctx.is_small()
-        # Build a compact file summary (path + purpose from blueprint)
-        file_summary_lines: List[str] = []
+        max_rounds = _MAX_IMPROVEMENT_ROUNDS_SMALL if small else _MAX_IMPROVEMENT_ROUNDS
+        include_content = self._should_include_content(ctx)
         plan_by_path = {fp.path: fp for fp in ctx.blueprint}
-        max_files = 8 if small else 15
-        for path in list(ctx.generated_files.keys())[:max_files]:
-            purpose = plan_by_path.get(path, None)
-            purpose_str = purpose.purpose if purpose else "file"
-            file_summary_lines.append(f"{path}: {purpose_str}" if small else f"  {path}: {purpose_str}")
-        file_summary = "\n".join(file_summary_lines) or "(no files)"
 
-        if small:
+        rounds_done = 0
+        for round_num in range(max_rounds):
+            # Round 0: use cross_file_errors as seed to skip LLM issue-discovery
+            if round_num == 0 and ctx.cross_file_errors:
+                issue_data = self._seed_from_cross_file_errors(ctx)
+            else:
+                issue_data = self._ask_llm_for_issue(ctx, small, include_content, plan_by_path)
+
+            if not issue_data:
+                ctx.logger.info(f"[Patch] Improvement round {round_num + 1}: no issues found")
+                break
+
+            file_path: Optional[str] = issue_data.get("file_path", "")
+            issue: Optional[str] = issue_data.get("issue", "")
+            if not file_path or not issue:
+                break
+
+            ctx.logger.info(f"[Patch] Improvement round {round_num + 1}: fixing '{file_path}': {issue}")
+            patched = self._patch_single_file(ctx, file_path, issue)
+            rounds_done += 1
+
+            # Between rounds (not after the last), refresh cross_file_errors
+            if patched and round_num < max_rounds - 1:
+                self._refresh_cross_file_errors(ctx)
+
+        ctx.metrics["iterative_improvement_rounds"] = rounds_done
+
+    # ----------------------------------------------------------------
+    # Improvement helpers
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _should_include_content(ctx: PhaseContext) -> bool:
+        """True when project is small enough to include full file content in prompt."""
+        if len(ctx.generated_files) > _CONTENT_INCLUDE_MAX_FILES:
+            return False
+        total_chars = sum(len(c) for c in ctx.generated_files.values())
+        return total_chars <= _CONTENT_INCLUDE_MAX_CHARS
+
+    @staticmethod
+    def _seed_from_cross_file_errors(ctx: PhaseContext) -> Optional[Dict[str, str]]:
+        """Convert the first cross_file_error into {file_path, issue} for patching."""
+        if not ctx.cross_file_errors:
+            return None
+        err = ctx.cross_file_errors.pop(0)  # consume one error per round
+        # target the file that needs updating (file_b = HTML in id_mismatch)
+        file_path = err.get("file_b") or err.get("file_a", "")
+        description = err.get("description", "")
+        suggestion = err.get("suggestion", "")
+        issue = f"{description} — {suggestion}" if suggestion else description
+        if not file_path or not issue:
+            return None
+        return {"file_path": file_path, "issue": issue}
+
+    def _ask_llm_for_issue(
+        self,
+        ctx: PhaseContext,
+        small: bool,
+        include_content: bool,
+        plan_by_path: Dict,
+    ) -> Optional[Dict[str, str]]:
+        """Ask the LLM to identify one critical issue. Returns {file_path, issue} or None."""
+        if include_content and not small:
+            # Build full file contents block (bounded by prompt budget)
+            file_contents_lines: List[str] = []
+            chars_so_far = 0
+            max_chars = 6000  # leave room for system prompt in token budget
+            for path, content in list(ctx.generated_files.items())[:_CONTENT_INCLUDE_MAX_FILES]:
+                snippet = content[: max(0, max_chars - chars_so_far)]
+                file_contents_lines.append(f"=== {path} ===\n{snippet}")
+                chars_so_far += len(snippet)
+                if chars_so_far >= max_chars:
+                    break
+            file_contents = "\n\n".join(file_contents_lines) or "(no files)"
+            system = _IMPROVEMENT_SYSTEM_WITH_CONTENT
+            user = _IMPROVEMENT_USER_WITH_CONTENT.format(
+                project_name=ctx.project_name,
+                description=ctx.project_description[:400],
+                project_type=ctx.project_type,
+                file_contents=file_contents,
+            )
+        elif small:
+            file_summary = self._build_file_summary(ctx, plan_by_path, max_files=8, compact=True)
             system = _IMPROVEMENT_SYSTEM_SMALL
             user = _IMPROVEMENT_USER_SMALL.format(
                 project_name=ctx.project_name,
@@ -441,6 +550,7 @@ class PatchPhase(BasePhase):
                 file_summary=file_summary,
             )
         else:
+            file_summary = self._build_file_summary(ctx, plan_by_path, max_files=15, compact=False)
             system = _IMPROVEMENT_SYSTEM
             user = _IMPROVEMENT_USER.format(
                 project_name=ctx.project_name,
@@ -455,31 +565,34 @@ class PatchPhase(BasePhase):
             from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
             data = LLMResponseParser.extract_json(raw)
-            if not data or not isinstance(data, dict):
-                return
-            file_path: Optional[str] = data.get("file_path", "")
-            issue: Optional[str] = data.get("issue", "")
-            if not file_path or not issue:
-                ctx.logger.info("[Patch] Iterative improvement: no critical issues found")
-                return
+            if data and isinstance(data, dict):
+                return data
+        except Exception as e:
+            ctx.logger.warning(f"[Patch] LLM issue query failed: {e}")
+        return None
 
-            ctx.logger.info(f"[Patch] Iterative improvement: fixing '{file_path}': {issue}")
-            current_content = ctx.generated_files.get(file_path, "")
-            if not current_content:
-                abs_path = ctx.project_root / file_path
-                if abs_path.exists():
-                    current_content = abs_path.read_text(encoding="utf-8", errors="replace")
-            if not current_content:
-                return
-
-            try:
-                from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
-            except ImportError:
+    def _patch_single_file(self, ctx: PhaseContext, file_path: str, issue: str) -> bool:
+        """Apply CodePatcher for a single issue. Returns True if patched."""
+        current_content = ctx.generated_files.get(file_path, "")
+        if not current_content:
+            abs_path = ctx.project_root / file_path
+            if abs_path.exists():
                 try:
-                    from backend.utils.domains.auto_generation.code_patcher import CodePatcher
-                except ImportError:
-                    return
+                    current_content = abs_path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    pass
+        if not current_content:
+            return False
 
+        try:
+            from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
+        except ImportError:
+            try:
+                from backend.utils.domains.auto_generation.code_patcher import CodePatcher  # type: ignore[no-redef]
+            except ImportError:
+                return False
+
+        try:
             patcher = CodePatcher(
                 llm_client=ctx.llm_manager.get_client("coder"),
                 logger=ctx.logger,
@@ -492,7 +605,68 @@ class PatchPhase(BasePhase):
             )
             if patched and patched != current_content:
                 self._write_file(ctx, file_path, patched)
-                ctx.metrics["iterative_improvement_fix"] = file_path
-                ctx.logger.info(f"[Patch] Iterative improvement: patched {file_path}")
+                ctx.logger.info(f"[Patch] Round patched {file_path}")
+                return True
         except Exception as e:
-            ctx.logger.warning(f"[Patch] Iterative improvement failed: {e}")
+            ctx.logger.warning(f"[Patch] Failed to patch '{file_path}': {e}")
+        return False
+
+    @staticmethod
+    def _build_file_summary(
+        ctx: PhaseContext,
+        plan_by_path: Dict,
+        max_files: int,
+        compact: bool,
+    ) -> str:
+        """Build a path+purpose summary string for the improvement prompt."""
+        lines: List[str] = []
+        for path in list(ctx.generated_files.keys())[:max_files]:
+            plan = plan_by_path.get(path)
+            purpose = plan.purpose if plan else "file"
+            lines.append(f"{path}: {purpose}" if compact else f"  {path}: {purpose}")
+        return "\n".join(lines) or "(no files)"
+
+    def _refresh_cross_file_errors(self, ctx: PhaseContext) -> None:
+        """Re-run HTML↔JS ID mismatch check and refresh ctx.cross_file_errors.
+
+        Zero-LLM. Only runs for HTML+JS projects. Replaces the existing list so the
+        next improvement round gets fresh data after a patch may have changed IDs.
+        """
+        import re as _re
+
+        has_html = any(p.endswith(".html") for p in ctx.generated_files)
+        has_js = any(p.endswith(".js") for p in ctx.generated_files)
+        if not has_html or not has_js:
+            return
+
+        html_ids: set = set()
+        html_file = ""
+        for path, content in ctx.generated_files.items():
+            if path.endswith(".html"):
+                html_ids.update(_re.findall(r'id=["\']([^"\']+)["\']', content))
+                if not html_file:
+                    html_file = path
+
+        new_errors: List[Dict[str, str]] = []
+        for path, content in ctx.generated_files.items():
+            if not path.endswith(".js"):
+                continue
+            gebi = set(_re.findall(r"getElementById\(['\"]([^'\"]+)['\"]\)", content))
+            qs = set(_re.findall(r'querySelector\s*\(\s*[\'"]#([^\'\"#)]+)[\'"]', content))
+            for ref in gebi | qs:
+                if ref not in html_ids:
+                    new_errors.append(
+                        {
+                            "file_a": path,
+                            "file_b": html_file,
+                            "error_type": "id_mismatch",
+                            "description": (
+                                f"JS getElementById/querySelector('#{ref}') not found "
+                                f"(known IDs: {sorted(html_ids)[:5]})"
+                            ),
+                            "suggestion": f"Set id='{ref}' on the correct HTML element",
+                        }
+                    )
+
+        # Replace with fresh results (stale errors from before the patch are irrelevant)
+        ctx.cross_file_errors = new_errors

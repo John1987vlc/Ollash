@@ -10,7 +10,7 @@
 
 | Capability | Status |
 |---|---|
-| 8-phase AutoAgent pipeline, 4B-optimized (Plan→Blueprint→Scaffold→Fill→Patch→Infra→Finish) | ✅ |
+| **10-phase AutoAgent pipeline**, 4B-optimized — with cross-file contract validation + senior review loop | ✅ **new** |
 | **Multi-language code generation** — Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart, SVG + Python/JS/TS | ✅ **new** |
 | **Language-specific infra** — `go.mod`, `Cargo.toml`, `pom.xml`, multi-stage Dockerfiles, per-lang `.gitignore` | ✅ **new** |
 | **Multi-language static analysis** — `go vet`, `cargo check`, `php -l`, `ruby -c`, HTML link validation | ✅ **new** |
@@ -125,28 +125,44 @@ Ollash runs entirely locally. No data leaves your machine. The following hardeni
 
 ## Key Features
 
-### Auto-Agent — 8-Phase Project Generator
+### Auto-Agent — 10-Phase Project Generator
 
-Generate complete, production-ready projects from a single description through an 8-phase pipeline optimized for **4B models** (qwen3.5:4b) with 4K–8K context windows.
+Generate complete, production-ready projects from a single description through a **10-phase pipeline** optimized for **4B models** (qwen3.5:4b) with 4K–8K context windows.
 
 Supports **11 languages**: Python, JavaScript/TypeScript, Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart/Flutter, SVG.
 
 | Tier | Range | Phases |
 |------|-------|--------|
-| **small** (default) | ≤ 8B (`qwen3.5:4b`) | Phases 1–6 + 8 (TestRunPhase skipped) |
-| **full** | ≥ 9B | All 8 phases |
+| **small** (default) | ≤ 8B (`qwen3.5:4b`) | Phases 1–4, 4b, 5, 6, 8 (TestRunPhase + SeniorReviewPhase skipped) |
+| **full** | > 8B | All 10 phases |
 
 Pipeline:
 ```
-Phase 1: ProjectScanPhase  — Zero-LLM: detect type/stack (java_app, csharp_app, go_service…), ingest existing files
-Phase 2: BlueprintPhase    — 1 LLM call: full JSON blueprint (max 20 files; 7 for games/full-stack on small models)
-Phase 3: ScaffoldPhase     — Zero-LLM: create dirs + write stub files
-Phase 4: CodeFillPhase     — Core: generate each file with language-specific system prompts + dynamic token budget
-Phase 5: PatchPhase        — ruff/tsc/go vet/cargo check/php -l/ruby -c + HTML link validation + CodePatcher fixes
-Phase 6: InfraPhase        — go.mod/Cargo.toml/pom.xml/Dockerfile (multi-stage)/per-lang .gitignore via plugins
-Phase 7: TestRunPhase      — Auto-selects go test/cargo test/mvn test/jest/pytest; patches failures, max 3 iters [SKIPPED ≤8B]
-Phase 8: FinishPhase       — Write OLLASH.md, log metrics, fire project_complete event; language-aware run hint
+Phase 1:  ProjectScanPhase          — Zero-LLM: detect type/stack, ingest existing files
+Phase 2:  BlueprintPhase            — 1 LLM call: full JSON blueprint (max 20 files)
+Phase 3:  ScaffoldPhase             — Zero-LLM: create dirs + write stub files
+Phase 4:  CodeFillPhase             — Core: generate each file with language-specific system prompts
+Phase 4b: CrossFileValidationPhase  — Zero-LLM: HTML↔JS id contract, CSS class check, Python relative imports
+                                       Auto-fixes id mismatches when similarity > 50%; remainder seeded to PatchPhase
+Phase 5:  PatchPhase                — ruff/tsc/go vet/cargo check/php -l/ruby -c + HTML link validation
+                                       Multi-round improvement: 3 rounds (large) / 2 rounds (small)
+                                       Round 0 seeds from cross-file errors; small projects include full file content
+Phase 6b: SeniorReviewPhase         — Comprehensive LLM review + CodePatcher repair loop (2 cycles max) [SKIPPED ≤8B]
+                                       Uses existing SeniorReviewer utility (32K context); fixes critical/high issues
+Phase 6:  InfraPhase                — go.mod/Cargo.toml/pom.xml/Dockerfile (multi-stage)/per-lang .gitignore
+Phase 7:  TestRunPhase              — Auto-selects go test/cargo test/mvn test/jest/pytest; 3 fix iterations [SKIPPED ≤8B]
+Phase 8:  FinishPhase               — Write OLLASH.md, log metrics, fire project_complete event
 ```
+
+#### Quality pipeline (phases 4b → 5 → 6b)
+
+Three layers of review catch different classes of bugs:
+
+| Layer | Phase | Catches |
+|-------|-------|---------|
+| **Zero-LLM contract** | 4b CrossFileValidation | `getElementById("chess-board")` when HTML has `id="board"`, missing CSS classes, broken Python relative imports |
+| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet) + 3 LLM improvement rounds; actual file content sent for small projects |
+| **Senior architecture review** | 6b SeniorReview | Missing game logic, incomplete state transitions, wrong data flow — with auto-repair (large models only) |
 
 #### Language-specific system prompts (CodeFillPhase)
 
@@ -330,7 +346,7 @@ ollash/
 │   ├── agents/
 │   │   ├── auto_agent.py                    # Pipeline orchestrator (adaptive phase filtering)
 │   │   ├── default_agent.py                 # Chat agent (IntentRouting + ToolLoop + ContextSummarizer)
-│   │   ├── auto_agent_phases/               # 8 pipeline phases (scan→blueprint→scaffold→fill→patch→infra→testrun→finish) — 11 languages
+│   │   ├── auto_agent_phases/               # 10 pipeline phases (scan→blueprint→scaffold→fill→crossvalidate→patch→senreview→infra→testrun→finish)
 │   │   ├── domain_agents/                   # Swarm: Architect, Developer ×3, Auditor, DevOps
 │   │   ├── mixins/                          # ContextSummarizer, IntentRouting, ToolLoop
 │   │   └── orchestrators/                   # Blackboard, TaskDAG, SelfHealingLoop, DebateNodeRunner
@@ -449,7 +465,10 @@ Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeli
 |---------|----------------------|
 | Token budget | ~800 tokens system + ~2200 tokens user per LLM call (~4K total) |
 | TestRunPhase | Skipped — `ctx.is_small()` returns True, phase 7 is omitted |
-| Blueprint size | Max 5 files for simple projects; **7 for games/full-stack/React/Flutter** (B3 — these structurally need more files) |
+| SeniorReviewPhase | Skipped — 32K context window too slow/unreliable on 4B |
+| CrossFileValidationPhase | **Runs** — zero-LLM, catches id mismatches for free |
+| Improvement rounds | 2 rounds (vs 3 for large models); file summary only |
+| Blueprint size | Max 5 files for simple projects; **7 for games/full-stack/React/Flutter** |
 | Language prompts | Compact single-line variants for Go/Rust/Java/C#/PHP/Ruby/Kotlin/Dart |
 | Dynamic token budget | `_estimate_num_predict()` → 4096 tokens for game/logic/engine/solver files, 2048 otherwise |
 | Syntax validation | CodeFillPhase validates output and retries once on syntax error |
@@ -516,7 +535,7 @@ Domain toolsets: `file_system_tools`, `command_line_tools`, `network_tools`, `sy
 ```bash
 # Unit tests (no Ollama required)
 pytest tests/unit/ -q
-# → 1 106 passed, 2 skipped, 1 xfailed
+# → 1 129 passed, 2 skipped, 1 xfailed
 
 # Integration tests
 pytest tests/integration/ -q
@@ -548,7 +567,7 @@ CI pipeline (`.github/workflows/ci.yml`): `ruff lint → unit tests → integrat
 | `GET` | `/api/health/` | — | Ollama connectivity + CPU/RAM |
 | `GET` | `/api/privacy/status` | — | Local mode detection |
 | `GET` | `/api/privacy/audit` | ✓ | Outbound HTTP call log |
-| `GET` | `/api/pipelines/phases` | — | Catalog of 8 AutoAgent phases |
+| `GET` | `/api/pipelines/phases` | — | Catalog of 10 AutoAgent phases |
 | `GET` | `/api/pipelines` | ✓ | List saved pipelines |
 | `POST` | `/api/pipelines` | ✓ | Create pipeline |
 | `POST` | `/api/pipelines/{id}/run` | ✓ | Execute pipeline (SSE) |

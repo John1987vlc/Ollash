@@ -1,5 +1,46 @@
 # Changelog - Ollash
 
+## [1.3.0] - 2026-03-15 (Quality Pipeline — Cross-File Validation + Senior Review)
+
+### ✨ New Features
+
+#### 10-Phase AutoAgent Pipeline
+The project generation pipeline grows from 8 to **10 phases** with two new quality phases that catch semantic bugs static analysis cannot:
+
+- **`CrossFileValidationPhase` (4b)** — Zero-LLM contract checker inserted between CodeFill and Patch:
+  - **HTML ↔ JS ID contract**: detects `getElementById("chess-board")` when HTML only has `id="board"`. Auto-fixes mismatches with similarity > 50% using `difflib.SequenceMatcher` (JS is treated as the spec). Unfixable cases are seeded into PatchPhase for LLM repair.
+  - **HTML ↔ CSS class contract**: flags HTML class attributes with no corresponding CSS selector (advisory).
+  - **Python relative imports**: verifies that `from .module import Name` resolves to a name actually defined in the target module.
+  - Runs on **all model tiers** including 4B (zero LLM cost). Stores errors in `ctx.cross_file_errors` for downstream phases.
+
+- **`SeniorReviewPhase` (6b)** — Activates the existing `SeniorReviewer` utility (previously never called from the pipeline), inserted between Patch and Infra:
+  - Up to 2 review + CodePatcher repair cycles per generation.
+  - Fixes critical/high severity issues (missing game logic, wrong data flow, incomplete state machines) automatically.
+  - Respects a 20K character budget when sending files to the 32K-context reviewer to prevent OOM.
+  - Skipped automatically for ≤8B models. Results stored in `ctx.metrics["senior_review"]`.
+
+#### Enhanced PatchPhase — Multi-Round Improvement
+`_iterative_improvement()` now runs **3 rounds** (was 1), 2 for small models:
+- **Round 0** consumes `ctx.cross_file_errors` as seed — no extra LLM call needed when CrossFileValidation found issues.
+- **Content inclusion**: for projects ≤ 6 files and ≤ 8 000 total chars (typical for HTML/JS games), the LLM receives **actual file content**, not just path+purpose — enabling it to spot HTML id mismatches, truncated SVGs, etc.
+- **Between rounds**: zero-LLM HTML↔JS ID re-check refreshes `ctx.cross_file_errors` so each round has fresh data.
+- Metrics: `ctx.metrics["iterative_improvement_rounds"]` records how many rounds ran.
+
+#### PhaseContext — `cross_file_errors` field
+New pipeline communication channel (`List[Dict[str, Any]]`) written by CrossFileValidationPhase and consumed by PatchPhase. Not persisted in checkpoint (transient state).
+
+### ✅ Tests
+- `tests/unit/backend/agents/auto_agent_phases/test_cross_file_validation_phase.py` — 13 tests covering ID detection, auto-fix, CSS/Python checks, metrics, internal key stripping.
+- `tests/unit/backend/agents/auto_agent_phases/test_senior_review_phase.py` — 10 tests covering small model skip, pass/fail cycles, repair loop, robustness on import failures and missing files.
+- **1 129 unit tests passing** (was 1 106).
+
+### 🏗️ Architecture
+- `auto_agent.py` `FULL_PHASE_ORDER` extended to 10 entries; `SMALL_PHASE_ORDER` to 8 (adds CrossFileValidationPhase, keeps SeniorReviewPhase out).
+- Phase IDs: `CrossFileValidationPhase = "4b"`, `SeniorReviewPhase = "6b"` (preserve existing phase numbering).
+- All new phases follow best-effort pattern: wrapped in `try/except Exception`, never abort the pipeline.
+
+---
+
 ## [1.2.0] - 2026-02-22 (Architecture Cleanup & Code Quality)
 
 ### 🏗️ Refactoring & Code Quality
