@@ -129,3 +129,131 @@ class TestBlueprintPhase:
             project_type="api",
             tech_stack=["python", "fastapi"],
         )
+
+
+# ----------------------------------------------------------------
+# M2 — _dynamic_max_files: python_app / api → 7 files on small models
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_dynamic_max_files_api_returns_7_for_small_model():
+    """M2: project_type='api' on a small model (≤8B) should return 7."""
+    ctx = _make_ctx(model_name="qwen3.5:4b")
+    ctx.project_type = "api"
+    result = BlueprintPhase._dynamic_max_files(ctx)
+    assert result == 7
+
+
+@pytest.mark.unit
+def test_dynamic_max_files_python_app_returns_7_for_small_model():
+    """M2: project_type='python_app' on a small model should return 7."""
+    ctx = _make_ctx(model_name="qwen3.5:4b")
+    ctx.project_type = "python_app"
+    result = BlueprintPhase._dynamic_max_files(ctx)
+    assert result == 7
+
+
+@pytest.mark.unit
+def test_dynamic_max_files_web_app_returns_7_for_small_model():
+    """M2: project_type='web_app' on a small model should return 7."""
+    ctx = _make_ctx(model_name="qwen3.5:4b")
+    ctx.project_type = "web_app"
+    result = BlueprintPhase._dynamic_max_files(ctx)
+    assert result == 7
+
+
+@pytest.mark.unit
+def test_dynamic_max_files_cli_still_5():
+    """M2: CLI projects on small model still return 5 (not in multi_file_types)."""
+    ctx = _make_ctx(model_name="qwen3.5:4b")
+    ctx.project_type = "cli"
+    result = BlueprintPhase._dynamic_max_files(ctx)
+    assert result == 5
+
+
+# ----------------------------------------------------------------
+# M3 — _ensure_mandatory_files: auto-adds static/style.css
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_ensure_mandatory_files_adds_css():
+    """M3: CSS in stack + HTML in blueprint + no CSS planned → auto-add style.css."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    ctx = _make_ctx()
+    ctx.tech_stack = ["python", "fastapi", "html", "css"]
+    ctx.blueprint = [
+        FilePlan(path="index.html", purpose="Main page", exports=[], imports=[], key_logic="", priority=2),
+    ]
+    BlueprintPhase._ensure_mandatory_files(ctx)
+    paths = [fp.path for fp in ctx.blueprint]
+    assert "static/style.css" in paths
+
+
+@pytest.mark.unit
+def test_ensure_mandatory_files_no_duplicate():
+    """M3: CSS already planned → _ensure_mandatory_files must not add a second one."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    ctx = _make_ctx()
+    ctx.tech_stack = ["html", "css"]
+    ctx.blueprint = [
+        FilePlan(path="index.html", purpose="Main", exports=[], imports=[], key_logic="", priority=2),
+        FilePlan(path="static/style.css", purpose="Styles", exports=[], imports=[], key_logic="", priority=1),
+    ]
+    BlueprintPhase._ensure_mandatory_files(ctx)
+    css_files = [fp for fp in ctx.blueprint if fp.path.endswith(".css")]
+    assert len(css_files) == 1, "Should not add duplicate CSS"
+
+
+@pytest.mark.unit
+def test_ensure_mandatory_files_no_css_if_no_html():
+    """M3: CSS in stack but no HTML → do NOT add CSS (no HTML to reference it)."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    ctx = _make_ctx()
+    ctx.tech_stack = ["python", "css"]
+    ctx.blueprint = [
+        FilePlan(path="app.py", purpose="Entry", exports=[], imports=[], key_logic="", priority=1),
+    ]
+    BlueprintPhase._ensure_mandatory_files(ctx)
+    css_files = [fp for fp in ctx.blueprint if fp.path.endswith(".css")]
+    assert len(css_files) == 0
+
+
+# ----------------------------------------------------------------
+# M4 — _build_mandatory_hints
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_build_mandatory_hints_fastapi_html():
+    """M4: FastAPI + HTML in large model → hints include StaticFiles + startup."""
+    ctx = _make_ctx(model_name="qwen3-coder:30b")
+    ctx.tech_stack = ["python", "fastapi", "sqlite", "html"]
+    ctx.project_type = "python_app"
+    hints = BlueprintPhase._build_mandatory_hints(ctx)
+    assert "StaticFiles" in hints
+    assert "startup" in hints
+
+
+@pytest.mark.unit
+def test_build_mandatory_hints_empty_for_small():
+    """M4: Small model → no hints (budget constraint)."""
+    ctx = _make_ctx(model_name="qwen3.5:4b")
+    ctx.tech_stack = ["python", "fastapi", "sqlite", "html"]
+    ctx.project_type = "python_app"
+    hints = BlueprintPhase._build_mandatory_hints(ctx)
+    assert hints == ""
+
+
+@pytest.mark.unit
+def test_build_mandatory_hints_empty_without_fastapi():
+    """M4: Large model but no FastAPI in stack → no hints."""
+    ctx = _make_ctx(model_name="qwen3-coder:30b")
+    ctx.tech_stack = ["python", "flask", "html"]
+    ctx.project_type = "python_app"
+    hints = BlueprintPhase._build_mandatory_hints(ctx)
+    assert hints == ""

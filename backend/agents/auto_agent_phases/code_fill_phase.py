@@ -420,6 +420,24 @@ class CodeFillPhase(BasePhase):
                 if dom_contract:
                     user += f"\n\n## DOM CONTRACT (IDs/classes already defined in HTML/CSS)\n{dom_contract}"
 
+            # M7 — FastAPI entry-point mandatory patterns (large models only)
+            if self._is_fastapi_entry_point(ctx, plan.path):
+                has_html = any(fp.path.endswith(".html") for fp in ctx.blueprint)
+                has_sqlite = "sqlite" in [t.lower() for t in ctx.tech_stack]
+                mandatory_block = self._build_fastapi_mandatory_block(has_html, has_sqlite)
+                if mandatory_block:
+                    user = user.rstrip() + f"\n\n{mandatory_block}"
+
+            # M8 — Shared JS null guards (large models + multi-page projects)
+            if self._is_shared_js(ctx, plan.path):
+                user = user.rstrip() + (
+                    "\n\n## MULTI-PAGE GUARD — MANDATORY:\n"
+                    "This JS runs on MULTIPLE pages with DIFFERENT DOM elements.\n"
+                    "RULE: Always null-check before any DOM access:\n"
+                    "  const el = document.getElementById('x'); if (!el) return;\n"
+                    "Apply this guard to EVERY getElementById / querySelector call."
+                )
+
         num_predict = self._estimate_num_predict(plan)
         content = self._generate_with_retry(ctx, system, user, plan, no_think=is_small, max_tokens=num_predict)
 
@@ -706,7 +724,45 @@ class CodeFillPhase(BasePhase):
     @staticmethod
     def _is_browser_js(ctx: PhaseContext, path: str) -> bool:
         """True when generating a .js/.jsx file for a browser (not Node) project."""
-        return Path(path).suffix.lower() in (".js", ".jsx") and ctx.project_type in ("frontend_web", "web_app", "game")
+        return Path(path).suffix.lower() in (".js", ".jsx") and ctx.project_type in (
+            "frontend_web",
+            "web_app",
+            "game",
+            "python_app",
+            "api",
+        )
+
+    @staticmethod
+    def _is_fastapi_entry_point(ctx: PhaseContext, path: str) -> bool:
+        """True for main Python entry files in a FastAPI project (M7)."""
+        return Path(path).name.lower() in {"app.py", "main.py", "server.py", "run.py"} and "fastapi" in [
+            t.lower() for t in ctx.tech_stack
+        ]
+
+    @staticmethod
+    def _build_fastapi_mandatory_block(has_html: bool, has_sqlite: bool) -> str:
+        """Return a MANDATORY PATTERNS block for FastAPI entry points (M7)."""
+        lines = ["## MANDATORY PATTERNS — include ALL of these:"]
+        if has_html:
+            lines.append("- app.mount('/static', StaticFiles(directory='static'), name='static')")
+            lines.append("- from fastapi.staticfiles import StaticFiles  # required import")
+        if has_sqlite:
+            lines.append("- @app.on_event('startup') async def startup(): init_db()  # NOT only in __main__")
+            lines.append("- Use 'with sqlite3.connect(DB) as conn:' context manager — NEVER call conn.close() manually")
+        lines.append("- GET /api/<resource> endpoint that returns ALL records as a list (not only by ID)")
+        lines.append("- All API endpoints must be tested with curl or UI before ship")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _is_shared_js(ctx: PhaseContext, path: str) -> bool:
+        """True when a JS file is imported by 2+ HTML files in the blueprint (M8)."""
+        if Path(path).suffix.lower() not in (".js", ".jsx"):
+            return False
+        js_name = Path(path).name
+        html_importers = sum(
+            1 for fp in ctx.blueprint if fp.path.endswith(".html") and (path in fp.imports or js_name in fp.imports)
+        )
+        return html_importers > 1
 
     @staticmethod
     def _build_dom_contract(ctx: PhaseContext) -> str:

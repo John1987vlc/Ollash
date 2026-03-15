@@ -158,3 +158,67 @@ class TestBlueprintOutput:
         bp = BlueprintOutput.model_validate(data)
         assert bp.project_type == "api"
         assert len(bp.files) == 2
+
+
+# ----------------------------------------------------------------
+# M11 — description_complexity improved scoring
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestDescriptionComplexityM11:
+    def test_barbershop_scores_high(self):
+        """M11: A barbershop booking web app with admin + availability should score ≥6."""
+        ctx = _make_ctx()
+        ctx.project_description = (
+            "Web app de reservas para una peluquería con panel de administración. "
+            "Página pública de reservas: formulario para que el cliente seleccione servicio, "
+            "selector de fecha según disponibilidad real, campo de nombre y teléfono. "
+            "Panel de admin con login, dashboard de reservas, gestión de disponibilidad."
+        )
+        score = ctx.description_complexity()
+        assert score >= 6, f"Barbershop booking app should score ≥6, got {score}"
+
+    def test_simple_cli_scores_low(self):
+        """M11: A simple CLI script should score ≤3."""
+        ctx = _make_ctx()
+        ctx.project_description = "A simple hello world script."
+        score = ctx.description_complexity()
+        assert score <= 3, f"Simple CLI should score ≤3, got {score}"
+
+    def test_complexity_cap_is_10(self):
+        """M11: Score is always capped at 10 regardless of keyword density."""
+        ctx = _make_ctx()
+        ctx.project_description = (
+            "admin login dashboard booking reservation payment availability "
+            "notification search upload calendar permission complex full enterprise "
+            "advanced production scalable microservice distributed authentication "
+            "authorization database real-time websocket async multi-user role "
+            "panel page section view screen tab " * 3
+        )
+        score = ctx.description_complexity()
+        assert score == 10
+
+    def test_high_complexity_words_score_2_each(self):
+        """M11: 'admin' alone should add 2 to the score."""
+        ctx_base = _make_ctx()
+        ctx_base.project_description = "A web project."
+        base_score = ctx_base.description_complexity()
+
+        ctx_with_admin = _make_ctx()
+        ctx_with_admin.project_description = "A web project with admin."
+        admin_score = ctx_with_admin.description_complexity()
+
+        assert admin_score == base_score + 2
+
+    def test_multi_page_bonus_applied(self):
+        """M11: Two multi-page keywords → +1 bonus."""
+        ctx = _make_ctx()
+        ctx.project_description = "A one-page app."  # no multi-page bonus
+        score_no_bonus = ctx.description_complexity()
+
+        ctx2 = _make_ctx()
+        ctx2.project_description = "A two-page app with a settings section and a main page."
+        score_bonus = ctx2.description_complexity()
+
+        assert score_bonus >= score_no_bonus + 1

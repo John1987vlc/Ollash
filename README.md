@@ -10,7 +10,8 @@
 
 | Capability | Status |
 |---|---|
-| **10-phase AutoAgent pipeline**, 4B-optimized — with cross-file contract validation + senior review loop | ✅ **new** |
+| **10-phase AutoAgent pipeline**, 4B-optimized — with cross-file contract validation + senior review loop | ✅ |
+| **11 AutoAgent pipeline improvements** — CSS auto-injection, FastAPI mandatory patterns, JS null guards, DB connection bug detection, smarter complexity scoring | ✅ **new** |
 | **Multi-language code generation** — Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart, SVG + Python/JS/TS | ✅ **new** |
 | **Language-specific infra** — `go.mod`, `Cargo.toml`, `pom.xml`, multi-stage Dockerfiles, per-lang `.gitignore` | ✅ **new** |
 | **Multi-language static analysis** — `go vet`, `cargo check`, `php -l`, `ruby -c`, HTML link validation | ✅ **new** |
@@ -160,8 +161,8 @@ Three layers of review catch different classes of bugs:
 
 | Layer | Phase | Catches |
 |-------|-------|---------|
-| **Zero-LLM contract** | 4b CrossFileValidation | `getElementById("chess-board")` when HTML has `id="board"`, missing CSS classes, broken Python relative imports |
-| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet) + 3 LLM improvement rounds; actual file content sent for small projects |
+| **Zero-LLM contract** | 4b CrossFileValidation | `getElementById("chess-board")` when HTML has `id="board"`, missing CSS classes, broken Python relative imports, JS `fetch()` vs backend route mismatches, HTML form fields vs Pydantic models |
+| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet) + 3 LLM improvement rounds; actual file content sent for small projects (up to 25k chars); DB connection bugs (`USE_AFTER_CLOSE`, `INIT_DB_ONLY_IN_MAIN`); full HTML context for targeted patches |
 | **Senior architecture review** | 6b SeniorReview | Missing game logic, incomplete state transitions, wrong data flow — with auto-repair (large models only) |
 
 #### Language-specific system prompts (CodeFillPhase)
@@ -468,7 +469,10 @@ Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeli
 | SeniorReviewPhase | Skipped — 32K context window too slow/unreliable on 4B |
 | CrossFileValidationPhase | **Runs** — zero-LLM, catches id mismatches for free |
 | Improvement rounds | 2 rounds (vs 3 for large models); file summary only |
-| Blueprint size | Max 5 files for simple projects; **7 for games/full-stack/React/Flutter** |
+| Blueprint size | Max 5 files for simple projects; **7 for games/full-stack/React/Flutter/FastAPI web apps** |
+| CSS auto-injection | `static/style.css` auto-added to blueprint when CSS in stack + HTML planned but no CSS file |
+| FastAPI mandatory hints | Large models get a `MANDATORY PATTERNS` block in CodeFill prompts: `StaticFiles`, `startup` event, list endpoints |
+| Shared JS null guards | JS imported by multiple HTML pages gets `if (!el) return;` guard instructions |
 | Language prompts | Compact single-line variants for Go/Rust/Java/C#/PHP/Ruby/Kotlin/Dart |
 | Dynamic token budget | `_estimate_num_predict()` → 4096 tokens for game/logic/engine/solver files, 2048 otherwise |
 | Syntax validation | CodeFillPhase validates output and retries once on syntax error |

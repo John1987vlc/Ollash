@@ -224,3 +224,160 @@ def test_internal_tracking_keys_stripped_from_cross_file_errors():
     for err in ctx.cross_file_errors:
         for key in err:
             assert not key.startswith("_"), f"Internal key '{key}' leaked into cross_file_errors"
+
+
+# ----------------------------------------------------------------
+# M5 — JS fetch() vs backend routes
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_detects_missing_api_route():
+    """M5: JS calls /api/login but backend only has /admin/login → error detected."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "index.html": "<html></html>",
+        "static/app.js": "fetch('/api/login', {method: 'POST'})",
+        "app.py": "@app.post('/admin/login')\ndef login(): pass",
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_js_fetch_vs_routes(ctx)
+    assert any(e["error_type"] == "missing_api_route" for e in errors), (
+        "Expected missing_api_route error for /api/login vs /admin/login"
+    )
+
+
+@pytest.mark.unit
+def test_no_error_when_route_exists():
+    """M5: JS calls /api/bookings, backend has @app.get('/api/bookings') → no error."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "static/app.js": "fetch('/api/bookings')",
+        "app.py": "@app.get('/api/bookings')\ndef list_bookings(): pass",
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_js_fetch_vs_routes(ctx)
+    route_errors = [e for e in errors if e["error_type"] == "missing_api_route"]
+    assert len(route_errors) == 0
+
+
+@pytest.mark.unit
+def test_normalize_route_path_numeric_segment():
+    """M5: Numeric path segments normalized to {param}."""
+    result = CrossFileValidationPhase._normalize_route_path("/api/bookings/123")
+    assert result == "/api/bookings/{param}"
+
+
+@pytest.mark.unit
+def test_normalize_route_path_named_param():
+    """M5: Named FastAPI path params normalized to {param}."""
+    result = CrossFileValidationPhase._normalize_route_path("/api/bookings/{booking_id}")
+    assert result == "/api/bookings/{param}"
+
+
+@pytest.mark.unit
+def test_normalize_route_path_trailing_slash_stripped():
+    """M5: Trailing slashes are stripped."""
+    result = CrossFileValidationPhase._normalize_route_path("/api/bookings/")
+    assert result == "/api/bookings"
+
+
+@pytest.mark.unit
+def test_no_errors_when_no_backend_routes():
+    """M5: No @app.get/post decorators in Python files → skip check (avoid false positives)."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "static/app.js": "fetch('/api/data')",
+        "models.py": "class User:\n    pass",
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_js_fetch_vs_routes(ctx)
+    assert len(errors) == 0, "No backend routes found → should skip without errors"
+
+
+@pytest.mark.unit
+def test_no_error_when_parameterized_route_matches():
+    """M5: JS calls /api/bookings/42, backend has /api/bookings/{id} → normalized match."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "static/app.js": "fetch(`/api/bookings/${id}`)",  # template literal — skipped by regex
+        "app.js": "fetch('/api/bookings/42')",
+        "app.py": "@app.get('/api/bookings/{booking_id}')\ndef get_booking(): pass",
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_js_fetch_vs_routes(ctx)
+    route_errors = [e for e in errors if e["error_type"] == "missing_api_route"]
+    assert len(route_errors) == 0
+
+
+# ----------------------------------------------------------------
+# M6 — HTML form fields vs Pydantic models
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_detects_form_field_missing_from_model():
+    """M6: HTML form has name='client_name', Pydantic model has 'name' → mismatch."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "index.html": (
+            '<form action="/api/bookings" method="post"><input name="client_name"><input name="service"></form>'
+        ),
+        "app.py": ("class BookingCreate(BaseModel):\n    name: str\n    service: str\n"),
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_form_fields_vs_models(ctx)
+    assert any(e["error_type"] == "form_field_mismatch" for e in errors), (
+        "Expected form_field_mismatch for 'client_name' not in Pydantic model"
+    )
+
+
+@pytest.mark.unit
+def test_no_error_when_fields_match():
+    """M6: All HTML form fields match Pydantic model fields → no error."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "index.html": (
+            '<form action="/api/bookings" method="post">'
+            '<input name="name">'
+            '<input name="service">'
+            '<input name="date">'
+            "</form>"
+        ),
+        "app.py": ("class BookingCreate(BaseModel):\n    name: str\n    service: str\n    date: str\n"),
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_form_fields_vs_models(ctx)
+    mismatch_errors = [e for e in errors if e["error_type"] == "form_field_mismatch"]
+    assert len(mismatch_errors) == 0
+
+
+@pytest.mark.unit
+def test_form_fields_ignores_csrf_token():
+    """M6: csrf_token is excluded from mismatch checks."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "index.html": (
+            '<form action="/api/login" method="post"><input name="csrf_token" value="x"><input name="username"></form>'
+        ),
+        "app.py": ("class LoginRequest(BaseModel):\n    username: str\n    password: str\n"),
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_form_fields_vs_models(ctx)
+    # csrf_token should be ignored; username is present in model → no mismatch
+    csrf_errors = [e for e in errors if "csrf_token" in e.get("description", "")]
+    assert len(csrf_errors) == 0
+
+
+@pytest.mark.unit
+def test_form_fields_only_checks_api_action_forms():
+    """M6: Forms without action='/api/...' are ignored."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "index.html": ('<form action="/search"><input name="completely_missing_field"></form>'),
+        "app.py": "class SearchQuery(BaseModel):\n    q: str\n",
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_form_fields_vs_models(ctx)
+    mismatch_errors = [e for e in errors if e["error_type"] == "form_field_mismatch"]
+    assert len(mismatch_errors) == 0, "Non-/api/ forms should not be checked"

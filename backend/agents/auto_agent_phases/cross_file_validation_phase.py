@@ -61,6 +61,12 @@ class CrossFileValidationPhase(BasePhase):
             all_errors.extend(self._check_html_css_classes(ctx))
         if has_py:
             all_errors.extend(self._check_python_imports(ctx))
+        # M5 — Pass 4: JS fetch() URLs vs backend API routes (zero-LLM)
+        if has_js and has_py:
+            all_errors.extend(self._check_js_fetch_vs_routes(ctx))
+        # M6 — Pass 5: HTML form field names vs Pydantic model fields (zero-LLM)
+        if has_html and has_py:
+            all_errors.extend(self._check_form_fields_vs_models(ctx))
 
         # Attempt zero-LLM auto-fixes for ID mismatches
         auto_fixed = self._attempt_auto_fixes(ctx, all_errors)
@@ -349,3 +355,154 @@ class CrossFileValidationPhase(BasePhase):
                 best_ratio = ratio
                 best = cand
         return best, best_ratio
+
+    # ----------------------------------------------------------------
+    # M5 — Pass 4: JS fetch() URLs vs backend route decorators
+    # ----------------------------------------------------------------
+
+    def _check_js_fetch_vs_routes(self, ctx: PhaseContext) -> List[Dict[str, Any]]:
+        """M5 — Detect fetch() calls in JS whose URL has no matching backend route.
+
+        Extracts literal URLs from fetch('...') calls and compares against
+        @app.get/post/put/delete/patch route decorators in Python files.
+        Normalizes path parameters so /api/items/123 matches /api/items/{id}.
+        Zero-LLM. Skips if no route decorators are found (non-API project guard).
+        """
+        _FETCH_RE = re.compile(r"fetch\s*\(\s*['\"]([^'\"$]+)['\"]", re.IGNORECASE)
+        _ROUTE_RE = re.compile(
+            r'@(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*[\'"]([^\'"]+)[\'"]',
+            re.IGNORECASE,
+        )
+
+        js_files = {p: c for p, c in ctx.generated_files.items() if p.endswith(".js")}
+        py_files = {p: c for p, c in ctx.generated_files.items() if p.endswith(".py")}
+
+        # Collect backend routes: normalized_path → set of HTTP methods
+        backend_routes: Dict[str, set] = {}
+        primary_py = ""
+        for py_path, content in py_files.items():
+            for method, path in _ROUTE_RE.findall(content):
+                norm = self._normalize_route_path(path)
+                backend_routes.setdefault(norm, set()).add(method.upper())
+                if not primary_py:
+                    primary_py = py_path
+
+        # Guard: skip if no route decorators found (not a FastAPI/Flask project)
+        if not backend_routes:
+            return []
+
+        errors: List[Dict[str, Any]] = []
+        for js_path, js_content in js_files.items():
+            for url in _FETCH_RE.findall(js_content):
+                if not url.startswith("/"):
+                    continue  # skip absolute URLs and external calls
+                norm_url = self._normalize_route_path(url)
+                if norm_url not in backend_routes:
+                    known = sorted(backend_routes.keys())[:5]
+                    errors.append(
+                        {
+                            "file_a": js_path,
+                            "file_b": primary_py,
+                            "error_type": "missing_api_route",
+                            "description": (
+                                f"JS calls fetch('{url}') but no backend route matches "
+                                f"'{norm_url}'. Known routes: {known}"
+                            ),
+                            "suggestion": (
+                                f"Add a route handler for '{url}' in {primary_py}, "
+                                "or update the JS URL to match an existing route"
+                            ),
+                        }
+                    )
+        return errors
+
+    @staticmethod
+    def _normalize_route_path(path: str) -> str:
+        """Normalize URL path for comparison.
+
+        /api/bookings/123  →  /api/bookings/{param}
+        /api/bookings/{booking_id}  →  /api/bookings/{param}
+        """
+        path = re.sub(r"/\d+", "/{param}", path)
+        path = re.sub(r"/\{[^}]+\}", "/{param}", path)
+        return path.rstrip("/")
+
+    # ----------------------------------------------------------------
+    # M6 — Pass 5: HTML form field names vs Pydantic model fields
+    # ----------------------------------------------------------------
+
+    def _check_form_fields_vs_models(self, ctx: PhaseContext) -> List[Dict[str, Any]]:
+        """M6 — Detect HTML form input names that don't match any Pydantic model field.
+
+        Extracts name="x" attributes from <form> elements that POST to /api/... paths,
+        then checks all Pydantic BaseModel subclass fields in .py files.
+        Zero-LLM.
+        """
+        _BASEMODEL_CLASS_RE = re.compile(r"class \w+\s*\([^)]*BaseModel[^)]*\)\s*:", re.IGNORECASE)
+        _FIELD_RE = re.compile(r"^\s{4}(\w+)\s*[=:]", re.MULTILINE)
+        _FORM_ACTION_RE = re.compile(r"<form[^>]+action=[\"']([^\"']*)[\"']", re.IGNORECASE)
+        _INPUT_NAME_RE = re.compile(r"<input[^>]+name=[\"']([^\"']+)[\"']", re.IGNORECASE)
+        _SELECT_NAME_RE = re.compile(r"<(?:select|textarea)[^>]+name=[\"']([^\"']+)[\"']", re.IGNORECASE)
+
+        html_files = {p: c for p, c in ctx.generated_files.items() if p.endswith(".html")}
+        py_files = {p: c for p, c in ctx.generated_files.items() if p.endswith(".py")}
+
+        if not html_files or not py_files:
+            return []
+
+        # Collect all Pydantic model field names
+        pydantic_fields: Set[str] = set()
+        for content in py_files.values():
+            for class_match in _BASEMODEL_CLASS_RE.finditer(content):
+                start = class_match.end()
+                class_body = content[start : start + 800]
+                for field_match in _FIELD_RE.finditer(class_body):
+                    name = field_match.group(1)
+                    if not name.startswith("_") and name not in {"model_config", "class"}:
+                        pydantic_fields.add(name)
+
+        if not pydantic_fields:
+            return []
+
+        # Standard non-data fields to ignore
+        _EXCLUDED = {"csrf_token", "submit", "_method", "action", "utf8", "authenticity_token"}
+
+        primary_py = next(iter(py_files.keys()), "")
+        errors: List[Dict[str, Any]] = []
+
+        for html_path, html_content in html_files.items():
+            # Only check forms that target /api/ endpoints
+            form_actions = _FORM_ACTION_RE.findall(html_content)
+            has_api_form = any("/api/" in a for a in form_actions)
+            if not has_api_form:
+                continue
+
+            # Collect all input names in this file
+            input_names: Set[str] = set(_INPUT_NAME_RE.findall(html_content))
+            input_names.update(_SELECT_NAME_RE.findall(html_content))
+            input_names -= _EXCLUDED
+
+            for field_name in sorted(input_names):
+                if field_name in pydantic_fields:
+                    continue
+                best, ratio = self._best_match(field_name, pydantic_fields)
+                if ratio > 0.7:
+                    suggestion = f"Rename form field '{field_name}' to '{best}' (similar to existing model field)"
+                else:
+                    suggestion = (
+                        f"Add field '{field_name}' to the relevant Pydantic model in {primary_py}, "
+                        "or rename the form input to match an existing field"
+                    )
+                errors.append(
+                    {
+                        "file_a": html_path,
+                        "file_b": primary_py,
+                        "error_type": "form_field_mismatch",
+                        "description": (
+                            f"HTML form has name='{field_name}' but no Pydantic model defines this field. "
+                            f"Known model fields: {sorted(pydantic_fields)[:5]}"
+                        ),
+                        "suggestion": suggestion,
+                    }
+                )
+        return errors

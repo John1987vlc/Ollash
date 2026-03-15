@@ -84,6 +84,10 @@ class BlueprintPhase(BasePhase):
         # Append dynamic max_files hint so the LLM respects the adjusted limit
         if not ctx.is_small():
             user = user.rstrip() + f"\n\nConstraint: generate at most {max_files} files for this project."
+            # M4 — Inject mandatory pattern hints for FastAPI+HTML+SQLite projects
+            mandatory_hints = self._build_mandatory_hints(ctx)
+            if mandatory_hints:
+                user = user.rstrip() + f"\n\n{mandatory_hints}"
 
         result: BlueprintOutput = self._llm_json(
             ctx,
@@ -115,6 +119,9 @@ class BlueprintPhase(BasePhase):
             ],
             key=lambda fp: fp.priority,
         )
+
+        # M3 — Post-process: guarantee essential files are present
+        self._ensure_mandatory_files(ctx)
 
         # #3 — Validate that import graph is a DAG (no cycles)
         cycles = self._detect_dag_cycles(ctx.blueprint)
@@ -183,12 +190,17 @@ class BlueprintPhase(BasePhase):
     def _dynamic_max_files(ctx: PhaseContext) -> int:
         """Adjust blueprint file limit based on model size and description complexity."""
         if ctx.is_small():
-            # B3 — games and full-stack projects structurally need more files
-            # (e.g., cards.js + poker.js + style.css + index.html = 4 already)
+            # B3 — games, full-stack, and Python web apps need more files
+            # e.g. app.py + index.html + admin.html + style.css + app.js + requirements.txt = 6
+            # M2: added python_app, api, web_app, full_stack_web
             multi_file_types = {
                 "game",
                 "frontend_web",
                 "full_stack",
+                "full_stack_web",
+                "python_app",
+                "api",
+                "web_app",
                 "react_app",
                 "flutter_app",
                 "java_app",
@@ -204,6 +216,71 @@ class BlueprintPhase(BasePhase):
         if complexity <= 5:
             return 14  # Medium project
         return 20  # Complex project: full budget
+
+    # ----------------------------------------------------------------
+    # M3 — Mandatory file injection
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _ensure_mandatory_files(ctx: PhaseContext) -> None:
+        """Post-process: guarantee essential files are in the blueprint.
+
+        Rule: If CSS is in tech_stack but no .css file is planned, and at least
+        one .html file IS planned, insert static/style.css at priority 1 so it
+        is generated before the HTML files that reference it.
+        """
+        css_in_stack = "css" in [t.lower() for t in ctx.tech_stack]
+        has_css = any(fp.path.endswith(".css") for fp in ctx.blueprint)
+        has_html = any(fp.path.endswith(".html") for fp in ctx.blueprint)
+
+        if css_in_stack and has_html and not has_css:
+            css_plan = FilePlan(
+                path="static/style.css",
+                purpose="Main stylesheet for all pages",
+                exports=[],
+                imports=[],
+                key_logic=(
+                    "CSS custom properties (--primary-color, --bg-color) for theming; "
+                    "responsive flexbox layout; form, table, button, and nav styles; "
+                    "status badge classes (.status-pending, .status-cancelled)"
+                ),
+                priority=1,
+            )
+            # Insert at front; sorted() is stable so priority=1 entries keep relative order
+            ctx.blueprint = [css_plan] + ctx.blueprint
+            ctx.logger.info("[Blueprint] M3: Auto-added static/style.css (CSS in stack, no .css planned)")
+
+    # ----------------------------------------------------------------
+    # M4 — Mandatory hints for FastAPI+HTML+SQLite (large models only)
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _build_mandatory_hints(ctx: PhaseContext) -> str:
+        """Return mandatory pattern hints for the blueprint LLM prompt.
+
+        Only emitted for large (>8B) models where the token budget allows it.
+        Targets FastAPI + HTML + SQLite projects — the combination most likely to
+        produce missing StaticFiles, init_db-only-in-main, and missing list endpoints.
+        """
+        # Small models: budget too tight
+        if ctx.is_small():
+            return ""
+
+        has_fastapi = "fastapi" in [t.lower() for t in ctx.tech_stack]
+        has_html = "html" in [t.lower() for t in ctx.tech_stack]
+        has_sqlite = "sqlite" in [t.lower() for t in ctx.tech_stack]
+        is_web_api = ctx.project_type in ("api", "python_app", "web_app", "full_stack_web", "full_stack")
+
+        if not (has_fastapi and has_html and is_web_api):
+            return ""
+
+        lines = ["MANDATORY — the Python entry point's key_logic field MUST include:"]
+        lines.append("- app.mount('/static', StaticFiles(directory='static'), name='static')")
+        if has_sqlite:
+            lines.append("- @app.on_event('startup') to call init_db() — NOT only in if __name__=='__main__'")
+            lines.append("- Use 'with sqlite3.connect(DB) as conn:' context manager — no manual conn.close()")
+        lines.append("- GET /api/<resource> endpoint returning ALL records as a list (not only by ID)")
+        return "\n".join(lines)
 
     def _load_prompt(self, ctx: PhaseContext) -> tuple[str, str]:
         """Load from YAML; fall back to tier-appropriate inline constants."""

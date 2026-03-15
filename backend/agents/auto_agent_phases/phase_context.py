@@ -89,6 +89,10 @@ class PhaseContext:
     metrics: Dict[str, Any] = field(default_factory=dict)
     # token_usage per phase, phase_timings, schema_validity_rate, etc.
 
+    # --- User-configurable pipeline knobs ---
+    num_refine_loops: int = 3
+    # Max improvement rounds in PatchPhase. Overridden from wizard's "Refinement Loops" slider.
+
     # --- Internal ---
     _phase_start_times: Dict[str, float] = field(default_factory=dict, repr=False)
 
@@ -149,14 +153,39 @@ class PhaseContext:
     # ----------------------------------------------------------------
 
     def description_complexity(self) -> int:
-        """Return a complexity score 0-10 based on description length and keywords.
+        """Return a complexity score 0-10 based on description length and keywords (M11).
 
         Used by AutoAgent to warn when a complex project is run on a small model,
         and by BlueprintPhase to adjust max_files dynamically.
+
+        Scoring:
+          0-3 pts  — description length (1 pt per 200 chars, capped at 3)
+          +2 each  — high-complexity words (admin, login, booking, availability, …)
+          +1 each  — standard complexity words (authentication, database, real-time, …)
+          +1 bonus — multi-page app (≥2 navigation keywords: panel, page, section, …)
         """
         desc = self.project_description.lower()
         score = min(3, len(desc) // 200)  # 0-3 pts from length
-        complexity_words = [
+
+        # High-complexity domain keywords — each worth 2 points (M11)
+        high_complexity_words = [
+            "admin",
+            "login",
+            "dashboard",
+            "permission",
+            "availability",
+            "calendar",
+            "reservation",
+            "booking",
+            "payment",
+            "notification",
+            "search",
+            "upload",
+        ]
+        score += sum(2 for w in high_complexity_words if w in desc)
+
+        # Standard complexity keywords — 1 point each
+        standard_words = [
             "complex",
             "full",
             "complete",
@@ -175,7 +204,13 @@ class PhaseContext:
             "multi-user",
             "role",
         ]
-        score += sum(1 for w in complexity_words if w in desc)
+        score += sum(1 for w in standard_words if w in desc)
+
+        # Multi-page bonus: ≥2 navigation/view keywords → +1 (M11)
+        multi_page_words = ["panel", "page", "section", "view", "screen", "tab"]
+        if sum(1 for w in multi_page_words if w in desc) >= 2:
+            score += 1
+
         return min(10, score)
 
     # ----------------------------------------------------------------

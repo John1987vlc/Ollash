@@ -36,7 +36,7 @@ _SUBPROCESS_TIMEOUT = 30
 _MAX_IMPROVEMENT_ROUNDS = 3  # large (>8B) models
 _MAX_IMPROVEMENT_ROUNDS_SMALL = 2  # small (<=8B) models
 _CONTENT_INCLUDE_MAX_FILES = 6  # include actual file content below this file count
-_CONTENT_INCLUDE_MAX_CHARS = 8_000  # and below this total character count
+_CONTENT_INCLUDE_MAX_CHARS = 25_000  # and below this total character count (M1)
 
 _IMPROVEMENT_SYSTEM = (
     "You are a code reviewer. Given the project description and a summary of the generated files, "
@@ -125,6 +125,7 @@ class PatchPhase(BasePhase):
 
         if has_python:
             errors.extend(self._run_ruff(ctx))
+            errors.extend(self._check_python_connection_bugs(ctx))  # M10
         if has_ts:
             errors.extend(self._run_tsc(ctx))
         if has_js:
@@ -429,7 +430,7 @@ class PatchPhase(BasePhase):
                 patched = patcher.edit_existing_file(
                     file_path=file_path,
                     current_content=current_content,
-                    readme=ctx.project_description[:400],
+                    readme=self._build_patch_context(ctx, file_path, current_content),  # M9
                     issues_to_fix=issues,
                     edit_strategy="partial",
                 )
@@ -456,7 +457,8 @@ class PatchPhase(BasePhase):
         Between rounds, a zero-LLM HTML↔JS ID re-check refreshes cross_file_errors.
         """
         small = ctx.is_small()
-        max_rounds = _MAX_IMPROVEMENT_ROUNDS_SMALL if small else _MAX_IMPROVEMENT_ROUNDS
+        default_max = _MAX_IMPROVEMENT_ROUNDS_SMALL if small else _MAX_IMPROVEMENT_ROUNDS
+        max_rounds = getattr(ctx, "num_refine_loops", default_max)
         include_content = self._should_include_content(ctx)
         plan_by_path = {fp.path: fp for fp in ctx.blueprint}
 
@@ -526,7 +528,7 @@ class PatchPhase(BasePhase):
             # Build full file contents block (bounded by prompt budget)
             file_contents_lines: List[str] = []
             chars_so_far = 0
-            max_chars = 6000  # leave room for system prompt in token budget
+            max_chars = 18_000  # leave room for system prompt in token budget (M1)
             for path, content in list(ctx.generated_files.items())[:_CONTENT_INCLUDE_MAX_FILES]:
                 snippet = content[: max(0, max_chars - chars_so_far)]
                 file_contents_lines.append(f"=== {path} ===\n{snippet}")
@@ -600,7 +602,7 @@ class PatchPhase(BasePhase):
             patched = patcher.edit_existing_file(
                 file_path=file_path,
                 current_content=current_content,
-                readme=ctx.project_description[:400],
+                readme=self._build_patch_context(ctx, file_path, current_content),  # M9
                 issues_to_fix=[{"description": issue}],
             )
             if patched and patched != current_content:
@@ -670,3 +672,103 @@ class PatchPhase(BasePhase):
 
         # Replace with fresh results (stale errors from before the patch are irrelevant)
         ctx.cross_file_errors = new_errors
+
+    # ----------------------------------------------------------------
+    # M9 — Context-aware patch context
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _build_patch_context(ctx: PhaseContext, file_path: str, current_content: str) -> str:
+        """Return project description or full HTML content for small HTML files (M9).
+
+        For HTML files ≤5000 chars, including the full current content lets CodePatcher
+        see whether elements are inside/outside <body>, preventing insertions after </footer>.
+        For all other cases, falls back to a short project description.
+        """
+        _MAX_HTML_INLINE = 5_000
+        if file_path.endswith(".html") and len(current_content) <= _MAX_HTML_INLINE:
+            return f"Project: {ctx.project_description[:300]}\n\nCOMPLETE HTML:\n{current_content}"
+        return ctx.project_description[:400]
+
+    # ----------------------------------------------------------------
+    # M10 — Python DB connection anti-pattern detection
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _check_python_connection_bugs(ctx: PhaseContext) -> List[Dict[str, str]]:
+        """Detect common SQLite/DB connection bugs in Python files (M10).
+
+        Pattern 1 — use-after-close: conn.close() followed within 10 lines by
+          cursor.execute(), conn.commit(), etc.
+        Pattern 2 — init_db only in __main__: init_db() defined but only called
+          inside 'if __name__ == "__main__":' with no startup event handler.
+        """
+        import re as _re
+
+        errors: List[Dict[str, str]] = []
+        _USE_AFTER_CLOSE_RE = _re.compile(r"\bconn\.close\(\)")
+        _DB_OP_RE = _re.compile(
+            r"\b(?:cursor|conn)\.(?:execute|executemany|fetchall|fetchone|fetchmany|commit|rollback)\("
+        )
+        _STARTUP_RE = _re.compile(r'@\w+\.on_event\s*\(\s*["\']startup["\']|def\s+lifespan\s*\(')
+        _INIT_DB_DEF_RE = _re.compile(r"^def\s+init_db\s*\(", _re.MULTILINE)
+        _INIT_DB_CALL_RE = _re.compile(r"\binit_db\s*\(")
+        _MAIN_GUARD_RE = _re.compile(r'if\s+__name__\s*==\s*["\']__main__["\']')
+
+        for path, content in ctx.generated_files.items():
+            if not path.endswith(".py"):
+                continue
+
+            lines = content.splitlines()
+
+            # Pattern 1 — use-after-close
+            for i, line in enumerate(lines):
+                if _USE_AFTER_CLOSE_RE.search(line):
+                    window = lines[i + 1 : i + 11]
+                    for next_line in window:
+                        if _DB_OP_RE.search(next_line):
+                            errors.append(
+                                {
+                                    "file_path": path,
+                                    "error": (
+                                        f"USE_AFTER_CLOSE at line {i + 1}: "
+                                        "conn.close() followed by DB operation — "
+                                        "use 'with sqlite3.connect(DB) as conn:' instead"
+                                    ),
+                                }
+                            )
+                            break  # one error per close() call
+
+            # Pattern 2 — init_db() only called in __main__ guard
+            if not _INIT_DB_DEF_RE.search(content):
+                continue  # file doesn't define init_db — skip
+            if _STARTUP_RE.search(content):
+                continue  # has startup event / lifespan — fine
+            # Find all call sites of init_db() — exclude function definitions
+            all_calls = [
+                m
+                for m in _INIT_DB_CALL_RE.finditer(content)
+                if "def " not in content[max(0, m.start() - 10) : m.start()]
+            ]
+            if not all_calls:
+                continue
+            # Check if every call is inside a __main__ guard
+            main_guard_match = _MAIN_GUARD_RE.search(content)
+            if not main_guard_match:
+                continue
+            main_guard_start = main_guard_match.start()
+            calls_outside_main = [m for m in all_calls if m.start() < main_guard_start]
+            if not calls_outside_main:
+                # All calls are after the __main__ guard line — only called in __main__
+                errors.append(
+                    {
+                        "file_path": path,
+                        "error": (
+                            "INIT_DB_ONLY_IN_MAIN: init_db() is only called inside "
+                            "'if __name__ == \"__main__\"' — uvicorn/gunicorn won't call it. "
+                            "Add @app.on_event('startup') or a lifespan handler."
+                        ),
+                    }
+                )
+
+        return errors
