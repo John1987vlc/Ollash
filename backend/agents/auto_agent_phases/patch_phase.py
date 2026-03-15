@@ -35,6 +35,12 @@ _IMPROVEMENT_SYSTEM = (
     'If everything looks complete, output: {"file_path": "", "issue": ""}.'
 )
 
+# Compact variant for small (≤8B) models — fewer tokens, same JSON contract.
+_IMPROVEMENT_SYSTEM_SMALL = (
+    "Code reviewer. Find ONE critical bug or missing piece that prevents the project from running. "
+    'Reply ONLY with JSON: {"file_path": "...", "issue": "..."} or {"file_path": "", "issue": ""}.'
+)
+
 _IMPROVEMENT_USER = """Project: {project_name}
 Description: {description}
 Type: {project_type} | Stack: {tech_stack}
@@ -43,6 +49,10 @@ Generated files:
 {file_summary}
 
 What is the single most critical missing piece or bug? Output JSON only:"""
+
+_IMPROVEMENT_USER_SMALL = """Project: {project_name} | Type: {project_type}
+Files: {file_summary}
+Critical bug or missing piece? JSON only:"""
 
 
 class PatchPhase(BasePhase):
@@ -65,9 +75,8 @@ class PatchPhase(BasePhase):
 
         ctx.metrics["patch_fixes"] = total_fixed
 
-        # #10 — Iterative improvement pass (one LLM review cycle)
-        if not ctx.is_small():
-            self._iterative_improvement(ctx)
+        # #10 — Iterative improvement pass (one LLM review cycle, all model sizes)
+        self._iterative_improvement(ctx)
 
     # ----------------------------------------------------------------
     # Static analysis
@@ -410,27 +419,39 @@ class PatchPhase(BasePhase):
         """Ask the LLM to review the project and identify one critical missing piece.
 
         Runs one cycle only (LLM review → targeted patch). This catches obvious
-        issues that static analysis misses (missing route handler, wrong import path, etc.)
+        issues that static analysis misses (missing route handler, wrong import path, etc.).
+        Uses compact prompts for small (≤8B) models.
         """
+        small = ctx.is_small()
         # Build a compact file summary (path + purpose from blueprint)
         file_summary_lines: List[str] = []
         plan_by_path = {fp.path: fp for fp in ctx.blueprint}
-        for path in list(ctx.generated_files.keys())[:15]:
+        max_files = 8 if small else 15
+        for path in list(ctx.generated_files.keys())[:max_files]:
             purpose = plan_by_path.get(path, None)
-            purpose_str = purpose.purpose if purpose else "generated file"
-            file_summary_lines.append(f"  {path}: {purpose_str}")
-        file_summary = "\n".join(file_summary_lines) or "  (no files)"
+            purpose_str = purpose.purpose if purpose else "file"
+            file_summary_lines.append(f"{path}: {purpose_str}" if small else f"  {path}: {purpose_str}")
+        file_summary = "\n".join(file_summary_lines) or "(no files)"
 
-        user = _IMPROVEMENT_USER.format(
-            project_name=ctx.project_name,
-            description=ctx.project_description[:600],
-            project_type=ctx.project_type,
-            tech_stack=", ".join(ctx.tech_stack),
-            file_summary=file_summary,
-        )
+        if small:
+            system = _IMPROVEMENT_SYSTEM_SMALL
+            user = _IMPROVEMENT_USER_SMALL.format(
+                project_name=ctx.project_name,
+                project_type=ctx.project_type,
+                file_summary=file_summary,
+            )
+        else:
+            system = _IMPROVEMENT_SYSTEM
+            user = _IMPROVEMENT_USER.format(
+                project_name=ctx.project_name,
+                description=ctx.project_description[:600],
+                project_type=ctx.project_type,
+                tech_stack=", ".join(ctx.tech_stack),
+                file_summary=file_summary,
+            )
 
         try:
-            raw = self._llm_call(ctx, _IMPROVEMENT_SYSTEM, user, role="coder", no_think=True)
+            raw = self._llm_call(ctx, system, user, role="coder", no_think=True)
             from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 
             data = LLMResponseParser.extract_json(raw)
