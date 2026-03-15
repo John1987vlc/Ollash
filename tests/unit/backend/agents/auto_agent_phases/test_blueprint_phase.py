@@ -1,4 +1,5 @@
 """Unit tests for BlueprintPhase."""
+
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -29,8 +30,22 @@ _VALID_BLUEPRINT = {
     "project_type": "api",
     "tech_stack": ["python", "fastapi"],
     "files": [
-        {"path": "models.py", "purpose": "SQLAlchemy models", "exports": ["User"], "imports": [], "key_logic": "User model", "priority": 1},
-        {"path": "main.py", "purpose": "FastAPI entry", "exports": ["app"], "imports": ["models.py"], "key_logic": "App creation", "priority": 2},
+        {
+            "path": "models.py",
+            "purpose": "SQLAlchemy models",
+            "exports": ["User"],
+            "imports": [],
+            "key_logic": "User model",
+            "priority": 1,
+        },
+        {
+            "path": "main.py",
+            "purpose": "FastAPI entry",
+            "exports": ["app"],
+            "imports": ["models.py"],
+            "key_logic": "App creation",
+            "priority": 2,
+        },
     ],
 }
 
@@ -94,6 +109,7 @@ class TestBlueprintPhase:
         response = {"message": {"content": json.dumps(blueprint)}, "prompt_eval_count": 10, "eval_count": 10}
         ctx.llm_manager.get_client.return_value.chat.return_value = (response, None)
         from backend.utils.core.exceptions import PipelinePhaseError
+
         with pytest.raises(PipelinePhaseError):
             BlueprintPhase().run(ctx)
 
@@ -103,7 +119,13 @@ class TestBlueprintPhase:
         BlueprintPhase().run(ctx)
         ctx.event_publisher.publish_sync.assert_called_with(
             "blueprint_ready",
-            files=pytest.approx([{"path": "models.py", "purpose": "SQLAlchemy models"}, {"path": "main.py", "purpose": "FastAPI entry"}], abs=1e-3),
+            files=pytest.approx(
+                [
+                    {"path": "models.py", "purpose": "SQLAlchemy models"},
+                    {"path": "main.py", "purpose": "FastAPI entry"},
+                ],
+                abs=1e-3,
+            ),
             project_type="api",
             tech_stack=["python", "fastapi"],
         )

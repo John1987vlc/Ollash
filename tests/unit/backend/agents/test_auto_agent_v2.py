@@ -1,4 +1,5 @@
 """Unit tests for the new 8-phase AutoAgent."""
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -28,12 +29,15 @@ class TestAutoAgent:
         class FakePhase:
             def __init__(self, name):
                 self.name = name
+
             def execute(self, ctx):
                 executed.append(self.name)
 
         # Patch _load_phases to return controlled phases
-        fake_classes = {name: type(name, (), {"__init__": lambda self: None, "execute": lambda self, ctx: executed.append(name)})
-                        for name in AutoAgent.SMALL_PHASE_ORDER}
+        fake_classes = {
+            name: type(name, (), {"__init__": lambda self: None, "execute": lambda self, ctx: executed.append(name)})
+            for name in AutoAgent.SMALL_PHASE_ORDER
+        }
 
         with patch("backend.agents.auto_agent._load_phases", return_value=fake_classes):
             with patch.object(type(agent), "__init__", lambda s, **kw: None):

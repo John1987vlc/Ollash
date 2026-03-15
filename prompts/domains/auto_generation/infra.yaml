@@ -3,11 +3,33 @@
 
 infer_requirements:
   system: |
-    Output a requirements.txt file.
-    List only third-party pip packages — NOT Python stdlib modules.
-    Include version pins where appropriate.
-    One package per line. No comments. No markdown.
-    Output only the file content.
+    # CONTEXT
+    You are analyzing a Python project's import statements to determine its third-party dependencies.
+    The output will be written directly to requirements.txt.
+
+    # OBJECTIVE
+    Produce a valid requirements.txt listing only third-party pip packages found in the imports.
+    Do NOT include Python standard library modules.
+
+    # INSTRUCTIONS
+    1. Review the import statements found in the project.
+    2. Identify which imports are third-party packages (not stdlib).
+    3. List each package on its own line with a reasonable version pin where appropriate.
+    4. Common stdlib modules to exclude: os, sys, re, json, pathlib, typing, dataclasses,
+       collections, itertools, functools, io, abc, math, time, datetime, logging, subprocess,
+       threading, asyncio, socket, struct, copy, shutil, tempfile, hashlib, base64, contextlib.
+
+    # CONSTRAINTS
+    - List only third-party pip packages.
+    - One package per line.
+    - No comments. No markdown. No blank lines.
+    - Include version pins where appropriate (e.g., fastapi>=0.100.0).
+
+    # OUTPUT FORMAT
+    Output only the requirements.txt content. Example:
+    fastapi>=0.100.0
+    uvicorn[standard]>=0.20.0
+    sqlalchemy>=2.0.0
 
   user: |
     Tech stack: {tech_stack}
@@ -19,9 +41,32 @@ infer_requirements:
 
 infer_package_json:
   system: |
-    Output a minimal package.json file for a Node.js / TypeScript project.
-    Include only the dependencies actually needed.
-    Output only valid JSON — no markdown, no explanations.
+    # CONTEXT
+    You are generating a package.json for a Node.js or TypeScript project based on its imports.
+
+    # OBJECTIVE
+    Output a minimal, valid package.json with only the dependencies actually needed by the project.
+
+    # INSTRUCTIONS
+    1. Analyze the import statements to identify npm packages used.
+    2. Include only the packages that are imported in the source files.
+    3. Add standard scripts: start, build, test.
+    4. Use reasonable version ranges (e.g., "^18.0.0").
+
+    # CONSTRAINTS
+    - Output only valid JSON — no markdown, no explanations.
+    - Include only dependencies actually used in the imports.
+    - Keep devDependencies separate from dependencies.
+
+    # OUTPUT FORMAT
+    Output only valid JSON starting with `{`:
+    {
+      "name": "my-project",
+      "version": "1.0.0",
+      "scripts": { "start": "node dist/index.js", "build": "tsc" },
+      "dependencies": {},
+      "devDependencies": {}
+    }
 
   user: |
     Project name: {project_name}
@@ -34,9 +79,28 @@ infer_package_json:
 
 generate_readme:
   system: |
-    Write a concise, helpful README.md for a software project.
-    Include: title, brief description, installation, usage, and (if applicable) API overview.
-    Output only markdown — no explanations, no preamble.
+    # CONTEXT
+    You are writing a README.md for a software project that was just generated.
+    The README will be the first thing users see when they open the repository.
+
+    # OBJECTIVE
+    Write a concise, helpful README.md that covers the essential information needed
+    to understand, install, and run the project.
+
+    # INSTRUCTIONS
+    1. Start with a clear title and one-paragraph description.
+    2. Include an Installation section with step-by-step setup commands.
+    3. Include a Usage section with example commands or API calls.
+    4. If it is an API project, include a brief API overview section.
+    5. Keep it under 100 lines — concise and practical.
+
+    # CONSTRAINTS
+    - Output only markdown — no explanations, no preamble before the first heading.
+    - Do not include a license section unless the project has one.
+    - Use code blocks for all commands and example code.
+
+    # OUTPUT FORMAT
+    Output only the README.md markdown content, starting with `# <ProjectName>`.
 
   user: |
     Project: {project_name}

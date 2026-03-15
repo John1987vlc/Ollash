@@ -1,4 +1,5 @@
 """Unit tests for PhaseContext (v2 — new 8-phase dataclass)."""
+
 import time
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -125,6 +126,7 @@ class TestFilePlanModel:
 
     def test_priority_out_of_range_fails(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             FilePlanModel.model_validate({"path": "x.py", "purpose": "test", "priority": 25})
 
@@ -133,13 +135,16 @@ class TestFilePlanModel:
 class TestBlueprintOutput:
     def test_max_20_files_enforced(self):
         from pydantic import ValidationError
+
         files = [{"path": f"file{i}.py", "purpose": "test"} for i in range(21)]
         with pytest.raises(ValidationError):
-            BlueprintOutput.model_validate({
-                "project_type": "cli",
-                "tech_stack": ["python"],
-                "files": files,
-            })
+            BlueprintOutput.model_validate(
+                {
+                    "project_type": "cli",
+                    "tech_stack": ["python"],
+                    "files": files,
+                }
+            )
 
     def test_valid_blueprint_parses(self):
         data = {

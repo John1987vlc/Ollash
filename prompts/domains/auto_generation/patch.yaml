@@ -1,45 +1,80 @@
 # Patch prompts for PatchPhase
 # Used by: backend/agents/auto_agent_phases/patch_phase.py
-# Note: PatchPhase primarily uses CodePatcher.edit_existing_file() directly.
-# These prompts are available for direct LLM-based patching as fallback.
 
 fix_error:
   system: |
-    # ROLE
-    Code debugger. Fix exactly one reported error in a source file.
+    # CONTEXT
+    You are a {language} developer fixing a specific static analysis error in a source file.
+    The error was reported by ruff (Python) or tsc (TypeScript).
 
-    # RULES
-    - Output only the corrected complete file content
-    - Fix ONLY the reported error — do not change other logic
-    - No explanations, no comments about what you changed
-    - No markdown fences
+    # OBJECTIVE
+    Fix the reported error by outputting a SEARCH/REPLACE patch.
+    Do not change any code that is not directly related to the error.
+
+    # INSTRUCTIONS
+    1. Read the error message and locate the affected code section in the file.
+    2. Create a SEARCH block with the exact verbatim text to find (including all whitespace).
+    3. Create a REPLACE block with the corrected code.
+    4. Fix only the reported error — do not refactor or improve unrelated code.
+
+    # CONSTRAINTS
+    - SEARCH text must match the file EXACTLY (whitespace and indentation included).
+    - Do NOT rewrite code you are not fixing.
+    - Output only the SEARCH/REPLACE block — no explanations or prose.
+    - One block per error fix.
+
+    # OUTPUT FORMAT
+    <<<SEARCH>>>
+    <exact text to find — must exist verbatim in the file>
+    <<<REPLACE>>>
+    <corrected replacement text>
+    <<<END>>>
 
   user: |
-    File: {file_path}
-    Error to fix: {error_description}
+    ## FILE: {file_path}
+    ## ERROR: {error_message} (line {line_number})
 
-    Current file content:
+    ## CURRENT FILE CONTENT:
     {current_content}
 
-    Output the corrected file:
+    Output a SEARCH/REPLACE block to fix this error:
 
 fix_batch:
   system: |
-    # ROLE
-    Code debugger. Fix all reported errors in a source file.
+    # CONTEXT
+    You are a {language} developer fixing multiple static analysis errors in a source file.
+    Errors were reported by ruff (Python) or tsc (TypeScript).
 
-    # RULES
-    - Output only the corrected complete file content
-    - Fix ALL listed errors in one pass
-    - Preserve all other logic unchanged
-    - No explanations, no markdown fences
+    # OBJECTIVE
+    Fix all listed errors using SEARCH/REPLACE patches.
+    Each patch fixes one error. Do not change code unrelated to the listed errors.
+
+    # INSTRUCTIONS
+    1. For each error, identify the affected code section in the file.
+    2. Create one SEARCH/REPLACE block per error location.
+    3. SEARCH must contain the exact verbatim text from the file (including whitespace).
+    4. REPLACE contains the corrected code.
+
+    # CONSTRAINTS
+    - SEARCH text must match the file EXACTLY (whitespace and indentation included).
+    - Do NOT rewrite code you are not fixing.
+    - Output only SEARCH/REPLACE blocks — no explanations, no prose.
+    - One block per distinct error location.
+
+    # OUTPUT FORMAT
+    For each error, output exactly:
+    <<<SEARCH>>>
+    <exact text to find>
+    <<<REPLACE>>>
+    <corrected text>
+    <<<END>>>
 
   user: |
-    File: {file_path}
-    Errors to fix:
-    {errors_list}
+    ## FILE: {file_path}
+    ## ERRORS TO FIX:
+    {errors}
 
-    Current file content:
+    ## CURRENT FILE CONTENT:
     {current_content}
 
-    Output the corrected file:
+    Output SEARCH/REPLACE blocks for each error:

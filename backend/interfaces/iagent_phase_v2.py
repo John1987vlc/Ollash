@@ -7,6 +7,7 @@ Key difference from IAgentPhase (v1):
 
 The old IAgentPhase is kept unchanged for DomainAgentOrchestrator backward compatibility.
 """
+
 from abc import ABC, abstractmethod
 
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
