@@ -60,10 +60,60 @@ window.ProjectsModule = (function() {
                 if (currentValue && projects.projects.includes(currentValue)) {
                     existingProjectsSelect.value = currentValue;
                 }
+                // Render visual card grid
+                renderProjectCards(projects.projects);
             }
         } catch (error) {
             console.error('Error populating projects:', error);
         }
+    }
+
+    function renderProjectCards(projectNames) {
+        const grid = document.getElementById('project-cards-grid');
+        if (!grid) return;
+
+        // Clear skeleton placeholders
+        grid.querySelectorAll('.project-card--skeleton').forEach(el => el.remove());
+        // Remove previously rendered cards
+        grid.querySelectorAll('.project-card:not(.project-card--skeleton)').forEach(el => el.remove());
+        grid.querySelector('.project-hub-empty')?.remove();
+
+        if (!projectNames || projectNames.length === 0) {
+            grid.innerHTML = `
+                <div class="project-hub-empty">
+                    <span class="project-hub-empty-icon">&#x1f4c1;</span>
+                    <h3>Sin proyectos aún</h3>
+                    <p>Crea tu primer proyecto para empezar.</p>
+                    <button class="btn btn-primary" data-view="create" style="margin-top:var(--spacing-md);">
+                        Crear un Proyecto
+                    </button>
+                </div>`;
+            return;
+        }
+
+        const activeVal = existingProjectsSelect?.value;
+        projectNames.forEach(name => {
+            const card = document.createElement('div');
+            card.className = 'project-card' + (name === activeVal ? ' active' : '');
+            card.dataset.project = name;
+            card.innerHTML = `
+                <div class="project-card-name">${name}</div>
+                <div class="project-card-meta">
+                    <span>Local</span>
+                    <span class="project-card-status status-ready">Listo</span>
+                </div>`;
+            card.addEventListener('click', () => {
+                // Update active state on cards
+                grid.querySelectorAll('.project-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                // Update hidden select and trigger existing JS
+                if (existingProjectsSelect) {
+                    existingProjectsSelect.value = name;
+                    existingProjectsSelect.dispatchEvent(new Event('change'));
+                }
+            });
+            grid.appendChild(card);
+        });
     }
 
     async function loadProject(projectName) {

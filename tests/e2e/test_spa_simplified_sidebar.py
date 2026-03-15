@@ -7,6 +7,11 @@ Verifies the new navigation structure:
   - HERRAMIENTAS group: collapsed by default
   - Standalone items: Ayuda y Guías, Configuración
   - Removed stub items are NOT present in the sidebar
+
+New minimalist redesign notes:
+  - Sidebar starts collapsed (64px icon-rail) — all group contents forced visible
+  - Tests that check group collapse/item count must first expand the sidebar
+    to the full 240px expanded mode before asserting collapse state.
 """
 
 from __future__ import annotations
@@ -21,6 +26,26 @@ from playwright.sync_api import expect
 def _load(page, base_url):
     page.goto(base_url)
     page.wait_for_load_state("load", timeout=15_000)
+
+
+def _expand_sidebar(page):
+    """Ensure the sidebar is in the full 240px expanded mode.
+
+    The redesigned sidebar starts collapsed (icon-rail, 64px).  In collapsed
+    mode all nav-group contents are forced open with max-height override so
+    normal collapse CSS does not apply.  Tests that assert on HERRAMIENTAS
+    height or on visible-item counts must expand the sidebar first.
+    """
+    sidebar = page.locator(".sidebar")
+    if not sidebar.evaluate("el => el.classList.contains('sidebar--expanded')"):
+        # Click the collapse-toggle button (which also acts as expand in collapsed state)
+        toggle = page.locator("#sidebar-collapse-toggle")
+        if toggle.count():
+            toggle.click()
+        else:
+            # Fallback: click the logo button which also expands the sidebar
+            page.locator("#sidebar-logo-btn").click()
+        page.wait_for_timeout(300)
 
 
 # ── PRINCIPAL group ───────────────────────────────────────────────────────────
@@ -111,9 +136,15 @@ def test_herramientas_items_clipped_until_expanded(page, base_url):
     The collapse uses max-height:0 + overflow:hidden CSS animation, so elements
     remain in the layout tree but are visually clipped to height 0.  We verify
     the container itself has 0 height (i.e. nothing overflows into view).
+
+    NOTE: The redesigned sidebar starts in 64px icon-rail mode where ALL group
+    contents are forcibly shown (max-height override).  We must expand the
+    sidebar to full 240px mode first so the normal HERRAMIENTAS collapse rules
+    apply before checking the height.
     """
     _load(page, base_url)
-    # The .nav-group-content container for HERRAMIENTAS must have zero height
+    _expand_sidebar(page)
+
     container = page.locator("#nav-group-herramientas")
     if container.count() == 0:
         pytest.skip("nav-group-herramientas not found")
@@ -192,8 +223,16 @@ def test_stub_views_removed_from_sidebar(page, base_url):
 
 @pytest.mark.e2e
 def test_visible_nav_items_count_reduced(page, base_url):
-    """Visible nav items in the sidebar are ≤ 10 (simplified from 26)."""
+    """Visible nav items in the sidebar are ≤ 10 when HERRAMIENTAS is collapsed.
+
+    In expanded sidebar mode with HERRAMIENTAS collapsed (default state), only
+    the PRINCIPAL items + standalone bottom items are visible (≤ 10 total).
+    We must expand the sidebar first — in collapsed 64px icon-rail mode all
+    group contents are force-shown, skewing the count.
+    """
     _load(page, base_url)
+    _expand_sidebar(page)
+
     visible_items = page.locator(".sidebar .nav-item:visible")
     count = visible_items.count()
     assert count <= 10, (

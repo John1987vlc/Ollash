@@ -1,15 +1,18 @@
-/* ==================== Chat Page (Refined) ==================== */
-.chat-main-layout {
-    display: flex;
-    height: calc(100vh - 120px);
-    gap: var(--spacing-md);
-}
+/* ==================== Chat Page — Minimalist Redesign ==================== */
 
-.chat-container {
-    flex: 1;
+/* Legacy layout rules — kept for any external refs but overridden by .chat-shell */
+.chat-main-layout { display: contents; }
+.chat-container { display: contents; }
+.chat-right-panel { display: none; }  /* moved: history → drawer, DAG → strip */
+.chat-toolbox { display: none; }
+.chat-header { display: none; }       /* replaced by .chat-top-bar */
+.hitl-dag-panel.chat-dag-strip { display: flex; flex-direction: column; }
+
+/* ---- New Chat Shell ---- */
+.chat-shell {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: calc(100vh - 40px);
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
@@ -17,45 +20,176 @@
     position: relative;
 }
 
-/* --- Dynamic Chat Header --- */
-.chat-header {
+/* ---- Chat Top Bar ---- */
+.chat-top-bar {
     display: flex;
     align-items: center;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-md) var(--spacing-xl);
-    background: var(--color-surface);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     border-bottom: 1px solid var(--color-border);
-    background: linear-gradient(to right, var(--color-surface) 0%, var(--color-surface-elevated) 100%);
+    background: var(--color-surface);
+    min-height: 52px;
+    flex-shrink: 0;
 }
 
-.chat-header-agent-icon {
-    font-size: 1.5rem;
-    background: var(--color-surface-elevated);
-    width: 40px;
-    height: 40px;
+/* History toggle button */
+.history-toggle-btn {
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+.history-toggle-btn:hover {
+    background: var(--color-surface-elevated);
+    color: var(--color-text);
+}
+
+/* Agent selector pill */
+.agent-selector-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--color-surface-elevated);
     border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+    font-family: inherit;
+    max-width: 260px;
+}
+.agent-selector-pill:hover { border-color: var(--color-primary); }
+.agent-pill-icon { font-size: 1rem; flex-shrink: 0; }
+.agent-pill-name {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.agent-pill-status {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    flex-shrink: 0;
 }
 
-.chat-header-info h3 {
-    font-size: 0.95rem;
-    font-weight: 700;
-    margin: 0;
+/* ---- History Drawer ---- */
+.chat-history-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    z-index: var(--z-sidebar);
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-lg);
+}
+.chat-history-drawer.drawer--open {
+    transform: translateX(0);
+}
+.chat-history-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: calc(var(--z-sidebar) - 1);
+}
+.chat-history-overlay.overlay--visible { display: block; }
+.drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+}
+.drawer-header h3 { font-size: 0.9rem; font-weight: 700; margin: 0; }
+.drawer-close-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    border: none;
+    background: transparent;
+    color: var(--color-text-subtle);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+.drawer-close-btn:hover { color: var(--color-text); background: var(--color-surface-elevated); }
+
+/* history-list scrolls inside drawer */
+.chat-history-drawer .history-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-sm);
 }
 
-.chat-header-actions {
-    margin-left: auto;
+/* ---- Task DAG Bottom Strip ---- */
+.chat-dag-strip {
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface-elevated);
+    flex-shrink: 0;
+}
+.dag-strip-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 7px var(--spacing-md);
+    width: 100%;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+    text-align: left;
+    transition: color var(--transition-fast);
+}
+.dag-strip-toggle:hover { color: var(--color-text); }
+.dag-strip-count {
+    background: var(--color-primary);
+    color: white;
+    padding: 1px 7px;
+    border-radius: var(--radius-full);
+    font-size: 0.65rem;
+}
+.dag-strip-body {
+    padding: var(--spacing-sm) var(--spacing-md);
+    max-height: 180px;
+    overflow-y: auto;
+    border-top: 1px solid var(--color-border);
 }
 
+/* Hide view-top-bar in chat mode (chat has its own top bar) */
+#chat-view .view-top-bar { display: none !important; }
+
+/* ---- Status helpers ---- */
 .status-pill {
     font-size: 0.65rem;
     text-transform: uppercase;
     font-weight: 800;
 }
-
 .status-online { color: var(--color-success); }
 
 .chat-messages {

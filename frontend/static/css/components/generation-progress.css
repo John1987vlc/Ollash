@@ -60,57 +60,94 @@
     display: none;
 }
 
-/* Steps row */
+/* ---- Journey-Style Phase Steps ---- */
 .gen-progress-steps {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.7rem;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
     gap: 0;
+    margin-bottom: 0.9rem;
+    position: relative;
 }
 
 .gen-step {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    min-width: 60px;
-    font-size: 0.72rem;
-    color: var(--color-text-muted, #6c7086);
-    transition: color 0.25s;
+    gap: 6px;
+    position: relative;
+    text-align: center;
+    padding: 0 4px;
 }
 
-.gen-step-icon {
-    font-size: 0.6rem;
-    transition: color 0.25s, transform 0.2s;
-}
-
-.gen-step.active {
-    color: var(--color-primary, #cba6f7);
-}
-.gen-step.active .gen-step-icon {
-    transform: scale(1.35);
-}
-
-.gen-step.completed {
-    color: var(--color-green, #a6e3a1);
-}
-.gen-step.completed .gen-step-icon::before {
-    content: "✓";
-    font-size: 0.75rem;
-}
-
-.gen-step-connector {
-    flex: 1;
-    height: 1px;
+/* Connector line between steps */
+.gen-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    width: 100%;
+    height: 2px;
     background: var(--color-border, #313244);
-    margin: 0 4px;
-    margin-bottom: 14px; /* align with icons */
-    transition: background 0.3s;
+    transition: background var(--transition-base, 0.25s);
+    z-index: 0;
 }
-.gen-step-connector.passed {
-    background: var(--color-green, #a6e3a1);
+.gen-step.completed:not(:last-child)::after {
+    background: var(--color-success, #10b981);
 }
+
+/* Circle icon badge */
+.gen-step-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid var(--color-border, #313244);
+    background: var(--color-surface-elevated, #1a1a22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+    transition: all var(--transition-base, 0.25s);
+    flex-shrink: 0;
+}
+
+.gen-step-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #6c7086);
+    transition: color var(--transition-fast, 0.15s);
+    white-space: nowrap;
+}
+
+/* Active state */
+.gen-step.active .gen-step-icon {
+    border-color: var(--color-primary, #6366f1);
+    background: rgba(99,102,241,0.15);
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.15);
+    animation: step-icon-pulse 1.5s ease-in-out infinite;
+}
+.gen-step.active .gen-step-label {
+    color: var(--color-primary, #6366f1);
+}
+
+/* Completed state */
+.gen-step.completed .gen-step-icon {
+    border-color: var(--color-success, #10b981);
+    background: rgba(16,185,129,0.15);
+}
+.gen-step.completed .gen-step-label {
+    color: var(--color-success, #10b981);
+}
+
+@keyframes step-icon-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(99,102,241,0.15); }
+    50% { box-shadow: 0 0 0 8px rgba(99,102,241,0.05); }
+}
+
+/* Legacy connector divs — hidden (replaced by ::after) */
+.gen-step-connector { display: none; }
 
 /* Progress bar */
 .gen-progress-bar-wrap {

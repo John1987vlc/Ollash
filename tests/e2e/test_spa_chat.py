@@ -67,17 +67,22 @@ def test_sent_message_appears_in_chat(page, base_url):
 
 
 @pytest.mark.e2e
-def test_agent_card_gets_active_class(page, base_url):
-    """Clicking an agent card (.btn-card) gives it the 'active' CSS class."""
+def test_agent_selector_pill_visible_in_chat(page, base_url):
+    """The redesigned chat top-bar shows an agent selector pill (#chat-session-header).
+
+    The old '.btn-card' agent cards are replaced with an inline pill in the
+    top bar.  We verify the pill element is visible when the chat view is active.
+    """
     page.goto(base_url)
-    page.locator(".nav-item[data-view='chat']").click() if page.locator(".nav-item[data-view='chat']").count() else None
+    chat_nav = page.locator(".nav-item[data-view='chat']")
+    if chat_nav.count():
+        chat_nav.click()
+    expect(page.locator("#chat-view")).to_be_visible(timeout=5_000)
 
-    cards = page.locator(".btn-card")
-    if cards.count() == 0:
-        pytest.skip("No .btn-card agent cards found in chat view")
-
-    cards.first.click()
-    expect(cards.first).to_have_class(".*active.*", timeout=3_000)
+    pill = page.locator(".agent-selector-pill, #chat-session-header")
+    if pill.count() == 0:
+        pytest.skip("Agent selector pill not found in chat view")
+    expect(pill.first).to_be_visible(timeout=3_000)
 
 
 @pytest.mark.e2e

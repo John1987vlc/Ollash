@@ -8,11 +8,12 @@
 
             <!-- Projects View -->
             <div class="view" id="projects-view">
-                <div class="project-selector-header">
-                    <div class="selector-group">
-                        <select id="existing-projects" class="form-input-modern">
-                            <option value="">Selecciona un proyecto...</option>
-                        </select>
+
+                <!-- Project Hub Header -->
+                <div class="project-hub-header">
+                    <div class="project-hub-title">
+                        <h1>Mis Proyectos</h1>
+                        <p>Selecciona un proyecto para abrir su espacio de trabajo.</p>
                     </div>
                     <div class="action-group-modern">
                         <button class="btn btn-secondary" id="export-project-btn" style="display:none" title="Descargar como ZIP">
@@ -38,8 +39,25 @@
                             </svg>
                             <span>Clone from Git</span>
                         </button>
+                        <button class="btn btn-primary" data-view="create">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Nuevo Proyecto
+                        </button>
                     </div>
                 </div>
+
+                <!-- Project Card Grid (visual layer) -->
+                <div class="project-cards-grid" id="project-cards-grid">
+                    <!-- Skeleton cards shown while loading -->
+                    <div class="project-card project-card--skeleton"></div>
+                    <div class="project-card project-card--skeleton"></div>
+                    <div class="project-card project-card--skeleton"></div>
+                </div>
+
+                <!-- Hidden select: kept for JS backward compat (populated by projects.js) -->
+                <select id="existing-projects" class="form-input-modern" style="display:none;">
+                    <option value="">Selecciona un proyecto...</option>
+                </select>
 
                 <div class="project-workspace" id="project-workspace" style="display: none;">
                     <!-- Agent Pipeline Stepper -->

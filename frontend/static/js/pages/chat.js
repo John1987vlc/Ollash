@@ -188,6 +188,37 @@ window.ChatPageModule = (function() {
     return { init };
 })();
 
+// ==================== History Drawer & DAG Strip ====================
+(function () {
+    const historyDrawer = document.getElementById('chat-history-drawer');
+    const historyOverlay = document.getElementById('chat-history-overlay');
+    const openHistoryBtn = document.getElementById('open-history-drawer');
+    const closeHistoryBtn = document.getElementById('close-history-drawer');
+
+    function openDrawer() {
+        historyDrawer?.classList.add('drawer--open');
+        historyOverlay?.classList.add('overlay--visible');
+        historyDrawer?.removeAttribute('aria-hidden');
+    }
+    function closeDrawer() {
+        historyDrawer?.classList.remove('drawer--open');
+        historyOverlay?.classList.remove('overlay--visible');
+        historyDrawer?.setAttribute('aria-hidden', 'true');
+    }
+
+    openHistoryBtn?.addEventListener('click', openDrawer);
+    closeHistoryBtn?.addEventListener('click', closeDrawer);
+    historyOverlay?.addEventListener('click', closeDrawer);
+
+    // DAG strip toggle
+    const dagToggle = document.getElementById('dag-panel-toggle');
+    const dagBody = document.getElementById('dag-panel-body');
+    dagToggle?.addEventListener('click', () => {
+        const isOpen = dagBody?.style.display !== 'none';
+        if (dagBody) dagBody.style.display = isOpen ? 'none' : 'block';
+    });
+}());
+
 // Feature 5: Live Task DAG Dashboard
 window.DagPanel = (function () {
     const _nodes = {};

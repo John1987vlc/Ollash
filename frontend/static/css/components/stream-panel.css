@@ -2,6 +2,77 @@
    Stream Panel — P4 Live Token Streaming
    ========================================================= */
 
+/* ---- Collapsible stream panel variant ---- */
+.stream-panel-collapsible {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-sm);
+    overflow: hidden;
+    transition: border-color var(--transition-fast);
+}
+.stream-panel-collapsible.active-panel {
+    border-color: color-mix(in srgb, var(--agent-color, #6366f1) 60%, var(--color-border));
+}
+.stream-panel-collapsible .stream-panel-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 8px var(--spacing-md);
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 0 solid var(--color-border);
+    background: transparent;
+    transition: background var(--transition-fast);
+}
+.stream-panel-collapsible .stream-panel-header:hover {
+    background: var(--color-surface-hover);
+}
+.stream-panel-collapsible.open .stream-panel-header {
+    border-bottom-width: 1px;
+}
+.stream-panel-title {
+    flex: 1;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.stream-panel-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-text-subtle);
+    flex-shrink: 0;
+    transition: background var(--transition-fast);
+}
+.stream-panel-status-dot.sp-active {
+    background: var(--color-primary);
+    animation: sp-blink 1.2s ease-in-out infinite;
+}
+.stream-panel-status-dot.sp-done { background: var(--color-success); }
+.stream-panel-chevron {
+    width: 13px;
+    height: 13px;
+    color: var(--color-text-subtle);
+    transition: transform var(--transition-fast);
+    flex-shrink: 0;
+}
+.stream-panel-collapsible.open .stream-panel-chevron {
+    transform: rotate(90deg);
+}
+.stream-panel-collapsible .stream-panel-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height var(--transition-slow);
+}
+.stream-panel-collapsible.open .stream-panel-body {
+    max-height: 360px;
+    overflow-y: auto;
+}
+
 #stream-panels-container {
     display: flex;
     flex-direction: column;

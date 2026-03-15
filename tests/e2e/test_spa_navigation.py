@@ -60,8 +60,21 @@ def test_active_nav_item_gets_active_class(page, base_url):
 
 @pytest.mark.e2e
 def test_nav_group_header_toggles_children(page, base_url):
-    """Clicking a .nav-group-header toggles its aria-expanded attribute."""
+    """Clicking a .nav-group-header toggles its aria-expanded attribute.
+
+    NOTE: In collapsed 64px icon-rail mode the sidebar suppresses nav-group
+    header pointer-events and forces all group contents open.  The sidebar must
+    be expanded to 240px mode before this interaction test runs.
+    """
     page.goto(base_url)
+
+    # Expand sidebar to full mode so group headers are interactive
+    sidebar = page.locator(".sidebar")
+    if not sidebar.evaluate("el => el.classList.contains('sidebar--expanded')"):
+        toggle = page.locator("#sidebar-collapse-toggle")
+        (toggle if toggle.count() else page.locator("#sidebar-logo-btn")).click()
+        page.wait_for_timeout(300)
+
     headers = page.locator(".nav-group-header[aria-expanded]")
     if headers.count() == 0:
         pytest.skip("No .nav-group-header with aria-expanded found in current layout")

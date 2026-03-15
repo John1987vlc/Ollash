@@ -193,12 +193,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const viewId = this.dataset.view;
             if (!viewId) return;
 
-            // Show Loader
+            // Show page load bar (replaces full-screen spinner)
+            showPageLoad();
+            // Keep legacy loader hidden (backward compat — other code may reference it)
             const loader = document.getElementById('global-page-loader');
-            if (loader) {
-                loader.style.display = 'flex';
-                setTimeout(() => { loader.style.display = 'none'; }, 600);
-            }
+            if (loader) loader.style.display = 'none';
 
             // Update Sidebar UI
             navItems.forEach(nav => nav.classList.remove('active'));
@@ -231,7 +230,40 @@ document.addEventListener('DOMContentLoaded', function() {
         if (navItem) navItem.click();
     });
 
+    // ==================== Page Load Bar ====================
+    const _pageLoadBar = document.getElementById('page-load-bar');
+    function showPageLoad() {
+        if (!_pageLoadBar) return;
+        _pageLoadBar.classList.remove('complete');
+        void _pageLoadBar.offsetWidth; // force reflow
+        _pageLoadBar.classList.add('loading');
+        setTimeout(() => {
+            _pageLoadBar.classList.remove('loading');
+            _pageLoadBar.classList.add('complete');
+            setTimeout(() => _pageLoadBar.classList.remove('complete'), 600);
+        }, 400);
+    }
+
+    // ==================== Mode Badge ====================
+    const _modeBadge = document.getElementById('mode-badge');
+    const _modeBadgeLabel = document.getElementById('mode-badge-label');
+    function updateModeBadge(mode, label) {
+        if (!_modeBadge) return;
+        _modeBadge.style.display = 'inline-flex';
+        _modeBadge.className = 'mode-badge mode-' + mode;
+        if (_modeBadgeLabel) _modeBadgeLabel.textContent = label;
+    }
+    function hideModeBadge() {
+        if (_modeBadge) _modeBadge.style.display = 'none';
+    }
+
     function triggerViewLoad(viewId) {
+        // Update mode badge per view
+        if (viewId === 'chat') updateModeBadge('chat', 'Chat');
+        else if (viewId === 'create') updateModeBadge('agent', 'Crear');
+        else if (viewId === 'auto-agent') updateModeBadge('agent', 'Auto Agent');
+        else hideModeBadge();
+
         switch(viewId) {
             case 'chat':
                 if (window.ChatModule) ChatModule.init({
@@ -415,6 +447,41 @@ document.addEventListener('DOMContentLoaded', function() {
             item.addEventListener('click', () => {
                 if (window.innerWidth <= 768) closeMobileSidebar();
             });
+        });
+    }
+
+    // ==================== Desktop Sidebar Collapse ====================
+    const SIDEBAR_EXPANDED_KEY = 'ollash-sidebar-expanded';
+    const collapseToggleBtn = document.getElementById('sidebar-collapse-toggle');
+    const logoBtn = document.getElementById('sidebar-logo-btn');
+
+    function setSidebarExpanded(expanded) {
+        if (!sidebarEl) return;
+        sidebarEl.classList.toggle('sidebar--expanded', expanded);
+        localStorage.setItem(SIDEBAR_EXPANDED_KEY, expanded ? '1' : '0');
+        if (collapseToggleBtn) {
+            collapseToggleBtn.setAttribute('aria-label', expanded ? 'Colapsar navegación' : 'Expandir navegación');
+        }
+    }
+
+    // Restore persisted state; default collapsed
+    const savedExpanded = localStorage.getItem(SIDEBAR_EXPANDED_KEY);
+    setSidebarExpanded(savedExpanded === '1');
+
+    if (collapseToggleBtn) {
+        collapseToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setSidebarExpanded(!sidebarEl.classList.contains('sidebar--expanded'));
+        });
+    }
+
+    // Clicking the logo also expands the sidebar when collapsed
+    if (logoBtn) {
+        logoBtn.addEventListener('click', (e) => {
+            if (!sidebarEl.classList.contains('sidebar--expanded')) {
+                e.preventDefault();
+                setSidebarExpanded(true);
+            }
         });
     }
 

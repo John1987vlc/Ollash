@@ -74,6 +74,9 @@
     {% block styles %}{% endblock %}
 </head>
 <body>
+    <!-- Page load progress bar (2px top gradient bar) -->
+    <div class="page-load-bar" id="page-load-bar"></div>
+
     <!-- Background Effects -->
     <div class="bg-gradient"></div>
     <div class="noise-overlay"></div>
@@ -101,6 +104,11 @@
                     <h2 id="current-view-title">Dashboard</h2>
                 </div>
                 <div class="view-actions-area">
+                    <!-- Mode badge: set by main.js per active view -->
+                    <span class="mode-badge" id="mode-badge" style="display:none;">
+                        <span class="mode-badge-dot"></span>
+                        <span id="mode-badge-label">Chat</span>
+                    </span>
                     <!-- Privacy badge: shown/hidden by JS after /api/privacy/status -->
                     <div id="privacy-badge" style="display:none;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:0.75rem;font-weight:600;border:1px solid transparent;cursor:pointer;" title="Ver auditoría de privacidad" onclick="window.location.hash='#privacy'">
                         <span id="privacy-badge-icon">🔒</span>

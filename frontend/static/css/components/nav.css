@@ -103,6 +103,105 @@
     margin-top: 4px;
 }
 
+/* ===============================================
+   Collapsed sidebar: icon-rail mode
+   =============================================== */
+
+/* Hide text labels and chevrons when collapsed */
+.sidebar:not(.sidebar--expanded) .nav-item > span,
+.sidebar:not(.sidebar--expanded) .nav-group-header > span,
+.sidebar:not(.sidebar--expanded) .nav-group-header svg.chevron {
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition: opacity var(--transition-fast), max-width var(--transition-base);
+}
+.sidebar.sidebar--expanded .nav-item > span,
+.sidebar.sidebar--expanded .nav-group-header > span,
+.sidebar.sidebar--expanded .nav-group-header svg.chevron {
+    opacity: 1;
+    max-width: 200px;
+    transition: opacity var(--transition-fast), max-width var(--transition-base);
+}
+
+/* Center icons when collapsed */
+.sidebar:not(.sidebar--expanded) .nav-item {
+    justify-content: center;
+    padding: var(--spacing-sm);
+    gap: 0;
+}
+.sidebar:not(.sidebar--expanded) .nav-group-header {
+    justify-content: center;
+    padding: var(--spacing-xs) 0;
+    pointer-events: none;
+}
+
+/* Always show group content in icon mode (can't expand groups when collapsed) */
+.sidebar:not(.sidebar--expanded) .nav-group-content {
+    max-height: 1000px !important;
+    opacity: 1 !important;
+    padding-left: 0;
+}
+.sidebar:not(.sidebar--expanded) .nav-group--project {
+    border-left: none;
+    padding-left: 0;
+}
+
+/* Tooltips for nav items in collapsed mode */
+.sidebar:not(.sidebar--expanded) .nav-item[data-tooltip] {
+    position: relative;
+}
+.sidebar:not(.sidebar--expanded) .nav-item[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    padding: 4px 10px;
+    border-radius: var(--radius-md);
+    white-space: nowrap;
+    z-index: var(--z-dropdown);
+    pointer-events: none;
+    box-shadow: var(--shadow-md);
+}
+
+/* Hide health grid text and status label when collapsed */
+.sidebar:not(.sidebar--expanded) .health-dashboard-grid { display: none; }
+.sidebar:not(.sidebar--expanded) .status-indicator > span:not(.status-dot) { display: none; }
+.sidebar:not(.sidebar--expanded) .status-indicator { justify-content: center; }
+
+/* Sidebar header row: logo + collapse button */
+.sidebar-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-xl);
+    min-height: 40px;
+}
+.sidebar:not(.sidebar--expanded) .sidebar-header-row {
+    justify-content: center;
+    margin-bottom: var(--spacing-lg);
+}
+.sidebar:not(.sidebar--expanded) .logo > span {
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+}
+.sidebar.sidebar--expanded .logo > span {
+    opacity: 1;
+    max-width: 200px;
+    transition: opacity var(--transition-fast), max-width var(--transition-base);
+}
+.sidebar:not(.sidebar--expanded) .sidebar-collapse-btn {
+    display: none; /* collapse btn not needed in icon mode — logo click expands */
+}
+
 .sidebar-footer { border-top: 1px solid var(--color-border); padding-top: var(--spacing-lg); }
 
 /* Mobile hamburger button — only visible on small screens */

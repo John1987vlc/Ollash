@@ -1,4 +1,147 @@
 /* ==================== Modern Projects View ==================== */
+
+/* ---- Project Hub Header ---- */
+.project-hub-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border);
+    flex-wrap: wrap;
+}
+.project-hub-title h1 {
+    font-size: var(--font-size-2xl, 1.75rem);
+    font-weight: var(--font-weight-bold, 700);
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: var(--spacing-xs);
+    line-height: 1.2;
+}
+.project-hub-title p {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm, 0.875rem);
+}
+
+/* ---- Project Card Grid ---- */
+.project-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.project-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl, 1rem);
+    padding: var(--spacing-lg);
+    cursor: pointer;
+    transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    position: relative;
+    overflow: hidden;
+    min-height: 90px;
+}
+.project-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+.project-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+.project-card:hover::before { opacity: 1; }
+.project-card.active {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface));
+}
+.project-card.active::before { opacity: 1; }
+.project-card-name {
+    font-size: var(--font-size-base, 0.9375rem);
+    font-weight: var(--font-weight-semibold, 600);
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.project-card-meta {
+    font-size: var(--font-size-xs, 0.75rem);
+    color: var(--color-text-subtle);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+.project-card-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: var(--radius-full, 9999px);
+    margin-left: auto;
+}
+.project-card-status.status-ready {
+    background: rgba(16,185,129,0.1);
+    color: var(--color-success, #10b981);
+}
+.project-card-status.status-generating {
+    background: rgba(99,102,241,0.1);
+    color: var(--color-primary, #6366f1);
+}
+
+/* Skeleton loading state */
+.project-card--skeleton {
+    pointer-events: none;
+    background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-elevated) 50%, var(--color-surface) 75%);
+    background-size: 200% 100%;
+    animation: card-shimmer 1.5s ease-in-out infinite;
+}
+@keyframes card-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Empty state */
+.project-hub-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: var(--spacing-3xl, 4rem) var(--spacing-xl);
+    color: var(--color-text-muted);
+}
+.project-hub-empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-lg);
+    opacity: 0.35;
+    display: block;
+}
+.project-hub-empty h3 {
+    font-size: var(--font-size-lg, 1.125rem);
+    font-weight: var(--font-weight-semibold, 600);
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-text);
+}
+.project-hub-empty p {
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--spacing-lg);
+}
+
+/* Legacy selector header — hidden, replaced by hub header */
 .project-selector-header {
     display: flex;
     justify-content: space-between;
