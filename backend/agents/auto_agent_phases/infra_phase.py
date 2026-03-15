@@ -805,10 +805,30 @@ class InfraPhase(BasePhase):
     def _scan_go_imports(ctx: PhaseContext) -> List[str]:
         """Extract external module imports from .go files."""
         import re as _re
+
         external: Set[str] = set()
-        stdlib_prefixes = ("fmt", "os", "io", "net", "http", "math", "sync", "time",
-                           "strings", "strconv", "errors", "context", "log", "sort",
-                           "path", "bufio", "bytes", "encoding", "flag", "runtime")
+        stdlib_prefixes = (
+            "fmt",
+            "os",
+            "io",
+            "net",
+            "http",
+            "math",
+            "sync",
+            "time",
+            "strings",
+            "strconv",
+            "errors",
+            "context",
+            "log",
+            "sort",
+            "path",
+            "bufio",
+            "bytes",
+            "encoding",
+            "flag",
+            "runtime",
+        )
         for path, content in ctx.generated_files.items():
             if not path.endswith(".go"):
                 continue
@@ -821,11 +841,12 @@ class InfraPhase(BasePhase):
     def _scan_rust_imports(ctx: PhaseContext) -> List[str]:
         """Extract external crate names from Rust files."""
         import re as _re
+
         crates: Set[str] = set()
         for path, content in ctx.generated_files.items():
             if not path.endswith(".rs"):
                 continue
-            for crate in _re.findall(r'^(?:extern crate|use)\s+([\w]+)', content, _re.MULTILINE):
+            for crate in _re.findall(r"^(?:extern crate|use)\s+([\w]+)", content, _re.MULTILINE):
                 if crate not in ("std", "core", "alloc", "self", "super", "crate"):
                     crates.add(crate)
         return sorted(crates)
@@ -834,12 +855,13 @@ class InfraPhase(BasePhase):
     def _scan_java_imports(ctx: PhaseContext) -> List[str]:
         """Extract non-stdlib import statements from Java files."""
         import re as _re
+
         imports: Set[str] = set()
         stdlib_prefixes = ("java.", "javax.", "sun.", "com.sun.")
         for path, content in ctx.generated_files.items():
             if not path.endswith(".java"):
                 continue
-            for imp in _re.findall(r'^import\s+([\w.]+);', content, _re.MULTILINE):
+            for imp in _re.findall(r"^import\s+([\w.]+);", content, _re.MULTILINE):
                 if not any(imp.startswith(p) for p in stdlib_prefixes):
                     imports.add(imp)
         return sorted(imports)
@@ -848,9 +870,22 @@ class InfraPhase(BasePhase):
     def _scan_ruby_imports(ctx: PhaseContext) -> List[str]:
         """Extract gem names from require statements in Ruby files."""
         import re as _re
+
         gems: Set[str] = set()
-        stdlib_gems = {"json", "yaml", "csv", "net/http", "uri", "date", "time",
-                       "fileutils", "pathname", "logger", "open3", "tempfile"}
+        stdlib_gems = {
+            "json",
+            "yaml",
+            "csv",
+            "net/http",
+            "uri",
+            "date",
+            "time",
+            "fileutils",
+            "pathname",
+            "logger",
+            "open3",
+            "tempfile",
+        }
         for path, content in ctx.generated_files.items():
             if not path.endswith(".rb"):
                 continue
@@ -863,11 +898,12 @@ class InfraPhase(BasePhase):
     def _scan_php_imports(ctx: PhaseContext) -> List[str]:
         """Extract use/require statements from PHP files."""
         import re as _re
+
         namespaces: Set[str] = set()
         for path, content in ctx.generated_files.items():
             if not path.endswith(".php"):
                 continue
-            for ns in _re.findall(r'^use\s+([\w\\]+)', content, _re.MULTILINE):
+            for ns in _re.findall(r"^use\s+([\w\\]+)", content, _re.MULTILINE):
                 top = ns.split("\\")[0]
                 if top not in ("App", "Exception", "Closure", "stdClass"):
                     namespaces.add(ns)
@@ -877,6 +913,7 @@ class InfraPhase(BasePhase):
     def _scan_dart_imports(ctx: PhaseContext) -> List[str]:
         """Extract package imports from Dart files."""
         import re as _re
+
         packages: Set[str] = set()
         for path, content in ctx.generated_files.items():
             if not path.endswith(".dart"):

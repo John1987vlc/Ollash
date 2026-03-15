@@ -101,6 +101,10 @@ generate_blueprint_small:
     7. For frontend projects: CSS and JS files MUST have LOWER priority than index.html,
        so index.html is generated LAST and can link to the correct filenames.
 
+    # OUTPUT FORMAT
+    Output MINIFIED JSON on a SINGLE LINE — no whitespace, no newlines, no markdown fences.
+    Start directly with {"project_type":
+
     # CONSTRAINTS
     - Maximum 5 files. No config files, no README, no tests — only core code.
     - Output MINIFIED JSON on a SINGLE LINE starting with {"project_type": nothing before it.

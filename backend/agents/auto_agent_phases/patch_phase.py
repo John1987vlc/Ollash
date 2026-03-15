@@ -92,15 +92,15 @@ class PatchPhase(BasePhase):
             errors.extend(self._run_node_check(ctx))  # #5
         if has_html:
             errors.extend(self._check_html_wellformed(ctx))  # #5
-            errors.extend(self._check_html_links(ctx))       # P3 — linkage validation
+            errors.extend(self._check_html_links(ctx))  # P3 — linkage validation
         if has_go:
-            errors.extend(self._run_go_vet(ctx))             # P1
+            errors.extend(self._run_go_vet(ctx))  # P1
         if has_rust:
-            errors.extend(self._run_cargo_check(ctx))        # P1
+            errors.extend(self._run_cargo_check(ctx))  # P1
         if has_php:
-            errors.extend(self._run_php_lint(ctx))           # P1
+            errors.extend(self._run_php_lint(ctx))  # P1
         if has_ruby:
-            errors.extend(self._run_ruby_check(ctx))         # P1
+            errors.extend(self._run_ruby_check(ctx))  # P1
 
         return errors
 
@@ -249,10 +249,12 @@ class PatchPhase(BasePhase):
                 if ref_clean not in all_generated and ref not in all_generated:
                     candidates = [f for f in all_generated if f.endswith(ref_clean[-6:]) if ref_clean]
                     hint = f" — did you mean: {candidates[0]}?" if candidates else ""
-                    errors.append({
-                        "file_path": rel_path,
-                        "error": f"Broken link: '{ref}' not found in generated files{hint}",
-                    })
+                    errors.append(
+                        {
+                            "file_path": rel_path,
+                            "error": f"Broken link: '{ref}' not found in generated files{hint}",
+                        }
+                    )
         return errors
 
     def _run_go_vet(self, ctx: PhaseContext) -> List[Dict[str, str]]:
@@ -296,7 +298,7 @@ class PatchPhase(BasePhase):
                     # Format: "error[E0308]: type mismatch --> src/main.rs:10:5"
                     arrow_idx = line.find("-->")
                     msg = line[:arrow_idx].strip()
-                    loc = line[arrow_idx + 3:].strip()
+                    loc = line[arrow_idx + 3 :].strip()
                     file_part = loc.split(":")[0].strip()
                     errors.append({"file_path": file_part, "error": f"cargo: {msg}"})
             return errors

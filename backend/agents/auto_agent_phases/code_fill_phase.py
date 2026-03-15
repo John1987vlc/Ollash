@@ -386,7 +386,7 @@ class CodeFillPhase(BasePhase):
             system = _SYSTEM_CSS
         elif self._is_browser_js(ctx, plan.path):
             system = _SYSTEM_BROWSER_JS_SMALL if is_small else _SYSTEM_BROWSER_JS
-        elif ext in ((_SYSTEM_BY_EXT_SMALL if is_small else _SYSTEM_BY_EXT)):
+        elif ext in (_SYSTEM_BY_EXT_SMALL if is_small else _SYSTEM_BY_EXT):
             system = (_SYSTEM_BY_EXT_SMALL if is_small else _SYSTEM_BY_EXT)[ext]
         else:
             system = system_tmpl.format(language=language)
@@ -637,9 +637,23 @@ class CodeFillPhase(BasePhase):
         hand evaluators, parsers, and compilers genuinely need more output tokens.
         """
         complex_hints = (
-            "game", "logic", "engine", "core", "solver", "evaluator",
-            "parser", "compiler", "renderer", "simulation", "algorithm",
-            "poker", "chess", "physics", "ai", "neural", "crypto",
+            "game",
+            "logic",
+            "engine",
+            "core",
+            "solver",
+            "evaluator",
+            "parser",
+            "compiler",
+            "renderer",
+            "simulation",
+            "algorithm",
+            "poker",
+            "chess",
+            "physics",
+            "ai",
+            "neural",
+            "crypto",
         )
         combined = (plan.path + " " + (plan.key_logic or "")).lower()
         if any(h in combined for h in complex_hints):

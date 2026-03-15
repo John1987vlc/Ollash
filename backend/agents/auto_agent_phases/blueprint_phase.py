@@ -185,8 +185,16 @@ class BlueprintPhase(BasePhase):
         if ctx.is_small():
             # B3 — games and full-stack projects structurally need more files
             # (e.g., cards.js + poker.js + style.css + index.html = 4 already)
-            multi_file_types = {"game", "frontend_web", "full_stack", "react_app",
-                                 "flutter_app", "java_app", "csharp_app", "kotlin_app"}
+            multi_file_types = {
+                "game",
+                "frontend_web",
+                "full_stack",
+                "react_app",
+                "flutter_app",
+                "java_app",
+                "csharp_app",
+                "kotlin_app",
+            }
             if ctx.project_type in multi_file_types:
                 return 7
             return 5  # Hard cap for small models on simple projects
