@@ -188,14 +188,58 @@ class FinishPhase(BasePhase):
         ptype = ctx.project_type
         stack = ctx.tech_stack
 
-        if "python" in stack and ptype in ("api", "cli"):
+        # Frontend / static
+        if ptype in ("frontend_web", "web_app", "game"):
+            return "Open `index.html` in your browser, or serve locally:\n\n```bash\nnpx serve . -l 8080\n```"
+
+        # Python
+        if "python" in stack:
             entry = next(
-                (p for p in ("main.py", "app.py", "cli.py", "run.py") if p in ctx.generated_files),
+                (p for p in ("main.py", "app.py", "cli.py", "run.py", "server.py") if p in ctx.generated_files),
                 "main.py",
             )
             return f"```bash\npip install -r requirements.txt\npython {entry}\n```"
-        if ptype in ("frontend_web", "web_app", "game"):
-            return "Open `index.html` in your browser, or serve locally:\n\n```bash\nnpx serve . -l 8080\n```"
+
+        # Go
+        if ptype == "go_service" or any(t in stack for t in ("go", "golang")):
+            return "```bash\ngo mod tidy\ngo run .\n```"
+
+        # Rust
+        if ptype == "rust_project" or "rust" in stack:
+            return "```bash\ncargo build\ncargo run\n```"
+
+        # Java / Kotlin + Maven
+        if ptype in ("java_app", "kotlin_app") or any(t in stack for t in ("java", "kotlin", "spring")):
+            if any(p == "pom.xml" for p in ctx.generated_files):
+                return "```bash\nmvn package\njava -jar target/*.jar\n```"
+            return "```bash\n./gradlew build\njava -jar build/libs/*.jar\n```"
+
+        # C# / .NET
+        if ptype == "csharp_app" or any(t in stack for t in ("csharp", "dotnet", "c#")):
+            return "```bash\ndotnet restore\ndotnet run\n```"
+
+        # Flutter / Dart
+        if ptype == "flutter_app" or any(t in stack for t in ("flutter", "dart")):
+            return "```bash\nflutter pub get\nflutter run\n```"
+
+        # PHP
+        if ptype == "php_app" or "php" in stack:
+            if any(p == "composer.json" for p in ctx.generated_files):
+                return "```bash\ncomposer install\nphp -S localhost:8000\n```"
+            return "```bash\nphp -S localhost:8000\n```"
+
+        # Ruby
+        if ptype == "ruby_app" or "ruby" in stack:
+            entry = next(
+                (p for p in ("app.rb", "main.rb", "server.rb") if p in ctx.generated_files),
+                "app.rb",
+            )
+            if any(p == "Gemfile" for p in ctx.generated_files):
+                return f"```bash\nbundle install\nruby {entry}\n```"
+            return f"```bash\nruby {entry}\n```"
+
+        # Node.js / TypeScript
         if "typescript" in stack or "javascript" in stack:
             return "```bash\nnpm install\nnpm start\n```"
+
         return "```bash\n# See individual files for setup instructions\n```"

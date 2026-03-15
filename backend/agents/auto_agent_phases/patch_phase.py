@@ -79,6 +79,10 @@ class PatchPhase(BasePhase):
         has_ts = any(p.endswith((".ts", ".tsx")) for p in ctx.generated_files)
         has_js = any(p.endswith(".js") for p in ctx.generated_files)
         has_html = any(p.endswith(".html") for p in ctx.generated_files)
+        has_go = any(p.endswith(".go") for p in ctx.generated_files)
+        has_rust = any(p.endswith(".rs") for p in ctx.generated_files)
+        has_php = any(p.endswith(".php") for p in ctx.generated_files)
+        has_ruby = any(p.endswith(".rb") for p in ctx.generated_files)
 
         if has_python:
             errors.extend(self._run_ruff(ctx))
@@ -88,6 +92,15 @@ class PatchPhase(BasePhase):
             errors.extend(self._run_node_check(ctx))  # #5
         if has_html:
             errors.extend(self._check_html_wellformed(ctx))  # #5
+            errors.extend(self._check_html_links(ctx))       # P3 — linkage validation
+        if has_go:
+            errors.extend(self._run_go_vet(ctx))             # P1
+        if has_rust:
+            errors.extend(self._run_cargo_check(ctx))        # P1
+        if has_php:
+            errors.extend(self._run_php_lint(ctx))           # P1
+        if has_ruby:
+            errors.extend(self._run_ruby_check(ctx))         # P1
 
         return errors
 
@@ -208,6 +221,130 @@ class PatchPhase(BasePhase):
                         errors.append({"file_path": rel_path, "error": f"HTML: {err}"})
             except Exception as e:
                 errors.append({"file_path": rel_path, "error": f"HTML parse error: {e}"})
+        return errors
+
+    def _check_html_links(self, ctx: PhaseContext) -> List[Dict[str, str]]:
+        """P3 — Verify that <link href> and <script src> reference files that exist.
+
+        Zero-LLM. Catches the common case where the LLM writes `styles.css` but
+        the generated file is `style.css`. Reports the discrepancy so CodePatcher
+        can fix the HTML attribute.
+        """
+        import re as _re
+
+        errors: List[Dict[str, str]] = []
+        html_files = [p for p in ctx.generated_files if p.endswith(".html")]
+        all_generated = set(ctx.generated_files.keys())
+
+        for rel_path in html_files:
+            content = ctx.generated_files.get(rel_path, "")
+            if not content:
+                continue
+            hrefs = _re.findall(r'<link[^>]+href=["\']([^"\'#?]+)["\']', content, _re.IGNORECASE)
+            srcs = _re.findall(r'<script[^>]+src=["\']([^"\'#?]+)["\']', content, _re.IGNORECASE)
+            for ref in hrefs + srcs:
+                if ref.startswith(("http", "//", "data:", "blob:")):
+                    continue
+                ref_clean = ref.lstrip("./")
+                if ref_clean not in all_generated and ref not in all_generated:
+                    candidates = [f for f in all_generated if f.endswith(ref_clean[-6:]) if ref_clean]
+                    hint = f" — did you mean: {candidates[0]}?" if candidates else ""
+                    errors.append({
+                        "file_path": rel_path,
+                        "error": f"Broken link: '{ref}' not found in generated files{hint}",
+                    })
+        return errors
+
+    def _run_go_vet(self, ctx: PhaseContext) -> List[Dict[str, str]]:
+        """P1 — Run `go vet ./...` if go is available. Gracefully skips if not."""
+        try:
+            result = subprocess.run(
+                ["go", "vet", "./..."],
+                capture_output=True,
+                text=True,
+                timeout=_SUBPROCESS_TIMEOUT,
+                cwd=str(ctx.project_root),
+            )
+            if result.returncode == 0:
+                return []
+            errors = []
+            for line in (result.stdout + result.stderr).splitlines()[:20]:
+                if line.strip() and ":" in line:
+                    parts = line.split(":", 2)
+                    file_part = parts[0].strip().lstrip("#").strip()
+                    msg = ":".join(parts[1:]).strip() if len(parts) > 1 else line.strip()
+                    errors.append({"file_path": file_part, "error": f"go vet: {msg}"})
+            return errors
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return []  # go not installed — skip silently
+
+    def _run_cargo_check(self, ctx: PhaseContext) -> List[Dict[str, str]]:
+        """P1 — Run `cargo check` if cargo is available. Gracefully skips if not."""
+        try:
+            result = subprocess.run(
+                ["cargo", "check", "--message-format=short"],
+                capture_output=True,
+                text=True,
+                timeout=60,  # cargo can be slow on first run
+                cwd=str(ctx.project_root),
+            )
+            if result.returncode == 0:
+                return []
+            errors = []
+            for line in (result.stdout + result.stderr).splitlines()[:20]:
+                if "error" in line.lower() and "-->" in line:
+                    # Format: "error[E0308]: type mismatch --> src/main.rs:10:5"
+                    arrow_idx = line.find("-->")
+                    msg = line[:arrow_idx].strip()
+                    loc = line[arrow_idx + 3:].strip()
+                    file_part = loc.split(":")[0].strip()
+                    errors.append({"file_path": file_part, "error": f"cargo: {msg}"})
+            return errors
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return []  # cargo not installed — skip silently
+
+    def _run_php_lint(self, ctx: PhaseContext) -> List[Dict[str, str]]:
+        """P1 — Syntax-check each .php file using `php -l`. Skips if php not found."""
+        errors: List[Dict[str, str]] = []
+        php_files = [p for p in ctx.generated_files if p.endswith(".php")]
+        for rel_path in php_files[:10]:
+            abs_path = ctx.project_root / rel_path
+            if not abs_path.exists():
+                continue
+            try:
+                result = subprocess.run(
+                    ["php", "-l", str(abs_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode != 0:
+                    msg = (result.stderr or result.stdout).strip().splitlines()[0]
+                    errors.append({"file_path": rel_path, "error": f"PHP: {msg}"})
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                break  # php not available
+        return errors
+
+    def _run_ruby_check(self, ctx: PhaseContext) -> List[Dict[str, str]]:
+        """P1 — Syntax-check each .rb file using `ruby -c`. Skips if ruby not found."""
+        errors: List[Dict[str, str]] = []
+        ruby_files = [p for p in ctx.generated_files if p.endswith(".rb")]
+        for rel_path in ruby_files[:10]:
+            abs_path = ctx.project_root / rel_path
+            if not abs_path.exists():
+                continue
+            try:
+                result = subprocess.run(
+                    ["ruby", "-c", str(abs_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode != 0:
+                    msg = (result.stderr or result.stdout).strip().splitlines()[0]
+                    errors.append({"file_path": rel_path, "error": f"Ruby: {msg}"})
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                break  # ruby not available
         return errors
 
     # ----------------------------------------------------------------

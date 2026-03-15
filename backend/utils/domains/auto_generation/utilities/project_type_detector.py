@@ -260,6 +260,175 @@ class ProjectTypeDetector:
                 }
             ),
         },
+        "java_app": {
+            "keywords": [
+                r"\bjava\b",
+                r"\bspring\s*boot\b",
+                r"\bspring\b",
+                r"\bmaven\b",
+                r"\bgradle\b",
+                r"\bhibernate\b",
+                r"\bjunit\b",
+                r"\bjpa\b",
+                r"\bjakarta\b",
+                r"\bmicroservice\b",
+            ],
+            "extensions": frozenset(
+                {
+                    ".java",
+                    ".xml",
+                    ".properties",
+                    ".yml",
+                    ".yaml",
+                    ".json",
+                    ".md",
+                    ".env",
+                    ".sql",
+                    ".sh",
+                    ".gradle",
+                    ".kts",
+                }
+            ),
+        },
+        "csharp_app": {
+            "keywords": [
+                r"\bc#\b",
+                r"\bcsharp\b",
+                r"\bdotnet\b",
+                r"\bnet\s+core\b",
+                r"\basp\.net\b",
+                r"\blazor\b",
+                r"\bnunit\b",
+                r"\bxunit\b",
+                r"\bentity\s+framework\b",
+                r"\blinq\b",
+            ],
+            "extensions": frozenset(
+                {
+                    ".cs",
+                    ".csproj",
+                    ".sln",
+                    ".json",
+                    ".xml",
+                    ".yaml",
+                    ".yml",
+                    ".md",
+                    ".env",
+                    ".sql",
+                    ".sh",
+                    ".razor",
+                }
+            ),
+        },
+        "flutter_app": {
+            "keywords": [
+                r"\bflutter\b",
+                r"\bdart\b",
+                r"\bpubspec\b",
+                r"\bstateless\s*widget\b",
+                r"\bstateful\s*widget\b",
+                r"\bgetx\b",
+                r"\briverpod\b",
+                r"\bbloc\b",
+                r"\bmaterial\b",
+                r"\bcupertino\b",
+            ],
+            "extensions": frozenset(
+                {
+                    ".dart",
+                    ".yaml",
+                    ".yml",
+                    ".json",
+                    ".md",
+                    ".arb",
+                    ".env",
+                }
+            ),
+        },
+        "php_app": {
+            "keywords": [
+                r"\bphp\b",
+                r"\blaravel\b",
+                r"\bsymfony\b",
+                r"\bwordpress\b",
+                r"\bcomposer\b",
+                r"\bphpunit\b",
+                r"\bcodeigniter\b",
+                r"\byii\b",
+                r"\bcakephp\b",
+            ],
+            "extensions": frozenset(
+                {
+                    ".php",
+                    ".json",
+                    ".yaml",
+                    ".yml",
+                    ".md",
+                    ".env",
+                    ".sql",
+                    ".html",
+                    ".css",
+                    ".js",
+                    ".sh",
+                }
+            ),
+        },
+        "ruby_app": {
+            "keywords": [
+                r"\bruby\b",
+                r"\brails\b",
+                r"\bsinatra\b",
+                r"\bhanami\b",
+                r"\bbundler\b",
+                r"\brspec\b",
+                r"\bgemfile\b",
+                r"\bpuma\b",
+                r"\bunicorn\b",
+            ],
+            "extensions": frozenset(
+                {
+                    ".rb",
+                    ".gemspec",
+                    ".json",
+                    ".yaml",
+                    ".yml",
+                    ".md",
+                    ".env",
+                    ".sql",
+                    ".html",
+                    ".css",
+                    ".js",
+                    ".sh",
+                    ".erb",
+                }
+            ),
+        },
+        "kotlin_app": {
+            "keywords": [
+                r"\bkotlin\b",
+                r"\bktor\b",
+                r"\bandroid\b",
+                r"\bjetpack\b",
+                r"\bcompose\b",
+                r"\bkotlinx\b",
+                r"\bcoroutines\b",
+            ],
+            "extensions": frozenset(
+                {
+                    ".kt",
+                    ".kts",
+                    ".xml",
+                    ".json",
+                    ".yaml",
+                    ".yml",
+                    ".md",
+                    ".gradle",
+                    ".env",
+                    ".sql",
+                    ".sh",
+                }
+            ),
+        },
     }
 
     # Universal fallback — used when confidence < 0.4
@@ -277,6 +446,14 @@ class ProjectTypeDetector:
             ".go",
             ".rs",
             ".java",
+            ".kt",
+            ".kts",
+            ".cs",
+            ".csproj",
+            ".rb",
+            ".erb",
+            ".php",
+            ".dart",
             ".json",
             ".yaml",
             ".yml",
@@ -293,6 +470,11 @@ class ProjectTypeDetector:
             ".lock",
             ".mod",
             ".sum",
+            ".gradle",
+            ".gemspec",
+            ".arb",
+            ".razor",
+            ".properties",
         }
     )
 

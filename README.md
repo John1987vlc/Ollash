@@ -11,6 +11,10 @@
 | Capability | Status |
 |---|---|
 | 8-phase AutoAgent pipeline, 4B-optimized (Plan→Blueprint→Scaffold→Fill→Patch→Infra→Finish) | ✅ |
+| **Multi-language code generation** — Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart, SVG + Python/JS/TS | ✅ **new** |
+| **Language-specific infra** — `go.mod`, `Cargo.toml`, `pom.xml`, multi-stage Dockerfiles, per-lang `.gitignore` | ✅ **new** |
+| **Multi-language static analysis** — `go vet`, `cargo check`, `php -l`, `ruby -c`, HTML link validation | ✅ **new** |
+| **Multi-language test runners** — auto-selects `go test` / `cargo test` / `mvn test` / `jest` / `pytest` | ✅ **new** |
 | **Interactive Coding Mode** — `DefaultAgent` in chat, read→edit→verify loop | ✅ **new** |
 | Interactive CLI with repo context, file editing, tool loop | ✅ |
 | Domain Agent Swarm (Architect, Developer ×3, Auditor, DevOps) | ✅ |
@@ -24,7 +28,7 @@
 | **Per-session project index** — semantic `search_codebase()` tool | ✅ **new** |
 | **Streaming shell output** — live pytest/npm/cargo lines via SSE | ✅ **new** |
 | Privacy monitor — network call audit, 🔒 local mode badge | ✅ |
-| 1 334 tests — unit · integration · E2E (Playwright, Ollama-free) | ✅ |
+| 1 106 tests — unit · integration · E2E (Playwright, Ollama-free) | ✅ |
 | **Security hardening** — CORS, rate limiting, input validation, command injection fixes | ✅ |
 | **Unified config** — 9 focused JSON files (≤30 lines each), no JSON-in-env-vars | ✅ **new** |
 | **JS MIME fix** — custom StaticFiles subclass, immune to Windows registry override | ✅ **new** |
@@ -123,7 +127,9 @@ Ollash runs entirely locally. No data leaves your machine. The following hardeni
 
 ### Auto-Agent — 8-Phase Project Generator
 
-Generate complete, production-ready projects from a single description through an 8-phase pipeline optimized for **4B models** (qwen3.5:4b) with 4K–8K context windows:
+Generate complete, production-ready projects from a single description through an 8-phase pipeline optimized for **4B models** (qwen3.5:4b) with 4K–8K context windows.
+
+Supports **11 languages**: Python, JavaScript/TypeScript, Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart/Flutter, SVG.
 
 | Tier | Range | Phases |
 |------|-------|--------|
@@ -132,15 +138,41 @@ Generate complete, production-ready projects from a single description through a
 
 Pipeline:
 ```
-Phase 1: ProjectScanPhase  — Zero-LLM: detect type/stack, ingest existing files
-Phase 2: BlueprintPhase    — 1 LLM call: full JSON blueprint (max 20 files, Pydantic validated)
+Phase 1: ProjectScanPhase  — Zero-LLM: detect type/stack (java_app, csharp_app, go_service…), ingest existing files
+Phase 2: BlueprintPhase    — 1 LLM call: full JSON blueprint (max 20 files; 7 for games/full-stack on small models)
 Phase 3: ScaffoldPhase     — Zero-LLM: create dirs + write stub files
-Phase 4: CodeFillPhase     — Core: generate each file (priority order, syntax validation, 1 retry)
-Phase 5: PatchPhase        — ruff/tsc static analysis + CodePatcher fixes, max 2 passes
-Phase 6: InfraPhase        — Template: requirements.txt, Dockerfile, .gitignore, package.json
-Phase 7: TestRunPhase      — Run pytest, patch failures max 3 iterations [SKIPPED for ≤8B]
-Phase 8: FinishPhase       — Write OLLASH.md, log metrics, fire project_complete event
+Phase 4: CodeFillPhase     — Core: generate each file with language-specific system prompts + dynamic token budget
+Phase 5: PatchPhase        — ruff/tsc/go vet/cargo check/php -l/ruby -c + HTML link validation + CodePatcher fixes
+Phase 6: InfraPhase        — go.mod/Cargo.toml/pom.xml/Dockerfile (multi-stage)/per-lang .gitignore via plugins
+Phase 7: TestRunPhase      — Auto-selects go test/cargo test/mvn test/jest/pytest; patches failures, max 3 iters [SKIPPED ≤8B]
+Phase 8: FinishPhase       — Write OLLASH.md, log metrics, fire project_complete event; language-aware run hint
 ```
+
+#### Language-specific system prompts (CodeFillPhase)
+
+Each language gets a dedicated, rule-enforcing system prompt. Small models (≤8B) use compact variants:
+
+| Language | Extension | Key rules enforced |
+|----------|-----------|-------------------|
+| **Go** | `.go` | Package decl, grouped imports, `if err != nil`, CamelCase |
+| **Rust** | `.rs` | `Result<T,E>` + `?`, ownership rules, no `unwrap()` in prod |
+| **Java** | `.java` | Package + all imports, public class matches filename, checked exceptions |
+| **C#** | `.cs` | Namespaces + usings, PascalCase, `async`/`await` for I/O |
+| **PHP** | `.php` | `declare(strict_types=1)`, namespaces, PDO for DB |
+| **Ruby** | `.rb` | snake_case, iterators, `attr_accessor`, specific `rescue` |
+| **Kotlin** | `.kt` / `.kts` | `data class`, `val>var`, `when` expressions, coroutines |
+| **Dart/Flutter** | `.dart` | Null safety, `final>var`, `const` constructors, `async`/`await` |
+| **SVG** | `.svg` | `xmlns`, `viewBox`, `<defs>`/`<symbol>` reuse, `<use>` references |
+
+#### Language-specific infra plugins (InfraPhase)
+
+| Plugin | Triggers when | Output |
+|--------|--------------|--------|
+| `GoModPlugin` | `.go` files generated | LLM-generated `go.mod` with real import scan |
+| `CargoTomlPlugin` | `.rs` files generated | LLM-generated `Cargo.toml` with crate scan |
+| `PomXmlPlugin` | `.java` files generated | LLM-generated `pom.xml` with import scan |
+| `DockerfilePlugin` | always | Multi-stage Dockerfiles for Go, Rust, Java, C#, PHP, Ruby, Node, Python |
+| `GitignorePlugin` | always | Per-language `.gitignore` (Go/Rust/Java/C#/PHP/Ruby/Dart/Kotlin/Node/Python) |
 
 ### Interactive Coding Mode — Claude Code-style assistant
 
@@ -298,7 +330,7 @@ ollash/
 │   ├── agents/
 │   │   ├── auto_agent.py                    # Pipeline orchestrator (adaptive phase filtering)
 │   │   ├── default_agent.py                 # Chat agent (IntentRouting + ToolLoop + ContextSummarizer)
-│   │   ├── auto_agent_phases/               # 8 pipeline phases (scan→blueprint→scaffold→fill→patch→infra→testrun→finish)
+│   │   ├── auto_agent_phases/               # 8 pipeline phases (scan→blueprint→scaffold→fill→patch→infra→testrun→finish) — 11 languages
 │   │   ├── domain_agents/                   # Swarm: Architect, Developer ×3, Auditor, DevOps
 │   │   ├── mixins/                          # ContextSummarizer, IntentRouting, ToolLoop
 │   │   └── orchestrators/                   # Blackboard, TaskDAG, SelfHealingLoop, DebateNodeRunner
@@ -417,9 +449,11 @@ Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeli
 |---------|----------------------|
 | Token budget | ~800 tokens system + ~2200 tokens user per LLM call (~4K total) |
 | TestRunPhase | Skipped — `ctx.is_small()` returns True, phase 7 is omitted |
-| Blueprint size | Max 20 files — prevents context overflow in `BlueprintPhase` |
+| Blueprint size | Max 5 files for simple projects; **7 for games/full-stack/React/Flutter** (B3 — these structurally need more files) |
+| Language prompts | Compact single-line variants for Go/Rust/Java/C#/PHP/Ruby/Kotlin/Dart |
+| Dynamic token budget | `_estimate_num_predict()` → 4096 tokens for game/logic/engine/solver files, 2048 otherwise |
 | Syntax validation | CodeFillPhase validates output and retries once on syntax error |
-| Patching | PatchPhase runs ruff/tsc + CodePatcher targeted fixes, max 2 passes |
+| Patching | PatchPhase runs ruff/tsc/go vet/cargo check/php -l/ruby -c + CodePatcher, max 2 passes |
 | Micro tier (≤2B) | `ctx.is_micro()` — uses even shorter prompt variants |
 
 ---
@@ -482,7 +516,7 @@ Domain toolsets: `file_system_tools`, `command_line_tools`, `network_tools`, `sy
 ```bash
 # Unit tests (no Ollama required)
 pytest tests/unit/ -q
-# → 1 334 passed, 2 skipped, 1 xfailed
+# → 1 106 passed, 2 skipped, 1 xfailed
 
 # Integration tests
 pytest tests/integration/ -q

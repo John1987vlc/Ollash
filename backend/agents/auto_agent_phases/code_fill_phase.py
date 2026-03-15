@@ -103,7 +103,155 @@ Browser JavaScript developer. Write working code for browser execution.
 - Expose functions on window.* so HTML can call them
 - Output code only, no markdown"""
 
-_USER_FULL = """## FILE TO GENERATE
+_SYSTEM_GO = """# ROLE
+Expert Go developer. Write idiomatic, production-quality Go code.
+
+# RULES
+- Package declaration mandatory at top (package main for executables, package <name> for libraries)
+- Group imports: stdlib / external / internal separated by blank lines; remove unused imports
+- Use Go naming: CamelCase exported, camelCase unexported, ALL_CAPS constants
+- Explicit error handling: if err != nil { return ..., err } — never ignore errors
+- Use interfaces for abstraction; structs + methods over inheritance
+- Goroutines need sync (WaitGroup, channel, mutex); always close channels
+- FORBIDDEN: panic() on expected errors, fmt.Println in production (use log), global mutable state
+- Output ONLY the Go file content. No explanations. No markdown fences."""
+
+_SYSTEM_RUST = """# ROLE
+Expert Rust developer. Write safe, idiomatic Rust code that compiles.
+
+# RULES
+- All use statements at top; only import what is used
+- Prefer Result<T, E> for fallible functions; use ? operator for propagation
+- Respect ownership: clone() only when necessary, prefer &T and &mut T
+- Use #[derive(Debug, Clone, PartialEq)] on data structs where appropriate
+- Match arms must be exhaustive; use _ => {} only when intentional
+- FORBIDDEN: unwrap()/expect() on production paths, unsafe{} without comment, todo!() without reason
+- Output ONLY the Rust file content. No explanations. No markdown fences."""
+
+_SYSTEM_JAVA = """# ROLE
+Expert Java developer. Write clean, idiomatic Java code.
+
+# RULES
+- Package declaration at top; add ALL necessary import statements
+- One public class per file; filename MUST match the public class name exactly
+- Use proper access modifiers: private fields, public/protected methods
+- Handle checked exceptions: catch specific types, never swallow with empty catch
+- Use @Override for overridden methods; use generics to avoid raw types
+- FORBIDDEN: System.out.println in production (use Logger), raw types, empty catch blocks, TODO stubs
+- Output ONLY the Java file content. No explanations. No markdown fences."""
+
+_SYSTEM_CSHARP = """# ROLE
+Expert C# developer. Write clean, idiomatic C# code.
+
+# RULES
+- Namespace and all necessary using statements at top
+- PascalCase for types/methods/properties; camelCase for local variables/parameters
+- Prefer async/await for all I/O; return Task<T> not void for async methods
+- Use LINQ for collection transformations; null-conditional ?. and ?? operators
+- Dispose IDisposable with using statements or using declarations
+- FORBIDDEN: NotImplementedException (implement it), empty catch, Thread.Sleep in async code
+- Output ONLY the C# file content. No explanations. No markdown fences."""
+
+_SYSTEM_SVG = """# ROLE
+SVG graphic designer. Generate complete, well-structured SVG markup.
+
+# RULES
+- Root <svg> must have xmlns="http://www.w3.org/2000/svg", viewBox, width, height
+- Use <defs> with <symbol id="..."> for reusable graphics (card suits, icons)
+- Reference symbols with <use href="#symbol-id" x="..." y="...">
+- Use <g id="..." transform="..."> for logical groups
+- Card suit colors: spades/clubs #1a1a2e (dark), hearts/diamonds #e63946 (red)
+- Playing card: rect rx="8" fill="white" stroke="#ccc" stroke-width="1"
+- FORBIDDEN: inline JavaScript, external image references, non-SVG elements
+- Output ONLY the SVG content starting with <svg. No explanations. No markdown fences."""
+
+_SYSTEM_NODE_TS = """# ROLE
+Node.js/TypeScript backend developer. Write idiomatic server-side TypeScript.
+
+# RULES
+- ESM imports only (import ... from '...'  or import type ...); no require()
+- Declare types for ALL function parameters and return values; avoid any
+- async/await everywhere for I/O; never mix callbacks and promises
+- Named exports preferred over default exports
+- FORBIDDEN: any type (use unknown + narrowing), empty catch, TODO stubs, console.log in production
+- Output ONLY the TypeScript file content. No explanations. No markdown fences."""
+
+_SYSTEM_PHP = """# ROLE
+Expert PHP developer. Write clean, modern PHP 8.x code.
+
+# RULES
+- Start with <?php declare(strict_types=1);
+- Use namespaces and PSR-4 autoloading conventions
+- Type hints on all function parameters and return types
+- Use match expressions over switch; null coalescing ??, named arguments
+- FORBIDDEN: mysql_* functions (use PDO/MySQLi), global variables, eval(), TODO stubs
+- Output ONLY the PHP file content. No explanations. No markdown fences."""
+
+_SYSTEM_RUBY = """# ROLE
+Expert Ruby developer. Write clean, idiomatic Ruby code.
+
+# RULES
+- Use snake_case for methods and variables; CamelCase for classes/modules
+- Prefer blocks, iterators, and Enumerable methods over loops
+- Use attr_accessor/reader/writer; avoid instance variable access outside the class
+- Raise specific exception classes; rescue specific exceptions (not bare rescue)
+- FORBIDDEN: global variables ($x), method_missing without respond_to_missing?, TODO stubs
+- Output ONLY the Ruby file content. No explanations. No markdown fences."""
+
+_SYSTEM_KOTLIN = """# ROLE
+Expert Kotlin developer. Write clean, idiomatic Kotlin code.
+
+# RULES
+- Use data class for DTOs; sealed class for exhaustive type hierarchies
+- Prefer val over var; use nullable types T? only when null is meaningful
+- Use when expressions exhaustively; extension functions for utility methods
+- Coroutines for async: suspend fun, launch, async, Flow for streams
+- FORBIDDEN: !! (null assertion), Java-style for loops, TODO() without implementation
+- Output ONLY the Kotlin file content. No explanations. No markdown fences."""
+
+_SYSTEM_DART = """# ROLE
+Expert Dart/Flutter developer. Write clean, idiomatic Dart code.
+
+# RULES
+- Use null safety: declare types as T? only when null is possible, use ! only after null check
+- Prefer final over var; use const constructors where possible
+- Flutter widgets: StatelessWidget for pure UI, StatefulWidget for mutable state
+- Use async/await with Future<T>; avoid .then() chaining
+- FORBIDDEN: dynamic type (use Object?), print() in production (use debugPrint), TODO stubs
+- Output ONLY the Dart file content. No explanations. No markdown fences."""
+
+# Map file extensions to their specialized system prompts (for non-small models)
+_SYSTEM_BY_EXT: dict[str, str] = {
+    ".go": _SYSTEM_GO,
+    ".rs": _SYSTEM_RUST,
+    ".java": _SYSTEM_JAVA,
+    ".cs": _SYSTEM_CSHARP,
+    ".svg": _SYSTEM_SVG,
+    ".php": _SYSTEM_PHP,
+    ".rb": _SYSTEM_RUBY,
+    ".kt": _SYSTEM_KOTLIN,
+    ".kts": _SYSTEM_KOTLIN,
+    ".dart": _SYSTEM_DART,
+}
+
+# Compact versions for small models (≤8B)
+_SYSTEM_BY_EXT_SMALL: dict[str, str] = {
+    ".go": "Go developer. Write idiomatic Go: package decl, all imports used, if err!=nil{return err}, CamelCase exported. Output code only.",
+    ".rs": "Rust developer. Write safe Rust: use statements, Result<T,E> with ?, no unwrap() in prod. Output code only.",
+    ".java": "Java developer. Write clean Java: package+imports, public class matches filename, checked exceptions handled. Output code only.",
+    ".cs": "C# developer. Write idiomatic C#: namespaces+usings, PascalCase methods, async/await for I/O. Output code only.",
+    ".svg": "SVG designer. Write SVG with xmlns, viewBox, <defs>/<symbol> for card suits, <use> for references. Output SVG only.",
+    ".php": "PHP developer. Write PHP 8 with <?php declare(strict_types=1); namespaces, type hints, PDO for DB. Output code only.",
+    ".rb": "Ruby developer. Write idiomatic Ruby: snake_case, iterators, attr_accessor, rescue specific exceptions. Output code only.",
+    ".kt": "Kotlin developer. Write idiomatic Kotlin: data class, val>var, when expressions, coroutines for async. Output code only.",
+    ".dart": "Dart developer. Write null-safe Dart: final>var, const constructors, async/await, StatelessWidget or StatefulWidget. Output code only.",
+}
+
+_USER_FULL = """## PROJECT CONTEXT
+Name: {project_name}
+Description: {project_description}
+
+## FILE TO GENERATE
 Path: {file_path}
 Purpose: {purpose}
 Public exports: {exports}
@@ -118,7 +266,8 @@ Key implementation: {key_logic}
 
 Write the complete content of `{file_path}` now:"""
 
-_USER_SMALL = """File: {file_path}
+_USER_SMALL = """Project: {project_name} — {project_description}
+File: {file_path}
 Purpose: {purpose}
 Depends on: {imports}
 Key logic: {key_logic}
@@ -237,11 +386,15 @@ class CodeFillPhase(BasePhase):
             system = _SYSTEM_CSS
         elif self._is_browser_js(ctx, plan.path):
             system = _SYSTEM_BROWSER_JS_SMALL if is_small else _SYSTEM_BROWSER_JS
+        elif ext in ((_SYSTEM_BY_EXT_SMALL if is_small else _SYSTEM_BY_EXT)):
+            system = (_SYSTEM_BY_EXT_SMALL if is_small else _SYSTEM_BY_EXT)[ext]
         else:
             system = system_tmpl.format(language=language)
 
         if is_small:
             user = user_tmpl.format(
+                project_name=ctx.project_name,
+                project_description=ctx.project_description[:200],
                 file_path=plan.path,
                 purpose=plan.purpose,
                 imports=", ".join(plan.imports) or "none",
@@ -252,6 +405,8 @@ class CodeFillPhase(BasePhase):
             # Use a thread-local copy of previous_summary to avoid races.
             # In parallel groups, previous_summary is "" for all files in the group.
             user = user_tmpl.format(
+                project_name=ctx.project_name,
+                project_description=ctx.project_description[:400],
                 file_path=plan.path,
                 purpose=plan.purpose,
                 exports=", ".join(plan.exports) or "none",
@@ -265,7 +420,8 @@ class CodeFillPhase(BasePhase):
                 if dom_contract:
                     user += f"\n\n## DOM CONTRACT (IDs/classes already defined in HTML/CSS)\n{dom_contract}"
 
-        content = self._generate_with_retry(ctx, system, user, plan, no_think=is_small)
+        num_predict = self._estimate_num_predict(plan)
+        content = self._generate_with_retry(ctx, system, user, plan, no_think=is_small, max_tokens=num_predict)
 
         if content:
             with lock:
@@ -294,6 +450,7 @@ class CodeFillPhase(BasePhase):
         user: str,
         plan: FilePlan,
         no_think: bool = False,
+        max_tokens: int = 2048,
     ) -> Optional[str]:
         """Try to generate file content. One retry on syntax error.
 
@@ -304,7 +461,7 @@ class CodeFillPhase(BasePhase):
         last_error: Optional[str] = None
 
         for attempt in range(2):
-            raw = self._llm_call(ctx, system, current_user, role="coder", no_think=no_think)
+            raw = self._llm_call(ctx, system, current_user, role="coder", no_think=no_think, max_tokens=max_tokens)
             content = self._extract_code(raw, plan.path)
 
             syntax_ok, syntax_error = self._validate_syntax_detailed(plan.path, content)
@@ -324,7 +481,7 @@ class CodeFillPhase(BasePhase):
                 )
 
         # Return best-effort content even if syntax check fails on second attempt
-        raw = self._llm_call(ctx, system, current_user, role="coder", no_think=no_think)
+        raw = self._llm_call(ctx, system, current_user, role="coder", no_think=no_think, max_tokens=max_tokens)
         return self._extract_code(raw, plan.path)
 
     def _build_signature_context(self, ctx: PhaseContext, plan: FilePlan) -> str:
@@ -467,6 +624,27 @@ class CodeFillPhase(BasePhase):
             )
         except OSError as e:
             ctx.logger.warning(f"[CodeFill] Cache save failed: {e}")
+
+    # ----------------------------------------------------------------
+    # C5 — Dynamic num_predict based on file complexity
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _estimate_num_predict(plan: FilePlan) -> int:
+        """Return 4096 tokens for files with complex domain logic, 2048 otherwise.
+
+        Detects complexity from the file path and key_logic hint. Game engines,
+        hand evaluators, parsers, and compilers genuinely need more output tokens.
+        """
+        complex_hints = (
+            "game", "logic", "engine", "core", "solver", "evaluator",
+            "parser", "compiler", "renderer", "simulation", "algorithm",
+            "poker", "chess", "physics", "ai", "neural", "crypto",
+        )
+        combined = (plan.path + " " + (plan.key_logic or "")).lower()
+        if any(h in combined for h in complex_hints):
+            return 4096
+        return 2048
 
     # ----------------------------------------------------------------
     # Validation / extraction helpers

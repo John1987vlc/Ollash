@@ -1,7 +1,9 @@
 """Phase 7: TestRunPhase — run tests and patch failures.
 
-Runs pytest on the generated project. For each failing test, locates the relevant
-source file and patches it. Max 3 iterations.
+Runs the appropriate test command for the project's language: pytest (Python),
+jest/vitest (JS/TS), go test (Go), cargo test (Rust), mvn test (Java).
+For each failing test, locates the relevant source file and patches it.
+Max 3 iterations.
 
 Skipped automatically for small models (<=8B) — see AutoAgent.SMALL_PHASE_ORDER.
 """
@@ -18,6 +20,7 @@ from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
 _MAX_ITERATIONS = 3
 _PYTEST_TIMEOUT = 120
+_TEST_TIMEOUT = 120
 
 
 class TestRunPhase(BasePhase):
@@ -33,10 +36,14 @@ class TestRunPhase(BasePhase):
 
         ctx.logger.info(f"[TestRun] Found {len(test_files)} test file(s)")
 
+        # T1 — pick the right test runner for the project language
+        runner = self._select_test_runner(ctx)
+        ctx.logger.info(f"[TestRun] Using runner: {runner}")
+
         for iteration in range(_MAX_ITERATIONS):
-            result = self._run_pytest(ctx)
+            result = self._run_tests(ctx, runner)
             if result is None:
-                ctx.logger.info("[TestRun] pytest not available, skipping")
+                ctx.logger.info(f"[TestRun] {runner} not available, skipping")
                 return
 
             if result["passed"]:
@@ -58,7 +65,36 @@ class TestRunPhase(BasePhase):
 
         ctx.metrics["tests_passed"] = False
 
+    @staticmethod
+    def _select_test_runner(ctx: PhaseContext) -> str:
+        """Pick the appropriate test runner based on project language."""
+        stack = ctx.tech_stack
+        ptype = ctx.project_type
+        if ptype == "go_service" or any(t in stack for t in ("go", "golang")):
+            return "go_test"
+        if ptype == "rust_project" or "rust" in stack:
+            return "cargo_test"
+        if ptype in ("java_app", "kotlin_app") or any(t in stack for t in ("java", "kotlin", "spring")):
+            return "mvn_test"
+        if any(p.endswith((".ts", ".tsx")) for p in ctx.generated_files):
+            return "jest_ts"
+        if any(p.endswith(".js") for p in ctx.generated_files) and "python" not in stack:
+            return "jest"
+        return "pytest"  # default
+
     # ----------------------------------------------------------------
+
+    def _run_tests(self, ctx: PhaseContext, runner: str) -> Optional[Dict]:
+        """Dispatch to the appropriate test runner. Returns None if tool unavailable."""
+        if runner == "go_test":
+            return self._run_go_test(ctx)
+        if runner == "cargo_test":
+            return self._run_cargo_test(ctx)
+        if runner == "mvn_test":
+            return self._run_mvn_test(ctx)
+        if runner in ("jest", "jest_ts"):
+            return self._run_jest(ctx)
+        return self._run_pytest(ctx)
 
     def _run_pytest(self, ctx: PhaseContext) -> Optional[Dict]:
         """Run pytest. Returns dict with passed/failures, or None if unavailable."""
@@ -80,6 +116,102 @@ class TestRunPhase(BasePhase):
             return None  # pytest not installed
         except subprocess.TimeoutExpired:
             ctx.logger.warning("[TestRun] pytest timed out")
+            return {"passed": False, "failures": []}
+
+    def _run_go_test(self, ctx: PhaseContext) -> Optional[Dict]:
+        """Run `go test ./...`."""
+        try:
+            result = subprocess.run(
+                ["go", "test", "./...", "-v"],
+                cwd=str(ctx.project_root),
+                capture_output=True,
+                text=True,
+                timeout=_TEST_TIMEOUT,
+            )
+            if result.returncode == 0:
+                return {"passed": True, "failures": []}
+            # Parse go test failures: "--- FAIL: TestName (0.00s)"
+            failures = []
+            for line in (result.stdout + result.stderr).splitlines():
+                m = re.match(r"--- FAIL:\s+(\S+)\s+\(", line)
+                if m:
+                    failures.append({"file_path": ".", "test_name": m.group(1), "error": line.strip()})
+            return {"passed": False, "failures": failures}
+        except FileNotFoundError:
+            return None
+        except subprocess.TimeoutExpired:
+            ctx.logger.warning("[TestRun] go test timed out")
+            return {"passed": False, "failures": []}
+
+    def _run_cargo_test(self, ctx: PhaseContext) -> Optional[Dict]:
+        """Run `cargo test`."""
+        try:
+            result = subprocess.run(
+                ["cargo", "test"],
+                cwd=str(ctx.project_root),
+                capture_output=True,
+                text=True,
+                timeout=_TEST_TIMEOUT,
+            )
+            if result.returncode == 0:
+                return {"passed": True, "failures": []}
+            failures = []
+            for line in (result.stdout + result.stderr).splitlines():
+                if line.strip().startswith("FAILED"):
+                    test_name = line.strip().split()[-1] if line.strip().split() else "unknown"
+                    failures.append({"file_path": "src", "test_name": test_name, "error": line.strip()})
+            return {"passed": False, "failures": failures}
+        except FileNotFoundError:
+            return None
+        except subprocess.TimeoutExpired:
+            ctx.logger.warning("[TestRun] cargo test timed out")
+            return {"passed": False, "failures": []}
+
+    def _run_mvn_test(self, ctx: PhaseContext) -> Optional[Dict]:
+        """Run `mvn test -q`."""
+        try:
+            result = subprocess.run(
+                ["mvn", "test", "-q"],
+                cwd=str(ctx.project_root),
+                capture_output=True,
+                text=True,
+                timeout=_TEST_TIMEOUT,
+            )
+            if result.returncode == 0:
+                return {"passed": True, "failures": []}
+            failures = []
+            for line in (result.stdout + result.stderr).splitlines():
+                if "FAILED" in line or "ERROR" in line:
+                    failures.append({"file_path": "src", "test_name": "mvn", "error": line.strip()})
+            return {"passed": False, "failures": failures[:5]}
+        except FileNotFoundError:
+            return None
+        except subprocess.TimeoutExpired:
+            ctx.logger.warning("[TestRun] mvn test timed out")
+            return {"passed": False, "failures": []}
+
+    def _run_jest(self, ctx: PhaseContext) -> Optional[Dict]:
+        """Run `npx jest --passWithNoTests`."""
+        try:
+            result = subprocess.run(
+                ["npx", "jest", "--passWithNoTests", "--no-coverage"],
+                cwd=str(ctx.project_root),
+                capture_output=True,
+                text=True,
+                timeout=_TEST_TIMEOUT,
+            )
+            if result.returncode == 0:
+                return {"passed": True, "failures": []}
+            failures = []
+            for line in (result.stdout + result.stderr).splitlines():
+                m = re.match(r"\s+✕\s+(.+)", line) or re.match(r"\s+×\s+(.+)", line)
+                if m:
+                    failures.append({"file_path": ".", "test_name": m.group(1).strip(), "error": line.strip()})
+            return {"passed": False, "failures": failures}
+        except FileNotFoundError:
+            return None
+        except subprocess.TimeoutExpired:
+            ctx.logger.warning("[TestRun] jest timed out")
             return {"passed": False, "failures": []}
 
     def _parse_failures(self, output: str) -> List[Dict[str, str]]:
