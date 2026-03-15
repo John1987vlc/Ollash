@@ -1,0 +1,24 @@
+{
+  "alerts": [
+    {
+      "alert_id": "high_cpu",
+      "severity": "critical",
+      "entity": "cpu",
+      "threshold": 85,
+      "operator": ">",
+      "cooldown_seconds": 600,
+      "enabled": true,
+      "channels": ["ui", "email"]
+    },
+    {
+      "alert_id": "high_memory",
+      "severity": "critical",
+      "entity": "memory",
+      "threshold": 90,
+      "operator": ">",
+      "cooldown_seconds": 600,
+      "enabled": true,
+      "channels": ["ui", "email"]
+    }
+  ]
+}

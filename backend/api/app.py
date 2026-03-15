@@ -184,7 +184,18 @@ def create_app(ollash_root_dir: Path | None = None) -> FastAPI:
         return response
 
     # Static files: /static → frontend/static/
-    app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
+    # Custom subclass forces correct MIME types — Windows registry often maps .js to text/plain.
+    _MIME_OVERRIDES = {".js": "application/javascript", ".mjs": "application/javascript", ".css": "text/css"}
+
+    class _StaticFilesFixed(StaticFiles):
+        async def get_response(self, path: str, scope):  # type: ignore[override]
+            resp = await super().get_response(path, scope)
+            ext = Path(path).suffix.lower()
+            if ext in _MIME_OVERRIDES:
+                resp.headers["content-type"] = _MIME_OVERRIDES[ext]
+            return resp
+
+    app.mount("/static", _StaticFilesFixed(directory="frontend/static"), name="static")
 
     # Jinja2 templates: same directory, updated url_for calls in templates
     templates = Jinja2Templates(directory="frontend/templates")

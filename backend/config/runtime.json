@@ -1,0 +1,12 @@
+{
+  "max_context_tokens": 8192,
+  "max_output_tokens": 4096,
+  "summarize_threshold_ratio": 0.85,
+  "history_limit": 200,
+  "log_level": "debug",
+  "log_file": "ollash.log",
+  "token_encoding_name": "cl100k_base",
+  "rate_limit_rpm": 300,
+  "rate_limit_tokens_pm": 2000000,
+  "default_system_prompt_path": "orchestrator/default_orchestrator.yaml"
+}

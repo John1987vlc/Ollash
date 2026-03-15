@@ -1,0 +1,16 @@
+{
+  "critic_loop": {"enabled": true},
+  "few_shot_store": {"enabled": true},
+  "chaos_engineering": {"enabled": false, "injection_rate": 0.2},
+  "context_saturation": {"enabled": true, "threshold": 0.6},
+  "git_checkpoints": {
+    "enabled": false,
+    "commit_message_prefix": "checkpoint(auto-agent):",
+    "skip_ci_tag": "[skip ci]",
+    "large_project_token_threshold": 2000000
+  },
+  "clarification": {"enabled": true, "max_questions": 5, "timeout_seconds": 300},
+  "api_contract": {"enabled": true, "max_retries": 3},
+  "plan_validation": {"enabled": true, "max_rounds": 3},
+  "viability_estimator": {"enabled": true, "large_project_threshold": 2000000}
+}

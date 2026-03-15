@@ -1,0 +1,15 @@
+{
+  "small_model": {
+    "opt1_prompt_state_machine": true,
+    "opt2_micro_context_snapshot": true,
+    "opt3_exit_contract": true,
+    "opt4_incremental_backlog": true,
+    "opt5_anti_pattern_injection": true,
+    "opt6_active_shadow": true
+  },
+  "mid_model": {
+    "mid1_skip_docs_phases": true,
+    "mid2_single_review_pass": true,
+    "mid3_reduced_planning_context": true
+  }
+}

@@ -9,29 +9,17 @@ POST /api/privacy/clear  — clear the call log (auth required)
 
 from __future__ import annotations
 
-import json
-import os
-from pathlib import Path
-
 from fastapi import APIRouter, Depends
 
 from backend.api.deps import get_current_user_dep
+from backend.core.config import get_config
 
 router = APIRouter(prefix="/api/privacy", tags=["privacy"])
 
-_LLM_MODELS_PATH = Path(__file__).parent.parent.parent / "config" / "llm_models.json"
-
 
 def _get_ollama_url() -> str:
-    """Read the configured Ollama URL from llm_models.json or env var."""
-    env_url = os.environ.get("OLLAMA_URL", "")
-    if env_url:
-        return env_url
-    try:
-        data = json.loads(_LLM_MODELS_PATH.read_text(encoding="utf-8"))
-        return data.get("ollama_url", "http://localhost:11434")
-    except Exception:
-        return "http://localhost:11434"
+    """Read the configured Ollama URL via the unified config system."""
+    return get_config().OLLAMA_URL
 
 
 def _is_local_url(url: str) -> bool:

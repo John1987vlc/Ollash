@@ -1,0 +1,8 @@
+{
+  "url": "http://localhost:11434",
+  "default_model": "qwen3.5:4b",
+  "timeout": 600,
+  "temperature": 0.4,
+  "num_ctx": 16384,
+  "repeat_penalty": 1.15
+}

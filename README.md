@@ -25,7 +25,9 @@
 | **Streaming shell output** — live pytest/npm/cargo lines via SSE | ✅ **new** |
 | Privacy monitor — network call audit, 🔒 local mode badge | ✅ |
 | 1 334 tests — unit · integration · E2E (Playwright, Ollama-free) | ✅ |
-| **Security hardening** — CORS, rate limiting, input validation, command injection fixes | ✅ **new** |
+| **Security hardening** — CORS, rate limiting, input validation, command injection fixes | ✅ |
+| **Unified config** — 9 focused JSON files (≤30 lines each), no JSON-in-env-vars | ✅ **new** |
+| **JS MIME fix** — custom StaticFiles subclass, immune to Windows registry override | ✅ **new** |
 
 ---
 
@@ -371,31 +373,41 @@ ollash/
 
 ## Configuration
 
-### `backend/config/llm_models.json`
+All config lives in `backend/config/` as focused JSON files (≤ 30 lines each).
+Environment-specific secrets go in `.env` — no JSON strings inside env vars.
 
-```json
-{
-  "default_model":  "qwen3.5:4b",
-  "embedding":      "qwen3-embedding:4b",
-  "agent_roles": {
-    "planner":             "qwen3.5:4b",
-    "coder":               "custom-coder:7b",
-    "senior_reviewer":     "qwen3-coder:30b",
-    "generalist":          "qwen3.5:4b",
-    "writer":              "qwen3.5:0.8b",
-    "suggester":           "qwen3.5:0.8b"
-  }
-}
+| File | Purpose |
+|---|---|
+| `ollama.json` | Ollama URL, timeout, temperature, num_ctx |
+| `models.json` | Model tiers: nano / medium / large / xl / embedding |
+| `agent_roles.json` | Per-role model assignments (`planner`, `coder`, …) |
+| `tools.json` | Sandbox level, iteration limits, confirm thresholds |
+| `runtime.json` | Logging, context tokens, rate limits, encoding |
+| `features.json` | Feature flags, knowledge_graph, artifacts, OCR, speech |
+| `optimizations.json` | Small-model and mid-model pipeline optimizations |
+| `phase_features.json` | Per-phase feature knobs (clarification, api_contract, …) |
+| `alert_thresholds.json` | Alert rules (CPU, memory) |
+| `security_policies.json` | Command allowlist, path protection, sandbox rules |
+| `automation_templates.json` | Trigger definitions |
+
+### Key settings at a glance
+
+| Setting (file) | Default | Notes |
+|---|---|---|
+| `url` (ollama.json) | `http://localhost:11434` | Override with `OLLAMA_URL` env var |
+| `max_context_tokens` (runtime.json) | 8192 | Input context budget |
+| `max_output_tokens` (runtime.json) | 4096 | Prevents truncated file generation |
+| `parallel_max_concurrent` (tools.json) | 3 | Concurrent file generation tasks |
+| `sandbox` (tools.json) | `"limited"` | `none \| limited \| full` |
+
+### `.env` — secrets and overrides only
+
+```bash
+OLLAMA_URL=http://localhost:11434   # override ollama.json url
+# DEFAULT_MODEL=qwen3.5:4b         # override models.json default
+GITHUB_TOKEN=...
+SMTP_SERVER=...
 ```
-
-### `backend/config/tool_settings.json` — key limits
-
-| Setting | Default | Notes |
-|---------|---------|-------|
-| `max_context_tokens` | 8192 | Input context budget |
-| `max_output_tokens` | 4096 | Prevents truncated file generation |
-| `parallel_generation_max_concurrent` | 3 | Concurrent file generation tasks |
-| `sandbox_level` | `"limited"` | `none \| limited \| strict \| docker` |
 
 ---
 

@@ -1,0 +1,15 @@
+{
+  "sandbox": "limited",
+  "use_docker_sandbox": false,
+  "auto_confirm_tools": false,
+  "max_iterations": 30,
+  "max_depth": 2,
+  "loop_detection_threshold": 3,
+  "semantic_similarity_threshold": 0.95,
+  "parallel_max_concurrent": 3,
+  "parallel_max_rpm": 10,
+  "nano_parallel_max_concurrent": 3,
+  "nano_parallel_max_rpm": 15,
+  "senior_review_max_attempts": 5,
+  "completeness_checker_max_retries": 2
+}
