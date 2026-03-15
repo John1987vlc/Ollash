@@ -191,8 +191,8 @@ async def cmd_auto_agent(args):
     print(f"[*] Running AutoAgent pipeline for: {args.task}")
     try:
         auto_agent = main_container.auto_agent_module.auto_agent()
-        result_path = await auto_agent.run(
-            project_description=args.task,
+        result_path = auto_agent.run(
+            description=args.task,
             project_name=args.name or "auto_project",
         )
         print(f"\n[+] Project generated at: {result_path}")
@@ -595,7 +595,9 @@ async def cmd_chat(args):
                 if user_input.startswith("/model "):
                     new_model = user_input[7:].strip()
                     try:
-                        agent.llm_client = main_container.auto_agent_module.llm_client_manager().get_client_by_model(new_model)
+                        agent.llm_client = main_container.auto_agent_module.llm_client_manager().get_client_by_model(
+                            new_model
+                        )
                         current_model = new_model
                         repo.set_model(new_model)
                         console.print(f"[info]Switched to model: [bold]{new_model}[/bold][/info]")

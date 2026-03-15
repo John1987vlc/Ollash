@@ -93,8 +93,16 @@ class OllamaClient:
         default_predict = self.config.get("max_output_tokens", 2048)
 
         opts = {"temperature": 0.1, "num_ctx": default_ctx, "num_predict": default_predict, "keep_alive": "5m"}
+        # Top-level Ollama payload keys (e.g. "think": False for Qwen3) must NOT go into "options".
+        # Extract them before merging the rest into opts.
+        _TOP_LEVEL_KEYS = {"think"}
+        top_level_extras: dict = {}
         if options_override:
-            opts.update(options_override)
+            override_copy = dict(options_override)
+            for k in _TOP_LEVEL_KEYS:
+                if k in override_copy:
+                    top_level_extras[k] = override_copy.pop(k)
+            opts.update(override_copy)
         if hasattr(self, "_keep_alive"):
             opts["keep_alive"] = self._keep_alive
 
@@ -102,6 +110,7 @@ class OllamaClient:
         await self._check_saturation(messages)
 
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False, "options": opts}
+        payload.update(top_level_extras)
         if context:
             payload["context"] = context
 

@@ -62,6 +62,16 @@ generate_blueprint:
       {"path":"cli.py","purpose":"CLI entry point using argparse","exports":[],"imports":["src/converter.py","src/validator.py"],"key_logic":"argparse with --input, --output, --pretty flags; calls convert_csv_to_json","priority":2}
     ]}
 
+    ## Example 3: Browser frontend (HTML + CSS + JS)
+    Input: "A browser-based card game with HTML, CSS, and JavaScript using SVG cards"
+    Output:
+    {"project_type":"frontend_web","tech_stack":["html","css","javascript"],"files":[
+      {"path":"styles.css","purpose":"Game layout and card component styles","exports":[],"imports":[],"key_logic":"CSS vars for theme colors; .card, .game-board, .stats-panel, .btn classes; flexbox layout for card grid","priority":1},
+      {"path":"data.js","purpose":"Card definitions and viability report logic","exports":["cards","generateReport"],"imports":[],"key_logic":"window.cards = array of {id,name,type,cost,damage}; window.generateReport = function() aggregates stats — NO module.exports, expose via window.*","priority":2},
+      {"path":"game.js","purpose":"Game logic and DOM manipulation","exports":["initGame"],"imports":["data.js","styles.css"],"key_logic":"window.initGame() renders .card elements into #game-board; calls window.cards and window.generateReport(); displays result in #stats-panel; handles .card click events — NO require()","priority":3},
+      {"path":"index.html","purpose":"Main HTML entry point","exports":[],"imports":["styles.css","data.js","game.js"],"key_logic":"<link rel=stylesheet href=styles.css>; <script src=data.js defer>; <script src=game.js defer>; <div id=game-board>; <div id=stats-panel>; DOMContentLoaded calls window.initGame()","priority":4}
+    ]}
+
   user: |
     Project name: {project_name}
     Description: {project_description}
@@ -73,28 +83,28 @@ generate_blueprint:
 generate_blueprint_small:
   system: |
     # CONTEXT
-    You are a Software Architect creating a minimal file blueprint for a software project.
-    The model has a small context window — keep the output concise.
+    You are a Software Architect creating a minimal file blueprint for a small-context model.
+    Output budget is very limited — use minified JSON with at most 5 files.
 
     # OBJECTIVE
-    Output a JSON blueprint listing all necessary project files with their priorities
-    and dependencies. Fewer files is better for small models.
+    Output a MINIFIED JSON blueprint (single line, no whitespace) with the core files
+    needed to implement the project. No extras — only files with real code.
 
     # INSTRUCTIONS
     1. Identify project_type and tech_stack from the description.
-    2. List the minimum viable files (max 15).
-    3. Set priority so dependency files have lower numbers.
-    4. "imports" lists only other project files, not packages.
+    2. Choose at most 5 essential files (the minimum to make the project work).
+    3. Lower priority number = generated first (dependencies have lower numbers).
+    4. "imports" lists only other project files, never pip/npm packages.
+    5. Output minified JSON — everything on ONE line, no newlines, no spaces after colons.
 
     # CONSTRAINTS
-    - Maximum 15 files (fewer is better).
-    - Output ONLY JSON. No explanations before or after.
-    - Lower priority number = generated first.
+    - Maximum 5 files. No config files, no README, no tests — only core code.
+    - Output MINIFIED JSON on a SINGLE LINE starting with {"project_type": nothing before it.
+    - No markdown fences. No explanations. No line breaks in the output.
 
     # OUTPUT FORMAT
-    {"project_type":"cli","tech_stack":["python"],"files":[
-      {"path":"src/main.py","purpose":"Entry point","exports":["main"],"imports":[],"key_logic":"Parses args and calls core logic","priority":1}
-    ]}
+    One line, no extra whitespace:
+    {"project_type":"cli","tech_stack":["python"],"files":[{"path":"src/converter.py","purpose":"CSV to JSON core logic","exports":["convert"],"imports":[],"key_logic":"csv.DictReader -> json.dumps","priority":1},{"path":"cli.py","purpose":"CLI entry using argparse","exports":[],"imports":["src/converter.py"],"key_logic":"argparse --input/--output flags","priority":2}]}
 
   user: |
     Project: {project_name}
@@ -102,4 +112,4 @@ generate_blueprint_small:
     Type: {project_type}
     Stack: {tech_stack}
 
-    Output JSON blueprint (max 15 files):
+    Output MINIFIED JSON blueprint (max 5 files, single line):
