@@ -11,7 +11,8 @@
 | Capability | Status |
 |---|---|
 | **10-phase AutoAgent pipeline**, 4B-optimized — with cross-file contract validation + senior review loop | ✅ |
-| **11 AutoAgent pipeline improvements** — CSS auto-injection, FastAPI mandatory patterns, JS null guards, DB connection bug detection, smarter complexity scoring | ✅ **new** |
+| **11 AutoAgent pipeline improvements** — CSS auto-injection, FastAPI mandatory patterns, JS null guards, DB connection bug detection, smarter complexity scoring | ✅ |
+| **Review & repair for small models** — compact `senior_review_compact` cycle + `TestRunPhase` now active for ≤8B; `py_compile` smoke test; `search_replace` patch strategy; line-number error localization | ✅ **new** |
 | **Multi-language code generation** — Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart, SVG + Python/JS/TS | ✅ **new** |
 | **Language-specific infra** — `go.mod`, `Cargo.toml`, `pom.xml`, multi-stage Dockerfiles, per-lang `.gitignore` | ✅ **new** |
 | **Multi-language static analysis** — `go vet`, `cargo check`, `php -l`, `ruby -c`, HTML link validation | ✅ **new** |
@@ -29,7 +30,7 @@
 | **Per-session project index** — semantic `search_codebase()` tool | ✅ **new** |
 | **Streaming shell output** — live pytest/npm/cargo lines via SSE | ✅ **new** |
 | Privacy monitor — network call audit, 🔒 local mode badge | ✅ |
-| 1 106 tests — unit · integration · E2E (Playwright, Ollama-free) | ✅ |
+| 1 182 tests — unit · integration · E2E (Playwright, Ollama-free) | ✅ |
 | **Security hardening** — CORS, rate limiting, input validation, command injection fixes | ✅ |
 | **Unified config** — 9 focused JSON files (≤30 lines each), no JSON-in-env-vars | ✅ **new** |
 | **JS MIME fix** — custom StaticFiles subclass, immune to Windows registry override | ✅ **new** |

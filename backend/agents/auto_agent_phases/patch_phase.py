@@ -92,6 +92,13 @@ class PatchPhase(BasePhase):
     def run(self, ctx: PhaseContext) -> None:
         total_fixed = 0
 
+        # Pre-pass: py_compile check catches syntax/import errors ruff misses
+        smoke_errors = self._smoke_test_python(ctx)
+        if smoke_errors:
+            ctx.logger.info(f"[Patch] Smoke test: {len(smoke_errors)} syntax error(s) found")
+            fixed = self._fix_errors(ctx, smoke_errors)
+            total_fixed += fixed
+
         for pass_num in range(_MAX_PASSES):
             errors = self._collect_static_errors(ctx)
             if not errors:
@@ -107,6 +114,32 @@ class PatchPhase(BasePhase):
 
         # #10 — Iterative improvement pass (one LLM review cycle, all model sizes)
         self._iterative_improvement(ctx)
+
+    # ----------------------------------------------------------------
+    # Smoke test (py_compile)
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _smoke_test_python(ctx: PhaseContext) -> List[Dict[str, str]]:
+        """Run py_compile on all .py files to catch syntax errors ruff misses."""
+        errors: List[Dict[str, str]] = []
+        project_root = ctx.project_root
+        for rel_path in ctx.generated_files:
+            if not rel_path.endswith(".py"):
+                continue
+            abs_path = Path(project_root) / rel_path
+            if not abs_path.exists():
+                continue
+            result = subprocess.run(
+                ["python", "-m", "py_compile", str(abs_path)],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if result.returncode != 0:
+                msg = (result.stderr or result.stdout).strip()
+                errors.append({"file_path": rel_path, "error": f"SyntaxError: {msg}"})
+        return errors
 
     # ----------------------------------------------------------------
     # Static analysis
@@ -432,11 +465,16 @@ class PatchPhase(BasePhase):
                     current_content=current_content,
                     readme=self._build_patch_context(ctx, file_path, current_content),  # M9
                     issues_to_fix=issues,
-                    edit_strategy="partial",
+                    edit_strategy="search_replace",
                 )
                 if patched and patched != current_content:
                     self._write_file(ctx, file_path, patched)
                     fixed += 1
+                else:
+                    ctx.logger.warning(
+                        f"[Patch] Fix produced no change: {file_path} | {file_errors[0][:80]}"
+                    )
+                    ctx.metrics.setdefault("patch_noop_fixes", []).append(file_path)
             except Exception as e:
                 ctx.logger.warning(f"[Patch] Failed to patch {file_path}: {e}")
 
@@ -524,7 +562,7 @@ class PatchPhase(BasePhase):
         plan_by_path: Dict,
     ) -> Optional[Dict[str, str]]:
         """Ask the LLM to identify one critical issue. Returns {file_path, issue} or None."""
-        if include_content and not small:
+        if include_content:
             # Build full file contents block (bounded by prompt budget)
             file_contents_lines: List[str] = []
             chars_so_far = 0

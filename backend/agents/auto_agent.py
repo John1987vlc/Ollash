@@ -85,7 +85,9 @@ class AutoAgent:
         "CodeFillPhase",
         "CrossFileValidationPhase",
         "PatchPhase",
+        "SeniorReviewPhase",
         "InfraPhase",
+        "TestRunPhase",
         "FinishPhase",
     ]
 
@@ -116,6 +118,7 @@ class AutoAgent:
         skip_phases: Optional[List[str]] = None,
         resume: bool = False,
         on_blueprint_ready: Optional[Callable[[Dict[str, Any]], bool]] = None,
+        num_refine_loops: int = 3,
     ) -> Path:
         """Run the full pipeline. Returns project_root Path on completion.
 
@@ -125,6 +128,7 @@ class AutoAgent:
             on_blueprint_ready: Optional callback invoked after BlueprintPhase.
                     Receives the blueprint dict; return False to abort the pipeline.
                     The callback may mutate the dict to adjust the plan.
+            num_refine_loops: Max improvement rounds in PatchPhase (1–10).
         """
         if project_root is None:
             project_root = self.generated_projects_dir / project_name
@@ -138,6 +142,7 @@ class AutoAgent:
             event_publisher=self.event_publisher,
             logger=self.logger,
             on_blueprint_ready=on_blueprint_ready,
+            num_refine_loops=max(1, num_refine_loops),
         )
 
         # Determine tier before importing phases (ctx.is_small() is fast)

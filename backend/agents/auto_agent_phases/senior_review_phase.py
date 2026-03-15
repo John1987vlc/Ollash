@@ -33,13 +33,122 @@ class SeniorReviewPhase(BasePhase):
 
     def run(self, ctx: PhaseContext) -> None:
         if ctx.is_small():
-            ctx.logger.info("[SeniorReview] Skipped for small (<=8B) model")
+            try:
+                self._run_compact_review(ctx)
+            except Exception as e:
+                ctx.logger.warning(f"[SeniorReview] Compact review error (non-fatal): {e}")
             return
 
         try:
             self._run_review_cycles(ctx)
         except Exception as e:
             ctx.logger.warning(f"[SeniorReview] Unexpected error (non-fatal): {e}")
+
+    # ----------------------------------------------------------------
+    # Compact review for small (<=8B) models
+    # ----------------------------------------------------------------
+
+    def _run_compact_review(self, ctx: PhaseContext) -> None:
+        """Lightweight 1-cycle review using senior_review_compact prompt."""
+        try:
+            from backend.utils.core.system.prompt_loader import PromptLoader
+        except ImportError:
+            ctx.logger.warning("[SeniorReview] PromptLoader unavailable — skipping compact review")
+            return
+
+        loader = PromptLoader.get_instance()
+        prompts = loader.load_prompts("auto_generation/small_model_prompts")
+        compact = prompts.get("senior_review_compact", {})
+        system_tpl = compact.get("system", "")
+        user_tpl = compact.get("user", "")
+        if not system_tpl or not user_tpl:
+            ctx.logger.warning("[SeniorReview] senior_review_compact prompt not found — skipping")
+            return
+
+        files_summary_lines = []
+        for fp in ctx.blueprint[:10]:
+            files_summary_lines.append(f"- {fp.path}: {fp.purpose}")
+        files_summary = "\n".join(files_summary_lines) or "(no files)"
+
+        user_msg = user_tpl.format(
+            project_name=ctx.project_name,
+            file_count=len(ctx.generated_files),
+            files_summary=files_summary,
+        )
+
+        ctx.logger.info("[SeniorReview] Running compact review (small model)...")
+        llm = ctx.llm_manager.get_client("reviewer")
+        try:
+            raw = llm.chat(system=system_tpl.strip(), user=user_msg.strip())
+        except Exception as e:
+            ctx.logger.warning(f"[SeniorReview] Compact review LLM call failed: {e}")
+            return
+
+        # Parse JSON response
+        try:
+            import json as _json
+            import re as _re
+            match = _re.search(r"\{.*\}", raw, _re.DOTALL)
+            result = _json.loads(match.group(0)) if match else {}
+        except Exception:
+            result = {}
+
+        status = result.get("status", "unknown")
+        summary = result.get("summary", "")
+        critical_issues = result.get("critical_issues", [])
+
+        ctx.logger.info(f"[SeniorReview] Compact review status: {status} — {summary}")
+        ctx.metrics["senior_review_compact"] = {"status": status, "summary": summary, "issues": critical_issues}
+
+        if status == "passed" or not critical_issues:
+            return
+
+        # Attempt to fix up to 3 critical issues
+        try:
+            from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
+        except ImportError:
+            return
+
+        patcher = CodePatcher(llm_client=ctx.llm_manager.get_client("coder"), logger=ctx.logger)
+        fixed = 0
+        for issue_text in critical_issues[:3]:
+            if isinstance(issue_text, dict):
+                file_hint = issue_text.get("file", "")
+                desc = issue_text.get("description", str(issue_text))
+            else:
+                file_hint = ""
+                desc = str(issue_text)
+
+            # Find the file to patch: exact match, then partial match
+            target = file_hint if file_hint in ctx.generated_files else None
+            if not target:
+                for fp in ctx.generated_files:
+                    if file_hint and file_hint in fp:
+                        target = fp
+                        break
+            if not target:
+                continue
+
+            current_content = ctx.generated_files.get(target, "")
+            if not current_content:
+                continue
+
+            try:
+                patched = patcher.edit_existing_file(
+                    file_path=target,
+                    current_content=current_content,
+                    readme=ctx.project_description[:300],
+                    issues_to_fix=[{"description": desc}],
+                    edit_strategy="search_replace",
+                )
+                if patched and patched != current_content:
+                    self._write_file(ctx, target, patched)
+                    fixed += 1
+                    ctx.logger.info(f"[SeniorReview] Compact fix applied to '{target}'")
+            except Exception as e:
+                ctx.logger.warning(f"[SeniorReview] Compact fix failed for '{target}': {e}")
+
+        ctx.logger.info(f"[SeniorReview] Compact review: {fixed}/{len(critical_issues[:3])} issues fixed")
 
     # ----------------------------------------------------------------
     # Review + repair cycles
@@ -234,7 +343,7 @@ class SeniorReviewPhase(BasePhase):
                     current_content=current_content,
                     readme=ctx.project_description[:400],
                     issues_to_fix=issues_to_fix,
-                    edit_strategy="partial",
+                    edit_strategy="search_replace",
                 )
                 if patched and patched != current_content:
                     self._write_file(ctx, file_path, patched)

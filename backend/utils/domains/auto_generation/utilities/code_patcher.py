@@ -368,17 +368,38 @@ Output the improved version only, no explanations."""
         return "\n".join(result)
 
     def _find_problem_section(self, issue_desc: str, content: str) -> str:
-        """Find the section of code that matches the problem description."""
+        """Find the section of code that matches the problem description.
 
-        keywords = issue_desc.lower().split()[:3]
+        Tries line-number extraction first (works for all ruff/tsc/linter errors),
+        then falls back to keyword search with an expanded window.
+        """
         lines = content.split("\n")
 
+        # 1. Extract line number from error message (e.g. "line 42" or "(line 42)")
+        line_match = _re_patch.search(r"\bline\s+(\d+)\b", issue_desc, _re_patch.IGNORECASE)
+        if not line_match:
+            # Also try colon-separated format: "file.py:42:5: E501 ..."
+            line_match = _re_patch.search(r":(\d+):\d+:", issue_desc)
+        if line_match:
+            lineno = int(line_match.group(1)) - 1  # convert to 0-indexed
+            start = max(0, lineno - 3)
+            end = min(len(lines), lineno + 6)
+            return "\n".join(lines[start:end])
+
+        # 2. Keyword fallback with expanded window (18 lines instead of 5)
+        keywords = [k for k in issue_desc.lower().split()[:5] if len(k) > 3]
+        best_start = -1
+        best_count = 0
         for i, line in enumerate(lines):
-            for keyword in keywords:
-                if keyword in line.lower():
-                    start = max(0, i - 1)
-                    end = min(len(lines), i + 3)
-                    return "\n".join(lines[start:end])
+            count = sum(1 for kw in keywords if kw in line.lower())
+            if count > best_count:
+                best_count = count
+                best_start = i
+
+        if best_start >= 0:
+            start = max(0, best_start - 2)
+            end = min(len(lines), best_start + 16)
+            return "\n".join(lines[start:end])
 
         return ""
 
