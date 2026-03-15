@@ -28,7 +28,7 @@ class TestMainSuite:
 
         # Unit test requirements
         unit_requirements = {
-            "backend/agents": ["test_default_agent.py", "test_auto_agent.py"],
+            "backend/agents": ["test_default_agent.py", "test_auto_agent_v2.py"],
         }
 
         for module, test_files in unit_requirements.items():

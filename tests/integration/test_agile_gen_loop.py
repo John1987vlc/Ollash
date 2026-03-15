@@ -1,71 +1,96 @@
+"""Integration test for CodeFillPhase — file generation with syntax validation and retry."""
+
 from unittest.mock import MagicMock
-from pathlib import Path
-from backend.agents.auto_agent_phases.file_content_generation_phase import FileContentGenerationPhase
+
+import pytest
+
+from backend.agents.auto_agent_phases.code_fill_phase import CodeFillPhase
+from backend.agents.auto_agent_phases.phase_context import FilePlan, PhaseContext
 
 
-def test_execution_loop_with_retries():
-    # 1. Setup Mocks
-    mock_context = MagicMock()
-    mock_context.logger = MagicMock()
-    mock_context.event_publisher = MagicMock()
-    mock_context.event_publisher.publish_sync = MagicMock()
-    mock_context.file_manager = MagicMock()
-    mock_context.llm_manager = MagicMock()
-    mock_context.select_related_files.return_value = {}
-    mock_context.project_type_info = None
-    mock_context._is_small_model.return_value = False
-    mock_context._opt_enabled.return_value = False
-    mock_context.config = {"critic_loop": {"enabled": False}}
+def _make_ctx(tmp_path, llm_responses: list):
+    """Create a PhaseContext where client.chat() returns pre-set responses in order.
 
-    # Mock Validator
-    mock_validator = MagicMock()
-    mock_validator.validate.return_value = MagicMock(status=MagicMock(name="VALID"))
-    mock_context.files_ctx.validator = mock_validator
-
-    # Mock Backlog
-    mock_context.backlog = [{"id": "T1", "title": "Test Task", "file_path": "test.py", "task_type": "create_file"}]
-
-    # 2. Mock LLM Response (Fail twice, then succeed)
+    BasePhase._llm_call expects: response_data.get("message", {}).get("content", "")
+    so each mock response must be {"message": {"content": "..."}, "eval_count": N}.
+    """
+    llm_manager = MagicMock()
     mock_client = MagicMock()
-    # Response 1: Empty
-    # Response 2: Empty
-    # Response 3: Valid code block
-    mock_client.chat.side_effect = [
-        ({"content": ""}, {}),  # Empty → triggers retry
-        ({"content": ""}, {}),  # Empty → triggers retry
-        ({"content": "```python\nprint('hello')\n```"}, {}),  # Valid code block
+    mock_client.model = "qwen3.5:4b"
+
+    responses = iter(llm_responses)
+
+    def _chat(*a, **kw):
+        try:
+            content = next(responses)
+        except StopIteration:
+            content = llm_responses[-1]
+        return ({"message": {"content": content}, "eval_count": len(content.split())}, {})
+
+    mock_client.chat.side_effect = _chat
+    llm_manager.get_client.return_value = mock_client
+
+    return PhaseContext(
+        project_name="test_project",
+        project_description="A simple test project",
+        project_root=tmp_path,
+        llm_manager=llm_manager,
+        file_manager=MagicMock(),
+        event_publisher=MagicMock(),
+        logger=MagicMock(),
+        project_type="cli",
+        tech_stack=["python"],
+    )
+
+
+@pytest.mark.integration
+def test_code_fill_phase_generates_file(tmp_path):
+    """CodeFillPhase writes generated content to disk and updates ctx.generated_files."""
+    code = "def hello():\n    return 'hello'\n"
+    ctx = _make_ctx(tmp_path, [code])
+    ctx.blueprint = [
+        FilePlan(
+            path="src/hello.py",
+            purpose="Hello world function",
+            exports=["hello"],
+            imports=[],
+            key_logic="Returns the string 'hello'",
+            priority=1,
+        )
     ]
-    # Use side_effect to return the same client every time get_client is called
-    mock_context.llm_manager.get_client.side_effect = lambda role: mock_client
 
-    # Mock Distiller to avoid filesystem calls
-    from backend.utils.core.analysis.context_distiller import ContextDistiller
+    CodeFillPhase().run(ctx)
 
-    ContextDistiller.distill_batch = MagicMock(return_value="# Distilled Context")
+    assert "src/hello.py" in ctx.generated_files
+    assert "hello" in ctx.generated_files["src/hello.py"]
+    assert ctx.file_manager.write_file.called
 
-    # 3. Execute Phase
-    phase = FileContentGenerationPhase(mock_context)
-    # Bypass internal validation checks for the unit test
-    phase._validate_file_content = MagicMock(return_value=True)
-    generated_files = {}
 
-    generated_files, _, _ = phase.execute(
-        project_description="Test",
-        project_name="TestProj",
-        project_root=Path("/tmp"),
-        readme_content="Readme",
-        initial_structure={},
-        generated_files=generated_files,
-        file_paths=[],
+@pytest.mark.integration
+def test_code_fill_phase_retries_on_syntax_error(tmp_path):
+    """CodeFillPhase retries once if generated Python has a syntax error."""
+    ctx = _make_ctx(
+        tmp_path,
+        [
+            "def broken(:\n    pass\n",  # syntax error — triggers retry
+            "def fixed():\n    return True\n",  # valid
+        ],
     )
+    ctx.blueprint = [
+        FilePlan(
+            path="src/fixed.py",
+            purpose="Fixed function",
+            exports=["fixed"],
+            imports=[],
+            key_logic="Returns True",
+            priority=1,
+        )
+    ]
 
-    # 4. Assertions
-    assert "test.py" in generated_files
-    assert generated_files["test.py"] == "print('hello')"
-    assert mock_context.file_manager.write_file.called
-    # Check if move_task to 'done' was published
-    mock_context.event_publisher.publish_sync.assert_any_call(
-        "agent_board_update", action="move_task", task_id="T1", new_status="done"
-    )
-    # Chat should have been called three times due to retries
-    assert mock_client.chat.call_count == 3
+    CodeFillPhase().run(ctx)
+
+    assert "src/fixed.py" in ctx.generated_files
+    assert "fixed" in ctx.generated_files["src/fixed.py"]
+    # LLM should have been called twice (initial + 1 retry)
+    client = ctx.llm_manager.get_client.return_value
+    assert client.chat.call_count == 2
