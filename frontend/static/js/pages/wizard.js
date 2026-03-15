@@ -194,17 +194,21 @@ window.WizardModule = (function() {
         if (spinner) spinner.style.display = 'none';
         document.getElementById('generation-done').style.display = 'block';
 
-        const viewBtn = document.getElementById('view-project-btn');
-        if (viewBtn) {
-            viewBtn.onclick = () => {
-                const nav = document.querySelector('[data-view="projects"]');
-                if (nav) nav.click();
-                if (window.ProjectsModule) {
-                    window.ProjectsModule.refreshProjects();
-                    setTimeout(() => window.ProjectsModule.loadProject(projectName), 800);
-                }
-            };
+        function _goToProject() {
+            const nav = document.querySelector('[data-view="projects"]');
+            if (nav) nav.click();
+            if (window.ProjectsModule) {
+                window.ProjectsModule.refreshProjects();
+                setTimeout(() => window.ProjectsModule.loadProject(projectName), 800);
+            }
         }
+
+        const viewBtn = document.getElementById('view-project-btn');
+        if (viewBtn) viewBtn.onclick = _goToProject;
+
+        // Auto-redirect after 3 seconds so the user lands on the project page
+        // without having to click the button.
+        setTimeout(_goToProject, 3000);
     }
 
     function showError(msg) {

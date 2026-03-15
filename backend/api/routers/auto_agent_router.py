@@ -9,6 +9,7 @@ subprocess shell=False, git URL validation.
 
 import asyncio
 import io
+import json
 import os
 import re
 import shlex
@@ -164,7 +165,17 @@ async def stream_project_logs(project_name: str, request: Request):
             chunk = await loop.run_in_executor(None, next, it, _sentinel)
             if chunk is _sentinel:
                 break
-            yield chunk
+            # Add named SSE event type prefix so wizard.js addEventListener() listeners fire.
+            # Keep-alive comments (": keepalive\n\n") pass through unchanged.
+            if chunk.startswith("data:"):
+                try:
+                    payload_str = chunk[5:].strip()
+                    event_type = json.loads(payload_str).get("type", "message")
+                    yield f"event: {event_type}\n{chunk}"
+                except (json.JSONDecodeError, AttributeError):
+                    yield chunk
+            else:
+                yield chunk
 
     return StreamingResponse(
         _gen(),
