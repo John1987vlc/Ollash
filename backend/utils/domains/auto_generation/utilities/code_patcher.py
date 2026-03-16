@@ -221,7 +221,7 @@ class CodePatcher:
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = loader.load_prompt("domains/auto_generation/code_repair.yaml")
+            prompts = loader.load_prompt_sync("domains/auto_generation/code_repair.yaml")
             system = prompts.get("search_replace_edit", {}).get("system", "")
             user_template = prompts.get("search_replace_edit", {}).get("user", "")
             issues_str = "\n".join(f"- {i.get('description', '')}" for i in (issues_to_fix or []))
@@ -449,7 +449,7 @@ Generate ONLY the fixed code (same language), no explanations."""
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = loader.load_prompt("domains/auto_generation/code_repair.yaml")
+            prompts = loader.load_prompt_sync("domains/auto_generation/code_repair.yaml")
 
             system = prompts.get("surgical_injection", {}).get("system", "")
             user_template = prompts.get("surgical_injection", {}).get("user", "")

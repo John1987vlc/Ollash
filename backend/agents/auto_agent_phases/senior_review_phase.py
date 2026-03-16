@@ -58,13 +58,13 @@ class SeniorReviewPhase(BasePhase):
         Runs up to 2 repair cycles; exits early if clean or nothing is fixable.
         """
         try:
-            from backend.utils.core.system.prompt_loader import PromptLoader
+            from backend.utils.core.llm.prompt_loader import PromptLoader
         except ImportError:
             ctx.logger.warning("[SeniorReview] PromptLoader unavailable — skipping compact review")
             return
 
-        loader = PromptLoader.get_instance()
-        prompts = loader.load_prompts("auto_generation/small_model_prompts")
+        loader = PromptLoader()
+        prompts = loader.load_prompt_sync("domains/auto_generation/small_model_prompts.yaml")
         compact = prompts.get("senior_review_compact", {})
         system_tpl = compact.get("system", "")
         user_tpl = compact.get("user", "")

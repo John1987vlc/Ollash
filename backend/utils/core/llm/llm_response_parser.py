@@ -69,6 +69,16 @@ class LLMResponseParser:
         # 1. Remove thinking blocks
         text, _ = LLMResponseParser.remove_think_blocks(text)
 
+        # 1b. Fast path: try parsing the whole stripped text as JSON directly.
+        # This handles cases where the model returns bare JSON without markdown fences.
+        # Must come before bracket-matching, which fails when JSON strings contain {/}.
+        stripped = text.strip()
+        if stripped.startswith(("{", "[")):
+            try:
+                return json.loads(stripped)
+            except json.JSONDecodeError:
+                pass
+
         # 2. Try to unwrap custom XML tags like <plan_json>…</plan_json>
         xml_tag_match = re.search(r"<\w+_json>([\s\S]*?)</\w+_json>", text, re.IGNORECASE)
         if xml_tag_match:

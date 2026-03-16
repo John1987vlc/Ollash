@@ -654,6 +654,10 @@ class CodeFillPhase(BasePhase):
         Detects complexity from the file path and key_logic hint. Game engines,
         hand evaluators, parsers, and compilers genuinely need more output tokens.
         """
+        # CSS/JS files are often large — always use 4096 to avoid truncation
+        if plan.path.endswith((".css", ".js", ".ts")):
+            return 4096
+
         complex_hints = (
             "game",
             "logic",
