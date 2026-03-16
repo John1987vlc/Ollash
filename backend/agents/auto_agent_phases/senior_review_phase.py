@@ -25,6 +25,8 @@ from backend.agents.auto_agent_phases.phase_context import PhaseContext
 _MAX_REVIEW_CYCLES = 2
 _MAX_ISSUES_PER_CYCLE = 5
 _CHAR_BUDGET = 20_000  # characters of file content to send to the reviewer
+_COMPACT_CONTENT_MAX_FILES = 6  # include file content in compact review if <= this many files
+_COMPACT_CONTENT_MAX_CHARS = 20_000  # and total chars <= this
 
 
 class SeniorReviewPhase(BasePhase):
@@ -49,7 +51,12 @@ class SeniorReviewPhase(BasePhase):
     # ----------------------------------------------------------------
 
     def _run_compact_review(self, ctx: PhaseContext) -> None:
-        """Lightweight 1-cycle review using senior_review_compact prompt."""
+        """Lightweight 2-cycle review using senior_review_compact prompt.
+
+        For small projects (<=6 files, <=20K total chars), includes actual file content
+        so the model can spot HTML id mismatches, missing handlers, truncated logic, etc.
+        Runs up to 2 repair cycles; exits early if clean or nothing is fixable.
+        """
         try:
             from backend.utils.core.system.prompt_loader import PromptLoader
         except ImportError:
@@ -65,91 +72,123 @@ class SeniorReviewPhase(BasePhase):
             ctx.logger.warning("[SeniorReview] senior_review_compact prompt not found — skipping")
             return
 
-        files_summary_lines = []
-        for fp in ctx.blueprint[:10]:
-            files_summary_lines.append(f"- {fp.path}: {fp.purpose}")
-        files_summary = "\n".join(files_summary_lines) or "(no files)"
-
-        user_msg = user_tpl.format(
-            project_name=ctx.project_name,
-            file_count=len(ctx.generated_files),
-            files_summary=files_summary,
-        )
-
-        ctx.logger.info("[SeniorReview] Running compact review (small model)...")
-        llm = ctx.llm_manager.get_client("reviewer")
-        try:
-            raw = llm.chat(system=system_tpl.strip(), user=user_msg.strip())
-        except Exception as e:
-            ctx.logger.warning(f"[SeniorReview] Compact review LLM call failed: {e}")
-            return
-
-        # Parse JSON response
-        try:
-            import json as _json
-            import re as _re
-
-            match = _re.search(r"\{.*\}", raw, _re.DOTALL)
-            result = _json.loads(match.group(0)) if match else {}
-        except Exception:
-            result = {}
-
-        status = result.get("status", "unknown")
-        summary = result.get("summary", "")
-        critical_issues = result.get("critical_issues", [])
-
-        ctx.logger.info(f"[SeniorReview] Compact review status: {status} — {summary}")
-        ctx.metrics["senior_review_compact"] = {"status": status, "summary": summary, "issues": critical_issues}
-
-        if status == "passed" or not critical_issues:
-            return
-
-        # Attempt to fix up to 3 critical issues
         try:
             from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
         except ImportError:
+            ctx.logger.warning("[SeniorReview] CodePatcher unavailable — compact repair skipped")
             return
 
+        total_chars = sum(len(c) for c in ctx.generated_files.values())
+        include_content = (
+            len(ctx.generated_files) <= _COMPACT_CONTENT_MAX_FILES and total_chars <= _COMPACT_CONTENT_MAX_CHARS
+        )
+
         patcher = CodePatcher(llm_client=ctx.llm_manager.get_client("coder"), logger=ctx.logger)
-        fixed = 0
-        for issue_text in critical_issues[:3]:
-            if isinstance(issue_text, dict):
-                file_hint = issue_text.get("file", "")
-                desc = issue_text.get("description", str(issue_text))
-            else:
-                file_hint = ""
-                desc = str(issue_text)
+        llm = ctx.llm_manager.get_client("reviewer")
 
-            # Find the file to patch: exact match, then partial match
-            target = file_hint if file_hint in ctx.generated_files else None
-            if not target:
-                for fp in ctx.generated_files:
-                    if file_hint and file_hint in fp:
-                        target = fp
+        for cycle in range(2):
+            # Build user message — with actual file content or just names/purposes
+            if include_content:
+                content_lines: List[str] = []
+                chars_used = 0
+                for fp_path, fp_content in ctx.generated_files.items():
+                    remaining = _COMPACT_CONTENT_MAX_CHARS - chars_used
+                    if remaining <= 0:
                         break
-            if not target:
-                continue
-
-            current_content = ctx.generated_files.get(target, "")
-            if not current_content:
-                continue
-
-            try:
-                patched = patcher.edit_existing_file(
-                    file_path=target,
-                    current_content=current_content,
-                    readme=ctx.project_description[:300],
-                    issues_to_fix=[{"description": desc}],
-                    edit_strategy="search_replace",
+                    snippet = fp_content[:remaining]
+                    content_lines.append(f"=== {fp_path} ===\n{snippet}")
+                    chars_used += len(snippet)
+                files_block = "\n\n".join(content_lines) or "(no files)"
+                user_msg = f"Project: {ctx.project_name}\nFILE CONTENTS:\n{files_block}\n\nReview and output JSON now."
+            else:
+                files_summary_lines = []
+                for fp in ctx.blueprint[:10]:
+                    files_summary_lines.append(f"- {fp.path}: {fp.purpose}")
+                files_summary = "\n".join(files_summary_lines) or "(no files)"
+                user_msg = user_tpl.format(
+                    project_name=ctx.project_name,
+                    file_count=len(ctx.generated_files),
+                    files_summary=files_summary,
                 )
-                if patched and patched != current_content:
-                    self._write_file(ctx, target, patched)
-                    fixed += 1
-                    ctx.logger.info(f"[SeniorReview] Compact fix applied to '{target}'")
-            except Exception as e:
-                ctx.logger.warning(f"[SeniorReview] Compact fix failed for '{target}': {e}")
 
-        ctx.logger.info(f"[SeniorReview] Compact review: {fixed}/{len(critical_issues[:3])} issues fixed")
+            ctx.logger.info(
+                f"[SeniorReview] Compact review cycle {cycle + 1}/2"
+                f" ({'with content' if include_content else 'names-only'})..."
+            )
+            try:
+                raw = llm.chat(system=system_tpl.strip(), user=user_msg.strip())
+            except Exception as e:
+                ctx.logger.warning(f"[SeniorReview] Compact review LLM call failed: {e}")
+                break
+
+            # Parse JSON response
+            try:
+                import json as _json
+                import re as _re
+
+                match = _re.search(r"\{.*\}", raw, _re.DOTALL)
+                result = _json.loads(match.group(0)) if match else {}
+            except Exception:
+                result = {}
+
+            status = result.get("status", "unknown")
+            summary = result.get("summary", "")
+            critical_issues = result.get("critical_issues", [])
+
+            ctx.logger.info(f"[SeniorReview] Compact cycle {cycle + 1}: {status} — {summary}")
+            ctx.metrics[f"senior_review_compact_cycle_{cycle + 1}"] = {
+                "status": status,
+                "summary": summary,
+                "issues": critical_issues,
+            }
+
+            if status == "passed" or not critical_issues:
+                break  # nothing to fix
+
+            # Attempt to fix up to 3 critical issues
+            fixed = 0
+            for issue_text in critical_issues[:3]:
+                if isinstance(issue_text, dict):
+                    file_hint = issue_text.get("file", "")
+                    desc = issue_text.get("description", str(issue_text))
+                else:
+                    file_hint = ""
+                    desc = str(issue_text)
+
+                # Find the file to patch: exact match, then partial match
+                target = file_hint if file_hint in ctx.generated_files else None
+                if not target:
+                    for fp in ctx.generated_files:
+                        if file_hint and file_hint in fp:
+                            target = fp
+                            break
+                if not target:
+                    continue
+
+                current_content = ctx.generated_files.get(target, "")
+                if not current_content:
+                    continue
+
+                try:
+                    patched = patcher.edit_existing_file(
+                        file_path=target,
+                        current_content=current_content,
+                        readme=ctx.project_description[:300],
+                        issues_to_fix=[{"description": desc}],
+                        edit_strategy="search_replace",
+                    )
+                    if patched and patched != current_content:
+                        self._write_file(ctx, target, patched)
+                        fixed += 1
+                        ctx.logger.info(f"[SeniorReview] Compact fix cycle {cycle + 1}: '{target}'")
+                except Exception as e:
+                    ctx.logger.warning(f"[SeniorReview] Compact fix failed for '{target}': {e}")
+
+            ctx.logger.info(
+                f"[SeniorReview] Compact cycle {cycle + 1}: {fixed}/{len(critical_issues[:3])} issues fixed"
+            )
+            if fixed == 0:
+                break  # nothing fixable — second cycle won't help
 
     # ----------------------------------------------------------------
     # Review + repair cycles

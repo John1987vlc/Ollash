@@ -91,7 +91,7 @@ class ProjectCreateRequest(BaseModel):
     license_type: Optional[str] = Field(default=None, max_length=50)
     include_docker: bool = False
     include_terraform: bool = False
-    num_refine_loops: int = Field(default=1, ge=1, le=10)
+    num_refine_loops: int = Field(default=3, ge=1, le=10)
     git_auto_create: bool = False
     git_repo_url: str = Field(default="", max_length=500)
     maintenance_interval: Optional[int] = Field(default=None, ge=1, le=1440)
@@ -136,6 +136,8 @@ async def create_project(
             run_kwargs = {
                 k: params[k] for k in ("project_root", "skip_phases") if k in params and params[k] is not None
             }
+            if params.get("num_refine_loops") is not None:
+                run_kwargs["num_refine_loops"] = params["num_refine_loops"]
             agent.run(project_description, project_name, **run_kwargs)
             chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' generated."})
         except Exception as exc:
@@ -196,6 +198,48 @@ class FilePathRequest(BaseModel):
 class FileSaveRequest(BaseModel):
     file_path_relative: str = Field(..., min_length=1, max_length=500)
     content: str = Field(default="", max_length=10 * 1024 * 1024)  # 10 MB cap
+
+
+@router.get("/api/projects/{project_name}/files")
+async def list_project_files(project_name: str, request: Request):
+    """Return a nested file tree for a generated project."""
+    ollash_root_dir = request.app.state.ollash_root_dir
+    project_base = ollash_root_dir / "generated_projects" / "auto_agent_projects" / project_name
+
+    if not project_base.is_dir():
+        raise HTTPException(status_code=404, detail="Project not found.")
+
+    _SKIP_DIRS = {"__pycache__", "node_modules", ".venv", "venv", ".git"}
+
+    def _build_tree(path: Path) -> list:
+        items = []
+        try:
+            for child in sorted(path.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
+                if child.name.startswith(".") or child.name in _SKIP_DIRS:
+                    continue
+                rel_path = child.relative_to(project_base).as_posix()
+                if child.is_dir():
+                    items.append(
+                        {
+                            "name": child.name,
+                            "path": rel_path,
+                            "type": "directory",
+                            "children": _build_tree(child),
+                        }
+                    )
+                else:
+                    items.append(
+                        {
+                            "name": child.name,
+                            "path": rel_path,
+                            "type": "file",
+                        }
+                    )
+        except PermissionError:
+            pass
+        return items
+
+    return {"status": "success", "files": _build_tree(project_base)}
 
 
 @router.post("/api/projects/{project_name}/file")

@@ -31,9 +31,9 @@ def _make_ctx(model_name: str = "qwen3-coder:30b") -> PhaseContext:
 
 
 @pytest.mark.unit
-def test_content_include_max_chars_is_25k():
-    """M1: threshold must be 25_000 (was 8_000)."""
-    assert _CONTENT_INCLUDE_MAX_CHARS == 25_000
+def test_content_include_max_chars_is_50k():
+    """M1: threshold raised to 50_000 so typical small-model outputs get content-aware review."""
+    assert _CONTENT_INCLUDE_MAX_CHARS == 50_000
 
 
 @pytest.mark.unit
@@ -48,18 +48,18 @@ def test_should_include_content_with_25k_chars():
 
 @pytest.mark.unit
 def test_should_not_include_content_above_threshold():
-    """M1: total chars > 25k → should_include_content returns False."""
+    """M1: total chars > 50k → should_include_content returns False."""
     ctx = _make_ctx()
     for i in range(5):
-        ctx.generated_files[f"file{i}.py"] = "x" * 6_000  # 30k total
+        ctx.generated_files[f"file{i}.py"] = "x" * 12_000  # 60k total
     assert PatchPhase._should_include_content(ctx) is False
 
 
 @pytest.mark.unit
 def test_should_not_include_content_too_many_files():
-    """More than 6 files → should_include_content returns False regardless of size."""
+    """More than 10 files → should_include_content returns False regardless of size."""
     ctx = _make_ctx()
-    for i in range(7):
+    for i in range(11):
         ctx.generated_files[f"file{i}.py"] = "small"
     assert PatchPhase._should_include_content(ctx) is False
 

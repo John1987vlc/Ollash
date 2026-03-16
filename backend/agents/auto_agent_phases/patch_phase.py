@@ -34,9 +34,9 @@ _SUBPROCESS_TIMEOUT = 30
 
 # Multi-round improvement constants
 _MAX_IMPROVEMENT_ROUNDS = 3  # large (>8B) models
-_MAX_IMPROVEMENT_ROUNDS_SMALL = 2  # small (<=8B) models
-_CONTENT_INCLUDE_MAX_FILES = 6  # include actual file content below this file count
-_CONTENT_INCLUDE_MAX_CHARS = 25_000  # and below this total character count (M1)
+_MAX_IMPROVEMENT_ROUNDS_SMALL = 3  # small (<=8B) models
+_CONTENT_INCLUDE_MAX_FILES = 10  # include actual file content below this file count
+_CONTENT_INCLUDE_MAX_CHARS = 50_000  # and below this total character count (M1)
 
 _IMPROVEMENT_SYSTEM = (
     "You are a code reviewer. Given the project description and a summary of the generated files, "
@@ -60,6 +60,24 @@ _IMPROVEMENT_SYSTEM_WITH_CONTENT = (
 _IMPROVEMENT_SYSTEM_SMALL = (
     "Code reviewer. Find ONE critical bug or missing piece that prevents the project from running. "
     'Reply ONLY with JSON: {"file_path": "...", "issue": "..."} or {"file_path": "", "issue": ""}.'
+)
+
+# Focused review aspects: cycle through these whenever the generic reviewer says "no issues".
+# Each aspect forces the LLM to check one specific dimension instead of giving a generic "all clear".
+_FOCUSED_REVIEW_ASPECTS = [
+    "HTML element IDs vs JavaScript getElementById/querySelector — verify every JS DOM lookup has a matching id in HTML",
+    "missing DOM container elements — check every element JS creates or references actually exists in HTML",
+    "game loop completeness — initialization, event listeners, and state transitions all wired up",
+    "event listener connectivity — every button, keydown, and input event has an attached handler",
+    "CSS class names consistency — class names used in JS classList must exist in CSS rules",
+    "duplicate global function definitions — no two JS files define the same window.* name",
+]
+
+_IMPROVEMENT_SYSTEM_FOCUSED = (
+    "You are a code reviewer performing a TARGETED review. "
+    "Focus ONLY on this specific concern: {aspect}\n"
+    "Inspect the provided files for this exact issue. "
+    'Output ONLY JSON: {{"file_path": "...", "issue": "..."}} or {{"file_path": "", "issue": ""}}.'
 )
 
 _IMPROVEMENT_USER = """Project: {project_name}
@@ -485,11 +503,9 @@ class PatchPhase(BasePhase):
     def _iterative_improvement(self, ctx: PhaseContext) -> None:
         """Multi-round improvement loop: identify issue → patch → repeat.
 
-        Up to 3 rounds for large models, 2 for small (<=8B).
-        Round 0 seeds from ctx.cross_file_errors if CrossFileValidationPhase left any,
-        skipping the LLM discovery call for that round.
-        For small projects (<=6 files, <=8000 total chars), actual file content is
-        included in the LLM prompt so it can spot HTML id mismatches, truncated SVGs, etc.
+        Up to max_rounds iterations (default 3). Round 0 seeds from ctx.cross_file_errors
+        if CrossFileValidationPhase left any. When the generic reviewer says "no issues",
+        subsequent rounds cycle through _FOCUSED_REVIEW_ASPECTS instead of stopping early.
         Between rounds, a zero-LLM HTML↔JS ID re-check refreshes cross_file_errors.
         """
         small = ctx.is_small()
@@ -499,25 +515,36 @@ class PatchPhase(BasePhase):
         plan_by_path = {fp.path: fp for fp in ctx.blueprint}
 
         rounds_done = 0
+        clean_generic_count = 0  # consecutive generic "no issues" responses
+        aspect_index = 0  # cycles through _FOCUSED_REVIEW_ASPECTS
+
         for round_num in range(max_rounds):
             # Round 0: use cross_file_errors as seed to skip LLM issue-discovery
             if round_num == 0 and ctx.cross_file_errors:
                 issue_data = self._seed_from_cross_file_errors(ctx)
+            elif clean_generic_count > 0:
+                # Generic review already said clean — switch to a focused aspect check
+                aspect = _FOCUSED_REVIEW_ASPECTS[aspect_index % len(_FOCUSED_REVIEW_ASPECTS)]
+                issue_data = self._ask_llm_for_issue(ctx, small, include_content, plan_by_path, aspect=aspect)
+                aspect_index += 1
             else:
                 issue_data = self._ask_llm_for_issue(ctx, small, include_content, plan_by_path)
 
-            if not issue_data:
-                ctx.logger.info(f"[Patch] Improvement round {round_num + 1}: no issues found")
-                break
+            file_path: Optional[str] = (issue_data or {}).get("file_path", "")
+            issue: Optional[str] = (issue_data or {}).get("issue", "")
 
-            file_path: Optional[str] = issue_data.get("file_path", "")
-            issue: Optional[str] = issue_data.get("issue", "")
             if not file_path or not issue:
-                break
+                clean_generic_count += 1
+                ctx.logger.info(
+                    f"[Patch] Improvement round {round_num + 1}: no issues found"
+                    f" — trying focused aspect next (clean_count={clean_generic_count})"
+                )
+                continue  # always try a focused aspect instead of stopping early
 
             ctx.logger.info(f"[Patch] Improvement round {round_num + 1}: fixing '{file_path}': {issue}")
             patched = self._patch_single_file(ctx, file_path, issue)
             rounds_done += 1
+            clean_generic_count = 0  # found and fixed something — reset
 
             # Between rounds (not after the last), refresh cross_file_errors
             if patched and round_num < max_rounds - 1:
@@ -558,8 +585,13 @@ class PatchPhase(BasePhase):
         small: bool,
         include_content: bool,
         plan_by_path: Dict,
+        aspect: Optional[str] = None,
     ) -> Optional[Dict[str, str]]:
-        """Ask the LLM to identify one critical issue. Returns {file_path, issue} or None."""
+        """Ask the LLM to identify one critical issue. Returns {file_path, issue} or None.
+
+        When aspect is provided (Bug 2 focused review), overrides the system prompt to
+        force inspection of one specific concern instead of a generic "any issue" query.
+        """
         if include_content:
             # Build full file contents block (bounded by prompt budget)
             file_contents_lines: List[str] = []
@@ -597,6 +629,10 @@ class PatchPhase(BasePhase):
                 tech_stack=", ".join(ctx.tech_stack),
                 file_summary=file_summary,
             )
+
+        # Bug 2 — Override system prompt for focused aspect review
+        if aspect:
+            system = _IMPROVEMENT_SYSTEM_FOCUSED.format(aspect=aspect)
 
         try:
             raw = self._llm_call(ctx, system, user, role="coder", no_think=True)

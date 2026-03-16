@@ -12,7 +12,8 @@
 |---|---|
 | **10-phase AutoAgent pipeline**, 4B-optimized — with cross-file contract validation + senior review loop | ✅ |
 | **11 AutoAgent pipeline improvements** — CSS auto-injection, FastAPI mandatory patterns, JS null guards, DB connection bug detection, smarter complexity scoring | ✅ |
-| **Review & repair for small models** — compact `senior_review_compact` cycle + `TestRunPhase` now active for ≤8B; `py_compile` smoke test; `search_replace` patch strategy; line-number error localization | ✅ **new** |
+| **Review & repair for small models** — compact `senior_review_compact` cycle + `TestRunPhase` now active for ≤8B; `py_compile` smoke test; `search_replace` patch strategy; line-number error localization | ✅ |
+| **Quality boost for 4B models** — default 3 refinement loops; focused review aspects (HTML IDs, DOM, event listeners, CSS) always active; SeniorReview compact now reads actual file content; content threshold raised to 50K chars | ✅ **new** |
 | **Multi-language code generation** — Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart, SVG + Python/JS/TS | ✅ **new** |
 | **Language-specific infra** — `go.mod`, `Cargo.toml`, `pom.xml`, multi-stage Dockerfiles, per-lang `.gitignore` | ✅ **new** |
 | **Multi-language static analysis** — `go vet`, `cargo check`, `php -l`, `ruby -c`, HTML link validation | ✅ **new** |
@@ -30,7 +31,7 @@
 | **Per-session project index** — semantic `search_codebase()` tool | ✅ **new** |
 | **Streaming shell output** — live pytest/npm/cargo lines via SSE | ✅ **new** |
 | Privacy monitor — network call audit, 🔒 local mode badge | ✅ |
-| 1 182 tests — unit · integration · E2E (Playwright, Ollama-free) | ✅ |
+| 1 185 tests — unit · integration · E2E (Playwright, Ollama-free) | ✅ |
 | **Security hardening** — CORS, rate limiting, input validation, command injection fixes | ✅ |
 | **Unified config** — 9 focused JSON files (≤30 lines each), no JSON-in-env-vars | ✅ **new** |
 | **JS MIME fix** — custom StaticFiles subclass, immune to Windows registry override | ✅ **new** |
@@ -135,7 +136,7 @@ Supports **11 languages**: Python, JavaScript/TypeScript, Go, Rust, Java, C#, PH
 
 | Tier | Range | Phases |
 |------|-------|--------|
-| **small** (default) | ≤ 8B (`qwen3.5:4b`) | Phases 1–4, 4b, 5, 6, 8 (TestRunPhase + SeniorReviewPhase skipped) |
+| **small** (default) | ≤ 8B (`qwen3.5:4b`) | All 10 phases (TestRunPhase skipped; SeniorReviewPhase runs compact 2-cycle review) |
 | **full** | > 8B | All 10 phases |
 
 Pipeline:
@@ -147,10 +148,11 @@ Phase 4:  CodeFillPhase             — Core: generate each file with language-s
 Phase 4b: CrossFileValidationPhase  — Zero-LLM: HTML↔JS id contract, CSS class check, Python relative imports
                                        Auto-fixes id mismatches when similarity > 50%; remainder seeded to PatchPhase
 Phase 5:  PatchPhase                — ruff/tsc/go vet/cargo check/php -l/ruby -c + HTML link validation
-                                       Multi-round improvement: 3 rounds (large) / 2 rounds (small)
-                                       Round 0 seeds from cross-file errors; small projects include full file content
-Phase 6b: SeniorReviewPhase         — Comprehensive LLM review + CodePatcher repair loop (2 cycles max) [SKIPPED ≤8B]
-                                       Uses existing SeniorReviewer utility (32K context); fixes critical/high issues
+                                       Multi-round improvement: 3 rounds (small and large, default)
+                                       Round 0 seeds from cross-file errors; rounds 1+ cycle through 6 focused aspects
+                                       Content-aware review for ≤10 files / ≤50K total chars
+Phase 6b: SeniorReviewPhase         — Large: 2-cycle full review + repair (32K context)
+                                       Small (≤8B): 2-cycle compact review with actual file content (≤6 files/≤20K chars)
 Phase 6:  InfraPhase                — go.mod/Cargo.toml/pom.xml/Dockerfile (multi-stage)/per-lang .gitignore
 Phase 7:  TestRunPhase              — Auto-selects go test/cargo test/mvn test/jest/pytest; 3 fix iterations [SKIPPED ≤8B]
 Phase 8:  FinishPhase               — Write OLLASH.md, log metrics, fire project_complete event
@@ -163,7 +165,7 @@ Three layers of review catch different classes of bugs:
 | Layer | Phase | Catches |
 |-------|-------|---------|
 | **Zero-LLM contract** | 4b CrossFileValidation | `getElementById("chess-board")` when HTML has `id="board"`, missing CSS classes, broken Python relative imports, JS `fetch()` vs backend route mismatches, HTML form fields vs Pydantic models |
-| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet) + 3 LLM improvement rounds; actual file content sent for small projects (up to 25k chars); DB connection bugs (`USE_AFTER_CLOSE`, `INIT_DB_ONLY_IN_MAIN`); full HTML context for targeted patches |
+| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet) + 3 LLM improvement rounds; rounds 1+ use 6 focused aspects (HTML IDs, DOM, game loop, event listeners, CSS, duplicates); content-aware review up to 50K chars / 10 files; DB connection bug detection |
 | **Senior architecture review** | 6b SeniorReview | Missing game logic, incomplete state transitions, wrong data flow — with auto-repair (large models only) |
 
 #### Language-specific system prompts (CodeFillPhase)
@@ -467,9 +469,9 @@ Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeli
 |---------|----------------------|
 | Token budget | ~800 tokens system + ~2200 tokens user per LLM call (~4K total) |
 | TestRunPhase | Skipped — `ctx.is_small()` returns True, phase 7 is omitted |
-| SeniorReviewPhase | Skipped — 32K context window too slow/unreliable on 4B |
+| SeniorReviewPhase | Compact 2-cycle review with actual file content (≤6 files / ≤20K chars) + repair |
 | CrossFileValidationPhase | **Runs** — zero-LLM, catches id mismatches for free |
-| Improvement rounds | 2 rounds (vs 3 for large models); file summary only |
+| Improvement rounds | 3 rounds (matching large models); focused aspects from round 2; content-aware for ≤10 files / ≤50K chars |
 | Blueprint size | Max 5 files for simple projects; **7 for games/full-stack/React/Flutter/FastAPI web apps** |
 | CSS auto-injection | `static/style.css` auto-added to blueprint when CSS in stack + HTML planned but no CSS file |
 | FastAPI mandatory hints | Large models get a `MANDATORY PATTERNS` block in CodeFill prompts: `StaticFiles`, `startup` event, list endpoints |
@@ -477,7 +479,7 @@ Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeli
 | Language prompts | Compact single-line variants for Go/Rust/Java/C#/PHP/Ruby/Kotlin/Dart |
 | Dynamic token budget | `_estimate_num_predict()` → 4096 tokens for game/logic/engine/solver files, 2048 otherwise |
 | Syntax validation | CodeFillPhase validates output and retries once on syntax error |
-| Patching | PatchPhase runs ruff/tsc/go vet/cargo check/php -l/ruby -c + CodePatcher, max 2 passes |
+| Patching | PatchPhase runs ruff/tsc/go vet/cargo check/php -l/ruby -c + 3-round improvement (focused aspects from round 2) |
 | Micro tier (≤2B) | `ctx.is_micro()` — uses even shorter prompt variants |
 
 ---
@@ -540,7 +542,7 @@ Domain toolsets: `file_system_tools`, `command_line_tools`, `network_tools`, `sy
 ```bash
 # Unit tests (no Ollama required)
 pytest tests/unit/ -q
-# → 1 129 passed, 2 skipped, 1 xfailed
+# → 1 185 tests collected
 
 # Integration tests
 pytest tests/integration/ -q

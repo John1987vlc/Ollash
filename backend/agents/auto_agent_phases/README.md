@@ -1,4 +1,4 @@
-# auto_agent_phases — 8-Phase AutoAgent Pipeline
+# auto_agent_phases — 10-Phase AutoAgent Pipeline
 
 Sequential pipeline for project generation optimized for 4B models (qwen3.5:4b).
 
@@ -10,8 +10,9 @@ Sequential pipeline for project generation optimized for 4B models (qwen3.5:4b).
 | 2 | `BlueprintPhase` | Yes (1 call) | Generate full project blueprint as Pydantic-validated JSON (max 20 files) |
 | 3 | `ScaffoldPhase` | No | Create directories and write language-specific stub files |
 | 4 | `CodeFillPhase` | Yes (1/file) | Generate file content in priority order with language-specific prompts, syntax validation + 1 retry |
-| 4b | `CrossFileValidationPhase` | No | 5 zero-LLM contract checks: HTML↔JS ids, CSS classes, Python imports, JS fetch vs routes, form fields vs Pydantic models |
-| 5 | `PatchPhase` | Yes (optional) | Static analysis (ruff/tsc/go vet/…) + DB connection bug detection + multi-round improvement |
+| 4b | `CrossFileValidationPhase` | No | 6 zero-LLM contract checks: HTML↔JS ids, CSS classes, Python imports, JS fetch vs routes, form fields vs Pydantic models, duplicate window.* exports |
+| 5 | `PatchPhase` | Yes (optional) | Static analysis (ruff/tsc/go vet/…) + DB connection bug detection + **3-round** improvement loop; rounds 1+ cycle through 6 focused review aspects (HTML IDs, DOM, game loop, event listeners, CSS classes, duplicates) |
+| 6b | `SeniorReviewPhase` | Yes (1–4 calls) | Large models: 2-cycle full review + CodePatcher repair. **Small models**: 2-cycle compact review with actual file content (≤6 files / ≤20K chars). |
 | 6 | `InfraPhase` | Yes (1–2 calls) | requirements.txt, Dockerfile, .gitignore, package.json |
 | 7 | `TestRunPhase` | Yes (optional) | Run pytest, patch up to 3 failures per iteration, max 3 iterations. **Skipped for ≤8B models.** |
 | 8 | `FinishPhase` | No | Write `OLLASH.md` + `.ollash/metrics.json`, fire `project_complete` event |
@@ -66,7 +67,7 @@ class PhaseContext:
 
 ## Model Tiers
 
-- `ctx.is_small()` — True if model ≤8B → skips TestRunPhase + SeniorReviewPhase
+- `ctx.is_small()` — True if model ≤8B → skips TestRunPhase; runs compact SeniorReviewPhase
 - `ctx.is_micro()` — True if model ≤2B → uses shorter prompts
 
 ## Pipeline Improvements (Sprint 10)
@@ -100,7 +101,7 @@ class PhaseContext:
 
 | ID | Method | What it does |
 |----|--------|-------------|
-| **M1** | `_CONTENT_INCLUDE_MAX_CHARS` | Raised from 8 000 → **25 000** chars; multi-file FastAPI projects now include full file content in the LLM reviewer prompt instead of summaries |
+| **M1** | `_CONTENT_INCLUDE_MAX_CHARS` | Raised from 8 000 → **50 000** chars (file limit ≤10); multi-file projects now include full file content in the LLM reviewer prompt instead of summaries |
 | **M9** | `_build_patch_context()` | For HTML files ≤5 000 chars, passes the **complete HTML** as context to `CodePatcher` — prevents `<section>` insertions after `</footer>` |
 | **M10** | `_check_python_connection_bugs()` | Detects `USE_AFTER_CLOSE` (`conn.close()` + `cursor.execute()` within 10 lines) and `INIT_DB_ONLY_IN_MAIN` (`init_db()` only called inside `if __name__ == '__main__':`) |
 
@@ -109,3 +110,32 @@ class PhaseContext:
 | ID | Method | What it does |
 |----|--------|-------------|
 | **M11** | `description_complexity()` | High-complexity domain words (admin, login, booking, availability, …) now score **+2 each** (was +1); multi-page bonus (+1 for ≥2 navigation keywords); barbershop booking app now correctly scores ≥6 instead of 3 |
+
+## Pipeline Quality Improvements (Sprint 12)
+
+Targeted fixes to make small-model (≤8B) output significantly better without touching code generation prompts.
+
+### Default refinement loops raised
+
+| Setting | Before | After |
+|---------|--------|-------|
+| UI slider default | 1 | **3** |
+| UI slider max | 5 | **8** |
+| API `num_refine_loops` default | 1 | **3** |
+| `_MAX_IMPROVEMENT_ROUNDS_SMALL` | 2 | **3** |
+
+### PatchPhase — focused aspects always active
+
+Previously, the 6 targeted review aspects (HTML IDs vs JS, missing DOM elements, game loop, event listeners, CSS classes, duplicate exports) only activated when the user explicitly set `num_refine_loops > default_max`. The gate (`user_requested_extra`) has been removed — rounds 1+ now **always** cycle through focused aspects whenever the generic reviewer says "no issues".
+
+With default 3 loops on a 4B model:
+- Round 0: generic review or seed from `cross_file_errors`
+- Round 1: focused → HTML IDs vs `getElementById` calls
+- Round 2: focused → missing DOM container elements
+
+### SeniorReviewPhase — compact review upgraded
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Input to reviewer | File names + purposes only | **Full file content** (≤6 files / ≤20K chars) |
+| Repair cycles | 1 | **2** (exits early if clean or nothing fixable) |

@@ -6,7 +6,7 @@ Agent implementations for Ollash.
 
 | File | Class | Description |
 |------|-------|-------------|
-| `auto_agent.py` | `AutoAgent` | 8-phase project generator (4B-optimized) |
+| `auto_agent.py` | `AutoAgent` | 10-phase project generator (4B-optimized) |
 | `default_agent.py` | `DefaultAgent` | Chat agent with tool loop (IntentRouting + ContextSummarizer) |
 | `core_agent.py` | `CoreAgent` | Base class: file ops, model selection, context management |
 
@@ -14,7 +14,7 @@ Agent implementations for Ollash.
 
 | Directory | Contents |
 |-----------|---------|
-| `auto_agent_phases/` | 8 pipeline phases + PhaseContext + BasePhase |
+| `auto_agent_phases/` | 10 pipeline phases + PhaseContext + BasePhase |
 | `domain_agents/` | Swarm: ArchitectAgent, DeveloperAgent ×3, AuditorAgent, DevOpsAgent |
 | `mixins/` | ContextSummarizerMixin, IntentRoutingMixin, ToolLoopMixin |
 | `orchestrators/` | Blackboard, TaskDAG, SelfHealingLoop, DebateNodeRunner, CheckpointManager |
@@ -32,7 +32,7 @@ agent = AutoAgent(
     generated_projects_dir=Path("generated_projects"),
 )
 
-# Full run (8 phases)
+# Full run (10 phases)
 project_path = agent.run("A FastAPI REST API with SQLite", "my_api")
 
 # Structure preview only (phases 1+2, no files written)
