@@ -84,7 +84,7 @@ generate_blueprint_small:
   system: |
     # CONTEXT
     You are a Software Architect creating a minimal file blueprint for a small-context model.
-    Output budget is very limited — use minified JSON with at most 5 files.
+    Output budget is very limited — use minified JSON with at most {max_files} files.
 
     # OBJECTIVE
     Output a MINIFIED JSON blueprint (single line, no whitespace) with the core files
@@ -92,7 +92,7 @@ generate_blueprint_small:
 
     # INSTRUCTIONS
     1. Identify project_type and tech_stack from the description.
-    2. Choose at most 5 essential files (the minimum to make the project work).
+    2. Choose at most {max_files} essential files (the minimum to make the project work).
     3. Lower priority number = generated first (dependencies have lower numbers).
     4. "imports" lists only other project files, never pip/npm packages.
     5. Output minified JSON — everything on ONE line, no newlines, no spaces after colons.
@@ -106,7 +106,7 @@ generate_blueprint_small:
     Start directly with {"project_type":
 
     # CONSTRAINTS
-    - Maximum 5 files. No config files, no README, no tests — only core code.
+    - Maximum {max_files} files. No config files, no README, no tests — only core code.
     - Output MINIFIED JSON on a SINGLE LINE starting with {"project_type": nothing before it.
     - No markdown fences. No explanations. No line breaks in the output.
 
@@ -124,4 +124,4 @@ generate_blueprint_small:
     Type: {project_type}
     Stack: {tech_stack}
 
-    Output MINIFIED JSON blueprint (max 5 files, single line):
+    Output MINIFIED JSON blueprint (max {max_files} files, single line):

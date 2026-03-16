@@ -297,3 +297,29 @@ window.DagPanel = (function () {
 
     return { updateNode, editInstruction };
 })();
+
+/**
+ * window.formatAnswer — converts Markdown text from agent responses to HTML.
+ *
+ * Called by chat-module.js when rendering assistant message bubbles.
+ * Falls back to the raw string if marked.js is not loaded.
+ */
+window.formatAnswer = function(markdown) {
+    if (!markdown) return '';
+    try {
+        const html = window.marked ? window.marked.parse(markdown) : markdown;
+        // Apply highlight.js to any <code> blocks that were just rendered
+        if (window.hljs) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            tmp.querySelectorAll('pre code').forEach(block => {
+                window.hljs.highlightElement(block);
+            });
+            return tmp.innerHTML;
+        }
+        return html;
+    } catch (e) {
+        console.error('[formatAnswer] Markdown render error:', e);
+        return markdown;
+    }
+};

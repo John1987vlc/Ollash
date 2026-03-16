@@ -9,6 +9,9 @@ Prompt: prompts/domains/auto_generation/blueprint.yaml
 
 from __future__ import annotations
 
+import dataclasses
+from collections import deque
+
 from backend.agents.auto_agent_phases.base_phase import BasePhase
 from backend.agents.auto_agent_phases.blueprint_models import BlueprintOutput
 from backend.agents.auto_agent_phases.phase_context import FilePlan, PhaseContext
@@ -49,7 +52,7 @@ _SYSTEM_FALLBACK_SMALL = """Output ONLY a single-line minified JSON object. No m
 SCHEMA: {"project_type":"...","tech_stack":[...],"files":[{"path":"...","purpose":"...","exports":[...],"imports":[...],"key_logic":"...","priority":1}]}
 
 RULES:
-- Maximum 5 files (core code only, no README, no config files).
+- Maximum {max_files} files (core code only, no README, no config files).
 - Lower priority number = generated first.
 - "imports" lists only other project files.
 - Output starts with { and ends with } on a SINGLE LINE.
@@ -62,7 +65,7 @@ Description: {project_description}
 Type: {project_type}
 Stack: {tech_stack}
 
-Output MINIFIED JSON (max 5 files, single line):"""
+Output MINIFIED JSON blueprint (max {max_files} files, single line):"""
 
 
 class BlueprintPhase(BasePhase):
@@ -75,14 +78,24 @@ class BlueprintPhase(BasePhase):
         max_files = self._dynamic_max_files(ctx)  # #15 dynamic limit
         ctx.metrics["blueprint_max_files"] = max_files
 
-        user = user_template.format(
-            project_name=ctx.project_name,
-            project_description=ctx.project_description[:1200],
-            project_type=ctx.project_type,
-            tech_stack=", ".join(ctx.tech_stack),
-        )
-        # Append dynamic max_files hint so the LLM respects the adjusted limit
-        if not ctx.is_small():
+        # For small models the system fallback and user template both contain {max_files}
+        if ctx.is_small():
+            system = system.replace("{max_files}", str(max_files))
+            user = user_template.format(
+                project_name=ctx.project_name,
+                project_description=ctx.project_description[:1200],
+                project_type=ctx.project_type,
+                tech_stack=", ".join(ctx.tech_stack),
+                max_files=max_files,
+            )
+        else:
+            user = user_template.format(
+                project_name=ctx.project_name,
+                project_description=ctx.project_description[:1200],
+                project_type=ctx.project_type,
+                tech_stack=", ".join(ctx.tech_stack),
+            )
+            # Append dynamic max_files hint so the LLM respects the adjusted limit
             user = user.rstrip() + f"\n\nConstraint: generate at most {max_files} files for this project."
             # M4 — Inject mandatory pattern hints for FastAPI+HTML+SQLite projects
             mandatory_hints = self._build_mandatory_hints(ctx)
@@ -120,8 +133,14 @@ class BlueprintPhase(BasePhase):
             key=lambda fp: fp.priority,
         )
 
+        # Bug 1 — Enforce dependency order via topological sort
+        ctx.blueprint = self._topological_sort(ctx.blueprint)
+
         # M3 — Post-process: guarantee essential files are present
         self._ensure_mandatory_files(ctx)
+
+        # Bug 4 — Merge dependent JS pairs on small models to prevent dual implementations
+        self._merge_dependent_js_for_small_models(ctx)
 
         # #3 — Validate that import graph is a DAG (no cycles)
         cycles = self._detect_dag_cycles(ctx.blueprint)
@@ -140,6 +159,138 @@ class BlueprintPhase(BasePhase):
             project_type=ctx.project_type,
             tech_stack=ctx.tech_stack,
         )
+
+    # ----------------------------------------------------------------
+    # Bug 1 — Topological sort (Kahn's BFS)
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _topological_sort(plans: list) -> list:
+        """Topological sort of the file import graph using Kahn's BFS algorithm.
+
+        Ensures each file is generated only after all its declared imports,
+        regardless of the LLM-assigned priority numbers.
+
+        Tie-breaking: among simultaneously eligible nodes, the original priority
+        number (ascending) is used to preserve the LLM's intent for independent files.
+
+        Reassigns sequential priority integers (1, 2, 3, …) on the result so that
+        _group_by_priority() in CodeFillPhase doesn't batch dependent files together.
+
+        Returns the reordered list when the graph is a valid DAG.
+        Returns the input list unchanged when a cycle is detected (defensive fallback).
+        """
+        path_to_plan = {p.path: p for p in plans}
+        all_paths = set(path_to_plan)
+
+        in_degree: dict[str, int] = {p.path: 0 for p in plans}
+        dependents: dict[str, list[str]] = {p.path: [] for p in plans}
+
+        for p in plans:
+            for dep in p.imports:
+                if dep in all_paths:
+                    in_degree[p.path] += 1
+                    dependents[dep].append(p.path)
+
+        # Seed queue with zero-in-degree nodes, ordered by original priority
+        queue: deque[str] = deque(
+            sorted(
+                [path for path, deg in in_degree.items() if deg == 0],
+                key=lambda path: path_to_plan[path].priority,
+            )
+        )
+        result: list[FilePlan] = []
+        while queue:
+            node = queue.popleft()
+            result.append(path_to_plan[node])
+            for dependent in dependents[node]:
+                in_degree[dependent] -= 1
+                if in_degree[dependent] == 0:
+                    queue.append(dependent)
+            # Re-sort to maintain priority tie-breaking among newly eligible nodes
+            queue = deque(sorted(queue, key=lambda path: path_to_plan[path].priority))
+
+        if len(result) != len(plans):
+            # Cycle detected — fall back to original list (cycle warning logged separately)
+            return plans
+
+        # Reassign sequential priorities so CodeFillPhase sees a strict linear order
+        return [dataclasses.replace(fp, priority=i + 1) for i, fp in enumerate(result)]
+
+    # ----------------------------------------------------------------
+    # Bug 4 — Merge dependent JS pairs for small models
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _merge_dependent_js_for_small_models(ctx: PhaseContext) -> None:
+        """Merge a JS file that imports another JS file into a single file on small (≤8B) models.
+
+        Prevents the pattern where two independent LLM calls each implement the full
+        game/app logic and expose conflicting window.* globals.
+
+        Only merges when:
+        - Model is small (≤8B)
+        - There are ≥2 JS files in the blueprint
+        - A JS file A imports exactly one other JS file B
+        - B itself has no JS imports (avoids complex chain merges)
+
+        The dependency (B) becomes the merged host file. A's exports/purpose/key_logic
+        are merged in. Any other file that imported A now imports B instead.
+        """
+        if not ctx.is_small():
+            return
+
+        js_plans = [fp for fp in ctx.blueprint if fp.path.endswith(".js")]
+        if len(js_plans) < 2:
+            return
+
+        all_paths = {fp.path for fp in ctx.blueprint}
+
+        for importer in js_plans:
+            js_deps = [dep for dep in importer.imports if dep.endswith(".js") and dep in all_paths]
+            if len(js_deps) != 1:
+                continue
+            dep_path = js_deps[0]
+            dep_plan = next((fp for fp in ctx.blueprint if fp.path == dep_path), None)
+            if dep_plan is None:
+                continue
+            # Skip if the dependency itself imports JS files (chain too complex)
+            if any(d.endswith(".js") and d in all_paths for d in dep_plan.imports):
+                continue
+
+            merged_exports = list(dict.fromkeys(dep_plan.exports + importer.exports))
+            merged_purpose = f"{dep_plan.purpose}; {importer.purpose}"
+            merged_key_logic = f"{dep_plan.key_logic}\n{importer.key_logic}".strip()
+            merged_imports = [d for d in importer.imports if not d.endswith(".js")]
+
+            merged_plan = dataclasses.replace(
+                dep_plan,
+                exports=merged_exports,
+                purpose=merged_purpose,
+                key_logic=merged_key_logic,
+                imports=merged_imports,
+            )
+
+            # Remove importer, replace dep with merged; redirect any imports of A → B
+            new_blueprint: list[FilePlan] = []
+            for fp in ctx.blueprint:
+                if fp.path == importer.path:
+                    continue
+                if fp.path == dep_path:
+                    new_blueprint.append(merged_plan)
+                elif importer.path in fp.imports:
+                    new_imports = [dep_path if imp == importer.path else imp for imp in fp.imports]
+                    new_blueprint.append(dataclasses.replace(fp, imports=new_imports))
+                else:
+                    new_blueprint.append(fp)
+
+            ctx.blueprint = new_blueprint
+            ctx.logger.info(
+                f"[Blueprint] B4: Merged JS '{importer.path}' into '{dep_path}'"
+                " (small model — prevents duplicate implementation)"
+            )
+            ctx.metrics["blueprint_js_merge"] = True
+            break  # one merge per run to avoid cascading issues
 
     # ----------------------------------------------------------------
     # #3 — DAG cycle detection

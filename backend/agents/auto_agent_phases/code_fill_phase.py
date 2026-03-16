@@ -359,6 +359,9 @@ class CodeFillPhase(BasePhase):
             for w in coherence_warnings:
                 ctx.logger.warning(f"[CodeFill] Coherence: {w}")
 
+        # D3 — Sanitize requirements.txt against the detected tech-stack
+        self._sanitize_requirements(ctx)
+
         # #8 — Save cache after successful generation
         self._save_cache(ctx)
 
@@ -681,6 +684,67 @@ class CodeFillPhase(BasePhase):
         if any(h in combined for h in complex_hints):
             return 4096
         return 2048
+
+    # ----------------------------------------------------------------
+    # D3 — requirements.txt tech-stack sanitizer
+    # ----------------------------------------------------------------
+
+    def _sanitize_requirements(self, ctx: PhaseContext) -> None:
+        """Remove dependencies that belong to the wrong framework.
+
+        Prevents common model hallucinations like `flask-cors` ending up in a
+        FastAPI project (or `fastapi`/`uvicorn` in a pure Flask project).
+        Runs after all files are generated so ctx.tech_stack is fully resolved.
+        """
+        req_path = next(
+            (p for p in ctx.generated_files if Path(p).name.lower() == "requirements.txt"),
+            None,
+        )
+        if req_path is None:
+            return
+
+        content = ctx.generated_files[req_path]
+        stack = {s.lower() for s in ctx.tech_stack}
+        lines = content.splitlines()
+        new_lines: list[str] = []
+        removed: list[str] = []
+
+        # Packages that belong exclusively to Flask (should not appear in FastAPI projects)
+        _FLASK_ONLY = {"flask-cors", "flask-login", "flask-sqlalchemy", "flask-migrate",
+                       "flask-wtf", "flask-mail", "flask_cors", "flask_login"}
+        # Packages that belong exclusively to FastAPI (should not appear in pure Flask projects)
+        _FASTAPI_ONLY = {"uvicorn", "fastapi"}
+
+        using_fastapi = "fastapi" in stack
+        using_flask = "flask" in stack and not using_fastapi  # co-existence → keep both
+
+        for line in lines:
+            stripped = line.strip()
+            pkg_name = stripped.split("=")[0].split("[")[0].lower().strip()
+            if using_fastapi and pkg_name in _FLASK_ONLY:
+                removed.append(stripped)
+                continue
+            if using_flask and pkg_name in _FASTAPI_ONLY:
+                removed.append(stripped)
+                continue
+            new_lines.append(line)
+
+        # For FastAPI projects, ensure python-multipart is present (needed for Form uploads)
+        if using_fastapi:
+            existing = {l.split("=")[0].split("[")[0].lower().strip() for l in new_lines}
+            if "python-multipart" not in existing:
+                new_lines.append("python-multipart>=0.0.9")
+                ctx.logger.info("[CodeFill] D3 Added python-multipart for FastAPI forms")
+
+        if removed:
+            new_content = "\n".join(new_lines) + ("\n" if content.endswith("\n") else "")
+            ctx.generated_files[req_path] = new_content
+            try:
+                ctx.file_manager.write_file(ctx.project_root / req_path, new_content)
+            except Exception as exc:
+                ctx.logger.warning(f"[CodeFill] D3 Could not persist requirements fix: {exc}")
+            for pkg in removed:
+                ctx.logger.info(f"[CodeFill] D3 Removed mismatched dependency: {pkg}")
 
     # ----------------------------------------------------------------
     # Validation / extraction helpers

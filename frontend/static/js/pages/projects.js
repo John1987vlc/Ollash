@@ -47,22 +47,22 @@ window.ProjectsModule = (function() {
         if (!existingProjectsSelect) return;
         try {
             const response = await fetch('/api/projects/list');
-            const projects = await response.json();
-            if (projects.status === 'success') {
-                const currentValue = existingProjectsSelect.value;
-                existingProjectsSelect.innerHTML = '<option value="">Select a project...</option>';
-                projects.projects.forEach(project => {
-                    const option = document.createElement('option');
-                    option.value = project;
-                    option.textContent = project;
-                    existingProjectsSelect.appendChild(option);
-                });
-                if (currentValue && projects.projects.includes(currentValue)) {
-                    existingProjectsSelect.value = currentValue;
-                }
-                // Render visual card grid
-                renderProjectCards(projects.projects);
+            const data = await response.json();
+            // API returns {projects: [{name, path, modified}, ...]}
+            const projectList = (data.projects || []).map(p => (typeof p === 'string' ? p : p.name));
+            const currentValue = existingProjectsSelect.value;
+            existingProjectsSelect.innerHTML = '<option value="">Select a project...</option>';
+            projectList.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                existingProjectsSelect.appendChild(option);
+            });
+            if (currentValue && projectList.includes(currentValue)) {
+                existingProjectsSelect.value = currentValue;
             }
+            // Render visual card grid
+            renderProjectCards(projectList);
         } catch (error) {
             console.error('Error populating projects:', error);
         }
@@ -129,6 +129,24 @@ window.ProjectsModule = (function() {
         // Load other data
         if (window.loadQuarantineList) window.loadQuarantineList(projectName);
         if (window.loadComplianceData) window.loadComplianceData(projectName);
+
+        // Auto-load README.md into preview tab if it exists
+        const readmeCandidates = ['README.md', 'readme.md', 'OLLASH.md'];
+        for (const candidate of readmeCandidates) {
+            try {
+                const r = await fetch(`/api/projects/${projectName}/file`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_path_relative: candidate }),
+                });
+                const d = await r.json();
+                if (d.status === 'success') {
+                    loadFileContent(candidate);
+                    if (currentFileNameSpan) currentFileNameSpan.textContent = candidate;
+                    break;
+                }
+            } catch (_) { /* file not found, try next */ }
+        }
     }
 
     async function fetchFileTree(projectName) {
@@ -202,25 +220,77 @@ window.ProjectsModule = (function() {
             element.classList.add('selected');
             selectedFileElement = element;
         }
-        
+
         currentFilePath = path;
         if (currentFileNameSpan) currentFileNameSpan.textContent = path;
-        
-        // Open code tab
-        const codeTabBtn = document.querySelector('.tab-btn[data-tab="code"]');
-        if (codeTabBtn) codeTabBtn.click();
 
-        // Load content
+        const ext = path.split('.').pop().toLowerCase();
+        const isPreviewable = ext === 'html' || ext === 'md';
+
+        if (isPreviewable) {
+            // Open preview tab for HTML/MD files
+            const previewTabBtn = document.querySelector('.tab-btn[data-tab="preview"]');
+            if (previewTabBtn) previewTabBtn.click();
+        } else {
+            // Open code tab for everything else
+            const codeTabBtn = document.querySelector('.tab-btn[data-tab="code"]');
+            if (codeTabBtn) codeTabBtn.click();
+        }
+
+        // Load content into both editor and preview
         loadFileContent(path);
     }
 
     async function loadFileContent(path) {
         if (!currentProject) return;
         try {
-            const resp = await fetch(`/api/projects/${currentProject}/file?path=${encodeURIComponent(path)}`);
+            const resp = await fetch(`/api/projects/${currentProject}/file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_path_relative: path }),
+            });
             const data = await resp.json();
-            if (data.status === 'success' && window.editor) {
+            if (data.status !== 'success') return;
+
+            // Always populate the code editor
+            if (window.editor) {
                 window.editor.setValue(data.content);
+            }
+
+            // Additionally populate the preview pane for HTML and Markdown files
+            const ext = path.split('.').pop().toLowerCase();
+            const frame = document.getElementById('preview-frame');
+            const mdDiv = document.getElementById('preview-md');
+            const emptyDiv = document.getElementById('preview-empty');
+
+            if (frame) frame.style.display = 'none';
+            if (mdDiv) mdDiv.style.display = 'none';
+            if (emptyDiv) emptyDiv.style.display = 'none';
+
+            if (ext === 'html') {
+                if (frame) {
+                    // Use Blob URL so relative scripts/styles in the HTML can load
+                    const blob = new Blob([data.content], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    frame.src = url;
+                    frame.style.display = 'block';
+                    frame.onload = () => URL.revokeObjectURL(url);
+                }
+            } else if (ext === 'md') {
+                if (mdDiv && window.marked) {
+                    mdDiv.innerHTML = window.marked.parse(data.content);
+                    // Syntax-highlight any code blocks
+                    if (window.hljs) {
+                        mdDiv.querySelectorAll('pre code').forEach(b => window.hljs.highlightElement(b));
+                    }
+                    mdDiv.style.display = 'block';
+                } else if (mdDiv) {
+                    // Fallback: plain text if marked not available
+                    mdDiv.textContent = data.content;
+                    mdDiv.style.display = 'block';
+                }
+            } else {
+                if (emptyDiv) emptyDiv.style.display = 'flex';
             }
         } catch (e) { console.error(e); }
     }

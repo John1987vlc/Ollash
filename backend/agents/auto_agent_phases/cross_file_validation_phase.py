@@ -67,6 +67,14 @@ class CrossFileValidationPhase(BasePhase):
         # M6 — Pass 5: HTML form field names vs Pydantic model fields (zero-LLM)
         if has_html and has_py:
             all_errors.extend(self._check_form_fields_vs_models(ctx))
+        # Bug 3 — Pass 6: Duplicate window.* exports across JS files (advisory)
+        js_count = sum(1 for p in ctx.generated_files if p.endswith(".js"))
+        if has_js and js_count >= 2:
+            all_errors.extend(self._check_duplicate_window_exports(ctx))
+
+        # M7 — Zero-LLM auto-fix: broken HTML asset paths (e.g. style.css → static/style.css)
+        if has_html:
+            self._fix_broken_html_asset_paths(ctx)
 
         # Attempt zero-LLM auto-fixes for ID mismatches
         auto_fixed = self._attempt_auto_fixes(ctx, all_errors)
@@ -302,6 +310,8 @@ class CrossFileValidationPhase(BasePhase):
 
         html_path, html_content = next(iter(html_files.items()))
         fixed: List[Dict[str, Any]] = []
+        # Bug 3 fix: track source IDs already renamed this pass to prevent cascade renames
+        already_renamed_from: Set[str] = set()
 
         for err in id_errors:
             missing_id: str = err.get("_js_ref", "")
@@ -316,6 +326,14 @@ class CrossFileValidationPhase(BasePhase):
                 ctx.logger.info(
                     f"[CrossFileValidation] ID '{missing_id}' has no similar HTML id "
                     f"(best: '{best_match}', ratio={ratio:.2f}) — deferring to PatchPhase"
+                )
+                continue
+
+            # Bug 3 fix: skip if this source id was already renamed in this pass
+            if best_match in already_renamed_from:
+                ctx.logger.info(
+                    f"[CrossFileValidation] Skipping cascade: '{best_match}' already renamed "
+                    f"this pass (would create '{missing_id}') — deferring to PatchPhase"
                 )
                 continue
 
@@ -336,6 +354,7 @@ class CrossFileValidationPhase(BasePhase):
                 if isinstance(html_ids, set):
                     html_ids.discard(best_match)
                     html_ids.add(missing_id)
+                already_renamed_from.add(best_match)
                 ctx.logger.info(
                     f"[CrossFileValidation] Auto-fixed: id='{best_match}' → id='{missing_id}' "
                     f"in {html_path} (ratio={ratio:.2f})"
@@ -355,6 +374,47 @@ class CrossFileValidationPhase(BasePhase):
                 best_ratio = ratio
                 best = cand
         return best, best_ratio
+
+    # ----------------------------------------------------------------
+    # Bug 3 — Pass 6: Duplicate window.* exports across JS files
+    # ----------------------------------------------------------------
+
+    def _check_duplicate_window_exports(self, ctx: PhaseContext) -> List[Dict[str, Any]]:
+        """Detect multiple JS files assigning the same name on window.*.
+
+        e.g. both game.js and board.js define window.renderBoard — signals a blueprint
+        file-split problem where both files independently implemented the same logic.
+        Advisory only: not auto-fixable, passed to PatchPhase to consolidate.
+        """
+        _WINDOW_ASSIGN_RE = re.compile(
+            r"window\.(\w+)\s*=\s*(?:function|\w)",
+            re.MULTILINE,
+        )
+        js_files = {p: c for p, c in ctx.generated_files.items() if p.endswith(".js")}
+
+        window_exports: Dict[str, List[str]] = {}
+        for js_path, content in js_files.items():
+            for m in _WINDOW_ASSIGN_RE.finditer(content):
+                name = m.group(1)
+                window_exports.setdefault(name, []).append(js_path)
+
+        errors: List[Dict[str, Any]] = []
+        for name, files in window_exports.items():
+            if len(files) < 2:
+                continue
+            errors.append(
+                {
+                    "file_a": files[0],
+                    "file_b": files[1],
+                    "error_type": "duplicate_global_export",
+                    "description": (
+                        f"Both {files[0]} and {files[1]} assign window.{name} — "
+                        "blueprint may have split responsibilities incorrectly"
+                    ),
+                    "suggestion": (f"Consolidate '{name}' into one JS file, or rename to avoid collision"),
+                }
+            )
+        return errors
 
     # ----------------------------------------------------------------
     # M5 — Pass 4: JS fetch() URLs vs backend route decorators
@@ -506,3 +566,57 @@ class CrossFileValidationPhase(BasePhase):
                     }
                 )
         return errors
+
+    # ----------------------------------------------------------------
+    # M7 — Zero-LLM auto-fix: broken HTML asset paths
+    # ----------------------------------------------------------------
+
+    def _fix_broken_html_asset_paths(self, ctx: PhaseContext) -> None:
+        """Rewrite broken <link href> / <script src> paths in HTML files.
+
+        Detects cases where a generated HTML references an asset by a flat name
+        (e.g. href="style.css") but the actual generated file lives under a
+        subdirectory (e.g. "static/style.css"). Rewrites the reference directly
+        in ctx.generated_files without any LLM call.
+        """
+        generated_paths: Set[str] = set(ctx.generated_files.keys())
+
+        for html_path, html_content in list(ctx.generated_files.items()):
+            if not html_path.endswith(".html"):
+                continue
+
+            # Find all href="..." and src="..." attribute values
+            asset_refs = re.findall(r'(?:href|src)=["\']([^"\'#?]+)["\']', html_content)
+            new_content = html_content
+
+            for ref in asset_refs:
+                # Skip absolute URLs and anchors
+                if ref.startswith(("http://", "https://", "//", "/")):
+                    continue
+                # Skip if the reference already resolves correctly
+                if ref in generated_paths:
+                    continue
+                # Look for a match under any subdirectory
+                candidates = [p for p in generated_paths if p.endswith("/" + ref) or p == ref]
+                if len(candidates) == 1:
+                    correct_path = candidates[0]
+                    new_content = new_content.replace(f'href="{ref}"', f'href="{correct_path}"')
+                    new_content = new_content.replace(f"href='{ref}'", f"href='{correct_path}'")
+                    new_content = new_content.replace(f'src="{ref}"', f'src="{correct_path}"')
+                    new_content = new_content.replace(f"src='{ref}'", f"src='{correct_path}'")
+                    ctx.logger.info(
+                        f"[CrossFileValidation] M7 Auto-fixed asset path in {html_path}: "
+                        f'"{ref}" → "{correct_path}"'
+                    )
+
+            if new_content != html_content:
+                ctx.generated_files[html_path] = new_content
+                # Persist the fix to disk
+                try:
+                    ctx.file_manager.write_file(
+                        ctx.project_root / html_path, new_content
+                    )
+                except Exception as exc:
+                    ctx.logger.warning(
+                        f"[CrossFileValidation] M7 Could not persist fix for {html_path}: {exc}"
+                    )
