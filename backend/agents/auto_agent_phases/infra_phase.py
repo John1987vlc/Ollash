@@ -12,6 +12,7 @@ Improvements:
 from __future__ import annotations
 
 import re
+import sys as _sys
 from abc import ABC, abstractmethod
 from typing import ClassVar, List, Set
 
@@ -374,7 +375,6 @@ _STDLIB_FALLBACK: frozenset = frozenset({
 })
 
 # Use the authoritative stdlib list when available (Python 3.10+)
-import sys as _sys
 _STDLIB: frozenset = getattr(_sys, "stdlib_module_names", _STDLIB_FALLBACK)
 
 

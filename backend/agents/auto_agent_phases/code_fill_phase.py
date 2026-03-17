@@ -779,7 +779,7 @@ class CodeFillPhase(BasePhase):
 
         # For FastAPI projects, ensure python-multipart is present (needed for Form uploads)
         if using_fastapi:
-            existing = {l.split("=")[0].split("[")[0].lower().strip() for l in new_lines}
+            existing = {ln.split("=")[0].split("[")[0].lower().strip() for ln in new_lines}
             if "python-multipart" not in existing:
                 new_lines.append("python-multipart>=0.0.9")
                 ctx.logger.info("[CodeFill] D3 Added python-multipart for FastAPI forms")

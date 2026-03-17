@@ -299,8 +299,6 @@ def test_enforce_described_files_no_false_positives_for_planned_files():
 @pytest.mark.unit
 def test_enforce_described_files_cap_for_small_model():
     """Small model (≤8B): at most 3 files are injected even if more are missing."""
-    from backend.agents.auto_agent_phases.phase_context import FilePlan
-
     ctx = _make_ctx(model_name="qwen3.5:4b")
     ctx.project_description = (
         "Files: a/a.cs b/b.cs c/c.cs d/d.cs e/e.cs f/f.cs"
@@ -315,8 +313,6 @@ def test_enforce_described_files_cap_for_small_model():
 @pytest.mark.unit
 def test_enforce_described_files_no_cap_for_large_model():
     """Large model (>8B): all missing files are injected."""
-    from backend.agents.auto_agent_phases.phase_context import FilePlan
-
     ctx = _make_ctx(model_name="qwen3-coder:30b")
     ctx.project_description = "Files: a/a.cs b/b.cs c/c.cs d/d.cs e/e.cs"
     ctx.blueprint = []
