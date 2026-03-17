@@ -116,8 +116,11 @@ class SeniorReviewPhase(BasePhase):
             )
             try:
                 raw = self._llm_call(
-                    ctx, system_tpl.strip(), user_msg.strip(),
-                    role="reviewer", no_think=True,
+                    ctx,
+                    system_tpl.strip(),
+                    user_msg.strip(),
+                    role="reviewer",
+                    no_think=True,
                 )
             except Exception as e:
                 ctx.logger.warning(f"[SeniorReview] Compact review LLM call failed: {e}")

@@ -475,9 +475,7 @@ class BlueprintPhase(BasePhase):
         import re as _re
 
         # Match "word/word.ext" or "word.ext" with 2-5 char extension
-        mentioned = set(
-            _re.findall(r"\b(\w+(?:/\w+)*\.\w{2,5})\b", ctx.project_description)
-        )
+        mentioned = set(_re.findall(r"\b(\w+(?:/\w+)*\.\w{2,5})\b", ctx.project_description))
         if not mentioned:
             return
 
@@ -519,13 +517,9 @@ class BlueprintPhase(BasePhase):
                 priority=max_priority + 1 + i,
             )
             ctx.blueprint.append(injected)
-            ctx.logger.info(
-                f"[Blueprint] Coverage gap auto-injected: '{path}' (priority={injected.priority})"
-            )
+            ctx.logger.info(f"[Blueprint] Coverage gap auto-injected: '{path}' (priority={injected.priority})")
 
         # Files beyond the cap: warn only
         for path in sorted(missing)[inject_cap:]:
-            ctx.logger.warning(
-                f"[Blueprint] Coverage gap skipped (cap reached): '{path}' — add manually if needed"
-            )
+            ctx.logger.warning(f"[Blueprint] Coverage gap skipped (cap reached): '{path}' — add manually if needed")
             ctx.errors.append(f"Blueprint coverage gap (skipped): '{path}' described but not planned")

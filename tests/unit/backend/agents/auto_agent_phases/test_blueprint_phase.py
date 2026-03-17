@@ -300,9 +300,7 @@ def test_enforce_described_files_no_false_positives_for_planned_files():
 def test_enforce_described_files_cap_for_small_model():
     """Small model (≤8B): at most 3 files are injected even if more are missing."""
     ctx = _make_ctx(model_name="qwen3.5:4b")
-    ctx.project_description = (
-        "Files: a/a.cs b/b.cs c/c.cs d/d.cs e/e.cs f/f.cs"
-    )
+    ctx.project_description = "Files: a/a.cs b/b.cs c/c.cs d/d.cs e/e.cs f/f.cs"
     ctx.blueprint = []
     BlueprintPhase._enforce_described_files(ctx)
 

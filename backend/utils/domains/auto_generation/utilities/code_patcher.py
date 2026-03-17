@@ -209,13 +209,10 @@ class CodePatcher:
                     norm_replace = textwrap.dedent(replace).strip()
                     result = norm_result.replace(norm_search, norm_replace, 1)
                     self.logger.info(
-                        f"  SEARCH/REPLACE applied (dedent-normalized): "
-                        f"{len(search)} chars -> {len(replace)} chars"
+                        f"  SEARCH/REPLACE applied (dedent-normalized): {len(search)} chars -> {len(replace)} chars"
                     )
                 else:
-                    self.logger.warning(
-                        f"  SEARCH block not found in file ({len(search)} chars). Skipping patch."
-                    )
+                    self.logger.warning(f"  SEARCH block not found in file ({len(search)} chars). Skipping patch.")
                     failed.append(search)
         return result, failed
 

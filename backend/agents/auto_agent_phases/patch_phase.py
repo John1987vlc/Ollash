@@ -609,9 +609,7 @@ class PatchPhase(BasePhase):
         for round_num in range(max_rounds):
             # S5-2: break early when generic + 2 focused aspects all report clean
             if clean_generic_count >= 1 and focused_clean_count >= 2:
-                ctx.logger.info(
-                    "[Patch] Early exit: generic review + 2 focused aspects all clean"
-                )
+                ctx.logger.info("[Patch] Early exit: generic review + 2 focused aspects all clean")
                 break
 
             # Round 0: use cross_file_errors as seed to skip LLM issue-discovery

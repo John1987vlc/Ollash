@@ -395,8 +395,7 @@ def test_csharp_detects_undefined_dbcontext_name():
     ctx.generated_files = {
         "Data/CrmDbContext.cs": "public class CrmDbContext : DbContext {}",
         "Controllers/ContactoController.cs": (
-            "private readonly CrmBasicoContext _context;\n"
-            "public ContactoController(CrmBasicoContext context) {}"
+            "private readonly CrmBasicoContext _context;\npublic ContactoController(CrmBasicoContext context) {}"
         ),
     }
     phase = CrossFileValidationPhase()
@@ -411,9 +410,7 @@ def test_csharp_no_error_when_type_matches():
     ctx = _make_ctx()
     ctx.generated_files = {
         "Data/CrmDbContext.cs": "public class CrmDbContext : DbContext {}",
-        "Controllers/ContactoController.cs": (
-            "private readonly CrmDbContext _context;\n"
-        ),
+        "Controllers/ContactoController.cs": ("private readonly CrmDbContext _context;\n"),
     }
     phase = CrossFileValidationPhase()
     errors = phase._check_csharp_class_references(ctx)
@@ -443,8 +440,7 @@ def test_csharp_interface_definition_not_flagged():
     ctx = _make_ctx()
     ctx.generated_files = {
         "Services/ContactoService.cs": (
-            "public interface IContactoService {}\n"
-            "public class ContactoService : IContactoService {}\n"
+            "public interface IContactoService {}\npublic class ContactoService : IContactoService {}\n"
         ),
     }
     phase = CrossFileValidationPhase()

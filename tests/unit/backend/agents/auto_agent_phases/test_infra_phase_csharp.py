@@ -55,9 +55,7 @@ class TestCsharpAssemblyName:
         """<AssemblyName> tag is returned when stem would be ambiguous."""
         # Simulate: only <AssemblyName> via the tag (no .csproj in generated_files, so fall to tag path)
         ctx = _make_ctx({})
-        ctx.generated_files = {
-            "_.csproj": "<AssemblyName>ExplicitName</AssemblyName>"
-        }
+        ctx.generated_files = {"_.csproj": "<AssemblyName>ExplicitName</AssemblyName>"}
         # Stem of "_.csproj" is "_" — falsy-like but technically truthy. We test the tag branch
         # by making the .csproj stem empty-looking via a dot-only name doesn't parse well, so instead
         # test that tag is used when file is named something with stem "":

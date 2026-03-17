@@ -745,8 +745,16 @@ class CodeFillPhase(BasePhase):
         removed: list[str] = []
 
         # Packages that belong exclusively to Flask (should not appear in FastAPI projects)
-        _FLASK_ONLY = {"flask-cors", "flask-login", "flask-sqlalchemy", "flask-migrate",
-                       "flask-wtf", "flask-mail", "flask_cors", "flask_login"}
+        _FLASK_ONLY = {
+            "flask-cors",
+            "flask-login",
+            "flask-sqlalchemy",
+            "flask-migrate",
+            "flask-wtf",
+            "flask-mail",
+            "flask_cors",
+            "flask_login",
+        }
         # Packages that belong exclusively to FastAPI (should not appear in pure Flask projects)
         _FASTAPI_ONLY = {"uvicorn", "fastapi"}
 
@@ -756,8 +764,7 @@ class CodeFillPhase(BasePhase):
         # Build local package names from the generated project structure so we
         # never list them as third-party pip dependencies.
         local_pkg_names: set[str] = {
-            p.replace("\\", "/").split("/")[0].split(".")[0].lower()
-            for p in ctx.generated_files
+            p.replace("\\", "/").split("/")[0].split(".")[0].lower() for p in ctx.generated_files
         }
 
         for line in lines:

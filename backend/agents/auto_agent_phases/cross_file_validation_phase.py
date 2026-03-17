@@ -439,9 +439,7 @@ class CrossFileValidationPhase(BasePhase):
             return []
 
         # Step 1 — collect all types defined in the project
-        _DEFN_RE = re.compile(
-            r"\bpublic\s+(?:class|interface|record|struct|enum)\s+(\w+)"
-        )
+        _DEFN_RE = re.compile(r"\bpublic\s+(?:class|interface|record|struct|enum)\s+(\w+)")
         defined_names: set[str] = set()
         for content in cs_files.values():
             defined_names.update(_DEFN_RE.findall(content))
@@ -451,30 +449,70 @@ class CrossFileValidationPhase(BasePhase):
 
         # Step 2 — known .NET BCL / ASP.NET / EF Core names to skip
         _KNOWN_DOTNET: set[str] = {
-            "string", "int", "long", "float", "double", "decimal", "bool", "object",
-            "byte", "char", "short", "uint", "ulong", "ushort", "sbyte",
-            "List", "IList", "IEnumerable", "ICollection", "Dictionary", "HashSet",
-            "Task", "ValueTask", "IAsyncEnumerable", "CancellationToken",
-            "ActionResult", "IActionResult", "OkResult", "NotFoundResult",
-            "BadRequestResult", "Controller", "ControllerBase",
-            "DbContext", "DbSet", "IDbContextFactory",
-            "IServiceCollection", "IServiceProvider", "IConfiguration",
-            "ILogger", "ILoggerFactory",
-            "HttpClient", "HttpRequest", "HttpResponse",
-            "Exception", "InvalidOperationException", "ArgumentException",
-            "ArgumentNullException", "NotSupportedException",
-            "WebApplication", "WebApplicationBuilder",
-            "ModelBuilder", "EntityTypeBuilder",
-            "Nullable", "var", "dynamic",
+            "string",
+            "int",
+            "long",
+            "float",
+            "double",
+            "decimal",
+            "bool",
+            "object",
+            "byte",
+            "char",
+            "short",
+            "uint",
+            "ulong",
+            "ushort",
+            "sbyte",
+            "List",
+            "IList",
+            "IEnumerable",
+            "ICollection",
+            "Dictionary",
+            "HashSet",
+            "Task",
+            "ValueTask",
+            "IAsyncEnumerable",
+            "CancellationToken",
+            "ActionResult",
+            "IActionResult",
+            "OkResult",
+            "NotFoundResult",
+            "BadRequestResult",
+            "Controller",
+            "ControllerBase",
+            "DbContext",
+            "DbSet",
+            "IDbContextFactory",
+            "IServiceCollection",
+            "IServiceProvider",
+            "IConfiguration",
+            "ILogger",
+            "ILoggerFactory",
+            "HttpClient",
+            "HttpRequest",
+            "HttpResponse",
+            "Exception",
+            "InvalidOperationException",
+            "ArgumentException",
+            "ArgumentNullException",
+            "NotSupportedException",
+            "WebApplication",
+            "WebApplicationBuilder",
+            "ModelBuilder",
+            "EntityTypeBuilder",
+            "Nullable",
+            "var",
+            "dynamic",
         }
 
         # Step 3 — scan each file for references to project-local types
         _REF_RE = re.compile(
             r"(?:"
-            r"new\s+(\w+)\s*[<(]"             # new TypeName<  or  new TypeName(
-            r"|private\s+readonly\s+(\w+)\s"   # private readonly TypeName
+            r"new\s+(\w+)\s*[<(]"  # new TypeName<  or  new TypeName(
+            r"|private\s+readonly\s+(\w+)\s"  # private readonly TypeName
             r"|private\s+(\w+)\s+\w+\s*[;=]"  # private TypeName fieldName;
-            r"|:\s*(\w+)\s*[{,\n]"             # : BaseClass {  or  : IInterface,
+            r"|:\s*(\w+)\s*[{,\n]"  # : BaseClass {  or  : IInterface,
             r")"
         )
 
@@ -506,10 +544,7 @@ class CrossFileValidationPhase(BasePhase):
                             f"which is not defined in any generated .cs file. "
                             f"Defined types: {sorted(defined_names)}"
                         ),
-                        "suggestion": (
-                            f"Rename '{ref_name}' to match an existing type, "
-                            f"e.g. {defined_sorted}"
-                        ),
+                        "suggestion": (f"Rename '{ref_name}' to match an existing type, e.g. {defined_sorted}"),
                     }
                 )
 
@@ -704,21 +739,16 @@ class CrossFileValidationPhase(BasePhase):
                     new_content = new_content.replace(f'src="{ref}"', f'src="{correct_path}"')
                     new_content = new_content.replace(f"src='{ref}'", f"src='{correct_path}'")
                     ctx.logger.info(
-                        f"[CrossFileValidation] M7 Auto-fixed asset path in {html_path}: "
-                        f'"{ref}" → "{correct_path}"'
+                        f'[CrossFileValidation] M7 Auto-fixed asset path in {html_path}: "{ref}" → "{correct_path}"'
                     )
 
             if new_content != html_content:
                 ctx.generated_files[html_path] = new_content
                 # Persist the fix to disk
                 try:
-                    ctx.file_manager.write_file(
-                        ctx.project_root / html_path, new_content
-                    )
+                    ctx.file_manager.write_file(ctx.project_root / html_path, new_content)
                 except Exception as exc:
-                    ctx.logger.warning(
-                        f"[CrossFileValidation] M7 Could not persist fix for {html_path}: {exc}"
-                    )
+                    ctx.logger.warning(f"[CrossFileValidation] M7 Could not persist fix for {html_path}: {exc}")
 
     # ----------------------------------------------------------------
     # Pass 7: Python constructor arity check (zero-LLM, AST-based)
@@ -751,8 +781,7 @@ class CrossFileValidationPhase(BasePhase):
                 if not isinstance(node, ast.ClassDef):
                     continue
                 for item in node.body:
-                    if not (isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
-                            and item.name == "__init__"):
+                    if not (isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == "__init__"):
                         continue
                     args = item.args
                     # Count positional params excluding 'self'
@@ -804,15 +833,17 @@ class CrossFileValidationPhase(BasePhase):
 
                 actual = len(node.args) + len(node.keywords)
                 if actual < required:
-                    errors.append({
-                        "type": "arity_mismatch",
-                        "file": caller_path,
-                        "file_b": def_file,
-                        "issue": (
-                            f"`{cls_name}(...)` called with {actual} positional arg(s) "
-                            f"but `__init__` requires {required} (defined in {def_file})"
-                        ),
-                    })
+                    errors.append(
+                        {
+                            "type": "arity_mismatch",
+                            "file": caller_path,
+                            "file_b": def_file,
+                            "issue": (
+                                f"`{cls_name}(...)` called with {actual} positional arg(s) "
+                                f"but `__init__` requires {required} (defined in {def_file})"
+                            ),
+                        }
+                    )
                     ctx.logger.warning(
                         f"[CrossFileValidation] Pass 7 arity mismatch: "
                         f"{caller_path}: {cls_name}({actual}) — needs {required}"
