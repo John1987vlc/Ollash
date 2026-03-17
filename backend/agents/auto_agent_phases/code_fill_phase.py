@@ -141,15 +141,35 @@ Expert Java developer. Write clean, idiomatic Java code.
 - Output ONLY the Java file content. No explanations. No markdown fences."""
 
 _SYSTEM_CSHARP = """# ROLE
-Expert C# developer. Write clean, idiomatic C# code.
+Expert C# / ASP.NET Core developer. Write complete, production-ready C# code.
 
-# RULES
-- Namespace and all necessary using statements at top
-- PascalCase for types/methods/properties; camelCase for local variables/parameters
-- Prefer async/await for all I/O; return Task<T> not void for async methods
-- Use LINQ for collection transformations; null-conditional ?. and ?? operators
-- Dispose IDisposable with using statements or using declarations
-- FORBIDDEN: NotImplementedException (implement it), empty catch, Thread.Sleep in async code
+# RULES — General
+- File-scoped namespace declaration: `namespace X;` (C# 10+, NOT block-scoped `namespace X { }`)
+- All necessary `using` statements at the top, before the namespace declaration
+- PascalCase for types/methods/properties; camelCase for locals/parameters
+- Prefer async/await for all I/O; return Task<T> (never async void except event handlers)
+- Use LINQ for collection transforms; null-conditional ?. and ?? operators; pattern matching
+- Dispose IDisposable with `using` declarations (C# 8+)
+- FORBIDDEN: NotImplementedException (implement it), empty catch {}, Thread.Sleep in async code
+
+# RULES — EF Core
+- `await context.Set.AddAsync(entity)` for inserts; `await context.SaveChangesAsync()` for commits
+- `context.Set.Remove(entity)` for deletes — EF Core has NO RemoveAsync(); NEVER call it
+- `await context.Set.ToListAsync()` for reads; `await context.Set.FindAsync(id)` for by-id
+- DbContext must be injected via constructor DI; never instantiate with `new DbContext()`
+
+# RULES — ASP.NET Core (controllers)
+- `[ApiController]` + `[Route("api/[controller]")]` on every controller class
+- `[HttpGet]` for safe reads ONLY; `[HttpPost]` for creates; `[HttpPut]`/`[HttpPatch]` for updates; `[HttpDelete]` for deletes
+- Return `ActionResult<T>` or `IActionResult`; use `Ok(data)`, `NotFound()`, `BadRequest(result)`
+- Register services in Program.cs: `builder.Services.AddScoped<IXxxService, XxxService>()`
+- `app.MapControllers()` requires `builder.Services.AddControllers()` to be called first
+
+# RULES — Models & Services
+- Data annotations on model properties: `[Required]`, `[MaxLength(n)]`, `[EmailAddress]`
+- Define interface `IXxxService` in the same file as its implementation `XxxService`
+
+# OUTPUT
 - Output ONLY the C# file content. No explanations. No markdown fences."""
 
 _SYSTEM_SVG = """# ROLE
@@ -239,7 +259,12 @@ _SYSTEM_BY_EXT_SMALL: dict[str, str] = {
     ".go": "Go developer. Write idiomatic Go: package decl, all imports used, if err!=nil{return err}, CamelCase exported. Output code only.",
     ".rs": "Rust developer. Write safe Rust: use statements, Result<T,E> with ?, no unwrap() in prod. Output code only.",
     ".java": "Java developer. Write clean Java: package+imports, public class matches filename, checked exceptions handled. Output code only.",
-    ".cs": "C# developer. Write idiomatic C#: namespaces+usings, PascalCase methods, async/await for I/O. Output code only.",
+    ".cs": (
+        "C# ASP.NET developer. Rules: file-scoped namespace (namespace X;), all usings at top, "
+        "EF Core: AddAsync/SaveChangesAsync for writes, Remove() for deletes (NOT RemoveAsync — it does not exist), "
+        "[ApiController]+[Route] on controllers, [HttpGet] reads only / [HttpPost/Put/Delete] for mutations, "
+        "builder.Services.AddControllers() before app.MapControllers() in Program.cs. Output code only."
+    ),
     ".svg": "SVG designer. Write SVG with xmlns, viewBox, <defs>/<symbol> for card suits, <use> for references. Output SVG only.",
     ".php": "PHP developer. Write PHP 8 with <?php declare(strict_types=1); namespaces, type hints, PDO for DB. Output code only.",
     ".rb": "Ruby developer. Write idiomatic Ruby: snake_case, iterators, attr_accessor, rescue specific exceptions. Output code only.",
@@ -598,13 +623,23 @@ class CodeFillPhase(BasePhase):
     # ----------------------------------------------------------------
 
     def _blueprint_hash(self, ctx: PhaseContext) -> str:
-        """SHA-256 of project_description + blueprint JSON (deterministic)."""
+        """SHA-256 of project_description + blueprint JSON + model name (deterministic).
+
+        Including the model name ensures that cache entries from a 4B model are not
+        reused when the same project is re-run with a 30B model.
+        """
         import dataclasses
+
+        try:
+            model_name = getattr(ctx.llm_manager.get_client("coder"), "model", "")
+        except Exception:
+            model_name = ""
 
         payload = json.dumps(
             {
                 "desc": ctx.project_description,
                 "blueprint": [dataclasses.asdict(fp) for fp in ctx.blueprint],
+                "model": model_name,
             },
             sort_keys=True,
         )
@@ -718,9 +753,22 @@ class CodeFillPhase(BasePhase):
         using_fastapi = "fastapi" in stack
         using_flask = "flask" in stack and not using_fastapi  # co-existence → keep both
 
+        # Build local package names from the generated project structure so we
+        # never list them as third-party pip dependencies.
+        local_pkg_names: set[str] = {
+            p.replace("\\", "/").split("/")[0].split(".")[0].lower()
+            for p in ctx.generated_files
+        }
+
         for line in lines:
             stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                new_lines.append(line)
+                continue
             pkg_name = stripped.split("=")[0].split("[")[0].lower().strip()
+            if pkg_name in local_pkg_names:
+                removed.append(stripped)
+                continue
             if using_fastapi and pkg_name in _FLASK_ONLY:
                 removed.append(stripped)
                 continue
@@ -866,10 +914,10 @@ class CodeFillPhase(BasePhase):
                     continue
                 ext = Path(fp.path).suffix.lower()
                 if ext == ".html":
-                    ids = re.findall(r"id=([#\w-]+)", fp.key_logic)
+                    ids = re.findall(r'id=["\']?([#\w-]+)["\']?', fp.key_logic)
                     classes = re.findall(r"class=([.\w-]+)", fp.key_logic)
                     if ids:
-                        clean_ids = [i.lstrip("#") for i in ids[:8]]
+                        clean_ids = [i.strip("\"'#") for i in ids[:8]]
                         lines.append(f"Planned HTML IDs: {', '.join(f'#{i}' for i in clean_ids)}")
                     if classes:
                         clean_cls = [c.lstrip(".") for c in classes[:8]]

@@ -169,6 +169,11 @@ class AgentLogger:
         """Log info message without publishing event (to avoid recursion or when sync is needed)."""
         self._log_to_structured(logging.INFO, msg, extra=extra, **kwargs)
 
+    def warning_sync(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
+        """Log warning message without publishing event (safe from sync contexts)."""
+        console_msg = f"{Fore.YELLOW}WARNING: {msg}{Style.RESET_ALL}"
+        self._log_to_structured(logging.WARNING, console_msg, extra=extra, **kwargs)
+
     def debug(self, msg: str, extra: Optional[Dict[str, Any]] = None, **kwargs):
         """Log debug message"""
         self._log_to_structured(logging.DEBUG, msg, extra=extra, **kwargs)

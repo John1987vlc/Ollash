@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from typing import List, Set
+from typing import ClassVar, List, Set
 
 from backend.agents.auto_agent_phases.base_phase import BasePhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
@@ -352,69 +352,30 @@ _PACKAGE_JSON_TEMPLATE = """{{
 }}
 """
 
-# Standard Python stdlib modules
-_STDLIB = {
-    "os",
-    "sys",
-    "re",
-    "json",
-    "pathlib",
-    "typing",
-    "abc",
-    "time",
-    "datetime",
-    "collections",
-    "itertools",
-    "functools",
-    "copy",
-    "math",
-    "random",
-    "hashlib",
-    "hmac",
-    "base64",
-    "uuid",
-    "io",
-    "struct",
-    "logging",
-    "threading",
-    "asyncio",
-    "concurrent",
-    "subprocess",
-    "shutil",
-    "tempfile",
-    "glob",
-    "fnmatch",
-    "csv",
-    "configparser",
-    "argparse",
-    "ast",
-    "inspect",
-    "importlib",
-    "pkgutil",
-    "contextlib",
-    "dataclasses",
-    "enum",
-    "traceback",
-    "warnings",
-    "weakref",
-    "gc",
-    "platform",
-    "socket",
-    "ssl",
-    "http",
-    "urllib",
-    "email",
-    "html",
-    "xml",
-    "unittest",
-    "doctest",
-    "pdb",
-    "profile",
-    "timeit",
-    "dis",
-    "__future__",
+# Standard Python stdlib modules — fallback for Python < 3.10
+_STDLIB_FALLBACK: frozenset = frozenset({
+    "os", "sys", "re", "json", "pathlib", "typing", "abc", "time", "datetime",
+    "collections", "itertools", "functools", "copy", "math", "random", "hashlib",
+    "hmac", "base64", "uuid", "io", "struct", "logging", "threading", "asyncio",
+    "concurrent", "subprocess", "shutil", "tempfile", "glob", "fnmatch", "csv",
+    "configparser", "argparse", "ast", "inspect", "importlib", "pkgutil",
+    "contextlib", "dataclasses", "enum", "traceback", "warnings", "weakref",
+    "gc", "platform", "socket", "ssl", "http", "urllib", "email", "html", "xml",
+    "unittest", "doctest", "pdb", "profile", "timeit", "dis", "__future__",
     "builtins",
-}
+    # Commonly missed modules added for completeness:
+    "secrets", "getpass", "textwrap", "string", "operator", "statistics",
+    "decimal", "fractions", "array", "bisect", "heapq", "queue", "shelve",
+    "pickle", "pprint", "types", "numbers", "sqlite3", "zlib", "gzip", "bz2",
+    "zipfile", "tarfile", "atexit", "signal", "codecs", "unicodedata", "locale",
+    "cmd", "shlex", "getopt", "difflib", "mimetypes", "cgi", "http",
+    "multiprocessing", "selectors", "select", "fcntl", "termios", "tty",
+    "pty", "pipes", "resource", "syslog", "optparse", "gettext",
+})
+
+# Use the authoritative stdlib list when available (Python 3.10+)
+import sys as _sys
+_STDLIB: frozenset = getattr(_sys, "stdlib_module_names", _STDLIB_FALLBACK)
 
 
 # ---------------------------------------------------------------------------
@@ -484,7 +445,7 @@ class RequirementsPlugin(InfraPlugin):
             project_type=ctx.project_type,
             imports_found="\n".join(imports_found[:40]),
         )
-        content = phase._llm_call(ctx, _REQUIREMENTS_SYSTEM, user, role="coder")
+        content = phase._llm_call(ctx, _REQUIREMENTS_SYSTEM, user, role="coder", no_think=True, max_tokens=512)
         if content:
             content = re.sub(r"```[a-z]*\n?", "", content).strip()
             phase._write_file(ctx, "requirements.txt", content + "\n")
@@ -544,7 +505,7 @@ class DockerfilePlugin(InfraPlugin):
         elif has_java:
             content = _DOCKERFILE_JAVA
         elif has_csharp:
-            assembly = ctx.project_name.replace(" ", "")
+            assembly = phase._get_csharp_assembly_name(ctx)
             content = _DOCKERFILE_CSHARP.format(assembly_name=assembly)
         elif has_php:
             content = _DOCKERFILE_PHP
@@ -573,7 +534,7 @@ class GoModPlugin(InfraPlugin):
         imports_found = phase._scan_go_imports(ctx)
         module_name = f"github.com/example/{ctx.project_name.lower().replace(' ', '-')}"
         user = _GOMOD_USER.format(module_name=module_name, imports_found="\n".join(imports_found[:20]))
-        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder")
+        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder", no_think=True, max_tokens=512)
         if content:
             content = re.sub(r"```[a-z]*\n?", "", content).strip()
             phase._write_file(ctx, "go.mod", content + "\n")
@@ -596,7 +557,7 @@ class CargoTomlPlugin(InfraPlugin):
             has_main=str(has_main),
             imports_found="\n".join(imports_found[:20]),
         )
-        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder")
+        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder", no_think=True, max_tokens=512)
         if content:
             content = re.sub(r"```[a-z]*\n?", "", content).strip()
             phase._write_file(ctx, "Cargo.toml", content + "\n")
@@ -618,7 +579,7 @@ class PomXmlPlugin(InfraPlugin):
             artifact_id=artifact,
             imports_found="\n".join(imports_found[:30]),
         )
-        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder")
+        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder", no_think=True, max_tokens=512)
         if content:
             content = re.sub(r"```[a-z]*\n?", "", content).strip()
             phase._write_file(ctx, "pom.xml", content + "\n")
@@ -635,7 +596,7 @@ class GemfilePlugin(InfraPlugin):
     def apply(self, phase: "InfraPhase", ctx: PhaseContext) -> None:
         imports_found = phase._scan_ruby_imports(ctx)
         user = _GEMFILE_USER.format(imports_found="\n".join(imports_found[:20]))
-        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder")
+        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder", no_think=True, max_tokens=512)
         if content:
             content = re.sub(r"```[a-z]*\n?", "", content).strip()
             phase._write_file(ctx, "Gemfile", content + "\n")
@@ -656,7 +617,7 @@ class ComposerJsonPlugin(InfraPlugin):
             project_name=project_name,
             imports_found="\n".join(imports_found[:20]),
         )
-        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder")
+        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder", no_think=True, max_tokens=512)
         if content:
             content = re.sub(r"```[a-z]*\n?", "", content).strip()
             phase._write_file(ctx, "composer.json", content + "\n")
@@ -678,7 +639,7 @@ class PubspecYamlPlugin(InfraPlugin):
             is_flutter=str(is_flutter),
             imports_found="\n".join(imports_found[:20]),
         )
-        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder")
+        content = phase._llm_call(ctx, _DEP_FILE_SYSTEM, user, role="coder", no_think=True, max_tokens=512)
         if content:
             content = re.sub(r"```[a-z]*\n?", "", content).strip()
             phase._write_file(ctx, "pubspec.yaml", content + "\n")
@@ -694,8 +655,8 @@ class InfraPhase(BasePhase):
     phase_id = "6"
     phase_label = "Infra"
 
-    # #16 — Ordered list of plugins
-    PLUGINS: List[InfraPlugin] = [
+    # #16 — Ordered list of plugins (ClassVar: shared, do not mutate at runtime)
+    PLUGINS: ClassVar[List[InfraPlugin]] = [
         GitignorePlugin(),
         RequirementsPlugin(),
         PackageJsonPlugin(),
@@ -776,6 +737,36 @@ class InfraPhase(BasePhase):
         ruby_files = [p for p in ctx.generated_files if p.endswith(".rb")]
         return ruby_files[0] if ruby_files else "app.rb"
 
+    @staticmethod
+    def _get_csharp_assembly_name(ctx: PhaseContext) -> str:
+        """Determine the .NET assembly name for the Dockerfile ENTRYPOINT.
+
+        Resolution order:
+        1. Filename stem of any *.csproj in generated_files
+           (e.g. 'CrmBasico.csproj' → 'CrmBasico')
+        2. <AssemblyName> element inside .csproj content
+        3. ctx.project_name with spaces stripped (legacy fallback)
+        """
+        import re as _re
+
+        # Priority 1: stem of the first .csproj file found
+        for path in ctx.generated_files:
+            if path.endswith(".csproj"):
+                stem = path.replace("\\", "/").rsplit("/", 1)[-1].rsplit(".", 1)[0]
+                if stem:
+                    return stem
+
+        # Priority 2: explicit <AssemblyName> tag inside any .csproj content
+        for path, content in ctx.generated_files.items():
+            if not path.endswith(".csproj"):
+                continue
+            m = _re.search(r"<AssemblyName>\s*([^\s<]+)\s*</AssemblyName>", content)
+            if m:
+                return m.group(1).strip()
+
+        # Priority 3: fallback to project name
+        return ctx.project_name.replace(" ", "")
+
     # ----------------------------------------------------------------
     # Utilities (used by plugins)
     # ----------------------------------------------------------------
@@ -783,6 +774,14 @@ class InfraPhase(BasePhase):
     @staticmethod
     def _scan_python_imports(ctx: PhaseContext) -> List[str]:
         """Extract third-party import names from all .py files."""
+        # Build set of local package/module names from the generated project structure
+        local_packages: Set[str] = set()
+        for p in ctx.generated_files:
+            parts = p.replace("\\", "/").split("/")
+            # top-level directory (e.g. "vault" from "vault/storage.py")
+            # or top-level Python file stem (e.g. "main" from "main.py")
+            local_packages.add(parts[0].split(".")[0])
+
         third_party: Set[str] = set()
         for path, content in ctx.generated_files.items():
             if not path.endswith(".py"):
@@ -791,13 +790,13 @@ class InfraPhase(BasePhase):
                 line = line.strip()
                 if line.startswith("import "):
                     mod = line.split()[1].split(".")[0]
-                    if mod not in _STDLIB:
+                    if mod not in _STDLIB and mod not in local_packages:
                         third_party.add(f"import {mod}")
                 elif line.startswith("from "):
                     parts = line.split()
                     if len(parts) >= 2:
                         mod = parts[1].split(".")[0]
-                        if mod not in _STDLIB and not mod.startswith("."):
+                        if mod not in _STDLIB and mod not in local_packages and not mod.startswith("."):
                             third_party.add(f"from {mod}")
         return sorted(third_party)
 

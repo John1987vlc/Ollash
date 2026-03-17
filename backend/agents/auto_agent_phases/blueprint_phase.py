@@ -139,6 +139,9 @@ class BlueprintPhase(BasePhase):
         # M3 — Post-process: guarantee essential files are present
         self._ensure_mandatory_files(ctx)
 
+        # S3-2 — Enforce files explicitly mentioned in description: auto-inject missing ones
+        self._enforce_described_files(ctx)
+
         # Bug 4 — Merge dependent JS pairs on small models to prevent dual implementations
         self._merge_dependent_js_for_small_models(ctx)
 
@@ -451,3 +454,78 @@ class BlueprintPhase(BasePhase):
         except Exception as exc:
             ctx.logger.debug(f"[Blueprint] YAML load failed ({exc}); using inline fallback")
         return system_fb, user_fb
+
+    # ----------------------------------------------------------------
+    # S3-2 — Description coverage check
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _enforce_described_files(ctx: PhaseContext) -> None:
+        """Auto-inject files mentioned in the description but absent from the blueprint.
+
+        Uses a conservative filename regex to avoid false positives on natural-language
+        text (e.g. 'e.g.' or 'i.e.' are excluded by requiring at least 2-char extension).
+
+        Injection constraints:
+        - Capped at 3 files for small models (token budget); unlimited for large models.
+        - Priority = max existing priority + 1 (generate after all currently planned files).
+        - Purpose inferred from text following the filename in the description.
+        - Files beyond the cap are still logged as warnings for the user.
+        """
+        import re as _re
+
+        # Match "word/word.ext" or "word.ext" with 2-5 char extension
+        mentioned = set(
+            _re.findall(r"\b(\w+(?:/\w+)*\.\w{2,5})\b", ctx.project_description)
+        )
+        if not mentioned:
+            return
+
+        planned_norm = {fp.path.replace("\\", "/") for fp in ctx.blueprint}
+
+        missing = {m for m in mentioned if m.replace("\\", "/") not in planned_norm}
+        # Filter out common false positives (version strings, domain names, etc.)
+        _FALSE_POSITIVE_EXTS = {".io", ".py2", ".py3"}
+        missing = {m for m in missing if not any(m.endswith(e) for e in _FALSE_POSITIVE_EXTS)}
+
+        if not missing:
+            return
+
+        ctx.logger.warning(
+            f"[Blueprint] Files mentioned in description but not in blueprint: "
+            f"{sorted(missing)} — auto-injecting where possible"
+        )
+
+        # Cap injections to avoid overwhelming small models
+        inject_cap = 3 if ctx.is_small() else len(missing)
+        to_inject = sorted(missing)[:inject_cap]
+
+        max_priority = max((fp.priority for fp in ctx.blueprint), default=0)
+
+        for i, path in enumerate(to_inject):
+            # Infer purpose: grab up to ~40 chars of text following the filename
+            m = _re.search(
+                _re.escape(path) + r"\s+([A-Za-z][A-Za-z0-9_\s]{0,40}?)(?:[.,;\n]|$)",
+                ctx.project_description,
+            )
+            purpose = m.group(1).strip() if m else f"Implementation of {path}"
+
+            injected = FilePlan(
+                path=path,
+                purpose=purpose,
+                exports=[],
+                imports=[],
+                key_logic="",
+                priority=max_priority + 1 + i,
+            )
+            ctx.blueprint.append(injected)
+            ctx.logger.info(
+                f"[Blueprint] Coverage gap auto-injected: '{path}' (priority={injected.priority})"
+            )
+
+        # Files beyond the cap: warn only
+        for path in sorted(missing)[inject_cap:]:
+            ctx.logger.warning(
+                f"[Blueprint] Coverage gap skipped (cap reached): '{path}' — add manually if needed"
+            )
+            ctx.errors.append(f"Blueprint coverage gap (skipped): '{path}' described but not planned")

@@ -12,8 +12,13 @@
 |---|---|
 | **10-phase AutoAgent pipeline**, 4B-optimized — with cross-file contract validation + senior review loop | ✅ |
 | **11 AutoAgent pipeline improvements** — CSS auto-injection, FastAPI mandatory patterns, JS null guards, DB connection bug detection, smarter complexity scoring | ✅ |
-| **Review & repair for small models** — compact `senior_review_compact` cycle + `TestRunPhase` now active for ≤8B; `py_compile` smoke test; `search_replace` patch strategy; line-number error localization | ✅ |
-| **Quality boost for 4B models** — default 3 refinement loops; focused review aspects (HTML IDs, DOM, event listeners, CSS) always active; SeniorReview compact now reads actual file content; content threshold raised to 50K chars | ✅ **new** |
+| **Small model pipeline** — SeniorReviewPhase + TestRunPhase explicitly skipped for ≤8B; CrossFileValidationPhase + PatchPhase run on all tiers | ✅ |
+| **Quality boost for 4B models** — default 3 refinement loops; focused review aspects (HTML IDs, DOM, event listeners, CSS) always active; SeniorReview compact now reads actual file content; content threshold raised to 50K chars | ✅ |
+| **C# / ASP.NET Core support** — full EF Core rules (AddAsync/Remove, no RemoveAsync), file-scoped namespaces, controller annotations, Program.cs DI patterns; C# static checks in PatchPhase; C# class/interface ref validation in CrossFileValidation | ✅ **new** |
+| **Blueprint coverage guard** — files explicitly mentioned in description but absent from blueprint are auto-injected (capped at 3 for small models) | ✅ **new** |
+| **Python constructor arity validation** — CrossFileValidationPhase detects mismatched `__init__` signatures and flags them to PatchPhase | ✅ **new** |
+| **Smarter infra generation** — `sys.stdlib_module_names` for accurate stdlib detection; local package names filtered from requirements.txt; Dockerfile assembly name resolved from .csproj | ✅ **new** |
+| **Blueprint cache model-keyed** — cache entries from a 4B model are never reused when re-running with a 30B model | ✅ **new** |
 | **Multi-language code generation** — Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart, SVG + Python/JS/TS | ✅ **new** |
 | **Language-specific infra** — `go.mod`, `Cargo.toml`, `pom.xml`, multi-stage Dockerfiles, per-lang `.gitignore` | ✅ **new** |
 | **Multi-language static analysis** — `go vet`, `cargo check`, `php -l`, `ruby -c`, HTML link validation | ✅ **new** |
@@ -31,7 +36,7 @@
 | **Per-session project index** — semantic `search_codebase()` tool | ✅ **new** |
 | **Streaming shell output** — live pytest/npm/cargo lines via SSE | ✅ **new** |
 | Privacy monitor — network call audit, 🔒 local mode badge | ✅ |
-| 1 185 tests — unit · integration · E2E (Playwright, Ollama-free) | ✅ |
+| 1 223 unit tests + 21 integration tests + 51 E2E (Playwright, Ollama-free) | ✅ |
 | **Security hardening** — CORS, rate limiting, input validation, command injection fixes | ✅ |
 | **Unified config** — 9 focused JSON files (≤30 lines each), no JSON-in-env-vars | ✅ **new** |
 | **JS MIME fix** — custom StaticFiles subclass, immune to Windows registry override | ✅ **new** |
@@ -136,7 +141,7 @@ Supports **11 languages**: Python, JavaScript/TypeScript, Go, Rust, Java, C#, PH
 
 | Tier | Range | Phases |
 |------|-------|--------|
-| **small** (default) | ≤ 8B (`qwen3.5:4b`) | All 10 phases (TestRunPhase skipped; SeniorReviewPhase runs compact 2-cycle review) |
+| **small** (default) | ≤ 8B (`qwen3.5:4b`) | 8 phases (SeniorReviewPhase + TestRunPhase skipped at orchestrator level) |
 | **full** | > 8B | All 10 phases |
 
 Pipeline:
@@ -145,10 +150,11 @@ Phase 1:  ProjectScanPhase          — Zero-LLM: detect type/stack, ingest exis
 Phase 2:  BlueprintPhase            — 1 LLM call: full JSON blueprint (max 20 files)
 Phase 3:  ScaffoldPhase             — Zero-LLM: create dirs + write stub files
 Phase 4:  CodeFillPhase             — Core: generate each file with language-specific system prompts
-Phase 4b: CrossFileValidationPhase  — Zero-LLM: HTML↔JS id contract, CSS class check, Python relative imports
+Phase 4b: CrossFileValidationPhase  — Zero-LLM: HTML↔JS id contract, CSS class check, Python relative imports,
+                                       Python constructor arity (Pass 7), C# class/interface refs (Pass 8)
                                        Auto-fixes id mismatches when similarity > 50%; remainder seeded to PatchPhase
-Phase 5:  PatchPhase                — ruff/tsc/go vet/cargo check/php -l/ruby -c + HTML link validation
-                                       Multi-round improvement: 3 rounds (small and large, default)
+Phase 5:  PatchPhase                — ruff/tsc/go vet/cargo check/php -l/ruby -c/C# static checks + HTML link validation
+                                       Security anti-pattern scan (advisory); multi-round improvement: 3 rounds
                                        Round 0 seeds from cross-file errors; rounds 1+ cycle through 6 focused aspects
                                        Content-aware review for ≤10 files / ≤50K total chars
 Phase 6b: SeniorReviewPhase         — Large: 2-cycle full review + repair (32K context)
@@ -164,9 +170,9 @@ Three layers of review catch different classes of bugs:
 
 | Layer | Phase | Catches |
 |-------|-------|---------|
-| **Zero-LLM contract** | 4b CrossFileValidation | `getElementById("chess-board")` when HTML has `id="board"`, missing CSS classes, broken Python relative imports, JS `fetch()` vs backend route mismatches, HTML form fields vs Pydantic models |
-| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet) + 3 LLM improvement rounds; rounds 1+ use 6 focused aspects (HTML IDs, DOM, game loop, event listeners, CSS, duplicates); content-aware review up to 50K chars / 10 files; DB connection bug detection |
-| **Senior architecture review** | 6b SeniorReview | Missing game logic, incomplete state transitions, wrong data flow — with auto-repair (large models only) |
+| **Zero-LLM contract** | 4b CrossFileValidation | `getElementById("chess-board")` when HTML has `id="board"`, missing CSS classes, broken Python relative imports, JS `fetch()` vs backend route mismatches, HTML form fields vs Pydantic models, Python constructor arity mismatches, C# undefined class/interface references |
+| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet/C# static) + 3 LLM improvement rounds; security anti-pattern scan; rounds 1+ use 6 focused aspects (HTML IDs, DOM, game loop, event listeners, CSS, duplicates); content-aware review up to 50K chars / 10 files; DB connection bug detection |
+| **Senior architecture review** | 6b SeniorReview | Missing game logic, incomplete state transitions, wrong data flow — with auto-repair (large models ≥9B only) |
 
 #### Language-specific system prompts (CodeFillPhase)
 
@@ -177,7 +183,7 @@ Each language gets a dedicated, rule-enforcing system prompt. Small models (≤8
 | **Go** | `.go` | Package decl, grouped imports, `if err != nil`, CamelCase |
 | **Rust** | `.rs` | `Result<T,E>` + `?`, ownership rules, no `unwrap()` in prod |
 | **Java** | `.java` | Package + all imports, public class matches filename, checked exceptions |
-| **C#** | `.cs` | Namespaces + usings, PascalCase, `async`/`await` for I/O |
+| **C#** | `.cs` | File-scoped namespace (`namespace X;`), EF Core (AddAsync/Remove — no RemoveAsync), `[ApiController]+[Route]`, `AddControllers()` before `MapControllers()` |
 | **PHP** | `.php` | `declare(strict_types=1)`, namespaces, PDO for DB |
 | **Ruby** | `.rb` | snake_case, iterators, `attr_accessor`, specific `rescue` |
 | **Kotlin** | `.kt` / `.kts` | `data class`, `val>var`, `when` expressions, coroutines |
@@ -468,9 +474,9 @@ Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeli
 | Feature | Behaviour on 4B (≤8B) |
 |---------|----------------------|
 | Token budget | ~800 tokens system + ~2200 tokens user per LLM call (~4K total) |
-| TestRunPhase | Skipped — `ctx.is_small()` returns True, phase 7 is omitted |
-| SeniorReviewPhase | Compact 2-cycle review with actual file content (≤6 files / ≤20K chars) + repair |
-| CrossFileValidationPhase | **Runs** — zero-LLM, catches id mismatches for free |
+| TestRunPhase | **Skipped** — removed from `SMALL_PHASE_ORDER` at orchestrator level |
+| SeniorReviewPhase | **Skipped** — removed from `SMALL_PHASE_ORDER` (large models ≥9B only) |
+| CrossFileValidationPhase | **Runs** — zero-LLM, catches id mismatches, ctor arity, C# refs |
 | Improvement rounds | 3 rounds (matching large models); focused aspects from round 2; content-aware for ≤10 files / ≤50K chars |
 | Blueprint size | Max 5 files for simple projects; **7 for games/full-stack/React/Flutter/FastAPI web apps** |
 | CSS auto-injection | `static/style.css` auto-added to blueprint when CSS in stack + HTML planned but no CSS file |
@@ -542,7 +548,7 @@ Domain toolsets: `file_system_tools`, `command_line_tools`, `network_tools`, `sy
 ```bash
 # Unit tests (no Ollama required)
 pytest tests/unit/ -q
-# → 1 185 tests collected
+# → 1 223 tests collected
 
 # Integration tests
 pytest tests/integration/ -q

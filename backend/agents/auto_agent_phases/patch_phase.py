@@ -173,10 +173,12 @@ class PatchPhase(BasePhase):
         has_rust = any(p.endswith(".rs") for p in ctx.generated_files)
         has_php = any(p.endswith(".php") for p in ctx.generated_files)
         has_ruby = any(p.endswith(".rb") for p in ctx.generated_files)
+        has_cs = any(p.endswith(".cs") for p in ctx.generated_files)
 
         if has_python:
             errors.extend(self._run_ruff(ctx))
             errors.extend(self._check_python_connection_bugs(ctx))  # M10
+        self._check_security_antipatterns(ctx)  # S6-1 — zero-LLM, advisory only
         if has_ts:
             errors.extend(self._run_tsc(ctx))
         if has_js:
@@ -192,6 +194,8 @@ class PatchPhase(BasePhase):
             errors.extend(self._run_php_lint(ctx))  # P1
         if has_ruby:
             errors.extend(self._run_ruby_check(ctx))  # P1
+        if has_cs:
+            errors.extend(self._check_csharp_static(ctx))  # P1
 
         return errors
 
@@ -441,6 +445,89 @@ class PatchPhase(BasePhase):
         return errors
 
     # ----------------------------------------------------------------
+    # P1 — C# static checks (regex-based, no external tool required)
+    # ----------------------------------------------------------------
+
+    def _check_csharp_static(self, ctx: PhaseContext) -> List[Dict[str, str]]:
+        """Regex-based static checks for C# files. No dotnet toolchain needed.
+
+        Checks:
+        CS-EF001  EF Core RemoveAsync() — does not exist; use Remove()
+        CS-REST002 [HttpGet] on a mutation method name — REST convention violation
+        CS-DI003  MapControllers() without AddControllers() in Program.cs
+        CS-DB004  AddDbContext without EnsureCreated/Migrate (advisory only — not auto-patched)
+        """
+        import re as _re
+
+        errors: List[Dict[str, str]] = []
+        cs_files = {p: c for p, c in ctx.generated_files.items() if p.endswith(".cs")}
+
+        # CS-EF001: RemoveAsync() — EF Core API does not have this method
+        _REMOVE_ASYNC_RE = _re.compile(r"\.RemoveAsync\s*\(")
+        for path, content in cs_files.items():
+            if _REMOVE_ASYNC_RE.search(content):
+                errors.append(
+                    {
+                        "file_path": path,
+                        "error": (
+                            "CS-EF001: EF Core has no RemoveAsync(); "
+                            "replace with context.Set.Remove(entity) followed by SaveChangesAsync()"
+                        ),
+                    }
+                )
+
+        # CS-REST002: [HttpGet] on a mutation method name
+        _HTTP_GET_MUTATION_RE = _re.compile(
+            r"\[HttpGet\][^\n]*\n[^\n]*\b(Update|Delete|Toggle|Set|Mark|Remove|Create|Add)\w*\s*\(",
+            _re.IGNORECASE,
+        )
+        for path, content in cs_files.items():
+            m = _HTTP_GET_MUTATION_RE.search(content)
+            if m:
+                errors.append(
+                    {
+                        "file_path": path,
+                        "error": (
+                            f"CS-REST002: [HttpGet] used on mutation method "
+                            f"'{m.group(1)}' — use [HttpPost], [HttpPut], [HttpPatch], "
+                            f"or [HttpDelete] for state-changing operations"
+                        ),
+                    }
+                )
+
+        # CS-DI003: MapControllers() without AddControllers() in Program.cs
+        for path, content in cs_files.items():
+            if "Program" not in path:
+                continue
+            if "MapControllers" in content and "AddControllers" not in content:
+                errors.append(
+                    {
+                        "file_path": path,
+                        "error": (
+                            "CS-DI003: app.MapControllers() called but "
+                            "builder.Services.AddControllers() not found — "
+                            "add AddControllers() before app.Build()"
+                        ),
+                    }
+                )
+
+        # CS-DB004 (advisory only): AddDbContext without EnsureCreated/Migrate
+        program_files = [p for p in cs_files if "Program" in p]
+        if program_files:
+            prog = cs_files[program_files[0]]
+            if "AddDbContext" in prog and "EnsureCreated" not in prog and "Migrate" not in prog:
+                ctx.logger.warning(
+                    "[Patch/C#] Program.cs registers DbContext but no EnsureCreated() or "
+                    "Migrate() call found — database may not be initialized on startup"
+                )
+                ctx.errors.append(
+                    "CS-DB004 (advisory): Program.cs missing EnsureCreated() or Migrate() "
+                    "after AddDbContext() — add db.Database.EnsureCreated() in startup"
+                )
+
+        return errors
+
+    # ----------------------------------------------------------------
     # Fixing
     # ----------------------------------------------------------------
 
@@ -516,9 +603,17 @@ class PatchPhase(BasePhase):
 
         rounds_done = 0
         clean_generic_count = 0  # consecutive generic "no issues" responses
+        focused_clean_count = 0  # consecutive focused-aspect "no issues" responses
         aspect_index = 0  # cycles through _FOCUSED_REVIEW_ASPECTS
 
         for round_num in range(max_rounds):
+            # S5-2: break early when generic + 2 focused aspects all report clean
+            if clean_generic_count >= 1 and focused_clean_count >= 2:
+                ctx.logger.info(
+                    "[Patch] Early exit: generic review + 2 focused aspects all clean"
+                )
+                break
+
             # Round 0: use cross_file_errors as seed to skip LLM issue-discovery
             if round_num == 0 and ctx.cross_file_errors:
                 issue_data = self._seed_from_cross_file_errors(ctx)
@@ -535,16 +630,19 @@ class PatchPhase(BasePhase):
 
             if not file_path or not issue:
                 clean_generic_count += 1
+                if clean_generic_count > 1:
+                    focused_clean_count += 1
                 ctx.logger.info(
                     f"[Patch] Improvement round {round_num + 1}: no issues found"
                     f" — trying focused aspect next (clean_count={clean_generic_count})"
                 )
-                continue  # always try a focused aspect instead of stopping early
+                continue  # try a focused aspect instead of stopping early
 
             ctx.logger.info(f"[Patch] Improvement round {round_num + 1}: fixing '{file_path}': {issue}")
             patched = self._patch_single_file(ctx, file_path, issue)
             rounds_done += 1
             clean_generic_count = 0  # found and fixed something — reset
+            focused_clean_count = 0
 
             # Between rounds (not after the last), refresh cross_file_errors
             if patched and round_num < max_rounds - 1:
@@ -763,6 +861,44 @@ class PatchPhase(BasePhase):
         return ctx.project_description[:400]
 
     # ----------------------------------------------------------------
+    # S6-1 — Zero-LLM security anti-pattern scan
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _check_security_antipatterns(ctx: PhaseContext) -> None:
+        """Scan generated files for security anti-patterns using regex only.
+
+        Advisory — results go to ctx.errors (visible in logs) but are NOT
+        auto-patched because the patterns are too broad for safe auto-fix.
+        Zero tokens consumed.
+        """
+        import re as _re
+
+        _PATTERNS: List[tuple] = [
+            # (regex, match_all_files, description)
+            (r"hashlib\.(md5|sha1)\s*\(", True, "Weak hash algorithm (md5/sha1) — use sha256+"),
+            (r"\beval\s*\(|\bexec\s*\(", True, "eval()/exec() — potential code injection"),
+            (r'(password|secret|token)\s*=\s*["\'][^"\']{3,}["\']', True, "Hardcoded credential literal"),
+            (r"os\.system\s*\([^)]*\+", True, "os.system() with string concat — command injection risk"),
+            (r"random\.seed\s*\(\s*\d+\s*\)", True, "Fixed RNG seed — non-random output"),
+            (r"chars\[i\s*%", False, "Sequential charset indexing — not random (use secrets.choice)"),
+            (r"input\s*\([^)]*[Pp]ass", True, "input() for password — use getpass.getpass()"),
+        ]
+
+        _PASSWD_GEN_SUFFIXES = ("gen", "pass", "crypt", "password", "secret", "token")
+
+        for file_path, content in ctx.generated_files.items():
+            for pattern, match_all, desc in _PATTERNS:
+                # Pattern 5 (sequential charset) only applies to password-gen-like files
+                if not match_all:
+                    name_lower = file_path.lower().replace("\\", "/")
+                    if not any(s in name_lower for s in _PASSWD_GEN_SUFFIXES):
+                        continue
+                if _re.search(pattern, content):
+                    msg = f"[Security] {file_path}: {desc}"
+                    ctx.logger.warning(msg)
+                    ctx.errors.append(msg)
+
     # M10 — Python DB connection anti-pattern detection
     # ----------------------------------------------------------------
 

@@ -94,7 +94,7 @@ def _init_app_state(app: FastAPI) -> None:
 
     import os
 
-    ollash_root_dir = Path(os.environ.get("OLLASH_ROOT_DIR", ".ollash"))
+    ollash_root_dir = Path(os.environ.get("OLLASH_ROOT_DIR", "."))
 
     if not getattr(app.state, "event_publisher", None):
         app.state.event_publisher = EventPublisher()

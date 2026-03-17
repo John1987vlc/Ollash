@@ -191,3 +191,90 @@ def test_no_connection_bugs_in_non_python_files():
     ctx.generated_files["app.js"] = "conn.close(); cursor.execute();"
     errors = PatchPhase._check_python_connection_bugs(ctx)
     assert len(errors) == 0
+
+
+# ----------------------------------------------------------------
+# Fix 6 — C# static checks
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_csharp_remove_async_detected():
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Services/ContactoService.cs": "await _context.Contactos.RemoveAsync(c);"
+    }
+    errors = PatchPhase()._check_csharp_static(ctx)
+    assert any("CS-EF001" in e["error"] for e in errors)
+
+
+@pytest.mark.unit
+def test_csharp_remove_without_async_not_flagged():
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Services/ContactoService.cs": "_context.Contactos.Remove(c); await _context.SaveChangesAsync();"
+    }
+    errors = PatchPhase()._check_csharp_static(ctx)
+    ef_errors = [e for e in errors if "CS-EF001" in e["error"]]
+    assert ef_errors == []
+
+
+@pytest.mark.unit
+def test_csharp_http_get_on_toggle_method_flagged():
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Controllers/TareaController.cs": (
+            "[HttpGet]\n"
+            "public async Task<ActionResult> ToggleCompletada(int id) {}\n"
+        )
+    }
+    errors = PatchPhase()._check_csharp_static(ctx)
+    assert any("CS-REST002" in e["error"] for e in errors)
+
+
+@pytest.mark.unit
+def test_csharp_http_get_on_read_method_not_flagged():
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Controllers/ContactoController.cs": (
+            "[HttpGet]\n"
+            "public async Task<ActionResult<IEnumerable<Contacto>>> List() {}\n"
+        )
+    }
+    errors = PatchPhase()._check_csharp_static(ctx)
+    rest_errors = [e for e in errors if "CS-REST002" in e["error"]]
+    assert rest_errors == []
+
+
+@pytest.mark.unit
+def test_csharp_map_controllers_without_add_controllers_flagged():
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Program.cs": "var app = builder.Build();\napp.MapControllers();\napp.Run();"
+    }
+    errors = PatchPhase()._check_csharp_static(ctx)
+    assert any("CS-DI003" in e["error"] for e in errors)
+
+
+@pytest.mark.unit
+def test_csharp_both_add_and_map_controllers_ok():
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Program.cs": (
+            "builder.Services.AddControllers();\n"
+            "var app = builder.Build();\n"
+            "app.MapControllers();\n"
+        )
+    }
+    errors = PatchPhase()._check_csharp_static(ctx)
+    di_errors = [e for e in errors if "CS-DI003" in e["error"]]
+    assert di_errors == []
+
+
+@pytest.mark.unit
+def test_csharp_no_errors_for_empty_generated_files():
+    """C# checks must return empty list when no .cs files are present."""
+    ctx = _make_ctx()
+    ctx.generated_files = {"app.py": "print('hello')"}
+    errors = PatchPhase()._check_csharp_static(ctx)
+    assert errors == []

@@ -84,7 +84,6 @@ class SeniorReviewPhase(BasePhase):
         )
 
         patcher = CodePatcher(llm_client=ctx.llm_manager.get_client("coder"), logger=ctx.logger)
-        llm = ctx.llm_manager.get_client("reviewer")
 
         for cycle in range(2):
             # Build user message — with actual file content or just names/purposes
@@ -116,7 +115,10 @@ class SeniorReviewPhase(BasePhase):
                 f" ({'with content' if include_content else 'names-only'})..."
             )
             try:
-                raw = llm.chat(system=system_tpl.strip(), user=user_msg.strip())
+                raw = self._llm_call(
+                    ctx, system_tpl.strip(), user_msg.strip(),
+                    role="reviewer", no_think=True,
+                )
             except Exception as e:
                 ctx.logger.warning(f"[SeniorReview] Compact review LLM call failed: {e}")
                 break

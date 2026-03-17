@@ -8,6 +8,7 @@ a EnhancedFileContentGenerator.
 
 import difflib
 import re as _re_patch
+import textwrap
 from typing import Dict, List, Optional, Tuple
 
 from backend.utils.core.llm.ollama_client import OllamaClient
@@ -201,8 +202,21 @@ class CodePatcher:
                 result = result.replace(search, replace, 1)
                 self.logger.info(f"  SEARCH/REPLACE applied: {len(search)} chars -> {len(replace)} chars")
             else:
-                self.logger.warning(f"  SEARCH block not found in file ({len(search)} chars). Skipping patch.")
-                failed.append(search)
+                # Fallback: try dedent-normalised match (handles indent differences)
+                norm_search = textwrap.dedent(search).strip()
+                norm_result = textwrap.dedent(result)
+                if norm_search and norm_search in norm_result:
+                    norm_replace = textwrap.dedent(replace).strip()
+                    result = norm_result.replace(norm_search, norm_replace, 1)
+                    self.logger.info(
+                        f"  SEARCH/REPLACE applied (dedent-normalized): "
+                        f"{len(search)} chars -> {len(replace)} chars"
+                    )
+                else:
+                    self.logger.warning(
+                        f"  SEARCH block not found in file ({len(search)} chars). Skipping patch."
+                    )
+                    failed.append(search)
         return result, failed
 
     def _apply_search_replace_strategy(
@@ -227,7 +241,7 @@ class CodePatcher:
             issues_str = "\n".join(f"- {i.get('description', '')}" for i in (issues_to_fix or []))
             user = user_template.format(
                 file_path=file_path,
-                current_content=current_content[:6000],
+                current_content=current_content[:12000],
                 issues=issues_str or "General improvement",
                 readme=readme[:300],
             )
@@ -237,7 +251,7 @@ class CodePatcher:
                     {"role": "user", "content": user},
                 ],
                 tools=[],
-                options_override={"temperature": 0.1},
+                options_override={"temperature": 0.1, "think": False},
             )
             raw = response_data.get("content", "")
             patches = self.parse_search_replace_patch(raw)
@@ -430,7 +444,7 @@ Generate ONLY the fixed code (same language), no explanations."""
                     {"role": "user", "content": fix_prompt},
                 ],
                 tools=[],
-                options_override={"temperature": 0.15},
+                options_override={"temperature": 0.15, "think": False},
             )
 
             fixed_raw = response_data.get("content", "")
@@ -468,7 +482,7 @@ Generate ONLY the fixed code (same language), no explanations."""
                     {"role": "user", "content": user},
                 ],
                 tools=[],
-                options_override={"temperature": 0.1},
+                options_override={"temperature": 0.1, "think": False},
             )
 
             new_content = self.response_parser.extract_code(response_data.get("content", ""), file_path)

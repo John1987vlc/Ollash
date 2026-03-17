@@ -381,3 +381,90 @@ def test_form_fields_only_checks_api_action_forms():
     errors = phase._check_form_fields_vs_models(ctx)
     mismatch_errors = [e for e in errors if e["error_type"] == "form_field_mismatch"]
     assert len(mismatch_errors) == 0, "Non-/api/ forms should not be checked"
+
+
+# ----------------------------------------------------------------
+# Fix 5 — C# class reference consistency
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_csharp_detects_undefined_dbcontext_name():
+    """Controller references 'CrmBasicoContext' but only 'CrmDbContext' is defined."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Data/CrmDbContext.cs": "public class CrmDbContext : DbContext {}",
+        "Controllers/ContactoController.cs": (
+            "private readonly CrmBasicoContext _context;\n"
+            "public ContactoController(CrmBasicoContext context) {}"
+        ),
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_csharp_class_references(ctx)
+    undefined = [e for e in errors if "CrmBasicoContext" in e["description"]]
+    assert len(undefined) >= 1
+
+
+@pytest.mark.unit
+def test_csharp_no_error_when_type_matches():
+    """Controller uses the correct DbContext name → no errors."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Data/CrmDbContext.cs": "public class CrmDbContext : DbContext {}",
+        "Controllers/ContactoController.cs": (
+            "private readonly CrmDbContext _context;\n"
+        ),
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_csharp_class_references(ctx)
+    assert errors == []
+
+
+@pytest.mark.unit
+def test_csharp_bcl_types_not_flagged():
+    """Known .NET BCL types like List, Task, IEnumerable must not be flagged."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Services/ContactoService.cs": (
+            "public class ContactoService {\n"
+            "    private readonly List<string> _names = new List<string>();\n"
+            "    public async Task<IEnumerable<string>> GetAll() => _names;\n"
+            "}\n"
+        ),
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_csharp_class_references(ctx)
+    assert errors == []
+
+
+@pytest.mark.unit
+def test_csharp_interface_definition_not_flagged():
+    """A class implementing a locally-defined interface must not be reported."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Services/ContactoService.cs": (
+            "public interface IContactoService {}\n"
+            "public class ContactoService : IContactoService {}\n"
+        ),
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_csharp_class_references(ctx)
+    assert errors == []
+
+
+@pytest.mark.unit
+def test_csharp_deduplicates_errors_per_file():
+    """Same undefined type referenced multiple times → reported only once per file."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "Data/CrmDbContext.cs": "public class CrmDbContext {}",
+        "Controllers/LeadController.cs": (
+            "private readonly WrongContext _ctx;\n"
+            "public LeadController(WrongContext ctx) {}\n"
+            "private WrongContext _other;\n"
+        ),
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_csharp_class_references(ctx)
+    wrong_ctx_errors = [e for e in errors if "WrongContext" in e["description"]]
+    assert len(wrong_ctx_errors) == 1

@@ -257,3 +257,85 @@ def test_build_mandatory_hints_empty_without_fastapi():
     ctx.project_type = "python_app"
     hints = BlueprintPhase._build_mandatory_hints(ctx)
     assert hints == ""
+
+
+# ----------------------------------------------------------------
+# Fix 2 — _enforce_described_files auto-injection
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_enforce_described_files_injects_missing():
+    """Files named in description but absent from blueprint are auto-injected."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    ctx = _make_ctx(model_name="qwen3-coder:30b")
+    ctx.project_description = "Must have Services/ContactoService.cs and Models/Lead.cs"
+    ctx.blueprint = [
+        FilePlan(path="Program.cs", purpose="entry", exports=[], imports=[], key_logic="", priority=1),
+    ]
+    BlueprintPhase._enforce_described_files(ctx)
+
+    paths = [fp.path for fp in ctx.blueprint]
+    assert "Services/ContactoService.cs" in paths
+    assert "Models/Lead.cs" in paths
+
+
+@pytest.mark.unit
+def test_enforce_described_files_no_false_positives_for_planned_files():
+    """Files already in blueprint are NOT re-injected."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    ctx = _make_ctx()
+    ctx.project_description = "Include Program.cs as the entry point"
+    ctx.blueprint = [
+        FilePlan(path="Program.cs", purpose="entry", exports=[], imports=[], key_logic="", priority=1),
+    ]
+    original_len = len(ctx.blueprint)
+    BlueprintPhase._enforce_described_files(ctx)
+    assert len(ctx.blueprint) == original_len
+
+
+@pytest.mark.unit
+def test_enforce_described_files_cap_for_small_model():
+    """Small model (≤8B): at most 3 files are injected even if more are missing."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    ctx = _make_ctx(model_name="qwen3.5:4b")
+    ctx.project_description = (
+        "Files: a/a.cs b/b.cs c/c.cs d/d.cs e/e.cs f/f.cs"
+    )
+    ctx.blueprint = []
+    BlueprintPhase._enforce_described_files(ctx)
+
+    injected = [fp for fp in ctx.blueprint]
+    assert len(injected) <= 3
+
+
+@pytest.mark.unit
+def test_enforce_described_files_no_cap_for_large_model():
+    """Large model (>8B): all missing files are injected."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    ctx = _make_ctx(model_name="qwen3-coder:30b")
+    ctx.project_description = "Files: a/a.cs b/b.cs c/c.cs d/d.cs e/e.cs"
+    ctx.blueprint = []
+    BlueprintPhase._enforce_described_files(ctx)
+
+    assert len(ctx.blueprint) == 5
+
+
+@pytest.mark.unit
+def test_enforce_described_files_priority_after_existing():
+    """Injected files get priority > max existing priority."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    ctx = _make_ctx(model_name="qwen3-coder:30b")
+    ctx.project_description = "Include Services/MyService.cs"
+    ctx.blueprint = [
+        FilePlan(path="Program.cs", purpose="entry", exports=[], imports=[], key_logic="", priority=5),
+    ]
+    BlueprintPhase._enforce_described_files(ctx)
+
+    injected = next(fp for fp in ctx.blueprint if "MyService" in fp.path)
+    assert injected.priority > 5

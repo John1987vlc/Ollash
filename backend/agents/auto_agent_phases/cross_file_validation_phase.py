@@ -61,6 +61,9 @@ class CrossFileValidationPhase(BasePhase):
             all_errors.extend(self._check_html_css_classes(ctx))
         if has_py:
             all_errors.extend(self._check_python_imports(ctx))
+        # Pass 7: Python constructor arity — catch VaultCrypto(x) vs __init__(self, x, y)
+        if has_py:
+            all_errors.extend(self._check_python_constructor_arity(ctx))
         # M5 — Pass 4: JS fetch() URLs vs backend API routes (zero-LLM)
         if has_js and has_py:
             all_errors.extend(self._check_js_fetch_vs_routes(ctx))
@@ -71,6 +74,11 @@ class CrossFileValidationPhase(BasePhase):
         js_count = sum(1 for p in ctx.generated_files if p.endswith(".js"))
         if has_js and js_count >= 2:
             all_errors.extend(self._check_duplicate_window_exports(ctx))
+
+        # Pass 8: C# class/interface reference consistency (zero-LLM)
+        has_cs = any(p.endswith(".cs") for p in ctx.generated_files)
+        if has_cs:
+            all_errors.extend(self._check_csharp_class_references(ctx))
 
         # M7 — Zero-LLM auto-fix: broken HTML asset paths (e.g. style.css → static/style.css)
         if has_html:
@@ -417,6 +425,97 @@ class CrossFileValidationPhase(BasePhase):
         return errors
 
     # ----------------------------------------------------------------
+    # Pass 8: C# class/interface reference consistency
+    # ----------------------------------------------------------------
+
+    def _check_csharp_class_references(self, ctx: PhaseContext) -> List[Dict[str, Any]]:
+        """Detect C# constructor calls / field types that reference undefined project-local names.
+
+        Scope: only PascalCase names defined and used within the generated .cs files.
+        Known .NET BCL / ASP.NET types are excluded to avoid false positives.
+        """
+        cs_files = {p: c for p, c in ctx.generated_files.items() if p.endswith(".cs")}
+        if not cs_files:
+            return []
+
+        # Step 1 — collect all types defined in the project
+        _DEFN_RE = re.compile(
+            r"\bpublic\s+(?:class|interface|record|struct|enum)\s+(\w+)"
+        )
+        defined_names: set[str] = set()
+        for content in cs_files.values():
+            defined_names.update(_DEFN_RE.findall(content))
+
+        if not defined_names:
+            return []
+
+        # Step 2 — known .NET BCL / ASP.NET / EF Core names to skip
+        _KNOWN_DOTNET: set[str] = {
+            "string", "int", "long", "float", "double", "decimal", "bool", "object",
+            "byte", "char", "short", "uint", "ulong", "ushort", "sbyte",
+            "List", "IList", "IEnumerable", "ICollection", "Dictionary", "HashSet",
+            "Task", "ValueTask", "IAsyncEnumerable", "CancellationToken",
+            "ActionResult", "IActionResult", "OkResult", "NotFoundResult",
+            "BadRequestResult", "Controller", "ControllerBase",
+            "DbContext", "DbSet", "IDbContextFactory",
+            "IServiceCollection", "IServiceProvider", "IConfiguration",
+            "ILogger", "ILoggerFactory",
+            "HttpClient", "HttpRequest", "HttpResponse",
+            "Exception", "InvalidOperationException", "ArgumentException",
+            "ArgumentNullException", "NotSupportedException",
+            "WebApplication", "WebApplicationBuilder",
+            "ModelBuilder", "EntityTypeBuilder",
+            "Nullable", "var", "dynamic",
+        }
+
+        # Step 3 — scan each file for references to project-local types
+        _REF_RE = re.compile(
+            r"(?:"
+            r"new\s+(\w+)\s*[<(]"             # new TypeName<  or  new TypeName(
+            r"|private\s+readonly\s+(\w+)\s"   # private readonly TypeName
+            r"|private\s+(\w+)\s+\w+\s*[;=]"  # private TypeName fieldName;
+            r"|:\s*(\w+)\s*[{,\n]"             # : BaseClass {  or  : IInterface,
+            r")"
+        )
+
+        errors: List[Dict[str, Any]] = []
+        seen: set[str] = set()
+
+        for cs_path, content in cs_files.items():
+            for m in _REF_RE.finditer(content):
+                ref_name = next((g for g in m.groups() if g is not None), None)
+                if not ref_name or not ref_name[0].isupper():
+                    continue
+                if ref_name in _KNOWN_DOTNET or ref_name in defined_names:
+                    continue
+
+                # Deduplicate per (file, name)
+                key = (cs_path, ref_name)
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                defined_sorted = sorted(defined_names)[:5]
+                errors.append(
+                    {
+                        "file_a": cs_path,
+                        "file_b": cs_path,
+                        "error_type": "cs_undefined_type",
+                        "description": (
+                            f"C# file '{cs_path}' references '{ref_name}' "
+                            f"which is not defined in any generated .cs file. "
+                            f"Defined types: {sorted(defined_names)}"
+                        ),
+                        "suggestion": (
+                            f"Rename '{ref_name}' to match an existing type, "
+                            f"e.g. {defined_sorted}"
+                        ),
+                    }
+                )
+
+        return errors
+
+    # ----------------------------------------------------------------
     # M5 — Pass 4: JS fetch() URLs vs backend route decorators
     # ----------------------------------------------------------------
 
@@ -620,3 +719,103 @@ class CrossFileValidationPhase(BasePhase):
                     ctx.logger.warning(
                         f"[CrossFileValidation] M7 Could not persist fix for {html_path}: {exc}"
                     )
+
+    # ----------------------------------------------------------------
+    # Pass 7: Python constructor arity check (zero-LLM, AST-based)
+    # ----------------------------------------------------------------
+
+    def _check_python_constructor_arity(self, ctx: PhaseContext) -> List[Dict[str, Any]]:
+        """Detect call-site arity mismatches for classes defined in generated Python files.
+
+        Example caught: VaultCrypto(password) when __init__(self, password, salt) has 2
+        required params — the caller passes 1 but 2 are required.
+
+        Only checks classes whose definitions live inside ctx.generated_files.
+        Skips calls that use *args or **kwargs (arity is indeterminate).
+        """
+        errors: List[Dict[str, Any]] = []
+
+        # --- Step 1: Build catalogue of class __init__ required-param counts ---
+        # {ClassName: (min_required, file_path)}
+        class_signatures: dict[str, tuple[int, str]] = {}
+
+        for file_path, content in ctx.generated_files.items():
+            if not file_path.endswith(".py"):
+                continue
+            try:
+                tree = ast.parse(content)
+            except SyntaxError:
+                continue
+
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ClassDef):
+                    continue
+                for item in node.body:
+                    if not (isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                            and item.name == "__init__"):
+                        continue
+                    args = item.args
+                    # Count positional params excluding 'self'
+                    total_pos = len(args.args) - 1  # subtract self
+                    # Params with defaults are optional
+                    n_defaults = len(args.defaults)
+                    required = max(0, total_pos - n_defaults)
+                    # If *args or **kwargs present, arity is open-ended — skip
+                    if args.vararg or args.kwarg:
+                        required = 0
+                    class_signatures[node.name] = (required, file_path)
+
+        if not class_signatures:
+            return errors
+
+        # --- Step 2: Walk all .py files looking for instantiation call sites ---
+        for caller_path, content in ctx.generated_files.items():
+            if not caller_path.endswith(".py"):
+                continue
+            try:
+                tree = ast.parse(content)
+            except SyntaxError:
+                continue
+
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+
+                # Get the class name being called
+                if isinstance(node.func, ast.Name):
+                    cls_name = node.func.id
+                elif isinstance(node.func, ast.Attribute):
+                    cls_name = node.func.attr
+                else:
+                    continue
+
+                if cls_name not in class_signatures:
+                    continue
+
+                required, def_file = class_signatures[cls_name]
+                if required == 0:
+                    continue  # no required args beyond self, or open-ended
+
+                # Count args at call site (skip starargs — arity indeterminate)
+                has_starargs = any(isinstance(a, ast.Starred) for a in node.args)
+                has_kwargs_unpack = any(kw.arg is None for kw in node.keywords)
+                if has_starargs or has_kwargs_unpack:
+                    continue
+
+                actual = len(node.args) + len(node.keywords)
+                if actual < required:
+                    errors.append({
+                        "type": "arity_mismatch",
+                        "file": caller_path,
+                        "file_b": def_file,
+                        "issue": (
+                            f"`{cls_name}(...)` called with {actual} positional arg(s) "
+                            f"but `__init__` requires {required} (defined in {def_file})"
+                        ),
+                    })
+                    ctx.logger.warning(
+                        f"[CrossFileValidation] Pass 7 arity mismatch: "
+                        f"{caller_path}: {cls_name}({actual}) — needs {required}"
+                    )
+
+        return errors

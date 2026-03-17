@@ -61,8 +61,8 @@ class AutoAgent:
       7.  TestRunPhase              — run tests, patch failures (max 3 iterations)
       8.  FinishPhase               — write OLLASH.md, log metrics, fire project_complete
 
-    Small model tier (<=8B, e.g. qwen3.5:4b): skips TestRunPhase and SeniorReviewPhase.
-    CrossFileValidationPhase runs on all tiers (zero-LLM, minimal cost).
+    Small model tier (<=8B, e.g. qwen3.5:4b): skips SeniorReviewPhase and TestRunPhase
+    at the orchestrator level. CrossFileValidationPhase runs on all tiers (zero-LLM).
     """
 
     FULL_PHASE_ORDER: List[str] = [
@@ -78,6 +78,8 @@ class AutoAgent:
         "FinishPhase",
     ]
 
+    # Small models (<=8B) skip the LLM-heavy review and test-run phases.
+    # Per-phase ctx.is_small() guards remain as belt-and-suspenders.
     SMALL_PHASE_ORDER: List[str] = [
         "ProjectScanPhase",
         "BlueprintPhase",
@@ -85,9 +87,7 @@ class AutoAgent:
         "CodeFillPhase",
         "CrossFileValidationPhase",
         "PatchPhase",
-        "SeniorReviewPhase",
         "InfraPhase",
-        "TestRunPhase",
         "FinishPhase",
     ]
 

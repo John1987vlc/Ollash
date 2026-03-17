@@ -192,7 +192,9 @@ window.WizardModule = (function() {
         setPhaseLabel('¡Completado!');
         const spinner = document.querySelector('#generation-status .generation-spinner');
         if (spinner) spinner.style.display = 'none';
-        document.getElementById('generation-done').style.display = 'block';
+        const doneEl = document.getElementById('generation-done');
+        doneEl.style.display = 'block';
+        doneEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
         function _goToProject() {
             const nav = document.querySelector('[data-view="projects"]');
@@ -204,7 +206,10 @@ window.WizardModule = (function() {
         }
 
         const viewBtn = document.getElementById('view-project-btn');
-        if (viewBtn) viewBtn.onclick = _goToProject;
+        if (viewBtn) {
+            viewBtn.onclick = _goToProject;
+            viewBtn.focus();
+        }
 
         // Auto-redirect after 3 seconds so the user lands on the project page
         // without having to click the button.

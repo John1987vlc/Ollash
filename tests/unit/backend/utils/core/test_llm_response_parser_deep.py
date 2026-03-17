@@ -142,3 +142,56 @@ class TestExtractCodeBlockForFile:
         response = "```javascript\nvar x = 1;\n```\n```typescript\nconst x: number = 1;\n```"
         result = LLMResponseParser.extract_code_block_for_file(response, "app.ts")
         assert "number" in result
+
+
+# ----------------------------------------------------------------
+# Fix 1 — C# and other new lang_map entries + word-boundary anchor
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestExtractCodeBlockForFileCsharp:
+    def test_csharp_block_not_prefixed_with_harp(self):
+        """Regression: ```csharp must NOT produce 'harp...' as the first word."""
+        response = "```csharp\nnamespace App;\npublic class Foo {}\n```"
+        result = LLMResponseParser.extract_code_block_for_file(response, "Foo.cs")
+        assert not result.startswith("harp"), repr(result[:40])
+        assert "namespace" in result
+
+    def test_csharp_canonical_alias_wins(self):
+        """'csharp' alias is tried before 'cs'; both must work."""
+        response = "```csharp\nusing System;\n```"
+        result = LLMResponseParser.extract_code_block_for_file(response, "Program.cs")
+        assert "using System" in result
+
+    def test_cs_short_alias_also_matches(self):
+        response = "```cs\nusing System;\n```"
+        result = LLMResponseParser.extract_code_block_for_file(response, "Program.cs")
+        assert "using System" in result
+
+    def test_cs_alias_does_not_match_csharp_fence(self):
+        """The 'cs' pattern must NOT produce 'harp' when the fence says 'csharp'."""
+        response = "```csharp\nvar x = 1;\n```"
+        result = LLMResponseParser.extract_code_block_for_file(response, "Test.cs")
+        assert result == "var x = 1;"
+
+    def test_kotlin_block_selected_for_kt_file(self):
+        response = "```kotlin\nfun main() {}\n```"
+        result = LLMResponseParser.extract_code_block_for_file(response, "Main.kt")
+        assert "fun main" in result
+
+    def test_cpp_block_not_confused_with_c_block(self):
+        """Two blocks: ```c and ```cpp — a .cpp file must pick the cpp block."""
+        response = "```c\nint main() { return 0; }\n```\n```cpp\n#include<iostream>\n```"
+        result = LLMResponseParser.extract_code_block_for_file(response, "main.cpp")
+        assert "iostream" in result
+
+    def test_ruby_block_selected_for_rb_file(self):
+        response = "```ruby\nclass Dog\nend\n```"
+        result = LLMResponseParser.extract_code_block_for_file(response, "dog.rb")
+        assert "class Dog" in result
+
+    def test_dart_block_selected_for_dart_file(self):
+        response = "```dart\nvoid main() {}\n```"
+        result = LLMResponseParser.extract_code_block_for_file(response, "main.dart")
+        assert "void main" in result

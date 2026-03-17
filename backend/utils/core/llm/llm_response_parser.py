@@ -219,14 +219,32 @@ class LLMResponseParser:
             "go": ["go"],
             "rs": ["rust"],
             "java": ["java"],
+            # Languages absent from the original map — adding canonical aliases first
+            # so the word-boundary anchor below prevents prefix collisions (e.g. "cs" in "csharp")
+            "cs": ["csharp", "cs"],
+            "cpp": ["cpp", "c++"],
+            "c": ["c"],
+            "vb": ["vbnet", "vb"],
+            "kt": ["kotlin"],
+            "kts": ["kotlin"],
+            "swift": ["swift"],
+            "rb": ["ruby"],
+            "scala": ["scala"],
+            "dart": ["dart"],
+            "lua": ["lua"],
+            "r": ["r"],
+            "php": ["php"],
         }
         target_langs = lang_map.get(ext, [ext] if ext else [])
 
-        # Try language-specific blocks (first alias wins)
+        # Try language-specific blocks (first alias wins).
+        # The anchor (?:[^\w\-]|\n) after the language tag prevents a short alias
+        # (e.g. "cs") from partially matching a longer tag (e.g. "csharp"), which
+        # would incorrectly include the suffix ("harp") in the captured content.
         for lang in target_langs:
             if not lang:
                 continue
-            pattern = rf"```{re.escape(lang)}\n?([\s\S]*?)\n?```"
+            pattern = rf"```{re.escape(lang)}(?:[^\w\-]|\n)([\s\S]*?)\n?```"
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 return match.group(1).strip()
