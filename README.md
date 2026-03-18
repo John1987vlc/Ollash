@@ -36,7 +36,7 @@
 | **Per-session project index** — semantic `search_codebase()` tool | ✅ **new** |
 | **Streaming shell output** — live pytest/npm/cargo lines via SSE | ✅ **new** |
 | Privacy monitor — network call audit, 🔒 local mode badge | ✅ |
-| 1 223 unit tests + 21 integration tests + 51 E2E (Playwright, Ollama-free) | ✅ |
+| 1 226 unit tests + 21 integration tests + 51 E2E (Playwright, Ollama-free) | ✅ |
 | **Security hardening** — CORS, rate limiting, input validation, command injection fixes | ✅ |
 | **Unified config** — 9 focused JSON files (≤30 lines each), no JSON-in-env-vars | ✅ **new** |
 | **JS MIME fix** — custom StaticFiles subclass, immune to Windows registry override | ✅ **new** |
@@ -150,7 +150,9 @@ Phase 1:  ProjectScanPhase          — Zero-LLM: detect type/stack, ingest exis
 Phase 2:  BlueprintPhase            — 1 LLM call: full JSON blueprint (max 20 files)
 Phase 3:  ScaffoldPhase             — Zero-LLM: create dirs + write stub files
 Phase 4:  CodeFillPhase             — Core: generate each file with language-specific system prompts
-Phase 4b: CrossFileValidationPhase  — Zero-LLM: HTML↔JS id contract, CSS class check, Python relative imports,
+Phase 4b: CrossFileValidationPhase  — Zero-LLM: HTML↔JS id contract (Pass 1), CSS class check (Pass 2),
+                                       Python relative imports (Pass 3), JS fetch vs routes (Pass 4),
+                                       form fields vs Pydantic models (Pass 5), duplicate window.* exports (Pass 6),
                                        Python constructor arity (Pass 7), C# class/interface refs (Pass 8)
                                        Auto-fixes id mismatches when similarity > 50%; remainder seeded to PatchPhase
 Phase 5:  PatchPhase                — ruff/tsc/go vet/cargo check/php -l/ruby -c/C# static checks + HTML link validation
@@ -170,7 +172,7 @@ Three layers of review catch different classes of bugs:
 
 | Layer | Phase | Catches |
 |-------|-------|---------|
-| **Zero-LLM contract** | 4b CrossFileValidation | `getElementById("chess-board")` when HTML has `id="board"`, missing CSS classes, broken Python relative imports, JS `fetch()` vs backend route mismatches, HTML form fields vs Pydantic models, Python constructor arity mismatches, C# undefined class/interface references |
+| **Zero-LLM contract** | 4b CrossFileValidation | `getElementById("chess-board")` when HTML has `id="board"`, missing CSS classes, broken Python relative imports, JS `fetch()` vs backend route mismatches, HTML form fields vs Pydantic models, duplicate `window.*` exports, Python constructor arity mismatches (Pass 7), C# undefined class/interface references (Pass 8) |
 | **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet/C# static) + 3 LLM improvement rounds; security anti-pattern scan; rounds 1+ use 6 focused aspects (HTML IDs, DOM, game loop, event listeners, CSS, duplicates); content-aware review up to 50K chars / 10 files; DB connection bug detection |
 | **Senior architecture review** | 6b SeniorReview | Missing game logic, incomplete state transitions, wrong data flow — with auto-repair (large models ≥9B only) |
 
@@ -402,7 +404,7 @@ ollash/
 │       └── dist/                            # Vite bundle output (npm run build)
 ├── prompts/domains/auto_generation/         # YAML prompt templates (DB-first via PromptLoader)
 ├── tests/
-│   ├── unit/                               # 1 334 unit tests (pytest.mark.unit, no Ollama)
+│   ├── unit/                               # 1 226 unit tests (pytest.mark.unit, no Ollama)
 │   ├── integration/                        # 20 integration tests
 │   └── e2e/                                # 51 Playwright E2E tests (Ollama-free)
 ├── .github/workflows/ci.yml                # CI: lint → unit → integration + e2e (parallel)
@@ -548,7 +550,7 @@ Domain toolsets: `file_system_tools`, `command_line_tools`, `network_tools`, `sy
 ```bash
 # Unit tests (no Ollama required)
 pytest tests/unit/ -q
-# → 1 223 tests collected
+# → 1 226 tests collected
 
 # Integration tests
 pytest tests/integration/ -q

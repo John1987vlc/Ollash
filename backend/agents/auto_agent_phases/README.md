@@ -10,7 +10,7 @@ Sequential pipeline for project generation optimized for 4B models (qwen3.5:4b).
 | 2 | `BlueprintPhase` | Yes (1 call) | Generate full project blueprint as Pydantic-validated JSON (max 20 files) |
 | 3 | `ScaffoldPhase` | No | Create directories and write language-specific stub files |
 | 4 | `CodeFillPhase` | Yes (1/file) | Generate file content in priority order with language-specific prompts, syntax validation + 1 retry |
-| 4b | `CrossFileValidationPhase` | No | 6 zero-LLM contract checks: HTML↔JS ids, CSS classes, Python imports, JS fetch vs routes, form fields vs Pydantic models, duplicate window.* exports |
+| 4b | `CrossFileValidationPhase` | No | 8 zero-LLM contract checks: HTML↔JS ids (P1), CSS classes (P2), Python imports (P3), JS fetch vs routes (P4), form fields vs Pydantic models (P5), duplicate window.* exports (P6), Python constructor arity (P7), C# class/interface refs (P8) |
 | 5 | `PatchPhase` | Yes (optional) | Static analysis (ruff/tsc/go vet/…) + DB connection bug detection + **3-round** improvement loop; rounds 1+ cycle through 6 focused review aspects (HTML IDs, DOM, game loop, event listeners, CSS classes, duplicates) |
 | 6b | `SeniorReviewPhase` | Yes (1–4 calls) | Large models: 2-cycle full review + CodePatcher repair. **Small models**: 2-cycle compact review with actual file content (≤6 files / ≤20K chars). |
 | 6 | `InfraPhase` | Yes (1–2 calls) | requirements.txt, Dockerfile, .gitignore, package.json |
@@ -139,3 +139,63 @@ With default 3 loops on a 4B model:
 |--------|--------|-------|
 | Input to reviewer | File names + purposes only | **Full file content** (≤6 files / ≤20K chars) |
 | Repair cycles | 1 | **2** (exits early if clean or nothing fixable) |
+
+## Pipeline Quality Improvements (Sprint 13)
+
+Targeted fixes for C# project generation, validated via the CRM básico C# test run.
+
+### Fix 1 — `LLMResponseParser.extract_code_block_for_file` — lang_map + anchor fix
+
+| Problem | Root cause | Fix |
+|---------|-----------|-----|
+| `csharp` fence → first word was `"harp..."` | `\b` word-boundary matched middle of `csharp` | Anchor changed to `(?:[^\w\-]\|\n)` |
+| 11 languages missing from `lang_map` | `csharp`, `kotlin`, `cpp`, `ruby`, `dart`, `swift`, `scala`, etc. not mapped | Extended map with canonical aliases |
+
+File: `backend/utils/core/llm/llm_response_parser.py` · Tests: `TestExtractCodeBlockForFileCsharp` (8 tests)
+
+### Fix 2 — BlueprintPhase: `_enforce_described_files`
+
+- Renamed `_warn_missing_described_files` → `_enforce_described_files`
+- Extracts file paths from the project description (regex `[\w/\-\.]+\.\w+`) and auto-injects missing entries as `FilePlan` objects
+- Cap: ≤3 injections for small models (≤8B); unlimited for large models
+- Injected files get `priority = max_existing + 1`
+
+File: `backend/agents/auto_agent_phases/blueprint_phase.py` · Tests: 5 new tests
+
+### Fix 3 — CodeFillPhase: expanded C# system prompt
+
+- `_SYSTEM_CSHARP` now explicitly warns against `RemoveAsync()` (EF Core has no such method), enforces `AddControllers()` before `MapControllers()`, and includes HTTP verb guidance (`[HttpGet]` = read-only only)
+- Compact variant in `_SYSTEM_BY_EXT_SMALL[".cs"]` mirrors the same 3 rules
+
+File: `backend/agents/auto_agent_phases/code_fill_phase.py` · Tests: 9 tests in `test_code_fill_prompts.py`
+
+### Fix 4 — InfraPhase: `_get_csharp_assembly_name`
+
+Resolution priority:
+1. Stem of any `.csproj` file path in `generated_files`
+2. `<AssemblyName>` tag inside `.csproj` content
+3. `project_name` with all spaces stripped
+
+Prevents `ENTRYPOINT ["dotnet", "app.dll"]` — Dockerfile now uses the real assembly name.
+
+File: `backend/agents/auto_agent_phases/infra_phase.py` · Tests: 7 tests in `test_infra_phase_csharp.py`
+
+### Fix 5 — CrossFileValidationPhase: Pass 8 — C# class/interface refs
+
+- Collects all `public class/interface/record/struct/enum` names across `.cs` files
+- Scans each file for constructor calls (`new TypeName(`), field types, base class declarations
+- Flags any PascalCase name that is not in the defined set and not in the BCL exclusion list (~50 known .NET types)
+- Deduplicates errors per `(file, type_name)` pair
+
+File: `backend/agents/auto_agent_phases/cross_file_validation_phase.py` · Tests: 5 new tests
+
+### Fix 6 — PatchPhase: `_check_csharp_static` (zero-LLM, no dotnet toolchain)
+
+| Code | What it detects |
+|------|----------------|
+| `CS-EF001` | `.RemoveAsync(` — EF Core has no such method; use `.Remove()` + `SaveChangesAsync()` |
+| `CS-REST002` | `[HttpGet]` on a method whose name contains `Update/Delete/Toggle/Set/Mark/Remove/Create/Add` |
+| `CS-DI003` | `app.MapControllers()` without `builder.Services.AddControllers()` in Program.cs |
+| `CS-DB004` | `AddDbContext` without `EnsureCreated`/`Migrate` (advisory — logged as warning, not auto-patched) |
+
+File: `backend/agents/auto_agent_phases/patch_phase.py` · Tests: 7 new tests

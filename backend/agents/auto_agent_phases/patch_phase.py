@@ -178,6 +178,9 @@ class PatchPhase(BasePhase):
         if has_python:
             errors.extend(self._run_ruff(ctx))
             errors.extend(self._check_python_connection_bugs(ctx))  # M10
+            errors.extend(self._check_duplicate_python_definitions(ctx))  # I2
+        if has_html:
+            errors.extend(self._check_duplicate_script_tags(ctx))  # I2
         self._check_security_antipatterns(ctx)  # S6-1 — zero-LLM, advisory only
         if has_ts:
             errors.extend(self._run_tsc(ctx))
@@ -662,12 +665,21 @@ class PatchPhase(BasePhase):
 
     @staticmethod
     def _seed_from_cross_file_errors(ctx: PhaseContext) -> Optional[Dict[str, str]]:
-        """Convert the first cross_file_error into {file_path, issue} for patching."""
+        """Convert the first cross_file_error into {file_path, issue} for patching.
+
+        I4A — For form_field_mismatch errors, target the HTML file (file_a) rather than
+        the Python model (file_b): renaming a form input name is lower-risk than changing
+        a Pydantic model field that may be referenced in many endpoint handlers.
+        """
         if not ctx.cross_file_errors:
             return None
         err = ctx.cross_file_errors.pop(0)  # consume one error per round
-        # target the file that needs updating (file_b = HTML in id_mismatch)
-        file_path = err.get("file_b") or err.get("file_a", "")
+        # I4A: form_field_mismatch → fix HTML (file_a); all others → fix Python/target (file_b)
+        err_type = err.get("error_type", "")
+        if err_type == "form_field_mismatch":
+            file_path = err.get("file_a") or err.get("file_b", "")
+        else:
+            file_path = err.get("file_b") or err.get("file_a", "")
         description = err.get("description", "")
         suggestion = err.get("suggestion", "")
         issue = f"{description} — {suggestion}" if suggestion else description
@@ -777,8 +789,51 @@ class PatchPhase(BasePhase):
                 self._write_file(ctx, file_path, patched)
                 ctx.logger.info(f"[Patch] Round patched {file_path}")
                 return True
+            # I4B — patch was no-op: escalate to full-file regeneration for small files
+            ctx.logger.info(f"[Patch] I4B Patch no-op for '{file_path}' — escalating to regeneration")
         except Exception as e:
             ctx.logger.warning(f"[Patch] Failed to patch '{file_path}': {e}")
+
+        # I4B — fallback: full-file regeneration for files ≤8000 chars
+        if len(current_content) <= 8000:
+            return self._regenerate_file_with_fix(ctx, file_path, current_content, issue)
+        return False
+
+    def _regenerate_file_with_fix(
+        self,
+        ctx: PhaseContext,
+        file_path: str,
+        current_content: str,
+        issue: str,
+    ) -> bool:
+        """I4B — Regenerate a small file completely when CodePatcher produces a no-op.
+
+        The patch strategy (search/replace) fails when the LLM cannot reproduce exact
+        whitespace from a file it hasn't seen. For small files (≤8000 chars) we include
+        the full current content and ask for a complete rewrite with the fix applied.
+        This makes one extra LLM call but only on failure — it does not affect the happy path.
+        """
+        system = (
+            "You are fixing a specific bug in the following file. "
+            f"Known issue: {issue}\n"
+            "Output ONLY the complete corrected file content. No explanations. No markdown fences."
+        )
+        user = (
+            f"FILE: {file_path}\n\n"
+            f"CURRENT CONTENT:\n{current_content}\n\n"
+            "Fix the issue described above and output the complete corrected file."
+        )
+        try:
+            raw = self._llm_call(ctx, system, user, role="coder", no_think=True, max_tokens=4096)
+            from backend.agents.auto_agent_phases.code_fill_phase import CodeFillPhase
+
+            content = CodeFillPhase._extract_code(raw, file_path)
+            if content and content != current_content:
+                self._write_file(ctx, file_path, content)
+                ctx.logger.info(f"[Patch] I4B Regenerated '{file_path}' to fix: {issue[:80]}")
+                return True
+        except Exception as e:
+            ctx.logger.warning(f"[Patch] I4B Regeneration failed for '{file_path}': {e}")
         return False
 
     @staticmethod
@@ -859,6 +914,78 @@ class PatchPhase(BasePhase):
         return ctx.project_description[:400]
 
     # ----------------------------------------------------------------
+    # I2 — Zero-LLM duplicate definition detectors
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _check_duplicate_python_definitions(ctx: PhaseContext) -> List[Dict[str, str]]:
+        """I2 — Detect duplicate top-level function/class definitions in Python files.
+
+        Duplicate `def foo()` / `class Foo` at module scope silently overwrites the first
+        definition and is never caught by ruff or py_compile. Uses AST — zero tokens.
+        """
+        import ast as _ast
+
+        errors: List[Dict[str, str]] = []
+        for path, content in ctx.generated_files.items():
+            if not path.endswith(".py"):
+                continue
+            try:
+                tree = _ast.parse(content)
+            except SyntaxError:
+                continue  # syntax errors handled by smoke test
+
+            seen: dict[str, int] = {}  # name → first lineno
+            for node in _ast.iter_child_nodes(tree):
+                if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef)):
+                    continue
+                name = node.name
+                if name in seen:
+                    errors.append(
+                        {
+                            "file_path": path,
+                            "error": (
+                                f"DUPLICATE_DEF: '{name}' defined at line {seen[name]} "
+                                f"and again at line {node.lineno} — "
+                                "remove the duplicate, keep only one complete implementation"
+                            ),
+                        }
+                    )
+                else:
+                    seen[name] = node.lineno
+        return errors
+
+    @staticmethod
+    def _check_duplicate_script_tags(ctx: PhaseContext) -> List[Dict[str, str]]:
+        """I2 — Detect duplicate <script src="..."> tags in HTML files.
+
+        Loading the same script twice causes functions to be redefined and event
+        listeners to fire twice. Zero-LLM regex check.
+        """
+        import re as _re
+
+        _SCRIPT_SRC_RE = _re.compile(r'<script[^>]+src=["\']([^"\']+)["\']', _re.IGNORECASE)
+        errors: List[Dict[str, str]] = []
+        for path, content in ctx.generated_files.items():
+            if not path.endswith(".html"):
+                continue
+            seen: dict[str, bool] = {}
+            for m in _SCRIPT_SRC_RE.finditer(content):
+                src = m.group(1)
+                if src in seen:
+                    errors.append(
+                        {
+                            "file_path": path,
+                            "error": (
+                                f"DUPLICATE_SCRIPT: '{src}' loaded twice — "
+                                "remove the duplicate <script> tag"
+                            ),
+                        }
+                    )
+                seen[src] = True
+        return errors
+
+    # ----------------------------------------------------------------
     # S6-1 — Zero-LLM security anti-pattern scan
     # ----------------------------------------------------------------
 
@@ -920,6 +1047,13 @@ class PatchPhase(BasePhase):
         _INIT_DB_DEF_RE = _re.compile(r"^def\s+init_db\s*\(", _re.MULTILINE)
         _INIT_DB_CALL_RE = _re.compile(r"\binit_db\s*\(")
         _MAIN_GUARD_RE = _re.compile(r'if\s+__name__\s*==\s*["\']__main__["\']')
+        # I3 — in-memory SQLite: data lost on restart
+        _MEMORY_SQLITE_RE = _re.compile(
+            r'sqlite3\.connect\s*\(\s*["\']:memory:["\']'
+            r'|sqlite:///\s*:memory:'
+            r'|create_engine\s*\(\s*["\']sqlite:///:memory:["\']',
+            _re.IGNORECASE,
+        )
 
         for path, content in ctx.generated_files.items():
             if not path.endswith(".py"):
@@ -944,6 +1078,19 @@ class PatchPhase(BasePhase):
                                 }
                             )
                             break  # one error per close() call
+
+            # Pattern 3 — I3: in-memory SQLite (data lost on restart)
+            if _MEMORY_SQLITE_RE.search(content):
+                errors.append(
+                    {
+                        "file_path": path,
+                        "error": (
+                            "MEMORY_SQLITE: sqlite3.connect(':memory:') or 'sqlite:///:memory:' — "
+                            "all data is lost when the server restarts. "
+                            "Use a file-based DB: sqlite3.connect('app.db') or 'sqlite:///app.db'"
+                        ),
+                    }
+                )
 
             # Pattern 2 — init_db() only called in __main__ guard
             if not _INIT_DB_DEF_RE.search(content):

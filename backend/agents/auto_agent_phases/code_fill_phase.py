@@ -92,6 +92,8 @@ Browser-side JavaScript developer. Write complete ES6+ code for browser executio
 - Browser globals available: document, window, navigator, localStorage, fetch, setTimeout, setInterval
 - FORBIDDEN: Node.js globals: process, __dirname, Buffer, global
 - Expose functions via window.functionName = ... or define them in global scope (scripts loaded via <script> tags, not ES modules)
+- FORBIDDEN: defining any function more than once in this file — each function must appear EXACTLY ONCE, no duplicate names
+- FORBIDDEN: multiple conflicting implementations of the same logic — write each component once, complete and correct
 - Output ONLY the JS content. No explanations. No markdown fences."""
 
 _SYSTEM_BROWSER_JS_SMALL = """# ROLE
@@ -377,6 +379,41 @@ class CodeFillPhase(BasePhase):
         ctx.metrics["code_fill_failures"] = failure_count
         ctx.logger.info(f"[CodeFill] {generated_count} files generated, {failure_count} failures")
 
+        # I1 — Blueprint coverage gate: retry any planned file that wasn't generated
+        blueprint_paths = {fp.path for fp in ctx.blueprint}
+        generated_paths = set(ctx.generated_files.keys())
+        missing_paths = blueprint_paths - generated_paths
+        if missing_paths:
+            ctx.logger.warning(f"[CodeFill] I1 Blueprint gap: {len(missing_paths)} file(s) not generated — retrying")
+            recovery_count = 0
+            plan_by_path = {fp.path: fp for fp in ctx.blueprint}
+            for missing_path in sorted(missing_paths):
+                plan = plan_by_path.get(missing_path)
+                if plan is None:
+                    continue
+                ctx.logger.info(f"[CodeFill] I1 Recovering: {missing_path}")
+                if self._is_non_code(missing_path):
+                    self._generate_config(ctx, plan, no_think=is_small)
+                else:
+                    ok = self._fill_one(ctx, plan, system_tmpl, user_tmpl, is_small, lock)
+                    if ok:
+                        recovery_count += 1
+                        generated_count += 1
+                        failure_count -= 1  # was counted as failure, now recovered
+            # Final gap check after recovery
+            still_missing = blueprint_paths - set(ctx.generated_files.keys())
+            if still_missing:
+                for p in sorted(still_missing):
+                    ctx.errors.append(f"[CodeFill] Blueprint coverage gap: '{p}' was planned but not generated")
+            ctx.metrics["blueprint_missing_files"] = sorted(still_missing)
+            ctx.metrics["blueprint_recovered_files"] = recovery_count
+            ctx.logger.info(
+                f"[CodeFill] I1 Recovery: {recovery_count} recovered, "
+                f"{len(still_missing)} still missing"
+            )
+        else:
+            ctx.metrics["blueprint_missing_files"] = []
+
         # #2 — Coherence validation: verify declared exports exist in generated files
         coherence_warnings = self._validate_coherence(ctx)
         if coherence_warnings:
@@ -454,7 +491,8 @@ class CodeFillPhase(BasePhase):
                 has_sqlite = "sqlite" in [t.lower() for t in ctx.tech_stack]
                 mandatory_block = self._build_fastapi_mandatory_block(has_html, has_sqlite)
                 if mandatory_block:
-                    user = user.rstrip() + f"\n\n{mandatory_block}"
+                    # Prepend so the token budget truncates key_logic, not the mandatory block
+                    user = f"{mandatory_block}\n\n" + user
 
             # M8 — Shared JS null guards (large models + multi-page projects)
             if self._is_shared_js(ctx, plan.path):
@@ -468,6 +506,10 @@ class CodeFillPhase(BasePhase):
 
         num_predict = self._estimate_num_predict(plan)
         content = self._generate_with_retry(ctx, system, user, plan, no_think=is_small, max_tokens=num_predict)
+
+        # I5 — Deduplicate top-level Python definitions before writing
+        if content and plan.path.endswith(".py"):
+            content = self._deduplicate_python_content(content, plan.path, ctx)
 
         if content:
             with lock:
@@ -804,6 +846,54 @@ class CodeFillPhase(BasePhase):
     # ----------------------------------------------------------------
     # Validation / extraction helpers
     # ----------------------------------------------------------------
+
+    @staticmethod
+    def _deduplicate_python_content(content: str, path: str, ctx: PhaseContext) -> str:
+        """Remove duplicate top-level function/class definitions, keeping the last (most complete).
+
+        I5 — When the LLM produces multiple overlapping code blocks (e.g. two `def get_db()`)
+        the second definition silently overrides the first at runtime but causes confusion and
+        is often a sign of incomplete generation. We keep the *last* definition (most likely to
+        be the complete one) and remove earlier duplicates.
+        """
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return content  # syntax errors handled elsewhere
+
+        lines = content.splitlines(keepends=True)
+        # Collect top-level FunctionDef / AsyncFunctionDef / ClassDef with line numbers
+        seen: dict[str, int] = {}  # name → start lineno of last seen definition
+        duplicate_ranges: list[tuple[int, int]] = []  # (start_line, end_line) 1-indexed, to remove
+
+        top_level_nodes = [
+            n
+            for n in ast.iter_child_nodes(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        ]
+
+        for node in top_level_nodes:
+            name = node.name
+            if name in seen:
+                # Mark the EARLIER definition for removal (keep last)
+                prev_start = seen[name]
+                prev_end = node.lineno - 1  # remove up to (but not including) the new def
+                duplicate_ranges.append((prev_start, prev_end))
+                ctx.logger.warning(
+                    f"[CodeFill] I5 Deduplicated '{name}' in {path}: "
+                    f"removed earlier definition (lines {prev_start}–{prev_end}), "
+                    f"kept definition at line {node.lineno}"
+                )
+            seen[name] = node.lineno
+
+        if not duplicate_ranges:
+            return content
+
+        # Remove ranges from bottom to top to preserve line numbers
+        for start, end in sorted(duplicate_ranges, reverse=True):
+            del lines[start - 1 : end]
+
+        return "".join(lines)
 
     @staticmethod
     def _validate_syntax_detailed(file_path: str, content: str) -> tuple[bool, Optional[str]]:

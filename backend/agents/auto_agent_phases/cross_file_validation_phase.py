@@ -80,6 +80,10 @@ class CrossFileValidationPhase(BasePhase):
         if has_cs:
             all_errors.extend(self._check_csharp_class_references(ctx))
 
+        # I6 — Pass 9: DB-seeded string case vs frontend string case (zero-LLM)
+        if has_py and (has_js or has_html):
+            all_errors.extend(self._check_case_sensitive_constants(ctx))
+
         # M7 — Zero-LLM auto-fix: broken HTML asset paths (e.g. style.css → static/style.css)
         if has_html:
             self._fix_broken_html_asset_paths(ctx)
@@ -849,4 +853,87 @@ class CrossFileValidationPhase(BasePhase):
                         f"{caller_path}: {cls_name}({actual}) — needs {required}"
                     )
 
+        return errors
+
+    # ----------------------------------------------------------------
+    # I6 — Pass 9: DB-seeded string case vs frontend string case
+    # ----------------------------------------------------------------
+
+    def _check_case_sensitive_constants(self, ctx: PhaseContext) -> List[Dict[str, Any]]:
+        """I6 — Detect string literals seeded into the DB that appear case-differently in frontend.
+
+        Example: Python seeds 'Corte' into SQLite but HTML has <option value="corte"> — all
+        lookups fail because SQLite string comparisons are case-sensitive by default.
+
+        Extracts string values from Python INSERT statements, then scans HTML <option value>
+        and JS string literals for the same strings appearing with different casing.
+        Zero-LLM, regex-only.
+        """
+        py_files = {p: c for p, c in ctx.generated_files.items() if p.endswith(".py")}
+        js_files = {p: c for p, c in ctx.generated_files.items() if p.endswith(".js")}
+        html_files = {p: c for p, c in ctx.generated_files.items() if p.endswith(".html")}
+
+        # Step 1: Extract string literals from Python INSERT INTO ... VALUES (...) blocks
+        _SEED_VALUE_RE = re.compile(
+            r"INSERT\s+INTO[^;()]*VALUES\s*\([^)]*?['\"]([A-Za-z][A-Za-z\s]{1,30})['\"]",
+            re.IGNORECASE | re.DOTALL,
+        )
+        seeded_values: dict[str, str] = {}  # lowercased → original
+        primary_py = ""
+        for py_path, content in py_files.items():
+            if not primary_py:
+                primary_py = py_path
+            for m in _SEED_VALUE_RE.finditer(content):
+                val = m.group(1).strip()
+                if len(val) >= 3:  # skip very short strings to reduce false positives
+                    seeded_values[val.lower()] = val
+
+        if not seeded_values:
+            return []
+
+        # Step 2: Scan HTML <option value="..."> and JS quoted string literals
+        _OPTION_VALUE_RE = re.compile(r'<option[^>]+value=["\']([^"\']+)["\']', re.IGNORECASE)
+        _JS_STRING_RE = re.compile(r'["\']([A-Za-z][A-Za-z\s]{1,30})["\']')
+
+        errors: List[Dict[str, Any]] = []
+        seen_pairs: set[tuple[str, str]] = set()  # (file, value) dedup
+
+        frontend_files = {**html_files, **js_files}
+        for fe_path, content in frontend_files.items():
+            # Collect candidates from <option value> and string literals
+            candidates: set[str] = set(_OPTION_VALUE_RE.findall(content))
+            for m in _JS_STRING_RE.finditer(content):
+                candidates.add(m.group(1))
+
+            for cand in candidates:
+                cand_lower = cand.lower()
+                if cand_lower not in seeded_values:
+                    continue
+                original = seeded_values[cand_lower]
+                if cand == original:
+                    continue  # case matches — no problem
+                pair_key = (fe_path, cand_lower)
+                if pair_key in seen_pairs:
+                    continue
+                seen_pairs.add(pair_key)
+                errors.append(
+                    {
+                        "file_a": fe_path,
+                        "file_b": primary_py,
+                        "error_type": "case_mismatch_constant",
+                        "description": (
+                            f"'{fe_path}' uses '{cand}' but Python seeds '{original}' — "
+                            "case mismatch will cause silent lookup failures"
+                        ),
+                        "suggestion": (
+                            f"Change '{cand}' to '{original}' in {fe_path}, "
+                            "or normalize both sides with .lower() / LOWER() in SQL"
+                        ),
+                    }
+                )
+
+        if errors:
+            ctx.logger.info(
+                f"[CrossFileValidation] I6 Pass 9: {len(errors)} case-mismatch constant(s) found"
+            )
         return errors
