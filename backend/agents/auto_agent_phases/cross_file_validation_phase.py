@@ -933,7 +933,5 @@ class CrossFileValidationPhase(BasePhase):
                 )
 
         if errors:
-            ctx.logger.info(
-                f"[CrossFileValidation] I6 Pass 9: {len(errors)} case-mismatch constant(s) found"
-            )
+            ctx.logger.info(f"[CrossFileValidation] I6 Pass 9: {len(errors)} case-mismatch constant(s) found")
         return errors

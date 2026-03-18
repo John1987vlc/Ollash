@@ -407,10 +407,7 @@ class CodeFillPhase(BasePhase):
                     ctx.errors.append(f"[CodeFill] Blueprint coverage gap: '{p}' was planned but not generated")
             ctx.metrics["blueprint_missing_files"] = sorted(still_missing)
             ctx.metrics["blueprint_recovered_files"] = recovery_count
-            ctx.logger.info(
-                f"[CodeFill] I1 Recovery: {recovery_count} recovered, "
-                f"{len(still_missing)} still missing"
-            )
+            ctx.logger.info(f"[CodeFill] I1 Recovery: {recovery_count} recovered, {len(still_missing)} still missing")
         else:
             ctx.metrics["blueprint_missing_files"] = []
 

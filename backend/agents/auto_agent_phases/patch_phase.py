@@ -976,10 +976,7 @@ class PatchPhase(BasePhase):
                     errors.append(
                         {
                             "file_path": path,
-                            "error": (
-                                f"DUPLICATE_SCRIPT: '{src}' loaded twice — "
-                                "remove the duplicate <script> tag"
-                            ),
+                            "error": (f"DUPLICATE_SCRIPT: '{src}' loaded twice — remove the duplicate <script> tag"),
                         }
                     )
                 seen[src] = True
@@ -1050,7 +1047,7 @@ class PatchPhase(BasePhase):
         # I3 — in-memory SQLite: data lost on restart
         _MEMORY_SQLITE_RE = _re.compile(
             r'sqlite3\.connect\s*\(\s*["\']:memory:["\']'
-            r'|sqlite:///\s*:memory:'
+            r"|sqlite:///\s*:memory:"
             r'|create_engine\s*\(\s*["\']sqlite:///:memory:["\']',
             _re.IGNORECASE,
         )
