@@ -33,6 +33,9 @@ _SOURCE_EXTS = {
 
 _IGNORE_DIRS = {".git", ".ollash", ".venv", "__pycache__", "node_modules", ".cache"}
 
+# #I3 — Exclude the pipeline run log from ingested source context
+_RUN_LOG_FILENAME = "OLLASH_RUN_LOG.md"
+
 _TECH_KEYWORDS: dict = {
     "python": ["python", "flask", "fastapi", "django", "uvicorn", "pydantic"],
     "fastapi": ["fastapi"],
@@ -141,6 +144,9 @@ class ProjectScanPhase(BasePhase):
             if any(part in _IGNORE_DIRS for part in path.parts):
                 continue
             if path.suffix.lower() not in _SOURCE_EXTS:
+                continue
+            # #I3 — Skip pipeline run log: it's metadata, not project source
+            if path.name == _RUN_LOG_FILENAME:
                 continue
             try:
                 content = path.read_text(encoding="utf-8", errors="replace")

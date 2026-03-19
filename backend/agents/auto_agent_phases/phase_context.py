@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from backend.utils.core.system.agent_logger import AgentLogger
     from backend.utils.core.system.event_publisher import EventPublisher
     from backend.utils.core.io.file_manager import FileManager
+    from backend.utils.core.run_log.pipeline_run_logger import PipelineRunLogger
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +100,10 @@ class PhaseContext:
     # Optional callback invoked after BlueprintPhase: on_blueprint_ready(blueprint_dict) -> bool.
     # Return False to abort the pipeline.
     on_blueprint_ready: Optional[Callable[[Dict[str, Any]], bool]] = field(default=None, repr=False)
+
+    # Optional run logger — set by AutoAgent.run() after ctx construction.
+    # All phases check `if ctx.run_logger:` before calling it.
+    run_logger: Optional["PipelineRunLogger"] = field(default=None, repr=False)
 
     # ----------------------------------------------------------------
     # Model-size helpers
@@ -210,6 +215,31 @@ class PhaseContext:
         multi_page_words = ["panel", "page", "section", "view", "screen", "tab"]
         if sum(1 for w in multi_page_words if w in desc) >= 2:
             score += 1
+
+        # #I6 — C#-specific complexity keywords: services, repositories, and EF entities
+        # each represent additional files (interface + implementation) and raise file count needs.
+        if self.project_type == "csharp_app":
+            cs_high_words = [
+                "controller",
+                "middleware",
+                "dependency injection",
+                "entity framework",
+                "migration",
+                "service",
+                "repository",
+                "interface",
+            ]
+            cs_standard_words = [
+                "namespace",
+                "linq",
+                "model",
+                "dto",
+                "swagger",
+                "configuration",
+                "decorator",
+            ]
+            score += sum(2 for w in cs_high_words if w in desc)
+            score += sum(1 for w in cs_standard_words if w in desc)
 
         return min(10, score)
 

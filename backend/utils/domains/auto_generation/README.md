@@ -37,7 +37,7 @@ Motor de generación de proyectos completos. Usado principalmente por `AutoAgent
 
 | Archivo | Clase | Responsabilidad |
 |---------|-------|----------------|
-| `code_patcher.py` | `CodePatcher` | Edita archivos existentes; `apply_search_replace` (batch) + `apply_unique_edit` (unicidad validada, retorna diff) |
+| `code_patcher.py` | `CodePatcher` | Edita archivos existentes; `apply_search_replace` (batch) + `apply_unique_edit` (unicidad validada, retorna diff); `_check_brace_balance()` revierte parches que rompan el balance de llaves/corchetes |
 | `project_type_detector.py` | `ProjectTypeDetector` | Detecta tipo de proyecto (zero LLM calls, regex keywords) |
 | `tech_stack_detector.py` | `TechStackDetector` | Detecta stack tecnológico de un proyecto |
 | `sandbox_validator.py` | `SandboxValidator` | Valida código en sandbox antes de escribir |
@@ -69,10 +69,12 @@ Edita archivos existentes sin sobreescribir si no es necesario.
 
 ```python
 patches = CodePatcher.parse_search_replace_patch(llm_output)
-new_content, failed = patcher.apply_search_replace(content, patches)
+new_content, failed = patcher.apply_search_replace(content, patches, file_ext=".py")
 ```
 
 Aplica bloques `<<<SEARCH>>> / <<<REPLACE>>> / <<<END>>>`. Falla silenciosamente si el SEARCH no se encuentra (adecuado para salida LLM en pipelines).
+
+`file_ext` (opcional): si se pasa, activa `_check_brace_balance()` tras aplicar todos los parches — revierte al contenido original si detecta un desequilibrio de llaves/corchetes mayor a 5 (tolerancia para strings multilínea y comentarios).
 
 ### `apply_unique_edit` — Edición quirúrgica (Interactive Coding Mode)
 
@@ -81,12 +83,14 @@ new_content, diff_lines = patcher.apply_unique_edit(
     file_content=content,
     old_string="def greet(name):\n    return f'Hello, {name}'",
     new_string="def greet(name):\n    return f'Hi, {name}!'",
+    file_ext=".py",  # opcional: activa balance check post-edición
 )
 ```
 
 - **Valida unicidad**: lanza `ValueError` si `old_string` aparece 0 o más de 1 vez
 - **Normaliza whitespace**: intenta matching con `textwrap.dedent` si el exacto falla
 - **Retorna diff**: lista de líneas `unified_diff` lista para mostrar como preview
+- **Balance guard**: si `file_ext` se pasa, revierte automáticamente si el resultado rompe el balance de `{}`, `()`, `[]` más allá de la tolerancia
 - **No escribe al disco**: el llamador decide si persistir
 
 Usa `difflib.SequenceMatcher` en `_smart_merge` — **NO** heurísticas de longitud o llaves.

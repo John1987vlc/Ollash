@@ -30,6 +30,9 @@ from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
 _MAX_PASSES = 2
 _MAX_FIXES_PER_PASS = 10
+
+# #I3 — Exclude the pipeline run log from improvement context (it's metadata, not project source)
+_RUN_LOG_FILENAME = "OLLASH_RUN_LOG.md"
 _SUBPROCESS_TIMEOUT = 30
 
 # Multi-round improvement constants
@@ -577,6 +580,8 @@ class PatchPhase(BasePhase):
                 )
                 if patched and patched != current_content:
                     self._write_file(ctx, file_path, patched)
+                    if ctx.run_logger:
+                        ctx.run_logger.log_file_written(self.phase_id, file_path, len(patched), "ok")
                     fixed += 1
                 else:
                     ctx.logger.warning(f"[Patch] Fix produced no change: {file_path} | {file_errors[0][:80]}")
@@ -615,6 +620,9 @@ class PatchPhase(BasePhase):
                 ctx.logger.info("[Patch] Early exit: generic review + 2 focused aspects all clean")
                 break
 
+            if ctx.run_logger:
+                ctx.run_logger.log_patch_round_start(round_num + 1, max_rounds)
+
             # Round 0: use cross_file_errors as seed to skip LLM issue-discovery
             if round_num == 0 and ctx.cross_file_errors:
                 issue_data = self._seed_from_cross_file_errors(ctx)
@@ -637,13 +645,20 @@ class PatchPhase(BasePhase):
                     f"[Patch] Improvement round {round_num + 1}: no issues found"
                     f" — trying focused aspect next (clean_count={clean_generic_count})"
                 )
+                if ctx.run_logger:
+                    ctx.run_logger.log_patch_round_end(round_num + 1, 0)
                 continue  # try a focused aspect instead of stopping early
 
             ctx.logger.info(f"[Patch] Improvement round {round_num + 1}: fixing '{file_path}': {issue}")
-            patched = self._patch_single_file(ctx, file_path, issue)
+            patched = self._patch_single_file(
+                ctx, file_path, issue, run_logger=ctx.run_logger if ctx.run_logger else None
+            )
             rounds_done += 1
             clean_generic_count = 0  # found and fixed something — reset
             focused_clean_count = 0
+
+            if ctx.run_logger:
+                ctx.run_logger.log_patch_round_end(round_num + 1, 1 if patched else 0)
 
             # Between rounds (not after the last), refresh cross_file_errors
             if patched and round_num < max_rounds - 1:
@@ -706,6 +721,8 @@ class PatchPhase(BasePhase):
             chars_so_far = 0
             max_chars = 18_000  # leave room for system prompt in token budget (M1)
             for path, content in list(ctx.generated_files.items())[:_CONTENT_INCLUDE_MAX_FILES]:
+                if path.endswith(_RUN_LOG_FILENAME):  # #I3
+                    continue
                 snippet = content[: max(0, max_chars - chars_so_far)]
                 file_contents_lines.append(f"=== {path} ===\n{snippet}")
                 chars_so_far += len(snippet)
@@ -753,7 +770,7 @@ class PatchPhase(BasePhase):
             ctx.logger.warning(f"[Patch] LLM issue query failed: {e}")
         return None
 
-    def _patch_single_file(self, ctx: PhaseContext, file_path: str, issue: str) -> bool:
+    def _patch_single_file(self, ctx: PhaseContext, file_path: str, issue: str, run_logger=None) -> bool:
         """Apply CodePatcher for a single issue. Returns True if patched."""
         current_content = ctx.generated_files.get(file_path, "")
         if not current_content:
@@ -786,13 +803,31 @@ class PatchPhase(BasePhase):
                 issues_to_fix=[{"description": issue}],
             )
             if patched and patched != current_content:
+                # Compute diff for run log before writing
+                if run_logger:
+                    import difflib
+
+                    diff_lines = list(
+                        difflib.unified_diff(
+                            current_content.splitlines(keepends=True),
+                            patched.splitlines(keepends=True),
+                            fromfile=file_path,
+                            tofile=file_path,
+                            n=3,
+                        )
+                    )
+                    run_logger.log_patch_fix(0, file_path, issue, diff_lines[:60], success=True)
                 self._write_file(ctx, file_path, patched)
                 ctx.logger.info(f"[Patch] Round patched {file_path}")
                 return True
             # I4B — patch was no-op: escalate to full-file regeneration for small files
             ctx.logger.info(f"[Patch] I4B Patch no-op for '{file_path}' — escalating to regeneration")
+            if run_logger:
+                run_logger.log_patch_fix(0, file_path, issue, None, success=False)
         except Exception as e:
             ctx.logger.warning(f"[Patch] Failed to patch '{file_path}': {e}")
+            if run_logger:
+                run_logger.log_patch_fix(0, file_path, issue, None, success=False)
 
         # I4B — fallback: full-file regeneration for files ≤8000 chars
         if len(current_content) <= 8000:
@@ -830,6 +865,10 @@ class PatchPhase(BasePhase):
             content = CodeFillPhase._extract_code(raw, file_path)
             if content and content != current_content:
                 self._write_file(ctx, file_path, content)
+                if ctx.run_logger:
+                    ctx.run_logger.log_file_written(
+                        self.phase_id, file_path, len(content), "ok", "I4B regeneration fix"
+                    )
                 ctx.logger.info(f"[Patch] I4B Regenerated '{file_path}' to fix: {issue[:80]}")
                 return True
         except Exception as e:
@@ -846,6 +885,8 @@ class PatchPhase(BasePhase):
         """Build a path+purpose summary string for the improvement prompt."""
         lines: List[str] = []
         for path in list(ctx.generated_files.keys())[:max_files]:
+            if path.endswith(_RUN_LOG_FILENAME):  # #I3
+                continue
             plan = plan_by_path.get(path)
             purpose = plan.purpose if plan else "file"
             lines.append(f"{path}: {purpose}" if compact else f"  {path}: {purpose}")

@@ -140,6 +140,54 @@ With default 3 loops on a 4B model:
 | Input to reviewer | File names + purposes only | **Full file content** (≤6 files / ≤20K chars) |
 | Repair cycles | 1 | **2** (exits early if clean or nothing fixable) |
 
+## Pipeline Quality Improvements (Sprint 14)
+
+8 targeted fixes across BlueprintPhase, CodeFillPhase, PatchPhase, CrossFileValidationPhase, PhaseContext, ProjectScanPhase, and CodePatcher. All changes are backward-compatible; 1267 unit tests pass.
+
+### BlueprintPhase improvements
+
+| ID | Method | What it does |
+|----|--------|-------------|
+| **I1** | `run()` — deduplication block | Before converting to `FilePlan`, removes duplicate paths from the LLM response — keeps last occurrence (more refined), logs warning |
+| **I2** | `_dynamic_max_files()` | api+db combo detection: large model floor raised to 14; small models with db in stack get 9 instead of 7 |
+| **I4** | `_enforce_described_files()` | Auto-injected files now derive `key_logic` from description context (was `""`); LLM gets meaningful implementation guidance instead of empty string |
+
+### CodeFillPhase improvements
+
+| ID | Location | What it does |
+|----|---------|-------------|
+| **I8** | `_fill_one()` — truncation limits | `project_description` limit raised: small models 200→400 chars, large models 400→800 chars |
+| **I8** | `_fill_one()` — key_logic fallback | Empty `key_logic` now falls back to `"implement {path} as described in the project"` instead of the generic `"implement as described"` |
+
+### PatchPhase + ProjectScanPhase improvements
+
+| ID | File | What it does |
+|----|------|-------------|
+| **I3** | `project_scan_phase.py` `_ingest_existing()` | `OLLASH_RUN_LOG.md` excluded from ingested source files — prevents pipeline metadata from polluting `ctx.generated_files` |
+| **I3** | `patch_phase.py` `_ask_llm_for_issue()` + `_build_file_summary()` | `OLLASH_RUN_LOG.md` filtered from both content-inclusion loop and file summary — saves tokens, avoids confusing the reviewer LLM |
+
+### CodePatcher improvements
+
+| ID | Method | What it does |
+|----|--------|-------------|
+| **I5** | `_check_brace_balance()` (new static) | Soft brace/bracket balance validator: tolerance=5, checks `{}`, `()`, `[]`; applies to `.py .js .ts .tsx .cs .go .java .rs` |
+| **I5** | `apply_search_replace()` | Accepts optional `file_ext`; reverts to original content and logs warning if balance check fails after all patches applied |
+| **I5** | `apply_unique_edit()` | Same balance guard; reverts to original + returns empty diff on failure |
+
+### PhaseContext improvement
+
+| ID | Method | What it does |
+|----|--------|-------------|
+| **I6** | `description_complexity()` | When `project_type == "csharp_app"`: C#-specific high-complexity (+2) keywords — `controller`, `middleware`, `dependency injection`, `entity framework`, `migration`, `service`, `repository`, `interface`; standard (+1) — `namespace`, `linq`, `model`, `dto`, `swagger`, `configuration` |
+
+### CrossFileValidationPhase improvement
+
+| ID | Pass | Error type | What it catches |
+|----|------|-----------|----------------|
+| **I7** | Pass 8 (extended) | `cs_duplicate_type` | Two or more `.cs` files that define a `public class/interface/record/struct/enum` with the same name — would cause `CS0101` at compile time. Returned before undefined-reference errors so PatchPhase fixes structural issues first |
+
+---
+
 ## Pipeline Quality Improvements (Sprint 13)
 
 Targeted fixes for C# project generation, validated via the CRM básico C# test run.

@@ -9,6 +9,7 @@ a EnhancedFileContentGenerator.
 import difflib
 import re as _re_patch
 import textwrap
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from backend.utils.core.llm.ollama_client import OllamaClient
@@ -102,6 +103,7 @@ class CodePatcher:
         file_content: str,
         old_string: str,
         new_string: str,
+        file_ext: str = "",
     ) -> Tuple[str, List[str]]:
         """Replace *old_string* with *new_string* with strict uniqueness validation.
 
@@ -175,12 +177,20 @@ class CodePatcher:
         self.logger.info(
             f"  apply_unique_edit: {len(old_string)} chars → {len(new_string)} chars ({len(diff)} diff lines)"
         )
+
+        # #I5 — Soft brace-balance guard: revert if severely imbalanced after edit
+        if file_ext:
+            ok, reason = self._check_brace_balance(new_content, file_ext)
+            if not ok:
+                self.logger.warning(f"  Brace balance check failed ({reason}) — reverting edit")
+                return file_content, []
         return new_content, diff
 
     def apply_search_replace(
         self,
         file_content: str,
         patches: List[Tuple[str, str]],
+        file_ext: str = "",
     ) -> Tuple[str, List[str]]:
         """Apply a list of ``(search, replace)`` patches to *file_content*.
 
@@ -214,7 +224,41 @@ class CodePatcher:
                 else:
                     self.logger.warning(f"  SEARCH block not found in file ({len(search)} chars). Skipping patch.")
                     failed.append(search)
+
+        # #I5 — Soft brace-balance guard: revert if severely imbalanced after patches
+        if file_ext:
+            ok, reason = self._check_brace_balance(result, file_ext)
+            if not ok:
+                self.logger.warning(f"  Brace balance check failed ({reason}) — reverting patches")
+                return file_content, failed
         return result, failed
+
+    @staticmethod
+    def _check_brace_balance(content: str, ext: str) -> tuple[bool, str]:
+        """Soft brace/bracket balance check after a patch is applied (#I5).
+
+        Returns (True, "") when the file looks structurally sound or the extension
+        is not subject to brace-matching. Returns (False, reason) when any bracket
+        pair is imbalanced by more than the tolerance threshold.
+
+        Tolerance of 5 accommodates template literals, multiline strings, and
+        comment blocks that legitimately contain unmatched brackets.
+        """
+        if ext not in (".py", ".js", ".ts", ".tsx", ".cs", ".go", ".java", ".rs"):
+            return True, ""
+        _TOL = 5
+        pairs = (
+            ("{", "}", content.count("{"), content.count("}")),
+            ("(", ")", content.count("("), content.count(")")),
+            ("[", "]", content.count("["), content.count("]")),
+        )
+        reasons = []
+        for open_ch, close_ch, n_open, n_close in pairs:
+            if abs(n_open - n_close) > _TOL:
+                reasons.append(f"{open_ch}{close_ch} imbalance: {n_open} open vs {n_close} close")
+        if reasons:
+            return False, "; ".join(reasons)
+        return True, ""
 
     def _apply_search_replace_strategy(
         self,
@@ -255,7 +299,9 @@ class CodePatcher:
             if not patches:
                 self.logger.warning(f"  No SEARCH/REPLACE blocks found for {file_path}")
                 return current_content
-            modified, failed = self.apply_search_replace(current_content, patches)
+            modified, failed = self.apply_search_replace(
+                current_content, patches, file_ext=Path(file_path).suffix.lower()
+            )
             if failed:
                 self.logger.warning(f"  {len(failed)}/{len(patches)} patches failed for {file_path}")
             return modified

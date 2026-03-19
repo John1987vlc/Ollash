@@ -117,6 +117,18 @@ class BlueprintPhase(BasePhase):
         if result.tech_stack:
             ctx.tech_stack = result.tech_stack
 
+        # #I1 — Deduplicate files by path (keep last occurrence per path)
+        seen_paths: dict[str, int] = {}
+        for idx, f in enumerate(result.files):
+            seen_paths[f.path] = idx  # overwrite → last wins
+        if len(seen_paths) < len(result.files):
+            dupes = len(result.files) - len(seen_paths)
+            ctx.logger.warning(
+                f"[Blueprint] {dupes} duplicate path(s) in LLM response — keeping last occurrence per path"
+            )
+            deduped = [result.files[i] for i in sorted(seen_paths.values())]
+            result = result.model_copy(update={"files": deduped})
+
         # Convert to FilePlan dataclasses, sorted by priority
         ctx.blueprint = sorted(
             [
@@ -342,34 +354,51 @@ class BlueprintPhase(BasePhase):
 
     @staticmethod
     def _dynamic_max_files(ctx: PhaseContext) -> int:
-        """Adjust blueprint file limit based on model size and description complexity."""
+        """Adjust blueprint file limit based on model size and description complexity.
+
+        #I2 — api+db combo gets a higher floor: these stacks require models, schemas,
+        routers, DB init, requirements.txt, etc. and always exceed the generic baseline.
+        """
+        _MULTI_FILE_TYPES = {
+            "game",
+            "frontend_web",
+            "full_stack",
+            "full_stack_web",
+            "python_app",
+            "api",
+            "web_app",
+            "react_app",
+            "flutter_app",
+            "java_app",
+            "csharp_app",
+            "kotlin_app",
+        }
+        _API_TYPES = {"api", "full_stack", "full_stack_web", "web_app", "python_app", "csharp_app"}
+        _DB_KEYWORDS = {"sqlite", "postgresql", "mysql", "mongodb", "redis", "postgres"}
+
+        stack_lower = {t.lower() for t in ctx.tech_stack}
+        has_db = bool(stack_lower & _DB_KEYWORDS)
+
         if ctx.is_small():
             # B3 — games, full-stack, and Python web apps need more files
-            # e.g. app.py + index.html + admin.html + style.css + app.js + requirements.txt = 6
-            # M2: added python_app, api, web_app, full_stack_web
-            multi_file_types = {
-                "game",
-                "frontend_web",
-                "full_stack",
-                "full_stack_web",
-                "python_app",
-                "api",
-                "web_app",
-                "react_app",
-                "flutter_app",
-                "java_app",
-                "csharp_app",
-                "kotlin_app",
-            }
-            if ctx.project_type in multi_file_types:
-                return 7
+            # #I2 — api+db on small models: bump from 7 → 9
+            if ctx.project_type in _MULTI_FILE_TYPES:
+                return 9 if has_db else 7
             return 5  # Hard cap for small models on simple projects
+
+        # Large model path
+        # #I2 — api+db always earns at least 14 file slots regardless of complexity score
+        has_api = ctx.project_type in _API_TYPES
+        api_db_floor = 14 if (has_api and has_db) else 0
+
         complexity = ctx.description_complexity()
         if complexity <= 2:
-            return 8  # Simple project: keep it lean
-        if complexity <= 5:
-            return 14  # Medium project
-        return 20  # Complex project: full budget
+            base = 8  # Simple project: keep it lean
+        elif complexity <= 5:
+            base = 14  # Medium project
+        else:
+            base = 20  # Complex project: full budget
+        return max(base, api_db_floor)
 
     # ----------------------------------------------------------------
     # M3 — Mandatory file injection
@@ -508,12 +537,24 @@ class BlueprintPhase(BasePhase):
             )
             purpose = m.group(1).strip() if m else f"Implementation of {path}"
 
+            # #I4 — Derive key_logic from description context around the filename
+            kl_match = _re.search(
+                _re.escape(path) + r"[^.]{0,120}",
+                ctx.project_description,
+                _re.IGNORECASE | _re.DOTALL,
+            )
+            if kl_match:
+                raw_kl = kl_match.group(0).replace(path, "").strip(" ,;:\n")
+                key_logic = raw_kl[:100] if raw_kl else f"implement {path} as described"
+            else:
+                key_logic = f"implement {path} as described"
+
             injected = FilePlan(
                 path=path,
                 purpose=purpose,
                 exports=[],
                 imports=[],
-                key_logic="",
+                key_logic=key_logic,
                 priority=max_priority + 1 + i,
             )
             ctx.blueprint.append(injected)

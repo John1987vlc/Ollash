@@ -102,6 +102,13 @@ class CrossFileValidationPhase(BasePhase):
         ctx.metrics["cross_file_errors_found"] = len(all_errors)
         ctx.metrics["cross_file_errors_auto_fixed"] = len(auto_fixed)
 
+        if ctx.run_logger:
+            ctx.run_logger.log_cross_file_errors(
+                errors_found=len(all_errors),
+                errors_auto_fixed=len(auto_fixed),
+                remaining_errors=list(ctx.cross_file_errors),
+            )
+
         if all_errors:
             ctx.logger.info(
                 f"[CrossFileValidation] {len(all_errors)} errors found, "
@@ -360,6 +367,10 @@ class CrossFileValidationPhase(BasePhase):
             if old_attr in html_content:
                 new_html = html_content.replace(old_attr, new_attr, 1)
                 self._write_file(ctx, html_path, new_html)
+                if ctx.run_logger:
+                    ctx.run_logger.log_file_written(
+                        self.phase_id, html_path, len(new_html), "ok", "auto-fixed id mismatch"
+                    )
                 # Update local html_content for subsequent fixes in same file
                 html_content = new_html
                 # Also update the set for next error in loop
@@ -442,14 +453,37 @@ class CrossFileValidationPhase(BasePhase):
         if not cs_files:
             return []
 
-        # Step 1 — collect all types defined in the project
+        # Step 1 — collect all types defined in the project; track file-of-origin for each
         _DEFN_RE = re.compile(r"\bpublic\s+(?:class|interface|record|struct|enum)\s+(\w+)")
-        defined_names: set[str] = set()
-        for content in cs_files.values():
-            defined_names.update(_DEFN_RE.findall(content))
+        name_to_files: dict[str, list[str]] = {}
+        for cs_path, content in cs_files.items():
+            for name in _DEFN_RE.findall(content):
+                name_to_files.setdefault(name, []).append(cs_path)
+
+        defined_names: set[str] = set(name_to_files.keys())  # preserved for Step 3
 
         if not defined_names:
             return []
+
+        # #I7 — Detect duplicate type definitions across files (would cause CS0101)
+        duplicate_errors: List[Dict[str, Any]] = []
+        for type_name, defining_files in name_to_files.items():
+            if len(defining_files) > 1:
+                duplicate_errors.append(
+                    {
+                        "file_a": defining_files[0],
+                        "file_b": defining_files[1],
+                        "error_type": "cs_duplicate_type",
+                        "description": (
+                            f"C# type '{type_name}' defined in multiple files: "
+                            f"{', '.join(defining_files)}. "
+                            f"This causes CS0101 if they share a namespace."
+                        ),
+                        "suggestion": (
+                            f"Remove the duplicate '{type_name}' definition or place each copy in a distinct namespace."
+                        ),
+                    }
+                )
 
         # Step 2 — known .NET BCL / ASP.NET / EF Core names to skip
         _KNOWN_DOTNET: set[str] = {
@@ -552,7 +586,8 @@ class CrossFileValidationPhase(BasePhase):
                     }
                 )
 
-        return errors
+        # #I7 — Return duplicates first: structural errors should be fixed before reference errors
+        return duplicate_errors + errors
 
     # ----------------------------------------------------------------
     # M5 — Pass 4: JS fetch() URLs vs backend route decorators

@@ -456,11 +456,11 @@ class CodeFillPhase(BasePhase):
         if is_small:
             user = user_tmpl.format(
                 project_name=ctx.project_name,
-                project_description=ctx.project_description[:200],
+                project_description=ctx.project_description[:400],  # #I8: 200→400
                 file_path=plan.path,
                 purpose=plan.purpose,
                 imports=", ".join(plan.imports) or "none",
-                key_logic=plan.key_logic or "implement as described",
+                key_logic=plan.key_logic or f"implement {plan.path} as described in the project",
                 signature_context=sig_context,
             )
         else:
@@ -468,12 +468,12 @@ class CodeFillPhase(BasePhase):
             # In parallel groups, previous_summary is "" for all files in the group.
             user = user_tmpl.format(
                 project_name=ctx.project_name,
-                project_description=ctx.project_description[:400],
+                project_description=ctx.project_description[:800],  # #I8: 400→800
                 file_path=plan.path,
                 purpose=plan.purpose,
                 exports=", ".join(plan.exports) or "none",
                 imports=", ".join(plan.imports) or "none",
-                key_logic=plan.key_logic or "implement as described",
+                key_logic=plan.key_logic or f"implement {plan.path} as described in the project",
                 signature_context=sig_context,
                 previous_summary="",
             )
@@ -502,7 +502,9 @@ class CodeFillPhase(BasePhase):
                 )
 
         num_predict = self._estimate_num_predict(plan)
-        content = self._generate_with_retry(ctx, system, user, plan, no_think=is_small, max_tokens=num_predict)
+        content, v_status, v_detail = self._generate_with_retry(
+            ctx, system, user, plan, no_think=is_small, max_tokens=num_predict
+        )
 
         # I5 — Deduplicate top-level Python definitions before writing
         if content and plan.path.endswith(".py"):
@@ -511,6 +513,8 @@ class CodeFillPhase(BasePhase):
         if content:
             with lock:
                 self._write_file(ctx, plan.path, content)
+            if ctx.run_logger:
+                ctx.run_logger.log_file_written(self.phase_id, plan.path, len(content), v_status, v_detail)
             ctx.logger.info(f"  [CodeFill] {plan.path} ({len(content)} chars)")
             # #13 — SSE event per file
             ctx.event_publisher.publish_sync(
@@ -536,8 +540,11 @@ class CodeFillPhase(BasePhase):
         plan: FilePlan,
         no_think: bool = False,
         max_tokens: int = 2048,
-    ) -> Optional[str]:
+    ) -> tuple[Optional[str], str, str]:
         """Try to generate file content. One retry on syntax error.
+
+        Returns (content, validation_status, validation_detail) where:
+          validation_status: "ok" | "retry_ok" | "retry_failed"
 
         #4 — Smart retry: the retry prompt includes the actual syntax error message
         so the model knows exactly what to fix, not just a generic "try again".
@@ -551,7 +558,8 @@ class CodeFillPhase(BasePhase):
 
             syntax_ok, syntax_error = self._validate_syntax_detailed(plan.path, content)
             if content and syntax_ok:
-                return content
+                status = "ok" if attempt == 0 else "retry_ok"
+                return content, status, ""
 
             last_error = syntax_error
             if attempt == 0:
@@ -567,7 +575,9 @@ class CodeFillPhase(BasePhase):
 
         # Return best-effort content even if syntax check fails on second attempt
         raw = self._llm_call(ctx, system, current_user, role="coder", no_think=no_think, max_tokens=max_tokens)
-        return self._extract_code(raw, plan.path)
+        content = self._extract_code(raw, plan.path)
+        detail = last_error or "syntax validation failed"
+        return content, "retry_failed", detail
 
     def _build_signature_context(self, ctx: PhaseContext, plan: FilePlan) -> str:
         """Return signature-only content of dependency files. Budget: ~500 tokens (~2000 chars)."""
@@ -611,6 +621,8 @@ class CodeFillPhase(BasePhase):
         content = self._llm_call(ctx, _CONFIG_SYSTEM, user, role="coder", no_think=no_think)
         if content:
             self._write_file(ctx, plan.path, content.strip())
+            if ctx.run_logger:
+                ctx.run_logger.log_file_written(self.phase_id, plan.path, len(content.strip()), "ok")
             # #13 — SSE for config files too
             ctx.event_publisher.publish_sync(
                 "file_generated",

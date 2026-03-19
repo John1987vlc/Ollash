@@ -14,8 +14,9 @@
 | **11 AutoAgent pipeline improvements** — CSS auto-injection, FastAPI mandatory patterns, JS null guards, DB connection bug detection, smarter complexity scoring | ✅ |
 | **Small model pipeline** — SeniorReviewPhase + TestRunPhase explicitly skipped for ≤8B; CrossFileValidationPhase + PatchPhase run on all tiers | ✅ |
 | **Quality boost for 4B models** — default 3 refinement loops; focused review aspects (HTML IDs, DOM, event listeners, CSS) always active; SeniorReview compact now reads actual file content; content threshold raised to 50K chars | ✅ |
-| **C# / ASP.NET Core support** — full EF Core rules (AddAsync/Remove, no RemoveAsync), file-scoped namespaces, controller annotations, Program.cs DI patterns; C# static checks in PatchPhase; C# class/interface ref validation in CrossFileValidation | ✅ **new** |
-| **Blueprint coverage guard** — files explicitly mentioned in description but absent from blueprint are auto-injected (capped at 3 for small models) | ✅ **new** |
+| **C# / ASP.NET Core support** — full EF Core rules (AddAsync/Remove, no RemoveAsync), file-scoped namespaces, controller annotations, Program.cs DI patterns; C# static checks in PatchPhase; C# class/interface ref validation in CrossFileValidation | ✅ |
+| **Blueprint coverage guard** — files explicitly mentioned in description but absent from blueprint are auto-injected (capped at 3 for small models) | ✅ |
+| **8 pipeline fixes (Sprint 14)** — duplicate blueprint paths deduped, api+db file budget boosted, OLLASH_RUN_LOG.md excluded from patch context, key_logic derived for auto-injected files, brace-balance guard on diffs, C# complexity scoring, C# duplicate class detection, CodeFill description limits raised | ✅ **new** |
 | **Python constructor arity validation** — CrossFileValidationPhase detects mismatched `__init__` signatures and flags them to PatchPhase | ✅ **new** |
 | **Smarter infra generation** — `sys.stdlib_module_names` for accurate stdlib detection; local package names filtered from requirements.txt; Dockerfile assembly name resolved from .csproj | ✅ **new** |
 | **Blueprint cache model-keyed** — cache entries from a 4B model are never reused when re-running with a 30B model | ✅ **new** |
@@ -36,7 +37,7 @@
 | **Per-session project index** — semantic `search_codebase()` tool | ✅ **new** |
 | **Streaming shell output** — live pytest/npm/cargo lines via SSE | ✅ **new** |
 | Privacy monitor — network call audit, 🔒 local mode badge | ✅ |
-| 1 226 unit tests + 21 integration tests + 51 E2E (Playwright, Ollama-free) | ✅ |
+| 1 267 unit tests + 21 integration tests + 28 E2E passing (Playwright, Ollama-free) | ✅ |
 | **Security hardening** — CORS, rate limiting, input validation, command injection fixes | ✅ |
 | **Unified config** — 9 focused JSON files (≤30 lines each), no JSON-in-env-vars | ✅ **new** |
 | **JS MIME fix** — custom StaticFiles subclass, immune to Windows registry override | ✅ **new** |
