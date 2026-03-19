@@ -26,16 +26,22 @@ class FinishPhase(BasePhase):
         # Write summary
         summary = self._build_summary(ctx)
         self._write_file(ctx, "OLLASH.md", summary)
+        if ctx.run_logger:
+            ctx.run_logger.log_file_written(self.phase_id, "OLLASH.md", len(summary), "ok")
 
         # #11 — Write README.md with Mermaid diagram (only if not already generated)
         if "README.md" not in ctx.generated_files:
             readme = self._build_readme(ctx)
             self._write_file(ctx, "README.md", readme)
+            if ctx.run_logger:
+                ctx.run_logger.log_file_written(self.phase_id, "README.md", len(readme), "ok")
 
         # Write metrics JSON
         metrics_path = ".ollash/metrics.json"
         metrics_content = json.dumps(ctx.metrics, indent=2)
         self._write_file(ctx, metrics_path, metrics_content)
+        if ctx.run_logger:
+            ctx.run_logger.log_file_written(self.phase_id, metrics_path, len(metrics_content), "ok")
 
         # Log final stats
         ctx.logger.info(f"[Finish] Project '{ctx.project_name}' complete")

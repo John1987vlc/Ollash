@@ -56,9 +56,11 @@ RULES:
 - Lower priority number = generated first.
 - "imports" lists only other project files.
 - Output starts with { and ends with } on a SINGLE LINE.
+- For frontend JS files: key_logic MUST list every DOM id accessed, e.g. "reads #pot, #board; writes #status, #btn-fold".
+- index.html key_logic MUST include a <div id=xxx> for EVERY id that JS files reference.
 
 EXAMPLE (frontend card game):
-{"project_type":"frontend_web","tech_stack":["html","javascript","css"],"files":[{"path":"styles.css","purpose":"Card and layout styles","exports":[],"imports":[],"key_logic":".card,.game-board,.stats-panel classes; CSS vars for colors; flexbox grid","priority":1},{"path":"data.js","purpose":"Card definitions and viability report","exports":["cards","generateViabilityReport"],"imports":[],"key_logic":"window.cards=array of {id,name,type,cost,damage}; window.generateViabilityReport()=aggregates stats — NO module.exports","priority":2},{"path":"game.js","purpose":"Game logic and DOM rendering","exports":["initGame"],"imports":["data.js","styles.css"],"key_logic":"window.initGame() renders .card SVG elements into #game-board; calls window.generateViabilityReport(); shows result in #stats-panel — NO require()","priority":3},{"path":"index.html","purpose":"Entry point","exports":[],"imports":["styles.css","data.js","game.js"],"key_logic":"<link href=styles.css>; <script src=data.js defer>; <script src=game.js defer>; <div id=game-board>; <div id=stats-panel>; DOMContentLoaded calls window.initGame()","priority":4}]}"""
+{"project_type":"frontend_web","tech_stack":["html","javascript","css"],"files":[{"path":"styles.css","purpose":"Card and layout styles","exports":[],"imports":[],"key_logic":".card,.game-board,.stats-panel classes; CSS vars for colors; flexbox grid","priority":1},{"path":"data.js","purpose":"Card definitions and viability report","exports":["cards","generateViabilityReport"],"imports":[],"key_logic":"window.cards=array of {id,name,type,cost,damage}; window.generateViabilityReport()=aggregates stats; reads no DOM — NO module.exports","priority":2},{"path":"game.js","purpose":"Game logic and DOM rendering","exports":["initGame"],"imports":["data.js","styles.css"],"key_logic":"window.initGame() renders .card SVG elements into #game-board; reads #game-board, #stats-panel, #btn-start; shows result in #stats-panel — NO require()","priority":3},{"path":"index.html","purpose":"Entry point","exports":[],"imports":["styles.css","data.js","game.js"],"key_logic":"<link href=styles.css>; <script src=data.js defer>; <script src=game.js defer>; <div id=game-board>; <div id=stats-panel>; <button id=btn-start>; DOMContentLoaded calls window.initGame()","priority":4}]}"""
 
 _USER_TEMPLATE_SMALL = """Project: {project_name}
 Description: {project_description}
@@ -248,6 +250,8 @@ class BlueprintPhase(BasePhase):
         - There are ≥2 JS files in the blueprint
         - A JS file A imports exactly one other JS file B
         - B itself has no JS imports (avoids complex chain merges)
+        - The importer file A is NOT explicitly named in the project description
+          (if the user explicitly requested a specific file, we preserve it)
 
         The dependency (B) becomes the merged host file. A's exports/purpose/key_logic
         are merged in. Any other file that imported A now imports B instead.
@@ -258,6 +262,11 @@ class BlueprintPhase(BasePhase):
         js_plans = [fp for fp in ctx.blueprint if fp.path.endswith(".js")]
         if len(js_plans) < 2:
             return
+
+        import re as _re
+
+        # Files explicitly named in the description — never merge these away
+        mentioned_files = set(_re.findall(r"\b(\w+(?:/\w+)*\.\w{2,5})\b", ctx.project_description))
 
         all_paths = {fp.path for fp in ctx.blueprint}
 
@@ -271,6 +280,13 @@ class BlueprintPhase(BasePhase):
                 continue
             # Skip if the dependency itself imports JS files (chain too complex)
             if any(d.endswith(".js") and d in all_paths for d in dep_plan.imports):
+                continue
+            # Skip if the importer is explicitly requested in the description
+            if importer.path in mentioned_files:
+                ctx.logger.info(
+                    f"[Blueprint] B4: Skipping merge of '{importer.path}' into '{dep_path}'"
+                    " — file explicitly named in description; preserving separate file"
+                )
                 continue
 
             merged_exports = list(dict.fromkeys(dep_plan.exports + importer.exports))
@@ -294,7 +310,9 @@ class BlueprintPhase(BasePhase):
                 if fp.path == dep_path:
                     new_blueprint.append(merged_plan)
                 elif importer.path in fp.imports:
-                    new_imports = [dep_path if imp == importer.path else imp for imp in fp.imports]
+                    # Replace A with B, then deduplicate (B may already be in the list)
+                    redirected = [dep_path if imp == importer.path else imp for imp in fp.imports]
+                    new_imports = list(dict.fromkeys(redirected))
                     new_blueprint.append(dataclasses.replace(fp, imports=new_imports))
                 else:
                     new_blueprint.append(fp)

@@ -16,7 +16,8 @@
 | **Quality boost for 4B models** — default 3 refinement loops; focused review aspects (HTML IDs, DOM, event listeners, CSS) always active; SeniorReview compact now reads actual file content; content threshold raised to 50K chars | ✅ |
 | **C# / ASP.NET Core support** — full EF Core rules (AddAsync/Remove, no RemoveAsync), file-scoped namespaces, controller annotations, Program.cs DI patterns; C# static checks in PatchPhase; C# class/interface ref validation in CrossFileValidation | ✅ |
 | **Blueprint coverage guard** — files explicitly mentioned in description but absent from blueprint are auto-injected (capped at 3 for small models) | ✅ |
-| **8 pipeline fixes (Sprint 14)** — duplicate blueprint paths deduped, api+db file budget boosted, OLLASH_RUN_LOG.md excluded from patch context, key_logic derived for auto-injected files, brace-balance guard on diffs, C# complexity scoring, C# duplicate class detection, CodeFill description limits raised | ✅ **new** |
+| **8 pipeline fixes (Sprint 14)** — duplicate blueprint paths deduped, api+db file budget boosted, OLLASH_RUN_LOG.md excluded from patch context, key_logic derived for auto-injected files, brace-balance guard on diffs, C# complexity scoring, C# duplicate class detection, CodeFill description limits raised | ✅ |
+| **3 pipeline fixes (Sprint 15)** — JS merge skipped when file explicitly named in description; import dedup after merge redirect (prevents `[game.js, game.js]` duplicate signatures); blueprint prompt now requires DOM element IDs in `key_logic` for consistent JS↔HTML wiring | ✅ **new** |
 | **Python constructor arity validation** — CrossFileValidationPhase detects mismatched `__init__` signatures and flags them to PatchPhase | ✅ **new** |
 | **Smarter infra generation** — `sys.stdlib_module_names` for accurate stdlib detection; local package names filtered from requirements.txt; Dockerfile assembly name resolved from .csproj | ✅ **new** |
 | **Blueprint cache model-keyed** — cache entries from a 4B model are never reused when re-running with a 30B model | ✅ **new** |
@@ -37,7 +38,7 @@
 | **Per-session project index** — semantic `search_codebase()` tool | ✅ **new** |
 | **Streaming shell output** — live pytest/npm/cargo lines via SSE | ✅ **new** |
 | Privacy monitor — network call audit, 🔒 local mode badge | ✅ |
-| 1 267 unit tests + 21 integration tests + 28 E2E passing (Playwright, Ollama-free) | ✅ |
+| 1 267 unit tests + 21 integration tests + 28 E2E passing (Playwright, Ollama-free) | ✅ **new** |
 | **Security hardening** — CORS, rate limiting, input validation, command injection fixes | ✅ |
 | **Unified config** — 9 focused JSON files (≤30 lines each), no JSON-in-env-vars | ✅ **new** |
 | **JS MIME fix** — custom StaticFiles subclass, immune to Windows registry override | ✅ **new** |
@@ -482,6 +483,8 @@ Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeli
 | CrossFileValidationPhase | **Runs** — zero-LLM, catches id mismatches, ctor arity, C# refs |
 | Improvement rounds | 3 rounds (matching large models); focused aspects from round 2; content-aware for ≤10 files / ≤50K chars |
 | Blueprint size | Max 5 files for simple projects; **7 for games/full-stack/React/Flutter/FastAPI web apps** |
+| JS merge guard | JS file merge skipped when the file is **explicitly named in the project description** — preserves user-specified multi-file architecture |
+| DOM ID consistency | Blueprint prompt requires JS `key_logic` to list every `#id` accessed; `index.html` `key_logic` must declare matching `<div id=xxx>` elements — prevents cross-file id_mismatch errors |
 | CSS auto-injection | `static/style.css` auto-added to blueprint when CSS in stack + HTML planned but no CSS file |
 | FastAPI mandatory hints | Large models get a `MANDATORY PATTERNS` block in CodeFill prompts: `StaticFiles`, `startup` event, list endpoints |
 | Shared JS null guards | JS imported by multiple HTML pages gets `if (!el) return;` guard instructions |
@@ -551,7 +554,7 @@ Domain toolsets: `file_system_tools`, `command_line_tools`, `network_tools`, `sy
 ```bash
 # Unit tests (no Ollama required)
 pytest tests/unit/ -q
-# → 1 226 tests collected
+# → 1 267 tests collected
 
 # Integration tests
 pytest tests/integration/ -q
@@ -603,7 +606,7 @@ CI pipeline (`.github/workflows/ci.yml`): `ruff lint → unit tests → integrat
 |-----------|---------|
 | `backend/` | [Architecture overview](backend/README.md) |
 | `backend/agents/` | [Agent types, mixins, tiers](backend/agents/README.md) |
-| `backend/agents/auto_agent_phases/` | [All phases, PhaseContext](backend/agents/auto_agent_phases/README.md) |
+| `backend/agents/auto_agent_phases/` | [All phases, PhaseContext, Sprint 10–15 improvements](backend/agents/auto_agent_phases/README.md) |
 | `backend/api/routers/` | [All 51 routers](backend/api/routers/README.md) |
 | `backend/mcp/` | MCP server/client protocol |
 | `backend/utils/core/memory/` | [EpisodicMemory, ErrorKB, SQLiteVectorStore](backend/utils/core/memory/README.md) |

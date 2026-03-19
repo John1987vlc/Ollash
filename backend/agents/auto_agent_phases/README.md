@@ -247,3 +247,44 @@ File: `backend/agents/auto_agent_phases/cross_file_validation_phase.py` · Tests
 | `CS-DB004` | `AddDbContext` without `EnsureCreated`/`Migrate` (advisory — logged as warning, not auto-patched) |
 
 File: `backend/agents/auto_agent_phases/patch_phase.py` · Tests: 7 new tests
+
+---
+
+## Pipeline Quality Improvements (Sprint 15)
+
+3 targeted fixes identified from a real poker game test run (`JuegoPokerTexas`, `qwen3.5:4b`, 3 refine loops). All changes are backward-compatible; 1267 unit tests pass.
+
+### Fix B4a — BlueprintPhase: skip JS merge for explicitly-named files
+
+**Problem:** `_merge_dependent_js_for_small_models()` removed `static/ai.js` by merging it into `static/game.js`, even though the project description explicitly listed `static/ai.js (AI decision engine)` as a required file. The merged file was never generated, leaving the project with 4 files instead of 5.
+
+**Fix:** Before merging, extract filenames mentioned in the description with the same regex as `_enforce_described_files`. If the importer file is explicitly named, log and skip the merge — the user's multi-file intent is respected.
+
+| Condition | Before | After |
+|-----------|--------|-------|
+| Importer file unnamed in description | Merge proceeds | Merge proceeds (unchanged) |
+| Importer file explicitly named in description | Merge proceeds, file deleted | **Merge skipped**, file preserved |
+
+File: `backend/agents/auto_agent_phases/blueprint_phase.py` · `_merge_dependent_js_for_small_models()` lines 284–290
+
+### Fix B4b — BlueprintPhase: deduplicate imports after merge redirect
+
+**Problem:** When the merge redirected `ai.js → game.js`, files that already imported `game.js` ended up with `["static/game.js", "static/game.js"]` in their imports list. CodeFillPhase fed the duplicate signatures twice to the LLM, which caused `ui.js` to re-implement the entire poker engine internally instead of calling `window.PokerEngine`.
+
+**Fix:** After replacing `A` with `B` in any file's imports, wrap the result in `list(dict.fromkeys(...))` to deduplicate while preserving insertion order.
+
+File: `backend/agents/auto_agent_phases/blueprint_phase.py` · `_merge_dependent_js_for_small_models()` lines 313–315
+
+### Fix BP8 — Blueprint prompt: DOM element ID consistency instruction
+
+**Problem:** `ui.js` was generated with `#bigBlind`, `#dealer`, `#nextBtn`, `#pot`, `#resetBtn`, `#sidePots`, `#smallBlind` — but `index.html` was generated independently with different IDs, producing 7 `id_mismatch` cross-file validation errors that the patch phase couldn't resolve.
+
+**Root cause:** Neither the `key_logic` for the JS files nor the `key_logic` for `index.html` explicitly listed the DOM element IDs, so each LLM call invented its own set.
+
+**Fix:** Added instruction 8 to both `blueprint.yaml` (`generate_blueprint_small`) and the inline `_SYSTEM_FALLBACK_SMALL`:
+
+> *For frontend JS files that use getElementById/querySelector: key_logic MUST list every DOM element ID accessed (e.g. `"reads #pot, #player-hand; writes #status, #action-buttons"`). index.html key_logic MUST include a matching `<div id=xxx>` for EVERY id that JS files reference.*
+
+Updated Example 2 to demonstrate the pattern — the JS file now shows `reads #community-cards, #player-hand, #pot, #action-buttons, #status, #btn-fold, #btn-call, #btn-raise` and index.html explicitly lists all matching elements.
+
+Files: `prompts/domains/auto_generation/blueprint.yaml` · `backend/agents/auto_agent_phases/blueprint_phase.py` (`_SYSTEM_FALLBACK_SMALL`)

@@ -9,6 +9,7 @@ Key design:
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Type
 
@@ -41,6 +42,8 @@ class BasePhase(ABC):
             label=self.phase_label,
         )
         ctx.logger.info(f"[{ctx.project_name}] PHASE {self.phase_id}: {self.phase_label}")
+        if ctx.run_logger:
+            ctx.run_logger.log_phase_start(self.phase_id, self.phase_label)
 
         try:
             self.run(ctx)
@@ -52,14 +55,20 @@ class BasePhase(ABC):
                 elapsed=elapsed,
             )
             ctx.logger.info(f"[{ctx.project_name}] PHASE {self.phase_id} done ({elapsed:.1f}s)")
-        except PipelinePhaseError:
-            ctx.end_phase_timer(self.phase_id)
+            if ctx.run_logger:
+                ctx.run_logger.log_phase_end(self.phase_id, self.phase_label, elapsed, "success")
+        except PipelinePhaseError as e:
+            elapsed = ctx.end_phase_timer(self.phase_id)
             ctx.event_publisher.publish_sync("phase_complete", phase=self.phase_id, status="error")
+            if ctx.run_logger:
+                ctx.run_logger.log_phase_end(self.phase_id, self.phase_label, elapsed, "error", str(e))
             raise
         except Exception as e:
-            ctx.end_phase_timer(self.phase_id)
+            elapsed = ctx.end_phase_timer(self.phase_id)
             ctx.event_publisher.publish_sync("phase_complete", phase=self.phase_id, status="error", error=str(e))
             ctx.logger.error(f"[{ctx.project_name}] PHASE {self.phase_id} failed: {e}", exc_info=True)
+            if ctx.run_logger:
+                ctx.run_logger.log_phase_end(self.phase_id, self.phase_label, elapsed, "error", str(e))
             raise PipelinePhaseError(self.phase_id, str(e)) from e
 
     @abstractmethod
@@ -106,11 +115,13 @@ class BasePhase(ABC):
             opts["think"] = False
             if not user.startswith("/no_think"):
                 messages[-1]["content"] = "/no_think\n" + user
+        _llm_call_start = time.monotonic()
         response_data, _ = client.chat(
             messages,
             tools=[],
             options_override=opts,
         )
+        _llm_elapsed_ms = (time.monotonic() - _llm_call_start) * 1000.0
         msg = response_data.get("message", {})
         content: str = msg.get("content", "")
 
@@ -135,6 +146,22 @@ class BasePhase(ABC):
         prompt_tokens = response_data.get("prompt_eval_count", len(system + user) // _CHARS_PER_TOKEN)
         completion_tokens = response_data.get("eval_count", len(content) // _CHARS_PER_TOKEN)
         ctx.record_tokens(self.phase_id, prompt_tokens, completion_tokens)
+
+        # Run log: capture every LLM call with full prompts + response
+        if ctx.run_logger:
+            call_index = ctx.run_logger._next_call_index(self.phase_id)
+            ctx.run_logger.log_llm_call(
+                phase_id=self.phase_id,
+                call_index=call_index,
+                role=role,
+                system=system,
+                user=user,
+                response=content,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                elapsed_ms=_llm_elapsed_ms,
+                no_think=no_think,
+            )
 
         return content
 

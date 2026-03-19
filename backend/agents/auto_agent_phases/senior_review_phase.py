@@ -184,6 +184,10 @@ class SeniorReviewPhase(BasePhase):
                     )
                     if patched and patched != current_content:
                         self._write_file(ctx, target, patched)
+                        if ctx.run_logger:
+                            ctx.run_logger.log_file_written(
+                                self.phase_id, target, len(patched), "ok", "compact review fix"
+                            )
                         fixed += 1
                         ctx.logger.info(f"[SeniorReview] Compact fix cycle {cycle + 1}: '{target}'")
                 except Exception as e:
@@ -226,6 +230,15 @@ class SeniorReviewPhase(BasePhase):
                 ctx.logger.info(f"[SeniorReview] Cycle {cycle + 1}: passed — {summary}")
                 summary_record["final_status"] = "passed"
                 summary_record["cycles"].append(cycle_record)
+                if ctx.run_logger:
+                    ctx.run_logger.log_senior_review_cycle(
+                        cycle_num=cycle + 1,
+                        status="passed",
+                        summary=summary,
+                        issues_found=len(issues),
+                        issues_fixed=0,
+                        issues=issues[:_MAX_ISSUES_PER_CYCLE],
+                    )
                 break
 
             # status == "failed" — fix critical/high severity issues
@@ -240,6 +253,15 @@ class SeniorReviewPhase(BasePhase):
             cycle_record["issues_fixed"] = fixed
             summary_record["final_status"] = "failed"
             summary_record["cycles"].append(cycle_record)
+            if ctx.run_logger:
+                ctx.run_logger.log_senior_review_cycle(
+                    cycle_num=cycle + 1,
+                    status="failed",
+                    summary=summary,
+                    issues_found=len(issues),
+                    issues_fixed=fixed,
+                    issues=issues[:_MAX_ISSUES_PER_CYCLE],
+                )
 
             # On last cycle with remaining issues: log warnings but continue best-effort
             if cycle == _MAX_REVIEW_CYCLES - 1:
@@ -392,6 +414,10 @@ class SeniorReviewPhase(BasePhase):
                 )
                 if patched and patched != current_content:
                     self._write_file(ctx, file_path, patched)
+                    if ctx.run_logger:
+                        ctx.run_logger.log_file_written(
+                            self.phase_id, file_path, len(patched), "ok", "senior review fix"
+                        )
                     fixed += 1
                     ctx.logger.info(f"[SeniorReview] Patched '{file_path}' ({len(file_issues)} issue(s) addressed)")
             except Exception as e:

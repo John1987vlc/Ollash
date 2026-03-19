@@ -49,6 +49,14 @@ class TestRunPhase(BasePhase):
             if result["passed"]:
                 ctx.logger.info(f"[TestRun] All tests passed on iteration {iteration + 1}")
                 ctx.metrics["tests_passed"] = True
+                if ctx.run_logger:
+                    ctx.run_logger.log_test_iteration(
+                        iteration=iteration + 1,
+                        runner=runner,
+                        passed=True,
+                        failures=[],
+                        patches_applied=0,
+                    )
                 return
 
             failures = result.get("failures", [])
@@ -62,6 +70,15 @@ class TestRunPhase(BasePhase):
                 if self._patch_failure(ctx, failure):
                     patched += 1
             ctx.logger.info(f"[TestRun] Patched {patched} file(s)")
+
+            if ctx.run_logger:
+                ctx.run_logger.log_test_iteration(
+                    iteration=iteration + 1,
+                    runner=runner,
+                    passed=False,
+                    failures=failures,
+                    patches_applied=patched,
+                )
 
         ctx.metrics["tests_passed"] = False
 
@@ -266,6 +283,8 @@ class TestRunPhase(BasePhase):
             )
             if patched and patched != content:
                 self._write_file(ctx, source_path, patched)
+                if ctx.run_logger:
+                    ctx.run_logger.log_file_written(self.phase_id, source_path, len(patched), "ok", "test failure fix")
                 return True
         except Exception as e:
             ctx.logger.warning(f"[TestRun] Patch failed for {source_path}: {e}")

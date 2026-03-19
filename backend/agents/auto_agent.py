@@ -163,6 +163,22 @@ class AutoAgent:
             )
         ctx.metrics["description_complexity"] = complexity
 
+        # Attach run logger to ctx for all phases to use
+        from backend.utils.core.run_log.pipeline_run_logger import PipelineRunLogger
+
+        ctx.run_logger = PipelineRunLogger(project_root, project_name, description)
+        try:
+            model_name = getattr(ctx.llm_manager.get_client("coder"), "model", "unknown")
+        except Exception:
+            model_name = "unknown"
+        ctx.run_logger.log_pipeline_start(
+            phase_order=phase_order,
+            model_name=model_name,
+            tier=tier,
+            complexity=complexity,
+            num_refine_loops=max(1, num_refine_loops),
+        )
+
         # #1 — Checkpoint/resume: restore state and determine which phases to skip
         completed_phases: List[str] = []
         if resume:
@@ -178,36 +194,53 @@ class AutoAgent:
         phases: List[BasePhase] = [phase_classes[name]() for name in phase_order]
 
         start = time.monotonic()
-        for phase in phases:
-            # Skip already-completed phases when resuming (#1)
-            # Only active when resume=True was passed — not for fresh runs.
-            if resume and getattr(phase, "phase_id", None) in completed_phases:
-                self.logger.info(f"[AutoAgent] Phase {phase.phase_id} skipped (checkpoint)")
-                continue
+        try:
+            for phase in phases:
+                # Skip already-completed phases when resuming (#1)
+                # Only active when resume=True was passed — not for fresh runs.
+                if resume and getattr(phase, "phase_id", None) in completed_phases:
+                    phase_id_skip = getattr(phase, "phase_id", "?")
+                    self.logger.info(f"[AutoAgent] Phase {phase_id_skip} skipped (checkpoint)")
+                    if ctx.run_logger:
+                        ctx.run_logger.log_phase_skipped(
+                            phase_id_skip,
+                            getattr(phase, "phase_label", phase_id_skip),
+                            "resumed from checkpoint",
+                        )
+                    continue
 
-            try:
-                phase.execute(ctx)
-            except PipelinePhaseError as e:
-                self.logger.error(f"[AutoAgent] Phase {e.phase_name} failed: {e}")
-                ctx.errors.append(f"Phase {e.phase_name}: {str(e)}")
-                # Continue with remaining phases — best-effort delivery
-                continue
+                try:
+                    phase.execute(ctx)
+                except PipelinePhaseError as e:
+                    self.logger.error(f"[AutoAgent] Phase {e.phase_name} failed: {e}")
+                    ctx.errors.append(f"Phase {e.phase_name}: {str(e)}")
+                    # Continue with remaining phases — best-effort delivery
+                    continue
 
-            # Save checkpoint after each successful phase (#1)
-            phase_id = getattr(phase, "phase_id", None)
-            if phase_id:
-                completed_phases.append(phase_id)
-                ctx.save_checkpoint(completed_phases)
+                # Save checkpoint after each successful phase (#1)
+                phase_id = getattr(phase, "phase_id", None)
+                if phase_id:
+                    completed_phases.append(phase_id)
+                    ctx.save_checkpoint(completed_phases)
 
-            # #9 — Interactive pause: invoke callback after BlueprintPhase
-            if phase_id == "2" and on_blueprint_ready is not None:
-                blueprint_dict = self._blueprint_to_dict(ctx)
-                should_continue = on_blueprint_ready(blueprint_dict)
-                if not should_continue:
-                    self.logger.info("[AutoAgent] Pipeline aborted by on_blueprint_ready callback")
-                    return project_root
+                # #9 — Interactive pause: invoke callback after BlueprintPhase
+                if phase_id == "2" and on_blueprint_ready is not None:
+                    blueprint_dict = self._blueprint_to_dict(ctx)
+                    should_continue = on_blueprint_ready(blueprint_dict)
+                    if not should_continue:
+                        self.logger.info("[AutoAgent] Pipeline aborted by on_blueprint_ready callback")
+                        return project_root
+        finally:
+            elapsed = time.monotonic() - start
+            if ctx.run_logger:
+                ctx.run_logger.log_pipeline_end(
+                    elapsed_seconds=elapsed,
+                    files_generated=len(ctx.generated_files),
+                    total_tokens=ctx.total_tokens(),
+                    errors=ctx.errors,
+                )
+                ctx.run_logger.close()
 
-        elapsed = time.monotonic() - start
         self.logger.info(
             f"[AutoAgent] '{project_name}' done in {elapsed:.1f}s | "
             f"{len(ctx.generated_files)} files | {ctx.total_tokens():,} tokens"
