@@ -48,6 +48,16 @@ _NON_CODE_EXTS = {
     ".lock",
 }
 
+# A-2 — Patterns that indicate stub/placeholder code instead of a real implementation
+_STUB_PATTERNS = re.compile(
+    r"//\s*\.{3}\s*\w+.*?\.{3}"  # // ... game logic ...  (JS/C++ style)
+    r"|#\s*\.{3}\s*\w+.*?\.{3}"  # # ... some logic ...   (Python/Ruby style)
+    r"|//\s*TODO\b"  # // TODO
+    r"|#\s*TODO\b"  # # TODO (Python/Ruby)
+    r"|raise\s+NotImplementedError\b",  # Python stub
+    re.IGNORECASE | re.MULTILINE,
+)
+
 _SYSTEM_FULL = """# ROLE
 Expert {language} developer. Generate complete, functional source code.
 
@@ -513,6 +523,17 @@ class CodeFillPhase(BasePhase):
         if content:
             with lock:
                 self._write_file(ctx, plan.path, content)
+                # A-1: Cache actual generated signatures for downstream cross-file injection
+                try:
+                    from backend.utils.domains.auto_generation.utilities.signature_extractor import (
+                        extract_signatures as _es,
+                    )
+
+                    sigs = _es(content, plan.path)
+                    if sigs:
+                        ctx.metrics.setdefault("actual_signatures", {})[plan.path] = sigs
+                except Exception:
+                    pass
             if ctx.run_logger:
                 ctx.run_logger.log_file_written(self.phase_id, plan.path, len(content), v_status, v_detail)
             ctx.logger.info(f"  [CodeFill] {plan.path} ({len(content)} chars)")
@@ -558,6 +579,20 @@ class CodeFillPhase(BasePhase):
 
             syntax_ok, syntax_error = self._validate_syntax_detailed(plan.path, content)
             if content and syntax_ok:
+                # A-2: Anti-stub guard — if first attempt has placeholder code, force retry
+                if attempt == 0 and self._detect_stubs(content, plan.path):
+                    stub_hits = [m.group(0)[:60] for m in _STUB_PATTERNS.finditer(content)][:3]
+                    last_error = f"Stub code: {'; '.join(stub_hits)}"
+                    lang = self._detect_language(plan.path)
+                    ctx.logger.warning(f"  [CodeFill] A-2 Stub patterns in {plan.path} — retrying")
+                    current_user = (
+                        user
+                        + "\n\nPREVIOUS ATTEMPT CONTAINED STUB/PLACEHOLDER CODE:\n"
+                        + "\n".join(f"  - {s}" for s in stub_hits)
+                        + f"\n\nWrite the COMPLETE {lang} implementation now. "
+                        + "Every function MUST have a real working body. NO TODO, NO '...', NO placeholders."
+                    )
+                    continue  # retry with improved prompt
                 status = "ok" if attempt == 0 else "retry_ok"
                 return content, status, ""
 
@@ -580,7 +615,13 @@ class CodeFillPhase(BasePhase):
         return content, "retry_failed", detail
 
     def _build_signature_context(self, ctx: PhaseContext, plan: FilePlan) -> str:
-        """Return signature-only content of dependency files. Budget: ~500 tokens (~2000 chars)."""
+        """Return signature-only content of dependency files. Budget: ~500 tokens (~2000 chars).
+
+        A-1: Prefers pre-cached actual signatures (stored right after generation) over
+        re-extracting from content. Also warns when a dependency's blueprint-promised
+        exports are absent from its generated code, so the current file knows not to
+        call those missing symbols.
+        """
         try:
             from backend.utils.domains.auto_generation.utilities.signature_extractor import (
                 extract_signatures,
@@ -592,12 +633,25 @@ class CodeFillPhase(BasePhase):
         chars_used = 0
         char_budget = 2000  # 500 tokens * 4 chars/token
 
+        # A-1: use pre-cached real signatures if available
+        actual_sigs = ctx.metrics.get("actual_signatures", {})
+
         for dep_path in plan.imports[:3]:  # max 3 dependencies
             content = ctx.generated_files.get(dep_path, "")
             if not content:
                 continue
-            sigs = extract_signatures(content, dep_path)
-            chunk = f"# From {dep_path}:\n{sigs}\n"
+            # A-1: prefer cached real signatures; fall back to on-the-fly extraction
+            sigs = actual_sigs.get(dep_path) or extract_signatures(content, dep_path)
+
+            # A-1: warn about blueprint exports that were promised but are absent
+            plan_exports = next((fp.exports for fp in ctx.blueprint if fp.path == dep_path), [])
+            missing = [e for e in plan_exports if e and sigs and e not in sigs]
+            if missing:
+                header = f"# WARNING: {dep_path} does NOT export: {missing} — do not call these\n# From {dep_path}:\n"
+            else:
+                header = f"# From {dep_path}:\n"
+
+            chunk = f"{header}{sigs}\n"
             if chars_used + len(chunk) > char_budget:
                 break
             lines.append(chunk)
@@ -606,7 +660,11 @@ class CodeFillPhase(BasePhase):
         return "\n".join(lines) or "No dependency signatures available yet."
 
     def _generate_config(self, ctx: PhaseContext, plan: FilePlan, no_think: bool = False) -> None:
-        """Generate config/doc files with a minimal dedicated prompt."""
+        """Generate config/doc files with a minimal dedicated prompt.
+
+        A-3: Validates JSON/YAML syntax after generation and retries with the parse
+        error embedded in the prompt so the model knows exactly what to fix.
+        """
         # Special case: README.md generated by blueprint phase already
         if plan.path == "README.md" and plan.path in ctx.generated_files:
             return
@@ -619,6 +677,42 @@ class CodeFillPhase(BasePhase):
             key_logic=plan.key_logic or "standard content for this file type",
         )
         content = self._llm_call(ctx, _CONFIG_SYSTEM, user, role="coder", no_think=no_think)
+
+        # A-3: JSON syntax guard
+        ext = Path(plan.path).suffix.lower()
+        if content and ext == ".json":
+            try:
+                json.loads(content.strip())
+            except json.JSONDecodeError as e:
+                ctx.logger.warning(f"[CodeFill] A-3 Invalid JSON for {plan.path}: {e} — retrying")
+                retry_user = (
+                    user
+                    + "\n\nPREVIOUS ATTEMPT PRODUCED INVALID JSON:\n"
+                    + f"Parse error at line {e.lineno}, col {e.colno}: {e.msg}\n"
+                    + f"Output ONLY valid JSON for {plan.path}. Fix the syntax error above."
+                )
+                content = self._llm_call(ctx, _CONFIG_SYSTEM, retry_user, role="coder", no_think=no_think)
+                try:
+                    json.loads(content.strip())
+                except json.JSONDecodeError:
+                    ctx.logger.warning(f"[CodeFill] A-3 JSON still invalid after retry: {plan.path}")
+                    ctx.metrics.setdefault("config_syntax_failures", []).append(plan.path)
+        elif content and ext in (".yaml", ".yml"):
+            try:
+                import yaml as _yaml  # PyYAML; optional import
+
+                _yaml.safe_load(content)
+            except ImportError:
+                pass  # PyYAML not installed — skip validation
+            except Exception as ye:
+                ctx.logger.warning(f"[CodeFill] A-3 Invalid YAML for {plan.path}: {ye} — retrying")
+                retry_user = (
+                    user
+                    + f"\n\nPREVIOUS ATTEMPT PRODUCED INVALID YAML:\nError: {ye}\n"
+                    + f"Output ONLY valid YAML for {plan.path}."
+                )
+                content = self._llm_call(ctx, _CONFIG_SYSTEM, retry_user, role="coder", no_think=no_think)
+
         if content:
             self._write_file(ctx, plan.path, content.strip())
             if ctx.run_logger:
@@ -903,6 +997,20 @@ class CodeFillPhase(BasePhase):
             del lines[start - 1 : end]
 
         return "".join(lines)
+
+    @staticmethod
+    def _detect_stubs(content: str, path: str) -> bool:
+        """True if the file appears to contain stub/placeholder code (A-2).
+
+        Guards: skips non-code files and tiny files (≤30 lines) where a minimal
+        body is valid (e.g. a 5-line __init__.py that only re-exports).
+        """
+        ext = Path(path).suffix.lower()
+        if ext in _NON_CODE_EXTS:
+            return False
+        if content.count("\n") < 30:
+            return False
+        return bool(_STUB_PATTERNS.search(content))
 
     @staticmethod
     def _validate_syntax_detailed(file_path: str, content: str) -> tuple[bool, Optional[str]]:

@@ -11,7 +11,7 @@ After static fixes, runs multi-round iterative-improvement (#10):
   - Subsequent rounds: LLM review, identify one critical issue, patch it
   - For small projects (<=6 files, <=8000 chars): includes actual file content in
     LLM prompt so it can spot HTML id mismatches, truncated SVGs, etc.
-  - Between rounds: re-runs zero-LLM HTML↔JS ID check to refresh cross_file_errors
+  - Between rounds: re-runs ALL zero-LLM CrossFileValidation passes to refresh cross_file_errors (D)
 
 Improvements:
   #5  — JS syntax via `node --check` + HTML well-formedness via html.parser
@@ -620,7 +620,7 @@ class PatchPhase(BasePhase):
         Up to max_rounds iterations (default 3). Round 0 seeds from ctx.cross_file_errors
         if CrossFileValidationPhase left any. When the generic reviewer says "no issues",
         subsequent rounds cycle through _FOCUSED_REVIEW_ASPECTS instead of stopping early.
-        Between rounds, a zero-LLM HTML↔JS ID re-check refreshes cross_file_errors.
+        Between rounds, a full zero-LLM CrossFileValidation re-check refreshes cross_file_errors (D).
         """
         small = ctx.is_small()
         default_max = _MAX_IMPROVEMENT_ROUNDS_SMALL if small else _MAX_IMPROVEMENT_ROUNDS
@@ -957,49 +957,34 @@ class PatchPhase(BasePhase):
         return "\n".join(lines) or "(no files)"
 
     def _refresh_cross_file_errors(self, ctx: PhaseContext) -> None:
-        """Re-run HTML↔JS ID mismatch check and refresh ctx.cross_file_errors.
+        """Re-run ALL CrossFileValidation passes and refresh ctx.cross_file_errors.
 
-        Zero-LLM. Only runs for HTML+JS projects. Replaces the existing list so the
-        next improvement round gets fresh data after a patch may have changed IDs.
+        D (Sprint 19): Upgraded from HTML↔JS-ID-only to full 11-pass re-validation.
+        Zero-LLM. Replaces the existing list so the next improvement round gets
+        fresh data after a patch may have fixed or broken cross-file contracts.
+        Only runs when the project contains web/JS files (where most contracts live);
+        for pure-Python projects this is a no-op.
         """
-        import re as _re
-
-        has_html = any(p.endswith(".html") for p in ctx.generated_files)
-        has_js = any(p.endswith(".js") for p in ctx.generated_files)
-        if not has_html or not has_js:
+        has_web = any(p.endswith((".html", ".js", ".ts", ".css", ".jsx", ".tsx", ".py")) for p in ctx.generated_files)
+        if not has_web:
             return
 
-        html_ids: set = set()
-        html_file = ""
-        for path, content in ctx.generated_files.items():
-            if path.endswith(".html"):
-                html_ids.update(_re.findall(r'id=["\']([^"\']+)["\']', content))
-                if not html_file:
-                    html_file = path
+        saved = list(ctx.cross_file_errors)
+        try:
+            from backend.agents.auto_agent_phases.cross_file_validation_phase import (
+                CrossFileValidationPhase,
+            )
 
-        new_errors: List[Dict[str, str]] = []
-        for path, content in ctx.generated_files.items():
-            if not path.endswith(".js"):
-                continue
-            gebi = set(_re.findall(r"getElementById\(['\"]([^'\"]+)['\"]\)", content))
-            qs = set(_re.findall(r'querySelector\s*\(\s*[\'"]#([^\'\"#)]+)[\'"]', content))
-            for ref in gebi | qs:
-                if ref not in html_ids:
-                    new_errors.append(
-                        {
-                            "file_a": path,
-                            "file_b": html_file,
-                            "error_type": "id_mismatch",
-                            "description": (
-                                f"JS getElementById/querySelector('#{ref}') not found "
-                                f"(known IDs: {sorted(html_ids)[:5]})"
-                            ),
-                            "suggestion": f"Set id='{ref}' on the correct HTML element",
-                        }
-                    )
+            ctx.cross_file_errors.clear()
+            CrossFileValidationPhase()._run_validation(ctx)
 
-        # Replace with fresh results (stale errors from before the patch are irrelevant)
-        ctx.cross_file_errors = new_errors
+            new_errors = [e for e in ctx.cross_file_errors if e not in saved]
+            if new_errors:
+                ctx.logger.info(f"[Patch] D: CrossFile re-check found {len(new_errors)} new contract violation(s)")
+        except Exception as e:
+            # Non-fatal: restore previous errors so next round still has something to work with
+            ctx.cross_file_errors = saved
+            ctx.logger.warning(f"[Patch] D: CrossFile re-check failed (non-fatal): {e}")
 
     # ----------------------------------------------------------------
     # M9 — Context-aware patch context

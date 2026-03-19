@@ -73,6 +73,7 @@ senior_review:
     - Check for cross-file consistency.
 
     # OUTPUT FORMAT
+    # IMPORTANT: "file" MUST be a single filename string (e.g. "src/main.js") — NOT a list or array
     <review_json>
     {{
       "status": "failed",

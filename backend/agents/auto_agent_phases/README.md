@@ -10,9 +10,11 @@ Sequential pipeline for project generation optimized for 4B models (qwen3.5:4b).
 | 2 | `BlueprintPhase` | Yes (1 call) | Generate full project blueprint as Pydantic-validated JSON (max 20 files); algorithm/game files required to list function signatures in `key_logic` |
 | 3 | `ScaffoldPhase` | No | Create directories and write language-specific stub files |
 | 4 | `CodeFillPhase` | Yes (1/file) | Generate file content in priority order with language-specific prompts, syntax validation + 1 retry; JS/TS brace-balance check triggers retry on truncated output |
-| 4b | `CrossFileValidationPhase` | No | **10 zero-LLM contract checks:** HTML↔JS ids (P1), CSS classes (P2), Python imports (P3), JS fetch vs routes (P4), form fields vs Pydantic models (P5), duplicate window.* exports (P6), Python constructor arity (P7), C# class/interface refs (P8), DB-seeded string case (P9), **HTML inline-script vs JS exports (P10)**, **JS cross-global call validation (P11, large models)** |
-| 5 | `PatchPhase` | Yes (optional) | Static analysis (ruff/tsc/go vet/…) + DB connection bug detection + **3-round** improvement loop; `id_mismatch`/`window_function_mismatch` errors bypass SEARCH/REPLACE and go directly to full-file regeneration with cross-file context injected; threshold raised to 12 000 chars; rounds 1+ cycle through 6 focused review aspects; warns if expected linter (ruff/node/tsc) is not installed |
-| 6b | `SeniorReviewPhase` | Yes (1–4 calls) | Large models: 2-cycle full review + CodePatcher repair. **Small models (all tiers)**: 2-cycle compact review with actual file content (≤8 files / ≤32K chars); issues reported as `{"file":..., "description":...}` for precise CodePatcher targeting. |
+| 4b | `CrossFileValidationPhase` | No | **11 zero-LLM contract checks:** HTML↔JS ids (P1), CSS classes (P2), Python imports (P3), JS fetch vs routes (P4), form fields vs Pydantic models (P5), duplicate window.* exports (P6), Python constructor arity (P7), C# class/interface refs (P8), DB-seeded string case (P9), HTML inline-script vs JS exports (P10), JS cross-global call validation (P11, large models) |
+| 4c | `ExportValidationPhase` | No (large: optional) | Verifies every declared blueprint export exists in generated content; large models repair via `CodePatcher.inject_missing_function()`; small models push gaps to `cross_file_errors` for PatchPhase |
+| 4d | `DuplicateSymbolPhase` | No | Removes duplicate top-level JS/TS/Python definitions that arise from multi-block LLM output; keeps FIRST occurrence (complete); removes subsequent stubs |
+| 5 | `PatchPhase` | Yes (optional) | Static analysis (ruff/tsc/go vet/…) + DB connection bug detection + **3-round** improvement loop; after each round re-runs all CrossFileValidation passes; `id_mismatch`/`window_function_mismatch` errors bypass SEARCH/REPLACE for full-file regeneration |
+| 6b | `SeniorReviewPhase` | Yes (1–4 calls) | Security prescan (zero-LLM) + large-model full review + CodePatcher repair; `"file"` list normalization prevents JSON parse failures; compact review for small models (≤8 files / ≤32K chars) |
 | 6 | `InfraPhase` | Yes (1–2 calls) | requirements.txt, Dockerfile, .gitignore, package.json |
 | 7 | `TestRunPhase` | Yes (optional) | Run pytest, patch up to 3 failures per iteration, max 3 iterations. **Skipped for ≤8B models.** |
 | 8 | `FinishPhase` | No | Write `OLLASH.md` + `.ollash/metrics.json`, fire `project_complete` event |
@@ -30,13 +32,17 @@ Each LLM call stays within ~4K tokens:
 |------|---------|
 | `phase_context.py` | `PhaseContext` dataclass — shared mutable state |
 | `base_phase.py` | `BasePhase(ABC)` — `run()`, `_llm_call()`, `_llm_json()`, `_write_file()` |
+| `phase_helpers.py` | Shared utilities: `deduplicate_python_content()`, `get_type_info_if_active()`, `filter_structure_by_type()` |
 | `blueprint_models.py` | Pydantic models (`FilePlanModel`, `BlueprintOutput`) — imported only by BlueprintPhase |
 | `project_scan_phase.py` | Phase 1 |
 | `blueprint_phase.py` | Phase 2 |
 | `scaffold_phase.py` | Phase 3 |
 | `code_fill_phase.py` | Phase 4 |
 | `cross_file_validation_phase.py` | Phase 4b |
+| `export_validation_phase.py` | Phase 4c (Sprint 19) |
+| `duplicate_symbol_phase.py` | Phase 4d (Sprint 19) |
 | `patch_phase.py` | Phase 5 |
+| `senior_review_phase.py` | Phase 6b |
 | `infra_phase.py` | Phase 6 |
 | `test_run_phase.py` | Phase 7 |
 | `finish_phase.py` | Phase 8 |
@@ -347,3 +353,71 @@ PatchPhase used an 18K char budget to show the reviewer all file contents. With 
 | **#S18b-B** | `small_model_prompts.yaml` | `senior_review_compact` output format changed to `[{"file": "...", "description": "..."}]` objects — gives `_run_compact_review` a `file_hint` to target the right file |
 | **#S18b-C** | `patch_phase.py` | Ruff error cap `raw[:20]` → `raw[:50]` — Python projects no longer silently drop errors 21+ |
 | **#S18b-D** | `patch_phase.py` | `_warn_missing_tools()` called at start of `_collect_static_errors` — warns in log if ruff/node/tsc aren't installed for the project's language |
+
+---
+
+## Pipeline Quality Improvements (Sprint 19)
+
+9 targeted fixes addressing systematic quality failures observed in `JuegoPokerTexas` generated project and the benchmark suite (SeniorReviewPhase scoring 0.2 across 11 models).
+
+Root causes identified:
+- 4 blueprint-declared exports (`initGame`, `calculatePot`, `makeMove`, `renderCards`) absent from generated code
+- Stub placeholders (`// ... betting logic ...`) in `processBettingRound`; `makeDecision` cut mid-function
+- `HAND_TYPES` declared twice in `game.js`; second declaration inside a function body broke the file
+- `client/package.json` failing JSON parse on all 3 retries (unterminated string) with no syntax error feedback in the retry prompt
+- SeniorReviewPhase: LLM emits `"file": ["a.js","b.js"]` instead of `"file": "a.js"` → 9× list-field warning → review aborted with `ERROR: manual intervention required`
+
+### New Phase 4c — ExportValidationPhase (zero-LLM + optional repair)
+
+Runs after `CrossFileValidationPhase`, before `DuplicateSymbolPhase`.
+
+For each `FilePlan` with declared `exports`, checks that every export name appears in the generated content. Skips config/doc extensions (`.json`, `.yaml`, `.md`, etc.).
+
+| Model tier | Action on missing export |
+|-----------|--------------------------|
+| Small (≤8B) | Writes `error_type: "missing_export"` to `ctx.cross_file_errors` — picked up by PatchPhase round 0 |
+| Large (>8B) | Calls `CodePatcher.inject_missing_function()`; verifies injection succeeded; falls back to `cross_file_errors` if not |
+
+Metrics: `ctx.metrics["export_validation"] = {checked, missing: ["file:name", ...], repaired: N}`. Fully non-fatal.
+
+### New Phase 4d — DuplicateSymbolPhase (zero-LLM)
+
+Runs after `ExportValidationPhase`, before `PatchPhase`.
+
+Detects and removes duplicate top-level symbol definitions that arise when the LLM re-emits a function/class it already wrote (typically a shorter stub appended when the token budget ran out).
+
+| Language | Detection | Keeps |
+|----------|-----------|-------|
+| JS/TS/JSX/TSX | `function X()`, `window.X =`, `class X`, top-level `const/let/var X` | FIRST occurrence |
+| Python | AST-based via `phase_helpers.deduplicate_python_content()` | LAST occurrence |
+
+Guard: skips removal if the line before the duplicate contains `if (typeof`, `if (!window.`, or `/* istanbul ignore */`.
+
+Metrics: `ctx.metrics["duplicate_symbols"] = {js_cleaned: {path: [names]}, py_cleaned: {path: [names]}}`. Fully non-fatal.
+
+### CodeFillPhase — 3 sub-improvements
+
+| ID | Method | What it does |
+|----|--------|-------------|
+| **A-1** | `_fill_one()` + `_build_signature_context()` | After writing each file, stores real extracted signatures in `ctx.metrics["actual_signatures"]`. Signature context builder prefers these over blueprint declarations. Injects `# WARNING: does NOT export: {missing}` for any promised export absent from actual code. |
+| **A-2** | `_generate_with_retry()` | Anti-stub guard: if file >50 lines and `_STUB_PATTERNS` matches on attempt 0, forces a retry with the matched placeholder lines listed explicitly. Patterns include `// ... X logic ...`, `# TODO`, `raise NotImplementedError`, `console.log('placeholder')`. |
+| **A-3** | `_generate_config()` | JSON syntax guard: `json.loads()` after generation; passes the full parse error (`line X, col Y: MSG`) to the retry prompt. YAML guard via `yaml.safe_load()`. Failures logged to `ctx.metrics["config_syntax_failures"]`. |
+
+### PatchPhase — full CrossFileValidation re-check between rounds (D)
+
+After each patch round, `_refresh_cross_file_errors()` now calls `CrossFileValidationPhase()._run_validation(ctx)` — all 11 passes — instead of only the HTML↔JS ID check. New violations discovered between rounds are logged and fed into the next round's seed. Only runs when `.html`, `.js`, or `.ts` files are in the project. Non-fatal.
+
+### SeniorReviewPhase — 2 fixes (E)
+
+**E-1 — `"file"` list normalization:** When the LLM returns `"file": ["a.js","b.js"]` (a list), `_call_senior_reviewer()` now expands each list element into a separate issue entry before processing. A Pydantic `field_validator("file", mode="before")` in `SeniorReviewIssue` provides a second defensive coerce. `review.yaml` prompt updated with explicit `# MUST be a single filename string, NOT a list`.
+
+**E-2 — SecurityPatternScan pre-step (zero-LLM, all tiers):** `_run_security_prescan()` runs before the LLM review call and detects:
+
+| Pattern | Error type | Severity |
+|---------|-----------|----------|
+| `f"SELECT...{` | `sql_injection` | high |
+| `innerHTML =` with variable | `xss_vulnerability` | medium |
+| `eval(` | `code_injection` | high |
+| `password/api_key/secret = "..."` | `hardcoded_credential` | critical |
+
+Findings are added to `ctx.cross_file_errors` and logged to `ctx.metrics["security_prescan_findings"]`.

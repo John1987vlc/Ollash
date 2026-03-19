@@ -1,6 +1,6 @@
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, HttpUrl, NonNegativeInt, PositiveInt
+from pydantic import BaseModel, Field, HttpUrl, NonNegativeInt, PositiveInt, field_validator
 
 
 # --- Embedding Cache Configuration Schema ---
@@ -232,9 +232,23 @@ class LogicPlanningOutput(BaseModel):
 # --- Senior Review Schema ---
 class SeniorReviewIssue(BaseModel):
     severity: Literal["low", "medium", "high", "critical"] = "medium"
-    file: str = Field(description="Affected file path")
+    file: str = Field(description="Affected file path — single string filename, NOT a list")
     description: str = Field(description="Clear explanation of the problem")
     recommendation: str = Field(description="Concrete steps to resolve the issue")
+
+    @field_validator("file", mode="before")
+    @classmethod
+    def coerce_file_to_str(cls, v: Any) -> str:
+        """E-1: Coerce list→str so `"file": ["a.js","b.js"]` doesn't break validation.
+
+        The SeniorReviewPhase._call_senior_reviewer normalizer expands lists to
+        separate issue entries BEFORE Pydantic sees them, so this validator is a
+        belt-and-suspenders fallback for any code path that doesn't go through
+        the normalizer first.
+        """
+        if isinstance(v, list):
+            return str(v[0]) if v else ""
+        return str(v) if v is not None else ""
 
 
 class SeniorReviewOutput(BaseModel):

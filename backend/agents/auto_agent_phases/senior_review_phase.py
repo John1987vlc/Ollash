@@ -34,6 +34,9 @@ class SeniorReviewPhase(BasePhase):
     phase_label = "Senior Review"
 
     def run(self, ctx: PhaseContext) -> None:
+        # E-2: SecurityPatternScan pre-step — zero-LLM, runs on all model tiers
+        self._run_security_prescan(ctx)
+
         if ctx.is_small():
             try:
                 self._run_compact_review(ctx)
@@ -45,6 +48,73 @@ class SeniorReviewPhase(BasePhase):
             self._run_review_cycles(ctx)
         except Exception as e:
             ctx.logger.warning(f"[SeniorReview] Unexpected error (non-fatal): {e}")
+
+    # ----------------------------------------------------------------
+    # E-2: SecurityPatternScan pre-step (zero-LLM, all tiers)
+    # ----------------------------------------------------------------
+
+    _SECURITY_PATTERNS = [
+        # (pattern, description, error_type)
+        (
+            r'f["\'].*SELECT.*\{.*\}',
+            "SQL query built with f-string — SQL injection risk",
+            "sql_injection",
+        ),
+        (
+            r'f["\'].*WHERE.*\{.*\}',
+            "SQL WHERE clause with f-string interpolation — SQL injection risk",
+            "sql_injection",
+        ),
+        (
+            r"innerHTML\s*[+]?=\s*(?![\s]*['\"`][^'\"`{]*['\"`])",
+            "innerHTML assigned with a variable — XSS risk",
+            "xss",
+        ),
+        (
+            r"\beval\s*\(",
+            "eval() call — arbitrary code execution risk",
+            "code_injection",
+        ),
+        (
+            r'(?:password|api_key|secret|token)\s*=\s*["\'][^"\']{4,}["\']',
+            "Hardcoded credential or secret literal",
+            "hardcoded_secret",
+        ),
+    ]
+
+    def _run_security_prescan(self, ctx: PhaseContext) -> None:
+        """E-2: Zero-LLM regex scan for common security anti-patterns.
+
+        Adds findings to ctx.cross_file_errors so PatchPhase's next round
+        (or the review cycles below) can attempt auto-repair.
+        """
+        import re as _re
+
+        found = 0
+        for file_path, content in ctx.generated_files.items():
+            for raw_pattern, description, error_type in self._SECURITY_PATTERNS:
+                try:
+                    if _re.search(raw_pattern, content, _re.IGNORECASE | _re.MULTILINE):
+                        ctx.cross_file_errors.append(
+                            {
+                                "file_a": file_path,
+                                "file_b": "",
+                                "error_type": error_type,
+                                "description": description,
+                                "suggestion": (
+                                    f"Refactor {file_path} to eliminate the {error_type.replace('_', ' ')} pattern"
+                                ),
+                            }
+                        )
+                        ctx.logger.warning(f"[SeniorReview/Security] {file_path}: {description}")
+                        found += 1
+                        break  # one finding per file per type — avoid flooding
+                except Exception:
+                    pass
+
+        if found:
+            ctx.metrics["security_prescan_findings"] = found
+            ctx.logger.info(f"[SeniorReview/Security] {found} security pattern(s) found")
 
     # ----------------------------------------------------------------
     # Compact review for small (<=8B) models
@@ -316,7 +386,7 @@ class SeniorReviewPhase(BasePhase):
         )
 
         try:
-            return reviewer.perform_review(
+            result = reviewer.perform_review(
                 project_description=ctx.project_description,
                 project_name=ctx.project_name,
                 readme_content=readme,
@@ -327,6 +397,30 @@ class SeniorReviewPhase(BasePhase):
         except Exception as e:
             ctx.logger.warning(f"[SeniorReview] SeniorReviewer.perform_review failed: {e}")
             return None
+
+        if result is None:
+            return None
+
+        # E-1: Normalize "file" field — LLM returns a list instead of a string ~30% of runs
+        # Strategy: if "file" is a list, expand to one issue entry per file so all files get fixed.
+        raw_issues = result.get("issues", [])
+        normalized: list = []
+        expanded = 0
+        for issue in raw_issues:
+            fv = issue.get("file", "")
+            if isinstance(fv, list):
+                for single_file in fv:
+                    normalized.append({**issue, "file": str(single_file)})
+                expanded += len(fv) - 1  # net new entries
+            else:
+                normalized.append(issue)
+        if expanded:
+            ctx.logger.info(
+                f"[SeniorReview] E-1: normalized {expanded} list-valued 'file' field(s) "
+                f"→ {len(normalized)} separate issues"
+            )
+        result["issues"] = normalized
+        return result
 
     @staticmethod
     def _build_truncated_files(ctx: PhaseContext) -> Dict[str, str]:

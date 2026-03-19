@@ -26,6 +26,8 @@ def _load_phases() -> dict[str, Type[BasePhase]]:
     from backend.agents.auto_agent_phases.scaffold_phase import ScaffoldPhase
     from backend.agents.auto_agent_phases.code_fill_phase import CodeFillPhase
     from backend.agents.auto_agent_phases.cross_file_validation_phase import CrossFileValidationPhase
+    from backend.agents.auto_agent_phases.export_validation_phase import ExportValidationPhase
+    from backend.agents.auto_agent_phases.duplicate_symbol_phase import DuplicateSymbolPhase
     from backend.agents.auto_agent_phases.patch_phase import PatchPhase
     from backend.agents.auto_agent_phases.senior_review_phase import SeniorReviewPhase
     from backend.agents.auto_agent_phases.infra_phase import InfraPhase
@@ -38,6 +40,8 @@ def _load_phases() -> dict[str, Type[BasePhase]]:
         "ScaffoldPhase": ScaffoldPhase,
         "CodeFillPhase": CodeFillPhase,
         "CrossFileValidationPhase": CrossFileValidationPhase,
+        "ExportValidationPhase": ExportValidationPhase,  # Sprint 19: phase 4c
+        "DuplicateSymbolPhase": DuplicateSymbolPhase,  # Sprint 19: phase 4d
         "PatchPhase": PatchPhase,
         "SeniorReviewPhase": SeniorReviewPhase,
         "InfraPhase": InfraPhase,
@@ -55,14 +59,18 @@ class AutoAgent:
       3.  ScaffoldPhase             — zero-LLM: create dirs + write stub files
       4.  CodeFillPhase             — core: generate each file in priority order
       4b. CrossFileValidationPhase  — zero-LLM: HTML↔JS id contract, CSS class check
+      4c. ExportValidationPhase     — zero-LLM+LLM: verify + repair declared exports (Sprint 19)
+      4d. DuplicateSymbolPhase      — zero-LLM: remove duplicate top-level symbols (Sprint 19)
       5.  PatchPhase                — static analysis + multi-round improvement (3 rounds)
       6b. SeniorReviewPhase         — comprehensive LLM review + auto-repair loop
       6.  InfraPhase                — templates: requirements.txt, Dockerfile, .gitignore
       7.  TestRunPhase              — run tests, patch failures (max 3 iterations)
       8.  FinishPhase               — write OLLASH.md, log metrics, fire project_complete
 
-    Small model tier (<=8B, e.g. qwen3.5:4b): skips SeniorReviewPhase and TestRunPhase
-    at the orchestrator level. CrossFileValidationPhase runs on all tiers (zero-LLM).
+    Small model tier (<=8B, e.g. qwen3.5:4b): skips TestRunPhase at the orchestrator level.
+    ExportValidationPhase (4c) runs advisory-only (writes to cross_file_errors).
+    DuplicateSymbolPhase (4d) is zero-LLM and runs on all tiers.
+    SeniorReviewPhase uses compact 2-cycle path for small models.
     """
 
     FULL_PHASE_ORDER: List[str] = [
@@ -71,6 +79,8 @@ class AutoAgent:
         "ScaffoldPhase",
         "CodeFillPhase",
         "CrossFileValidationPhase",
+        "ExportValidationPhase",  # 4c — Sprint 19: verify + repair declared exports
+        "DuplicateSymbolPhase",  # 4d — Sprint 19: remove duplicate top-level symbols
         "PatchPhase",
         "SeniorReviewPhase",
         "InfraPhase",
@@ -82,12 +92,16 @@ class AutoAgent:
     # Per-phase ctx.is_small() guards remain as belt-and-suspenders.
     # #S18 — SeniorReviewPhase restored: already has compact review path for small models
     #         (_run_compact_review), adds ~1 LLM call as final safety net before FinishPhase.
+    # Sprint 19: ExportValidationPhase (4c) and DuplicateSymbolPhase (4d) are zero-LLM
+    #            (or advisory-only for small models) — included in both tiers.
     SMALL_PHASE_ORDER: List[str] = [
         "ProjectScanPhase",
         "BlueprintPhase",
         "ScaffoldPhase",
         "CodeFillPhase",
         "CrossFileValidationPhase",
+        "ExportValidationPhase",  # 4c — advisory only for small models (writes to cross_file_errors)
+        "DuplicateSymbolPhase",  # 4d — zero-LLM, always active
         "PatchPhase",
         "SeniorReviewPhase",
         "InfraPhase",

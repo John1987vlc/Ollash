@@ -10,7 +10,7 @@
 
 | Capability | Status |
 |---|---|
-| **10-phase AutoAgent pipeline**, 4B-optimized — with cross-file contract validation + senior review loop | ✅ |
+| **12-phase AutoAgent pipeline**, 4B-optimized — with cross-file contract validation, export validation, duplicate symbol removal + senior review loop | ✅ |
 | **11 AutoAgent pipeline improvements** — CSS auto-injection, FastAPI mandatory patterns, JS null guards, DB connection bug detection, smarter complexity scoring | ✅ |
 | **Small model pipeline** — TestRunPhase skipped for ≤8B; SeniorReviewPhase runs compact 2-cycle review on all tiers; CrossFileValidationPhase + PatchPhase run on all tiers | ✅ |
 | **Quality boost for 4B models** — default 3 refinement loops; focused review aspects (HTML IDs, DOM, event listeners, CSS) always active; SeniorReview compact reads actual file content (≤8 files / ≤32K chars); patch content budget 36K; ruff reports up to 50 errors per pass | ✅ |
@@ -24,7 +24,8 @@
 | **Blueprint cache model-keyed** — cache entries from a 4B model are never reused when re-running with a 30B model | ✅ |
 | **Sprint 17 — professional output quality** — 6 targeted pipeline fixes from JuegoPokerTexas run log analysis: Pass 10 (HTML inline-script vs JS exports), Pass 11 (JS cross-global calls, large models), blueprint DOM-ID pre-sync, structural-rename bypass in PatchPhase, cross-file context in regeneration prompts, description truncation 400→800/800→1600 | ✅ |
 | **Sprint 18 — patch false-positive fix + JS truncation detection** — patch content budget 18K→36K (was misdiagnosing complete files as truncated); JS/TS brace-balance check in CodeFill triggers auto-retry; SeniorReview restored to small-model pipeline (compact 2-cycle review); blueprint requires function signatures for algorithm files; description budget 800→1 200 chars | ✅ **new** |
-| **Sprint 18b — SeniorReview & static analysis quality** — SeniorReview content thresholds 20K→32K/40K, file gate 6→8 (5-file JS projects now get content-aware review); compact review issues now carry `file` path for precise patching; ruff error cap 20→50; PatchPhase warns when expected linters (ruff/node/tsc) are not installed | ✅ **new** |
+| **Sprint 18b — SeniorReview & static analysis quality** — SeniorReview content thresholds 20K→32K/40K, file gate 6→8 (5-file JS projects now get content-aware review); compact review issues now carry `file` path for precise patching; ruff error cap 20→50; PatchPhase warns when expected linters (ruff/node/tsc) are not installed | ✅ |
+| **Sprint 19 — 9 AutoAgent quality improvements** — 2 new zero-LLM phases (ExportValidationPhase 4c: verifies/repairs declared exports; DuplicateSymbolPhase 4d: removes duplicate JS/TS/Python top-level definitions); CodeFillPhase: real signature tracking, anti-stub guard, JSON/YAML syntax error feedback in retries; PatchPhase: full CrossFileValidation re-check between rounds; SeniorReviewPhase: `"file"` list normalization (fixes 0.2→expected score), zero-LLM security prescan (SQL injection, XSS, eval, hardcoded credentials) | ✅ **new** |
 | **Multi-language code generation** — Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart, SVG + Python/JS/TS | ✅ **new** |
 | **Language-specific infra** — `go.mod`, `Cargo.toml`, `pom.xml`, multi-stage Dockerfiles, per-lang `.gitignore` | ✅ **new** |
 | **Multi-language static analysis** — `go vet`, `cargo check`, `php -l`, `ruby -c`, HTML link validation | ✅ **new** |
