@@ -35,7 +35,9 @@ from backend.utils.core.analysis.scanners.dependency_scanner import DependencySc
 from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScanner
 from backend.utils.core.system.structured_logger import StructuredLogger
 from backend.utils.domains.auto_generation.planning.contingency_planner import ContingencyPlanner
-from backend.utils.domains.auto_generation.generation.enhanced_file_content_generator import EnhancedFileContentGenerator
+from backend.utils.domains.auto_generation.generation.enhanced_file_content_generator import (
+    EnhancedFileContentGenerator,
+)
 from backend.utils.domains.auto_generation.generation.infra_generator import InfraGenerator
 from backend.utils.domains.auto_generation.generation.structure_generator import StructureGenerator
 from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
