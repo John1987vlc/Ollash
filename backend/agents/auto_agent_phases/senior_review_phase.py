@@ -24,9 +24,9 @@ from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
 _MAX_REVIEW_CYCLES = 2
 _MAX_ISSUES_PER_CYCLE = 5
-_CHAR_BUDGET = 20_000  # characters of file content to send to the reviewer
-_COMPACT_CONTENT_MAX_FILES = 6  # include file content in compact review if <= this many files
-_COMPACT_CONTENT_MAX_CHARS = 20_000  # and total chars <= this
+_CHAR_BUDGET = 40_000  # characters of file content to send to the reviewer (#S18b: 20K→40K)
+_COMPACT_CONTENT_MAX_FILES = 8  # include file content in compact review if <= this many files (#S18b: 6→8)
+_COMPACT_CONTENT_MAX_CHARS = 32_000  # and total chars <= this (#S18b: 20K→32K, covers 5-file JS projects)
 
 
 class SeniorReviewPhase(BasePhase):

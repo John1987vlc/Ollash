@@ -2,7 +2,8 @@
 
 Runs ruff (Python), tsc (TypeScript), node --check (JS), and HTML well-formedness
 checks on the generated project. For each error, uses CodePatcher to apply a
-targeted fix. Max 2 passes, max 10 errors fixed per pass.
+targeted fix. Max 2 passes, max `_MAX_FIXES_PER_PASS` errors fixed per pass
+(ruff reports up to 50 errors per run).
 
 After static fixes, runs multi-round iterative-improvement (#10):
   - Up to 3 rounds (large models) / 2 rounds (small models)
@@ -40,7 +41,7 @@ _SUBPROCESS_TIMEOUT = 30
 _MAX_IMPROVEMENT_ROUNDS = 3  # large (>8B) models
 _MAX_IMPROVEMENT_ROUNDS_SMALL = 3  # small (<=8B) models
 _CONTENT_INCLUDE_MAX_FILES = 10  # include actual file content below this file count
-_CONTENT_INCLUDE_MAX_CHARS = 50_000  # and below this total character count (M1)
+_CONTENT_INCLUDE_MAX_CHARS = 80_000  # and below this total character count (M1) — #S18: 50K→80K
 
 _IMPROVEMENT_SYSTEM = (
     "You are a code reviewer. Given the project description and a summary of the generated files, "
@@ -167,7 +168,31 @@ class PatchPhase(BasePhase):
     # Static analysis
     # ----------------------------------------------------------------
 
+    @staticmethod
+    def _warn_missing_tools(ctx: PhaseContext) -> None:
+        """Warn once per run if an expected linter is not installed. #S18b"""
+        checks: list[tuple[str, list[str]]] = [
+            ("ruff", ["python"]),
+            ("node", ["javascript", "typescript", "frontend_web"]),
+            ("tsc", ["typescript"]),
+        ]
+        tech = [t.lower() for t in ctx.tech_stack] + [ctx.project_type.lower()]
+        for tool, applies_to in checks:
+            if not any(t in tech for t in applies_to):
+                continue
+            try:
+                subprocess.run(
+                    [tool, "--version"],
+                    capture_output=True,
+                    timeout=5,
+                )
+            except FileNotFoundError:
+                ctx.logger.warning(
+                    f"[Patch] '{tool}' not found — {'/'.join(applies_to)} errors will not be caught by static analysis"
+                )
+
     def _collect_static_errors(self, ctx: PhaseContext) -> List[Dict[str, str]]:
+        self._warn_missing_tools(ctx)
         errors: List[Dict[str, str]] = []
         has_python = any(p.endswith(".py") for p in ctx.generated_files)
         has_ts = any(p.endswith((".ts", ".tsx")) for p in ctx.generated_files)
@@ -220,7 +245,7 @@ class PatchPhase(BasePhase):
                 return []
             raw = json.loads(result.stdout)
             out = []
-            for e in raw[:20]:
+            for e in raw[:50]:  # #S18b: 20→50 — was silently dropping errors 21+ in Python projects
                 filename = e.get("filename", "")
                 try:
                     rel = str(Path(filename).relative_to(ctx.project_root))
@@ -725,7 +750,7 @@ class PatchPhase(BasePhase):
             # Build full file contents block (bounded by prompt budget)
             file_contents_lines: List[str] = []
             chars_so_far = 0
-            max_chars = 18_000  # leave room for system prompt in token budget (M1)
+            max_chars = 36_000  # #S18: 18K→36K — 18K was truncating 5-file projects (~35K chars total)
             for path, content in list(ctx.generated_files.items())[:_CONTENT_INCLUDE_MAX_FILES]:
                 if path.endswith(_RUN_LOG_FILENAME):  # #I3
                     continue

@@ -12,8 +12,8 @@
 |---|---|
 | **10-phase AutoAgent pipeline**, 4B-optimized — with cross-file contract validation + senior review loop | ✅ |
 | **11 AutoAgent pipeline improvements** — CSS auto-injection, FastAPI mandatory patterns, JS null guards, DB connection bug detection, smarter complexity scoring | ✅ |
-| **Small model pipeline** — SeniorReviewPhase + TestRunPhase explicitly skipped for ≤8B; CrossFileValidationPhase + PatchPhase run on all tiers | ✅ |
-| **Quality boost for 4B models** — default 3 refinement loops; focused review aspects (HTML IDs, DOM, event listeners, CSS) always active; SeniorReview compact now reads actual file content; content threshold raised to 50K chars | ✅ |
+| **Small model pipeline** — TestRunPhase skipped for ≤8B; SeniorReviewPhase runs compact 2-cycle review on all tiers; CrossFileValidationPhase + PatchPhase run on all tiers | ✅ |
+| **Quality boost for 4B models** — default 3 refinement loops; focused review aspects (HTML IDs, DOM, event listeners, CSS) always active; SeniorReview compact reads actual file content (≤8 files / ≤32K chars); patch content budget 36K; ruff reports up to 50 errors per pass | ✅ |
 | **C# / ASP.NET Core support** — full EF Core rules (AddAsync/Remove, no RemoveAsync), file-scoped namespaces, controller annotations, Program.cs DI patterns; C# static checks in PatchPhase; C# class/interface ref validation in CrossFileValidation | ✅ |
 | **Blueprint coverage guard** — files explicitly mentioned in description but absent from blueprint are auto-injected (capped at 3 for small models) | ✅ |
 | **8 pipeline fixes (Sprint 14)** — duplicate blueprint paths deduped, api+db file budget boosted, OLLASH_RUN_LOG.md excluded from patch context, key_logic derived for auto-injected files, brace-balance guard on diffs, C# complexity scoring, C# duplicate class detection, CodeFill description limits raised | ✅ |
@@ -22,7 +22,9 @@
 | **Python constructor arity validation** — CrossFileValidationPhase detects mismatched `__init__` signatures and flags them to PatchPhase | ✅ |
 | **Smarter infra generation** — `sys.stdlib_module_names` for accurate stdlib detection; local package names filtered from requirements.txt; Dockerfile assembly name resolved from .csproj | ✅ |
 | **Blueprint cache model-keyed** — cache entries from a 4B model are never reused when re-running with a 30B model | ✅ |
-| **Sprint 17 — professional output quality** — 6 targeted pipeline fixes from JuegoPokerTexas run log analysis: Pass 10 (HTML inline-script vs JS exports), Pass 11 (JS cross-global calls, large models), blueprint DOM-ID pre-sync, structural-rename bypass in PatchPhase, cross-file context in regeneration prompts, description truncation 400→800/800→1600 | ✅ **new** |
+| **Sprint 17 — professional output quality** — 6 targeted pipeline fixes from JuegoPokerTexas run log analysis: Pass 10 (HTML inline-script vs JS exports), Pass 11 (JS cross-global calls, large models), blueprint DOM-ID pre-sync, structural-rename bypass in PatchPhase, cross-file context in regeneration prompts, description truncation 400→800/800→1600 | ✅ |
+| **Sprint 18 — patch false-positive fix + JS truncation detection** — patch content budget 18K→36K (was misdiagnosing complete files as truncated); JS/TS brace-balance check in CodeFill triggers auto-retry; SeniorReview restored to small-model pipeline (compact 2-cycle review); blueprint requires function signatures for algorithm files; description budget 800→1 200 chars | ✅ **new** |
+| **Sprint 18b — SeniorReview & static analysis quality** — SeniorReview content thresholds 20K→32K/40K, file gate 6→8 (5-file JS projects now get content-aware review); compact review issues now carry `file` path for precise patching; ruff error cap 20→50; PatchPhase warns when expected linters (ruff/node/tsc) are not installed | ✅ **new** |
 | **Multi-language code generation** — Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart, SVG + Python/JS/TS | ✅ **new** |
 | **Language-specific infra** — `go.mod`, `Cargo.toml`, `pom.xml`, multi-stage Dockerfiles, per-lang `.gitignore` | ✅ **new** |
 | **Multi-language static analysis** — `go vet`, `cargo check`, `php -l`, `ruby -c`, HTML link validation | ✅ **new** |
@@ -145,7 +147,7 @@ Supports **11 languages**: Python, JavaScript/TypeScript, Go, Rust, Java, C#, PH
 
 | Tier | Range | Phases |
 |------|-------|--------|
-| **small** (default) | ≤ 8B (`qwen3.5:4b`) | 8 phases (SeniorReviewPhase + TestRunPhase skipped at orchestrator level) |
+| **small** (default) | ≤ 8B (`qwen3.5:4b`) | 9 phases (TestRunPhase skipped; SeniorReviewPhase runs compact 2-cycle review) |
 | **full** | > 8B | All 10 phases |
 
 Pipeline:
@@ -165,7 +167,7 @@ Phase 5:  PatchPhase                — ruff/tsc/go vet/cargo check/php -l/ruby 
                                        full-file regeneration (≤12K chars) with HTML IDs / JS exports injected in prompt
                                        3-round improvement loop; rounds 1+ cycle through 6 focused aspects
 Phase 6b: SeniorReviewPhase         — Large: 2-cycle full review + repair (32K context)
-                                       Small (≤8B): 2-cycle compact review with actual file content (≤6 files/≤20K chars)
+                                       Small (≤8B): 2-cycle compact review with actual file content (≤8 files/≤32K chars)
 Phase 6:  InfraPhase                — go.mod/Cargo.toml/pom.xml/Dockerfile (multi-stage)/per-lang .gitignore
 Phase 7:  TestRunPhase              — Auto-selects go test/cargo test/mvn test/jest/pytest; 3 fix iterations [SKIPPED ≤8B]
 Phase 8:  FinishPhase               — Write OLLASH.md, log metrics, fire project_complete event
@@ -178,8 +180,8 @@ Three layers of review catch different classes of bugs:
 | Layer | Phase | Catches |
 |-------|-------|---------|
 | **Zero-LLM contract** | 4b CrossFileValidation | ID mismatches (P1), CSS class gaps (P2), Python imports (P3), JS fetch vs routes (P4), form fields vs Pydantic (P5), duplicate window.* (P6), constructor arity (P7), C# refs (P8), DB string case (P9), **HTML inline-script vs JS exports (P10)**, **JS cross-global calls (P11)** |
-| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet/C# static) + 3 LLM rounds; **structural renames bypass SEARCH/REPLACE → direct full-file regen with cross-file context**; 6 focused aspects; content-aware up to 50K / 10 files |
-| **Senior architecture review** | 6b SeniorReview | Missing game logic, incomplete state transitions, wrong data flow — with auto-repair (large models ≥9B only) |
+| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet/C# static, up to 50 per run) + 3 LLM rounds; **structural renames bypass SEARCH/REPLACE → direct full-file regen with cross-file context**; 6 focused aspects; content-aware up to 80K / 10 files (36K per reviewer prompt) |
+| **Senior architecture review** | 6b SeniorReview | Large models: missing game logic, incomplete state transitions, wrong data flow — auto-repair loop. **Small models**: compact 2-cycle review with actual file content (≤8 files / ≤32K chars); issues include file path for precise CodePatcher targeting. |
 
 #### Language-specific system prompts (CodeFillPhase)
 
@@ -480,11 +482,11 @@ Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeli
 
 | Feature | Behaviour on 4B (≤8B) |
 |---------|----------------------|
-| Token budget | ~800 tokens system + ~2200 tokens user per LLM call (~4K total); **description visible up to 800 chars (small) / 1600 chars (large)** — full requirements reach the code generator |
+| Token budget | ~800 tokens system + ~2200 tokens user per LLM call (~4K total); **description visible up to 1 200 chars (small) / 1 600 chars (large)** — full requirements reach the code generator |
 | TestRunPhase | **Skipped** — removed from `SMALL_PHASE_ORDER` at orchestrator level |
-| SeniorReviewPhase | **Skipped** — removed from `SMALL_PHASE_ORDER` (large models ≥9B only) |
+| SeniorReviewPhase | **Compact 2-cycle review** runs on all tiers — actual file content included for ≤8 files / ≤32K chars; issues carry `file` path for precise repair |
 | CrossFileValidationPhase | **Runs** — zero-LLM, catches id mismatches, ctor arity, C# refs |
-| Improvement rounds | 3 rounds (matching large models); focused aspects from round 2; content-aware for ≤10 files / ≤50K chars |
+| Improvement rounds | 3 rounds (matching large models); focused aspects from round 2; content-aware for ≤10 files / ≤80K chars (reviewer prompt budget 36K) |
 | Blueprint size | Max 5 files for simple projects; **7 for games/full-stack/React/Flutter/FastAPI web apps** |
 | JS merge guard | JS file merge skipped when the file is **explicitly named in the project description** — preserves user-specified multi-file architecture |
 | DOM ID consistency | Blueprint prompt enforces `index.html` has **highest priority number** (generated last); JS `key_logic` must list every `#id` accessed; BlueprintPhase auto-injects missing DOM ids from JS into `index.html key_logic` before generation begins |
@@ -493,7 +495,7 @@ Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeli
 | Shared JS null guards | JS imported by multiple HTML pages gets `if (!el) return;` guard instructions |
 | Language prompts | Compact single-line variants for Go/Rust/Java/C#/PHP/Ruby/Kotlin/Dart |
 | Dynamic token budget | `_estimate_num_predict()` → 4096 tokens for game/logic/engine/solver files, 2048 otherwise |
-| Syntax validation | CodeFillPhase validates output and retries once on syntax error |
+| Syntax validation | CodeFillPhase validates output and retries once on syntax error; JS/TS brace-balance check catches truncated files before they're written to disk |
 | Patching | PatchPhase runs ruff/tsc/go vet/cargo check/php -l/ruby -c + 3-round improvement (focused aspects from round 2) |
 | Micro tier (≤2B) | `ctx.is_micro()` — uses even shorter prompt variants |
 

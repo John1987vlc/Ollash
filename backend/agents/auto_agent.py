@@ -4,7 +4,7 @@ Design decisions:
 - No CoreAgent inheritance: standalone orchestrator with 5 simple constructor args
 - Phases are lazily imported inside run() — avoids loading ~1567 modules at startup
 - Error handling: PipelinePhaseError is caught per-phase; pipeline continues best-effort
-- Small models (<=8B) skip TestRunPhase and SeniorReviewPhase automatically
+- Small models (<=8B) skip TestRunPhase; SeniorReviewPhase runs a compact 2-cycle review
 - generate_structure_only() supports the wizard step-1 preview flow
 """
 
@@ -80,6 +80,8 @@ class AutoAgent:
 
     # Small models (<=8B) skip the LLM-heavy review and test-run phases.
     # Per-phase ctx.is_small() guards remain as belt-and-suspenders.
+    # #S18 — SeniorReviewPhase restored: already has compact review path for small models
+    #         (_run_compact_review), adds ~1 LLM call as final safety net before FinishPhase.
     SMALL_PHASE_ORDER: List[str] = [
         "ProjectScanPhase",
         "BlueprintPhase",
@@ -87,6 +89,7 @@ class AutoAgent:
         "CodeFillPhase",
         "CrossFileValidationPhase",
         "PatchPhase",
+        "SeniorReviewPhase",
         "InfraPhase",
         "FinishPhase",
     ]

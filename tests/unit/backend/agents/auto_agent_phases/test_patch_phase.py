@@ -31,16 +31,16 @@ def _make_ctx(model_name: str = "qwen3-coder:30b") -> PhaseContext:
 
 
 @pytest.mark.unit
-def test_content_include_max_chars_is_50k():
-    """M1: threshold raised to 50_000 so typical small-model outputs get content-aware review."""
-    assert _CONTENT_INCLUDE_MAX_CHARS == 50_000
+def test_content_include_max_chars_is_80k():
+    """#S18: threshold raised to 80_000 so 5-file JS projects (~35K chars) get content-aware review."""
+    assert _CONTENT_INCLUDE_MAX_CHARS == 80_000
 
 
 @pytest.mark.unit
 def test_should_include_content_with_25k_chars():
     """M1: 5 files × ~4k chars each (≤25k total) → should_include_content returns True."""
     ctx = _make_ctx()
-    # 5 files of ~4k chars each = ~20k total < 25k limit
+    # 5 files of ~4k chars each = ~20k total < 80k limit
     for i in range(5):
         ctx.generated_files[f"file{i}.py"] = "x" * 4_000
     assert PatchPhase._should_include_content(ctx) is True
@@ -48,10 +48,10 @@ def test_should_include_content_with_25k_chars():
 
 @pytest.mark.unit
 def test_should_not_include_content_above_threshold():
-    """M1: total chars > 50k → should_include_content returns False."""
+    """M1: total chars > 80k → should_include_content returns False."""
     ctx = _make_ctx()
     for i in range(5):
-        ctx.generated_files[f"file{i}.py"] = "x" * 12_000  # 60k total
+        ctx.generated_files[f"file{i}.py"] = "x" * 20_000  # 100k total
     assert PatchPhase._should_include_content(ctx) is False
 
 

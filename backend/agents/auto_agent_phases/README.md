@@ -7,12 +7,12 @@ Sequential pipeline for project generation optimized for 4B models (qwen3.5:4b).
 | # | Phase | LLM? | Description |
 |---|-------|------|-------------|
 | 1 | `ProjectScanPhase` | No | Detect project type/stack via keywords; ingest up to 50 existing files |
-| 2 | `BlueprintPhase` | Yes (1 call) | Generate full project blueprint as Pydantic-validated JSON (max 20 files) |
+| 2 | `BlueprintPhase` | Yes (1 call) | Generate full project blueprint as Pydantic-validated JSON (max 20 files); algorithm/game files required to list function signatures in `key_logic` |
 | 3 | `ScaffoldPhase` | No | Create directories and write language-specific stub files |
-| 4 | `CodeFillPhase` | Yes (1/file) | Generate file content in priority order with language-specific prompts, syntax validation + 1 retry |
+| 4 | `CodeFillPhase` | Yes (1/file) | Generate file content in priority order with language-specific prompts, syntax validation + 1 retry; JS/TS brace-balance check triggers retry on truncated output |
 | 4b | `CrossFileValidationPhase` | No | **10 zero-LLM contract checks:** HTML↔JS ids (P1), CSS classes (P2), Python imports (P3), JS fetch vs routes (P4), form fields vs Pydantic models (P5), duplicate window.* exports (P6), Python constructor arity (P7), C# class/interface refs (P8), DB-seeded string case (P9), **HTML inline-script vs JS exports (P10)**, **JS cross-global call validation (P11, large models)** |
-| 5 | `PatchPhase` | Yes (optional) | Static analysis (ruff/tsc/go vet/…) + DB connection bug detection + **3-round** improvement loop; `id_mismatch`/`window_function_mismatch` errors bypass SEARCH/REPLACE and go directly to full-file regeneration with cross-file context injected; threshold raised to 12 000 chars; rounds 1+ cycle through 6 focused review aspects |
-| 6b | `SeniorReviewPhase` | Yes (1–4 calls) | Large models: 2-cycle full review + CodePatcher repair. **Small models**: 2-cycle compact review with actual file content (≤6 files / ≤20K chars). |
+| 5 | `PatchPhase` | Yes (optional) | Static analysis (ruff/tsc/go vet/…) + DB connection bug detection + **3-round** improvement loop; `id_mismatch`/`window_function_mismatch` errors bypass SEARCH/REPLACE and go directly to full-file regeneration with cross-file context injected; threshold raised to 12 000 chars; rounds 1+ cycle through 6 focused review aspects; warns if expected linter (ruff/node/tsc) is not installed |
+| 6b | `SeniorReviewPhase` | Yes (1–4 calls) | Large models: 2-cycle full review + CodePatcher repair. **Small models (all tiers)**: 2-cycle compact review with actual file content (≤8 files / ≤32K chars); issues reported as `{"file":..., "description":...}` for precise CodePatcher targeting. |
 | 6 | `InfraPhase` | Yes (1–2 calls) | requirements.txt, Dockerfile, .gitignore, package.json |
 | 7 | `TestRunPhase` | Yes (optional) | Run pytest, patch up to 3 failures per iteration, max 3 iterations. **Skipped for ≤8B models.** |
 | 8 | `FinishPhase` | No | Write `OLLASH.md` + `.ollash/metrics.json`, fire `project_complete` event |
@@ -288,3 +288,62 @@ File: `backend/agents/auto_agent_phases/blueprint_phase.py` · `_merge_dependent
 Updated Example 2 to demonstrate the pattern — the JS file now shows `reads #community-cards, #player-hand, #pot, #action-buttons, #status, #btn-fold, #btn-call, #btn-raise` and index.html explicitly lists all matching elements.
 
 Files: `prompts/domains/auto_generation/blueprint.yaml` · `backend/agents/auto_agent_phases/blueprint_phase.py` (`_SYSTEM_FALLBACK_SMALL`)
+
+---
+
+## Pipeline Quality Improvements (Sprint 17)
+
+6 targeted fixes from JuegoPokerTexas run log analysis (`qwen3.5:4b`, 5-file JS game, 3 refine loops).
+
+### CrossFileValidationPhase — Pass 10 + Pass 11
+
+| ID | Pass | Error type | What it catches |
+|----|------|-----------|----------------|
+| **P10** | Pass 10 | `inline_script_vs_export` | HTML `<script>` tags that define a function already exported by a standalone `.js` file — would shadow the file-based export at runtime |
+| **P11** | Pass 11 | `cross_global_call` | JS file A calls `window.B.method()` but file B never sets `window.B` — catches missing global namespace wiring. Large models only. |
+
+### BlueprintPhase — DOM-ID pre-sync
+
+`_validate_and_patch_html_entrypoint_key_logic()` now runs before `ScaffoldPhase`. IDs extracted from every JS file's `key_logic` are injected into `index.html`'s `key_logic` before any file is written — reducing `id_mismatch` errors in CrossFileValidationPhase from ~7 to ~0.
+
+### PatchPhase — structural-rename bypass
+
+`id_mismatch` and `window_function_mismatch` error types now bypass `SEARCH/REPLACE` patching entirely. Instead, the entire file is regenerated (≤12 000 chars) with the correct HTML IDs / JS export names injected directly into the prompt. Prevents partial renames that leave half the codebase using old names.
+
+### CodeFillPhase — description budget raised
+
+| Model tier | Before | After |
+|-----------|--------|-------|
+| small (≤8B) | 400 chars | **800 chars** |
+| large (>8B) | 800 chars | **1 600 chars** |
+
+---
+
+## Pipeline Quality Improvements (Sprint 18)
+
+5 fixes targeting a critical class of failure: the patch phase misdiagnosing complete files as truncated due to an insufficient content budget.
+
+### Root cause (JuegoPokerTexas)
+
+PatchPhase used an 18K char budget to show the reviewer all file contents. With 5 JS/HTML files totalling ~35K chars, `game.js` was sliced mid-function at `let flush` in the prompt. The reviewer correctly said "truncated" — but the actual file on disk was complete. All 3 patch rounds were consumed chasing a false positive.
+
+| Fix | File | Change |
+|-----|------|--------|
+| **#S18-1** | `patch_phase.py` | Content budget in reviewer prompt: 18K→36K; gate constant 50K→80K |
+| **#S18-2** | `code_fill_phase.py` | `_validate_syntax_detailed` now checks JS/TS/JSX/TSX brace balance — unbalanced braces trigger the existing retry loop |
+| **#S18-3** | `auto_agent.py` | `SeniorReviewPhase` restored to `SMALL_PHASE_ORDER` (compact review was coded but not called) |
+| **#S18-4** | `blueprint_phase.py` | `_SYSTEM_FALLBACK_SMALL` rule 6 now requires function signatures in `key_logic` for algorithm/game files |
+| **#S18-5** | `code_fill_phase.py` | Description budget for small models: 800→1 200 chars |
+
+---
+
+## Pipeline Quality Improvements (Sprint 18b)
+
+4 fixes targeting SeniorReview quality and static analysis completeness.
+
+| Fix | File | Change |
+|-----|------|--------|
+| **#S18b-A** | `senior_review_phase.py` | `_CHAR_BUDGET` 20K→40K · `_COMPACT_CONTENT_MAX_FILES` 6→8 · `_COMPACT_CONTENT_MAX_CHARS` 20K→32K. JuegoPokerTexas (5 files, ~35K) now falls inside the content-aware threshold. |
+| **#S18b-B** | `small_model_prompts.yaml` | `senior_review_compact` output format changed to `[{"file": "...", "description": "..."}]` objects — gives `_run_compact_review` a `file_hint` to target the right file |
+| **#S18b-C** | `patch_phase.py` | Ruff error cap `raw[:20]` → `raw[:50]` — Python projects no longer silently drop errors 21+ |
+| **#S18b-D** | `patch_phase.py` | `_warn_missing_tools()` called at start of `_collect_static_errors` — warns in log if ruff/node/tsc aren't installed for the project's language |

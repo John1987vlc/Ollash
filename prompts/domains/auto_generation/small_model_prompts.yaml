@@ -167,17 +167,20 @@ senior_review_compact:
 
     # INSTRUCTIONS
     1. Analyze the project name and the list of reviewed files.
-    2. Identify any critical blocking issues.
-    3. Summarize the overall project health.
-    4. Output the result as a JSON object.
+    2. Identify any critical blocking issues (missing logic, broken references, truncated code).
+    3. For each issue, name the exact file and describe the problem in one sentence.
+    4. Summarize the overall project health.
+    5. Output the result as a JSON object.
 
     # CONSTRAINTS
-    - Output ONLY a JSON object.
-    - List ONLY blocking issues.
+    - Output ONLY a JSON object. No markdown, no prose outside JSON.
+    - List ONLY blocking issues. If nothing is broken, output an empty list.
     - Be extremely concise.
 
     # OUTPUT FORMAT
-    {"status": "passed|failed", "critical_issues": [], "summary": ""}
+    {"status": "passed|failed", "critical_issues": [{"file": "path/to/file.js", "description": "one sentence"}], "summary": ""}
+
+    If no issues: {"status": "passed", "critical_issues": [], "summary": "Project looks complete."}
 
   user: |
     Project: {project_name}

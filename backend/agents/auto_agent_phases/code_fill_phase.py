@@ -456,7 +456,7 @@ class CodeFillPhase(BasePhase):
         if is_small:
             user = user_tmpl.format(
                 project_name=ctx.project_name,
-                project_description=ctx.project_description[:800],  # #I8: 200→400→800
+                project_description=ctx.project_description[:1200],  # #I8: 200→400→800 | #S18: 800→1200
                 file_path=plan.path,
                 purpose=plan.purpose,
                 imports=", ".join(plan.imports) or "none",
@@ -906,9 +906,11 @@ class CodeFillPhase(BasePhase):
 
     @staticmethod
     def _validate_syntax_detailed(file_path: str, content: str) -> tuple[bool, Optional[str]]:
-        """Syntax check for Python files. Returns (ok, error_message).
+        """Syntax check for Python and JS/TS files. Returns (ok, error_message).
 
-        #4 — Returns the actual SyntaxError message so it can be injected into the retry prompt.
+        #4  — Returns the actual SyntaxError message so it can be injected into the retry prompt.
+        #S18 — Added JS/TS brace-balance check: catches files truncated mid-function before they
+                are written to disk (Python already had AST retry; JS/TS had none).
         """
         if not content:
             return False, "empty content"
@@ -918,6 +920,13 @@ class CodeFillPhase(BasePhase):
                 return True, None
             except SyntaxError as e:
                 return False, f"SyntaxError at line {e.lineno}: {e.msg}"
+        if Path(file_path).suffix.lower() in {".js", ".ts", ".jsx", ".tsx"}:
+            opens = content.count("{")
+            closes = content.count("}")
+            if opens != closes:
+                return False, (
+                    f"Unbalanced braces: {opens} open vs {closes} close — file is likely truncated mid-function"
+                )
         return True, None
 
     @staticmethod
