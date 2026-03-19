@@ -48,7 +48,7 @@ class EnhancedFileContentGenerator:
         if code_patcher is not None:
             self._code_patcher = code_patcher
         else:
-            from backend.utils.domains.auto_generation.code_patcher import CodePatcher
+            from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
 
             self._code_patcher = CodePatcher(llm_client, logger, self.response_parser)
 

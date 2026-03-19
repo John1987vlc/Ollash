@@ -78,6 +78,7 @@ reports/
 temp_chess_test/
 test_root/
 test_root_*/
+.ollash_test/
 test-results/
 legacy/
 test_results_*.txt

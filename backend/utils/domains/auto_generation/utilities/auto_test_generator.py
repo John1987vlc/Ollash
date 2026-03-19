@@ -6,7 +6,7 @@ from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.command_executor import CommandExecutor
 from backend.utils.core.llm.llm_response_parser import LLMResponseParser
 from backend.utils.core.llm.ollama_client import OllamaClient
-from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
+from backend.utils.domains.auto_generation.utilities.prompt_templates import AutoGenPrompts
 
 
 class TestGenerator:

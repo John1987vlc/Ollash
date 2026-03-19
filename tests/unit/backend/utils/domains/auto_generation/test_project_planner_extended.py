@@ -8,7 +8,7 @@ _PLANNER_MODULE = "backend.utils.domains.auto_generation.planning.project_planne
 
 def _make_planner():
     """Build a ProjectPlanner with a mocked LLM client."""
-    from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
+    from backend.utils.domains.auto_generation.planning.project_planner import ProjectPlanner
 
     mock_llm = MagicMock()
     mock_llm.chat.return_value = (

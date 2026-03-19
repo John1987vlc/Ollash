@@ -22,7 +22,7 @@ from backend.agents.domain_agents.base_domain_agent import BaseDomainAgent
 from backend.utils.core.analysis.file_validator import FileValidator
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.system.event_publisher import EventPublisher
-from backend.utils.domains.auto_generation.code_patcher import CodePatcher
+from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
 
 if TYPE_CHECKING:
     from backend.agents.orchestrators.blackboard import Blackboard

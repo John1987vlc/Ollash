@@ -34,11 +34,11 @@ from backend.utils.core.analysis.scanners.rag_context_selector import RAGContext
 from backend.utils.core.analysis.scanners.dependency_scanner import DependencyScanner
 from backend.utils.core.analysis.vulnerability_scanner import VulnerabilityScanner
 from backend.utils.core.system.structured_logger import StructuredLogger
-from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
-from backend.utils.domains.auto_generation.enhanced_file_content_generator import EnhancedFileContentGenerator
-from backend.utils.domains.auto_generation.infra_generator import InfraGenerator
-from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
-from backend.utils.domains.auto_generation.code_patcher import CodePatcher
+from backend.utils.domains.auto_generation.planning.contingency_planner import ContingencyPlanner
+from backend.utils.domains.auto_generation.generation.enhanced_file_content_generator import EnhancedFileContentGenerator
+from backend.utils.domains.auto_generation.generation.infra_generator import InfraGenerator
+from backend.utils.domains.auto_generation.generation.structure_generator import StructureGenerator
+from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
 
 # Domain Agent imports (Agent-per-Domain architecture)
 from backend.agents.domain_agents.architect_agent import ArchitectAgent

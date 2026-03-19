@@ -121,7 +121,7 @@ class TestActiveShadowValidate:
             {},
         )
         with MagicMock() as mock_prompts:
-            import backend.utils.domains.auto_generation.prompt_templates as pt
+            import backend.utils.domains.auto_generation.utilities.prompt_templates as pt
 
             orig = pt.AutoGenPrompts.nano_format_corrector
 
@@ -142,7 +142,7 @@ class TestActiveShadowValidate:
         broken = "def f(:\n    pass"
         mock_llm.get_client.return_value.chat.side_effect = RuntimeError("network down")
 
-        import backend.utils.domains.auto_generation.prompt_templates as pt
+        import backend.utils.domains.auto_generation.utilities.prompt_templates as pt
 
         orig = pt.AutoGenPrompts.nano_format_corrector
 
@@ -167,7 +167,7 @@ class TestActiveShadowValidate:
             {"content": f"<code_fixed>{still_broken}</code_fixed>"},
             {},
         )
-        import backend.utils.domains.auto_generation.prompt_templates as pt
+        import backend.utils.domains.auto_generation.utilities.prompt_templates as pt
 
         orig = pt.AutoGenPrompts.nano_format_corrector
 
@@ -201,7 +201,7 @@ class TestActiveShadowValidate:
         )
         initial_log_count = len(shadow._logs)
 
-        import backend.utils.domains.auto_generation.prompt_templates as pt
+        import backend.utils.domains.auto_generation.utilities.prompt_templates as pt
 
         orig = pt.AutoGenPrompts.nano_format_corrector
 

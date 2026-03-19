@@ -65,7 +65,7 @@ class StructureGenerator:
         )
 
         # Detect project type for better scaffolding
-        from backend.utils.domains.auto_generation.project_type_detector import ProjectTypeDetector
+        from backend.utils.domains.auto_generation.utilities.project_type_detector import ProjectTypeDetector
 
         type_info = ProjectTypeDetector.detect("", readme_content)
         p_type = type_info.project_type if type_info else ""

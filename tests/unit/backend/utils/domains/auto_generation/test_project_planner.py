@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from backend.utils.domains.auto_generation.project_planner import ProjectPlanner
+from backend.utils.domains.auto_generation.planning.project_planner import ProjectPlanner
 
 
 @pytest.fixture

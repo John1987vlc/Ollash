@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from backend.utils.domains.auto_generation.infra_generator import InfraGenerator
+from backend.utils.domains.auto_generation.generation.infra_generator import InfraGenerator
 
 
 @pytest.fixture

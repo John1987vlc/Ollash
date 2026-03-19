@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from backend.utils.core.memory.error_knowledge_base import ErrorKnowledgeBase
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.system.event_publisher import EventPublisher
-from backend.utils.domains.auto_generation.contingency_planner import ContingencyPlanner
+from backend.utils.domains.auto_generation.planning.contingency_planner import ContingencyPlanner
 
 if TYPE_CHECKING:
     from backend.agents.orchestrators.blackboard import Blackboard

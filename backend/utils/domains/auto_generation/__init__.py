@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from .planning.project_planner import ProjectPlanner
     from .generation.structure_generator import StructureGenerator
     from .generation.enhanced_file_content_generator import EnhancedFileContentGenerator
-    from .generation.file_content_generator import FileContentGenerator
     from .utilities.file_refiner import FileRefiner
     from .review.file_completeness_checker import FileCompletenessChecker
     from .review.project_reviewer import ProjectReviewer
@@ -23,7 +22,6 @@ _LAZY: dict[str, tuple[str, str]] = {
     "ProjectPlanner": ("planning.project_planner", "ProjectPlanner"),
     "StructureGenerator": ("generation.structure_generator", "StructureGenerator"),
     "EnhancedFileContentGenerator": ("generation.enhanced_file_content_generator", "EnhancedFileContentGenerator"),
-    "FileContentGenerator": ("generation.file_content_generator", "FileContentGenerator"),
     "FileRefiner": ("utilities.file_refiner", "FileRefiner"),
     "FileCompletenessChecker": ("review.file_completeness_checker", "FileCompletenessChecker"),
     "ProjectReviewer": ("review.project_reviewer", "ProjectReviewer"),

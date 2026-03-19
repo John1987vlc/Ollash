@@ -82,7 +82,7 @@ class CriticLoop:
     def _build_prompts(self, language: str, code: str):
         """Load the nano_critic_review prompt from YAML."""
         try:
-            from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
+            from backend.utils.domains.auto_generation.utilities.prompt_templates import AutoGenPrompts
 
             return AutoGenPrompts.nano_critic_review(language, code)
         except Exception:

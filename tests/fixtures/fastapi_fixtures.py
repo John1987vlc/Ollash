@@ -15,13 +15,16 @@ from backend.api.app import create_app
 
 
 @pytest.fixture
-def fastapi_app(project_root):
+def fastapi_app(tmp_path):
     """Creates a FastAPI app instance configured for testing.
+
+    Uses pytest's tmp_path so the test root is cleaned up automatically
+    after each test — no leftover test_root_fastapi/ in the project root.
 
     Services that make real network calls (Ollama, EventPublisher) are
     replaced with MagicMocks via app.state overrides after creation.
     """
-    test_root = project_root / "test_root_fastapi"
+    test_root = tmp_path / "test_root_fastapi"
     test_root.mkdir(parents=True, exist_ok=True)
     os.environ["OLLASH_ROOT_DIR"] = str(test_root)
 

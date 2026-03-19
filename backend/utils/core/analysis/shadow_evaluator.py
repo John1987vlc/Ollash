@@ -275,7 +275,7 @@ class ShadowEvaluator:
             ``was_repaired`` is ``True`` only if the nano model was invoked and
             returned valid corrected code.
         """
-        from backend.utils.domains.auto_generation.prompt_templates import AutoGenPrompts
+        from backend.utils.domains.auto_generation.utilities.prompt_templates import AutoGenPrompts
 
         format_error = self._check_format(content, language)
         if not format_error:

@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from backend.utils.domains.auto_generation.structure_pre_reviewer import (
+from backend.utils.domains.auto_generation.review.structure_pre_reviewer import (
     StructureIssue,
     StructurePreReviewer,
     StructureReview,

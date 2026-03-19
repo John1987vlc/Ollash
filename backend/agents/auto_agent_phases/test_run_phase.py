@@ -262,13 +262,7 @@ class TestRunPhase(BasePhase):
         if not content:
             return False
 
-        try:
-            from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
-        except ImportError:
-            try:
-                from backend.utils.domains.auto_generation.code_patcher import CodePatcher
-            except ImportError:
-                return False
+        from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
 
         try:
             patcher = CodePatcher(

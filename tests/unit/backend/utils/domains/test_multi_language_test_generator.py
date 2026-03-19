@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from backend.utils.domains.auto_generation.multi_language_test_generator import (
+from backend.utils.domains.auto_generation.generation.multi_language_test_generator import (
     LanguageFrameworkMap,
     MultiLanguageTestGenerator,
     TestFramework,

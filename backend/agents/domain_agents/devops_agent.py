@@ -21,7 +21,7 @@ from backend.agents.domain_agents.base_domain_agent import BaseDomainAgent
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.system.cicd_healer import CICDHealer
 from backend.utils.core.system.event_publisher import EventPublisher
-from backend.utils.domains.auto_generation.infra_generator import InfraGenerator
+from backend.utils.domains.auto_generation.generation.infra_generator import InfraGenerator
 
 if TYPE_CHECKING:
     from backend.agents.orchestrators.blackboard import Blackboard

@@ -24,7 +24,7 @@ from backend.utils.core.analysis.dependency_graph import DependencyGraph
 from backend.utils.core.llm.prompt_loader import PromptLoader
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.system.event_publisher import EventPublisher
-from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
+from backend.utils.domains.auto_generation.generation.structure_generator import StructureGenerator
 
 if TYPE_CHECKING:
     from backend.agents.orchestrators.blackboard import Blackboard

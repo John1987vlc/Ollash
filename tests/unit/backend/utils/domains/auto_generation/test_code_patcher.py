@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock
 
-from backend.utils.domains.auto_generation.code_patcher import CodePatcher
+from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ class TestSmartMerge:
     def test_no_length_ratio_heuristic(self):
         """Regression: the old `len(improved) > len(original) * 0.8` must not exist."""
         import inspect
-        import backend.utils.domains.auto_generation.code_patcher as mod
+        import backend.utils.domains.auto_generation.utilities.code_patcher as mod
 
         source = inspect.getsource(mod)
         assert "* 0.8" not in source, "Old length-ratio heuristic detected in code_patcher"
@@ -81,7 +81,7 @@ class TestIsBetterLine:
     def test_no_brace_counting_heuristic(self):
         """Regression: brace + parenthesis counting must not be in _is_better_line."""
         import inspect
-        import backend.utils.domains.auto_generation.code_patcher as mod
+        import backend.utils.domains.auto_generation.utilities.code_patcher as mod
 
         source = inspect.getsource(mod._is_better_line if hasattr(mod, "_is_better_line") else mod)
         # Get just the method source from the class

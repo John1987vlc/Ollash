@@ -1,6 +1,6 @@
 # backend/utils/domains/auto_generation/
 
-Motor de generación de proyectos completos. Usado principalmente por `AutoAgent` y sus fases. Organizado en 4 sub-paquetes semánticos con shims de compatibilidad en la raíz.
+Motor de generación de proyectos completos. Usado principalmente por `AutoAgent` y sus fases. Organizado en 4 sub-paquetes semánticos.
 
 ## Sub-paquetes
 
@@ -107,14 +107,13 @@ info = detector.detect("src/")
 # info.confidence           → 0.75 (umbral mínimo: 0.10)
 ```
 
-## Shims de compatibilidad
+## Imports canónicos
 
-Los imports desde la ruta plana antigua siguen funcionando:
+Usar siempre el path del sub-paquete directamente:
 
 ```python
-# Antiguo (sigue funcionando via shim):
-from backend.utils.domains.auto_generation.code_patcher import CodePatcher
-
-# Nuevo (path canónico):
 from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
+from backend.utils.domains.auto_generation.generation.enhanced_file_content_generator import EnhancedFileContentGenerator
+from backend.utils.domains.auto_generation.planning.contingency_planner import ContingencyPlanner
+from backend.utils.domains.auto_generation.review.senior_reviewer import SeniorReviewer
 ```

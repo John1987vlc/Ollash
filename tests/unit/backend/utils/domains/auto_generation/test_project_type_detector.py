@@ -10,7 +10,7 @@ Tests cover:
 
 import pytest
 
-from backend.utils.domains.auto_generation.project_type_detector import (
+from backend.utils.domains.auto_generation.utilities.project_type_detector import (
     ProjectTypeDetector,
     ProjectTypeInfo,
 )

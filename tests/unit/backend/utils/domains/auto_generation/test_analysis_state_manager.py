@@ -14,7 +14,7 @@ class TestAnalysisStateManager:
 
     @pytest.fixture
     def manager(self, logger):
-        from backend.utils.domains.auto_generation.analysis_state_manager import AnalysisStateManager
+        from backend.utils.domains.auto_generation.planning.analysis_state_manager import AnalysisStateManager
 
         return AnalysisStateManager(logger=logger)
 

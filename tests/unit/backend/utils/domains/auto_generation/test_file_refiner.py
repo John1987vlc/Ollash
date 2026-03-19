@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from backend.utils.domains.auto_generation.file_refiner import FileRefiner
+from backend.utils.domains.auto_generation.utilities.file_refiner import FileRefiner
 
 
 @pytest.fixture

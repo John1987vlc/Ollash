@@ -1,7 +1,7 @@
 import pytest
 import json
 from unittest.mock import MagicMock
-from backend.utils.domains.auto_generation.senior_reviewer import SeniorReviewer
+from backend.utils.domains.auto_generation.review.senior_reviewer import SeniorReviewer
 
 
 @pytest.fixture

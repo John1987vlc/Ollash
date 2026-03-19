@@ -22,8 +22,8 @@ from backend.utils.core.io.locked_file_manager import LockedFileManager
 from backend.utils.core.llm.parallel_generator import ParallelFileGenerator
 from backend.utils.core.system.agent_logger import AgentLogger
 from backend.utils.core.system.event_publisher import EventPublisher
-from backend.utils.domains.auto_generation.code_patcher import CodePatcher
-from backend.utils.domains.auto_generation.enhanced_file_content_generator import (
+from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
+from backend.utils.domains.auto_generation.generation.enhanced_file_content_generator import (
     EnhancedFileContentGenerator,
 )
 

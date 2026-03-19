@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from backend.utils.domains.auto_generation.file_completeness_checker import FileCompletenessChecker
+from backend.utils.domains.auto_generation.review.file_completeness_checker import FileCompletenessChecker
 from backend.utils.core.analysis.file_validator import ValidationStatus, ValidationResult
 
 

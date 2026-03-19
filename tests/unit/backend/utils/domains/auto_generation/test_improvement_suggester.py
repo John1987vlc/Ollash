@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from backend.utils.domains.auto_generation.improvement_suggester import ImprovementSuggester
+from backend.utils.domains.auto_generation.planning.improvement_suggester import ImprovementSuggester
 
 
 @pytest.fixture

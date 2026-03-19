@@ -359,14 +359,7 @@ class SeniorReviewPhase(BasePhase):
 
     def _fix_issues(self, ctx: PhaseContext, issues: List[Dict[str, Any]]) -> int:
         """Apply CodePatcher to each file that has issues. Returns count of patched files."""
-        try:
-            from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
-        except ImportError:
-            try:
-                from backend.utils.domains.auto_generation.code_patcher import CodePatcher  # type: ignore[no-redef]
-            except ImportError:
-                ctx.logger.warning("[SeniorReview] CodePatcher not available — cannot auto-fix")
-                return 0
+        from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
 
         # Group issues by file
         by_file: Dict[str, List[Dict[str, Any]]] = {}

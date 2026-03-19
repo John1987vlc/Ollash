@@ -540,14 +540,7 @@ class PatchPhase(BasePhase):
     def _fix_errors(self, ctx: PhaseContext, errors: List[Dict[str, str]]) -> int:
         """Apply targeted fixes. Returns count of files patched."""
         fixed = 0
-        try:
-            from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
-        except ImportError:
-            try:
-                from backend.utils.domains.auto_generation.code_patcher import CodePatcher
-            except ImportError:
-                ctx.logger.warning("[Patch] CodePatcher not available, skipping fixes")
-                return 0
+        from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
 
         # Group errors by file
         by_file: Dict[str, List[str]] = {}
@@ -783,13 +776,7 @@ class PatchPhase(BasePhase):
         if not current_content:
             return False
 
-        try:
-            from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
-        except ImportError:
-            try:
-                from backend.utils.domains.auto_generation.code_patcher import CodePatcher  # type: ignore[no-redef]
-            except ImportError:
-                return False
+        from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
 
         try:
             patcher = CodePatcher(

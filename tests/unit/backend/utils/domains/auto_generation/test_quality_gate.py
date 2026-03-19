@@ -13,7 +13,7 @@ class TestQualityGate:
         return MagicMock()
 
     def test_run_linter_returns_zero_errors_on_clean_output(self, mock_logger, tmp_path):
-        from backend.utils.domains.auto_generation.quality_gate import QualityGate
+        from backend.utils.domains.auto_generation.review.quality_gate import QualityGate
 
         gate = QualityGate(logger=mock_logger)
         with patch("subprocess.run") as mock_run:
@@ -23,7 +23,7 @@ class TestQualityGate:
         assert errors == 0
 
     def test_run_linter_counts_errors_from_output(self, mock_logger, tmp_path):
-        from backend.utils.domains.auto_generation.quality_gate import QualityGate
+        from backend.utils.domains.auto_generation.review.quality_gate import QualityGate
 
         gate = QualityGate(logger=mock_logger)
         linter_output = "src/app.py:10:5: E501 line too long\nsrc/app.py:20:1: F401 unused import\n"
@@ -34,7 +34,7 @@ class TestQualityGate:
         assert errors == 2
 
     def test_run_linter_returns_zero_when_not_installed(self, mock_logger, tmp_path):
-        from backend.utils.domains.auto_generation.quality_gate import QualityGate
+        from backend.utils.domains.auto_generation.review.quality_gate import QualityGate
 
         gate = QualityGate(logger=mock_logger)
         with patch("subprocess.run", side_effect=FileNotFoundError("ruff not found")):
@@ -44,7 +44,7 @@ class TestQualityGate:
         assert "not found" in output
 
     def test_run_quality_check_passes_when_all_ok(self, mock_logger, tmp_path):
-        from backend.utils.domains.auto_generation.quality_gate import QualityGate
+        from backend.utils.domains.auto_generation.review.quality_gate import QualityGate
         from backend.utils.core.tools.wasm_sandbox import TestResult
 
         gate = QualityGate(logger=mock_logger)
@@ -69,7 +69,7 @@ class TestQualityGate:
         assert report.linter_errors == 0
 
     def test_run_quality_check_fails_when_tests_fail(self, mock_logger, tmp_path):
-        from backend.utils.domains.auto_generation.quality_gate import QualityGate
+        from backend.utils.domains.auto_generation.review.quality_gate import QualityGate
         from backend.utils.core.tools.wasm_sandbox import TestResult
 
         gate = QualityGate(logger=mock_logger)
@@ -94,7 +94,7 @@ class TestQualityGate:
         assert len(report.failure_reasons) > 0
 
     def test_run_quality_check_fails_when_lint_errors(self, mock_logger, tmp_path):
-        from backend.utils.domains.auto_generation.quality_gate import QualityGate
+        from backend.utils.domains.auto_generation.review.quality_gate import QualityGate
         from backend.utils.core.tools.wasm_sandbox import TestResult
 
         gate = QualityGate(logger=mock_logger)
@@ -118,7 +118,7 @@ class TestQualityGate:
         assert report.linter_errors == 3
 
     def test_parse_pytest_output_extracts_counts(self):
-        from backend.utils.domains.auto_generation.quality_gate import QualityGate
+        from backend.utils.domains.auto_generation.review.quality_gate import QualityGate
 
         passed, failed = QualityGate._parse_pytest_output(
             "======================== 5 passed, 2 failed in 3.14s ========================"
@@ -127,7 +127,7 @@ class TestQualityGate:
         assert failed == 2
 
     def test_parse_pytest_output_all_passed(self):
-        from backend.utils.domains.auto_generation.quality_gate import QualityGate
+        from backend.utils.domains.auto_generation.review.quality_gate import QualityGate
 
         passed, failed = QualityGate._parse_pytest_output("3 passed in 1.00s")
         assert passed == 3

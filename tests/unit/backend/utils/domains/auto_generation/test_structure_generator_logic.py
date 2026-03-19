@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from backend.utils.domains.auto_generation.structure_generator import StructureGenerator
+from backend.utils.domains.auto_generation.generation.structure_generator import StructureGenerator
 
 
 @pytest.fixture

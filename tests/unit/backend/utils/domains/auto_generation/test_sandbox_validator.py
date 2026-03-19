@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 
 def _make_validator():
-    from backend.utils.domains.auto_generation.sandbox_validator import SandboxValidator
+    from backend.utils.domains.auto_generation.utilities.sandbox_validator import SandboxValidator
 
     logger = MagicMock()
     return SandboxValidator(logger=logger), logger

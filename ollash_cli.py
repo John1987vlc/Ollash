@@ -237,7 +237,7 @@ async def cmd_benchmark(args):
 
 async def cmd_test_gen(args):
     """Generate multi-language tests."""
-    from backend.utils.domains.auto_generation.multi_language_test_generator import MultiLanguageTestGenerator
+    from backend.utils.domains.auto_generation.generation.multi_language_test_generator import MultiLanguageTestGenerator
     from backend.utils.core.llm.llm_response_parser import LLMResponseParser
     from backend.utils.core.command_executor import CommandExecutor
 
