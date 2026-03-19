@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import html.parser
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -642,9 +643,14 @@ class PatchPhase(BasePhase):
                     ctx.run_logger.log_patch_round_end(round_num + 1, 0)
                 continue  # try a focused aspect instead of stopping early
 
+            issue_type: Optional[str] = (issue_data or {}).get("issue_type")
             ctx.logger.info(f"[Patch] Improvement round {round_num + 1}: fixing '{file_path}': {issue}")
             patched = self._patch_single_file(
-                ctx, file_path, issue, run_logger=ctx.run_logger if ctx.run_logger else None
+                ctx,
+                file_path,
+                issue,
+                issue_type=issue_type,
+                run_logger=ctx.run_logger if ctx.run_logger else None,
             )
             rounds_done += 1
             clean_generic_count = 0  # found and fixed something — reset
@@ -686,6 +692,9 @@ class PatchPhase(BasePhase):
         err_type = err.get("error_type", "")
         if err_type == "form_field_mismatch":
             file_path = err.get("file_a") or err.get("file_b", "")
+        elif err_type in ("id_mismatch", "window_function_mismatch"):
+            # I4-rename: prefer the JS/JS-caller file — it needs to be regenerated structurally
+            file_path = err.get("file_a") or err.get("file_b", "")
         else:
             file_path = err.get("file_b") or err.get("file_a", "")
         description = err.get("description", "")
@@ -693,7 +702,11 @@ class PatchPhase(BasePhase):
         issue = f"{description} — {suggestion}" if suggestion else description
         if not file_path or not issue:
             return None
-        return {"file_path": file_path, "issue": issue}
+        result: Dict[str, str] = {"file_path": file_path, "issue": issue}
+        # Tag structural renames so _patch_single_file skips SEARCH/REPLACE
+        if err_type in ("id_mismatch", "window_function_mismatch"):
+            result["issue_type"] = "structural_rename"
+        return result
 
     def _ask_llm_for_issue(
         self,
@@ -763,8 +776,20 @@ class PatchPhase(BasePhase):
             ctx.logger.warning(f"[Patch] LLM issue query failed: {e}")
         return None
 
-    def _patch_single_file(self, ctx: PhaseContext, file_path: str, issue: str, run_logger=None) -> bool:
-        """Apply CodePatcher for a single issue. Returns True if patched."""
+    def _patch_single_file(
+        self,
+        ctx: PhaseContext,
+        file_path: str,
+        issue: str,
+        issue_type: Optional[str] = None,
+        run_logger=None,
+    ) -> bool:
+        """Apply CodePatcher for a single issue. Returns True if patched.
+
+        When issue_type is 'structural_rename' (id_mismatch / window_function_mismatch),
+        skip SEARCH/REPLACE entirely and go straight to full-file regeneration — ID renames
+        require replacing every occurrence and CodePatcher can't reliably do that.
+        """
         current_content = ctx.generated_files.get(file_path, "")
         if not current_content:
             abs_path = ctx.project_root / file_path
@@ -775,6 +800,11 @@ class PatchPhase(BasePhase):
                     pass
         if not current_content:
             return False
+
+        # I4-rename: bypass SEARCH/REPLACE for structural renames (go straight to regen)
+        if issue_type == "structural_rename" and len(current_content) <= 12000:
+            ctx.logger.info(f"[Patch] I4-rename: bypassing SEARCH/REPLACE for '{file_path}' — direct regeneration")
+            return self._regenerate_file_with_fix(ctx, file_path, current_content, issue)
 
         from backend.utils.domains.auto_generation.utilities.code_patcher import CodePatcher
 
@@ -816,8 +846,8 @@ class PatchPhase(BasePhase):
             if run_logger:
                 run_logger.log_patch_fix(0, file_path, issue, None, success=False)
 
-        # I4B — fallback: full-file regeneration for files ≤8000 chars
-        if len(current_content) <= 8000:
+        # I4B — fallback: full-file regeneration for files ≤12000 chars
+        if len(current_content) <= 12000:
             return self._regenerate_file_with_fix(ctx, file_path, current_content, issue)
         return False
 
@@ -845,6 +875,28 @@ class PatchPhase(BasePhase):
             f"CURRENT CONTENT:\n{current_content}\n\n"
             "Fix the issue described above and output the complete corrected file."
         )
+
+        # I5 — inject cross-file context so regenerated code uses correct names
+        cross_ctx_lines: List[str] = []
+        ext = Path(file_path).suffix.lower()
+        if ext == ".js":
+            for path, content in ctx.generated_files.items():
+                if path.endswith(".html"):
+                    ids = re.findall(r'id=["\']([^"\']+)["\']', content)
+                    if ids:
+                        cross_ctx_lines.append(f"Available HTML IDs in {path}: {', '.join(ids[:15])}")
+                    html_calls = re.findall(r"window\.\w+\.(\w+)\s*\(", content)
+                    if html_calls:
+                        cross_ctx_lines.append(f"Function calls in HTML: {', '.join(sorted(set(html_calls)))}")
+                    break
+        elif ext == ".html":
+            for path, content in ctx.generated_files.items():
+                if path.endswith(".js"):
+                    exports = re.findall(r"window\.(\w+)\s*=", content)
+                    if exports:
+                        cross_ctx_lines.append(f"JS window exports in {path}: {', '.join(exports[:10])}")
+        if cross_ctx_lines:
+            user += "\n\nCROSS-FILE CONTEXT:\n" + "\n".join(cross_ctx_lines)
         try:
             raw = self._llm_call(ctx, system, user, role="coder", no_think=True, max_tokens=4096)
             from backend.agents.auto_agent_phases.code_fill_phase import CodeFillPhase

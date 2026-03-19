@@ -18,10 +18,11 @@
 | **Blueprint coverage guard** — files explicitly mentioned in description but absent from blueprint are auto-injected (capped at 3 for small models) | ✅ |
 | **8 pipeline fixes (Sprint 14)** — duplicate blueprint paths deduped, api+db file budget boosted, OLLASH_RUN_LOG.md excluded from patch context, key_logic derived for auto-injected files, brace-balance guard on diffs, C# complexity scoring, C# duplicate class detection, CodeFill description limits raised | ✅ |
 | **3 pipeline fixes (Sprint 15)** — JS merge skipped when file explicitly named in description; import dedup after merge redirect (prevents `[game.js, game.js]` duplicate signatures); blueprint prompt now requires DOM element IDs in `key_logic` for consistent JS↔HTML wiring | ✅ |
-| **Sprint 16 — dead code cleanup + test infrastructure** — 22 backward-compat shim files removed (`auto_generation/` flat level), all 37 import sites migrated to canonical sub-package paths; deprecated `FileContentGenerator` class deleted; `pytest_sessionfinish` hook cleans test-generated dirs on green run; fixture leaks fixed (`fastapi_app` now uses `tmp_path`; `fragment_cache` test uses `tmp_path` fixture) | ✅ **new** |
-| **Python constructor arity validation** — CrossFileValidationPhase detects mismatched `__init__` signatures and flags them to PatchPhase | ✅ **new** |
-| **Smarter infra generation** — `sys.stdlib_module_names` for accurate stdlib detection; local package names filtered from requirements.txt; Dockerfile assembly name resolved from .csproj | ✅ **new** |
-| **Blueprint cache model-keyed** — cache entries from a 4B model are never reused when re-running with a 30B model | ✅ **new** |
+| **Sprint 16 — dead code cleanup + test infrastructure** — 22 backward-compat shim files removed (`auto_generation/` flat level), all 37 import sites migrated to canonical sub-package paths; deprecated `FileContentGenerator` class deleted; `pytest_sessionfinish` hook cleans test-generated dirs on green run; fixture leaks fixed (`fastapi_app` now uses `tmp_path`; `fragment_cache` test uses `tmp_path` fixture) | ✅ |
+| **Python constructor arity validation** — CrossFileValidationPhase detects mismatched `__init__` signatures and flags them to PatchPhase | ✅ |
+| **Smarter infra generation** — `sys.stdlib_module_names` for accurate stdlib detection; local package names filtered from requirements.txt; Dockerfile assembly name resolved from .csproj | ✅ |
+| **Blueprint cache model-keyed** — cache entries from a 4B model are never reused when re-running with a 30B model | ✅ |
+| **Sprint 17 — professional output quality** — 6 targeted pipeline fixes from JuegoPokerTexas run log analysis: Pass 10 (HTML inline-script vs JS exports), Pass 11 (JS cross-global calls, large models), blueprint DOM-ID pre-sync, structural-rename bypass in PatchPhase, cross-file context in regeneration prompts, description truncation 400→800/800→1600 | ✅ **new** |
 | **Multi-language code generation** — Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart, SVG + Python/JS/TS | ✅ **new** |
 | **Language-specific infra** — `go.mod`, `Cargo.toml`, `pom.xml`, multi-stage Dockerfiles, per-lang `.gitignore` | ✅ **new** |
 | **Multi-language static analysis** — `go vet`, `cargo check`, `php -l`, `ruby -c`, HTML link validation | ✅ **new** |
@@ -153,15 +154,16 @@ Phase 1:  ProjectScanPhase          — Zero-LLM: detect type/stack, ingest exis
 Phase 2:  BlueprintPhase            — 1 LLM call: full JSON blueprint (max 20 files)
 Phase 3:  ScaffoldPhase             — Zero-LLM: create dirs + write stub files
 Phase 4:  CodeFillPhase             — Core: generate each file with language-specific system prompts
-Phase 4b: CrossFileValidationPhase  — Zero-LLM: HTML↔JS id contract (Pass 1), CSS class check (Pass 2),
-                                       Python relative imports (Pass 3), JS fetch vs routes (Pass 4),
-                                       form fields vs Pydantic models (Pass 5), duplicate window.* exports (Pass 6),
-                                       Python constructor arity (Pass 7), C# class/interface refs (Pass 8)
-                                       Auto-fixes id mismatches when similarity > 50%; remainder seeded to PatchPhase
+Phase 4b: CrossFileValidationPhase  — Zero-LLM: HTML↔JS id contract (P1), CSS classes (P2), Python imports (P3),
+                                       JS fetch vs routes (P4), form fields vs Pydantic (P5), duplicate window.* (P6),
+                                       Python constructor arity (P7), C# class/interface refs (P8),
+                                       DB-seeded string case (P9), HTML inline-script vs JS exports (P10),
+                                       JS cross-global call validation (P11, large models only)
+                                       Auto-fixes id mismatches (similarity > 50%); structural renames seeded to PatchPhase
 Phase 5:  PatchPhase                — ruff/tsc/go vet/cargo check/php -l/ruby -c/C# static checks + HTML link validation
-                                       Security anti-pattern scan (advisory); multi-round improvement: 3 rounds
-                                       Round 0 seeds from cross-file errors; rounds 1+ cycle through 6 focused aspects
-                                       Content-aware review for ≤10 files / ≤50K total chars
+                                       id_mismatch/window_function_mismatch → bypass SEARCH/REPLACE, go direct to
+                                       full-file regeneration (≤12K chars) with HTML IDs / JS exports injected in prompt
+                                       3-round improvement loop; rounds 1+ cycle through 6 focused aspects
 Phase 6b: SeniorReviewPhase         — Large: 2-cycle full review + repair (32K context)
                                        Small (≤8B): 2-cycle compact review with actual file content (≤6 files/≤20K chars)
 Phase 6:  InfraPhase                — go.mod/Cargo.toml/pom.xml/Dockerfile (multi-stage)/per-lang .gitignore
@@ -175,8 +177,8 @@ Three layers of review catch different classes of bugs:
 
 | Layer | Phase | Catches |
 |-------|-------|---------|
-| **Zero-LLM contract** | 4b CrossFileValidation | `getElementById("chess-board")` when HTML has `id="board"`, missing CSS classes, broken Python relative imports, JS `fetch()` vs backend route mismatches, HTML form fields vs Pydantic models, duplicate `window.*` exports, Python constructor arity mismatches (Pass 7), C# undefined class/interface references (Pass 8) |
-| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet/C# static) + 3 LLM improvement rounds; security anti-pattern scan; rounds 1+ use 6 focused aspects (HTML IDs, DOM, game loop, event listeners, CSS, duplicates); content-aware review up to 50K chars / 10 files; DB connection bug detection |
+| **Zero-LLM contract** | 4b CrossFileValidation | ID mismatches (P1), CSS class gaps (P2), Python imports (P3), JS fetch vs routes (P4), form fields vs Pydantic (P5), duplicate window.* (P6), constructor arity (P7), C# refs (P8), DB string case (P9), **HTML inline-script vs JS exports (P10)**, **JS cross-global calls (P11)** |
+| **Multi-round improvement** | 5 Patch | Static errors (ruff/tsc/go vet/C# static) + 3 LLM rounds; **structural renames bypass SEARCH/REPLACE → direct full-file regen with cross-file context**; 6 focused aspects; content-aware up to 50K / 10 files |
 | **Senior architecture review** | 6b SeniorReview | Missing game logic, incomplete state transitions, wrong data flow — with auto-repair (large models ≥9B only) |
 
 #### Language-specific system prompts (CodeFillPhase)
@@ -478,14 +480,14 @@ Ollash is built around **4B parameters** as the primary tier. The 8-phase pipeli
 
 | Feature | Behaviour on 4B (≤8B) |
 |---------|----------------------|
-| Token budget | ~800 tokens system + ~2200 tokens user per LLM call (~4K total) |
+| Token budget | ~800 tokens system + ~2200 tokens user per LLM call (~4K total); **description visible up to 800 chars (small) / 1600 chars (large)** — full requirements reach the code generator |
 | TestRunPhase | **Skipped** — removed from `SMALL_PHASE_ORDER` at orchestrator level |
 | SeniorReviewPhase | **Skipped** — removed from `SMALL_PHASE_ORDER` (large models ≥9B only) |
 | CrossFileValidationPhase | **Runs** — zero-LLM, catches id mismatches, ctor arity, C# refs |
 | Improvement rounds | 3 rounds (matching large models); focused aspects from round 2; content-aware for ≤10 files / ≤50K chars |
 | Blueprint size | Max 5 files for simple projects; **7 for games/full-stack/React/Flutter/FastAPI web apps** |
 | JS merge guard | JS file merge skipped when the file is **explicitly named in the project description** — preserves user-specified multi-file architecture |
-| DOM ID consistency | Blueprint prompt requires JS `key_logic` to list every `#id` accessed; `index.html` `key_logic` must declare matching `<div id=xxx>` elements — prevents cross-file id_mismatch errors |
+| DOM ID consistency | Blueprint prompt enforces `index.html` has **highest priority number** (generated last); JS `key_logic` must list every `#id` accessed; BlueprintPhase auto-injects missing DOM ids from JS into `index.html key_logic` before generation begins |
 | CSS auto-injection | `static/style.css` auto-added to blueprint when CSS in stack + HTML planned but no CSS file |
 | FastAPI mandatory hints | Large models get a `MANDATORY PATTERNS` block in CodeFill prompts: `StaticFiles`, `startup` event, list endpoints |
 | Shared JS null guards | JS imported by multiple HTML pages gets `if (!el) return;` guard instructions |
@@ -607,7 +609,7 @@ CI pipeline (`.github/workflows/ci.yml`): `ruff lint → unit tests → integrat
 |-----------|---------|
 | `backend/` | [Architecture overview](backend/README.md) |
 | `backend/agents/` | [Agent types, mixins, tiers](backend/agents/README.md) |
-| `backend/agents/auto_agent_phases/` | [All phases, PhaseContext, Sprint 10–15 improvements](backend/agents/auto_agent_phases/README.md) |
+| `backend/agents/auto_agent_phases/` | [All phases, PhaseContext, Sprint 10–17 improvements](backend/agents/auto_agent_phases/README.md) |
 | `backend/api/routers/` | [All 51 routers](backend/api/routers/README.md) |
 | `backend/mcp/` | MCP server/client protocol |
 | `backend/utils/core/memory/` | [EpisodicMemory, ErrorKB, SQLiteVectorStore](backend/utils/core/memory/README.md) |

@@ -84,6 +84,14 @@ class CrossFileValidationPhase(BasePhase):
         if has_py and (has_js or has_html):
             all_errors.extend(self._check_case_sensitive_constants(ctx))
 
+        # I3 — Pass 10: HTML inline-script function calls vs window.* exports in JS (zero-LLM)
+        if has_html and has_js:
+            all_errors.extend(self._check_html_inline_script_vs_window_exports(ctx))
+
+        # I6b — Pass 11: JS cross-global calls vs imported-file window exports (large models only)
+        if has_js and js_count >= 2 and ctx.blueprint and not ctx._is_small_model():
+            all_errors.extend(self._check_js_cross_global_calls(ctx))
+
         # M7 — Zero-LLM auto-fix: broken HTML asset paths (e.g. style.css → static/style.css)
         if has_html:
             self._fix_broken_html_asset_paths(ctx)
@@ -969,4 +977,234 @@ class CrossFileValidationPhase(BasePhase):
 
         if errors:
             ctx.logger.info(f"[CrossFileValidation] I6 Pass 9: {len(errors)} case-mismatch constant(s) found")
+        return errors
+
+    # ----------------------------------------------------------------
+    # I3 — Pass 10: HTML inline-script calls vs JS window.* exports
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _check_html_inline_script_vs_window_exports(ctx: PhaseContext) -> List[Dict[str, Any]]:
+        """Detect when an HTML inline <script> calls a function (e.g. ui.init())
+        that no JS file actually exports as window.ui or window.init.
+
+        Catches the classic mismatch: HTML calls `ui.init()` but JS exports
+        `window.ui = { initUI: ... }` — a silent runtime failure.
+        """
+        _JS_BUILTINS = {
+            "document",
+            "window",
+            "console",
+            "navigator",
+            "location",
+            "history",
+            "fetch",
+            "Math",
+            "JSON",
+            "Object",
+            "Array",
+            "String",
+            "Number",
+            "Boolean",
+            "Date",
+            "Promise",
+            "setTimeout",
+            "setInterval",
+            "clearTimeout",
+            "clearInterval",
+            "alert",
+            "confirm",
+            "prompt",
+            "parseInt",
+            "parseFloat",
+            "isNaN",
+            "isFinite",
+            "encodeURIComponent",
+            "decodeURIComponent",
+            "addEventListener",
+            "removeEventListener",
+        }
+
+        errors: List[Dict[str, Any]] = []
+
+        # Collect all window.* exports and top-level function names across JS files
+        all_js_exports: Dict[str, str] = {}  # name → source path
+        for path, content in ctx.generated_files.items():
+            if not path.endswith(".js"):
+                continue
+            for m in re.finditer(r"window\.(\w+)\s*=", content):
+                all_js_exports.setdefault(m.group(1), path)
+            for m in re.finditer(r"^function\s+(\w+)\s*\(", content, re.MULTILINE):
+                all_js_exports.setdefault(m.group(1), path)
+
+        if not all_js_exports:
+            return errors
+
+        # Inspect each HTML file's inline <script> blocks
+        for html_path, html_content in ctx.generated_files.items():
+            if not html_path.endswith(".html"):
+                continue
+
+            inline_blocks = re.findall(r"<script(?:\s[^>]*)?>(.+?)</script>", html_content, re.DOTALL | re.IGNORECASE)
+            if not inline_blocks:
+                continue
+
+            for block in inline_blocks:
+                # Find bare foo(...) and window.foo.bar() calls; capture the root name
+                for m in re.finditer(r"\b([\w$]+)(?:\.[\w$]+)?\s*\(", block):
+                    name = m.group(1)
+                    if name in _JS_BUILTINS or name[0].isupper():
+                        continue  # skip constructors and builtins
+                    if name not in all_js_exports:
+                        errors.append(
+                            {
+                                "file_a": html_path,
+                                "file_b": "",
+                                "error_type": "window_function_mismatch",
+                                "description": (
+                                    f"HTML inline script calls '{name}(...)' "
+                                    f"but no JS file exports window.{name} or declares function {name}()"
+                                ),
+                                "suggestion": (
+                                    f"Rename the export in JS to 'window.{name} = ...' "
+                                    f"or update the HTML call to match the actual export name"
+                                ),
+                            }
+                        )
+                    if len(errors) >= 5:
+                        break
+                if len(errors) >= 5:
+                    break
+
+        if errors:
+            ctx.logger.info(f"[CrossFileValidation] Pass 10: {len(errors)} HTML inline-script/JS export mismatch(es)")
+        return errors
+
+    # ----------------------------------------------------------------
+    # I6b — Pass 11: JS cross-global call validation (large models only)
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _check_js_cross_global_calls(ctx: PhaseContext) -> List[Dict[str, Any]]:
+        """For each JS file that imports another JS file (per blueprint), check that
+        the functions it calls from the imported file are actually exported by it.
+
+        Catches: ui.js calls evaluateHand() but game.js exports getHandRank() instead.
+        Only runs on large-model tier (≥9B) — too noisy for small models.
+        """
+        _STDLIB = {
+            "document",
+            "window",
+            "console",
+            "navigator",
+            "location",
+            "fetch",
+            "Math",
+            "JSON",
+            "Object",
+            "Array",
+            "String",
+            "Number",
+            "Boolean",
+            "Date",
+            "Promise",
+            "setTimeout",
+            "setInterval",
+            "clearTimeout",
+            "clearInterval",
+            "alert",
+            "parseInt",
+            "parseFloat",
+            "isNaN",
+            "eval",
+            "Function",
+            "Error",
+            "Map",
+            "Set",
+            "WeakMap",
+            "Symbol",
+            "Proxy",
+            "Reflect",
+            "Intl",
+            "requestAnimationFrame",
+        }
+
+        errors: List[Dict[str, Any]] = []
+
+        # Build exports map: file_path → set of exported names
+        exports_map: Dict[str, Set[str]] = {}
+        for path, content in ctx.generated_files.items():
+            if not path.endswith(".js"):
+                continue
+            names: Set[str] = set()
+            for m in re.finditer(r"window\.(\w+)\s*=", content):
+                names.add(m.group(1))
+            for m in re.finditer(r"^function\s+(\w+)\s*\(", content, re.MULTILINE):
+                names.add(m.group(1))
+            exports_map[path] = names
+
+        # Build import graph from blueprint: path → list of imported paths
+        import_graph: Dict[str, List[str]] = {}
+        for fp in ctx.blueprint:
+            if fp.path.endswith(".js"):
+                js_imports = [imp for imp in fp.imports if imp.endswith(".js")]
+                if js_imports:
+                    import_graph[fp.path] = js_imports
+
+        if not import_graph:
+            return errors
+
+        # Check each JS caller against its imported JS files
+        for caller_path, imported_paths in import_graph.items():
+            caller_content = ctx.generated_files.get(caller_path, "")
+            if not caller_content:
+                continue
+
+            # Collect all bare function calls in the caller
+            caller_calls: Set[str] = set()
+            for m in re.finditer(r"\b([\w$]+)\s*\(", caller_content):
+                name = m.group(1)
+                if name not in _STDLIB and not name[0].isupper():
+                    caller_calls.add(name)
+
+            # For each imported file, check if called names are exported
+            for imported_path in imported_paths:
+                imported_exports = exports_map.get(imported_path, set())
+                if not imported_exports:
+                    continue
+                # Find calls that match no export and aren't defined in the caller itself
+                caller_own = exports_map.get(caller_path, set())
+                # Also collect locally-defined var/const/let names in caller
+                local_defs: Set[str] = set()
+                for m in re.finditer(r"(?:var|let|const)\s+([\w$]+)", caller_content):
+                    local_defs.add(m.group(1))
+
+                for name in caller_calls:
+                    if name in caller_own or name in local_defs or name in _STDLIB:
+                        continue
+                    if imported_exports and name not in imported_exports:
+                        # Only flag if the name looks like it SHOULD come from this import
+                        # (heuristic: non-trivial name not defined anywhere else)
+                        errors.append(
+                            {
+                                "file_a": caller_path,
+                                "file_b": imported_path,
+                                "error_type": "missing_js_global",
+                                "description": (
+                                    f"{caller_path} calls '{name}()' but {imported_path} "
+                                    f"does not export it (exports: {', '.join(sorted(imported_exports)[:5])})"
+                                ),
+                                "suggestion": (
+                                    f"Add 'window.{name} = ...' to {imported_path}, "
+                                    f"or update the call in {caller_path} to use an exported name"
+                                ),
+                            }
+                        )
+                        if len(errors) >= 5:
+                            break
+                if len(errors) >= 5:
+                    break
+
+        if errors:
+            ctx.logger.info(f"[CrossFileValidation] Pass 11: {len(errors)} JS cross-global call mismatch(es)")
         return errors

@@ -456,7 +456,7 @@ class CodeFillPhase(BasePhase):
         if is_small:
             user = user_tmpl.format(
                 project_name=ctx.project_name,
-                project_description=ctx.project_description[:400],  # #I8: 200→400
+                project_description=ctx.project_description[:800],  # #I8: 200→400→800
                 file_path=plan.path,
                 purpose=plan.purpose,
                 imports=", ".join(plan.imports) or "none",
@@ -468,7 +468,7 @@ class CodeFillPhase(BasePhase):
             # In parallel groups, previous_summary is "" for all files in the group.
             user = user_tmpl.format(
                 project_name=ctx.project_name,
-                project_description=ctx.project_description[:800],  # #I8: 400→800
+                project_description=ctx.project_description[:1600],  # #I8: 400→800→1600
                 file_path=plan.path,
                 purpose=plan.purpose,
                 exports=", ".join(plan.exports) or "none",

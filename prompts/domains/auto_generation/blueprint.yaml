@@ -98,11 +98,14 @@ generate_blueprint_small:
     5. Output minified JSON — everything on ONE line, no newlines, no spaces after colons.
     6. "key_logic" must describe the DOMAIN-SPECIFIC logic, not generic functions.
        Bad: "drawCard(),checkWin()"  Good: "Texas Hold'em: 2 hole cards + 5 community cards; hand rank eval (royal flush→high card); betting rounds pre-flop/flop/turn/river"
-    7. For frontend projects: CSS and JS files MUST have LOWER priority than index.html,
-       so index.html is generated LAST and can link to the correct filenames.
+    7. For frontend projects: index.html MUST have the HIGHEST priority number (generated LAST).
+       CSS and JS files have LOWER priority numbers so they are generated before index.html.
+       Example: style.css=1, game.js=2, ai.js=3, index.html=4. Never assign priority=1 to index.html.
     8. For frontend JS files that use getElementById/querySelector: key_logic MUST list
        every DOM element ID accessed (e.g. "reads #pot, #player-hand; writes #status, #action-buttons").
        index.html key_logic MUST include a matching <div id=xxx> for EVERY id that JS files reference.
+    9. CRITICAL: index.html priority MUST be higher than every JS and CSS file it imports.
+       If a JS file has priority 3, index.html MUST have priority 4 or higher.
 
     # OUTPUT FORMAT
     Output MINIFIED JSON on a SINGLE LINE — no whitespace, no newlines, no markdown fences.

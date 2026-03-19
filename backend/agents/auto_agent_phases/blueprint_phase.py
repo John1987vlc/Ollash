@@ -150,6 +150,9 @@ class BlueprintPhase(BasePhase):
         # Bug 1 — Enforce dependency order via topological sort
         ctx.blueprint = self._topological_sort(ctx.blueprint)
 
+        # I2 — Sync HTML entrypoint key_logic with all DOM IDs referenced by JS files
+        self._validate_and_patch_html_entrypoint_key_logic(ctx)
+
         # M3 — Post-process: guarantee essential files are present
         self._ensure_mandatory_files(ctx)
 
@@ -233,6 +236,66 @@ class BlueprintPhase(BasePhase):
 
         # Reassign sequential priorities so CodeFillPhase sees a strict linear order
         return [dataclasses.replace(fp, priority=i + 1) for i, fp in enumerate(result)]
+
+    # ----------------------------------------------------------------
+    # I2 — Sync HTML entrypoint key_logic with all DOM IDs from JS
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _validate_and_patch_html_entrypoint_key_logic(ctx: PhaseContext) -> None:
+        """Collect every #id mentioned in JS key_logic fields and inject any
+        missing ones into the HTML entrypoint's key_logic so that
+        CodeFillPhase._build_dom_contract produces a complete DOM contract.
+
+        The HTML entrypoint is the HTML file generated last (highest priority
+        number after topological sort).
+        """
+        import re
+
+        if not ctx.blueprint:
+            return
+
+        has_html = any(fp.path.endswith(".html") for fp in ctx.blueprint)
+        has_js = any(fp.path.endswith(".js") for fp in ctx.blueprint)
+        if not (has_html and has_js):
+            return
+
+        # Collect all #ids from JS key_logic
+        js_ids: set[str] = set()
+        for fp in ctx.blueprint:
+            if fp.path.endswith(".js") and fp.key_logic:
+                js_ids.update(re.findall(r"#([\w-]+)", fp.key_logic))
+
+        if not js_ids:
+            return
+
+        # Find HTML entrypoint = HTML file with highest priority (generated last)
+        html_files = [fp for fp in ctx.blueprint if fp.path.endswith(".html")]
+        entrypoint = max(html_files, key=lambda fp: fp.priority)
+
+        # Find IDs missing from the entrypoint key_logic
+        existing_ids: set[str] = set(re.findall(r"#([\w-]+)", entrypoint.key_logic or ""))
+        # Also match bare id=X (without #) that may already be in key_logic
+        existing_ids.update(re.findall(r"<div\s+id=([\w-]+)", entrypoint.key_logic or ""))
+        missing = js_ids - existing_ids
+        if not missing:
+            return
+
+        injected: list[str] = []
+        new_key_logic = entrypoint.key_logic or ""
+        for dom_id in sorted(missing):
+            new_key_logic += f"<div id={dom_id}>"
+            injected.append(f"#{dom_id}")
+
+        # Replace the entrypoint entry in ctx.blueprint with updated key_logic
+        ctx.blueprint = [
+            dataclasses.replace(fp, key_logic=new_key_logic) if fp is entrypoint else fp for fp in ctx.blueprint
+        ]
+
+        ctx.logger.info(
+            f"[Blueprint] EntrypointFix: injected {len(injected)} missing DOM id(s) "
+            f"into {entrypoint.path}: {', '.join(injected)}"
+        )
 
     # ----------------------------------------------------------------
     # Bug 4 — Merge dependent JS pairs for small models
