@@ -148,7 +148,13 @@ class BlueprintPhase(BasePhase):
             key=lambda fp: fp.priority,
         )
 
-        # Bug 1 — Enforce dependency order via topological sort
+        # I5 — Repair dependency cycles before topological sort (removes back edges)
+        ctx.blueprint, edges_removed = self._repair_cycles(ctx.blueprint)
+        if edges_removed:
+            ctx.logger.warning(f"[Blueprint] I5: Removed {edges_removed} back-edge(s) to break dependency cycle(s)")
+            ctx.metrics["blueprint_cycles_repaired"] = edges_removed
+
+        # Bug 1 — Enforce dependency order via topological sort (now guaranteed on repaired graph)
         ctx.blueprint = self._topological_sort(ctx.blueprint)
 
         # I2 — Sync HTML entrypoint key_logic with all DOM IDs referenced by JS files
@@ -163,12 +169,12 @@ class BlueprintPhase(BasePhase):
         # Bug 4 — Merge dependent JS pairs on small models to prevent dual implementations
         self._merge_dependent_js_for_small_models(ctx)
 
-        # #3 — Validate that import graph is a DAG (no cycles)
+        # #3 — Validate that import graph is a DAG (informational — should be 0 after I5)
         cycles = self._detect_dag_cycles(ctx.blueprint)
         if cycles:
             for cycle in cycles:
-                ctx.logger.warning(f"[Blueprint] Dependency cycle detected: {' → '.join(cycle)}")
-            ctx.errors.append(f"Blueprint: {len(cycles)} dependency cycle(s) detected")
+                ctx.logger.warning(f"[Blueprint] Residual cycle (unexpected after I5): {' → '.join(cycle)}")
+            ctx.errors.append(f"Blueprint: {len(cycles)} residual dependency cycle(s) after repair")
 
         ctx.logger.info(
             f"[Blueprint] {len(ctx.blueprint)} files planned, type={ctx.project_type}, stack={ctx.tech_stack}"
@@ -392,6 +398,76 @@ class BlueprintPhase(BasePhase):
     # ----------------------------------------------------------------
     # #3 — DAG cycle detection
     # ----------------------------------------------------------------
+
+    @staticmethod
+    def _repair_cycles(plans: list) -> tuple:
+        """I5: Break dependency cycles by removing the back edge that forms each cycle.
+
+        Strategy: find cycle [A→B→C→A], remove the import edge C→A (the "back edge"
+        — the last node's edge back to the cycle start). Repeat until no cycles remain.
+        Uses dataclasses.replace() to rebuild immutable FilePlan entries.
+
+        Returns (repaired_plans, edges_removed_count).
+        """
+        import dataclasses
+
+        all_paths = {p.path for p in plans}
+        # Build mutable import graph (path → list of imported paths)
+        repaired: dict = {p.path: list(p.imports) for p in plans}
+        removed = 0
+
+        for _ in range(len(plans) + 1):  # safety: max iterations = plan count + 1
+            # Build current adjacency
+            graph: dict = {path: [d for d in deps if d in all_paths] for path, deps in repaired.items()}
+
+            # DFS cycle detection — find the first cycle
+            visited: set = set()
+            rec_stack: set = set()
+            found_cycle: list = []
+
+            def _dfs(node: str, path: list) -> bool:
+                visited.add(node)
+                rec_stack.add(node)
+                path.append(node)
+                for neighbor in graph.get(node, []):
+                    if neighbor not in visited:
+                        if _dfs(neighbor, path):
+                            return True
+                    elif neighbor in rec_stack:
+                        cycle_start = path.index(neighbor)
+                        found_cycle.extend(path[cycle_start:] + [neighbor])
+                        return True
+                path.pop()
+                rec_stack.discard(node)
+                return False
+
+            for node in graph:
+                if node not in visited:
+                    if _dfs(node, []):
+                        break
+
+            if not found_cycle:
+                break  # no more cycles — done
+
+            # found_cycle = [A, B, C, A] — remove back edge C→A
+            back_src = found_cycle[-2]
+            back_dst = found_cycle[0]
+            current_deps = repaired.get(back_src, [])
+            if back_dst in current_deps:
+                repaired[back_src] = [d for d in current_deps if d != back_dst]
+                removed += 1
+            else:
+                break  # safety: cycle exists but back edge not found — avoid infinite loop
+
+        # Rebuild FilePlan list with repaired imports
+        result = []
+        for p in plans:
+            new_imports = repaired.get(p.path, list(p.imports))
+            if new_imports != list(p.imports):
+                result.append(dataclasses.replace(p, imports=new_imports))
+            else:
+                result.append(p)
+        return result, removed
 
     @staticmethod
     def _detect_dag_cycles(blueprint) -> list:

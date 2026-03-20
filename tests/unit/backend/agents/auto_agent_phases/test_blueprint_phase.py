@@ -333,3 +333,60 @@ def test_enforce_described_files_priority_after_existing():
 
     injected = next(fp for fp in ctx.blueprint if "MyService" in fp.path)
     assert injected.priority > 5
+
+
+# ----------------------------------------------------------------
+# I5 — Dependency cycle repair
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_repair_cycles_removes_back_edge():
+    """I5: Mutual A→B, B→A import cycle: one back edge is removed."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    plan_a = FilePlan(path="a.py", purpose="Module A", exports=["A"], imports=["b.py"], key_logic="", priority=1)
+    plan_b = FilePlan(path="b.py", purpose="Module B", exports=["B"], imports=["a.py"], key_logic="", priority=2)
+
+    repaired, edges_removed = BlueprintPhase._repair_cycles([plan_a, plan_b])
+
+    assert edges_removed >= 1
+    # After repair, no remaining cycle: a.py imports or b.py imports must be cleared
+    a_imports = next(p.imports for p in repaired if p.path == "a.py")
+    b_imports = next(p.imports for p in repaired if p.path == "b.py")
+    # At most one of them still imports the other
+    assert not (("b.py" in a_imports) and ("a.py" in b_imports))
+
+
+@pytest.mark.unit
+def test_repair_cycles_leaves_dag_unchanged():
+    """I5: A DAG (no cycle) is returned unchanged with edges_removed == 0."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    plan_a = FilePlan(path="a.py", purpose="A", exports=[], imports=[], key_logic="", priority=1)
+    plan_b = FilePlan(path="b.py", purpose="B", exports=[], imports=["a.py"], key_logic="", priority=2)
+    plan_c = FilePlan(path="c.py", purpose="C", exports=[], imports=["b.py"], key_logic="", priority=3)
+
+    repaired, edges_removed = BlueprintPhase._repair_cycles([plan_a, plan_b, plan_c])
+
+    assert edges_removed == 0
+    # Imports unchanged
+    assert next(p.imports for p in repaired if p.path == "b.py") == ["a.py"]
+
+
+@pytest.mark.unit
+def test_repair_cycles_enables_topological_sort():
+    """I5: Cyclic plans can be topologically sorted after repair."""
+    from backend.agents.auto_agent_phases.phase_context import FilePlan
+
+    # Three-node cycle: a→b, b→c, c→a
+    plan_a = FilePlan(path="a.py", purpose="A", exports=[], imports=["c.py"], key_logic="", priority=1)
+    plan_b = FilePlan(path="b.py", purpose="B", exports=[], imports=["a.py"], key_logic="", priority=2)
+    plan_c = FilePlan(path="c.py", purpose="C", exports=[], imports=["b.py"], key_logic="", priority=3)
+
+    repaired, edges_removed = BlueprintPhase._repair_cycles([plan_a, plan_b, plan_c])
+    assert edges_removed >= 1
+
+    # _topological_sort should not raise
+    sorted_plans = BlueprintPhase._topological_sort(repaired)
+    assert len(sorted_plans) == 3

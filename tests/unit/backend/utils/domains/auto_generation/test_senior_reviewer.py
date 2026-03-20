@@ -85,3 +85,49 @@ class TestSeniorReviewer:
 
         assert result["status"] == "failed"
         assert "JSON" in result["summary"]
+
+
+# ----------------------------------------------------------------
+# I10 — 64K context for 30B+ models
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_i10_large_model_uses_65536_num_ctx():
+    """I10: SeniorReviewer with a 30B+ model automatically selects 64K context."""
+    client = MagicMock()
+    client.model = "qwen3-coder:30b"
+    reviewer = SeniorReviewer(
+        llm_client=client,
+        logger=MagicMock(),
+        response_parser=MagicMock(),
+    )
+    assert reviewer.options["num_ctx"] == 65536
+
+
+@pytest.mark.unit
+def test_i10_small_model_uses_default_context():
+    """I10: SeniorReviewer with a small model uses the default 32K context."""
+    client = MagicMock()
+    client.model = "qwen3.5:4b"
+    reviewer = SeniorReviewer(
+        llm_client=client,
+        logger=MagicMock(),
+        response_parser=MagicMock(),
+    )
+    assert reviewer.options["num_ctx"] == 32768
+
+
+@pytest.mark.unit
+def test_i10_explicit_options_not_overridden():
+    """I10: Explicitly passed options are used as-is, not replaced by auto-detection."""
+    client = MagicMock()
+    client.model = "qwen3-coder:30b"
+    custom_opts = {"num_ctx": 8192, "temperature": 0.5}
+    reviewer = SeniorReviewer(
+        llm_client=client,
+        logger=MagicMock(),
+        response_parser=MagicMock(),
+        options=custom_opts,
+    )
+    assert reviewer.options["num_ctx"] == 8192

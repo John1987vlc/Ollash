@@ -50,3 +50,13 @@ structure = agent.generate_structure_only("A FastAPI REST API", "my_api")
 ## Domain Agent Swarm
 
 `DomainAgentOrchestrator` dispatches tasks to specialized agents via a shared `Blackboard`. Supports `DebateNodeRunner` (Architect vs Auditor) and `SelfHealingLoop`.
+
+## Sprint History
+
+| Sprint | Key improvements |
+|--------|----------------|
+| **Sprint 20** | 10 AutoAgent quality improvements (I1–I10): severity/status normalisation, 3-cycle SeniorReview, post-repair re-validation, stub patterns, blueprint cycle repair, PatchPhase depth, template literal fetch, export repair, TestRun iterations, 64K context |
+| **Sprint 19** | ExportValidationPhase (4c), DuplicateSymbolPhase (4d), CodeFill signature tracking + anti-stub, CrossFileValidation re-check between rounds, SeniorReview security prescan |
+| **Sprint 18/18b** | Patch content budget 36K, JS brace-balance check, SeniorReview compact 40K/32K |
+| **Sprint 17** | Pass 10/11 CrossFileValidation, blueprint DOM-ID pre-sync, structural-rename bypass |
+| **Sprint 15–16** | JS merge fix, blueprint import dedup, dead-code removal |

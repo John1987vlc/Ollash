@@ -114,13 +114,14 @@ def test_small_model_writes_cross_file_errors():
     """Small models (≤8B) write missing exports to cross_file_errors instead of injecting."""
     ctx = _make_ctx(model_name="qwen3.5:4b")
     ctx.blueprint = [_plan("ai.js", exports=["makeMove"])]
-    ctx.generated_files = {"ai.js": "function placeholder() {}"}
+    # I8: repair is only attempted for files ≤5000 chars; use a large file so advisory path runs
+    ctx.generated_files = {"ai.js": "// x\n" * 1100}  # > 5000 chars → advisory only
     with patch(
         "backend.agents.auto_agent_phases.export_validation_phase.ExportValidationPhase._inject_missing_exports"
     ) as mock_inject:
         ExportValidationPhase().run(ctx)
     assert any(e["error_type"] == "missing_export" for e in ctx.cross_file_errors)
-    # Small models should NOT call _inject_missing_exports (they write to cross_file_errors instead)
+    # File >5000 chars — I8 repair not attempted
     mock_inject.assert_not_called()
 
 
@@ -224,3 +225,41 @@ def test_non_fatal_on_exception():
     ):
         # Should not raise
         ExportValidationPhase().run(ctx)
+
+
+# ----------------------------------------------------------------
+# I8 — Small-model targeted export repair
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_i8_small_model_repairs_compact_file():
+    """I8: Small model attempts LLM repair when file ≤5 000 chars and ≤3 missing exports."""
+    ctx = _make_ctx(model_name="qwen3.5:4b")  # small model
+    ctx.blueprint = [_plan("ui.js", exports=["initGame"])]
+    ctx.generated_files = {"ui.js": "function placeholder() {}"}  # <5000 chars
+
+    with patch("backend.utils.domains.auto_generation.utilities.code_patcher.CodePatcher") as MockCP:
+        MockCP.return_value.inject_missing_function.return_value = (
+            "function placeholder() {}\nfunction initGame() { return true; }"
+        )
+        ExportValidationPhase().run(ctx)
+
+    # File was updated in generated_files
+    assert "initGame" in ctx.generated_files.get("ui.js", "")
+
+
+@pytest.mark.unit
+def test_i8_small_model_advisory_only_for_large_file():
+    """I8: Small model skips repair when file >5 000 chars and pushes advisory error instead."""
+    ctx = _make_ctx(model_name="qwen3.5:4b")
+    ctx.blueprint = [_plan("ui.js", exports=["initGame"])]
+    # Generate content > 5000 chars
+    ctx.generated_files = {"ui.js": "// x\n" * 1100}
+
+    with patch("backend.utils.domains.auto_generation.utilities.code_patcher.CodePatcher") as MockCP:
+        ExportValidationPhase().run(ctx)
+
+    # No LLM call — advisory pushed to cross_file_errors
+    MockCP.return_value.inject_missing_function.assert_not_called()
+    assert any("initGame" in e.get("description", "") for e in ctx.cross_file_errors)

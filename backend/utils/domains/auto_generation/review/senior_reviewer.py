@@ -22,6 +22,14 @@ class SeniorReviewer:
         "keep_alive": "0s",
     }
 
+    # I10: wider context for 30B+ models — matches _CHAR_BUDGET_LARGE (60K chars ≈ 64K tokens)
+    LARGE_MODEL_OPTIONS = {
+        "num_ctx": 65536,
+        "num_predict": 8192,
+        "temperature": 0.2,
+        "keep_alive": "0s",
+    }
+
     JSON_RETRY_OPTIONS = {
         "num_ctx": 16384,
         "num_predict": 4096,
@@ -39,7 +47,15 @@ class SeniorReviewer:
         self.llm_client = llm_client
         self.logger = logger
         self.parser = response_parser
-        self.options = options or self.DEFAULT_OPTIONS.copy()
+        # I10: auto-select wider context for 30B+ models when no explicit options provided
+        if options is None:
+            import re as _re
+
+            model_name = getattr(llm_client, "model", "") or ""
+            m = _re.search(r"(\d+(?:\.\d+)?)b", model_name.lower())
+            model_size = float(m.group(1)) if m else 0.0
+            options = self.LARGE_MODEL_OPTIONS.copy() if model_size >= 30.0 else self.DEFAULT_OPTIONS.copy()
+        self.options = options
         self.retry_policy = RetryPolicy(max_attempts=2)
 
     def perform_review(

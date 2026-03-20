@@ -61,3 +61,17 @@ logger = main_container.core.logging.logger()
 Usar **siempre** la ruta completa con sub-contenedor:
 - ✅ `core.logging.logger`
 - ❌ `core.logger` (ruta antigua — eliminada en Sprint 2)
+
+## config_schemas.py — SeniorReview validators (Sprint 20)
+
+`SeniorReviewIssue` and `SeniorReviewOutput` in `config_schemas.py` have `@field_validator(mode="before")` validators that normalise LLM vocabulary before Pydantic's `Literal` check:
+
+| Input | Normalised |
+|-------|-----------|
+| `"warning"`, `"warn"` | `"medium"` |
+| `"error"`, `"err"`, `"major"`, `"important"` | `"high"` |
+| `"blocker"`, `"fatal"`, `"severe"` | `"critical"` |
+| `"info"`, `"information"`, `"minor"` | `"low"` |
+| unknown strings | `"medium"` |
+| `"pass"`, `"ok"`, `"success"`, `"clean"`, `"good"` (status) | `"passed"` |
+| unknown status strings | `"failed"` |

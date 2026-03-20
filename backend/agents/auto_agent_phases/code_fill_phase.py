@@ -49,12 +49,19 @@ _NON_CODE_EXTS = {
 }
 
 # A-2 — Patterns that indicate stub/placeholder code instead of a real implementation
+# I4: added 5 new patterns (bare ellipsis, bare pass, return None, # Placeholder, NotImplemented constant)
 _STUB_PATTERNS = re.compile(
     r"//\s*\.{3}\s*\w+.*?\.{3}"  # // ... game logic ...  (JS/C++ style)
     r"|#\s*\.{3}\s*\w+.*?\.{3}"  # # ... some logic ...   (Python/Ruby style)
     r"|//\s*TODO\b"  # // TODO
     r"|#\s*TODO\b"  # # TODO (Python/Ruby)
-    r"|raise\s+NotImplementedError\b",  # Python stub
+    r"|raise\s+NotImplementedError\b"  # Python stub (exception)
+    # I4: new stub patterns
+    r"|^\s*\.\.\.\s*$"  # bare ellipsis on its own line (Python stub body)
+    r"|^\s*pass\s*$"  # bare pass as entire function body
+    r"|^\s*return\s+None\s*$"  # return None as sole function body
+    r"|#\s*[Pp]laceholder\b"  # # Placeholder comment
+    r"|\bNotImplemented\b(?!\w)",  # NotImplemented constant (not NotImplementedError)
     re.IGNORECASE | re.MULTILINE,
 )
 

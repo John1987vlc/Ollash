@@ -3,13 +3,15 @@
 Runs the appropriate test command for the project's language: pytest (Python),
 jest/vitest (JS/TS), go test (Go), cargo test (Rust), mvn test (Java).
 For each failing test, locates the relevant source file and patches it.
-Max 3 iterations.
+I9: Max 5 iterations (large >8B) / 3 iterations (small ≤8B).
+After tests pass, a zero-LLM ruff check catches lint regressions from patches (I9).
 
 Skipped automatically for small models (<=8B) — see AutoAgent.SMALL_PHASE_ORDER.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -18,7 +20,8 @@ from typing import Dict, List, Optional
 from backend.agents.auto_agent_phases.base_phase import BasePhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
-_MAX_ITERATIONS = 3
+_MAX_ITERATIONS_LARGE = 5  # I9: large (>8B) models — was 3
+_MAX_ITERATIONS_SMALL = 3  # I9: small (≤8B) models — unchanged
 _PYTEST_TIMEOUT = 120
 _TEST_TIMEOUT = 120
 
@@ -40,7 +43,8 @@ class TestRunPhase(BasePhase):
         runner = self._select_test_runner(ctx)
         ctx.logger.info(f"[TestRun] Using runner: {runner}")
 
-        for iteration in range(_MAX_ITERATIONS):
+        max_iters = _MAX_ITERATIONS_SMALL if ctx.is_small() else _MAX_ITERATIONS_LARGE
+        for iteration in range(max_iters):
             result = self._run_tests(ctx, runner)
             if result is None:
                 ctx.logger.info(f"[TestRun] {runner} not available, skipping")
@@ -57,6 +61,8 @@ class TestRunPhase(BasePhase):
                         failures=[],
                         patches_applied=0,
                     )
+                # I9: post-success ruff check — catches lint regressions from test-fix patches
+                self._post_success_ruff_check(ctx)
                 return
 
             failures = result.get("failures", [])
@@ -81,6 +87,39 @@ class TestRunPhase(BasePhase):
                 )
 
         ctx.metrics["tests_passed"] = False
+
+    def _post_success_ruff_check(self, ctx: PhaseContext) -> None:
+        """I9: Zero-LLM ruff lint check after test success.
+
+        Runs ruff on the generated project to catch lint regressions introduced
+        by test-fix patches. Non-fatal — test success is already confirmed.
+        Records issue count in ctx.metrics["post_test_ruff_issues"].
+        """
+        has_python = any(p.endswith(".py") for p in ctx.generated_files)
+        if not has_python:
+            return
+        try:
+            result = subprocess.run(
+                ["python", "-m", "ruff", "check", "--format=json", "."],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=str(ctx.project_root),
+            )
+            if not result.stdout:
+                return
+            try:
+                issues = json.loads(result.stdout)
+            except (json.JSONDecodeError, ValueError):
+                return
+            count = len(issues) if isinstance(issues, list) else 0
+            if count:
+                ctx.logger.warning(f"[TestRun] I9: post-success ruff found {count} lint issue(s)")
+            else:
+                ctx.logger.info("[TestRun] I9: post-success ruff clean")
+            ctx.metrics["post_test_ruff_issues"] = count
+        except Exception as e:
+            ctx.logger.debug(f"[TestRun] I9: post-success ruff check skipped: {e}")
 
     @staticmethod
     def _select_test_runner(ctx: PhaseContext) -> str:

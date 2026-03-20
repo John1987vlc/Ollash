@@ -6,7 +6,7 @@ targeted fix. Max 2 passes, max `_MAX_FIXES_PER_PASS` errors fixed per pass
 (ruff reports up to 50 errors per run).
 
 After static fixes, runs multi-round iterative-improvement (#10):
-  - Up to 3 rounds (large models) / 2 rounds (small models)
+  - Up to 5 rounds (large models, I6) / 2 rounds (small models, I6)
   - Round 0: seeds from ctx.cross_file_errors if CrossFileValidationPhase left any
   - Subsequent rounds: LLM review, identify one critical issue, patch it
   - For small projects (<=6 files, <=8000 chars): includes actual file content in
@@ -31,15 +31,16 @@ from backend.agents.auto_agent_phases.base_phase import BasePhase
 from backend.agents.auto_agent_phases.phase_context import PhaseContext
 
 _MAX_PASSES = 2
-_MAX_FIXES_PER_PASS = 10
+_MAX_FIXES_PER_PASS = 25  # I6: was 10 — ruff emits up to 50 errors; fix more per pass
+_MAX_FIXES_PER_PASS_SMALL = 8  # I6: small models: reduced cap for speed
 
 # #I3 — Exclude the pipeline run log from improvement context (it's metadata, not project source)
 _RUN_LOG_FILENAME = "OLLASH_RUN_LOG.md"
 _SUBPROCESS_TIMEOUT = 30
 
 # Multi-round improvement constants
-_MAX_IMPROVEMENT_ROUNDS = 3  # large (>8B) models
-_MAX_IMPROVEMENT_ROUNDS_SMALL = 3  # small (<=8B) models
+_MAX_IMPROVEMENT_ROUNDS = 5  # I6: large (>8B) models — was 3; 2 extra focused-aspect rounds
+_MAX_IMPROVEMENT_ROUNDS_SMALL = 2  # I6: small (<=8B) models — was 3; faster path
 _CONTENT_INCLUDE_MAX_FILES = 10  # include actual file content below this file count
 _CONTENT_INCLUDE_MAX_CHARS = 80_000  # and below this total character count (M1) — #S18: 50K→80K
 
@@ -129,7 +130,8 @@ class PatchPhase(BasePhase):
                 break
 
             ctx.logger.info(f"[Patch] Pass {pass_num + 1}: {len(errors)} errors found")
-            fixed = self._fix_errors(ctx, errors[:_MAX_FIXES_PER_PASS])
+            fix_cap = _MAX_FIXES_PER_PASS_SMALL if ctx.is_small() else _MAX_FIXES_PER_PASS
+            fixed = self._fix_errors(ctx, errors[:fix_cap])
             total_fixed += fixed
             ctx.logger.info(f"[Patch] Pass {pass_num + 1}: Fixed {fixed} files")
 

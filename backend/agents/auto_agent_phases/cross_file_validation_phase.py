@@ -604,12 +604,16 @@ class CrossFileValidationPhase(BasePhase):
     def _check_js_fetch_vs_routes(self, ctx: PhaseContext) -> List[Dict[str, Any]]:
         """M5 — Detect fetch() calls in JS whose URL has no matching backend route.
 
-        Extracts literal URLs from fetch('...') calls and compares against
-        @app.get/post/put/delete/patch route decorators in Python files.
+        Extracts literal URLs from fetch('...') and template-literal fetch(`...`) calls,
+        compares against @app.get/post/put/delete/patch route decorators in Python files.
         Normalizes path parameters so /api/items/123 matches /api/items/{id}.
+        I7a: template literals are normalised by replacing ${...} expressions with {param}.
         Zero-LLM. Skips if no route decorators are found (non-API project guard).
         """
         _FETCH_RE = re.compile(r"fetch\s*\(\s*['\"]([^'\"$]+)['\"]", re.IGNORECASE)
+        # I7a: template literal fetch URLs (backtick strings)
+        _FETCH_TEMPLATE_RE = re.compile(r"fetch\s*\(\s*`([^`]+)`", re.IGNORECASE)
+        _TEMPLATE_EXPR_RE = re.compile(r"\$\{[^}]+\}")  # ${...} expressions
         _ROUTE_RE = re.compile(
             r'@(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*[\'"]([^\'"]+)[\'"]',
             re.IGNORECASE,
@@ -634,9 +638,10 @@ class CrossFileValidationPhase(BasePhase):
 
         errors: List[Dict[str, Any]] = []
         for js_path, js_content in js_files.items():
+            # Literal string fetch URLs
             for url in _FETCH_RE.findall(js_content):
                 if not url.startswith("/"):
-                    continue  # skip absolute URLs and external calls
+                    continue
                 norm_url = self._normalize_route_path(url)
                 if norm_url not in backend_routes:
                     known = sorted(backend_routes.keys())[:5]
@@ -651,6 +656,31 @@ class CrossFileValidationPhase(BasePhase):
                             ),
                             "suggestion": (
                                 f"Add a route handler for '{url}' in {primary_py}, "
+                                "or update the JS URL to match an existing route"
+                            ),
+                        }
+                    )
+
+            # I7a: template literal fetch URLs — normalise ${...} → {param}
+            for url_template in _FETCH_TEMPLATE_RE.findall(js_content):
+                url_literal = _TEMPLATE_EXPR_RE.sub("{param}", url_template)
+                if not url_literal.startswith("/"):
+                    continue
+                url_base = url_literal.split("?")[0]
+                norm_url = self._normalize_route_path(url_base)
+                if norm_url not in backend_routes:
+                    known = sorted(backend_routes.keys())[:5]
+                    errors.append(
+                        {
+                            "file_a": js_path,
+                            "file_b": primary_py,
+                            "error_type": "missing_api_route",
+                            "description": (
+                                f"JS calls fetch(`{url_template[:60]}`) — normalised to '{norm_url}' "
+                                f"but no backend route matches. Known routes: {known}"
+                            ),
+                            "suggestion": (
+                                f"Add a route handler for '{url_base}' in {primary_py}, "
                                 "or update the JS URL to match an existing route"
                             ),
                         }
@@ -723,8 +753,15 @@ class CrossFileValidationPhase(BasePhase):
             input_names.update(_SELECT_NAME_RE.findall(html_content))
             input_names -= _EXCLUDED
 
+            # I7b: build normalised (kebab→snake) lookup for form field comparison
+            normalised_pydantic = {f.replace("-", "_").lower(): f for f in pydantic_fields}
+
             for field_name in sorted(input_names):
                 if field_name in pydantic_fields:
+                    continue
+                # I7b: also accept kebab-case match (e.g. "first-name" ↔ "first_name")
+                normalised_name = field_name.replace("-", "_").lower()
+                if normalised_name in normalised_pydantic:
                     continue
                 best, ratio = self._best_match(field_name, pydantic_fields)
                 if ratio > 0.7:

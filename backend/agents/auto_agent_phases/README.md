@@ -13,10 +13,10 @@ Sequential pipeline for project generation optimized for 4B models (qwen3.5:4b).
 | 4b | `CrossFileValidationPhase` | No | **11 zero-LLM contract checks:** HTML↔JS ids (P1), CSS classes (P2), Python imports (P3), JS fetch vs routes (P4), form fields vs Pydantic models (P5), duplicate window.* exports (P6), Python constructor arity (P7), C# class/interface refs (P8), DB-seeded string case (P9), HTML inline-script vs JS exports (P10), JS cross-global call validation (P11, large models) |
 | 4c | `ExportValidationPhase` | No (large: optional) | Verifies every declared blueprint export exists in generated content; large models repair via `CodePatcher.inject_missing_function()`; small models push gaps to `cross_file_errors` for PatchPhase |
 | 4d | `DuplicateSymbolPhase` | No | Removes duplicate top-level JS/TS/Python definitions that arise from multi-block LLM output; keeps FIRST occurrence (complete); removes subsequent stubs |
-| 5 | `PatchPhase` | Yes (optional) | Static analysis (ruff/tsc/go vet/…) + DB connection bug detection + **3-round** improvement loop; after each round re-runs all CrossFileValidation passes; `id_mismatch`/`window_function_mismatch` errors bypass SEARCH/REPLACE for full-file regeneration |
-| 6b | `SeniorReviewPhase` | Yes (1–4 calls) | Security prescan (zero-LLM) + large-model full review + CodePatcher repair; `"file"` list normalization prevents JSON parse failures; compact review for small models (≤8 files / ≤32K chars) |
+| 5 | `PatchPhase` | Yes (optional) | Static analysis (ruff/tsc/go vet/…) + DB connection bug detection + **5-round** improvement loop (large) / **2-round** (small); up to **25 fixes/pass** (large) / **8** (small); after each round re-runs all CrossFileValidation passes |
+| 6b | `SeniorReviewPhase` | Yes (1–4 calls) | Security prescan (zero-LLM) + large-model full review + CodePatcher repair; **3 cycles** (large) / 2 (small); **8 issues/cycle** (large); post-repair CrossFileValidation re-validation; 64K context for 30B+ |
 | 6 | `InfraPhase` | Yes (1–2 calls) | requirements.txt, Dockerfile, .gitignore, package.json |
-| 7 | `TestRunPhase` | Yes (optional) | Run pytest, patch up to 3 failures per iteration, max 3 iterations. **Skipped for ≤8B models.** |
+| 7 | `TestRunPhase` | Yes (optional) | Run pytest/jest/go test/cargo test/mvn; patch up to 3 failures per iteration; **5 iterations** (large) / **3** (small); post-success ruff lint check. **Skipped for ≤8B models.** |
 | 8 | `FinishPhase` | No | Write `OLLASH.md` + `.ollash/metrics.json`, fire `project_complete` event |
 
 ## Token Budget
@@ -421,3 +421,69 @@ After each patch round, `_refresh_cross_file_errors()` now calls `CrossFileValid
 | `password/api_key/secret = "..."` | `hardcoded_credential` | critical |
 
 Findings are added to `ctx.cross_file_errors` and logged to `ctx.metrics["security_prescan_findings"]`.
+
+---
+
+## Pipeline Quality Improvements (Sprint 20)
+
+10 targeted improvements identified from benchmark analysis (SeniorReview scoring 0.2 across all models — root-caused to Pydantic `Literal` rejection of LLM vocabulary).
+
+### I1 — SeniorReview severity/status normalisation (`config_schemas.py`)
+
+`SeniorReviewIssue.severity` now accepts LLM vocabulary before the `Literal` check:
+- `"warning"/"warn"` → `"medium"`; `"error"/"err"/"major"/"important"` → `"high"`
+- `"blocker"/"fatal"/"severe"` → `"critical"`; `"info"/"minor"` → `"low"`; unknown → `"medium"`
+
+`SeniorReviewOutput.status` normalises: `"pass"/"ok"/"success"/"clean"` → `"passed"`; unknown → `"failed"`.
+
+**Impact:** SeniorReview benchmark expected to rise from 0.2 to >0.5.
+
+### I2 — SeniorReviewPhase: 3 cycles for large models (`senior_review_phase.py`)
+
+| Constant | Before | After |
+|----------|--------|-------|
+| `_MAX_REVIEW_CYCLES_LARGE` | 2 | **3** |
+| `_MAX_ISSUES_PER_CYCLE_LARGE` | 5 | **8** |
+
+### I3 — Post-SeniorReview re-validation (`senior_review_phase.py`)
+
+After all review cycles complete, if ≥1 file was patched, `CrossFileValidationPhase._run_validation()` re-runs to catch contract regressions introduced by repair patches. Result stored in `ctx.metrics["senior_review_post_revalidation"]`.
+
+### I4 — CodeFillPhase: 5 new stub-detection patterns (`code_fill_phase.py`)
+
+`_STUB_PATTERNS` extended with: bare `...`, bare `pass`, `return None`, `# Placeholder`, `NotImplemented`.
+
+### I5 — BlueprintPhase: dependency cycle repair (`blueprint_phase.py`)
+
+New static method `_repair_cycles(plans)` removes back edges (DFS) before `_topological_sort()`. Stores `ctx.metrics["blueprint_cycles_repaired"]` count.
+
+### I6 — PatchPhase: deeper loops for large models (`patch_phase.py`)
+
+| Constant | Before | After |
+|----------|--------|-------|
+| `_MAX_FIXES_PER_PASS` (large) | 10 | **25** |
+| `_MAX_FIXES_PER_PASS_SMALL` | — | **8** |
+| `_MAX_IMPROVEMENT_ROUNDS` (large) | 3 | **5** |
+| `_MAX_IMPROVEMENT_ROUNDS_SMALL` | 3 | **2** |
+
+### I7 — CrossFileValidation: template literals + kebab↔snake (`cross_file_validation_phase.py`)
+
+- **I7a:** Template literal fetch URLs (`` fetch(`/api/${id}`) ``) now detected; `${…}` → `{param}` normalisation before route comparison.
+- **I7b:** Form field `kebab-case` names now match `snake_case` Pydantic fields via `_normalise_field_name()`.
+
+### I8 — ExportValidation: repair for small-model compact files (`export_validation_phase.py`)
+
+Small models (≤8B) now attempt `CodePatcher.inject_missing_function()` repair when: missing exports ≤3, file ≤5 000 chars, extension `.js`/`.py`. Falls through to advisory push otherwise.
+
+### I9 — TestRunPhase: 5 iterations + post-success ruff (`test_run_phase.py`)
+
+| Constant | Before | After |
+|----------|--------|-------|
+| `_MAX_ITERATIONS_LARGE` | 3 | **5** |
+| `_MAX_ITERATIONS_SMALL` | 3 | **3** (unchanged) |
+
+Post-success `_post_success_ruff_check()` runs ruff on `.py` projects after tests pass; stores `ctx.metrics["post_test_ruff_issues"]`. Zero-LLM, non-fatal.
+
+### I10 — SeniorReviewer: 64K context for 30B+ models (`senior_reviewer.py`, `senior_review_phase.py`)
+
+`SeniorReviewer` auto-detects model size via `(\d+(?:\.\d+)?)b` regex; selects `LARGE_MODEL_OPTIONS (num_ctx=65536)` when ≥30B. `_build_truncated_files` uses `_CHAR_BUDGET_LARGE=60 000` for 30B+ models.

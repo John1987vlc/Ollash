@@ -102,7 +102,15 @@ class ExportValidationPhase(BasePhase):
                 continue
 
             if is_small:
-                # Small model: push to cross_file_errors for PatchPhase round 0
+                # I8: attempt LLM repair for small models when file is compact
+                content = ctx.generated_files.get(file_path, "")
+                if len(names) <= 3 and len(content) <= 5000 and file_path.endswith((".js", ".py")):
+                    fixed = self._inject_missing_exports(ctx, file_path, names, plan.purpose, plan.key_logic)
+                    if fixed > 0:
+                        repaired += fixed
+                        continue  # successfully repaired — skip advisory push
+
+                # Fall through: push unrepaired exports to cross_file_errors for PatchPhase round 0
                 for name in names:
                     ctx.cross_file_errors.append(
                         {
@@ -130,7 +138,7 @@ class ExportValidationPhase(BasePhase):
         ctx.logger.info(f"[ExportValidation] {repaired}/{total_missing} missing export(s) repaired")
 
     # ----------------------------------------------------------------
-    # Injection helper (large models only)
+    # Injection helper (large models + I8: small models with compact files)
     # ----------------------------------------------------------------
 
     def _inject_missing_exports(

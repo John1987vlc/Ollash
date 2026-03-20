@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from backend.agents.auto_agent_phases.code_fill_phase import CodeFillPhase
+from backend.agents.auto_agent_phases.code_fill_phase import CodeFillPhase, _STUB_PATTERNS
 from backend.agents.auto_agent_phases.phase_context import FilePlan, PhaseContext
 
 
@@ -194,3 +194,58 @@ def test_is_browser_js_api():
     ctx = _make_ctx()
     ctx.project_type = "api"
     assert CodeFillPhase._is_browser_js(ctx, "static/app.js") is True
+
+
+# ----------------------------------------------------------------
+# I4 — _STUB_PATTERNS: 5 new patterns
+# ----------------------------------------------------------------
+
+
+def _long_content(snippet: str) -> str:
+    """Pad content to >30 lines so the 30-line guard doesn't suppress detection."""
+    padding = "\n".join(f"# line {i}" for i in range(35))
+    return padding + "\n" + snippet
+
+
+@pytest.mark.unit
+def test_stub_detection_ellipsis():
+    """I4: bare ellipsis on its own line is detected as stub."""
+    content = _long_content("def func():\n    ...\n")
+    assert bool(_STUB_PATTERNS.search(content))
+
+
+@pytest.mark.unit
+def test_stub_detection_bare_pass():
+    """I4: bare pass on its own line is detected as stub."""
+    content = _long_content("def func():\n    pass\n")
+    assert bool(_STUB_PATTERNS.search(content))
+
+
+@pytest.mark.unit
+def test_stub_detection_return_none():
+    """I4: 'return None' as sole function body is detected as stub."""
+    content = _long_content("def func():\n    return None\n")
+    assert bool(_STUB_PATTERNS.search(content))
+
+
+@pytest.mark.unit
+def test_stub_detection_placeholder_comment():
+    """I4: # Placeholder comment is detected as stub."""
+    content = _long_content("def func():\n    # Placeholder implementation\n    pass\n")
+    assert bool(_STUB_PATTERNS.search(content))
+
+
+@pytest.mark.unit
+def test_stub_detection_not_implemented_constant():
+    """I4: NotImplemented constant (not exception) is detected as stub."""
+    content = _long_content("def func():\n    return NotImplemented\n")
+    assert bool(_STUB_PATTERNS.search(content))
+
+
+@pytest.mark.unit
+def test_stub_detection_short_file_not_flagged():
+    """I4: The 30-line guard suppresses detection on tiny files."""
+    short_content = "def func():\n    pass\n"
+    # Only 2 lines — well under the 30-line guard threshold
+    phase = CodeFillPhase()
+    assert phase._detect_stubs(short_content, "main.py") is False

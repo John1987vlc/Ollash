@@ -29,7 +29,7 @@ Motor de generación de proyectos completos. Usado principalmente por `AutoAgent
 |---------|-------|----------------|
 | `project_reviewer.py` | `ProjectReviewer` | Revisión completa del proyecto generado |
 | `structure_pre_reviewer.py` | `StructurePreReviewer` | Revisa estructura antes de generar archivos |
-| `senior_reviewer.py` | `SeniorReviewer` | Revisión nivel senior con feedback detallado |
+| `senior_reviewer.py` | `SeniorReviewer` | Revisión nivel senior con feedback detallado; **Sprint 20**: auto-selects 64K context (`num_ctx=65536`) for 30B+ models |
 | `file_completeness_checker.py` | `FileCompletenessChecker` | Verifica que los archivos tienen contenido completo |
 | `quality_gate.py` | `QualityGate` | Gate de calidad: bloquea si métricas no cumplen umbral |
 

@@ -230,11 +230,42 @@ class LogicPlanningOutput(BaseModel):
 
 
 # --- Senior Review Schema ---
+
+# I1: Normalise LLM vocabulary to the four allowed severity values before Literal check.
+# LLMs commonly return "warning", "error", "major", etc. — this prevents ValidationError
+# from causing zero-fix runs (root cause of SeniorReview benchmark score 0.2).
+_SEVERITY_NORM_MAP: Dict[str, str] = {
+    "warning": "medium",
+    "warn": "medium",
+    "error": "high",
+    "err": "high",
+    "major": "high",
+    "important": "high",
+    "blocker": "critical",
+    "fatal": "critical",
+    "severe": "critical",
+    "info": "low",
+    "information": "low",
+    "minor": "low",
+}
+
+
 class SeniorReviewIssue(BaseModel):
     severity: Literal["low", "medium", "high", "critical"] = "medium"
     file: str = Field(description="Affected file path — single string filename, NOT a list")
     description: str = Field(description="Clear explanation of the problem")
     recommendation: str = Field(description="Concrete steps to resolve the issue")
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def normalise_severity(cls, v: Any) -> str:
+        """I1: Map non-standard LLM severity strings to the four allowed values."""
+        if isinstance(v, str):
+            lower = v.lower().strip()
+            if lower in {"low", "medium", "high", "critical"}:
+                return lower
+            return _SEVERITY_NORM_MAP.get(lower, "medium")
+        return "medium"
 
     @field_validator("file", mode="before")
     @classmethod
@@ -255,6 +286,18 @@ class SeniorReviewOutput(BaseModel):
     status: Literal["passed", "failed"] = "failed"
     summary: str = Field(description="Executive summary of the review")
     issues: List[SeniorReviewIssue] = Field(default_factory=list, description="Detailed list of findings")
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def normalise_status(cls, v: Any) -> str:
+        """I1: Map non-standard LLM status strings to 'passed' or 'failed'."""
+        if isinstance(v, str):
+            lower = v.lower().strip()
+            if lower in {"passed", "failed"}:
+                return lower
+            if lower in {"pass", "ok", "success", "clean", "good", "all_pass", "all_passed"}:
+                return "passed"
+        return "failed"
 
 
 class ToolSettingsConfig(BaseModel):

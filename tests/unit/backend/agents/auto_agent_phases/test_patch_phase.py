@@ -266,3 +266,40 @@ def test_csharp_no_errors_for_empty_generated_files():
     ctx.generated_files = {"app.py": "print('hello')"}
     errors = PatchPhase()._check_csharp_static(ctx)
     assert errors == []
+
+
+# ----------------------------------------------------------------
+# I6 — Larger fix caps and more improvement rounds
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_i6_large_model_max_fixes_per_pass():
+    """I6: Large model uses _MAX_FIXES_PER_PASS = 25."""
+    from backend.agents.auto_agent_phases.patch_phase import _MAX_FIXES_PER_PASS
+
+    assert _MAX_FIXES_PER_PASS == 25
+
+
+@pytest.mark.unit
+def test_i6_small_model_max_fixes_per_pass():
+    """I6: Small model cap is 8."""
+    from backend.agents.auto_agent_phases.patch_phase import _MAX_FIXES_PER_PASS_SMALL
+
+    assert _MAX_FIXES_PER_PASS_SMALL == 8
+
+
+@pytest.mark.unit
+def test_i6_large_model_improvement_rounds():
+    """I6: Large-model improvement rounds constant is 5."""
+    from backend.agents.auto_agent_phases.patch_phase import _MAX_IMPROVEMENT_ROUNDS
+
+    assert _MAX_IMPROVEMENT_ROUNDS == 5
+
+
+@pytest.mark.unit
+def test_i6_small_model_improvement_rounds():
+    """I6: Small-model improvement rounds constant is 2."""
+    from backend.agents.auto_agent_phases.patch_phase import _MAX_IMPROVEMENT_ROUNDS_SMALL
+
+    assert _MAX_IMPROVEMENT_ROUNDS_SMALL == 2

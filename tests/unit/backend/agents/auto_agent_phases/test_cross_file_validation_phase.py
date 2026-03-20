@@ -464,3 +464,60 @@ def test_csharp_deduplicates_errors_per_file():
     errors = phase._check_csharp_class_references(ctx)
     wrong_ctx_errors = [e for e in errors if "WrongContext" in e["description"]]
     assert len(wrong_ctx_errors) == 1
+
+
+# ----------------------------------------------------------------
+# I7a — Template literal fetch URL detection
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_template_literal_fetch_matches_existing_route():
+    """I7a: Template literal fetch URL that resolves to an existing route is NOT flagged."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "app.js": "fetch(`/api/users/${userId}`, {method:'GET'})",
+        "server.py": (
+            "from fastapi import APIRouter\n"
+            "router = APIRouter()\n"
+            "@router.get('/api/users/{user_id}')\n"
+            "def get_user(user_id): pass\n"
+        ),
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_js_fetch_vs_routes(ctx)
+    # /api/users/{param} matches /api/users/{user_id} — no error expected
+    assert not any("users" in e.get("description", "") for e in errors)
+
+
+@pytest.mark.unit
+def test_template_literal_fetch_missing_route_is_flagged():
+    """I7a: Template literal fetch pointing to a non-existent route IS flagged."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "app.js": "fetch(`/api/nonexistent/${id}`, {method:'POST'})",
+        "server.py": "@router.get('/api/items')\ndef list_items(): pass\n",
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_js_fetch_vs_routes(ctx)
+    assert any("nonexistent" in e.get("description", "") for e in errors)
+
+
+# ----------------------------------------------------------------
+# I7b — Kebab ↔ snake_case form field normalisation
+# ----------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_kebab_form_field_matches_snake_pydantic():
+    """I7b: HTML form field with kebab-case name matches snake_case Pydantic field — no error."""
+    ctx = _make_ctx()
+    ctx.generated_files = {
+        "index.html": ("<form method='post'>\n<input name='first-name' />\n<input name='last-name' />\n</form>\n"),
+        "models.py": (
+            "from pydantic import BaseModel\nclass UserForm(BaseModel):\n    first_name: str\n    last_name: str\n"
+        ),
+    }
+    phase = CrossFileValidationPhase()
+    errors = phase._check_form_fields_vs_models(ctx)
+    assert errors == []
