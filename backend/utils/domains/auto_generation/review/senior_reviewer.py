@@ -51,7 +51,8 @@ class SeniorReviewer:
         if options is None:
             import re as _re
 
-            model_name = getattr(llm_client, "model", "") or ""
+            model_name_raw = getattr(llm_client, "model", "")
+            model_name = model_name_raw if isinstance(model_name_raw, str) else ""
             m = _re.search(r"(\d+(?:\.\d+)?)b", model_name.lower())
             model_size = float(m.group(1)) if m else 0.0
             options = self.LARGE_MODEL_OPTIONS.copy() if model_size >= 30.0 else self.DEFAULT_OPTIONS.copy()
