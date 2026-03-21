@@ -289,9 +289,7 @@ class TestStateHint:
 
     def test_hint_with_remaining_files(self, tmp_path):
         tools = _make_tools(tmp_path)
-        tools._blueprint = {
-            "files": [{"path": "main.py"}, {"path": "utils.py"}]
-        }
+        tools._blueprint = {"files": [{"path": "main.py"}, {"path": "utils.py"}]}
         tools._files_written = {}
         hint = tools.state_hint()
         assert "main.py" in hint

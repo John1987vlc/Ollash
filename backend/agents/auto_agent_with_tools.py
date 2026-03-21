@@ -197,6 +197,7 @@ class AutoAgentWithTools:
 
         nudge_count = 0  # consecutive text-only responses (resets after any tool call)
         total_nudges = 0  # total nudges in the whole run (catches alternating tool/text patterns)
+        last_had_tool_error = False  # True when the previous iteration had a tool that returned ok=False
 
         for iteration in range(self.MAX_ITERATIONS):
             # ── Soft time limit check (before starting a new LLM call) ──────
@@ -234,10 +235,29 @@ class AutoAgentWithTools:
             tool_calls: List[Dict[str, Any]] = response.get("tool_calls", [])
             content: str = response.get("content", "") or ""
 
+            # ── Per-iteration diagnostic logging ──────────────────────────────
+            if tool_calls:
+                names = [tc.get("function", {}).get("name", "?") for tc in tool_calls]
+                self.logger.info(f"[AAWT iter={iteration + 1}] tool_calls={names}")
+            else:
+                self.logger.info(f"[AAWT iter={iteration + 1}] text-only: {content[:120]!r}")
+
             if not tool_calls:
                 # LLM produced text instead of tool calls
                 if self._tools.finished:
                     break  # Legitimate: agent finished, providing a summary
+
+                # If the previous iteration had a tool error, give the model one free
+                # "thinking" response before counting nudges — it may be recovering.
+                if last_had_tool_error:
+                    last_had_tool_error = False
+                    self.logger.info("[AAWT] Skipping nudge count after tool error — prompting recovery")
+                    if content:
+                        messages.append({"role": "assistant", "content": content})
+                    messages.append(
+                        {"role": "user", "content": f"Tool error occurred. Try again.\n{self._tools.state_hint()}"}
+                    )
+                    continue
 
                 nudge_count += 1
                 total_nudges += 1
@@ -266,6 +286,7 @@ class AutoAgentWithTools:
                 continue
 
             nudge_count = 0  # reset consecutive counter on any tool call
+            last_had_tool_error = False  # reset; will be set below if any tool returns ok=False
 
             # Append assistant message with tool_calls
             messages.append(
@@ -290,6 +311,14 @@ class AutoAgentWithTools:
                 await self._publish("tool_code", {"tool_name": tool_name, "tool_args": tool_args})
 
                 result = await self._dispatch_tool_call(tool_name, tool_args)
+
+                # Track whether any tool call returned an error so the next text-only
+                # response gets a grace pass instead of counting as a nudge.
+                if isinstance(result, dict) and result.get("ok") is False:
+                    last_had_tool_error = True
+                    self.logger.warning(
+                        f"[AAWT iter={iteration + 1}] tool '{tool_name}' error: {result.get('error', '')!r}"
+                    )
 
                 await self._publish("tool_output", {"tool_name": tool_name, "output": result})
 
@@ -330,11 +359,29 @@ class AutoAgentWithTools:
         """
         if name == "write_project_file":
             relative_path = args.get("relative_path", "")
-            spec = args.get("spec", args.get("content", ""))  # graceful fallback
+            # Accept multiple arg name variations that models sometimes use
+            spec = (
+                args.get("spec")
+                or args.get("content")
+                or args.get("code")
+                or args.get("file_content")
+                or args.get("body")
+                or ""
+            )
             if not relative_path:
                 return {"ok": False, "error": "write_project_file requires 'relative_path'"}
+            # If spec is still empty, try to derive from blueprint purpose
+            if not spec and self._tools._blueprint:
+                planned = {f["path"]: f.get("purpose", "") for f in self._tools._blueprint.get("files", [])}
+                derived = planned.get(relative_path, "")
+                if derived:
+                    spec = f"Implement {relative_path}: {derived}"
+                    self.logger.info(f"[AAWT] Derived spec from blueprint for {relative_path!r}")
             if not spec:
-                return {"ok": False, "error": "write_project_file requires 'spec'"}
+                return {
+                    "ok": False,
+                    "error": "write_project_file requires 'spec' (or 'content'/'code'/'file_content'/'body')",
+                }
 
             await self._publish(
                 "phase_start",

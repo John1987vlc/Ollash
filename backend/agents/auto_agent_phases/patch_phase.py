@@ -137,6 +137,14 @@ class PatchPhase(BasePhase):
 
         ctx.metrics["patch_fixes"] = total_fixed
 
+        # Stub-repair pass: scan all generated source files for stub/placeholder patterns.
+        # Runs BEFORE iterative improvement so the LLM review starts from clean code.
+        # Works even for large projects where content-inclusion mode is disabled (>80K chars).
+        stub_repairs = self._repair_stubs(ctx)
+        if stub_repairs:
+            ctx.metrics["patch_stub_repairs"] = stub_repairs
+            ctx.logger.info(f"[Patch] Stub repair: {stub_repairs} file(s) rewritten")
+
         # #10 — Iterative improvement pass (one LLM review cycle, all model sizes)
         self._iterative_improvement(ctx)
 
@@ -611,6 +619,71 @@ class PatchPhase(BasePhase):
                 ctx.logger.warning(f"[Patch] Failed to patch {file_path}: {e}")
 
         return fixed
+
+    # ----------------------------------------------------------------
+    # Stub-repair pass
+    # ----------------------------------------------------------------
+
+    # Source file extensions to include in stub scanning
+    _STUB_SCAN_EXTS = {".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".cs", ".rb", ".kt", ".dart", ".php"}
+
+    def _repair_stubs(self, ctx: PhaseContext) -> int:
+        """Scan all generated source files for stub/placeholder patterns.
+
+        For each file that still contains stubs after CodeFillPhase, calls the LLM
+        to rewrite the entire file with real implementations. Works independently of
+        the content-inclusion threshold used by iterative improvement.
+
+        Returns the count of files rewritten.
+        """
+        from backend.agents.auto_agent_phases.code_fill_phase import _STUB_PATTERNS  # reuse pattern
+
+        is_small = ctx.is_small()
+        repaired = 0
+
+        for file_path, content in list(ctx.generated_files.items()):
+            ext = Path(file_path).suffix.lower()
+            if ext not in self._STUB_SCAN_EXTS:
+                continue
+            if not _STUB_PATTERNS.search(content):
+                continue
+
+            stub_hits = [m.group(0)[:60] for m in _STUB_PATTERNS.finditer(content)][:3]
+            ctx.logger.warning(f"[Patch] Stub repair needed in {file_path}: {stub_hits}")
+
+            system = (
+                "You are a code repair agent. The file below contains stub or placeholder code. "
+                "Replace EVERY stub with a complete, working implementation. "
+                "Return ONLY the complete fixed file content. No markdown fences, no explanations."
+            )
+            user = (
+                f"Project: {ctx.project_description[:600]}\n\n"
+                f"File: {file_path}\n"
+                f"Stub patterns found: {stub_hits}\n\n"
+                f"Current content:\n{content[:4000]}\n\n"
+                "Rewrite the ENTIRE file with all stubs replaced by complete implementations. "
+                "Every function MUST have a real working body."
+            )
+
+            fixed_raw = self._llm_call(ctx, system, user, role="coder", no_think=is_small, max_tokens=3000)
+            if not fixed_raw or not fixed_raw.strip():
+                ctx.logger.warning(f"[Patch] Stub repair returned empty content for {file_path} — skipping")
+                continue
+
+            # Strip fences if present
+            fixed = re.sub(r"^```[a-zA-Z0-9_\-]*\n", "", fixed_raw.strip())
+            fixed = re.sub(r"\n```\s*$", "", fixed)
+
+            if fixed.strip():
+                self._write_file(ctx, file_path, fixed.strip())
+                if ctx.run_logger:
+                    ctx.run_logger.log_file_written(self.phase_id, file_path, len(fixed), "stub_repair")
+                ctx.logger.info(f"[Patch] Stub repair applied to {file_path} ({len(fixed)} chars)")
+                repaired += 1
+            else:
+                ctx.logger.warning(f"[Patch] Stub repair produced empty result for {file_path} — skipping")
+
+        return repaired
 
     # ----------------------------------------------------------------
     # #10 — Multi-round iterative improvement

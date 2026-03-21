@@ -133,9 +133,7 @@ class TestDispatchToolCall:
             logger=MagicMock(),
         )
         agent._code_client = MagicMock()
-        result = await agent._dispatch_tool_call(
-            "write_project_file", {"relative_path": "main.py"}
-        )
+        result = await agent._dispatch_tool_call("write_project_file", {"relative_path": "main.py"})
         assert result["ok"] is False
         assert "spec" in result["error"]
 
@@ -233,7 +231,9 @@ class TestRun:
 
         agent.llm_manager.get_client.return_value = mock_client
 
-        with patch.object(agent, "_load_prompt", AsyncMock(return_value=("sys", "Build {project_name}: {description}"))):
+        with patch.object(
+            agent, "_load_prompt", AsyncMock(return_value=("sys", "Build {project_name}: {description}"))
+        ):
             # Patch _tool_loop to finish immediately (sets tools.finished)
             async def fake_loop(*args, **kwargs):
                 agent._tools.finished = True
@@ -253,6 +253,7 @@ class TestRun:
         agent.llm_manager.get_client.return_value = mock_client
 
         with patch.object(agent, "_load_prompt", AsyncMock(return_value=("s", "{project_name}{description}"))):
+
             async def fake_loop(*args, **kwargs):
                 agent._tools.finished = True
 
@@ -270,6 +271,7 @@ class TestRun:
         agent.llm_manager.get_client.return_value = mock_client
 
         with patch.object(agent, "_load_prompt", AsyncMock(return_value=("s", "{project_name}{description}"))):
+
             async def exploding_loop(*args, **kwargs):
                 raise RuntimeError("loop failed")
 
@@ -321,7 +323,10 @@ class TestToolLoopNudge:
 
         mock_client = MagicMock()
         mock_client.stream_chat = AsyncMock(
-            return_value=({"tool_calls": [], "content": "I am thinking..."}, {"prompt_tokens": 5, "completion_tokens": 5})
+            return_value=(
+                {"tool_calls": [], "content": "I am thinking..."},
+                {"prompt_tokens": 5, "completion_tokens": 5},
+            )
         )
         agent._client = mock_client
 
@@ -357,9 +362,7 @@ class TestToolLoopNudge:
         agent._tools = tools
 
         mock_client = MagicMock()
-        mock_client.stream_chat = AsyncMock(
-            return_value=({"tool_calls": [], "content": "summary text"}, {})
-        )
+        mock_client.stream_chat = AsyncMock(return_value=({"tool_calls": [], "content": "summary text"}, {}))
         agent._client = mock_client
 
         await agent._tool_loop("system", "user", 0.0, None)
@@ -389,3 +392,124 @@ class TestToolLoopNudge:
         await agent._tool_loop("system", "user", start, max_duration_seconds=1)
 
         mock_client.stream_chat.assert_not_called()
+
+    async def test_loop_gives_grace_pass_after_tool_error(self, tmp_path):
+        """A text-only response immediately after a tool error should not count as a nudge."""
+        agent = _make_agent(tmp_path)
+
+        from backend.utils.domains.auto_generation.tools.project_creation_tools import (
+            ProjectCreationTools,
+        )
+
+        agent._tools = ProjectCreationTools(
+            project_root=tmp_path / "p",
+            event_publisher=MagicMock(),
+            logger=MagicMock(),
+        )
+
+        # Sequence: tool_call (returns error) → text → text → text → abort at 3 nudges
+        # With grace pass: the first text after tool error is free → abort at 4 calls total
+        tool_call_response = {
+            "tool_calls": [{"function": {"name": "nonexistent_tool", "arguments": {}}}],
+            "content": "",
+        }
+        text_response = {"tool_calls": [], "content": "thinking..."}
+
+        mock_client = MagicMock()
+        mock_client.stream_chat = AsyncMock(
+            side_effect=[
+                (tool_call_response, {}),  # iter 1: tool call → error
+                (text_response, {}),  # iter 2: text → grace pass (no nudge)
+                (text_response, {}),  # iter 3: text → nudge 1
+                (text_response, {}),  # iter 4: text → nudge 2
+                (text_response, {}),  # iter 5: text → nudge 3 → abort
+            ]
+        )
+        agent._client = mock_client
+
+        await agent._tool_loop("system", "user", 0.0, None)
+
+        # Without grace pass: abort at 3 nudges = 4 LLM calls (1 tool + 3 text)
+        # With grace pass: first text after error is free → 5 LLM calls total
+        assert mock_client.stream_chat.call_count == 5
+
+
+# ---------------------------------------------------------------------------
+# _dispatch_tool_call — spec fallback coverage
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestDispatchSpecFallback:
+    def _make_tools(self, tmp_path):
+        from backend.utils.domains.auto_generation.tools.project_creation_tools import (
+            ProjectCreationTools,
+        )
+
+        return ProjectCreationTools(
+            project_root=tmp_path / "p",
+            event_publisher=MagicMock(),
+            logger=MagicMock(),
+        )
+
+    async def test_spec_fallback_from_content_arg(self, tmp_path):
+        """If model passes 'content' instead of 'spec', file should still be generated."""
+        agent = _make_agent(tmp_path)
+        agent._tools = self._make_tools(tmp_path)
+        agent._code_client = MagicMock()
+        agent._code_client.stream_chat = AsyncMock(return_value=({"content": "print('hello')", "tool_calls": []}, {}))
+        result = await agent._dispatch_tool_call(
+            "write_project_file",
+            {"relative_path": "main.py", "content": "A simple Python script"},
+        )
+        assert result["ok"] is True
+
+    async def test_spec_fallback_from_code_arg(self, tmp_path):
+        """If model passes 'code' instead of 'spec', file should still be generated."""
+        agent = _make_agent(tmp_path)
+        agent._tools = self._make_tools(tmp_path)
+        agent._code_client = MagicMock()
+        agent._code_client.stream_chat = AsyncMock(
+            return_value=({"content": "console.log('hi')", "tool_calls": []}, {})
+        )
+        result = await agent._dispatch_tool_call(
+            "write_project_file",
+            {"relative_path": "index.js", "code": "Browser entry point with event listeners"},
+        )
+        assert result["ok"] is True
+
+    async def test_spec_derived_from_blueprint(self, tmp_path):
+        """If spec is empty but blueprint has a purpose for the file, derive spec automatically."""
+        import json as _json
+
+        agent = _make_agent(tmp_path)
+        agent._tools = self._make_tools(tmp_path)
+        agent._code_client = MagicMock()
+        agent._code_client.stream_chat = AsyncMock(return_value=({"content": "def main(): pass", "tool_calls": []}, {}))
+
+        # Set up blueprint with a purpose for main.py
+        blueprint = {
+            "project_type": "api",
+            "tech_stack": ["python"],
+            "files": [{"path": "main.py", "purpose": "FastAPI entry point"}],
+        }
+        await agent._tools.plan_project(_json.dumps(blueprint))
+
+        result = await agent._dispatch_tool_call(
+            "write_project_file",
+            {"relative_path": "main.py"},  # no spec or content
+        )
+        # Should succeed via blueprint-derived spec
+        assert result["ok"] is True
+
+    async def test_spec_error_when_no_fallback(self, tmp_path):
+        """When spec is empty AND no blueprint exists, return an error."""
+        agent = _make_agent(tmp_path)
+        agent._tools = self._make_tools(tmp_path)
+        agent._code_client = MagicMock()
+        result = await agent._dispatch_tool_call(
+            "write_project_file",
+            {"relative_path": "main.py"},  # no spec, no blueprint
+        )
+        assert result["ok"] is False
+        assert "spec" in result["error"].lower()

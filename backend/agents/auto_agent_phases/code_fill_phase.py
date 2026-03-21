@@ -586,12 +586,12 @@ class CodeFillPhase(BasePhase):
 
             syntax_ok, syntax_error = self._validate_syntax_detailed(plan.path, content)
             if content and syntax_ok:
-                # A-2: Anti-stub guard — if first attempt has placeholder code, force retry
-                if attempt == 0 and self._detect_stubs(content, plan.path):
+                # A-2: Anti-stub guard — apply on ALL attempts, not just attempt 0
+                if self._detect_stubs(content, plan.path):
                     stub_hits = [m.group(0)[:60] for m in _STUB_PATTERNS.finditer(content)][:3]
                     last_error = f"Stub code: {'; '.join(stub_hits)}"
                     lang = self._detect_language(plan.path)
-                    ctx.logger.warning(f"  [CodeFill] A-2 Stub patterns in {plan.path} — retrying")
+                    ctx.logger.warning(f"  [CodeFill] A-2 Stub patterns in {plan.path} (attempt {attempt}) — retrying")
                     current_user = (
                         user
                         + "\n\nPREVIOUS ATTEMPT CONTAINED STUB/PLACEHOLDER CODE:\n"
@@ -615,9 +615,14 @@ class CodeFillPhase(BasePhase):
                     + f"Write clean, valid {lang} code with no placeholders. Fix the issue above."
                 )
 
-        # Return best-effort content even if syntax check fails on second attempt
+        # Return best-effort content even if syntax check fails on second attempt.
+        # Use the current stub-aware current_user so the 3rd call has the improved prompt.
         raw = self._llm_call(ctx, system, current_user, role="coder", no_think=no_think, max_tokens=max_tokens)
         content = self._extract_code(raw, plan.path)
+        # A-2: warn if stubs still present after 3 attempts
+        if content and self._detect_stubs(content, plan.path):
+            ctx.logger.warning(f"  [CodeFill] A-2 Stub PERSISTS after 3 attempts in {plan.path} — flagging")
+            ctx.errors.append(f"CodeFill: stub patterns persist after 3 attempts in {plan.path}")
         detail = last_error or "syntax validation failed"
         return content, "retry_failed", detail
 
