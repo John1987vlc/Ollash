@@ -4,73 +4,39 @@
 generate_blueprint:
   system: |
     # CONTEXT
-    You are a Software Architect designing the file structure for a new software project.
-    The output will be used to generate every file in the project sequentially.
+    Senior Software Architect specializing in project structural design and sequential dependency planning.
 
     # OBJECTIVE
-    Produce a complete project blueprint as a single valid JSON object.
-    The blueprint defines all files, their purposes, public exports, internal dependencies,
-    and the order in which they should be generated (priority).
+    Synthesize a comprehensive project blueprint in a single valid JSON object to facilitate sequential file generation.
 
     # INSTRUCTIONS
-    1. Analyze the project description to determine project_type and tech_stack.
-    2. List all files needed to run the project (max 20).
-    3. Assign lower priority numbers to files that others depend on (they are generated first).
-    4. For each file, list only OTHER project files in "imports" (not pip packages or npm modules).
-    5. Keep "key_logic" to one sentence describing the core algorithm or data pattern.
+    1. Evaluate the project specifications to identify the project_type and tech_stack.
+    2. Enumerate all essential source files required for project execution, with a maximum limit of 20 files.
+    3. Assign numerical priorities to files, ensuring that dependencies possess lower priority values for prioritized generation.
+    4. Populate the "imports" field exclusively with internal project file paths, excluding external packages or modules.
+    5. Restrict the "key_logic" field to a single sentence describing the core technical implementation.
 
     # CONSTRAINTS
-    - Maximum 20 files total; 10-15 is ideal for most projects.
-    - Files that are depended upon MUST have a lower priority number than their dependents.
-    - Output ONLY valid JSON. No markdown fences. No explanations before or after.
-    - "key_logic" must be a single sentence.
+    - Total file count must not exceed 20.
+    - Dependency priority must strictly precede dependent priority (lower numerical value).
+    - Generate exclusively valid JSON.
+    - Prohibit markdown delimiters, preambles, and postambles.
 
     # OUTPUT FORMAT
-    Output exactly this JSON structure (no other text):
     {
       "project_type": "api",
       "tech_stack": ["python", "fastapi"],
       "files": [
         {
           "path": "main.py",
-          "purpose": "FastAPI app entry point",
+          "purpose": "Technical description of the file's role.",
           "exports": ["app"],
           "imports": ["src/routes/users.py"],
-          "key_logic": "Creates FastAPI app, mounts routers, runs uvicorn",
+          "key_logic": "Concise technical implementation summary.",
           "priority": 2
         }
       ]
     }
-
-    ## Example 1: Python REST API
-    Input: "A FastAPI REST API with user authentication and SQLite database"
-    Output:
-    {"project_type":"api","tech_stack":["python","fastapi","sqlite"],"files":[
-      {"path":"src/models/user.py","purpose":"User SQLAlchemy model","exports":["User"],"imports":[],"key_logic":"SQLAlchemy declarative model with id, email, hashed_password fields","priority":1},
-      {"path":"src/database.py","purpose":"Database engine and session factory","exports":["get_db","engine"],"imports":[],"key_logic":"SQLAlchemy create_engine with SQLite, session dependency for FastAPI","priority":1},
-      {"path":"src/auth.py","purpose":"JWT authentication utilities","exports":["create_token","verify_token","hash_password"],"imports":["src/models/user.py"],"key_logic":"jose JWT encode/decode, passlib bcrypt hashing","priority":2},
-      {"path":"src/routes/users.py","purpose":"User CRUD endpoints","exports":["router"],"imports":["src/models/user.py","src/database.py","src/auth.py"],"key_logic":"GET/POST /users with Pydantic request/response schemas","priority":3},
-      {"path":"main.py","purpose":"FastAPI application entry point","exports":["app"],"imports":["src/routes/users.py","src/database.py"],"key_logic":"Creates FastAPI app, creates tables, mounts routers","priority":4}
-    ]}
-
-    ## Example 2: CLI tool
-    Input: "A Python CLI tool that converts CSV files to JSON format"
-    Output:
-    {"project_type":"cli","tech_stack":["python"],"files":[
-      {"path":"src/converter.py","purpose":"CSV to JSON conversion logic","exports":["convert_csv_to_json"],"imports":[],"key_logic":"csv.DictReader reads rows, json.dumps serializes with indent","priority":1},
-      {"path":"src/validator.py","purpose":"Input file validation","exports":["validate_csv_file"],"imports":[],"key_logic":"Check file exists, extension is .csv, file is non-empty","priority":1},
-      {"path":"cli.py","purpose":"CLI entry point using argparse","exports":[],"imports":["src/converter.py","src/validator.py"],"key_logic":"argparse with --input, --output, --pretty flags; calls convert_csv_to_json","priority":2}
-    ]}
-
-    ## Example 3: Browser frontend (HTML + CSS + JS)
-    Input: "A browser-based card game with HTML, CSS, and JavaScript using SVG cards"
-    Output:
-    {"project_type":"frontend_web","tech_stack":["html","css","javascript"],"files":[
-      {"path":"styles.css","purpose":"Game layout and card component styles","exports":[],"imports":[],"key_logic":"CSS vars for theme colors; .card, .game-board, .stats-panel, .btn classes; flexbox layout for card grid","priority":1},
-      {"path":"data.js","purpose":"Card definitions and viability report logic","exports":["cards","generateReport"],"imports":[],"key_logic":"window.cards = array of {id,name,type,cost,damage}; window.generateReport = function() aggregates stats — NO module.exports, expose via window.*","priority":2},
-      {"path":"game.js","purpose":"Game logic and DOM manipulation","exports":["initGame"],"imports":["data.js","styles.css"],"key_logic":"window.initGame() renders .card elements into #game-board; calls window.cards and window.generateReport(); displays result in #stats-panel; handles .card click events — NO require()","priority":3},
-      {"path":"index.html","purpose":"Main HTML entry point","exports":[],"imports":["styles.css","data.js","game.js"],"key_logic":"<link rel=stylesheet href=styles.css>; <script src=data.js defer>; <script src=game.js defer>; <div id=game-board>; <div id=stats-panel>; DOMContentLoaded calls window.initGame()","priority":4}
-    ]}
 
   user: |
     Project name: {project_name}
@@ -78,51 +44,34 @@ generate_blueprint:
     Detected type: {project_type}
     Detected stack: {tech_stack}
 
-    Output the blueprint JSON now. Maximum 20 files. Include all files needed to run the project.
+    Generate the project blueprint JSON.
 
 generate_blueprint_small:
   system: |
     # CONTEXT
-    You are a Software Architect creating a minimal file blueprint for a small-context model.
-    Output budget is very limited — use minified JSON with at most {max_files} files.
+    High-Precision Software Architect for constrained context environments.
 
     # OBJECTIVE
-    Output a MINIFIED JSON blueprint (single line, no whitespace) with the core files
-    needed to implement the project. No extras — only files with real code.
+    Generate a minified JSON blueprint defining the essential file structure for rapid implementation.
 
     # INSTRUCTIONS
-    1. Identify project_type and tech_stack from the description.
-    2. Choose at most {max_files} essential files (the minimum to make the project work).
-    3. Lower priority number = generated first (dependencies have lower numbers).
-    4. "imports" lists only other project files, never pip/npm packages.
-    5. Output minified JSON — everything on ONE line, no newlines, no spaces after colons.
-    6. "key_logic" must describe the DOMAIN-SPECIFIC logic, not generic functions.
-       Bad: "drawCard(),checkWin()"  Good: "Texas Hold'em: 2 hole cards + 5 community cards; hand rank eval (royal flush→high card); betting rounds pre-flop/flop/turn/river"
-    7. For frontend projects: index.html MUST have the HIGHEST priority number (generated LAST).
-       CSS and JS files have LOWER priority numbers so they are generated before index.html.
-       Example: style.css=1, game.js=2, ai.js=3, index.html=4. Never assign priority=1 to index.html.
-    8. For frontend JS files that use getElementById/querySelector: key_logic MUST list
-       every DOM element ID accessed (e.g. "reads #pot, #player-hand; writes #status, #action-buttons").
-       index.html key_logic MUST include a matching <div id=xxx> for EVERY id that JS files reference.
-    9. CRITICAL: index.html priority MUST be higher than every JS and CSS file it imports.
-       If a JS file has priority 3, index.html MUST have priority 4 or higher.
-
-    # OUTPUT FORMAT
-    Output MINIFIED JSON on a SINGLE LINE — no whitespace, no newlines, no markdown fences.
-    Start directly with {"project_type":
+    1. Determine the project_type and tech_stack from the technical description.
+    2. Select a maximum of {max_files} core files required for minimum viable functionality.
+    3. Establish a generation sequence where dependencies have lower numerical priority values.
+    4. Reference internal project files only within the "imports" attribute.
+    5. Format the output as a single-line minified JSON string without whitespace or markdown.
+    6. Ensure the "key_logic" attribute specifies domain-specific implementation details.
+    7. For web-based projects, assign the highest priority value to index.html to ensure it is generated last.
+    8. Explicitly list all DOM element identifiers accessed within JavaScript "key_logic" fields.
 
     # CONSTRAINTS
-    - Maximum {max_files} files. No config files, no README, no tests — only core code.
-    - Output MINIFIED JSON on a SINGLE LINE starting with {"project_type": nothing before it.
-    - No markdown fences. No explanations. No line breaks in the output.
+    - Maximum file count: {max_files}.
+    - Prohibit configuration, documentation, and test files.
+    - Emit minified JSON on a single line starting with {"project_type":.
+    - Exclude markdown fences and descriptive prose.
 
-    # EXAMPLES
-
-    Example 1 (Python CLI):
-    {"project_type":"cli","tech_stack":["python"],"files":[{"path":"src/converter.py","purpose":"CSV to JSON core logic","exports":["convert"],"imports":[],"key_logic":"csv.DictReader -> json.dumps","priority":1},{"path":"cli.py","purpose":"CLI entry using argparse","exports":[],"imports":["src/converter.py"],"key_logic":"argparse --input/--output flags","priority":2}]}
-
-    Example 2 (Browser game — JS key_logic lists DOM IDs; index.html provides matching elements):
-    {"project_type":"frontend_web","tech_stack":["html","javascript","css","svg"],"files":[{"path":"style.css","purpose":"Game layout and card styles","exports":[],"imports":[],"key_logic":"CSS vars for suit colors (red/black); .card SVG container 80x120px; .game-board flexbox; #community-cards, #player-hand, #pot, #action-buttons layout","priority":1},{"path":"cards.js","purpose":"SVG card rendering","exports":["renderCard","createDeck"],"imports":[],"key_logic":"window.createDeck()=array of 52 {suit,rank,value} objects; window.renderCard(card,faceUp)=returns SVG element with suit symbol and rank text; shuffle via Fisher-Yates; reads no DOM","priority":2},{"path":"poker.js","purpose":"Texas Hold-em game logic and AI","exports":["initGame"],"imports":["cards.js"],"key_logic":"window.initGame(): reads #community-cards, #player-hand, #pot, #action-buttons, #status, #btn-fold, #btn-call, #btn-raise; hand evaluator ranks royal-flush→high-card; betting rounds pre-flop/flop/turn/river; AI fold/call/raise thresholds","priority":3},{"path":"index.html","purpose":"Main entry point","exports":[],"imports":["style.css","cards.js","poker.js"],"key_logic":"<link href=style.css>; <script src=cards.js defer>; <script src=poker.js defer>; <div id=community-cards>; <div id=player-hand>; <div id=pot>; <div id=action-buttons>; <div id=status>; <button id=btn-fold>; <button id=btn-call>; <button id=btn-raise>; DOMContentLoaded calls window.initGame()","priority":4}]}
+    # OUTPUT FORMAT
+    {"project_type":"web","tech_stack":["html","css"],"files":[{"path":"index.html","purpose":"Entry point","exports":[],"imports":["style.css"],"key_logic":"DOM structure","priority":2}]}
 
   user: |
     Project: {project_name}
@@ -130,4 +79,4 @@ generate_blueprint_small:
     Type: {project_type}
     Stack: {tech_stack}
 
-    Output MINIFIED JSON blueprint (max {max_files} files, single line):
+    Generate the minified blueprint JSON.

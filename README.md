@@ -27,6 +27,7 @@
 | **Sprint 18b — SeniorReview & static analysis quality** — SeniorReview content thresholds 20K→32K/40K, file gate 6→8 (5-file JS projects now get content-aware review); compact review issues now carry `file` path for precise patching; ruff error cap 20→50; PatchPhase warns when expected linters (ruff/node/tsc) are not installed | ✅ |
 | **Sprint 19 — 9 AutoAgent quality improvements** — 2 new zero-LLM phases (ExportValidationPhase 4c: verifies/repairs declared exports; DuplicateSymbolPhase 4d: removes duplicate JS/TS/Python top-level definitions); CodeFillPhase: real signature tracking, anti-stub guard, JSON/YAML syntax error feedback in retries; PatchPhase: full CrossFileValidation re-check between rounds; SeniorReviewPhase: `"file"` list normalization (fixes 0.2→expected score), zero-LLM security prescan (SQL injection, XSS, eval, hardcoded credentials) | ✅ |
 | **Sprint 20 — 10 AutoAgent quality improvements** — I1: SeniorReview severity/status normalisation (fixes root cause of 0.2 benchmark score); I2: 3 review cycles + 8 issues/cycle for large models; I3: post-repair CrossFileValidation re-run; I4: 5 new stub-detection patterns; I5: blueprint dependency cycle repair; I6: PatchPhase 25 fixes/pass + 5 improvement rounds (large); I7: template literal fetch + kebab↔snake form fields; I8: export repair for small-model compact files; I9: TestRun 5 iterations (large) + post-success ruff check; I10: SeniorReviewer 64K context for 30B+ | ✅ **new** |
+| **Tool-calling AutoAgent** (`AutoAgentWithTools`) — Mistral orchestrator + Qwen code generator; PLAN→WRITE→LINT→INFRA→TEST→FINISH tool loop; compare both modes via `run_comparison_benchmark.py`; benchmark model tiers via `run_model_benchmark.py` | ✅ **new** |
 | **Multi-language code generation** — Go, Rust, Java, C#, PHP, Ruby, Kotlin, Dart, SVG + Python/JS/TS | ✅ **new** |
 | **Language-specific infra** — `go.mod`, `Cargo.toml`, `pom.xml`, multi-stage Dockerfiles, per-lang `.gitignore` | ✅ **new** |
 | **Multi-language static analysis** — `go vet`, `cargo check`, `php -l`, `ruby -c`, HTML link validation | ✅ **new** |
@@ -104,8 +105,13 @@ python ollash_cli.py security-scan ./my_project
 # Expose Ollash tools to Claude Code / Cline via MCP stdio
 python -m backend.mcp
 
-# Benchmark model tiers (phase benchmarker)
-python run_phase_benchmark_custom.py
+# Compare classic AutoAgent vs tools-based mode
+python run_comparison_benchmark.py
+python run_comparison_benchmark.py --tasks todo_api cli_tool
+
+# Benchmark AutoAgentWithTools across model tiers
+python run_model_benchmark.py
+python run_model_benchmark.py --only-easy
 
 # Benchmark via CLI (uses ModelBenchmarker, supports --models filter)
 python ollash_cli.py benchmark

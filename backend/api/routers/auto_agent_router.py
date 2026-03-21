@@ -106,6 +106,7 @@ class ProjectCreateRequest(BaseModel):
     enable_github_wiki: bool = False
     enable_github_pages: bool = False
     feature_flags: Dict[str, bool] = {}
+    generation_mode: str = Field(default="classic", pattern=r"^(classic|tools)$")
 
 
 @router.post("/api/projects/create")
@@ -125,24 +126,31 @@ async def create_project(
     params = body.model_dump()
     project_description = params.pop("project_description")
     project_name = params.pop("project_name")
+    generation_mode = params.pop("generation_mode", "classic")
 
     def _run_agent_sync():
-        """Runs AutoAgent synchronously in a background thread."""
+        """Runs the selected agent in a background thread."""
         try:
-            agent = main_container.auto_agent_module.auto_agent()
-            agent.event_publisher = event_publisher
-            # Pass only kwargs AutoAgent.run() accepts — request body has many legacy
-            # wizard fields (git_push, security_scanning_enabled, etc.) not used here.
-            run_kwargs = {
-                k: params[k] for k in ("project_root", "skip_phases") if k in params and params[k] is not None
-            }
-            if params.get("num_refine_loops") is not None:
-                run_kwargs["num_refine_loops"] = params["num_refine_loops"]
-            agent.run(project_description, project_name, **run_kwargs)
+            if generation_mode == "tools":
+                # AutoAgentWithTools is async — run it in a fresh event loop in this thread.
+                agent = main_container.auto_agent_module.auto_agent_with_tools()
+                agent.event_publisher = event_publisher
+                asyncio.run(agent.run(project_description, project_name))
+            else:
+                agent = main_container.auto_agent_module.auto_agent()
+                agent.event_publisher = event_publisher
+                # Pass only kwargs AutoAgent.run() accepts — request body has many legacy
+                # wizard fields (git_push, security_scanning_enabled, etc.) not used here.
+                run_kwargs = {
+                    k: params[k] for k in ("project_root", "skip_phases") if k in params and params[k] is not None
+                }
+                if params.get("num_refine_loops") is not None:
+                    run_kwargs["num_refine_loops"] = params["num_refine_loops"]
+                agent.run(project_description, project_name, **run_kwargs)
             chat_event_bridge.push_event("stream_end", {"message": f"Project '{project_name}' generated."})
         except Exception as exc:
             _logger = main_container.core.logging.logger()
-            _logger.error(f"AutoAgent error: {exc}", exc_info=True)
+            _logger.error(f"Agent error: {exc}", exc_info=True)
             chat_event_bridge.push_event("error", {"message": str(exc)})
 
     import threading

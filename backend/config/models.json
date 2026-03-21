@@ -9,5 +9,17 @@
     "url": "http://localhost:11434",
     "timeout": 1200,
     "temperature": 0.2
+  },
+  "phases": {
+    "AnalystPhase": "qwen3.5:4b",
+    "CybersecurityPhase": "gpt-oss:20b",
+    "FileContentGenerationPhase": "gpt-oss:20b",
+    "LogicPlanningPhase": "gpt-oss:20b",
+    "NanoPhase": "qwen3.5:4b",
+    "NetworkPhase": "gpt-oss:20b",
+    "ReadmeGenerationPhase": "qwen3.5:4b",
+    "SeniorReviewPhase": "qwen3.5:4b",
+    "StructureGenerationPhase": "gpt-oss:20b",
+    "SystemPhase": "qwen3.5:4b"
   }
 }

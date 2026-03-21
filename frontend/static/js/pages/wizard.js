@@ -8,6 +8,7 @@ window.WizardModule = (function() {
     let state = {
         currentStep: 1,
         selectedTemplate: 'default',
+        generationMode: 'classic',
         currentProjectName: null,
         sseSource: null,
         elements: {}
@@ -73,6 +74,15 @@ window.WizardModule = (function() {
                 intervalGroup.style.display = this.checked ? 'block' : 'none';
             };
         }
+
+        // Generation mode radio
+        document.querySelectorAll('input[name="generation-mode"]').forEach(radio => {
+            radio.onchange = function() {
+                state.generationMode = this.value;
+                document.querySelectorAll('.radio-card').forEach(c => c.classList.remove('active'));
+                this.closest('.radio-card')?.classList.add('active');
+            };
+        });
 
         console.log('WizardModule V2 initialized');
     }
@@ -151,6 +161,8 @@ window.WizardModule = (function() {
             feature_load_testing: checked('feat-load-testing'),
             feature_license_scan: checked('feat-license-scan'),
             feature_cicd_healing: checked('feat-cicd-healing'),
+            // Generation mode
+            generation_mode: state.generationMode,
         };
     }
 
@@ -366,6 +378,7 @@ window.WizardModule = (function() {
                 license_scanning_deep: formData.feature_license_scan,
                 cicd_auto_healing: formData.feature_cicd_healing,
             },
+            generation_mode: formData.generation_mode || 'classic',
         };
 
         try {

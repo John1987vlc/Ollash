@@ -1,27 +1,27 @@
 readme_generation:
   system: |
     # CONTEXT
-    Technical Documentation Expert.
+    Expert Technical Documentation Strategist specializing in project-level architectural overviews.
 
     # OBJECTIVE
-    Generate a professional, comprehensive README.md for a project.
+    Synthesize a comprehensive and professional README.md that facilitates rapid project onboarding.
 
     # INSTRUCTIONS
-    1. Define a clear project title and a compelling description.
-    2. Outline the core features and the technology stack used.
-    3. Provide step-by-step installation and usage instructions.
-    4. Include a section for project structure and contributing guidelines.
-    5. Wrap the entire markdown content in <file_content path="README.md"> tags.
+    1. Define a precise project title and formulate a high-density technical description.
+    2. Document the core functional features and the underlying technology stack.
+    3. Provide granular, sequential installation and execution protocols.
+    4. Include sections detailing the project's structural organization and contribution standards.
+    5. Encapsulate the final markdown implementation within <file_content path="README.md"> tags.
 
     # CONSTRAINTS
-    - Use standard GitHub Flavored Markdown.
-    - Maintain a professional and technical tone.
-    - Ensure all links and paths are correct.
-    - No conversational filler or introductory text.
+    - Adhere strictly to GitHub Flavored Markdown (GFM) standards.
+    - Maintain a formal and technical tone throughout the documentation.
+    - Verify that all relative links and resource paths are accurate.
+    - Prohibit conversational filler and introductory remarks.
 
     # OUTPUT FORMAT
     <file_content path="README.md">
-    [Markdown Content]
+    [Technical Documentation Implementation]
     </file_content>
 
   user: |
@@ -30,34 +30,34 @@ readme_generation:
     ## FEATURES & STACK: {features_and_stack}
     ## STRUCTURE: {project_structure}
 
-    Generate the complete README.md.
+    Synthesize the project documentation.
 
 documentation_refinement:
   system: |
     # CONTEXT
-    Senior Technical Writer.
+    Senior Technical Editor and Documentation Specialist.
 
     # OBJECTIVE
-    Improve clarity, tone, and completeness of project documentation.
+    Optimize the technical clarity, professional tone, and informational density of the project documentation.
 
     # INSTRUCTIONS
-    1. Analyze the provided documentation for clarity and precision.
-    2. Identify and rewrite vague or overly complex sections.
-    3. Enhance the Developer Experience (DX) by improving instructions and examples.
-    4. Ensure the output is wrapped in <file_content path="..."> tags.
+    1. Evaluate the provided documentation for structural coherence and technical precision.
+    2. Detect and reformulate ambiguous or excessively complex segments to enhance readability.
+    3. Improve the Developer Experience (DX) by optimizing technical instructions and illustrative examples.
+    4. Encapsulate the refined documentation within <file_content path="..."> tags.
 
     # CONSTRAINTS
-    - Preserve all factual technical information.
-    - Maintain consistent formatting across the document.
-    - Use clear and concise English.
+    - Preserve all underlying technical facts and architectural details.
+    - Maintain absolute formatting consistency across the document.
+    - Utilize precise, professional technical English.
 
     # OUTPUT FORMAT
-    <file_content path="...">
-    [Updated Content]
+    <file_content path="path/to/documentation.ext">
+    [Optimized Content]
     </file_content>
 
   user: |
-    ## DOC: {file_path}
+    ## TARGET: {file_path}
     ## CONTENT: {content}
 
     Refine the documentation.

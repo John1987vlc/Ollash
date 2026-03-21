@@ -68,6 +68,27 @@
                     <p>Define el comportamiento autónomo y las integraciones.</p>
                 </div>
 
+                <!-- Generation Mode -->
+                <div class="config-section" style="margin-bottom: 16px;">
+                    <h4>Modo de Generación</h4>
+                    <div class="radio-group-modern">
+                        <label class="radio-card active" id="mode-card-classic">
+                            <input type="radio" name="generation-mode" value="classic" checked>
+                            <div class="radio-card-content">
+                                <span class="radio-card-title">Pipeline Clásico</span>
+                                <span class="radio-card-desc">12 fases secuenciales — estable y probado</span>
+                            </div>
+                        </label>
+                        <label class="radio-card" id="mode-card-tools">
+                            <input type="radio" name="generation-mode" value="tools">
+                            <div class="radio-card-content">
+                                <span class="radio-card-title">Herramientas Autónomas <span class="badge-preview">Preview</span></span>
+                                <span class="radio-card-desc">El modelo decide cómo construir el proyecto — qwen3.5:9b</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="wizard-grid-v2">
                     <!-- Left Col: Infrastructure & Tech -->
                     <div class="config-section">

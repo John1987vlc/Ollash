@@ -268,13 +268,13 @@ class PhaseBenchmarker:
         print("\n" + "=" * 70)
 
     def apply_profile(self, profile_key: str):
-        """Update backend/config/llm_models.json with the winners of a profile."""
+        """Update backend/config/agent_roles.json with the winners of a profile."""
         profile_name = self.profiles.get(profile_key)
         if not profile_name:
             print("Invalid profile selection.")
             return
 
-        config_path = Path("backend/config/llm_models.json")
+        config_path = Path("backend/config/agent_roles.json")
         if not config_path.exists():
             print(f"Error: {config_path} not found.")
             return
@@ -286,22 +286,28 @@ class PhaseBenchmarker:
 
         # Map phases to roles in config
         role_map = {
-            "ReadmeGenerationPhase": "writer",
-            "StructureGenerationPhase": "prototyper",
-            "LogicPlanningPhase": "planner",
-            "FileContentGenerationPhase": "coder",
-            "SeniorReviewPhase": "senior_reviewer",
+            "ReadmeGenerationPhase": ["writer"],
+            "StructureGenerationPhase": ["prototyper"],
+            "LogicPlanningPhase": ["planner", "orchestration"],
+            "FileContentGenerationPhase": ["coder", "developer"],
+            "SeniorReviewPhase": ["senior_reviewer", "auditor"],
+            "NetworkPhase": ["network"],
+            "SystemPhase": ["system"],
+            "CybersecurityPhase": ["cybersecurity"],
+            "AnalystPhase": ["analyst"],
+            "NanoPhase": ["nano_planner", "nano_coder", "nano_reviewer"],
         }
 
         print(f"\nApplying profile [{profile_name}] to {config_path}...")
         for phase, model in winners.items():
-            role = role_map.get(phase)
-            if role and "agent_roles" in config_data:
-                old_model = config_data["agent_roles"].get(role)
-                config_data["agent_roles"][role] = model
-                print(f"  - Role '{role}': {old_model} -> {model}")
+            roles = role_map.get(phase, [])
+            for role in roles:
+                if role in config_data:
+                    old_model = config_data.get(role)
+                    config_data[role] = model
+                    print(f"  - Role '{role}': {old_model} -> {model}")
 
         with open(config_path, "w") as f:
             json.dump(config_data, f, indent=4)
 
-        print("\nConfig updated successfully! You can now run 'python run_web.py'.")
+        print("\nConfig updated successfully! All agent roles have been auto-assigned.")

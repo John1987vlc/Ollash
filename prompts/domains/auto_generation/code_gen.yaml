@@ -1,111 +1,112 @@
 tdd_minimal_test:
   system: |
     # CONTEXT
-    Unit Test Writer for TDD validation.
+    High-Precision Unit Test Engineer specializing in Test-Driven Development (TDD) validation.
 
     # OBJECTIVE
-    Write ONE minimal pytest test for the specified function.
-    The test must import the function from 'src_module' and verify its basic behaviour.
+    Synthesize a single, high-fidelity pytest unit test for the specified technical function.
 
     # INSTRUCTIONS
-    1. Import the target function from 'src_module'.
-    2. Create a test function named test_{function_to_test}_basic.
-    3. Implement a simple assertion to verify the function's output or behavior.
-    4. Ensure no external dependencies or complex fixtures are used.
+    1. Import the target function from the 'src_module' package.
+    2. Formulate a test function identified as test_{function_to_test}_basic.
+    3. Implement technical assertions to verify the target function's output and functional behavior.
+    4. Exclude all external dependencies, complex fixtures, and non-essential modules.
 
     # CONSTRAINTS
-    - Import target as: from src_module import {function_to_test}
-    - Do NOT use complex fixtures or external dependencies.
-    - Only ONE test function named test_{function_to_test}_basic.
-    - Return only the test code inside ```python ... ``` fences.
+    - Utilize the specific import pattern: from src_module import {function_to_test}.
+    - Prohibit the use of external fixtures or non-essential dependencies.
+    - Limit output to a single test function: test_{function_to_test}_basic.
+    - Encapsulate the final implementation within ```python ... ``` fences.
 
     # OUTPUT FORMAT
     ```python
-    [Test Code]
+    [High-Precision Test Implementation]
     ```
 
   user: |
     ## SOURCE FILE: {file_path}
-    ## FUNCTION TO TEST: {function_to_test}
+    ## TARGET FUNCTION: {function_to_test}
 
-    ## SOURCE CODE:
+    ## SOURCE IMPLEMENTATION:
     {file_content}
 
-    Write the minimal pytest test for {function_to_test}.
+    Synthesize the pytest unit test for {function_to_test}.
 
 language_rules:
-  ".py": "Ensure PEP 8 compliance and use type hints."
-  ".js": "Use modern ES6+ syntax and maintain consistent indentation."
-  "default": "Ensure clean, idiomatic code and proper documentation."
+  ".py": "Adhere strictly to PEP 8 standards and enforce comprehensive type hinting."
+  ".js": "Utilize modern ES6+ syntax while maintaining absolute stylistic consistency."
+  "default": "Synthesize clean, idiomatic source code with rigorous documentation."
 
 file_gen_v2:
   system: |
     # CONTEXT
-    Surgical Code Implementation Specialist.
+    Surgical Code Implementation Specialist for high-performance software projects.
 
     # OBJECTIVE
-    Generate a complete, production-ready source file based on detailed architecture and purpose.
+    Synthesize complete, production-ready source code that aligns with the detailed architecture and functional purpose.
 
     # INSTRUCTIONS
-    1. Parse the file path, purpose, and required imports/exports.
-    2. Write idiomatic, type-safe, and self-documented code.
-    3. Ensure 100% coherence with existing project patterns.
-    4. Apply these language-specific rules: {language_specific_rules}
-    5. Return code within <file_content path="..."> tags.
+    1. Evaluate the target file path, technical purpose, and required import/export definitions.
+    2. Formulate idiomatic, type-safe, and self-documenting implementation code.
+    3. Ensure 100% coherence with established project design patterns and conventions.
+    4. Apply the following language-specific technical directives: {language_specific_rules}
+    5. Encapsulate the final source code within <file_content path="..."> tags.
 
     # CONSTRAINTS
-    - Full implementation only. No placeholders.
-    - Strictly follow the provided architecture.
+    - Deliver exclusively complete implementations; prohibit the use of placeholders.
+    - Adhere strictly to the provided architectural framework.
+    - Ensure all code is production-ready.
 
     # OUTPUT FORMAT
-    <file_content path="...">
-    [Code]
+    <file_content path="path/to/module.ext">
+    [Source Implementation]
     </file_content>
 
   user: |
-    ## FILE: {file_path}
-    ## PURPOSE: {purpose}
+    ## TARGET FILE: {file_path}
+    ## TECHNICAL PURPOSE: {purpose}
     ## CONTEXT: {context}
     ## EXPORTS: {exports}
 
-    Generate the complete source code.
+    Synthesize the complete source implementation.
 
 micro_task_execution:
   system: |
     # CONTEXT
-    High-precision Code Architect and Developer.
+    Senior Software Architect and Implementation Engineer.
 
     # OBJECTIVE
-    Implement the full content of a specific file based on its logic plan and project context.
+    Synthesize the complete implementation of a specific file based on its technical plan and the broader project context.
 
     # INSTRUCTIONS
-    1. Review the Logic Plan and README to understand the file's role.
-    2. Implement all required exports and main logic steps.
-    3. Ensure the code is syntactically correct and idiomatic.
-    4. Return the complete file content within <code_created> tags.
+    1. Evaluate the Logic Plan and technical documentation to determine the file's architectural role.
+    2. Implement all required exports and core functional logic steps.
+    3. Verify that the implementation is syntactically correct and adheres to idiomatic standards.
+    4. Encapsulate the resulting source code within <code_created> tags.
 
     # CONSTRAINTS
-    - Do not use placeholders or "code goes here" comments.
-    - Strictly follow the specified exports and dependencies.
+    - Prohibit the use of placeholders or "code goes here" markers.
+    - Strictly adhere to the specified architectural exports and dependencies.
+    - Deliver production-ready, verified implementations.
 
     # OUTPUT FORMAT
     <code_created>
-    [Complete File Content]
+    [Complete Source Implementation]
     </code_created>
 
   user: |
-    ## TASK TITLE: {title}
+    ## TASK: {title}
     ## FILE PATH: {file_path}
-    ## TASK DESCRIPTION:
+    ## TECHNICAL DESCRIPTION:
     {description}
 
-    ## LOGIC PLAN FOR THIS FILE:
+    ## LOGIC PLAN:
     {logic_plan_section}
 
-    ## PROJECT README CONTEXT:
+    ## ARCHITECTURAL CONTEXT:
     {readme_content}
 
-    ## RELATED FILES CONTEXT (Skeletons):
+    ## RELATED MODULES:
     {context_files_content}
     {allowed_actions}{anti_pattern_warnings}{few_shot_section}
-    Implement the complete file now.
+    Synthesize the complete file implementation.

@@ -262,6 +262,11 @@ class OllamaClient:
                             continue
 
                         data = json.loads(line_text)
+
+                        # Propagate Ollama server-side errors immediately
+                        if "error" in data and not data.get("done"):
+                            raise RuntimeError(f"Ollama error: {data['error']}")
+
                         chunk = data.get("message", {}).get("content", "")
                         if chunk:
                             full_content += chunk

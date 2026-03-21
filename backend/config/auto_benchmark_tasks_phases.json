@@ -44,5 +44,40 @@
     "type": "review",
     "description": "Perform an architectural review. Critique this setup: 'Node.js app storing plaintext passwords in a local JSON file, no rate limiting on /login'. Provide 3 severe risks and 3 architectural fixes.",
     "input_summary": "Architecture: Node.js, File-based DB (JSON), Plaintext auth, Public endpoints without middleware."
+  },
+  {
+    "name": "phase_network_diag",
+    "phase": "NetworkPhase",
+    "type": "network",
+    "description": "Diagnose a connection failure to a remote database on port 5432. The ping works but connection is refused. Provide a 3-step troubleshooting plan using netstat, telnet, and firewall-cmd.",
+    "expected_sections": ["netstat", "telnet", "firewall-cmd", "5432"]
+  },
+  {
+    "name": "phase_system_audit",
+    "phase": "SystemPhase",
+    "type": "system",
+    "description": "Provide a system resource audit report. Analyze: CPU usage at 95% due to 'python3', RAM at 80%. Suggest 3 actions to identify the specific script and 2 ways to limit its resource consumption.",
+    "expected_sections": ["top", "ps", "kill", "limit", "cgroups"]
+  },
+  {
+    "name": "phase_cybersecurity_audit",
+    "phase": "CybersecurityPhase",
+    "type": "security",
+    "description": "Audit this Dockerfile for security: 'FROM ubuntu:latest; RUN apt-get update && apt-get install -y openssh-server; COPY id_rsa /root/.ssh/; EXPOSE 22; CMD [\"/usr/sbin/sshd\", \"-D\"]'. Identify 3 critical security flaws.",
+    "expected_sections": ["ssh", "root", "id_rsa", "credentials", "secrets"]
+  },
+  {
+    "name": "phase_data_analysis",
+    "phase": "AnalystPhase",
+    "type": "analysis",
+    "description": "Analyze this sales data: [{\"date\": \"2023-01\", \"sales\": 100}, {\"date\": \"2023-02\", \"sales\": 150}, {\"date\": \"2023-03\", \"sales\": 120}]. Identify the growth trend between Jan and Feb and the percentage drop in March.",
+    "expected_sections": ["growth", "percentage", "50%", "20%"]
+  },
+  {
+    "name": "phase_nano_planning",
+    "phase": "NanoPhase",
+    "type": "planning",
+    "description": "Act as a NanoPlanner. Define a 3-file structure for a 'Static Portfolio' site. Return ONLY a flat JSON mapping file paths to their purpose.",
+    "expected_sections": ["index.html", "styles.css", "script.js"]
   }
 ]

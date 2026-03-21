@@ -5,6 +5,7 @@ from pathlib import Path
 from dependency_injector import containers, providers
 
 from backend.agents.auto_agent import AutoAgent
+from backend.agents.auto_agent_with_tools import AutoAgentWithTools
 
 from backend.core.config import config
 from backend.core.kernel import AgentKernel
@@ -328,6 +329,16 @@ class AutoAgentContainer(containers.DeclarativeContainer):
     # --- AutoAgent (new 8-phase pipeline, 5 simple constructor args) ---
     auto_agent = providers.Factory(
         AutoAgent,
+        llm_manager=llm_client_manager,
+        file_manager=core.storage.file_manager,
+        event_publisher=core.logging.event_publisher,
+        logger=core.logging.logger,
+        generated_projects_dir=core.generated_projects_dir,
+    )
+
+    # --- AutoAgentWithTools (tool-calling preview, qwen3.5:9b) ---
+    auto_agent_with_tools = providers.Factory(
+        AutoAgentWithTools,
         llm_manager=llm_client_manager,
         file_manager=core.storage.file_manager,
         event_publisher=core.logging.event_publisher,

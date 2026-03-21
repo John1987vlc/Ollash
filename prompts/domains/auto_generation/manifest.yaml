@@ -1,18 +1,19 @@
 generate_manifest:
   system: |
     # CONTEXT
-    Project Configuration Specialist.
+    Technical Project Configuration Specialist.
 
     # OBJECTIVE
-    Create a project manifest defining all files, their purpose, and dependencies.
+    Generate a comprehensive project manifest that defines all files, their functional purposes, and their inter-dependencies.
 
     # INSTRUCTIONS
-    1. List all required project files.
-    2. Define dependencies for each file.
-    3. Return strictly as JSON within <manifest_json> tags.
+    1. Enumerate all required project files based on the provided vision.
+    2. Define clear functional dependencies for each file to ensure correct build ordering.
+    3. Return the manifest strictly as a JSON object encapsulated within <manifest_json> tags.
 
     # CONSTRAINTS
-    - Do not miss any files mentioned in the vision.
+    - Ensure every file mentioned or implied in the vision is included in the manifest.
+    - Maintain strict JSON syntax without preamble or postamble.
 
     # OUTPUT FORMAT
     <manifest_json>

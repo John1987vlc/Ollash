@@ -4,103 +4,87 @@
 infer_requirements:
   system: |
     # CONTEXT
-    You are analyzing a Python project's import statements to determine its third-party dependencies.
-    The output will be written directly to requirements.txt.
+    Technical Dependency Analyst specializing in Python ecosystem package management.
 
     # OBJECTIVE
-    Produce a valid requirements.txt listing only third-party pip packages found in the imports.
-    Do NOT include Python standard library modules.
+    Synthesize a valid requirements.txt configuration by analyzing project import statements to identify essential third-party dependencies.
 
     # INSTRUCTIONS
-    1. Review the import statements found in the project.
-    2. Identify which imports are third-party packages (not stdlib).
-    3. List each package on its own line with a reasonable version pin where appropriate.
-    4. Common stdlib modules to exclude: os, sys, re, json, pathlib, typing, dataclasses,
-       collections, itertools, functools, io, abc, math, time, datetime, logging, subprocess,
-       threading, asyncio, socket, struct, copy, shutil, tempfile, hashlib, base64, contextlib.
+    1. Evaluate the project's import statements to distinguish third-party packages from the Python standard library.
+    2. Enumerate only identified third-party packages.
+    3. Specify each package on a unique line, incorporating appropriate version constraints.
+    4. Exclude standard library modules, including: os, sys, re, json, pathlib, typing, dataclasses, collections, itertools, functools, io, abc, math, time, datetime, logging, subprocess, threading, asyncio, socket, struct, copy, shutil, tempfile, hashlib, base64, and contextlib.
 
     # CONSTRAINTS
-    - List only third-party pip packages.
-    - One package per line.
-    - No comments. No markdown. No blank lines.
-    - Include version pins where appropriate (e.g., fastapi>=0.100.0).
+    - Enumerate exclusively third-party pip packages.
+    - Restricted to one package per line.
+    - Prohibit comments, markdown formatting, and blank lines.
+    - Incorporate version pinning (e.g., fastapi>=0.100.0).
 
     # OUTPUT FORMAT
-    Output only the requirements.txt content. Example:
-    fastapi>=0.100.0
-    uvicorn[standard]>=0.20.0
-    sqlalchemy>=2.0.0
+    Emit exclusively the raw requirements.txt content.
 
   user: |
-    Tech stack: {tech_stack}
-    Project type: {project_type}
-    Import statements found in the project:
+    Stack: {tech_stack}
+    Type: {project_type}
+    Imports detected:
     {imports_found}
 
-    Output requirements.txt (third-party packages only):
+    Generate the requirements.txt configuration.
 
 infer_package_json:
   system: |
     # CONTEXT
-    You are generating a package.json for a Node.js or TypeScript project based on its imports.
+    Node.js and TypeScript Dependency Architect.
 
     # OBJECTIVE
-    Output a minimal, valid package.json with only the dependencies actually needed by the project.
+    Synthesize a minimal, valid package.json configuration based on project-level import analysis.
 
     # INSTRUCTIONS
-    1. Analyze the import statements to identify npm packages used.
-    2. Include only the packages that are imported in the source files.
-    3. Add standard scripts: start, build, test.
-    4. Use reasonable version ranges (e.g., "^18.0.0").
+    1. Analyze all import statements to identify the essential npm packages required by the project.
+    2. Include exclusively those packages referenced within the source implementations.
+    3. Incorporate standard execution scripts: start, build, and test.
+    4. Apply appropriate semantic versioning ranges (e.g., "^18.0.0").
 
     # CONSTRAINTS
-    - Output only valid JSON — no markdown, no explanations.
-    - Include only dependencies actually used in the imports.
-    - Keep devDependencies separate from dependencies.
+    - Generate strictly valid JSON; prohibit markdown and descriptive prose.
+    - Include exclusively the dependencies identified through import analysis.
+    - Categorize devDependencies and dependencies accurately.
 
     # OUTPUT FORMAT
-    Output only valid JSON starting with `{`:
-    {
-      "name": "my-project",
-      "version": "1.0.0",
-      "scripts": { "start": "node dist/index.js", "build": "tsc" },
-      "dependencies": {},
-      "devDependencies": {}
-    }
+    Emit exclusively valid JSON starting with `{`.
 
   user: |
-    Project name: {project_name}
+    Name: {project_name}
     Description: {description}
-    Tech stack: {tech_stack}
-    Import statements found:
+    Stack: {tech_stack}
+    Imports:
     {imports_found}
 
-    Output package.json:
+    Generate the package.json.
 
 generate_readme:
   system: |
     # CONTEXT
-    You are writing a README.md for a software project that was just generated.
-    The README will be the first thing users see when they open the repository.
+    Expert Technical Documentation Architect.
 
     # OBJECTIVE
-    Write a concise, helpful README.md that covers the essential information needed
-    to understand, install, and run the project.
+    Synthesize a concise, professional README.md that provides essential project installation and execution instructions.
 
     # INSTRUCTIONS
-    1. Start with a clear title and one-paragraph description.
-    2. Include an Installation section with step-by-step setup commands.
-    3. Include a Usage section with example commands or API calls.
-    4. If it is an API project, include a brief API overview section.
-    5. Keep it under 100 lines — concise and practical.
+    1. Formulate a precise project title and a single-paragraph technical description.
+    2. Define granular, sequential installation protocols.
+    3. Provide clear usage examples, including command-line or API interaction patterns.
+    4. Incorporate a brief API overview for interface-driven projects.
+    5. Maintain a maximum document length of 100 lines.
 
     # CONSTRAINTS
-    - Output only markdown — no explanations, no preamble before the first heading.
-    - Do not include a license section unless the project has one.
-    - Use code blocks for all commands and example code.
+    - Generate exclusively markdown; prohibit preambles and postambles.
+    - Exclude license sections unless specifically requested.
+    - Utilize code blocks for all technical commands and examples.
 
     # OUTPUT FORMAT
-    Output only the README.md markdown content, starting with `# <ProjectName>`.
+    Emit exclusively the README.md content, beginning with the project title heading.
 
   user: |
     Project: {project_name}
@@ -109,4 +93,4 @@ generate_readme:
     Stack: {tech_stack}
     Files: {file_list}
 
-    Write README.md:
+    Synthesize the README.md documentation.

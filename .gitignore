@@ -51,6 +51,11 @@ agent.log
 *.tmp
 *.bak
 benchmark_results_*.json
+comparison_results_*.json
+model_benchmark_*.json
+model_benchmark_*.txt
+model_benchmark_projects/
+model_benchmark_logs/
 generated_projects/
 generated_images/
 flask_venv/
@@ -87,7 +92,7 @@ test_rag_results.txt
 test_results_final.txt
 test_results.txt
 test_summary.txt
-
+test_run/
 # Local DBs
 episodic_index.db
 
