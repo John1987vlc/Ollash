@@ -37,10 +37,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # ---------------------------------------------------------------------------
 
 DEFAULT_MODELS: List[str] = [
-    "ministral-3:3b",
-    "ministral-3:8b",
-    "qwen3-coder:latest",
-    "gpt-oss:20b",
+    "nemotron-cascade-2:30b",
+    "gemma4:31b",
+    "qwen3.5:27b",
 ]
 
 # ---------------------------------------------------------------------------

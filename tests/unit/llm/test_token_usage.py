@@ -24,18 +24,15 @@ def test_token_tracker_accumulation():
     assert tracker.last_request_tokens == 275
 
 
-@patch("requests.Session.post")
-def test_ollama_client_updates_tracker(mock_post):
+@patch("ollama.AsyncClient.chat")
+def test_ollama_client_updates_tracker(mock_chat):
     """Test that OllamaClient automatically updates the tracker after a chat."""
     tracker = TokenTracker()
     logger = MagicMock()
     logger.event_publisher.publish = AsyncMock()
 
     # Mock Ollama response with specific token counts
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"message": {"content": "Hello!"}, "prompt_eval_count": 15, "eval_count": 5}
-    mock_post.return_value = mock_response
+    mock_chat.return_value = {"message": {"content": "Hello!"}, "prompt_eval_count": 15, "eval_count": 5}
 
     client = OllamaClient(
         url="http://localhost:11434",

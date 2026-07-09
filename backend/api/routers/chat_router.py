@@ -41,7 +41,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=100_000)
     session_id: Optional[str] = Field(default=None, max_length=64)
     model: Optional[str] = Field(default=None, max_length=100, pattern=r"^[a-zA-Z0-9_\-.:]+$")
-    mode: Optional[str] = Field(default="simple", pattern=r"^(simple|advanced|coding)$")
+    mode: Optional[str] = Field(default="simple", pattern=r"^(simple|advanced|coding|cowork)$")
     project_path: Optional[str] = Field(default=None, max_length=500)
 
 

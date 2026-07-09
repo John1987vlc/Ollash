@@ -231,6 +231,16 @@ class ChatSessionManager:
                 self._inject_project_index(agent, project_idx)
 
                 db_agent_type = "coding"
+            elif mode == "cowork":
+                from backend.agents.cowork_agent import CoWorkAgent
+
+                workspace = Path(project_path or resolved_root)
+                agent = CoWorkAgent(
+                    workspace_path=workspace,
+                    event_bridge=bridge,
+                    model=model,
+                )
+                db_agent_type = "cowork"
             else:
                 agent = SimpleChatAgent(event_bridge=bridge, model=model)
                 db_agent_type = "chat"

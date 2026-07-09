@@ -264,6 +264,7 @@ def _register_routers(app: FastAPI) -> None:
     from backend.api.routers.pipeline_router import router as pipeline_router
     from backend.api.routers.privacy_router import router as privacy_router
     from backend.api.routers.mcp_router import router as mcp_router
+    from backend.api.routers.cowork_router import router as cowork_router
 
     routers = [
         auth_router,
@@ -316,6 +317,7 @@ def _register_routers(app: FastAPI) -> None:
         translator_router,
         pages_router,
         models_router,
+        cowork_router,
     ]
 
     for router in routers:

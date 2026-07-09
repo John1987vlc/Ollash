@@ -34,22 +34,40 @@ def setup_global_configs(args):
 
 
 async def cmd_agent(args):
-    """Invoke the multiagent DomainAgentOrchestrator (Agent-per-Domain architecture)."""
+    """Invoke the multiagent orchestrator (DomainAgentOrchestrator or LangGraphSwarmOrchestrator)."""
     try:
-        orchestrator = main_container.domain_agents.domain_agent_orchestrator()
-        pool_size: int = getattr(args, "pool_size", 3)
-        timeout: int = getattr(args, "timeout", 300)
+        framework = getattr(args, "framework", "classic")
+        project_name = args.name or "auto_project"
 
-        print(f"[*] Starting DomainAgentOrchestrator for task: {args.task}")
-        print(f"    Pool size: {pool_size} developer agents | Task timeout: {timeout}s")
+        if framework == "langgraph":
+            print(f"[*] Starting LangGraphSwarmOrchestrator for task: {args.task}")
+            print(f"    Orchestrating agent swarm via LangGraph state graph")
 
-        # Propagate per-task timeout into the orchestrator's _route_to_agent call by
-        # wrapping run() \u2014 the actual timeout is consumed inside _route_to_agent.
-        path = await orchestrator.run(
-            project_description=args.task,
-            project_name=args.name or "auto_project",
-            pool_size=pool_size,
-        )
+            # Retrieve the LangGraph orchestrator from dependency injection container
+            orchestrator = main_container.domain_agents.langgraph_orchestrator()
+
+            # run is synchronous, run in thread to avoid blocking loop
+            import asyncio
+            path = await asyncio.to_thread(
+                orchestrator.run,
+                project_description=args.task,
+                project_name=project_name
+            )
+        else:
+            orchestrator = main_container.domain_agents.domain_agent_orchestrator()
+            pool_size: int = getattr(args, "pool_size", 3)
+            timeout: int = getattr(args, "timeout", 300)
+
+            print(f"[*] Starting DomainAgentOrchestrator for task: {args.task}")
+            print(f"    Pool size: {pool_size} developer agents | Task timeout: {timeout}s")
+
+            # Propagate per-task timeout into the orchestrator's _route_to_agent call by
+            # wrapping run() — the actual timeout is consumed inside _route_to_agent.
+            path = await orchestrator.run(
+                project_description=args.task,
+                project_name=project_name,
+                pool_size=pool_size,
+            )
         print(f"\n[+] Project generated successfully at: {path}")
     except Exception as e:
         print(f"[-] Error in agent: {e}")
@@ -706,6 +724,12 @@ def main():
         default=300,
         dest="timeout",
         help="Per-task LLM timeout in seconds (default: 300)",
+    )
+    agent_parser.add_argument(
+        "--framework",
+        choices=["classic", "langgraph"],
+        default="classic",
+        help="Orchestration framework to use (default: classic)",
     )
 
     # swarm <task>

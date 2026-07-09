@@ -164,7 +164,7 @@ class EnhancedFileContentGenerator:
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
+            prompts = loader.load_prompt_sync("domains/auto_generation/code_gen.yaml")
             lang_rules_map = prompts.get("language_rules", {})
             lang_rule = lang_rules_map.get(file_ext, lang_rules_map.get("default", ""))
             system_template = prompts.get("file_gen_v2", {}).get("system", "")
@@ -172,7 +172,7 @@ class EnhancedFileContentGenerator:
             if not system_template or not user_template:
                 raise ValueError("Prompt templates not found")
             system = system_template.format(language_specific_rules=lang_rule)
-            user = user_template.format(file_path=file_path, context=context, exports=", ".join(exports))
+            user = user_template.format(file_path=file_path, context=context, exports=", ".join(exports), purpose=purpose)
         except Exception as exc:
             self.logger.warning(f"[streaming] Prompt load failed for '{file_path}': {exc}; using sync fallback")
             return self.generate_file_with_plan(
@@ -277,7 +277,7 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = loader.load_prompt("domains/auto_generation/code_gen.yaml")
+            prompts = loader.load_prompt_sync("domains/auto_generation/code_gen.yaml")
 
             if not prompts:
                 return self._generate_fallback_skeleton(file_path, purpose, exports, [])
@@ -295,7 +295,7 @@ Related files: {", ".join(related_files.keys()) if related_files else "None"}
             if not user_template:
                 return self._generate_fallback_skeleton(file_path, purpose, exports, [])
 
-            user = user_template.format(file_path=file_path, context=context, exports=", ".join(exports))
+            user = user_template.format(file_path=file_path, context=context, exports=", ".join(exports), purpose=purpose)
 
             response_data, _ = self.llm_client.chat(
                 messages=[

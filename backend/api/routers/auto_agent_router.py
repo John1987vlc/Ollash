@@ -106,7 +106,7 @@ class ProjectCreateRequest(BaseModel):
     enable_github_wiki: bool = False
     enable_github_pages: bool = False
     feature_flags: Dict[str, bool] = {}
-    generation_mode: str = Field(default="classic", pattern=r"^(classic|tools)$")
+    generation_mode: str = Field(default="classic", pattern=r"^(classic|tools|langgraph)$")
 
 
 @router.post("/api/projects/create")
@@ -136,6 +136,9 @@ async def create_project(
                 agent = main_container.auto_agent_module.auto_agent_with_tools()
                 agent.event_publisher = event_publisher
                 asyncio.run(agent.run(project_description, project_name))
+            elif generation_mode == "langgraph":
+                orchestrator = main_container.domain_agents.langgraph_orchestrator()
+                orchestrator.run(project_description, project_name)
             else:
                 agent = main_container.auto_agent_module.auto_agent()
                 agent.event_publisher = event_publisher

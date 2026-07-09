@@ -227,7 +227,18 @@ document.addEventListener('DOMContentLoaded', function() {
         var viewId = btn.dataset.view;
         if (!viewId) return;
         var navItem = document.querySelector('.nav-item[data-view="' + viewId + '"]');
-        if (navItem) navItem.click();
+        if (navItem) {
+            navItem.click();
+        } else {
+            showPageLoad();
+            const loader = document.getElementById('global-page-loader');
+            if (loader) loader.style.display = 'none';
+            navItems.forEach(nav => nav.classList.remove('active'));
+            views.forEach(view => {
+                view.classList.toggle('active', view.id === `${viewId}-view`);
+            });
+            triggerViewLoad(viewId);
+        }
     });
 
     // ==================== Page Load Bar ====================
@@ -301,6 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'security': if (window.SecurityModule) window.SecurityModule.init(); break;
             case 'audit': if (window.AuditModule) window.AuditModule.init(); break;
             case 'policies': if (window.PoliciesModule) window.PoliciesModule.init(); break;
+            case 'cowork': if (window.CoworkModule) window.CoworkModule.init(); break;
             case 'benchmark': if (window.BenchmarkModule) window.BenchmarkModule.init(); break;
             case 'analytics': if (window.AnalyticsDashboard) window.AnalyticsDashboard.init(); break;
             case 'checkpoints': if (typeof loadCheckpoints !== 'undefined') loadCheckpoints(); break;

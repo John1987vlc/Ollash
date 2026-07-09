@@ -34,6 +34,11 @@ async def auto_agent_page(request: Request):
     return _render(request, "pages/auto-agent.html")
 
 
+@router.get("/cowork", response_class=HTMLResponse)
+async def cowork_page(request: Request):
+    return _render(request, "pages/cowork.html")
+
+
 @router.get("/swarm", response_class=HTMLResponse)
 async def swarm_page(request: Request):
     return _render(request, "pages/swarm.html")

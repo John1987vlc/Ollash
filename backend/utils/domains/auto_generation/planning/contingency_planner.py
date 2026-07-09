@@ -48,7 +48,7 @@ class ContingencyPlanner:
             from backend.utils.core.llm.prompt_loader import PromptLoader
 
             loader = PromptLoader()
-            prompts = loader.load_prompt("domains/auto_generation/planning.yaml")
+            prompts = loader.load_prompt_sync("domains/auto_generation/planning.yaml")
 
             system = prompts.get("contingency_planning", {}).get("system", "")
             user_template = prompts.get("contingency_planning", {}).get("user", "")

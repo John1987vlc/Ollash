@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 
 # Añadir el raíz del proyecto al path
-project_root = Path(__file__).resolve().parent.parent
+project_root = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.append(str(project_root))
 
 from backend.agents.auto_agent import AutoAgent  # noqa: E402
@@ -13,7 +13,7 @@ from backend.core.containers import main_container  # noqa: E402
 
 @pytest.mark.skip(reason="Slow integration test with complex multi-phase logic. Use for manual validation only.")
 def test_poker_project_generation():
-    print("=== INICIANDO TEST: GENERACIÓN DE PROYECTO POKER (REACT + ASCII) ===")
+    print("=== INICIANDO TEST: GENERACION DE PROYECTO POKER (REACT + ASCII) ===")
 
     # Nombre y descripción del proyecto
     project_name = "poker_ascii_game"
@@ -36,39 +36,25 @@ def test_poker_project_generation():
         agent: AutoAgent = main_container.auto_agent_module.auto_agent()
 
         print(f"\n[MISSION]: {description}")
-        print("[TEMPLATE]: react-frontend")
 
         # Llamada síncrona: el método gestiona su propio loop internamente
-        print("\n--- PASO 1: GENERANDO README Y ESTRUCTURA ---")
-        readme, structure = agent.generate_structure_only(
-            project_description=description,
-            project_name=project_name,
-            template_name="react-frontend",
-            python_version="3.12",
-            license_type="MIT",
-            include_docker=False,
+        print("\n--- PASO 1: GENERANDO ESTRUCTURA ---")
+        blueprint = agent.generate_structure_only(
+            description=description,
+            project_name=project_name
         )
 
-        print("\n✅ ESTRUCTURA GENERADA CON ÉXITO")
+        print("\n[SUCCESS] ESTRUCTURA GENERADA CON EXITO")
+        print(f"Tipo de proyecto: {blueprint.get('project_type')}")
+        print(f"Stack tecnologico: {blueprint.get('tech_stack')}")
 
-        # Verificar que el README mencione ASCII
-        if "ascii" in readme.lower():
-            print("🎯 El agente ha captado el requisito de usar código ASCII.")
-        else:
-            print("⚠️ Advertencia: El README no menciona explícitamente ASCII.")
-
-        # Mostrar una previsualización de la estructura
-        print("\nEstructura de carpetas:")
-        for folder in structure.get("folders", []):
-            print(f"  / {folder['name']}")
-            if "files" in folder:
-                for file in folder.get("files", []):
-                    print(f"    - {file}")
+        print("\nArchivos a generar:")
+        for f in blueprint.get("files", []):
+            print(f"  - {f['path']} ({f['purpose']})")
 
     except Exception as e:
-        print(f"\n❌ ERROR DURANTE LA GENERACIÓN: {e}")
+        print(f"\n[ERROR] ERROR DURANTE LA GENERACION: {e}")
         import traceback
-
         traceback.print_exc()
 
 

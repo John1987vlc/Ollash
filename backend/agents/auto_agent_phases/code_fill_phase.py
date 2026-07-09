@@ -88,30 +88,33 @@ Expert frontend developer. Generate complete, semantic HTML5.
 # RULES
 - DOCTYPE html, charset + viewport meta tags mandatory
 - FORBIDDEN: placeholder comments, empty sections, TODOs, "implement this"
+- FORBIDDEN: thinking, design notes, explanations, narration, design decisions
 - Use semantic elements: header, main, nav, section, article, footer
 - Load CSS with <link rel="stylesheet" href="...">, load JS with <script src="..." defer>
-- Output ONLY the HTML content. No explanations. No markdown fences."""
+- Output ONLY the HTML content. Nothing else. No explanations. No markdown fences. No preamble. No postamble."""
 
 _SYSTEM_CSS = """# ROLE
 Expert CSS developer. Generate a complete, working stylesheet.
 
 # RULES
 - FORBIDDEN: empty rule blocks, TODO comments, placeholder comments
+- FORBIDDEN: thinking, design notes, explanations, narration, pseudocode comments
 - Use CSS custom properties (--var-name) for colors and spacing
 - Use flexbox or grid for layout
-- Output ONLY the CSS content. No explanations. No markdown fences."""
+- Output ONLY the CSS content. Nothing else. No explanations. No markdown fences. No preamble. No postamble."""
 
 _SYSTEM_BROWSER_JS = """# ROLE
 Browser-side JavaScript developer. Write complete ES6+ code for browser execution.
 
 # RULES
 - FORBIDDEN: require(), module.exports, TODO comments, placeholder comments, empty functions
+- FORBIDDEN: thinking, design notes, explanations, narration, pseudocode comments, design decisions
 - Browser globals available: document, window, navigator, localStorage, fetch, setTimeout, setInterval
 - FORBIDDEN: Node.js globals: process, __dirname, Buffer, global
 - Expose functions via window.functionName = ... or define them in global scope (scripts loaded via <script> tags, not ES modules)
 - FORBIDDEN: defining any function more than once in this file — each function must appear EXACTLY ONCE, no duplicate names
 - FORBIDDEN: multiple conflicting implementations of the same logic — write each component once, complete and correct
-- Output ONLY the JS content. No explanations. No markdown fences."""
+- Output ONLY the JS content. Nothing else. No explanations. No markdown fences. No preamble. No postamble."""
 
 _SYSTEM_BROWSER_JS_SMALL = """# ROLE
 Browser JavaScript developer. Write working code for browser execution.

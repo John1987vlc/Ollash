@@ -401,9 +401,11 @@ class SimpleChatAgent:
         model: Optional[str] = None,
     ):
         cfg = _load_config()
-        self._url = cfg.get("ollama_url", "http://localhost:11434").rstrip("/") + "/api/chat"
-        self._model = model or cfg.get("default_model", "qwen3.5:4b")
+        ollama_url = cfg.get("ollama_url", "http://localhost:11434").rstrip("/")
+        self._model = model or cfg.get("default_model", "ornith:9b")
         self._timeout = cfg.get("default_timeout", 120)
+        import ollama
+        self._client = ollama.Client(host=ollama_url, timeout=self._timeout)
         self.event_bridge = event_bridge
         self._history: list[dict] = []
 
@@ -488,26 +490,28 @@ class SimpleChatAgent:
 
     def _call_ollama_raw(self, messages: list[dict]) -> tuple[dict, dict]:
         """Call Ollama and return the raw response dict + usage dict."""
-        payload = {
-            "model": self._model,
-            "messages": messages,
-            "tools": TOOL_DEFINITIONS,
-            "stream": False,
-            "options": {
-                "temperature": 0.4,
-                "num_ctx": 8192,
-                "num_predict": 2048,
-            },
-        }
-
         logger.info(f"[SimpleChatAgent] Calling {self._model} ...")
-        resp = requests.post(self._url, json=payload, timeout=self._timeout)
+        
+        opts = {
+            "temperature": 0.4,
+            "num_ctx": 8192,
+            "num_predict": 2048,
+        }
+        
+        response = self._client.chat(
+            model=self._model,
+            messages=messages,
+            tools=TOOL_DEFINITIONS,
+            options=opts
+        )
 
-        if not resp.ok:
-            logger.error(f"[SimpleChatAgent] Ollama returned {resp.status_code}: {resp.text[:200]}")
-            raise RuntimeError(f"Ollama error {resp.status_code}")
+        if hasattr(response, "model_dump"):
+            data = response.model_dump()
+        elif hasattr(response, "dict"):
+            data = response.dict()
+        else:
+            data = dict(response)
 
-        data = resp.json()
         prompt_eval = data.get("prompt_eval_count", 0)
         eval_count = data.get("eval_count", 0)
         logger.info(f"[SimpleChatAgent] Done. Tokens: {prompt_eval} prompt, {eval_count} completion")

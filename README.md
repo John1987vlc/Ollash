@@ -281,6 +281,16 @@ Dispatched by `DomainAgentOrchestrator`:
 
 Shared state via `Blackboard`. Supports `SelfHealingLoop`, `DebateNodeRunner` (Architect vs Auditor), and `CheckpointManager`.
 
+#### Swarm Orchestration with LangGraph
+Ollash supports stateful **multi-agent swarm orchestration based on LangGraph** (`LangGraphSwarmOrchestrator`):
+- **Graph Nodes**: Respected domain agents (`Architect`, `Developer`, `Auditor`, `DevOps`) are modeled as nodes in a compiled `StateGraph`.
+- **Self-Healing Loop**: The graph evaluates Auditor reports conditionally. If critical linting/security errors are found, control flows dynamically back to the Developer node with error feedback for automated repair.
+- **Run via CLI**:
+  ```bash
+  python ollash_cli.py agent "Create a project description" --framework langgraph
+  ```
+- **Run via Web UI**: Select the **Swarm con LangGraph** radio option in the advanced wizard configuration page.
+
 ### MCP — Bidirectional Protocol Support
 
 **Ollash as MCP server** (exposes tools to Claude Code, Cline, Continue.dev):

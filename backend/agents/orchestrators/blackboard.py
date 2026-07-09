@@ -285,3 +285,10 @@ class Blackboard:
 
     def keys(self) -> List[str]:
         return [e.key for e in self._store.values() if not e.invalidated]
+
+    def clear(self) -> None:
+        """Clear all entries in the store."""
+        with self._lock:
+            self._store.clear()
+            self._version_counter = 0
+        self._logger.debug("[Blackboard] Cleared all entries")

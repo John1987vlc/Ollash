@@ -53,6 +53,7 @@ from backend.agents.orchestrators.blackboard import Blackboard
 from backend.agents.orchestrators.self_healing_loop import SelfHealingLoop
 from backend.agents.orchestrators.tool_dispatcher import ToolDispatcher
 from backend.agents.orchestrators.debate_node_runner import DebateNodeRunner
+from backend.agents.orchestrators.langgraph_orchestrator import LangGraphSwarmOrchestrator
 from backend.utils.domains.code.sandbox_runner import SandboxRunner
 from backend.utils.core.io.checkpoint_manager import CheckpointManager
 from backend.utils.core.analysis.cost_analyzer import CostAnalyzer
@@ -307,6 +308,12 @@ class AutoAgentContainer(containers.DeclarativeContainer):
         response_parser=core.storage.response_parser,
         documentation_manager=core.documentation_manager,
     )
+    code_patcher = providers.Factory(
+        CodePatcher,
+        llm_client=llm_client_manager.provided.get_client.call("coder"),
+        logger=core.logging.logger,
+        response_parser=core.storage.response_parser,
+    )
     contingency_planner = providers.Factory(
         ContingencyPlanner,
         client=llm_client_manager.provided.get_client.call("planner"),
@@ -445,7 +452,7 @@ class DomainAgentsContainer(containers.DeclarativeContainer):
         ],
         pool_size=3,
         file_gen=auto_agent_module.file_content_generator,
-        patcher=providers.Factory(CodePatcher),
+        patcher=auto_agent_module.code_patcher,
         locked_fm=core.storage.file_manager,
         par_gen=core.parallel_generator,
         ep=core.logging.event_publisher,
@@ -509,6 +516,20 @@ class DomainAgentsContainer(containers.DeclarativeContainer):
 
     # Convenience alias used by blueprints
     orchestrator = domain_agent_orchestrator
+
+    langgraph_orchestrator = providers.Singleton(
+        LangGraphSwarmOrchestrator,
+        architect_agent=architect_agent,
+        developer_agent=providers.Factory(
+            lambda pool: pool[0],
+            developer_agent_pool
+        ),
+        devops_agent=devops_agent,
+        auditor_agent=auditor_agent,
+        blackboard=blackboard,
+        logger=core.logging.logger,
+        generated_projects_dir=core.generated_projects_dir,
+    )
 
 
 # ---------------------------------------------------------------------------

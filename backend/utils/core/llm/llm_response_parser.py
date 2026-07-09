@@ -31,9 +31,15 @@ class LLMResponseParser:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def remove_think_blocks(text: str) -> Tuple[str, Optional[str]]:
+    def remove_think_blocks(text: str, aggressive: bool = True) -> Tuple[str, Optional[str]]:
         """
         Removes <think>/<thinking>/<thinking_process> blocks from LLM output.
+        ALSO removes plain-text thinking sections that appear as:
+        - Lines starting with "We", "The model", "To", "Let's", "Implement", "Thus"
+        - Bullet lists starting with "- " at the beginning (design notes)
+        - Numbered lists that look like pseudocode
+        - Multi-line narrative paragraphs before the first code marker
+        
         Returns (cleaned_text, thinking_content).
         """
         if not text:
@@ -51,6 +57,83 @@ class LLMResponseParser:
             thinking = first_match.group(2).strip()
 
         cleaned = _THINK_PATTERN.sub("", text).strip()
+        
+        if not aggressive:
+            return cleaned, thinking
+        
+        # AGGRESSIVE: Remove ALL narrative/thinking before the first real code indicator
+        lines = cleaned.split('\n')
+        
+        # Code markers for various languages
+        code_markers = re.compile(
+            r'(^<!DOCTYPE|^<html|^<head|^<meta|^<\?php|^<\?xml|^<svg|^<\?|'
+            r'^def\s|^class\s|^async\s|^function\s|^const\s|^let\s|^var\s|'
+            r'^import\s|^export\s|^from\s|^package\s|^use\s|'
+            r'^pub\s|^fn\s|^impl\s|^struct\s|^enum\s|^trait\s|'
+            r'^\{|\[|}|\]|^\s*\*\s*\{|^\s*:root\s*\{|^@media|^@keyframes|^@import|^@font-face|'
+            r'^[a-zA-Z_][\w\-]*\s*\{|'  # CSS selector
+            r'^interface\s|^type\s|^namespace\s|^module\s|^while\s|^for\s|^if\s|^switch\s|'
+            r'^try\s|^catch\s|^finally\s|^return\s|^case\s|^default\s|'
+            r'^window\.|^document\.|^//\s|^/\*|^#!|^#\s+|^""")',
+            re.IGNORECASE | re.MULTILINE
+        )
+        
+        code_start_idx = 0
+        thinking_lines = []
+        
+        for idx, line in enumerate(lines):
+            stripped = line.strip()
+            
+            # Skip empty lines
+            if not stripped:
+                thinking_lines.append(idx)
+                continue
+            
+            # Check if this line starts code
+            if stripped.startswith("```") or code_markers.search(line):
+                code_start_idx = idx
+                break
+            
+            # Check if this line is narrative/thinking (starts with common patterns)
+            thinking_patterns = re.compile(
+                r'^(We\s+|The\s+|To\s+|Let[\'s]*\s+|Implement|Thus\s+|This\s+|Given\s+|'
+                r'We[\'ll]*\s+|The\s+file|So\s+|Therefore|Now\s+|Here\s+|'
+                r'First\s+|Next\s+|Then\s+|Finally\s+|In\s+|For\s+|If\s+|After\s+|'
+                r'Because\s+|But\s+|Also\s+|Where\s+|What\s+|How\s+|Why\s+|'
+                r'The\s+(?:following|next|above|below|implementation|code|output)|'
+                r'This\s+(?:function|class|component|code|file|implementation)|'
+                r'^[A-Z][a-z]+,|^\s*-\s+|^\s*\*\s+|^\s*\d+\.?\s+)',
+                re.IGNORECASE
+            )
+            
+            # Check if this is JSON object (common for blueprints)
+            if stripped.startswith(('{', '[')):
+                code_start_idx = idx
+                break
+            
+            if thinking_patterns.search(stripped):
+                # This line looks like thinking/narrative; skip it
+                thinking_lines.append(idx)
+                code_start_idx = idx + 1
+                continue
+            
+            # Line doesn't match patterns → might be start of content
+            # But if it's short and looks like prose, keep skipping
+            if len(stripped) < 40 and not any(c in stripped for c in ['{', '[', '(', '=']):
+                # Might be a title or short sentence, keep skipping
+                thinking_lines.append(idx)
+                code_start_idx = idx + 1
+                continue
+            
+            # Found substantial content that isn't a code marker
+            # This is probably the start of real content
+            code_start_idx = idx
+            break
+        
+        # Rejoin from the code start, preserving everything
+        if code_start_idx < len(lines):
+            cleaned = '\n'.join(lines[code_start_idx:]).strip()
+        
         return cleaned, thinking
 
     # ------------------------------------------------------------------
@@ -194,6 +277,10 @@ class LLMResponseParser:
         """
         Extracts a code block that matches the file's extension.
         Falls back to the LARGEST block when no language match is found.
+        
+        NEW: When no fenced block is found, attempts to detect where the actual code
+        begins (e.g., after thinking/design notes) by looking for language-specific
+        patterns like <!DOCTYPE for HTML, def/class for Python, etc.
         """
         if not text:
             return ""
@@ -234,6 +321,7 @@ class LLMResponseParser:
             "lua": ["lua"],
             "r": ["r"],
             "php": ["php"],
+            "svg": ["svg"],
         }
         target_langs = lang_map.get(ext, [ext] if ext else [])
 
@@ -254,8 +342,126 @@ class LLMResponseParser:
         if all_blocks:
             return max(all_blocks, key=len).strip()
 
-        # No fenced block at all → treat raw text as code
-        return text.strip()
+        # No fenced block at all → try to find where actual code starts
+        # NEW: detect common code patterns and discard everything before them
+        cleaned = LLMResponseParser._extract_from_unformatted(text, ext)
+        return cleaned.strip() if cleaned else text.strip()
+
+    @staticmethod
+    def _extract_from_unformatted(text: str, ext: str) -> str:
+        """
+        When LLM returns unformatted text (no markdown fences), detect where the
+        actual code begins by looking for language-specific patterns.
+        Scans line-by-line to find first code line, then returns everything from that line onward.
+        Removes all narrative/thinking before the first code marker.
+        Returns the code portion, discarding earlier explaining/thinking text.
+        """
+        if not text:
+            return text
+
+        # Language-specific patterns that indicate the start of real code
+        patterns_by_ext = {
+            "html": [
+                r"<!DOCTYPE\s+html",
+                r"<html[^>]*>",
+                r"<head[^>]*>",
+                r"<meta\s+",
+                r"<\?xml",
+            ],
+            "css": [
+                r"^\*\s*\{",
+                r"^:root\s*\{",
+                r"^[\w\.\#\[\-]+\s*\{",  # selector
+                r"^@(media|keyframes|import|font-face)",
+            ],
+            "js": [
+                r"^(async\s+)?function\b",
+                r"^(const|let|var)\s+\w+",
+                r"^class\s+\w+",
+                r"^(import|export)\s+",
+                r"^window\.",
+                r"^document\.",
+                r"^//\s",
+                r"^\/\*",
+            ],
+            "jsx": [
+                r"^(async\s+)?function\b",
+                r"^(const|let|var)\s+\w+\s*=",
+                r"^export\s+(default\s+)?(function|const)",
+                r"^import\s+",
+            ],
+            "ts": [
+                r"^(async\s+)?function\b",
+                r"^(const|let|var)\s+\w+",
+                r"^(export\s+)?(interface|type|class|enum)\s+",
+                r"^import\s+",
+            ],
+            "tsx": [
+                r"^export\s+(default\s+)?(function|const)",
+                r"^import\s+",
+            ],
+            "py": [
+                r"^(async\s+)?def\s+",
+                r"^class\s+",
+                r"^(import|from)\s+",
+                r"^if\s+__name__",
+                r"^#\s*-+",
+            ],
+            "json": [
+                r"^\s*[\{\[]",
+            ],
+            "svg": [
+                r"^<\?xml",
+                r"^<svg",
+            ],
+            "go": [
+                r"^package\s+",
+                r"^import\s+",
+                r"^func\s+",
+            ],
+            "rs": [
+                r"^(pub\s+)?fn\b",
+                r"^(pub\s+)?mod\b",
+                r"^use\s+",
+            ],
+            "java": [
+                r"^(public|private|protected|static).*\b(class|interface|enum)\b",
+                r"^package\s+",
+                r"^import\s+",
+            ],
+            "php": [
+                r"^<\?php",
+                r"^(namespace|use|class|function|interface)\s+",
+            ],
+            "rb": [
+                r"^(class|module|def)\s+",
+                r"^require(_relative)?\s+",
+            ],
+        }
+
+        # Get patterns for this file type
+        patterns = patterns_by_ext.get(ext, [])
+        if not patterns:
+            return text
+
+        # Compile patterns into a single regex for quick matching per line
+        combined_pattern = "|".join(f"({p})" for p in patterns)
+        
+        try:
+            lines = text.split('\n')
+            for idx, line in enumerate(lines):
+                stripped = line.strip()
+                # Skip empty lines and pure narrative lines
+                if not stripped:
+                    continue
+                # Check if this line matches any code pattern
+                if re.search(combined_pattern, stripped, re.IGNORECASE):
+                    # Found code → return from this line onwards
+                    return '\n'.join(lines[idx:])
+        except (re.error, Exception):
+            pass
+
+        return text
 
     # ------------------------------------------------------------------
     # Multi-file extraction
@@ -273,7 +479,7 @@ class LLMResponseParser:
         if not text:
             return {}
 
-        text, _ = LLMResponseParser.remove_think_blocks(text)
+        text, _ = LLMResponseParser.remove_think_blocks(text, aggressive=False)
 
         # Regex: optional comment prefix, "filename:" label, capture path
         delimiter_re = re.compile(

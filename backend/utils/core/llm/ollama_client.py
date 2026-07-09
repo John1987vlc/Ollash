@@ -4,10 +4,12 @@ import aiohttp
 import requests
 import time
 import math
+import ollama
 from typing import Optional
 from backend.utils.core.llm.token_tracker import TokenTracker
 from backend.utils.core.system.execution_bridge import bridge
 from backend.utils.core.system.network_monitor import network_monitor as _net_monitor
+
 
 
 def _hash_embedding(text: str, dim: int = 384) -> list[float]:
@@ -39,11 +41,14 @@ class OllamaClient:
         self._llm_recorder = llm_recorder
         self.token_tracker = token_tracker
         self.timeout = timeout
+        self._client = ollama.Client(host=self.base_url, timeout=self.timeout)
+        self._aclient = ollama.AsyncClient(host=self.base_url, timeout=self.timeout)
         self.http_session = requests.Session()
         self._aiohttp_session = None
         self._aiohttp_session_lock = asyncio.Lock()
         self._gpu_limiter_enabled = False
         self._embedding_model = "nomic-embed-text"  # overridable via set_embedding_model()
+
 
     async def _get_aiohttp_session(self):
         # Check if current loop is different from session's loop
@@ -83,7 +88,6 @@ class OllamaClient:
             pass  # Saturation check must never abort LLM calls
 
     async def achat(self, messages, tools=None, options_override=None, context=None):
-
         tools = tools or []
         if context is None:
             context = getattr(self, "_session_context", None)
@@ -120,36 +124,45 @@ class OllamaClient:
         if self.logger.event_publisher:
             await self.logger.event_publisher.publish("llm_request", {"model": self.model, "payload": payload})
 
-        try:
-            self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
-        except (TypeError, ValueError):
-            self.logger.debug(f"DEBUG - LLM Payload for {self.model}: (not serializable)")
-
         if self._llm_recorder:
             self._llm_recorder.record_request(self.model, messages, tools, opts)
 
         start_time = time.time()
-
-        # F33: Use synchronous requests in a thread pool to avoid aiohttp hangs
-        loop = asyncio.get_event_loop()
-
-        def _do_post():
-            return self.http_session.post(self.chat_url, json=payload, timeout=self.timeout)
-
-        self.logger.debug(f"[OllamaClient] Sending POST to {self.chat_url}")
         try:
-            resp = await loop.run_in_executor(None, _do_post)
-            _net_monitor.record(self.chat_url, "POST", resp.status_code)
-            self.logger.debug(f"[OllamaClient] Response status: {resp.status_code}")
+            self.logger.debug(f"[OllamaClient] Sending chat request via official AsyncClient to {self.model}")
+            
+            # Extract keep_alive from options as expected by ollama.AsyncClient
+            keep_alive = opts.pop("keep_alive", "5m")
+            
+            # Call AsyncClient chat
+            kwargs = {}
+            if top_level_extras:
+                kwargs.update(top_level_extras)
+                
+            response = await self._aclient.chat(
+                model=self.model,
+                messages=messages,
+                tools=tools,
+                options=opts,
+                keep_alive=keep_alive,
+                **kwargs
+            )
+            _net_monitor.record(self.chat_url, "POST", 200)
+            
+            # Convert response to dictionary to preserve compatibility
+            if hasattr(response, "model_dump"):
+                data = response.model_dump()
+            elif hasattr(response, "dict"):
+                data = response.dict()
+            else:
+                data = dict(response)
 
-            data = resp.json()
             latency = time.time() - start_time
             self.logger.debug(f"[OllamaClient] Response received in {latency:.2f}s")
 
             # Debug logging after response
             if self.logger.event_publisher:
                 await self.logger.event_publisher.publish("llm_response", {"model": self.model, "response": data})
-            self.logger.debug(f"DEBUG - LLM Response: {json.dumps(data, indent=2)}")
 
             res = data.copy()
             message = data.get("message", {})
@@ -172,31 +185,17 @@ class OllamaClient:
                 self._llm_recorder.record_response(self.model, res, usage, latency, True)
 
             from backend.utils.core.llm.call_log import llm_call_log
-
             llm_call_log.record(self.model, prompt_tokens, completion_tokens, latency * 1000, True)
 
             if "context" in data:
                 res["context"] = data["context"]
             return res, usage
-        except requests.exceptions.Timeout:
-            self.logger.debug("[OllamaClient] TIMEOUT ERROR (Requests)")
-            latency = time.time() - start_time
-            if self._llm_recorder:
-                self._llm_recorder.record_response(self.model, {}, {}, latency, False, "Timeout")
-            from backend.utils.core.llm.call_log import llm_call_log
-
-            llm_call_log.record(self.model, 0, 0, latency * 1000, False, "Timeout")
-            return {"error": "Ollama request timed out", "message": {"content": ""}}, {
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-            }
         except Exception as e:
-            self.logger.debug(f"[OllamaClient] UNEXPECTED ERROR (Requests): {e}")
+            self.logger.debug(f"[OllamaClient] ERROR in chat: {e}")
             latency = time.time() - start_time
             if self._llm_recorder:
                 self._llm_recorder.record_response(self.model, {}, {}, latency, False, str(e))
             from backend.utils.core.llm.call_log import llm_call_log
-
             llm_call_log.record(self.model, 0, 0, latency * 1000, False, str(e))
             raise
 
@@ -233,10 +232,6 @@ class OllamaClient:
         # Debug logging before request
         if self.logger.event_publisher:
             self.logger.event_publisher.publish_sync("llm_request", {"model": self.model, "payload": payload})
-        try:
-            self.logger.debug(f"DEBUG - LLM Payload for {self.model}: {json.dumps(payload, indent=2)}")
-        except (TypeError, ValueError):
-            self.logger.debug(f"DEBUG - LLM Payload for {self.model}: (not serializable)")
 
         if self._llm_recorder:
             self._llm_recorder.record_request(self.model, messages, [], opts)
@@ -246,60 +241,59 @@ class OllamaClient:
         full_tool_calls = []
         usage: dict = {"prompt_tokens": 0, "completion_tokens": 0}
 
-        session = await self._get_aiohttp_session()
-        request_timeout = aiohttp.ClientTimeout(total=self.timeout)
-
-        data = {}
         try:
-            # Use chunks(1024) or similar if line-based reading hangs with some versions
-            async with session.post(self.chat_url, json=payload, timeout=request_timeout) as resp:
-                async for line in resp.content:
-                    if not line:
-                        continue
-                    try:
-                        line_text = line.decode("utf-8").strip()
-                        if not line_text:
-                            continue
+            keep_alive = opts.pop("keep_alive", "5m")
+            response = await self._aclient.chat(
+                model=self.model,
+                messages=messages,
+                tools=tools,
+                options=opts,
+                keep_alive=keep_alive,
+                stream=True
+            )
+            _net_monitor.record(self.chat_url, "POST", 200)
 
-                        data = json.loads(line_text)
+            async for chunk in response:
+                if hasattr(chunk, "model_dump"):
+                    chunk_data = chunk.model_dump()
+                elif hasattr(chunk, "dict"):
+                    chunk_data = chunk.dict()
+                else:
+                    chunk_data = dict(chunk)
 
-                        # Propagate Ollama server-side errors immediately
-                        if "error" in data and not data.get("done"):
-                            raise RuntimeError(f"Ollama error: {data['error']}")
+                # Propagate Ollama server-side errors immediately
+                if "error" in chunk_data:
+                    raise RuntimeError(f"Ollama error: {chunk_data['error']}")
 
-                        chunk = data.get("message", {}).get("content", "")
-                        if chunk:
-                            full_content += chunk
-                            if chunk_callback is not None:
-                                if asyncio.iscoroutinefunction(chunk_callback):
-                                    await chunk_callback(chunk)
-                                else:
-                                    chunk_callback(chunk)
+                chunk_content = chunk_data.get("message", {}).get("content", "")
+                if chunk_content:
+                    full_content += chunk_content
+                    if chunk_callback is not None:
+                        if asyncio.iscoroutinefunction(chunk_callback):
+                            await chunk_callback(chunk_content)
+                        else:
+                            chunk_callback(chunk_content)
 
-                        # Capture native tool calls from stream
-                        tc = data.get("message", {}).get("tool_calls")
-                        if tc:
-                            full_tool_calls.extend(tc)
+                # Capture native tool calls from stream
+                tc = chunk_data.get("message", {}).get("tool_calls")
+                if tc:
+                    full_tool_calls.extend(tc)
 
-                        if data.get("done"):
-                            usage = {
-                                "prompt_tokens": data.get("prompt_eval_count", 0),
-                                "completion_tokens": data.get("eval_count", 0),
-                            }
-                            if self.token_tracker:
-                                self.token_tracker.add_usage(usage["prompt_tokens"], usage["completion_tokens"])
-                    except Exception as e:
-                        self.logger.debug(f"Stream decode error: {e} | Line: {line}")
-                        continue
+                if chunk_data.get("done"):
+                    usage = {
+                        "prompt_tokens": chunk_data.get("prompt_eval_count", 0),
+                        "completion_tokens": chunk_data.get("eval_count", 0),
+                    }
+                    if self.token_tracker:
+                        self.token_tracker.add_usage(usage["prompt_tokens"], usage["completion_tokens"])
 
             latency = time.time() - start_time
 
             # Debug logging after response
-            if self.logger.event_publisher:
-                self.logger.event_publisher.publish_sync("llm_response", {"model": self.model, "response": data})
-            self.logger.debug(f"DEBUG - LLM Response: {json.dumps(data, indent=2)}")
-
             result = {"content": full_content, "tool_calls": full_tool_calls}
+            if self.logger.event_publisher:
+                self.logger.event_publisher.publish_sync("llm_response", {"model": self.model, "response": result})
+
             if self._llm_recorder:
                 self._llm_recorder.record_response(self.model, result, usage, latency, True)
             return result, usage
@@ -324,11 +318,8 @@ class OllamaClient:
     def unload_model(self, model=None):
         target = model or self.model
         try:
-            self.http_session.post(
-                f"{self.base_url}/api/generate",
-                json={"model": target, "keep_alive": 0},
-                timeout=10,
-            )
+            self.logger.debug(f"[OllamaClient] Unloading model {target} via official Client")
+            self._client.generate(model=target, keep_alive=0)
         except Exception as e:
             self.logger.debug(f"[OllamaClient] unload_model failed: {e}")
 
@@ -340,14 +331,19 @@ class OllamaClient:
         if max_chars:
             text = text[:max_chars]
         try:
-            resp = self.http_session.post(
-                f"{self.base_url}/api/embed",
-                json={"model": self._embedding_model, "input": text},
-                timeout=30,
-            )
-            _net_monitor.record(f"{self.base_url}/api/embed", "POST", resp.status_code)
-            resp.raise_for_status()
-            embeddings = resp.json().get("embeddings", [[]])[0]
+            self.logger.debug(f"[OllamaClient] Fetching embedding for text via official Client")
+            resp = self._client.embed(model=self._embedding_model, input=text)
+            _net_monitor.record(f"{self.base_url}/api/embed", "POST", 200)
+            
+            # Convert response to dictionary to preserve compatibility
+            if hasattr(resp, "model_dump"):
+                resp_data = resp.model_dump()
+            elif hasattr(resp, "dict"):
+                resp_data = resp.dict()
+            else:
+                resp_data = dict(resp)
+                
+            embeddings = resp_data.get("embeddings", [[]])[0]
             if embeddings:
                 return embeddings
         except Exception as e:
@@ -356,20 +352,20 @@ class OllamaClient:
 
     async def aget_embedding(self, text: str) -> list[float]:
         """Async embedding via Ollama /api/embed; falls back to hash embedding."""
-        loop = asyncio.get_event_loop()
-
-        def _do_embed():
-            return self.http_session.post(
-                f"{self.base_url}/api/embed",
-                json={"model": self._embedding_model, "input": text},
-                timeout=30,
-            )
-
         try:
-            resp = await loop.run_in_executor(None, _do_embed)
-            _net_monitor.record(f"{self.base_url}/api/embed", "POST", resp.status_code)
-            resp.raise_for_status()
-            embeddings = resp.json().get("embeddings", [[]])[0]
+            self.logger.debug(f"[OllamaClient] Fetching embedding for text via official AsyncClient")
+            resp = await self._aclient.embed(model=self._embedding_model, input=text)
+            _net_monitor.record(f"{self.base_url}/api/embed", "POST", 200)
+            
+            # Convert response to dictionary to preserve compatibility
+            if hasattr(resp, "model_dump"):
+                resp_data = resp.model_dump()
+            elif hasattr(resp, "dict"):
+                resp_data = resp.dict()
+            else:
+                resp_data = dict(resp)
+                
+            embeddings = resp_data.get("embeddings", [[]])[0]
             if embeddings:
                 return embeddings
         except Exception as e:

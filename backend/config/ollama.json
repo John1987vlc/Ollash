@@ -1,6 +1,6 @@
 {
   "url": "http://localhost:11434",
-  "default_model": "qwen3.5:4b",
+  "default_model": "ornith:9b",
   "timeout": 600,
   "temperature": 0.4,
   "num_ctx": 16384,

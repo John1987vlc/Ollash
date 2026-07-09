@@ -311,6 +311,7 @@ class TestStateHint:
             "run_linter",
             "run_project_tests",
             "generate_infrastructure",
+            "complete_project",
             "finish_project",
         }
         assert tool_names == expected

@@ -199,6 +199,15 @@ class AutoAgentWithTools:
         total_nudges = 0  # total nudges in the whole run (catches alternating tool/text patterns)
         last_had_tool_error = False  # True when the previous iteration had a tool that returned ok=False
 
+        # Stagnation detection: auto-finish when the model is looping read/write without progress
+        _last_file_count: int = 0
+        _stagnation_rounds: int = 0
+        _STAGNATION_LIMIT: int = 4  # consecutive rounds with no new files → auto-finish
+        # Track recent tool names to detect pure read/lint loops (no writes at all)
+        _recent_tools: List[str] = []
+        _RECENT_WINDOW: int = 6
+        _NO_WRITE_TOOLS = {"read_project_file", "run_linter", "list_project_files"}
+
         for iteration in range(self.MAX_ITERATIONS):
             # ── Soft time limit check (before starting a new LLM call) ──────
             if max_duration_seconds is not None:
@@ -337,7 +346,53 @@ class AutoAgentWithTools:
                 if self._tools.finished:
                     break  # finish_project was called
 
+                # Track recent tool names for stagnation detection
+                _recent_tools.append(tool_name)
+                if len(_recent_tools) > _RECENT_WINDOW:
+                    _recent_tools.pop(0)
+
             if self._tools.finished:
+                break
+
+            # ── Stagnation detection (after all tool calls in this iteration) ────
+            current_file_count = len(self._tools._files_written)
+            if current_file_count > _last_file_count:
+                # Progress: new file(s) written → reset stagnation counter
+                _last_file_count = current_file_count
+                _stagnation_rounds = 0
+            elif current_file_count > 0:
+                _stagnation_rounds += 1
+
+            # Condition A: N rounds with no new files (stuck rewriting the same file)
+            stagnant_no_new = _stagnation_rounds >= _STAGNATION_LIMIT
+
+            # Condition B: last WINDOW tool calls are all non-write operations
+            pure_read_loop = (
+                len(_recent_tools) >= _RECENT_WINDOW
+                and all(t in _NO_WRITE_TOOLS for t in _recent_tools[-_RECENT_WINDOW:])
+                and current_file_count > 0
+            )
+
+            if (stagnant_no_new or pure_read_loop) and not self._tools.finished:
+                reason = (
+                    f"stagnation ({_stagnation_rounds} rounds, {current_file_count} file(s))"
+                    if stagnant_no_new
+                    else f"pure read/lint loop detected over last {_RECENT_WINDOW} tool calls"
+                )
+                self.logger.warning(
+                    f"[AutoAgentWithTools] Auto-finishing: {reason}"
+                )
+                auto_summary = (
+                    f"Project auto-completed after {self._iteration_count} iterations. "
+                    f"{current_file_count} file(s) generated."
+                )
+                auto_result = await self._tools.finish_project(summary=auto_summary)
+                messages.append(
+                    {
+                        "role": "tool",
+                        "content": json.dumps({"result": auto_result}),
+                    }
+                )
                 break
 
         if not self._tools.finished:
@@ -550,7 +605,8 @@ _NUDGE_MESSAGES = [
     (
         "FINAL WARNING: I will abort if you do not call a tool right now.\n"
         "Current state: {state_hint}\n"
-        "If the project is complete call finish_project(). Otherwise call write_project_file()."
+        "If the project is complete call complete_project() (no arguments needed). "
+        "Otherwise call write_project_file()."
     ),
 ]
 
@@ -571,15 +627,18 @@ A separate code-generation model writes the actual file contents — you only ne
              Do NOT write actual code — the code generator handles that.
 3. LINT   — After each file, call run_linter(). If errors, call write_project_file again
              with an updated spec that includes the fix instructions.
+             After 2 lint/fix cycles on the same file, move on — do not keep looping.
 4. INFRA  — Call generate_infrastructure().
 5. TEST   — Call run_project_tests() if relevant.
-6. FINISH — Call finish_project(summary). MUST be the last tool call.
+6. FINISH — Call complete_project() when satisfied (no arguments needed).
+             Alternatively call finish_project(summary=...) for a detailed summary.
 
 # RULES
 - Always call a tool. Never respond with plain text.
 - Paths are always relative (e.g. "src/main.py").
-- blueprint_json must be valid JSON string (no markdown fences).
+- blueprint_json must be a JSON object (not a string).
 - Max 30 tool calls total.
+- Do NOT re-read or re-lint a file more than once after writing it. Move on.
 
 # PLAN FORMAT
 {"project_type":"api","tech_stack":["python"],"files":[{"path":"main.py","purpose":"entry"}]}

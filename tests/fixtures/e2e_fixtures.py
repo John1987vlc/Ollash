@@ -5,6 +5,7 @@ application and all its lifespan events are properly initialized.
 """
 
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -14,13 +15,29 @@ import pytest
 import requests
 
 
+def _find_free_port() -> int:
+    """Find a free TCP port that Windows allows us to bind to."""
+    # Try preferred ports first, then fall back to OS-assigned
+    for candidate in [5099, 15001, 19876, 28765, 0]:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("127.0.0.1", candidate))
+            port = s.getsockname()[1]
+            s.close()
+            return port
+        except OSError:
+            s.close()
+    raise RuntimeError("Could not find a free TCP port for the E2E server")
+
+
 # ── Server lifecycle ──────────────────────────────────────────────────────────
 
 
 @pytest.fixture(scope="session")
 def server_port():
-    """TCP port used by the E2E uvicorn server."""
-    return 5001
+    """TCP port used by the E2E uvicorn server (auto-selected to avoid OS restrictions)."""
+    return _find_free_port()
 
 
 @pytest.fixture(scope="session")
@@ -64,26 +81,34 @@ def flask_server(server_port, project_root):
         ],
         env={**__import__("os").environ, **env},
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
     )
 
-    # Exponential back-off: 0.1 → 0.2 → 0.4 … (max 20 s total)
+    # Exponential back-off: 0.1 → 0.2 → 0.4 … (max 60 s total)
     url = f"http://127.0.0.1:{server_port}/api/health/"
     delay = 0.1
-    deadline = time.monotonic() + 20.0
+    deadline = time.monotonic() + 60.0
 
     while time.monotonic() < deadline:
         try:
-            response = requests.get(url, timeout=2)
+            response = requests.get(url, timeout=10)
             if response.status_code == 200:
                 break
-        except requests.ConnectionError:
+        except (requests.ConnectionError, requests.exceptions.ReadTimeout):
             pass
         time.sleep(delay)
         delay = min(delay * 2, 1.0)
     else:
         proc.terminate()
-        raise RuntimeError(f"E2E uvicorn server did not respond on {url} within 20 seconds.")
+        try:
+            _, stderr_bytes = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            _, stderr_bytes = proc.communicate()
+        raise RuntimeError(
+            f"E2E uvicorn server did not respond on {url} within 60 seconds.\n"
+            f"Server stderr:\n{stderr_bytes.decode(errors='replace')[-2000:]}"
+        )
 
     yield
 

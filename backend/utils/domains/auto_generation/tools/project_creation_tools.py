@@ -37,13 +37,27 @@ class ProjectCreationTools:
                     "type": "object",
                     "properties": {
                         "blueprint_json": {
-                            "type": "string",
+                            "type": "object",
                             "description": (
-                                "JSON string with keys: project_type (str), tech_stack (list[str]), "
+                                "Project blueprint object with keys: project_type (str), tech_stack (list[str]), "
                                 "files (list of {path: str, purpose: str}). "
                                 'Example: {"project_type":"api","tech_stack":["python","fastapi"],'
                                 '"files":[{"path":"main.py","purpose":"FastAPI entry point"}]}'
                             ),
+                            "properties": {
+                                "project_type": {"type": "string"},
+                                "tech_stack": {"type": "array", "items": {"type": "string"}},
+                                "files": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "path": {"type": "string"},
+                                            "purpose": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
                         }
                     },
                     "required": ["blueprint_json"],
@@ -171,6 +185,29 @@ class ProjectCreationTools:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "complete_project",
+                "description": (
+                    "Mark the project as done and ready for delivery. "
+                    "Call this when you are satisfied with the files you have written — "
+                    "even if you have not called generate_infrastructure() or run tests. "
+                    "Use this instead of finish_project() when you consider the project complete. "
+                    "No required parameters."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "string",
+                            "description": "Optional brief description of what was built.",
+                        }
+                    },
+                    "required": [],
+                },
+            },
+        },
     ]
 
     # Skip dirs when listing files
@@ -215,12 +252,17 @@ class ProjectCreationTools:
     # Tool implementations
     # ------------------------------------------------------------------
 
-    async def plan_project(self, blueprint_json: str) -> Dict[str, Any]:
+    async def plan_project(self, blueprint_json) -> Dict[str, Any]:
         """Record the project blueprint."""
-        try:
-            blueprint = json.loads(blueprint_json)
-        except json.JSONDecodeError as e:
-            return {"ok": False, "error": f"Invalid JSON in blueprint_json: {e}"}
+        if isinstance(blueprint_json, dict):
+            blueprint = blueprint_json
+        elif isinstance(blueprint_json, str):
+            try:
+                blueprint = json.loads(blueprint_json)
+            except json.JSONDecodeError as e:
+                return {"ok": False, "error": f"Invalid JSON in blueprint_json: {e}"}
+        else:
+            return {"ok": False, "error": f"blueprint_json must be a JSON object or string, got {type(blueprint_json).__name__}"}
 
         if not isinstance(blueprint, dict):
             return {"ok": False, "error": "blueprint_json must be a JSON object."}
@@ -494,6 +536,19 @@ class ProjectCreationTools:
             "summary": summary,
         }
 
+    async def complete_project(self, summary: str = "") -> Dict[str, Any]:
+        """Mark the project as complete — lightweight alias for finish_project().
+
+        The model can call this with no arguments when it considers the project done.
+        """
+        if not summary:
+            summary = (
+                f"Project completed with {len(self._files_written)} file(s): "
+                + ", ".join(sorted(self._files_written)[:5])
+                + ("..." if len(self._files_written) > 5 else "")
+            )
+        return await self.finish_project(summary=summary)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -518,7 +573,7 @@ class ProjectCreationTools:
         # All planned files written — move to infra/finish
         return (
             f"All {len(written)} file(s) written. "
-            "Call generate_infrastructure() then finish_project(summary=...) to complete."
+            "Call complete_project() (no arguments needed) or finish_project(summary=...) to complete."
         )
 
     async def _publish(self, event_type: str, data: Dict[str, Any]) -> None:
