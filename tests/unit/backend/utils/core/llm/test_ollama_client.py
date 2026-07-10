@@ -233,3 +233,14 @@ class TestOllamaClient:
                         f"Bare print() found in ollama_client.py line {lineno}: {stripped!r}\n"
                         "Use self.logger.debug() instead."
                     )
+
+    def test_chat_sends_response_format(self, ollama_client):
+        """chat() must pass response_format as the format parameter to AsyncClient.chat."""
+        mock_chat = AsyncMock()
+        mock_chat.return_value = {"message": {"content": "ok"}}
+
+        with patch.object(ollama_client._aclient, "chat", mock_chat) as mock_c:
+            ollama_client.chat([{"role": "user", "content": "test"}], response_format={"type": "object"})
+            mock_c.assert_called_once()
+            _, kwargs = mock_c.call_args
+            assert kwargs["format"] == {"type": "object"}

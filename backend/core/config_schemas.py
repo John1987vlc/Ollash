@@ -374,6 +374,13 @@ class ToolSettingsConfig(BaseModel):
     )
 
     # --- New feature settings ---
+    # Ollash Evolution Mode (Deep Refinement)
+    deep_refinement_mode: bool = Field(False, description="Enable specialized multi-agent swarm loops.")
+    auto_test_execution: bool = Field(False, description="Enable automatic test generation and sandbox execution.")
+    evolution_hours: float = Field(0.0, description="Hours to spend on autonomous project feature expansion.")
+    visual_feedback_enabled: bool = Field(False, description="Enable Playwright visual checks using Vision models.")
+
+
     parallel_generation_enabled: bool = Field(False, description="Enable multi-agent parallel generation.")
     parallel_agent_count: PositiveInt = Field(2, description="Number of parallel agent instances for generation.")
     checkpoint_enabled: bool = Field(True, description="Enable checkpoint persistence for AutoAgent phases.")

@@ -48,6 +48,14 @@ from backend.agents.domain_agents.architect_agent import ArchitectAgent
 from backend.agents.domain_agents.auditor_agent import AuditorAgent
 from backend.agents.domain_agents.developer_agent import DeveloperAgent
 from backend.agents.domain_agents.devops_agent import DevOpsAgent
+from backend.agents.domain_agents.evolution_agents import (
+    UXDesignerAgent,
+    SecurityAgent,
+    PerformanceAgent,
+    ProductManagerAgent,
+    TesterAgent,
+    VisualReviewAgent,
+)
 from backend.agents.domain_agent_orchestrator import DomainAgentOrchestrator
 from backend.agents.orchestrators.blackboard import Blackboard
 from backend.agents.orchestrators.self_healing_loop import SelfHealingLoop
@@ -460,6 +468,46 @@ class DomainAgentsContainer(containers.DeclarativeContainer):
         td=tool_dispatcher,
         shl=self_healing_loop,
     )
+    # ------------------------------------------------------------------
+    # Evolution Agents (Deep Refinement Mode)
+    # ------------------------------------------------------------------
+    tester_agent = providers.Factory(
+        TesterAgent,
+        llm_client_manager=auto_agent_module.llm_client_manager,
+        config=core.config,
+        logger=core.logging.logger,
+    )
+    ux_designer_agent = providers.Factory(
+        UXDesignerAgent,
+        llm_client_manager=auto_agent_module.llm_client_manager,
+        config=core.config,
+        logger=core.logging.logger,
+    )
+    security_agent = providers.Factory(
+        SecurityAgent,
+        llm_client_manager=auto_agent_module.llm_client_manager,
+        config=core.config,
+        logger=core.logging.logger,
+    )
+    performance_agent = providers.Factory(
+        PerformanceAgent,
+        llm_client_manager=auto_agent_module.llm_client_manager,
+        config=core.config,
+        logger=core.logging.logger,
+    )
+    product_manager_agent = providers.Factory(
+        ProductManagerAgent,
+        llm_client_manager=auto_agent_module.llm_client_manager,
+        config=core.config,
+        logger=core.logging.logger,
+    )
+    visual_review_agent = providers.Factory(
+        VisualReviewAgent,
+        llm_client_manager=auto_agent_module.llm_client_manager,
+        config=core.config,
+        logger=core.logging.logger,
+    )
+
 
     # ------------------------------------------------------------------
     # P8 — Debate node runner (architect vs auditor by default)
@@ -526,6 +574,12 @@ class DomainAgentsContainer(containers.DeclarativeContainer):
         ),
         devops_agent=devops_agent,
         auditor_agent=auditor_agent,
+        tester_agent=tester_agent,
+        ux_designer_agent=ux_designer_agent,
+        security_agent=security_agent,
+        performance_agent=performance_agent,
+        product_manager_agent=product_manager_agent,
+        visual_review_agent=visual_review_agent,
         blackboard=blackboard,
         logger=core.logging.logger,
         generated_projects_dir=core.generated_projects_dir,

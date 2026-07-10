@@ -96,6 +96,7 @@ class SeniorReviewer:
                     ],
                     tools=[],
                     options_override=self.options,
+                    response_format=SeniorReviewOutput.model_json_schema(),
                 )
 
                 raw_review = response_data.get("content", "") or response_data.get("message", {}).get("content", "")
@@ -143,6 +144,7 @@ class SeniorReviewer:
                 ],
                 tools=[],
                 options_override=self.JSON_RETRY_OPTIONS,
+                response_format=SeniorReviewOutput.model_json_schema(),
             )
             raw_retry = response_data.get("content", "") or response_data.get("message", {}).get("content", "")
             return self.parser.extract_json(raw_retry)

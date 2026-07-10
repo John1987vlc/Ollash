@@ -27,6 +27,13 @@ def setup_global_configs(args):
     log_level = "DEBUG" if args.debug else "INFO"
     os.environ["OLLASH_LOG_LEVEL"] = log_level
 
+    if getattr(args, "strict_linting", False):
+        os.environ["OLLASH_STRICT_LINTING"] = "1"
+    
+    if getattr(args, "continuous_devops", False):
+        os.environ["OLLASH_CONTINUOUS_DEVOPS"] = "1"
+
+
     # In a real enterprise app, we'd update the container or config loader here
     # For now, we'll ensure the .ollash directory exists
     ollash_dir = project_root / ".ollash"
@@ -730,6 +737,37 @@ def main():
         choices=["classic", "langgraph"],
         default="classic",
         help="Orchestration framework to use (default: classic)",
+    )
+    agent_parser.add_argument(
+        "--deep-refinement",
+        action="store_true",
+        help="Enable deep refinement mode with specialized multi-agent swarm loops",
+    )
+    agent_parser.add_argument(
+        "--auto-test",
+        action="store_true",
+        help="Enable automatic test generation and sandbox execution",
+    )
+    agent_parser.add_argument(
+        "--evolution-hours",
+        type=float,
+        default=0.0,
+        help="Hours to spend on autonomous project feature expansion",
+    )
+    agent_parser.add_argument(
+        "--visual-feedback",
+        action="store_true",
+        help="Enable Playwright visual checks using Vision models",
+    )
+    agent_parser.add_argument(
+        "--strict-linting",
+        action="store_true",
+        help="Enable strict linting for AuditorAgent (any error is critical)",
+    )
+    agent_parser.add_argument(
+        "--continuous-devops",
+        action="store_true",
+        help="Generate DevOps infra continuously even before codebase is stable",
     )
 
     # swarm <task>

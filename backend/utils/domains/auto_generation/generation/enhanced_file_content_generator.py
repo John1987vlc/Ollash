@@ -103,6 +103,12 @@ class EnhancedFileContentGenerator:
         # Generate with retry logic
         for attempt in range(self.max_retries):
             try:
+                # Dynamic Temperature Decay: lower temperature on retries to reduce hallucinations/TODOs
+                if attempt > 0:
+                    current_temp = self.options.get("temperature", 0.7)
+                    self.options["temperature"] = max(0.0, current_temp - 0.3)
+                    self.logger.info(f"  Attempt {attempt + 1}: Applying dynamic temperature decay. New temperature={self.options['temperature']}")
+
                 content = self._generate_with_prompt(file_path, context, purpose, exports, main_logic, validation)
 
                 if self._validate_content(content, file_path, exports, validation):

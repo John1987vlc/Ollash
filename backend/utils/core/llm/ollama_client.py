@@ -87,7 +87,7 @@ class OllamaClient:
         except Exception:
             pass  # Saturation check must never abort LLM calls
 
-    async def achat(self, messages, tools=None, options_override=None, context=None):
+    async def achat(self, messages, tools=None, options_override=None, context=None, response_format=None):
         tools = tools or []
         if context is None:
             context = getattr(self, "_session_context", None)
@@ -145,6 +145,7 @@ class OllamaClient:
                 tools=tools,
                 options=opts,
                 keep_alive=keep_alive,
+                format=response_format,
                 **kwargs
             )
             _net_monitor.record(self.chat_url, "POST", 200)
@@ -199,9 +200,9 @@ class OllamaClient:
             llm_call_log.record(self.model, 0, 0, latency * 1000, False, str(e))
             raise
 
-    def chat(self, messages, tools=None, options_override=None, context=None):
+    def chat(self, messages, tools=None, options_override=None, context=None, response_format=None):
         """Synchronous chat method. USES bridge.run internally for robust async management."""
-        return bridge.run(self.achat(messages, tools, options_override, context))
+        return bridge.run(self.achat(messages, tools, options_override, context, response_format))
 
     async def stream_chat(
         self,

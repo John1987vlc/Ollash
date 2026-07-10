@@ -52,11 +52,23 @@ class LangGraphSwarmOrchestrator:
         blackboard: Blackboard,
         logger: AgentLogger,
         generated_projects_dir: Optional[Path] = None,
+        tester_agent=None,
+        ux_designer_agent=None,
+        security_agent=None,
+        performance_agent=None,
+        product_manager_agent=None,
+        visual_review_agent=None,
     ) -> None:
         self._architect = architect_agent
         self._developer = developer_agent
         self._devops = devops_agent
         self._auditor = auditor_agent
+        self._tester = tester_agent
+        self._ux_designer = ux_designer_agent
+        self._security = security_agent
+        self._performance = performance_agent
+        self._product_manager = product_manager_agent
+        self._visual_reviewer = visual_review_agent
         self._blackboard = blackboard
         self._logger = logger
         self._generated_projects_dir = generated_projects_dir or Path(".ollash/generated_projects")
@@ -83,6 +95,14 @@ class LangGraphSwarmOrchestrator:
         builder.add_node("developer", self._node_developer)
         builder.add_node("auditor", self._node_auditor)
         builder.add_node("devops", self._node_devops)
+        
+        # Evolution Mode Nodes
+        builder.add_node("tester", self._node_tester)
+        builder.add_node("ux_designer", self._node_ux_designer)
+        builder.add_node("security", self._node_security)
+        builder.add_node("performance", self._node_performance)
+        builder.add_node("product_manager", self._node_product_manager)
+        builder.add_node("visual_reviewer", self._node_visual_reviewer)
 
         # Set entry point
         builder.set_entry_point("architect")
@@ -115,7 +135,29 @@ class LangGraphSwarmOrchestrator:
             }
         )
 
-        builder.add_edge("devops", END)
+        # Evolution loop routing
+        builder.add_edge("devops", "tester")
+        builder.add_edge("tester", "ux_designer")
+        builder.add_edge("ux_designer", "visual_reviewer")
+        builder.add_edge("visual_reviewer", "security")
+        builder.add_edge("security", "performance")
+        builder.add_edge("performance", "product_manager")
+        
+        # Product Manager routes back to Architect or END
+        def _route_after_pm(state):
+            # If the stage is "planning", loop back to architect
+            if state.get("stage") == "planning":
+                return "architect"
+            return "done"
+
+        builder.add_conditional_edges(
+            "product_manager",
+            _route_after_pm,
+            {
+                "architect": "architect",
+                "done": END
+            }
+        )
 
         return builder.compile()
 
@@ -321,6 +363,19 @@ class LangGraphSwarmOrchestrator:
                     "description": "Potential syntax error detected in import statements.",
                     "severity": "high"
                 })
+
+        # Strict linting enforcement
+        import os
+        if os.environ.get("OLLASH_STRICT_LINTING") == "1":
+            for file_path in generated_files.keys():
+                sandbox_errs = self._blackboard.read(f"sandbox_errors/{file_path}")
+                if sandbox_errs:
+                    self._log_error(f"Strict Linting Error in {file_path}: {sandbox_errs}")
+                    errors.append({
+                        "file": file_path,
+                        "description": f"Strict Linting failed: {sandbox_errs}",
+                        "severity": "critical"
+                    })
  
         # Determine completion status
         status_val = "FAILED" if errors else "COMPLETED"
@@ -456,7 +511,18 @@ class LangGraphSwarmOrchestrator:
             # Run StateGraph
             final_state = self._graph.invoke(initial_state)
             
+
+            # Flush all generated files to disk
+            project_path = Path(final_state["project_path"])
+            project_path.mkdir(parents=True, exist_ok=True)
+            for file_path, file_content in final_state.get("generated_files", {}).items():
+                if file_content:
+                    full_path = project_path / file_path
+                    full_path.parent.mkdir(parents=True, exist_ok=True)
+                    full_path.write_text(file_content, encoding="utf-8")
+            
             # Publish completion event
+
             if hasattr(self._blackboard, "_event_publisher") and self._blackboard._event_publisher:
                 self._blackboard._event_publisher.publish_sync(
                     "domain_orchestration_completed",
@@ -468,3 +534,56 @@ class LangGraphSwarmOrchestrator:
         finally:
             self._is_running = False
             ActiveOrchestrators.deregister(project_name)
+
+
+    def _node_tester(self, state: SwarmState) -> Dict[str, Any]:
+        self._log_info("=== Node: Tester ===")
+        if self._tester:
+            result = self._tester.run(state.get("generated_files", {}))
+            if result.get("status") == "success":
+                state["generated_files"]["tests.py"] = result.get("test_code", "")
+        return state
+
+    def _node_ux_designer(self, state: SwarmState) -> Dict[str, Any]:
+        self._log_info("=== Node: UX Designer ===")
+        if self._ux_designer:
+            result = self._ux_designer.run(state.get("generated_files", {}))
+            if result.get("status") == "success":
+                self._blackboard.write_sync("ux_feedback", result.get("feedback"), "ux_designer")
+        return state
+
+    def _node_security(self, state: SwarmState) -> Dict[str, Any]:
+        self._log_info("=== Node: Security Expert ===")
+        if self._security:
+            result = self._security.run(state.get("generated_files", {}))
+            if result.get("status") == "success":
+                self._blackboard.write_sync("security_feedback", result.get("feedback"), "security")
+        return state
+
+    def _node_performance(self, state: SwarmState) -> Dict[str, Any]:
+        self._log_info("=== Node: Performance Optimizer ===")
+        if self._performance:
+            result = self._performance.run(state.get("generated_files", {}))
+            if result.get("status") == "success":
+                self._blackboard.write_sync("performance_feedback", result.get("feedback"), "performance")
+        return state
+
+    def _node_product_manager(self, state: SwarmState) -> Dict[str, Any]:
+        self._log_info("=== Node: Product Manager ===")
+        if self._product_manager:
+            result = self._product_manager.run(state.get("generated_files", {}), state.get("project_description", ""))
+            if result.get("status") == "success":
+                new_epic = result.get("epic", "")
+                self._log_info(f"PM Proposes: {new_epic}")
+                state["project_description"] += f"\n\n[EVOLUTION EPIC]: {new_epic}"
+                state["stage"] = "planning"
+        return state
+
+    def _node_visual_reviewer(self, state: SwarmState) -> Dict[str, Any]:
+        self._log_info("=== Node: Visual Reviewer ===")
+        if getattr(self, "_visual_reviewer", None):
+            result = self._visual_reviewer.run(state.get("generated_files", {}), state.get("project_path", ""))
+            if result.get("status") == "success":
+                self._blackboard.write_sync("visual_feedback", result.get("feedback"), "visual_reviewer")
+                self._log_info(f"Visual feedback saved. Screenshot: {result.get('screenshot')}")
+        return state

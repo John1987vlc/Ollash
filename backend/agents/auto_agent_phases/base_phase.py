@@ -89,6 +89,7 @@ class BasePhase(ABC):
         temperature: float = 0.1,
         max_tokens: int = 2048,
         no_think: bool = False,
+        response_format: Any = None,
     ) -> str:
         """Centralized LLM call with token budget enforcement.
 
@@ -120,6 +121,7 @@ class BasePhase(ABC):
             messages,
             tools=[],
             options_override=opts,
+            response_format=response_format,
         )
         _llm_elapsed_ms = (time.monotonic() - _llm_call_start) * 1000.0
         msg = response_data.get("message", {})
@@ -196,6 +198,7 @@ class BasePhase(ABC):
                 role=role,
                 max_tokens=4096,
                 no_think=True,
+                response_format=schema_class.model_json_schema(),
             )
             try:
                 data = LLMResponseParser.extract_json(raw)

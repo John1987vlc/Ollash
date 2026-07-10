@@ -67,8 +67,10 @@ class DevOpsAgent(BaseDomainAgent):
             ``{rel_path: content}`` mapping of generated infra files.
             Returns an empty dict if the codebase_stable gate is not set.
         """
+        import os
         is_stable: bool = blackboard.read("codebase_stable", False)
-        if not is_stable:
+        is_continuous = os.environ.get("OLLASH_CONTINUOUS_DEVOPS") == "1"
+        if not is_stable and not is_continuous:
             self._log_warning(
                 "Stability gate not set — skipping infrastructure generation. "
                 "Set 'codebase_stable=True' in the Blackboard to activate DevOps."

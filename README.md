@@ -96,6 +96,9 @@ python ollash_cli.py auto-agent "Create a FastAPI REST API with SQLite and JWT a
 # Generate a full project using the Domain Agent Swarm (multi-agent)
 python ollash_cli.py agent "Create a FastAPI REST API with SQLite and JWT auth" --name my_api
 
+# Run the God-Mode Evolution Swarm (LangGraph + LLaVA Visual + Continuous DevOps + Strict Linting)
+python ollash_cli.py agent "Crea un dashboard React" --name super_dashboard --framework langgraph --deep-refinement --visual-feedback --strict-linting --continuous-devops --evolution-hours 1
+
 # Domain Agent Swarm task
 python ollash_cli.py swarm "Audit ./my_project for security issues"
 

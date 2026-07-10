@@ -263,16 +263,15 @@ def main():
 
     # Define the poker game prompts
     project_description = """
-Create a single, self-contained index.html file with an embedded, playable Texas Hold'em poker game.
+Create a playable Texas Hold'em poker game.
 
 REQUIREMENTS:
-- Only ONE file: index.html
-- Embedded CSS in <style> tag (felt table, card styling, responsive layout)
-- Embedded JavaScript in <script> tag (all game logic in vanilla ES6+)
-- All 52 cards rendered as inline SVG (no image files)
-- Game features: Human vs AI, hand evaluation, betting rounds, pot management
-- No external libraries, imports, or CDNs
-- No separate CSS or JS files — everything embedded in index.html
+- Use standard multi-file modular design during generation:
+  - static/style.css: containing CSS styles (felt table, card styling, responsive layout)
+  - static/js/game.js: containing all game logic in vanilla ES6+ (Human vs AI, hand evaluation, betting rounds, pot management)
+  - index.html: containing HTML5 structure, linking to static/style.css and static/js/game.js, and rendering playing cards dynamically
+- Use pure inline SVG or CSS/unicode symbols for rendering cards (no external image files or CDNs)
+- No external library dependencies
     """
 
     logger.info(f"Project name: {args.project_name}")
